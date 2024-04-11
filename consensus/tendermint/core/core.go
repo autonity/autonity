@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -69,9 +70,11 @@ type Core struct {
 	backend interfaces.Backend
 	cancel  context.CancelFunc
 
-	messageSub          *event.TypeMuxSubscription
-	candidateBlockSub   *event.TypeMuxSubscription
-	committedSub        *event.TypeMuxSubscription
+	messageSub *event.TypeMuxSubscription
+	//candidateBlockSub   *event.TypeMuxSubscription
+	candidateBlockSub chan events.NewCandidateBlockEvent
+	//committedSub        *event.TypeMuxSubscription
+	committedSub        chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
 	syncEventSub        *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
@@ -148,6 +151,15 @@ func (c *Core) Address() common.Address {
 
 func (c *Core) Step() Step {
 	return c.step
+}
+
+func (c *Core) Post(ev any) {
+	switch ev.(type) {
+	case events.CommitEvent:
+		c.committedSub <- ev.(events.CommitEvent)
+	case events.NewCandidateBlockEvent:
+		c.candidateBlockSub <- ev.(events.NewCandidateBlockEvent)
+	}
 }
 
 func (c *Core) CurRoundMessages() *message.RoundMessages {
@@ -523,6 +535,9 @@ type Broadcaster struct {
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
 	logger := s.Logger().New("step", s.Step())
-	logger.Debug("Broadcasting", "message", msg.String())
+	l, ok := logger.GetHandler().(*log.GlogHandler)
+	if ok && l.GetLevel() >= log.LvlDebug {
+		logger.Debug("Broadcasting", "message", msg.String())
+	}
 	s.BroadcastAll(msg)
 }

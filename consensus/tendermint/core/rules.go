@@ -75,12 +75,14 @@ func (c *Core) quorumPrevotesCheck(ctx context.Context, proposal *message.Propos
 	if c.step == Propose {
 		return
 	}
+	n := time.Now()
 	// we are at prevote or precommit step
 	if c.curRoundMessages.PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
 		if metrics.Enabled {
 			PrevoteQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
 			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 		}
+		PrevoteStepThreeBg.Add(time.Since(n).Nanoseconds())
 		if c.step == Prevote {
 			c.lockedValue = proposal.Block()
 			c.lockedRound = c.Round()
@@ -112,10 +114,14 @@ func (c *Core) quorumPrevotesNilCheck(ctx context.Context) {
 // Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 // checks if we have to schedule the precommit timeout
 func (c *Core) precommitTimeoutCheck() {
+	n := time.Now()
 	if !c.precommitTimeout.TimerStarted() && c.curRoundMessages.PrecommitsTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
+		PrecommitStepThreeBg.Add(time.Since(n).Nanoseconds())
+		n = time.Now()
 		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
+		PrecommitStepFourBg.Add(time.Since(n).Nanoseconds())
 	}
 }
 
@@ -191,26 +197,35 @@ func (c *Core) currentProposalChecks(ctx context.Context, proposal *message.Prop
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	// check if we have a quorum of precommits for this proposal.
 	// If so, no need to check the other rules
+	n := time.Now()
 	if committed := c.quorumPrecommitsCheck(ctx, proposal, true); committed {
 		return
 	}
+	ProposeStepTwoBg.Add(time.Since(n).Nanoseconds())
 
+	n = time.Now()
 	// Line 22 in Algorithm 1 of The latest gossip on BFT consensus
 	// check if to prevote this proposal in case proposal.vr == -1
 	c.newProposalCheck(ctx, proposal)
+	ProposeStepThreeBg.Add(time.Since(n).Nanoseconds())
 
+	n = time.Now()
 	// Line 28 in Algorithm 1 of The latest gossip on BFT consensus
 	// check if to prevote this proposal in case proposal.vr >= 0
 	c.oldProposalCheck(ctx, proposal)
+	ProposeStepFourBg.Add(time.Since(n).Nanoseconds())
 
+	n = time.Now()
 	// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
 	// check if we have quorum prevotes on the proposal
 	c.quorumPrevotesCheck(ctx, proposal)
+	ProposeStepFiveBg.Add(time.Since(n).Nanoseconds())
 }
 
 // upon condition rules to check when receiving a current round prevote
 func (c *Core) currentPrevoteChecks(ctx context.Context) {
 	// fetch current proposal
+	n := time.Now()
 	curProposal := c.curRoundMessages.Proposal()
 
 	if curProposal != nil {
@@ -218,6 +233,7 @@ func (c *Core) currentPrevoteChecks(ctx context.Context) {
 		// check if we have quorum prevotes for the proposal
 		c.quorumPrevotesCheck(ctx, curProposal)
 	}
+	PrevoteStepTwoBg.Add(time.Since(n).Nanoseconds())
 
 	// Line 44 in Algorithm 1 of The latest gossip on BFT consensus
 	// check if we have quorum prevotes for nil, if so precommit nil
@@ -240,6 +256,7 @@ func (c *Core) stepChangeChecks(ctx context.Context) {
 
 // upon condition rules to check when receiving a current round precommit
 func (c *Core) currentPrecommitChecks(ctx context.Context) {
+	n := time.Now()
 	curProposal := c.curRoundMessages.Proposal()
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
@@ -250,6 +267,7 @@ func (c *Core) currentPrecommitChecks(ctx context.Context) {
 			return
 		}
 	}
+	PrecommitStepTwoBg.Add(time.Since(n).Nanoseconds())
 
 	// Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 	// check if we need to schedule the precommit timeout

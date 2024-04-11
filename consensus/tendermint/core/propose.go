@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
 
@@ -133,9 +134,11 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		return err
 	}
 
+	n := time.Now()
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Sender().String(), c.address.String())
+	ProposeStepOneBg.Add(time.Since(n).Nanoseconds())
 
 	// check upon conditions for current round proposal
 	c.currentProposalChecks(ctx, proposal)
@@ -178,6 +181,10 @@ func (c *Proposer) StopFutureProposalTimer() {
 }
 
 func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Propose, from, to string) {
+	l, ok := c.logger.GetHandler().(*log.GlogHandler)
+	if ok && l.GetLevel() < log.LvlDebug {
+		return
+	}
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,

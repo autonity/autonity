@@ -67,8 +67,8 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return false, nil
 	}
 
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
+	//sb.coreMu.Lock()
+	//defer sb.coreMu.Unlock()
 
 	switch msg.Code {
 	case ProposeNetworkMsg:
@@ -78,14 +78,14 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
 	case SyncNetworkMsg:
-		if !sb.coreStarted {
+		if !sb.coreStarted.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Debug("Received sync message", "from", addr)
 		go sb.Post(events.SyncEvent{Addr: addr})
 	case AccountabilityNetworkMsg:
-		if !sb.coreStarted {
+		if !sb.coreStarted.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
@@ -116,7 +116,7 @@ func handleConsensusMsg[T any, PT interface {
 		return true, err
 	}
 	p2pMsg.Payload = bytes.NewReader(buffer.Bytes())
-	if !sb.coreStarted {
+	if !sb.coreStarted.Load() {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
@@ -130,9 +130,11 @@ func handleConsensusMsg[T any, PT interface {
 		m, _ = lru.NewARC(inmemoryMessages)
 		sb.recentMessages.Add(sender, m)
 	}
-	m.Add(hash, true)
+	if !m.Contains(hash) {
+		m.Add(hash, true)
+	}
 	// Mark the message known for ourselves
-	if _, ok := sb.knownMessages.Get(hash); ok {
+	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
 	sb.knownMessages.Add(hash, true)
@@ -160,9 +162,9 @@ func (sb *Backend) SetEnqueuer(enqueuer consensus.Enqueuer) {
 }
 
 func (sb *Backend) NewChainHead() error {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-	if !sb.coreStarted {
+	//sb.coreMu.RLock()
+	//defer sb.coreMu.RUnlock()
+	if !sb.coreStarted.Load() {
 		return ErrStoppedEngine
 	}
 	go sb.Post(events.CommitEvent{})

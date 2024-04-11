@@ -410,6 +410,18 @@ func (mr *MockCoreMockRecorder) CurrentHeightMessages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeightMessages", reflect.TypeOf((*MockCore)(nil).CurrentHeightMessages))
 }
 
+// Post mocks base method.
+func (m *MockCore) Post(ev any) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Post", ev)
+}
+
+// Post indicates an expected call of Post.
+func (mr *MockCoreMockRecorder) Post(ev any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockCore)(nil).Post), ev)
+}
+
 // Precommiter mocks base method.
 func (m *MockCore) Precommiter() Precommiter {
 	m.ctrl.T.Helper()

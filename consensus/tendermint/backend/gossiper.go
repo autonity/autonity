@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 type Gossiper struct {
@@ -23,6 +24,15 @@ type Gossiper struct {
 	stopped        chan struct{}
 }
 
+var (
+	GossiperStepOneBg = metrics.NewRegisteredBufferedGauge("gossiper/one.bg", nil, getIntPointer(256))   // time between round start and precommit sent
+	GossiperStepTwoBg = metrics.NewRegisteredBufferedGauge("gossiper/two.bg", nil, getIntPointer(256))   // time between round start and precommit sent
+	GossiperFullBg    = metrics.NewRegisteredBufferedGauge("gossiper/total.bg", nil, getIntPointer(256)) // time between round start and precommit sent
+)
+
+func getIntPointer(val int) *int {
+	return &val
+}
 func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
 	return &Gossiper{
 		recentMessages: recentMessages,
@@ -58,9 +68,13 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 }
 
 func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
+	n1 := time.Now()
 	hash := message.Hash()
-	g.knownMessages.Add(hash, true)
-	targets := make(map[common.Address]struct{})
+	if !g.knownMessages.Contains(hash) {
+		g.knownMessages.Add(hash, true)
+	}
+	GossiperStepOneBg.Add(time.Since(n1).Nanoseconds())
+	targets := make(map[common.Address]struct{}, len(committee))
 	for _, val := range committee {
 		if val.Address != g.address {
 			targets[val.Address] = struct{}{}
@@ -69,11 +83,12 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 	if g.broadcaster != nil && len(targets) > 0 {
 		ps := g.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
+			n2 := time.Now()
 			ms, ok := g.recentMessages.Get(addr)
 			var m *lru.ARCCache
 			if ok {
 				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
+				if m.Contains(hash) {
 					// This peer had this event, skip it
 					continue
 				}
@@ -83,10 +98,12 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 
 			m.Add(hash, true)
 			g.recentMessages.Add(addr, m)
+			GossiperStepTwoBg.Add(time.Since(n2).Nanoseconds())
 
 			go p.SendRaw(NetworkCodes[message.Code()], message.Payload()) //nolint
 		}
 	}
+	GossiperFullBg.Add(time.Since(n1).Nanoseconds())
 }
 
 func (g *Gossiper) AskSync(header *types.Header) {

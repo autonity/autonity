@@ -17,6 +17,8 @@
 package events
 
 import (
+	"time"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -25,6 +27,7 @@ import (
 // NewCandidateBlockEvent is posted to propose a proposal
 type NewCandidateBlockEvent struct {
 	NewCandidateBlock types.Block
+	CreatedAt         time.Time
 }
 
 // MessageEvent is posted for Istanbul engine communication

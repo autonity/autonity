@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -67,7 +66,8 @@ var (
 	nilUncleHash                  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce                    = types.BlockNonce{}
 	now                           = time.Now
-	sealDelayBg                   = metrics.NewRegisteredBufferedGauge("work/seal/delay", nil, nil) // injected sleep delay before producing new candidate block
+	sealDelayBg                   = metrics.NewRegisteredBufferedGauge("work/seal/delay", nil, nil)   // injected sleep delay before producing new candidate block
+	submitDelayBg                 = metrics.NewRegisteredBufferedGauge("work/submit/delay", nil, nil) // injected sleep delay before producing new candidate block
 )
 
 // Author retrieves the Ethereum address of the account that minted the given
@@ -351,11 +351,11 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
 func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	sb.coreMu.RLock()
-	isStarted := sb.coreStarted
-	stoppedCh := sb.stopped
-	sb.coreMu.RUnlock()
-	if !isStarted {
+	//sb.coreMu.RLock()
+	//isStarted := sb.coreStarted
+	//stoppedCh := sb.stopped
+	//sb.coreMu.RUnlock()
+	if !sb.coreStarted.Load() {
 		return ErrStoppedEngine
 	}
 	// update the block header and signature and propose the block to core engine
@@ -380,42 +380,53 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
 	if metrics.Enabled {
-		sealDelayBg.Add(time.Duration(math.Abs(float64(delay))).Nanoseconds())
+		sealDelayBg.Add(delay.Nanoseconds())
 	}
 	select {
 	case <-time.After(delay):
 		// nothing to do
-	case <-stoppedCh:
+	case <-sb.stopped:
 		return nil
 	case <-stop:
 		return nil
 	}
+	now := time.Now()
 
-	sb.setResultChan(results)
+	// TODO: investigate coreMu - why do we need it before processing message
+	// capture this time stamp - separate metrics
+	// check if all the validators have such spikes in proposal sent(1s) - data verification - could this be issue with grafna pulling data from influxdb
+	// why is propsoal sent taking long when seal delay is positive
+	// known messages caches - check the core mutex contention
+	//sb.setResultChan(results)
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
+		CreatedAt:         time.Now(),
 	})
+
+	if metrics.Enabled {
+		submitDelayBg.Add(time.Since(now).Nanoseconds())
+	}
 	return nil
 }
 
-func (sb *Backend) setResultChan(results chan<- *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
+func (sb *Backend) SetResultChan(results chan<- *types.Block) {
+	//sb.coreMu.Lock()
+	//defer sb.coreMu.Unlock()
 
 	sb.commitCh = results
 }
 
 func (sb *Backend) sendResultChan(block *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
+	//sb.coreMu.Lock()
+	//defer sb.coreMu.Unlock()
 
 	sb.commitCh <- block
 }
 
 func (sb *Backend) isResultChanNil() bool {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
+	//sb.coreMu.RLock()
+	//defer sb.coreMu.RUnlock()
 
 	return sb.commitCh == nil
 }
@@ -468,11 +479,15 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 // youssef: I'm not sure about the use case of this context in argument
 func (sb *Backend) Start(ctx context.Context) error {
 	// the mutex along with coreStarted should prevent double start
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-	if sb.coreStarted {
+	//sb.coreMu.Lock()
+	//defer sb.coreMu.Unlock()
+	//if sb.coreStarted.Load() {
+	//}
+
+	if !sb.coreStarted.CompareAndSwap(false, true) {
 		return ErrStartedEngine
 	}
+
 	sb.stopped = make(chan struct{})
 	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
@@ -481,20 +496,24 @@ func (sb *Backend) Start(ctx context.Context) error {
 	go sb.faultyValidatorsWatcher(ctx)
 	sb.wg.Add(1)
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
-	sb.coreStarted = true
 	return nil
 }
 
 // Close signals core to stop all background threads.
 func (sb *Backend) Close() error {
 	// the mutex along with coreStarted should prevent double stop
-	sb.coreMu.Lock()
-	if !sb.coreStarted {
-		sb.coreMu.Unlock()
+	//sb.coreMu.Lock()
+	//if !sb.coreStarted.Load() {
+	//	sb.coreMu.Unlock()
+	//	return ErrStoppedEngine
+	//}
+	//sb.coreStarted.Store(false)
+	expValue := true
+	newValue := false
+	if !sb.coreStarted.CompareAndSwap(expValue, newValue) {
 		return ErrStoppedEngine
 	}
-	sb.coreStarted = false
-	sb.coreMu.Unlock()
+	//sb.coreMu.Unlock()
 	// We need to make sure we close sb.stopped before calling sb.core.Stop
 	// otherwise we can end up with a deadlock where sb.core.Stop is waiting
 	// for a routine to return from calling sb.AskSync but sb.AskSync will

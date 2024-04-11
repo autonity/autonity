@@ -8,6 +8,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
 
@@ -16,6 +17,7 @@ type Precommiter struct {
 }
 
 func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
+	n := time.Now()
 	value := common.Hash{}
 	if !isNil {
 		proposal := c.curRoundMessages.Proposal()
@@ -24,11 +26,13 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 			return
 		}
 		value = proposal.Block().Hash()
-		c.logger.Info("Precommiting on proposal", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
+		c.logger.Info("Precommiting on proposal", "proposal", value, "round", c.Round(), "height", c.Height().Uint64())
 	} else {
 		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
 
+	PrevoteStepFourBg.Add(time.Since(n).Nanoseconds())
+	n = time.Now()
 	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 	c.sentPrecommit = true
@@ -37,6 +41,8 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 		PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
 		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
+	PrevoteStepFiveBg.Add(time.Since(n).Nanoseconds())
+
 }
 
 // HandlePrecommit process the incoming precommit message.
@@ -62,8 +68,11 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 
 	// Precommit if for current round from here
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
+
+	n := time.Now()
 	c.curRoundMessages.AddPrecommit(precommit)
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String())
+	PrecommitStepOneBg.Add(time.Since(n).Nanoseconds())
 
 	c.currentPrecommitChecks(ctx)
 	return nil
@@ -82,6 +91,10 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 }
 
 func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Precommit, from, to string) {
+	l, ok := c.logger.GetHandler().(*log.GlogHandler)
+	if ok && l.GetLevel() < log.LvlDebug {
+		return
+	}
 	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,

@@ -88,4 +88,5 @@ type Core interface {
 	Proposer() Proposer
 	Prevoter() Prevoter
 	Precommiter() Precommiter
+	Post(ev any)
 }

@@ -70,7 +70,34 @@ var (
 	PrecommitQuorumReceivedBg     = metrics.NewRegisteredBufferedGauge("tendermint/precommit/quorum/received.bg", nil, nil)                       // time between round start and precommit quorum received
 	PrecommitQuorumBlockTSDeltaBg = metrics.NewRegisteredBufferedGauge("tendermint/precommit/relative/blockTS/quorum/received.bg", nil, nil)      // time between block timestamp and precommit quorum received
 
-	CommitBg = metrics.NewRegisteredBufferedGauge("tendermint/commit.bg", nil, nil) // time between round start and commit (--> block queued for insertion)
+	CommitBg              = metrics.NewRegisteredBufferedGauge("tendermint/commit.bg", nil, nil)        // time between round start and commit (--> block queued for insertion)
+	CandidateBlockDelayBg = metrics.NewRegisteredBufferedGauge("core/candidate/handle/delay", nil, nil) // time between round start and commit (--> block queued for insertion)
+
+	//temp metrics
+	MsgProposalBg   = metrics.NewRegisteredBufferedGauge("core/handler/msg/proposal.bg", nil, nil)                 // time between round start and precommit sent
+	MsgPrevoteBg    = metrics.NewRegisteredBufferedGauge("core/handler/msg/prevote.bg", nil, getIntPointer(256))   // time between round start and precommit sent
+	MsgPrecommitBg  = metrics.NewRegisteredBufferedGauge("core/handler/msg/precommit.bg", nil, getIntPointer(256)) // time between round start and precommit sent
+	TimeoutSubBg    = metrics.NewRegisteredBufferedGauge("core/handler/timeout.bg", nil, nil)                      // time between round start and precommit sent
+	CommitSubBg     = metrics.NewRegisteredBufferedGauge("core/handler/commit.bg", nil, nil)                       // time between round start and precommit sent
+	CandidateSubBg  = metrics.NewRegisteredBufferedGauge("core/handler/Candidate.bg", nil, nil)                    // time between round start and precommit sent
+	DefaultHandleBg = metrics.NewRegisteredBufferedGauge("core/handler/default.bg", nil, getIntPointer(256))       // time between round start and precommit sent
+
+	PrevoteStepOneBg   = metrics.NewRegisteredBufferedGauge("core/handler/msg/prevote/one.bg", nil, getIntPointer(256))   // time between round start and precommit sent
+	PrevoteStepTwoBg   = metrics.NewRegisteredBufferedGauge("core/handler/msg/prevote/two.bg", nil, getIntPointer(256))   // time between round start and precommit sent
+	PrevoteStepThreeBg = metrics.NewRegisteredBufferedGauge("core/handler/msg/prevote/three.bg", nil, getIntPointer(256)) // time between round start and precommit sent
+	PrevoteStepFourBg  = metrics.NewRegisteredBufferedGauge("core/handler/msg/prevote/four.bg", nil, getIntPointer(256))  // time between round start and precommit sent
+	PrevoteStepFiveBg  = metrics.NewRegisteredBufferedGauge("core/handler/msg/prevote/five.bg", nil, getIntPointer(256))  // time between round start and precommit sent
+
+	PrecommitStepOneBg   = metrics.NewRegisteredBufferedGauge("core/handler/msg/precommit/one.bg", nil, getIntPointer(256))   // time between round start and precommit sent
+	PrecommitStepTwoBg   = metrics.NewRegisteredBufferedGauge("core/handler/msg/precommit/two.bg", nil, getIntPointer(256))   // time between round start and precommit sent
+	PrecommitStepThreeBg = metrics.NewRegisteredBufferedGauge("core/handler/msg/precommit/three.bg", nil, getIntPointer(256)) // time between round start and precommit sent
+	PrecommitStepFourBg  = metrics.NewRegisteredBufferedGauge("core/handler/msg/precommit/four.bg", nil, getIntPointer(256))  // time between round start and precommit sent
+
+	ProposeStepOneBg   = metrics.NewRegisteredBufferedGauge("core/handler/msg/propose/one.bg", nil, getIntPointer(16))   // time between round start and precommit sent
+	ProposeStepTwoBg   = metrics.NewRegisteredBufferedGauge("core/handler/msg/propose/two.bg", nil, getIntPointer(16))   // time between round start and precommit sent
+	ProposeStepThreeBg = metrics.NewRegisteredBufferedGauge("core/handler/msg/propose/three.bg", nil, getIntPointer(16)) // time between round start and precommit sent
+	ProposeStepFourBg  = metrics.NewRegisteredBufferedGauge("core/handler/msg/propose/four.bg", nil, getIntPointer(16))  // time between round start and precommit sent
+	ProposeStepFiveBg  = metrics.NewRegisteredBufferedGauge("core/handler/msg/propose/five.bg", nil, getIntPointer(16))  // time between round start and precommit sent
 )
 
 func getIntPointer(val int) *int {

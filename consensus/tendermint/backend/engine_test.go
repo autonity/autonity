@@ -422,10 +422,10 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:    tendermintC,
+			stopped: make(chan struct{}),
 		}
+		b.coreStarted.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -440,10 +440,10 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:    tendermintC,
+			stopped: make(chan struct{}),
 		}
+		b.coreStarted.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -462,10 +462,10 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:    tendermintC,
+			stopped: make(chan struct{}),
 		}
+		b.coreStarted.Store(true)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -514,11 +514,11 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
 		}
+		b.coreStarted.Store(false)
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -526,9 +526,8 @@ func TestStart(t *testing.T) {
 	})
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
-		b := &Backend{
-			coreStarted: true,
-		}
+		b := &Backend{}
+		b.coreStarted.Store(true)
 
 		err := b.Start(context.Background())
 		assertError(t, ErrStartedEngine, err)
@@ -547,11 +546,11 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
 		}
+		b.coreStarted.Store(false)
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -573,11 +572,11 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
 		}
+		b.coreStarted.Store(false)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -628,11 +627,11 @@ func TestMultipleRestart(t *testing.T) {
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 
 	b := &Backend{
-		core:        tendermintC,
-		gossiper:    g,
-		coreStarted: false,
-		blockchain:  chain,
+		core:       tendermintC,
+		gossiper:   g,
+		blockchain: chain,
 	}
+	b.coreStarted.Store(false)
 
 	for i := 0; i < times; i++ {
 		err := b.Start(ctx)
@@ -661,14 +660,14 @@ func assertNilError(t *testing.T, err error) {
 
 func assertCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if !b.coreStarted {
+	if !b.coreStarted.Load() {
 		t.Fatal("expected core to have started")
 	}
 }
 
 func assertNotCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if b.coreStarted {
+	if b.coreStarted.Load() {
 		t.Fatal("expected core to have stopped")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -52,7 +53,7 @@ func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, services *interfaces
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         log,
-		coreStarted:    false,
+		coreStarted:    atomic.Bool{},
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
@@ -85,7 +86,7 @@ type Backend struct {
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
-	coreStarted       bool
+	coreStarted       atomic.Bool
 	core              interfaces.Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup
@@ -125,7 +126,7 @@ func (sb *Backend) Address() common.Address {
 // Broadcast implements tendermint.Backend.Broadcast
 func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	// send to others
-	sb.Gossip(committee, message)
+	go sb.Gossip(committee, message)
 	// send to self
 	go sb.Post(events.MessageEvent{
 		Message: message,
@@ -194,7 +195,14 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 }
 
 func (sb *Backend) Post(ev any) {
-	sb.eventMux.Post(ev)
+	switch ev.(type) {
+	case events.CommitEvent:
+		sb.core.Post(ev)
+	case events.NewCandidateBlockEvent:
+		sb.core.Post(ev)
+	default:
+		sb.eventMux.Post(ev)
+	}
 }
 
 func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {

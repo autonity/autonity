@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"math"
 	"math/big"
@@ -107,6 +108,77 @@ func TestAskSync(t *testing.T) {
 	}
 }
 
+func BenchmarkGossipARC(b *testing.B) {
+	ctrl := gomock.NewController(b)
+	defer ctrl.Finish()
+
+	header := newTestHeader(200)
+	validators := header.Committee
+	msgs := make([]*message.Prevote, 0)
+	for i := 0; i < 1000; i++ {
+		b := [32]byte{}
+		rand.Read(b[:])
+		msg := message.NewPrevote(1, 1, b, testSigner)
+		msgs = append(msgs, msg)
+	}
+
+	addresses := make([]common.Address, 0, len(validators))
+	peers := make(map[common.Address]ethereum.Peer)
+	//counter := uint64(0)
+	for _, val := range validators {
+		addresses = append(addresses, val.Address)
+		mockedPeer := tendermint.NewMockPeer(ctrl)
+		// Address n3 is supposed to already have this message
+		mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).AnyTimes()
+		//if i == 3 {
+		//	mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any())
+		//} else {
+		//	mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
+		//		// We want to make sure the payload is correct AND that no other messages is sent.
+		//		if msgCode == PrevoteNetworkMsg && reflect.DeepEqual(data, msg.Payload()) {
+		//			atomic.AddUint64(&counter, 1)
+		//		}
+		//	})
+		//}
+		peers[val.Address] = mockedPeer
+	}
+
+	m := make(map[common.Address]struct{})
+	for _, p := range addresses {
+		m[p] = struct{}{}
+	}
+
+	broadcaster := consensus.NewMockBroadcaster(ctrl)
+	broadcaster.EXPECT().FindPeers(m).Return(peers).AnyTimes()
+
+	knownMessages, err := lru.NewARC(inmemoryMessages)
+	require.NoError(b, err)
+	recentMessages, err := lru.NewARC(inmemoryMessages)
+	require.NoError(b, err)
+	address3Cache, err := lru.NewARC(inmemoryMessages)
+	require.NoError(b, err)
+
+	address3Cache.Add(msgs[0].Hash(), true)
+	recentMessages.Add(addresses[3], address3Cache)
+	bk := &Backend{
+		knownMessages:  knownMessages,
+		recentMessages: recentMessages,
+		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
+	}
+	bk.SetBroadcaster(broadcaster)
+
+	for n := 0; n < b.N; n++ {
+		for j := 0; j < 100; j++ {
+			for i := 0; i < 1000; i++ {
+				bk.Gossip(validators, msgs[i])
+			}
+		}
+	}
+	//<-time.NewTimer(2 * time.Second).C
+	//if c := atomic.LoadUint64(&counter); c != 199 {
+	//	b.Fatal("Gossip message transmission failure", "have", c, "want", 4)
+	//}
+}
 func TestGossip(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -275,7 +347,7 @@ func TestCommit(t *testing.T) {
 		_, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
-		backend.setResultChan(commitCh)
+		backend.SetResultChan(commitCh)
 
 		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 		testCases := []struct {
