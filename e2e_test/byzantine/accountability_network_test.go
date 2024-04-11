@@ -202,7 +202,7 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 		panic("cannot simulate duplicated off chain accusation")
 	}
 	preVotes := backEnd.MsgStore.Get(msg.H()-1, func(m message.Msg) bool {
-		return m.Code() == message.PrevoteCode && m.Sender() != s.Backend().Address()
+		return m.Code() == message.PrevoteCode && m.Sender() != s.Address()
 	})
 
 	for _, pv := range preVotes {
@@ -249,7 +249,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 	// collect some out of updated consensus msg
 	for h := uint64(2); h <= msg.H(); h++ {
 		preVotes := backEnd.MsgStore.Get(h, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
+			return m.Code() == message.PrevoteCode && m.Sender() != s.Address()
 		})
 		for _, pv := range preVotes {
 			targets := make(map[common.Address]struct{})
