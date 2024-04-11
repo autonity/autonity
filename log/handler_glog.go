@@ -75,6 +75,12 @@ func (h *GlogHandler) Verbosity(level Lvl) {
 	atomic.StoreUint32(&h.level, uint32(level))
 }
 
+// Verbosity sets the glog verbosity ceiling. The verbosity of individual packages
+// and source files can be raised using Vmodule.
+func (h *GlogHandler) GetLevel() Lvl {
+	return Lvl(atomic.LoadUint32(&h.level))
+}
+
 // Vmodule sets the glog verbosity pattern.
 //
 // The syntax of the argument is a comma-separated list of pattern=N, where the
@@ -82,14 +88,14 @@ func (h *GlogHandler) Verbosity(level Lvl) {
 //
 // For instance:
 //
-//  pattern="gopher.go=3"
-//   sets the V level to 3 in all Go files named "gopher.go"
+//	pattern="gopher.go=3"
+//	 sets the V level to 3 in all Go files named "gopher.go"
 //
-//  pattern="foo=3"
-//   sets V to 3 in all files of any packages whose import path ends in "foo"
+//	pattern="foo=3"
+//	 sets V to 3 in all files of any packages whose import path ends in "foo"
 //
-//  pattern="foo/*=3"
-//   sets V to 3 in all files of any packages whose import path contains "foo"
+//	pattern="foo/*=3"
+//	 sets V to 3 in all files of any packages whose import path contains "foo"
 func (h *GlogHandler) Vmodule(ruleset string) error {
 	var filter []pattern
 	for _, rule := range strings.Split(ruleset, ",") {

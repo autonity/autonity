@@ -640,6 +640,7 @@ func (w *worker) taskLoop() {
 			stopCh = nil
 		}
 	}
+	w.engine.SetResultChan(w.resultCh)
 	for {
 		select {
 		case task := <-w.taskCh:
