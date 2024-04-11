@@ -201,9 +201,8 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 	if !ok {
 		panic("cannot simulate duplicated off chain accusation")
 	}
-
 	preVotes := backEnd.MsgStore.Get(msg.H()-1, func(m message.Msg) bool {
-		return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
+		return m.Code() == message.PrevoteCode && m.Sender() != s.Backend().Address()
 	})
 
 	for _, pv := range preVotes {
