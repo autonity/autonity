@@ -16,7 +16,8 @@ import (
 
 /**
  * The raw message fuzzer keeps broadcasting random bytes that replace the rlp encoded bytes stream of the raw msg of
- * ACN protocol, it aims to verify if the consensus network remains live-ness in this context.
+ * ACN protocol, it aims to verify if the consensus network remains live-ness in this context, for those upper layer on
+ * top of RLP decoding are covered by each ACN message test set.
  */
 func newRawMSGFuzzer(b interfaces.Backend) interfaces.Gossiper {
 	defaultGossiper := b.Gossiper()
