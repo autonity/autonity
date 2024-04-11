@@ -561,7 +561,7 @@ func TestOldProposal(t *testing.T) {
 		e.setupCore(backendMock, e.clientAddress)
 		// construct round state with: old round's quorum-1 prevote for v on valid round.
 		fakePrevote := message.Fake{
-			FakeRound:  e.curRound,
+			FakeRound:  uint64(e.curRound),
 			FakePower:  new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big1),
 			FakeValue:  e.curProposal.Block().Hash(),
 			FakeSender: testSender,
@@ -775,7 +775,7 @@ func TestQuorumPrevote(t *testing.T) {
 		e.core.curRoundMessages.SetProposal(e.curProposal, true)
 		fakePrevote := message.Fake{
 			FakeValue:  e.curProposal.Block().Hash(),
-			FakeRound:  e.curRound,
+			FakeRound:  uint64(e.curRound),
 			FakeHeight: e.curHeight.Uint64(),
 			FakeSender: e.committee.Committee()[int(e.curRound+1)%e.committeeSize].Address,
 			FakePower:  new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big1),
