@@ -115,13 +115,13 @@ type ResultConnectedPeers struct {
 func (r *ResultConnectedPeers) String() string {
 	var builder strings.Builder
 	table := tablewriter.NewWriter(&builder)
-	headers := make([]string, len(r.ConnectedPeers)-1)
-	for i := range r.ConnectedPeers[1:] {
-		headers[i] = strconv.Itoa(i + 1)
+	headers := make([]string, len(r.ConnectedPeers))
+	for i := range r.ConnectedPeers {
+		headers[i] = strconv.Itoa(i)
 	}
 	table.SetHeader(headers)
-	link := make([]string, len(r.ConnectedPeers)-1)
-	for i, connected := range r.ConnectedPeers[1:] {
+	link := make([]string, len(r.ConnectedPeers))
+	for i, connected := range r.ConnectedPeers {
 		if connected {
 			link[i] = "X"
 		} else {
@@ -278,6 +278,11 @@ func (p *P2POp) PingDevP2P(args *ArgTarget, reply *ResultPing) error {
 	return nil
 }
 
+type PacketResult struct {
+	TimeReqReceived time.Time
+	SyscallDuration time.Duration
+	Err             string
+}
 type ResultSendRandomData struct {
 	Id                    int
 	Size                  int
@@ -286,6 +291,8 @@ type ResultSendRandomData struct {
 	ReceiverReceptionTime time.Time // The one in the ACK
 	AckReceivedTime       time.Time // locally
 	TotalSyscallDuration  time.Duration
+	HasErrors             bool
+	PacketResults         []PacketResult
 }
 
 func (r *ResultSendRandomData) String() string {
@@ -295,18 +302,30 @@ func (r *ResultSendRandomData) String() string {
 	fmt.Fprintf(&builder, "Packet Count: %d\n", r.PacketCount)
 	fmt.Fprintf(&builder, "Total Data Size: %dkB\n", (r.PacketCount*r.Size)/1000)
 	fmt.Fprintf(&builder, "Request time (RT): %s\n", r.RequestTime.Format(timeFormat))
-	fmt.Fprintf(&builder, "Last Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(timeFormat))
-	fmt.Fprintf(&builder, "All ACK Received: %s\n", r.AckReceivedTime.Format(timeFormat))
-	duration := r.ReceiverReceptionTime.Sub(r.RequestTime)
-	fmt.Fprintf(&builder, "Duration RCT-RT: %s\n", duration)
-	fmt.Fprintf(&builder, "Total syscall wait: %s\n", r.TotalSyscallDuration)
+	if !r.HasErrors {
+		fmt.Fprintf(&builder, "Last Reception Time (RCT): %s\n", r.ReceiverReceptionTime.Format(timeFormat))
+		fmt.Fprintf(&builder, "All ACK Received: %s\n", r.AckReceivedTime.Format(timeFormat))
+		duration := r.ReceiverReceptionTime.Sub(r.RequestTime)
+		fmt.Fprintf(&builder, "Duration RCT-RT: %s\n", duration)
+		fmt.Fprintf(&builder, "Total syscall wait: %s\n", r.TotalSyscallDuration)
 
-	bandwithWithLatency := float64(r.PacketCount*r.Size) / (duration.Seconds() * 1e6)
-	// duration is here TimeOfAdvertisedReception
-	fmt.Fprintf(&builder, "Bandwidth with latency : %.6f MB/s\n", bandwithWithLatency)
-	durationWithoutLatency := duration - (r.AckReceivedTime.Sub(r.ReceiverReceptionTime))
-	bandwithWithoutLatency := float64(r.PacketCount*r.Size) / (durationWithoutLatency.Seconds() * 1e6)
-	fmt.Fprintf(&builder, "Bandwidth without latency : %.6f MB/s\n", bandwithWithoutLatency)
+		bandwithWithLatency := float64(r.PacketCount*r.Size) / (duration.Seconds() * 1e6)
+		// duration is here TimeOfAdvertisedReception
+		fmt.Fprintf(&builder, "Bandwidth with latency : %.6f MB/s\n", bandwithWithLatency)
+		durationWithoutLatency := duration - (r.AckReceivedTime.Sub(r.ReceiverReceptionTime))
+		bandwithWithoutLatency := float64(r.PacketCount*r.Size) / (durationWithoutLatency.Seconds() * 1e6)
+		fmt.Fprintf(&builder, "Bandwidth without latency : %.6f MB/s\n", bandwithWithoutLatency)
+	}
+	errorsCount := 0
+	for i, res := range r.PacketResults {
+		if res.Err != "" {
+			fmt.Fprintf(&builder, "Packet #%d: %s\n", i, res.Err)
+			errorsCount += 1
+		} else {
+			fmt.Fprintf(&builder, "Packet #%d: %s\n", i, res.TimeReqReceived.Sub(r.RequestTime))
+		}
+	}
+	fmt.Fprintf(&builder, "\nPacket Loss: %d/%d - %d%% \n", errorsCount, len(r.PacketResults), (errorsCount*100)/len(r.PacketResults))
 	return builder.String()
 }
 
@@ -329,17 +348,25 @@ func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandom
 		RequestTime: time.Now(),
 	}
 	finishedCh := make(chan uint64, 1)
+	packetResults := make([]PacketResult, args.PacketCount)
 	var lastReceived atomic.Uint64
-	var hasError atomic.Value
+	var hasError atomic.Bool
+
 	for i := 0; i < args.PacketCount; i++ {
-		go func() {
-			timeReceived, syscallDuration, err := peer.sendData(buff)
+		go func(id int) {
+			timeReqReceived, syscallDuration, err := peer.sendData(buff)
+			packetResults[id] = PacketResult{
+				TimeReqReceived: time.Unix(int64(timeReqReceived)/int64(time.Second), int64(timeReqReceived)%int64(time.Second)),
+				SyscallDuration: syscallDuration,
+				Err:             "",
+			}
 			if err != nil {
 				hasError.Store(true)
+				packetResults[id].Err = err.Error()
 			}
-			lastReceived.Store(timeReceived)
+			lastReceived.Store(timeReqReceived)
 			finishedCh <- uint64(syscallDuration.Nanoseconds())
-		}()
+		}(i)
 	}
 	var totalSyscallDuration uint64
 	for i := 0; i < args.PacketCount; i++ {
@@ -352,6 +379,8 @@ func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandom
 	result.TotalSyscallDuration = time.Duration(totalSyscallDuration)
 	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
 	result.AckReceivedTime = time.Now()
+	result.HasErrors = hasError.Load()
+	result.PacketResults = packetResults
 	*reply = result
 	return nil
 }
@@ -477,6 +506,15 @@ func (p *P2POp) SendRandomDataFrequencyAnalysis(args *ArgTargetSize, reply *Resu
 	}
 	reply.Target = args.Target
 	reply.Size = args.Size
+	return nil
+}
+
+type ResultSimpleBroadcast struct {
+	Size int
+}
+
+func (p *P2POp) SimpleBroadcast(args *ArgSize, reply *ResultSimpleBroadcast) error {
+
 	return nil
 }
 

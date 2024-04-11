@@ -351,7 +351,7 @@ func setup(c *cli.Context) error {
 		go func(id int) {
 			var err error
 			name := "netdiag-runner-" + uuid.New().String()
-			vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zones[id%len(zones)], instanceTemplate, c.String(gcpUsernameFlag.Name))
+			vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zones[(6*id)%len(zones)], instanceTemplate, c.String(gcpUsernameFlag.Name))
 			wg.Done()
 			if err != nil {
 				log.Crit("error deploying VM", "id", id, "err", err)

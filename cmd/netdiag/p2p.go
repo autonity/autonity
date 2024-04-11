@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"sync"
@@ -33,6 +34,7 @@ var protocolHandlers = map[uint64]func(p *Peer, data io.Reader) error{
 
 var (
 	errUnknownRequest = errors.New("no matching request id")
+	errTimeout        = errors.New("request timed out")
 )
 
 type Peer struct {
@@ -66,9 +68,13 @@ func (p *Peer) dispatchResponse(requestId uint64, packet any) error {
 	req, ok := p.requests[requestId]
 	p.RUnlock()
 	if !ok {
-		return errUnknownRequest
+		log.Error("Unknown request id", "id", requestId)
+		return nil
 	}
-	req <- packet
+	req <- packet // what if timeout here?
+	p.Lock()
+	delete(p.requests, requestId)
+	p.Unlock()
 	return nil
 }
 
@@ -97,8 +103,14 @@ func (p *Peer) sendPing() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// we should check for timeout here
-	return (<-req).(PongPacket).Time, nil
+
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case ans := <-req:
+		return ans.(PongPacket).Time, nil
+	case <-timer.C:
+		return 0, errTimeout
+	}
 }
 
 func handlePing(p *Peer, data io.Reader) error {
@@ -118,7 +130,10 @@ func handlePong(p *Peer, msg io.Reader) error {
 	return p.dispatchResponse(pong.RequestId, pong)
 }
 
-// **** SENDDATA *****
+// ********************
+// ***** SENDDATA *****
+// ********************
+
 type DataPacket struct {
 	RequestId uint64
 	Data      []byte
@@ -132,13 +147,19 @@ type AckDataPacket struct {
 func (p *Peer) sendData(data []byte) (uint64, time.Duration, error) {
 	startTime := time.Now()
 	id := rand.Uint64()
+	fmt.Println("[DATAPACKET] >> ", id)
 	req, err := p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 	if err != nil {
 		return 0, 0, err
 	}
 	dispatchDuration := time.Now().Sub(startTime)
-	ackTime := (<-req).(AckDataPacket).Time
-	return ackTime, dispatchDuration, nil
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case ans := <-req:
+		return ans.(AckDataPacket).Time, dispatchDuration, nil
+	case <-timer.C:
+		return 0, dispatchDuration, errTimeout
+	}
 }
 
 func handleData(p *Peer, data io.Reader) error {
@@ -147,6 +168,7 @@ func handleData(p *Peer, data io.Reader) error {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
+	fmt.Println("[DATAPACKET] << ", dataPacket.RequestId)
 	return p.reply(AckDataMsg, AckDataPacket{dataPacket.RequestId, now})
 }
 
@@ -155,10 +177,10 @@ func handleAckData(p *Peer, msg io.Reader) error {
 	if err := rlp.Decode(msg, &ack); err != nil {
 		return err
 	}
+	fmt.Println("[ACKDATA] << ", ack.RequestId)
 	return p.dispatchResponse(ack.RequestId, ack)
 }
 
-// **** TCPSOCKETOPTIONS *****
 type TCPOptionsPacket struct {
 	BufferSize uint64
 	NoDelay    bool

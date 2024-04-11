@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"crypto/ecdsa"
-	"net"
 	"sync"
 
 	"github.com/autonity/autonity/core/types"
@@ -20,17 +18,6 @@ type Engine struct {
 	peers  []*Peer // nil never connected, can do probably cleaner
 	enodes []*enode.Node
 	sync.RWMutex
-}
-
-type UDPDialer struct{}
-
-func (u UDPDialer) Dial(ctx context.Context, node *enode.Node) (net.Conn, error) {
-	addr := &net.UDPAddr{
-		IP:   node.IP(),
-		Port: 20203,
-	}
-	conn, err := net.DialUDP("udp", nil, addr)
-	return conn, err
 }
 
 func newEngine(cfg config, key *ecdsa.PrivateKey, networkMode string) *Engine {
@@ -51,9 +38,9 @@ func newEngine(cfg config, key *ecdsa.PrivateKey, networkMode string) *Engine {
 			}
 		}
 	}
-	var dialer p2p.NodeDialer
+	transport := p2p.TCP
 	if networkMode == "udp" {
-		dialer = UDPDialer{}
+		transport = p2p.UDP
 	}
 	p2pConfig := p2p.Config{
 		PrivateKey:      key,
@@ -71,13 +58,12 @@ func newEngine(cfg config, key *ecdsa.PrivateKey, networkMode string) *Engine {
 		}},
 		ListenAddr:      "0.0.0.0:20203",
 		NAT:             nil,
-		Dialer:          dialer, // nil is default TCP, have UDP supported at one point
 		NoDial:          false,
 		EnableMsgEvents: false,
 		Logger:          log.Root(),
 	}
 	e.config = cfg
-	e.server = &p2p.Server{Net: p2p.Consensus, Config: p2pConfig}
+	e.server = &p2p.Server{Net: p2p.Consensus, Config: p2pConfig, Transport: transport}
 
 	enodesToResolve := make([]string, len(e.config.Nodes))
 	for i := range enodesToResolve {

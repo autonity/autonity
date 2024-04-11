@@ -8,8 +8,6 @@ import (
 	"net"
 	"sync"
 	"time"
-
-	"github.com/autonity/autonity/log"
 )
 
 type UdpTransport struct {
@@ -52,7 +50,7 @@ func (u *UdpTransport) doProtoHandshake(our *protoHandshake) (their *protoHandsh
 func (u *UdpTransport) ReadMsg() (Msg, error) {
 	// we need to sign the messages
 	packet := <-u.readPacketCh
-	log.Trace("reading packet")
+	//log.Trace("reading packet")
 	return packet, nil
 }
 
@@ -74,7 +72,6 @@ func (u *UdpTransport) HandlePacket(packet []byte) error {
 
 func (u *UdpTransport) WriteMsg(msg Msg) error {
 	//log.Info("WRITING PACKET")
-	// WriteMsg doesn't seem to be properly adapted tbh
 	u.wmu.Lock()
 	defer u.wmu.Unlock()
 	if msg.Size > u.maxSize {
@@ -87,7 +84,7 @@ func (u *UdpTransport) WriteMsg(msg Msg) error {
 		return errors.New("weird message size")
 	}
 	_, err = u.conn.WriteToUDP(u.wbuf[:1+n], u.addr)
-	log.Info("ON THE WIRE", "packet", u.wbuf[:1+n], "err", err)
+	//log.Info("ON THE WIRE", "packet", u.wbuf[:1+n], "err", err)
 	return err
 }
 

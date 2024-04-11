@@ -859,7 +859,9 @@ func (srv *Server) setupUDPListening() error {
 			}
 
 			if conn, ok := connections[from.IP.String()]; ok {
-				if err := conn.HandlePacket(buf[:nbytes]); err != nil {
+				copybuff := make([]byte, nbytes)
+				copy(copybuff, buf[:nbytes])
+				if err := conn.HandlePacket(copybuff); err != nil {
 					log.Trace("error handling packet", "from", from.IP.String(), "err", err)
 				}
 				continue
@@ -1255,7 +1257,7 @@ func (srv *Server) AddJail(id enode.ID, jailTime time.Duration) {
 // as a peer. It returns when the connection has been added as a peer
 // or the handshakes have failed.
 func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) error {
-	c := &conn{fd: fd, flags: flags, cont: make(chan error)}
+	c := &conn{fd: fd, flags: flags, cont: make(chan error), addr: fd.RemoteAddr()}
 	if dialDest == nil {
 		c.transport = srv.newTransport(fd, nil)
 	} else {
