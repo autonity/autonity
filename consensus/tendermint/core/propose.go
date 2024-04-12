@@ -40,7 +40,7 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if metrics.Enabled {
 		now := time.Now()
 		ProposalSentTimer.Update(now.Sub(c.newRound))
-		ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
+		//ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
 		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
 		ProposalSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
@@ -89,7 +89,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	if metrics.Enabled {
 		now := time.Now()
 		ProposalReceivedTimer.Update(now.Sub(c.newRound))
-		ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
+		//ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
 		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
 		ProposalReceivedBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}

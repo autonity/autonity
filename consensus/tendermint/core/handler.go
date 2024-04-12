@@ -117,7 +117,7 @@ eventLoop:
 	for {
 		select {
 		case ev, ok := <-c.candidateBlockSub:
-			now := time.Now()
+			//now := time.Now()
 			if !ok {
 				break eventLoop
 			}
@@ -129,12 +129,12 @@ eventLoop:
 			}
 			pb := &newCandidateBlockEvent.NewCandidateBlock
 			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
-			CandidateSubBg.Add(time.Since(now).Nanoseconds())
+			//CandidateSubBg.Add(time.Since(now).Nanoseconds())
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
 			break eventLoop
 		default:
-			dt := time.Now()
+			//dt := time.Now()
 			select {
 			case ev, ok := <-c.messageSub.Chan():
 				now := time.Now()
@@ -206,7 +206,7 @@ eventLoop:
 					c.handleStateDump(e)
 				}
 			case ev, ok := <-c.timeoutEventSub.Chan():
-				now := time.Now()
+				//now := time.Now()
 				if !ok {
 					break eventLoop
 				}
@@ -225,9 +225,9 @@ eventLoop:
 						c.handleTimeoutPrecommit(ctx, timeoutE)
 					}
 				}
-				TimeoutSubBg.Add(time.Since(now).Nanoseconds())
+				//TimeoutSubBg.Add(time.Since(now).Nanoseconds())
 			case _, ok := <-c.committedSub:
-				now := time.Now()
+				//now := time.Now()
 				if !ok {
 					break eventLoop
 				}
@@ -235,12 +235,12 @@ eventLoop:
 				//case events.CommitEvent:
 				c.precommiter.HandleCommit(ctx)
 				//}
-				CommitSubBg.Add(time.Since(now).Nanoseconds())
+				//CommitSubBg.Add(time.Since(now).Nanoseconds())
 			default:
 				// minimal sleep if nothing is ready so we don't end up consuming the core
 				time.Sleep(100 * time.Microsecond)
 			}
-			DefaultHandleBg.Add(time.Since(dt).Nanoseconds())
+			//DefaultHandleBg.Add(time.Since(dt).Nanoseconds())
 		}
 	}
 

@@ -535,9 +535,6 @@ type Broadcaster struct {
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
 	logger := s.Logger().New("step", s.Step())
-	l, ok := logger.GetHandler().(*log.GlogHandler)
-	if ok && l.GetLevel() >= log.LvlDebug {
-		logger.Debug("Broadcasting", "message", msg.String())
-	}
+	logger.Debug("Broadcasting", "message", msg.String())
 	s.BroadcastAll(msg)
 }

@@ -5,8 +5,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2/expirable"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -123,15 +124,14 @@ func handleConsensusMsg[T any, PT interface {
 	hash := crypto.Hash(buffer.Bytes())
 	// Mark peer's message as known.
 	ms, ok := sb.recentMessages.Get(sender)
-	var m *lru.ARCCache
 	if ok {
-		m, _ = ms.(*lru.ARCCache)
+		if !ms.Contains(hash) {
+			ms.Add(hash, true)
+		}
 	} else {
-		m, _ = lru.NewARC(inmemoryMessages)
-		sb.recentMessages.Add(sender, m)
-	}
-	if !m.Contains(hash) {
-		m.Add(hash, true)
+		ms = lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+		ms.Add(hash, true)
+		sb.recentMessages.Add(sender, ms)
 	}
 	// Mark the message known for ourselves
 	if sb.knownMessages.Contains(hash) {

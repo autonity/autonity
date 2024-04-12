@@ -83,6 +83,7 @@ func (ps *peerSet) unregister(id string) error {
 	if !ok {
 		return errPeerNotRegistered
 	}
+
 	delete(ps.peers, id)
 	return nil
 }

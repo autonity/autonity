@@ -75,14 +75,12 @@ func (c *Core) quorumPrevotesCheck(ctx context.Context, proposal *message.Propos
 	if c.step == Propose {
 		return
 	}
-	n := time.Now()
 	// we are at prevote or precommit step
 	if c.curRoundMessages.PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
 		if metrics.Enabled {
-			PrevoteQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
+			//PrevoteQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
 			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 		}
-		PrevoteStepThreeBg.Add(time.Since(n).Nanoseconds())
 		if c.step == Prevote {
 			c.lockedValue = proposal.Block()
 			c.lockedRound = c.Round()
@@ -103,7 +101,7 @@ func (c *Core) quorumPrevotesNilCheck(ctx context.Context) {
 	}
 	if c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		if metrics.Enabled {
-			PrevoteQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
+			//PrevoteQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
 			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 		}
 		c.precommiter.SendPrecommit(ctx, true)
@@ -114,14 +112,10 @@ func (c *Core) quorumPrevotesNilCheck(ctx context.Context) {
 // Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 // checks if we have to schedule the precommit timeout
 func (c *Core) precommitTimeoutCheck() {
-	n := time.Now()
 	if !c.precommitTimeout.TimerStarted() && c.curRoundMessages.PrecommitsTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		PrecommitStepThreeBg.Add(time.Since(n).Nanoseconds())
-		n = time.Now()
 		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
-		PrecommitStepFourBg.Add(time.Since(n).Nanoseconds())
 	}
 }
 
@@ -139,7 +133,7 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 		return false
 	}
 	if metrics.Enabled {
-		PrecommitQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
+		//PrecommitQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
 		PrecommitQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 

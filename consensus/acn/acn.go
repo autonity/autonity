@@ -103,8 +103,16 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		peer.Log().Error("peer registration failed", "err", err)
 		return err
 	}
-	defer acn.peers.unregister(peer.ID())
+	defer acn.unregisterPeer(peer)
+
 	return handler(peer)
+}
+
+func (acn *ACN) unregisterPeer(peer *protocol.Peer) {
+	if syncer, ok := acn.chain.Engine().(consensus.Syncer); ok {
+		syncer.ResetPeerCache(peer.Address())
+	}
+	acn.peers.unregister(peer.ID())
 }
 
 func (acn *ACN) Stop() error {

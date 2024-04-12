@@ -17,7 +17,6 @@ type Precommiter struct {
 }
 
 func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
-	n := time.Now()
 	value := common.Hash{}
 	if !isNil {
 		proposal := c.curRoundMessages.Proposal()
@@ -31,14 +30,15 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
 
+	n := time.Now()
+	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	PrevoteStepFourBg.Add(time.Since(n).Nanoseconds())
 	n = time.Now()
-	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign)
 	c.LogPrecommitMessageEvent("Precommit sent", precommit, c.address.String(), "broadcast")
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
 	if metrics.Enabled {
-		PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
+		//PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
 		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 	PrevoteStepFiveBg.Add(time.Since(n).Nanoseconds())
