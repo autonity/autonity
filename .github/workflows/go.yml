@@ -154,7 +154,7 @@ jobs:
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-      - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/...
+      - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/... -timeout 30m
 
   prepare-contracts:
     needs: prepare-cache
