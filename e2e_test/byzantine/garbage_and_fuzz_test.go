@@ -6,7 +6,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"math/big"
 	"math/rand"
-	"sync/atomic"
 	"testing"
 
 	fuzz "github.com/google/gofuzz"
@@ -240,31 +239,11 @@ func generateFieldMap(v interface{}) map[string]reflect.Value {
 */
 // duplicated with TestInvalidBlockProposal in proposal_test.go
 func (c *fuzzProposer) SendProposal(_ context.Context, p *types.Block) {
-	fakeTransactions := make([]*types.Transaction, 0)
 	f := fuzz.New()
-	for i := 0; i < 5; i++ {
-		var fakeTransaction types.Transaction
-		f.Fuzz(&fakeTransaction)
-		var tx types.LegacyTx
-		f.Fuzz(&tx)
-		fakeTransaction.SetInner(&tx)
-
-		fakeTransactions = append(fakeTransactions, &fakeTransaction)
-	}
-	p.SetTransactions(fakeTransactions)
-	var hash common.Hash
-	f.Fuzz(&hash)
-	var atmHash atomic.Value
-	atmHash.Store(hash)
-	// nil hash
-	p.SetHash(atmHash)
-
-	// nil header
 	var num big.Int
 	f.Fuzz(&num)
-	p.SetHeaderNumber(&num)
+	e2e.FuzBlock(p, &num)
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
-
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 
@@ -281,7 +260,7 @@ func TestFuzzProposer(t *testing.T) {
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
 	for i := uint64(0); i < f.Uint64(); i++ {
 		//set Malicious users
-		users[0].TendermintServices = &interfaces.Services{Proposer: newFuzzProposer}
+		users[i].TendermintServices = &interfaces.Services{Proposer: newFuzzProposer}
 	}
 
 	// creates a network of 6 users and starts all the nodes in it
