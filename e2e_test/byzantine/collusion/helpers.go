@@ -39,7 +39,7 @@ type colludedBehaviours struct {
 	r            int64
 	rule         autonity.Rule
 	invalidValue *types.Block
-	lock         sync.RWMutex
+	//lock         sync.RWMutex
 	// message queues for faulty members, each member will consume message and broadcast it.
 	colludedBehaviours map[common.Address]map[uint64]map[int64]map[core.Step]message.Msg
 }
@@ -50,6 +50,7 @@ func collusionBehaviour(rule autonity.Rule) *colludedBehaviours {
 	return colludedActions[rule]
 }
 
+/*
 func (cp *colludedBehaviours) removeMessage(actor common.Address, height uint64, round int64, step core.Step) message.Msg {
 	cp.lock.Lock()
 	defer cp.lock.Unlock()
@@ -70,7 +71,7 @@ func (cp *colludedBehaviours) removeMessage(actor common.Address, height uint64,
 		}
 	}
 	return nil
-}
+}*/
 
 func newBlockHeader(height uint64) *types.Header {
 	// use random nonce to create different blocks
