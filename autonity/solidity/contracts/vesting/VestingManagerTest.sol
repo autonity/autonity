@@ -31,6 +31,6 @@ contract VestingManagerTest is VestingManager {
         uint256[] memory _rejectedBonding,
         UnbondingReleased[] memory _releasedUnbonding
     ) public {
-        _finalize(_bonding, _rejectedBonding, _releasedUnbonding);
+        // _finalize(_bonding, _rejectedBonding, _releasedUnbonding);
     }
 }

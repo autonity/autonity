@@ -14,6 +14,7 @@ contract LiquidRewardManager {
     Autonity internal autonity;
 
     struct LiquidInfo {
+        uint256 totalLiquid;
         uint256 lastUnrealisedFeeFactor;
         uint256 unclaimedRewards;
         Liquid liquidContract;
@@ -47,6 +48,10 @@ contract LiquidRewardManager {
         delete lockedLiquidBalances[_id][_validator];
     }
 
+    function _unlockAll(uint256 _id, address _validator) internal {
+        delete lockedLiquidBalances[_id][_validator];
+    }
+
     function _unlock(uint256 _id, address _validator, uint256 _amount) internal {
         lockedLiquidBalances[_id][_validator] -= _amount;
     }
@@ -65,11 +70,15 @@ contract LiquidRewardManager {
     function _decreaseLiquid(uint256 _id, address _validator, uint256 _amount) internal {
         _realiseFees(_id, _validator);
         liquidBalances[_id][_validator] -= _amount;
+        LiquidInfo storage _liquidInfo = liquidInfo[_validator];
+        _liquidInfo.totalLiquid -= _amount;
     }
 
     function _increaseLiquid(uint256 _id, address _validator, uint256 _amount) internal {
         _realiseFees(_id, _validator);
         liquidBalances[_id][_validator] += _amount;
+        LiquidInfo storage _liquidInfo = liquidInfo[_validator];
+        _liquidInfo.totalLiquid += _amount;
     }
 
     function _realiseFees(uint256 _id, address _validator) private returns (uint256 _realisedFees) {
@@ -143,18 +152,14 @@ contract LiquidRewardManager {
         }
     }
 
-    // function _epochID() internal returns (uint256) {
-    //     if (epochFetchedBlock < block.number) {
-    //         epochFetchedBlock = block.number;
-    //         epochID = autonity.epochID();
-    //     }
-    //     return epochID;
-    // }
-
     function _updateUnclaimedReward(address _validator) internal {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
         Liquid _contract = _liquidInfo.liquidContract;
-        uint256 _totalLiquid = _contract.balanceOf(address(this));
+        if (_contract == Liquid(address(0))) {
+            _contract = autonity.getValidator(_validator).liquidContract;
+            _liquidInfo.liquidContract = _contract;
+        }
+        uint256 _totalLiquid = _liquidInfo.totalLiquid;
         if (_totalLiquid == 0) {
             return;
         }
