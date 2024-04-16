@@ -15,6 +15,11 @@ import (
 	"testing"
 )
 
+/*
+*
+  - TestCollusionPN, it creates a faulty parity and nominates a proposer to propose an invalid new proposal, while the
+    followers of the prevote for that invalid proposal as valid. Thus
+*/
 func TestCollusionPN(t *testing.T) {
 	numOfNodes := 7
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
@@ -39,9 +44,11 @@ func TestCollusionPN(t *testing.T) {
 	// The faulty party should be slashed, as proposal is not accountable now, thus we cannot
 	// slash the malicious proposer.
 	b := collusionBehaviour(autonity.PN)
-	faultyAddress := crypto.PubkeyToAddress(b.followers[0].NodeKey.PublicKey)
-	detected := e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.PVN, network)
-	require.Equal(t, true, detected)
+	for _, f := range b.followers {
+		faultyAddress := crypto.PubkeyToAddress(f.NodeKey.PublicKey)
+		detected := e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.PVN, network)
+		require.Equal(t, true, detected)
+	}
 }
 
 type collusionPNPlanner struct{}
