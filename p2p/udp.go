@@ -50,7 +50,7 @@ func (u *UdpTransport) doProtoHandshake(our *protoHandshake) (their *protoHandsh
 func (u *UdpTransport) ReadMsg() (Msg, error) {
 	// we need to sign the messages
 	packet := <-u.readPacketCh
-	//log.Trace("reading packet")
+	//log.Trace("low level reading packet")
 	return packet, nil
 }
 
@@ -65,7 +65,7 @@ func (u *UdpTransport) HandlePacket(packet []byte) error {
 		ReceivedAt: time.Now(),
 	}
 	//fmt.Println("PACKET RECEIVED", "data", msg)
-	// very very naive !!NOT FOR PROD!!
+	//log.Trace("low level writing packet", "msg", msg)
 	u.readPacketCh <- msg
 	return nil
 }

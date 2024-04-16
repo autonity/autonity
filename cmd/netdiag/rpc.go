@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
@@ -65,6 +66,23 @@ func (a *ArgSize) AskUserInput() error {
 	return nil
 }
 
+type ArgCount struct {
+	PacketCount int
+}
+
+func (a *ArgCount) AskUserInput() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter number of DevP2P packets: ")
+	input, _ := reader.ReadString('\n')
+	packetCount, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil {
+		fmt.Println("Invalid number.")
+		return err
+	}
+	a.PacketCount = packetCount
+	return nil
+}
+
 type ArgTargetSize struct {
 	ArgTarget
 	ArgSize
@@ -77,25 +95,31 @@ func (a *ArgTargetSize) AskUserInput() error {
 	return a.ArgSize.AskUserInput()
 }
 
+type ArgSizeCount struct {
+	ArgSize
+	ArgCount
+}
+
+func (a *ArgSizeCount) AskUserInput() error {
+	if err := a.ArgSize.AskUserInput(); err != nil {
+		return err
+	}
+	return a.ArgCount.AskUserInput()
+}
+
 type ArgTargetSizeCount struct {
 	ArgTarget
 	ArgSize
-	PacketCount int
+	ArgCount
 }
 
 func (a *ArgTargetSizeCount) AskUserInput() error {
 	if err := a.ArgTarget.AskUserInput(); err != nil {
 		return err
 	}
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter number of DevP2P packets: ")
-	input, _ := reader.ReadString('\n')
-	packetCount, err := strconv.Atoi(strings.TrimSpace(input))
-	if err != nil {
-		fmt.Println("Invalid number.")
+	if err := a.ArgCount.AskUserInput(); err != nil {
 		return err
 	}
-	a.PacketCount = packetCount
 	return a.ArgSize.AskUserInput()
 }
 
@@ -423,17 +447,17 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 			// warmup
 			res := &ResultSendRandomData{}
 			_ = p.SendRandomData(&ArgTargetSizeCount{
-				ArgTarget:   ArgTarget{args.Target},
-				PacketCount: 10,
-				ArgSize:     ArgSize{1024},
+				ArgTarget: ArgTarget{args.Target},
+				ArgCount:  ArgCount{10},
+				ArgSize:   ArgSize{1024},
 			}, res)
 			time.Sleep(2 * time.Second)
 			// measure
 			res2 := &ResultSendRandomData{}
 			_ = p.SendRandomData(&ArgTargetSizeCount{
-				ArgTarget:   ArgTarget{args.Target},
-				PacketCount: 1,
-				ArgSize:     ArgSize{200000},
+				ArgTarget: ArgTarget{args.Target},
+				ArgCount:  ArgCount{1},
+				ArgSize:   ArgSize{200000},
 			}, res2)
 			duration := res2.ReceiverReceptionTime.Sub(res2.RequestTime)
 			if duration < minDuration {
@@ -453,9 +477,9 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 	for i := 0; i < 10; i++ {
 		res := &ResultSendRandomData{}
 		_ = p.SendRandomData(&ArgTargetSizeCount{
-			ArgTarget:   ArgTarget{args.Target},
-			PacketCount: 1,
-			ArgSize:     ArgSize{200000},
+			ArgTarget: ArgTarget{args.Target},
+			ArgCount:  ArgCount{1},
+			ArgSize:   ArgSize{200000},
 		}, res)
 		reply.Durations[i] = res.ReceiverReceptionTime.Sub(res.RequestTime)
 		time.Sleep(time.Duration(i) * 500 * time.Millisecond)
@@ -495,9 +519,9 @@ func (p *P2POp) SendRandomDataFrequencyAnalysis(args *ArgTargetSize, reply *Resu
 			time.Sleep(reply.Delay[k])
 			res := &ResultSendRandomData{}
 			_ = p.SendRandomData(&ArgTargetSizeCount{
-				ArgTarget:   args.ArgTarget,
-				PacketCount: 1,
-				ArgSize:     args.ArgSize,
+				ArgTarget: args.ArgTarget,
+				ArgCount:  ArgCount{1},
+				ArgSize:   args.ArgSize,
 			}, res)
 			reply.Duration[k] = res.ReceiverReceptionTime.Sub(res.RequestTime)
 			reply.ReplyDuration[k] = time.Now().Sub(res.ReceiverReceptionTime)
@@ -510,11 +534,93 @@ func (p *P2POp) SendRandomDataFrequencyAnalysis(args *ArgTargetSize, reply *Resu
 }
 
 type ResultSimpleBroadcast struct {
-	Size int
+	Size          int
+	Count         int
+	StartTime     time.Time
+	PacketResults [][]PacketResult
 }
 
-func (p *P2POp) SimpleBroadcast(args *ArgSize, reply *ResultSimpleBroadcast) error {
+func (r *ResultSimpleBroadcast) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "Simple Broadcasting Results \n")
+	fmt.Fprintf(&builder, "Size: %d\n", r.Size)
+	fmt.Fprintf(&builder, "Count: %d\n", r.Count)
+	for i := 0; i < r.Count; i++ {
+		fmt.Fprintf(&builder, "--- Packet #%d \n", i)
+		receivedCount := 0
+		aggregateDuration := time.Duration(0)
+		peerCount := 0
+		for p := 0; p < len(r.PacketResults); p++ {
+			if r.PacketResults[p] == nil {
+				continue
+			}
+			res := r.PacketResults[p][i]
+			peerCount++
+			if res.Err == "" {
+				aggregateDuration += res.TimeReqReceived.Sub(r.StartTime)
+				receivedCount++
+				fmt.Fprintf(&builder, "Peer %d Duration: %s\n", p, res.TimeReqReceived.Sub(r.StartTime))
+			} else {
+				fmt.Fprintf(&builder, "Peer %d ERROR: %s\n", p, res.Err)
+			}
+		}
+		fmt.Fprintf(&builder, "ACKed by %d/%d, Average Duration %s \n", receivedCount, peerCount, aggregateDuration/time.Duration(receivedCount))
+	}
 
+	return builder.String()
+}
+
+func (p *P2POp) SimpleBroadcast(args *ArgSizeCount, reply *ResultSimpleBroadcast) error {
+	buff := make([]byte, args.Size)
+	if _, err := rand.Read(buff); err != nil {
+		return err
+	}
+
+	results := make([][]PacketResult, len(p.engine.peers))
+	startTime := time.Now()
+	var wg sync.WaitGroup
+	for i := range p.engine.peers {
+		if p.engine.peers[i] == nil {
+			continue
+		}
+		results[i] = make([]PacketResult, args.PacketCount)
+		wg.Add(1)
+		go func(id int) {
+			resultsCh := make([]chan any, args.PacketCount)
+			for j := 0; j < args.PacketCount; j++ {
+				var err error
+				resultsCh[j], err = p.engine.peers[id].sendDataAsync(buff)
+				if err != nil {
+					log.Error("error sending data async", "err", err)
+				}
+			}
+			timer := time.NewTimer(5 * time.Second)
+			for j := 0; j < args.PacketCount; j++ {
+				select {
+				case ans := <-resultsCh[j]:
+					replyTime := ans.(AckDataPacket).Time
+					results[id][j] = PacketResult{
+						TimeReqReceived: time.Unix(int64(replyTime)/int64(time.Second), int64(replyTime)%int64(time.Second)),
+						SyscallDuration: 0,
+						Err:             "",
+					}
+
+				case <-timer.C:
+					results[id][j] = PacketResult{Err: "TIMEOUT"}
+					timer.Reset(5 * time.Millisecond)
+				}
+			}
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
+	*reply = ResultSimpleBroadcast{
+		Size:          args.Size,
+		Count:         args.PacketCount,
+		PacketResults: results,
+		StartTime:     startTime,
+	}
 	return nil
 }
 

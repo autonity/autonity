@@ -79,7 +79,7 @@ func (p *Peer) dispatchResponse(requestId uint64, packet any) error {
 }
 
 func (p *Peer) dispatchRequest(requestId uint64, code uint64, packet any) (chan any, error) {
-	responseCh := make(chan any)
+	responseCh := make(chan any, 1)
 	p.Lock()
 	p.requests[requestId] = responseCh
 	p.Unlock()
@@ -103,7 +103,7 @@ func (p *Peer) sendPing() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-
+	fmt.Println("[PING] >>", id)
 	timer := time.NewTimer(5 * time.Second)
 	select {
 	case ans := <-req:
@@ -119,14 +119,17 @@ func handlePing(p *Peer, data io.Reader) error {
 	if err := rlp.Decode(data, &ping); err != nil {
 		return err
 	}
+	fmt.Println("[PING] << , [PONG] >> ", ping.RequestId)
 	return p.reply(PongMsg, PongPacket{ping.RequestId, now})
 }
 
 func handlePong(p *Peer, msg io.Reader) error {
+	fmt.Println("[PREPONG] <<")
 	var pong PongPacket
 	if err := rlp.Decode(msg, &pong); err != nil {
 		return err
 	}
+	fmt.Println("[PONG] <<", pong.RequestId)
 	return p.dispatchResponse(pong.RequestId, pong)
 }
 
@@ -160,6 +163,12 @@ func (p *Peer) sendData(data []byte) (uint64, time.Duration, error) {
 	case <-timer.C:
 		return 0, dispatchDuration, errTimeout
 	}
+}
+
+func (p *Peer) sendDataAsync(data []byte) (chan any, error) {
+	id := rand.Uint64()
+	fmt.Println("[DATAPACKET] >> ", id)
+	return p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 }
 
 func handleData(p *Peer, data io.Reader) error {

@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"reflect"
 	"regexp"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,6 +67,12 @@ var (
 		Value: 0,
 		Usage: "Index of the local runner in the configuration",
 	}
+	restartOnlyFlag = cli.BoolFlag{
+		Name: "restart-only",
+	}
+	pprofFlag = cli.BoolFlag{
+		Name: "pprof",
+	}
 
 	setupCommand = cli.Command{
 		Action:    setup,
@@ -91,6 +98,8 @@ The setup command deploys a new network of nodes.`,
 		Flags: []cli.Flag{
 			configFlag,
 			networkModeFlag,
+			restartOnlyFlag,
+			pprofFlag,
 		},
 		Description: `
 Update a cluster with current binary.`,
@@ -119,6 +128,7 @@ The control command starts the netdiag command center.`,
 			configFlag,
 			idFlag,
 			networkModeFlag,
+			pprofFlag,
 		},
 		Description: `
 The run command start a local runner`,
@@ -189,13 +199,22 @@ func main() {
 }
 
 func run(c *cli.Context) error {
+	if c.Bool(pprofFlag.Name) {
+		f, err := os.Create("./profile.pprof")
+		if err != nil {
+			log.Crit("error pprof", err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	user, _ := user.Current()
 	fmt.Printf("Username: %s\n", user.Username)
 	localId := c.Int(idFlag.Name)
 	log.Info("Runner started", "cmd", strings.Join(os.Args, " "), "id", localId, "user", user.Username, "uid", user.Uid, "network", c.String(networkModeFlag.Name))
 	// Listen for Ctrl-C.
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
+	signal.Notify(sigCh, os.Interrupt, os.Kill)
 
 	cfg := readConfigFile(c.String(configFlag.Name))
 	key := cfg.Nodes[localId].Key
@@ -250,7 +269,7 @@ func control(c *cli.Context) error {
 		}
 
 		// User selects a method
-		fmt.Printf("\n%s(%d)>> ", cfg.Nodes[targetPeer].Ip, targetPeer)
+		fmt.Printf("\n%s|%s(%d)>> ", cfg.Nodes[targetPeer].Ip, cfg.Nodes[targetPeer].Zone, targetPeer)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		matches := peerRegexCmd.FindStringSubmatch(input)
@@ -351,11 +370,19 @@ func setup(c *cli.Context) error {
 		go func(id int) {
 			var err error
 			name := "netdiag-runner-" + uuid.New().String()
-			vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zones[(6*id)%len(zones)], instanceTemplate, c.String(gcpUsernameFlag.Name))
-			wg.Done()
-			if err != nil {
-				log.Crit("error deploying VM", "id", id, "err", err)
+			attempts := 0
+			for {
+				zone := zones[(6*id+attempts)%len(zones)]
+				vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zone, instanceTemplate, c.String(gcpUsernameFlag.Name))
+				if err == nil || attempts == 10 {
+					break
+				}
+				attempts++
 			}
+			if err != nil {
+				log.Error("error deploying VM after 10 attempts", "id", id, "err", err)
+			}
+			wg.Done()
 		}(i)
 	}
 	wg.Wait()
@@ -413,7 +440,7 @@ func setup(c *cli.Context) error {
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(id int) {
-			if err := vms[id].startRunner(configFileName, "tcp"); err != nil {
+			if err := vms[id].startRunner(configFileName, "tcp", ""); err != nil {
 				log.Crit("error starting runner", "id", id, "err", err)
 			}
 			wg.Done()
@@ -442,11 +469,17 @@ func update(c *cli.Context) error {
 				log.Crit("error starting runner", "id", id, "err", err)
 			}
 			time.Sleep(time.Second)
-			if err := vms[id].deployRunner(c.String(configFlag.Name), false, true); err != nil {
-				log.Crit("error deploying runner", "id", id, "err", err)
+			if !c.Bool(restartOnlyFlag.Name) {
+				if err := vms[id].deployRunner(c.String(configFlag.Name), false, true); err != nil {
+					log.Crit("error deploying runner", "id", id, "err", err)
+				}
+				log.Info("Runner binary deployed", "id", id)
 			}
-			log.Info("Runner binary deployed", "id", id)
-			if err := vms[id].startRunner(c.String(configFlag.Name), c.String(networkModeFlag.Name)); err != nil {
+			optFlag := ""
+			if c.Bool(pprofFlag.Name) {
+				optFlag += "--pprof"
+			}
+			if err := vms[id].startRunner(c.String(configFlag.Name), c.String(networkModeFlag.Name), optFlag); err != nil {
 				log.Crit("error starting runner", "id", id, "err", err)
 			}
 			wg.Done()

@@ -487,6 +487,7 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 func (rw *protoRW) ReadMsg() (Msg, error) {
 	select {
 	case msg := <-rw.in:
+		//log.Debug("ProtoRW ReadMsg", "msg", msg, "code", msg.Code, "postCode", msg.Code-rw.offset)
 		msg.Code -= rw.offset
 		return msg, nil
 	case <-rw.closed:

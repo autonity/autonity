@@ -24,16 +24,19 @@ func newEngine(cfg config, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := new(Engine)
 	runner := func(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 		node, err := e.addPeer(peer, rw)
+		defer log.Debug("Reading loop broken")
 		if err != nil {
 			return err
 		}
 		for {
 			msg, err := rw.ReadMsg()
 			if err != nil {
+				log.Error("Reading loop fatal error", "error", err)
 				return err
 			}
 			handler := protocolHandlers[msg.Code]
 			if err = handler(node, msg.Payload); err != nil {
+				log.Debug("Peer handler error", "id", peer.String(), "error", err)
 				return err
 			}
 		}

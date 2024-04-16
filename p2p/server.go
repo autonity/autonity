@@ -235,8 +235,7 @@ type Server struct {
 	jailed         safeExpHeap
 
 	// Only for UDP connections
-	newOutboundUdpConn chan *UdpTransport
-	udpListener        *net.UDPConn
+	newCommitteeCh chan []*enode.Node
 
 	committee       []*enode.Node
 	committeeSubset []*enode.Node
@@ -426,6 +425,11 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 	srv.committee = newCommittee
 	srv.committeeSubset = newCommitteeSubset
 	srv.enodeMu.Unlock()
+
+	if srv.Transport == UDP && srv.Net == Consensus {
+		srv.newCommitteeCh <- newCommittee
+		return
+	}
 	// Check for peers that needs to be disconnected
 	for _, connectedPeer := range currentCommitteeSubset {
 		found := false
@@ -591,7 +595,7 @@ func (srv *Server) Start() (err error) {
 	srv.peerOp = make(chan peerOpFunc)
 	srv.peerOpDone = make(chan struct{})
 
-	srv.newOutboundUdpConn = make(chan *UdpTransport, 100)
+	srv.newCommitteeCh = make(chan []*enode.Node)
 
 	if err := srv.setupLocalNode(); err != nil {
 		return err
@@ -802,11 +806,11 @@ func (srv *Server) setupUDPListening() error {
 	if err != nil {
 		return err
 	}
-	srv.udpListener, err = net.ListenUDP("udp", addr)
+	udpListener, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return err
 	}
-	realaddr := srv.udpListener.LocalAddr().(*net.UDPAddr)
+	realaddr := udpListener.LocalAddr().(*net.UDPAddr)
 	srv.log.Debug("Consensus UDP listener up", "addr", realaddr, "type", srv.Net.String())
 	if srv.NAT != nil {
 		if !realaddr.IP.IsLoopback() {
@@ -817,99 +821,81 @@ func (srv *Server) setupUDPListening() error {
 			}()
 		}
 	}
+
 	const maxPacketSize = 65507 // TO TEST
-	buf := make([]byte, maxPacketSize)
 	go func() {
+		type packet struct {
+			data []byte
+			from *net.UDPAddr
+		}
+		newPacketCh := make(chan packet, 1)
+		go func() {
+			buf := make([]byte, maxPacketSize)
+			for {
+				var (
+					nbytes int
+					from   *net.UDPAddr
+					err    error
+				)
+				for {
+					nbytes, from, err = udpListener.ReadFromUDP(buf)
+					if netutil.IsTemporaryError(err) {
+						// Ignore temporary read errors.
+						srv.log.Debug("Temporary UDP read error", "err", err)
+						continue
+					} else if err != nil {
+						// Shut down the loop for permament errors.
+						if err != io.EOF {
+							srv.log.Debug("UDP read error", "err", err)
+						}
+						return
+					}
+					break
+				}
+				newbuff := make([]byte, nbytes)
+				copy(newbuff, buf[:nbytes])
+				newPacketCh <- packet{newbuff, from}
+			}
+		}()
 		connections := make(map[string]*UdpTransport)
 		for {
-			var (
-				err    error
-				nbytes int
-				from   *net.UDPAddr
-			)
-			for {
-				nbytes, from, err = srv.udpListener.ReadFromUDP(buf)
-				if netutil.IsTemporaryError(err) {
-					// Ignore temporary read errors.
-					srv.log.Debug("Temporary UDP read error", "err", err)
+			select {
+			case p := <-newPacketCh:
+				//log.Trace("packet received", "from", p.from.String(), "code", p.data[0])
+				if conn, ok := connections[p.from.IP.String()]; ok {
+					if err := conn.HandlePacket(p.data); err != nil {
+						log.Trace("error handling packet", "from", p.from.IP.String(), "err", err)
+					}
 					continue
-				} else if err != nil {
-					// Shut down the loop for permament errors.
-					if err != io.EOF {
-						srv.log.Debug("UDP read error", "err", err)
+				}
+				log.Trace("packet ignored", "from", p.from.String())
+			case committee := <-srv.newCommitteeCh:
+				// remove old connections
+				// create new connections
+				for _, node := range committee {
+					node := node
+					addr := &net.UDPAddr{IP: node.IP(), Port: node.TCP()}
+					c := &conn{
+						fd:        udpListener,
+						addr:      addr,
+						node:      node,
+						flags:     inboundConn,
+						cont:      make(chan error),
+						transport: newUdpTransport(udpListener, addr),
 					}
-					return
-				}
-				break
-			}
-
-			// check if there are some new inbounds connections waiting to be created here
-			ok := false
-			for !ok {
-				select {
-				case trans := <-srv.newOutboundUdpConn:
-					if _, ok := connections[from.IP.String()]; ok {
-						log.Trace("conn already existing ??", "from", from.IP.String())
-					} else {
-						connections[from.IP.String()] = trans
-					}
-				default:
-					ok = true
+					connections[addr.IP.String()] = c.transport.(*UdpTransport)
+					go srv.setupUDPConn(c, node)
 				}
 			}
-
-			if conn, ok := connections[from.IP.String()]; ok {
-				copybuff := make([]byte, nbytes)
-				copy(copybuff, buf[:nbytes])
-				if err := conn.HandlePacket(copybuff); err != nil {
-					log.Trace("error handling packet", "from", from.IP.String(), "err", err)
-				}
-				continue
-			}
-			// ---DevP2P over UDP ----
-			// "connection" establishment:
-			// we are simulating a connection because devp2p wants that. Not doing it means complete bypass of devp2p
-			// which could make sense and we could do that
-			pubkey := srv.CommitteeIpToPubkey(from.IP)
-			if pubkey == nil {
-				// for now IP is trusted - only for POC !!!
-				srv.log.Debug("packet received - not in committee")
-				continue
-			}
-			c := &conn{
-				fd:        srv.udpListener,
-				addr:      from,
-				flags:     inboundConn,
-				cont:      make(chan error),
-				transport: newUdpTransport(srv.udpListener, from),
-			}
-			connections[from.IP.String()] = c.transport.(*UdpTransport)
-			if err := connections[from.IP.String()].HandlePacket(buf[:nbytes]); err != nil {
-				log.Trace("error handling packet", "from", from.IP.String(), "err", err)
-			}
-			go func() {
-				node := enode.NewV4(pubkey, from.IP, from.Port, from.Port)
-				srv.setupUDPConn(c, node)
-			}()
 		}
 	}()
+
 	return nil
 }
 
 func (srv *Server) dialSetupUDPConn(fd net.Conn, flags connFlag, from *enode.Node) error {
-	log.Info("dial setup called")
-	udpAddr := &net.UDPAddr{IP: from.IP(), Port: from.TCP()}
-	c := &conn{
-		fd:    srv.udpListener,
-		addr:  udpAddr,
-		flags: flags,
-		cont:  make(chan error),
-		// fd needs to be retrieved from listener... dial don't really work with UDP
-		transport: newUdpTransport(srv.udpListener, udpAddr),
-	}
-	srv.newOutboundUdpConn <- c.transport.(*UdpTransport)
-	log.Info("nodeid", "id", from.ID())
-	return srv.setupUDPConn(c, from)
+	log.Info("dial setup called", "id", from.ID(), "Ip", from.IP())
+	return nil
 }
 
 func (srv *Server) setupUDPConn(c *conn, from *enode.Node) error {
@@ -920,20 +906,7 @@ func (srv *Server) setupUDPConn(c *conn, from *enode.Node) error {
 		clog.Trace("Rejected peer", "err", err, "server", srv.Net.String())
 		return err
 	}
-	// Run the capability nego
-	//tiation handshake.
-	clog.Trace("starting proto handshake")
-	phs, err := c.doProtoHandshake(srv.ourHandshake)
-	if err != nil {
-		clog.Trace("Failed p2p handshake", "err", err, "server", srv.Net.String())
-		return err
-	}
-	clog.Trace("proto handshake passed!")
-	if id := c.node.ID(); !bytes.Equal(crypto.Keccak256(phs.ID), id[:]) {
-		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID), "server", srv.Net.String())
-		return err
-	}
-	c.caps, c.name = phs.Caps, phs.Name
+	c.caps, c.name = srv.ourHandshake.Caps, srv.ourHandshake.Name
 	// This actually runs the conn and returns when the conn shuts down
 	err = srv.checkpoint(c, srv.checkpointAddPeer)
 	if err != nil {
