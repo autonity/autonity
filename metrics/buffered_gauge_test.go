@@ -7,8 +7,8 @@ import (
 )
 
 func BenchmarkBufferedGauge(b *testing.B) {
-	cap := 20
-	g := NewBufferedGauge(&cap)
+	capacity := 20
+	g := NewBufferedGauge(&capacity)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		g.Add(int64(i)) // worst case scenario, we need to reallocate multiple times to increase capacity
@@ -16,8 +16,8 @@ func BenchmarkBufferedGauge(b *testing.B) {
 }
 
 func TestBufferedGauge(t *testing.T) {
-	cap := 20
-	g := NewBufferedGauge(&cap)
+	capacity := 20
+	g := NewBufferedGauge(&capacity)
 	g.Add(int64(47))
 	g.Add(int64(12))
 	//require.Equal(t, 2, g.Len())
@@ -29,8 +29,8 @@ func TestBufferedGauge(t *testing.T) {
 }
 
 func TestBufferedGaugeOversized(t *testing.T) {
-	cap := 5
-	g := NewBufferedGauge(&cap)
+	capacity := 5
+	g := NewBufferedGauge(&capacity)
 	g.Add(int64(47))
 	g.Add(int64(12))
 	g.Add(int64(13))
@@ -62,8 +62,8 @@ func TestBufferedGaugeOversized(t *testing.T) {
 }
 
 func TestBufferedGaugeSnapshot(t *testing.T) {
-	cap := 20
-	g := NewBufferedGauge(&cap)
+	capacity := 20
+	g := NewBufferedGauge(&capacity)
 	g.Add(int64(47))
 	snapshot := g.Snapshot()
 	g.Clear()
@@ -73,8 +73,8 @@ func TestBufferedGaugeSnapshot(t *testing.T) {
 }
 
 func TestBufferedGaugeSnapshotAndClear(t *testing.T) {
-	cap := 20
-	g := NewBufferedGauge(&cap)
+	capacity := 20
+	g := NewBufferedGauge(&capacity)
 	g.Add(int64(47))
 	g.Add(int64(48))
 	g.Add(int64(49))

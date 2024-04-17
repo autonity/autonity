@@ -28,11 +28,6 @@ import (
 	"github.com/autonity/autonity/trie"
 )
 
-const (
-	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 256
-	inmemoryMessages  = 8192
-)
 
 // ErrStartedEngine is returned if the engine is already started
 var ErrStartedEngine = errors.New("started engine")

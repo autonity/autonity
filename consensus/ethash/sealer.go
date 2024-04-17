@@ -46,7 +46,7 @@ var (
 	errInvalidSealResult = errors.New("invalid or stale proof-of-work solution")
 )
 
-func (ethash *Ethash) SetResultChan(resultCh chan<- *types.Block) {
+func (ethash *Ethash) SetResultChan(_ chan<- *types.Block) {
 }
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies

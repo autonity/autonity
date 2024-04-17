@@ -15,6 +15,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 )
 
@@ -39,7 +40,27 @@ var (
 		message.PrevoteCode:   PrevoteNetworkMsg,
 		message.PrecommitCode: PrecommitNetworkMsg,
 	}
+	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, nil)                  // time between round start and proposal sent
+	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, getIntPointer(1024))   // time between round start and proposal receiv
+	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, getIntPointer(1024)) // time to verify proposal
+	DefaultProcessBg   = metrics.NewRegisteredBufferedGauge("acn/any/process", nil, nil)                       // time to verify proposal
 )
+
+func getIntPointer(val int) *int {
+	return &val
+}
+
+func getProcessMetric(msgCode uint64) metrics.BufferedGauge {
+	switch msgCode {
+	case 0x11:
+		return ProposalProcessBg
+	case 0x12:
+		return PrevoteProcessBg
+	case 0x13:
+		return PrecommitProcessBg
+	}
+	return DefaultProcessBg
+}
 
 // Protocol implements consensus.Handler.Protocol
 func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
@@ -133,6 +154,11 @@ func handleConsensusMsg[T any, PT interface {
 	}
 
 	go func() {
+		if metrics.Enabled {
+			defer func(start time.Time) {
+				getProcessMetric(p2pMsg.Code).Add((time.Since(start).Nanoseconds()))
+			}(time.Now())
+		}
 		if !sb.coreStarted.Load() {
 			sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 			return

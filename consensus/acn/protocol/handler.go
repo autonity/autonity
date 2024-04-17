@@ -7,7 +7,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
@@ -16,13 +15,6 @@ import (
 // HandlerFunc is a callback to invoke from an outside runner after the boilerplate
 // exchanges have passed.
 type HandlerFunc func(peer *Peer) error
-
-var (
-	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, getIntPointer(1000))  // time between round start and proposal sent
-	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, getIntPointer(5000))   // time between round start and proposal receiv
-	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, getIntPointer(5000)) // time to verify proposal
-	DefaultProcessBg   = metrics.NewRegisteredBufferedGauge("acn/any/process", nil, nil)                       // time to verify proposal
-)
 
 // Backend defines the data retrieval methods to serve remote requests and the
 // callback methods to invoke on remote deliveries.
@@ -131,16 +123,4 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 		}
 	}
 	return fmt.Errorf("%w: %v", errInvalidMsgCode, msg.Code)
-}
-
-func getProcessMetric(msgCode uint64) metrics.BufferedGauge {
-	switch msgCode {
-	case 0x11:
-		return ProposalProcessBg
-	case 0x12:
-		return PrevoteProcessBg
-	case 0x13:
-		return PrecommitProcessBg
-	}
-	return DefaultProcessBg
 }

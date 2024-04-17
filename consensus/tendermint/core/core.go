@@ -154,11 +154,11 @@ func (c *Core) Step() Step {
 }
 
 func (c *Core) Post(ev any) {
-	switch ev.(type) {
+	switch ev := ev.(type) {
 	case events.CommitEvent:
-		c.committedSub <- ev.(events.CommitEvent)
+		c.committedSub <- ev
 	case events.NewCandidateBlockEvent:
-		c.candidateBlockSub <- ev.(events.NewCandidateBlockEvent)
+		c.candidateBlockSub <- ev
 	}
 }
 

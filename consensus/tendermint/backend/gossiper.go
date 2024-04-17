@@ -24,9 +24,6 @@ type Gossiper struct {
 	concurrencyLimiter chan struct{}
 }
 
-func getIntPointer(val int) *int {
-	return &val
-}
 func NewGossiper(recentMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]], knownMessages *lru.LRU[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
 	return &Gossiper{
 		recentMessages:     recentMessages,
@@ -78,7 +75,7 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 	if g.broadcaster != nil && len(targets) > 0 {
 		ps := g.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
-			// not needed after go1.22 - keep these for backward compatibiltiy
+			// not needed after go1.22 - keep these for backward compatibilitiy
 			addr := addr
 			p := p
 			go func() {
