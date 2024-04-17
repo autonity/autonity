@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
@@ -99,7 +98,7 @@ func (t *rlpxTransport) WriteMsg(msg Msg) error {
 	// Set metrics.
 	msg.meterSize = size
 	if metrics.Enabled && msg.meterCap.Name != "" { // don't meter non-subprotocol messages
-		data, packets := getP2PMetricEgress(msg.meterCode, msg.meterCap.Name, strconv.Itoa(int(msg.meterCap.Version)))
+		data, packets := getP2PMetricEgress(msg.meterCode, msg.meterCap.Name, msg.meterCap.Version)
 		data.Mark(int64(msg.meterSize))
 		packets.Mark(1)
 	}

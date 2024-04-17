@@ -408,7 +408,7 @@ func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Me
 	}
 }
 
-func getP2PMetricEgress(code uint64, name, version string) (metrics.Meter, metrics.Meter) {
+func getP2PMetricEgress(code uint64, name string, version uint) (metrics.Meter, metrics.Meter) {
 	switch code {
 	case 0x02:
 		return TransactionPayloadEg, TransactionPacketsEg
