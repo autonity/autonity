@@ -7,20 +7,19 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/crypto"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
@@ -384,6 +383,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	case <-stop:
 		return nil
 	}
+
 	sb.setResultChan(results)
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{

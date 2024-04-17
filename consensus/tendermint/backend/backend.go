@@ -42,12 +42,7 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey,
-	vmConfig *vm.Config,
-	services *interfaces.Services,
-	evMux *event.TypeMux,
-	ms *tendermintCore.MsgStore,
-	log log.Logger) *Backend {
+func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, services *interfaces.Services, evMux *event.TypeMux, ms *tendermintCore.MsgStore, log log.Logger, noGossip bool) *Backend {
 
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
@@ -66,7 +61,7 @@ func New(privateKey *ecdsa.PrivateKey,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend, services, backend.address, log)
+	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
 
 	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
