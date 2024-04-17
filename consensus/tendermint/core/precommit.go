@@ -8,6 +8,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
@@ -38,7 +39,6 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
 	if metrics.Enabled {
-		//PrecommitSentBg.Add(time.Since(c.newRound).Nanoseconds())
 		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 	PrevoteStepFiveBg.Add(time.Since(n).Nanoseconds())
@@ -91,26 +91,21 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 }
 
 func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Precommit, from, to string) {
-	l, ok := c.logger.GetHandler().(*log.GlogHandler)
-	if ok && l.GetLevel() < log.LvlDebug {
-		return
-	}
-	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
-		"currentHeight", c.Height(),
+		"currentHeight", log.Lazy{Fn: c.Height},
 		"msgHeight", precommit.H(),
-		"currentRound", c.Round(),
+		"currentRound", log.Lazy{Fn: c.Round},
 		"msgRound", precommit.R(),
 		"currentStep", c.step,
-		"isProposer", c.IsProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+		"isProposer", log.Lazy{Fn: c.IsProposer},
+		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", precommit.Value() == common.Hash{},
 		"hash", precommit.Value(),
 		"type", "Precommit",
-		"totalVotes", c.curRoundMessages.PrecommitsTotalPower(),
-		"totalNilVotes", c.curRoundMessages.PrecommitsPower(common.Hash{}),
-		"proposedBlockVote", c.curRoundMessages.PrecommitsPower(currentProposalHash),
+		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrecommitsTotalPower},
+		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(common.Hash{}) }},
+		"proposedBlockVote", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(c.curRoundMessages.ProposalHash()) }},
 	)
 }

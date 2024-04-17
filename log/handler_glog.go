@@ -75,12 +75,6 @@ func (h *GlogHandler) Verbosity(level Lvl) {
 	atomic.StoreUint32(&h.level, uint32(level))
 }
 
-// Verbosity sets the glog verbosity ceiling. The verbosity of individual packages
-// and source files can be raised using Vmodule.
-func (h *GlogHandler) GetLevel() Lvl {
-	return Lvl(atomic.LoadUint32(&h.level))
-}
-
 // Vmodule sets the glog verbosity pattern.
 //
 // The syntax of the argument is a comma-separated list of pattern=N, where the

@@ -126,7 +126,7 @@ func (sb *Backend) Address() common.Address {
 // Broadcast implements tendermint.Backend.Broadcast
 func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	// send to others
-	go sb.Gossip(committee, message)
+	sb.Gossip(committee, message)
 	// send to self
 	go sb.Post(events.MessageEvent{
 		Message: message,

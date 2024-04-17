@@ -3,7 +3,6 @@ package protocol
 import (
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -122,16 +121,10 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 		return err
 	}
 	if msg.Size > MaxMessageSize {
-		return fmt.Errorf("%w: %v > %v", errMsgTooLarge, msg.Size, MaxMessageSize)
+		errCh <- fmt.Errorf("%w: %v > %v", errMsgTooLarge, msg.Size, MaxMessageSize)
 	}
-	defer msg.Discard()
+	//defer msg.Discard()
 
-	// Track the amount of time it takes to serve the request and run the ACN
-	if metrics.Enabled {
-		defer func(start time.Time) {
-			getProcessMetric(msg.Code).Add((time.Since(start).Nanoseconds()))
-		}(time.Now())
-	}
 	if handler, ok := backend.Chain().Engine().(consensus.Handler); ok {
 		if handled, err := handler.HandleMsg(peer.address, msg, errCh); handled {
 			return err
@@ -139,6 +132,7 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 	}
 	return fmt.Errorf("%w: %v", errInvalidMsgCode, msg.Code)
 }
+
 func getProcessMetric(msgCode uint64) metrics.BufferedGauge {
 	switch msgCode {
 	case 0x11:

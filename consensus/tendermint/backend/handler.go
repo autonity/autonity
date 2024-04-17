@@ -14,6 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 )
 
@@ -68,9 +69,6 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return false, nil
 	}
 
-	//sb.coreMu.Lock()
-	//defer sb.coreMu.Unlock()
-
 	switch msg.Code {
 	case ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
@@ -110,43 +108,58 @@ func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
-	buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
+	//buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
 	// We copy the message here as it can't be saved directly due to
 	// a call to Discard in the eth handler which is going to empty this buffer.
-	if _, err := io.Copy(buffer, p2pMsg.Payload); err != nil {
+	//var buffer bytes.Buffer
+	//if _, err := io.Copy(&buffer, p2pMsg.Payload); err != nil {
+	//	return true, err
+	//}
+	//hash := crypto.Hash(buffer.Bytes())
+	//if sb.knownMessages.Contains(hash) {
+	//	return true, nil
+	//}
+
+	bReader := p2pMsg.Payload.(*bytes.Reader)
+	hash, err := crypto.HashFromIOReader(bReader)
+	if err != nil {
+		log.Error("Failed to hash payload", "error", err)
 		return true, err
 	}
-	p2pMsg.Payload = bytes.NewReader(buffer.Bytes())
-	if !sb.coreStarted.Load() {
-		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
-		return true, nil // return nil to avoid shutting down connection during block sync.
-	}
-	hash := crypto.Hash(buffer.Bytes())
-	// Mark peer's message as known.
-	ms, ok := sb.recentMessages.Get(sender)
-	if ok {
-		if !ms.Contains(hash) {
-			ms.Add(hash, true)
-		}
-	} else {
-		ms = lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
-		ms.Add(hash, true)
-		sb.recentMessages.Add(sender, ms)
-	}
-	// Mark the message known for ourselves
+	bReader.Seek(0, io.SeekStart)
+	p2pMsg.Payload = bReader
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
-	sb.knownMessages.Add(hash, true)
-	msg := PT(new(T))
-	if err := p2pMsg.Decode(msg); err != nil {
-		sb.logger.Error("Error decoding consensus message", "err", err)
-		return true, err
-	}
-	go sb.Post(events.MessageEvent{
-		Message: msg,
-		ErrCh:   errCh,
-	})
+
+	go func() {
+		if !sb.coreStarted.Load() {
+			sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
+			return
+		}
+		// Mark peer's message as known.
+		ms, ok := sb.recentMessages.Get(sender)
+		if ok {
+			if !ms.Contains(hash) {
+				ms.Add(hash, true)
+			}
+		} else {
+			ms = lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+			ms.Add(hash, true)
+			sb.recentMessages.Add(sender, ms)
+		}
+		sb.knownMessages.Add(hash, true)
+		msg := PT(new(T))
+		if err := p2pMsg.Decode(msg); err != nil {
+			sb.logger.Error("Error decoding consensus message", "err", err)
+			errCh <- err
+			return
+		}
+		sb.Post(events.MessageEvent{
+			Message: msg,
+			ErrCh:   errCh,
+		})
+	}()
 	return true, nil
 }
 

@@ -34,13 +34,11 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign)
 	c.sentProposal = true
 	c.backend.SetProposedBlockHash(block.Hash())
-	c.logger.Info("Proposing new block", "proposal", proposal.Block().Hash(), "round", c.Round(), "height", c.Height().Uint64())
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal, c.address.String(), "broadcast")
 	c.Broadcaster().Broadcast(proposal)
 	if metrics.Enabled {
 		now := time.Now()
 		ProposalSentTimer.Update(now.Sub(c.newRound))
-		//ProposalSentBg.Add(now.Sub(c.newRound).Nanoseconds())
 		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
 		ProposalSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
@@ -89,7 +87,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	if metrics.Enabled {
 		now := time.Now()
 		ProposalReceivedTimer.Update(now.Sub(c.newRound))
-		//ProposalReceivedBg.Add(now.Sub(c.newRound).Nanoseconds())
 		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
 		ProposalReceivedBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
@@ -181,22 +178,18 @@ func (c *Proposer) StopFutureProposalTimer() {
 }
 
 func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Propose, from, to string) {
-	l, ok := c.logger.GetHandler().(*log.GlogHandler)
-	if ok && l.GetLevel() < log.LvlDebug {
-		return
-	}
 	c.logger.Debug(message,
 		"type", "Proposal",
 		"from", from,
 		"to", to,
-		"currentHeight", c.Height(),
+		"currentHeight", log.Lazy{Fn: c.Height},
 		"msgHeight", proposal.H(),
-		"currentRound", c.Round(),
+		"currentRound", log.Lazy{Fn: c.Round},
 		"msgRound", proposal.R(),
 		"currentStep", c.step,
-		"isProposer", c.IsProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
-		"isNilMsg", proposal.Block().Hash() == common.Hash{},
-		"hash", proposal.Block().Hash(),
+		"isProposer", log.Lazy{Fn: c.IsProposer},
+		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
+		"isNilMsg", log.Lazy{Fn: func() bool { return proposal.Block().Hash() == common.Hash{} }},
+		"hash", log.Lazy{Fn: func() common.Hash { return proposal.Block().Hash() }},
 	)
 }

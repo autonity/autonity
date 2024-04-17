@@ -12,35 +12,29 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/metrics"
 )
 
 type Gossiper struct {
-	recentMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
-	knownMessages  *lru.LRU[common.Hash, bool]                           // the cache of self messages
-	address        common.Address                                        // address of the local peer
-	broadcaster    consensus.Broadcaster
-	logger         log.Logger
-	stopped        chan struct{}
+	recentMessages     *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
+	knownMessages      *lru.LRU[common.Hash, bool]                           // the cache of self messages
+	address            common.Address                                        // address of the local peer
+	broadcaster        consensus.Broadcaster
+	logger             log.Logger
+	stopped            chan struct{}
+	concurrencyLimiter chan struct{}
 }
-
-var (
-	GossiperStepOneBg   = metrics.NewRegisteredBufferedGauge("gossiper/one.bg", nil, getIntPointer(256))   // time between round start and precommit sent
-	GossiperStepTwoBg   = metrics.NewRegisteredBufferedGauge("gossiper/two.bg", nil, getIntPointer(256))   // time between round start and precommit sent
-	GossiperStepThreeBg = metrics.NewRegisteredBufferedGauge("gossiper/three.bg", nil, getIntPointer(256)) // time between round start and precommit sent
-	GossiperFullBg      = metrics.NewRegisteredBufferedGauge("gossiper/total.bg", nil, getIntPointer(256)) // time between round start and precommit sent
-)
 
 func getIntPointer(val int) *int {
 	return &val
 }
 func NewGossiper(recentMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]], knownMessages *lru.LRU[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
 	return &Gossiper{
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		address:        address,
-		logger:         logger,
-		stopped:        stopped,
+		recentMessages:     recentMessages,
+		knownMessages:      knownMessages,
+		address:            address,
+		logger:             logger,
+		stopped:            stopped,
+		concurrencyLimiter: make(chan struct{}, 64),
 	}
 }
 
@@ -69,42 +63,45 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 }
 
 func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
-	n1 := time.Now()
 	hash := message.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
 	}
-	GossiperStepOneBg.Add(time.Since(n1).Nanoseconds())
-	n2 := time.Now()
+	code := NetworkCodes[message.Code()]
+	payload := message.Payload()
 	targets := make(map[common.Address]struct{}, len(committee))
 	for _, val := range committee {
 		if val.Address != g.address {
 			targets[val.Address] = struct{}{}
 		}
 	}
-	GossiperStepTwoBg.Add(time.Since(n2).Nanoseconds())
 	if g.broadcaster != nil && len(targets) > 0 {
 		ps := g.broadcaster.FindPeers(targets)
 		for addr, p := range ps {
-			n3 := time.Now()
-			ms, ok := g.recentMessages.Get(addr)
-			if ok {
-				if ms.Contains(hash) {
-					// This peer had this event, skip it
-					continue
+			// not needed after go1.22 - keep these for backward compatibiltiy
+			addr := addr
+			p := p
+			go func() {
+				defer func() {
+					<-g.concurrencyLimiter
+				}()
+				g.concurrencyLimiter <- struct{}{}
+				ms, ok := g.recentMessages.Get(addr)
+				if ok {
+					if ms.Contains(hash) {
+						// This peer had this event, skip it
+						return
+					}
+					ms.Add(hash, true)
+				} else {
+					ms = lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+					ms.Add(hash, true)
+					g.recentMessages.Add(addr, ms)
 				}
-				ms.Add(hash, true)
-			} else {
-				ms = lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
-				ms.Add(hash, true)
-				g.recentMessages.Add(addr, ms)
-			}
-
-			go p.SendRaw(NetworkCodes[message.Code()], message.Payload()) //nolint
-			GossiperStepThreeBg.Add(time.Since(n3).Nanoseconds())
+				p.SendRaw(code, payload) //nolint
+			}()
 		}
 	}
-	GossiperFullBg.Add(time.Since(n1).Nanoseconds())
 }
 
 func (g *Gossiper) AskSync(header *types.Header) {

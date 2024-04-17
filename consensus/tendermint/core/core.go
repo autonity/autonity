@@ -534,7 +534,6 @@ type Broadcaster struct {
 }
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
-	logger := s.Logger().New("step", s.Step())
-	logger.Debug("Broadcasting", "message", msg.String())
+	s.logger.Debug("Broadcasting", "message", log.Lazy{Fn: msg.String})
 	s.BroadcastAll(msg)
 }

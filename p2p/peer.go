@@ -39,6 +39,28 @@ import (
 
 var (
 	ErrShuttingDown = errors.New("shutting down")
+	//Note: versions are hardocoded in metric, if there is a versio change in future new versions should be added here
+	TransactionPayloadIn          = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x02", nil)
+	TransactionPacketsIn          = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x02/packets", nil)
+	NewPooledTransactionPayloadIn = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x08", nil)
+	NewPooledTransactionPacketsIn = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x08/packets", nil)
+	ProposalPayloadIn             = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x11", nil)
+	ProposalPacketsIn             = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x11/packets", nil)
+	PrevotePayloadIn              = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x12", nil)
+	PrevotePacketsIn              = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x12/packets", nil)
+	PrecommitPayloadIn            = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x13", nil)
+	PrecommitPacketsIn            = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x13/packets", nil)
+
+	TransactionPayloadEg          = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x02", nil)
+	TransactionPacketsEg          = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x02/packets", nil)
+	NewPooledTransactionPayloadEg = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x08", nil)
+	NewPooledTransactionPacketsEg = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x08/packets", nil)
+	ProposalPayloadEg             = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x11", nil)
+	ProposalPacketsEg             = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x11/packets", nil)
+	PrevotePayloadEg              = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x12", nil)
+	PrevotePacketsEg              = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x12/packets", nil)
+	PrecommitPayloadEg            = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x13", nil)
+	PrecommitPacketsEg            = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x13/packets", nil)
 )
 
 const (
@@ -354,9 +376,9 @@ func (p *Peer) handle(msg Msg) error {
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
 		if metrics.Enabled {
-			m := fmt.Sprintf("%s/%s/%d/%#02x", ingressMeterName, proto.Name, proto.Version, msg.Code-proto.offset)
-			metrics.GetOrRegisterMeter(m, nil).Mark(int64(msg.meterSize))
-			metrics.GetOrRegisterMeter(m+"/packets", nil).Mark(1)
+			data, packet := getP2PMetricIngress(msg.Code-proto.offset, proto)
+			data.Mark(int64(msg.meterSize))
+			packet.Mark(1)
 		}
 		select {
 		case proto.in <- msg:
@@ -368,6 +390,41 @@ func (p *Peer) handle(msg Msg) error {
 	return nil
 }
 
+func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Meter) {
+	switch code {
+	case 0x02:
+		return TransactionPayloadIn, TransactionPacketsIn
+	case 0x08:
+		return NewPooledTransactionPayloadIn, NewPooledTransactionPacketsIn
+	case 0x11:
+		return ProposalPayloadIn, ProposalPacketsIn
+	case 0x12:
+		return PrevotePayloadIn, PrevotePacketsIn
+	case 0x13:
+		return PrecommitPayloadIn, PrecommitPacketsIn
+	default:
+		m := fmt.Sprintf("%s/%s/%d/%#02x", ingressMeterName, proto.Name, proto.Version, code)
+		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil)
+	}
+}
+
+func getP2PMetricEgress(code uint64, name, version string) (metrics.Meter, metrics.Meter) {
+	switch code {
+	case 0x02:
+		return TransactionPayloadEg, TransactionPacketsEg
+	case 0x08:
+		return NewPooledTransactionPayloadEg, NewPooledTransactionPacketsEg
+	case 0x11:
+		return ProposalPayloadEg, ProposalPacketsEg
+	case 0x12:
+		return PrevotePayloadEg, PrevotePacketsEg
+	case 0x13:
+		return PrecommitPayloadEg, PrecommitPacketsEg
+	default:
+		m := fmt.Sprintf("%s/%s/%d/%#02x", egressMeterName, name, version, code)
+		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil)
+	}
+}
 func countMatchingProtocols(protocols []Protocol, caps []Cap) int {
 	n := 0
 	for _, cap := range caps {

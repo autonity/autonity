@@ -16,7 +16,7 @@ import (
 	consensus "github.com/autonity/autonity/consensus"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	types "github.com/autonity/autonity/core/types"
-	lru "github.com/hashicorp/golang-lru/v2"
+	expirable "github.com/hashicorp/golang-lru/v2/expirable"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -96,10 +96,10 @@ func (mr *MockGossiperMockRecorder) Gossip(committee, message any) *gomock.Call 
 }
 
 // KnownMessages mocks base method.
-func (m *MockGossiper) KnownMessages() *lru.Cache[common.Hash, bool] {
+func (m *MockGossiper) KnownMessages() *expirable.LRU[common.Hash, bool] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KnownMessages")
-	ret0, _ := ret[0].(*lru.Cache[common.Hash, bool])
+	ret0, _ := ret[0].(*expirable.LRU[common.Hash, bool])
 	return ret0
 }
 
@@ -110,10 +110,10 @@ func (mr *MockGossiperMockRecorder) KnownMessages() *gomock.Call {
 }
 
 // RecentMessages mocks base method.
-func (m *MockGossiper) RecentMessages() *lru.Cache[common.Address, *lru.Cache[common.Hash, bool]] {
+func (m *MockGossiper) RecentMessages() *expirable.LRU[common.Address, *expirable.LRU[common.Hash, bool]] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RecentMessages")
-	ret0, _ := ret[0].(*lru.Cache[common.Address, *lru.Cache[common.Hash, bool]])
+	ret0, _ := ret[0].(*expirable.LRU[common.Address, *expirable.LRU[common.Hash, bool]])
 	return ret0
 }
 

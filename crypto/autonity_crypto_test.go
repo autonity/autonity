@@ -1,13 +1,18 @@
 package crypto
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/hex"
+	"io"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
 )
 
 func TestSaveNodeKey(t *testing.T) {
@@ -193,4 +198,54 @@ func ecdsaPOPVerify(sig []byte, hash common.Hash, expectedSigner common.Address)
 	}
 
 	return nil
+}
+
+func BenchmarkHash(b *testing.B) {
+	var reader io.Reader
+	payload := make([]byte, 1024*21)
+	rand.Read(payload)
+	reader = bytes.NewReader(payload)
+
+	buffer := bytes.NewBuffer(make([]byte, 0, 1024*21))
+	io.Copy(buffer, reader)
+	msgCopy := bytes.NewReader(buffer.Bytes())
+	reader = bytes.NewReader(buffer.Bytes())
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		var buffer bytes.Buffer
+		io.Copy(&buffer, reader)
+		hash := Hash(buffer.Bytes())
+		reader = bytes.NewReader(payload)
+		b.StopTimer()
+		require.NotEqual(b, hash, common.Hash{})
+		require.Equal(b, reader, msgCopy)
+	}
+}
+
+func BenchmarkHashFromIOReader(b *testing.B) {
+	var reader io.Reader
+	payload := make([]byte, 1024*21)
+	rand.Read(payload)
+	reader = bytes.NewReader(payload)
+	bReader := reader.(*bytes.Reader)
+
+	//msgCopy to hash using data
+	buffer := bytes.NewBuffer(make([]byte, 0, 1024*21))
+	io.Copy(buffer, reader)
+	msgCopy := bytes.NewReader(buffer.Bytes())
+
+	bReader.Seek(0, io.SeekStart)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		hash, _ := HashFromIOReader(bReader)
+		bReader.Seek(0, io.SeekStart)
+		b.StopTimer()
+
+		require.Equal(b, bReader, msgCopy)
+		hash2 := Hash(buffer.Bytes())
+		require.Equal(b, hash, hash2)
+	}
 }
