@@ -17,9 +17,9 @@ import (
 
 /*
 *
-  - TestCollusionPVN, it creates a faulty party and nominates a none leader to propose an invalid new proposal, while
-    the followers prevote for that invalid proposal as valid. Since proposal is not accountable for the time being,
-    thus, we cannot expect the proposer is slashed, however we can slash those followers by PVN rule.
+  - TestCollusionPVN, it creates a faulty party and nominates a leader to propose an invalid new proposal, while
+    the followers prevote for that invalid proposal as a valid one. Since new proposal is not accountable for the time
+    being, thus we cannot expect the proposer is slashed, however we can slash those followers by PVN accusation rule.
 */
 func TestCollusionPVN(t *testing.T) {
 	numOfNodes := 8
@@ -38,8 +38,8 @@ func TestCollusionPVN(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	// Accusation of PVN should rise since followers prevote for the planed invalid value.
-	// The faulty party should be slashed, as proposal is not accountable now, thus we cannot
-	// slash the malicious proposer.
+	// The followers should be slashed, as a new proposal is not accountable now, thus we cannot
+	// slash the malicious proposer in this test.
 	b := getCollusionContext(autonity.PVN)
 	for _, f := range b.followers {
 		faultyAddress := crypto.PubkeyToAddress(f.NodeKey.PublicKey)
@@ -57,12 +57,12 @@ func newCollusionPVNPlaner() *collusionPVNPlanner {
 // setupRoles setup message queues for faulty members, and it also setups implementations of interface: propose, prevote
 // and precommit for members.
 func (p *collusionPVNPlanner) setupRoles(members []*gengen.Validator) (*gengen.Validator, []*gengen.Validator) {
-	// To simulate PVN collusion, we ask a member to be leader to propose an invalid proposal,
-	// and the followers should pre-vote for the invalid proposal as valid.
+	// To simulate PVN collusion, we ask a member to be leader to propose an invalid new proposal,
+	// and the followers should pre-vote for the invalid proposal as a valid one.
 	leader := members[0]
 	followers := members[1:]
 
-	// start to setupRoles the message queues by putting messages in it.
+	// setup collusion context functions
 	leader.TendermintServices = &interfaces.Services{Broadcaster: newColludedPVNLeader}
 	for _, f := range followers {
 		f.TendermintServices = &interfaces.Services{Prevoter: newColludedPVNFollower}
@@ -104,7 +104,6 @@ type colludedPVNLeader struct {
 func (c *colludedPVNLeader) Broadcast(msg message.Msg) {
 	ctx := getCollusionContext(autonity.PVN)
 	if !ctx.isReady() {
-		// resolve a future height, and setup the context on that height.
 		c.setupContext()
 		c.BroadcastAll(msg)
 		return

@@ -16,17 +16,17 @@ import (
 
 /*
 *
-  - TestCollusionPVO, it creates a faulty party and nominates a proposer to propose an invalid old proposal which carries
+  - TestCollusionPC, it creates a faulty party and nominates a leader to prepare an invalid old proposal which carries
     a valid_round with without having quorum prevotes for that value at that valid_round, and the colluded followers
-    prevote for that old proposal, thus the proposer should be slashed with PO accusation while the followers should be
-    slashed by PVO Accusation.
+    precommit for that old proposal, thus the proposer should be slashed with PO accusation while the followers should be
+    slashed by C1 Accusation.
 */
-func TestCollusionPVO(t *testing.T) {
+func TestCollusionPC(t *testing.T) {
 	numOfNodes := 8
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	initCollusionContext(users, autonity.PVO, newCollusionPVOPlaner())
+	initCollusionContext(users, autonity.C1, newCollusionC1Planer())
 
 	// creates a network of 8 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
@@ -37,75 +37,53 @@ func TestCollusionPVO(t *testing.T) {
 	err = network.WaitToMineNBlocks(120, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
-	b := getCollusionContext(autonity.PVO)
+	b := getCollusionContext(autonity.C1)
 	// the leader should be slashed by PO accusation, since there is no innocence proof for it.
 	leader := crypto.PubkeyToAddress(b.leader.NodeKey.PublicKey)
 	detected := e2e.AccountabilityEventDetected(t, leader, autonity.Accusation, autonity.PO, network)
 	require.Equal(t, true, detected)
 
-	// while the followers should be slashed by PVO accusation since there are no innocence proof for it.
+	// while the followers should be slashed by C1 accusation since there are no innocence proof for it.
 	for _, f := range b.followers {
 		faultyAddress := crypto.PubkeyToAddress(f.NodeKey.PublicKey)
-		detected = e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.PVO, network)
+		detected = e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.C1, network)
 		require.Equal(t, true, detected)
 	}
 }
 
-type collusionPVOPlanner struct{}
+type collusionC1Planner struct{}
 
-func newCollusionPVOPlaner() *collusionPVOPlanner {
-	return &collusionPVOPlanner{}
+func newCollusionC1Planer() *collusionC1Planner {
+	return &collusionC1Planner{}
 }
 
 // setupRoles setup message queues for faulty members, and it also setups implementations of interface: propose, prevote
 // and precommit for members.
-func (p *collusionPVOPlanner) setupRoles(members []*gengen.Validator) (*gengen.Validator, []*gengen.Validator) {
-	// To simulate PVO collusion, we ask a member to be leader to propose an invalid old proposal,
-	// and the followers should pre-vote for the invalid proposal as a valid one.
+func (p *collusionC1Planner) setupRoles(members []*gengen.Validator) (*gengen.Validator, []*gengen.Validator) {
+	// To simulate C1 collusion, we ask a member to be leader to propose an invalid old proposal,
+	// and the followers should pre-commit for the invalid proposal as valid without seeing quorum prevotes of it.
 	leader := members[0]
 	followers := members[1:]
 
 	// setup collusion context functions
-	leader.TendermintServices = &interfaces.Services{Broadcaster: newColludedPVOLeader}
+	leader.TendermintServices = &interfaces.Services{Broadcaster: newColludedC1Leader}
 	for _, f := range followers {
-		f.TendermintServices = &interfaces.Services{Prevoter: newColludedPVOFollower}
+		f.TendermintServices = &interfaces.Services{Precommiter: newColludedC1Follower}
 	}
 	return leader, followers
 }
 
-func newColludedPVOFollower(c interfaces.Core) interfaces.Prevoter {
-	return &colludedPVOFollower{c.(*core.Core), c.Prevoter()}
+func newColludedC1Leader(c interfaces.Core) interfaces.Broadcaster {
+	return &colludedC1Leader{c.(*core.Core), c.Broadcaster()}
 }
 
-type colludedPVOFollower struct {
-	*core.Core
-	interfaces.Prevoter
-}
-
-func (c *colludedPVOFollower) SendPrevote(_ context.Context, _ bool) {
-	h, r, v := getCollusionContext(autonity.PVO).context()
-	// if the leader haven't set up the context, skip.
-	if v == nil || h != c.Height().Uint64() {
-		return
-	}
-
-	// send prevote for the planned invalid proposal.
-	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign)
-	c.SetSentPrevote(true)
-	c.BroadcastAll(vote)
-}
-
-func newColludedPVOLeader(c interfaces.Core) interfaces.Broadcaster {
-	return &colludedPVOLeader{c.(*core.Core), c.Broadcaster()}
-}
-
-type colludedPVOLeader struct {
+type colludedC1Leader struct {
 	*core.Core
 	interfaces.Broadcaster
 }
 
-func (c *colludedPVOLeader) Broadcast(msg message.Msg) {
-	ctx := getCollusionContext(autonity.PVO)
+func (c *colludedC1Leader) Broadcast(msg message.Msg) {
+	ctx := getCollusionContext(autonity.C1)
 	if !ctx.isReady() {
 		c.setupContext()
 		c.BroadcastAll(msg)
@@ -125,8 +103,8 @@ func (c *colludedPVOLeader) Broadcast(msg message.Msg) {
 	c.BroadcastAll(p)
 }
 
-// setupContext, it resolves a future height and round for the colludedPVOLeader to set up the collusion context.
-func (c *colludedPVOLeader) setupContext() {
+// setupContext, it resolves a future height and round for the colludedC1Leader to set up the collusion context.
+func (c *colludedC1Leader) setupContext() {
 	leader := c.Address()
 	futureHeight := c.Height().Uint64() + 5
 	round := int64(0)
@@ -141,5 +119,27 @@ func (c *colludedPVOLeader) setupContext() {
 		}
 	}
 
-	getCollusionContext(autonity.PVO).setupContext(futureHeight, round, types.NewBlockWithHeader(newBlockHeader(futureHeight)))
+	getCollusionContext(autonity.C1).setupContext(futureHeight, round, types.NewBlockWithHeader(newBlockHeader(futureHeight)))
+}
+
+func newColludedC1Follower(c interfaces.Core) interfaces.Precommiter {
+	return &colludedC1Follower{c.(*core.Core), c.Precommiter()}
+}
+
+type colludedC1Follower struct {
+	*core.Core
+	interfaces.Precommiter
+}
+
+func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
+	h, r, v := getCollusionContext(autonity.C1).context()
+	// if the leader haven't set up the context, skip.
+	if v == nil || h != c.Height().Uint64() {
+		return
+	}
+
+	// send precommit for the planned invalid proposal.
+	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign)
+	c.SetSentPrecommit(true)
+	c.Broadcaster().Broadcast(precommit)
 }
