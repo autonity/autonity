@@ -19,15 +19,19 @@ const (
 	DataMsg
 	AckDataMsg
 	UpdateTCPSocket
+	DisseminateRequest
+	DisseminateReport
 	ProtocolMessages
 )
 
-var protocolHandlers = map[uint64]func(p *Peer, data io.Reader) error{
-	PingMsg:         handlePing,
-	PongMsg:         handlePong,
-	DataMsg:         handleData, // random string of bytes
-	AckDataMsg:      handleAckData,
-	UpdateTCPSocket: handleUpdateTcpSocket,
+var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error{
+	PingMsg:            handlePing,
+	PongMsg:            handlePong,
+	DataMsg:            handleData, // random string of bytes
+	AckDataMsg:         handleAckData,
+	UpdateTCPSocket:    handleUpdateTcpSocket,
+	DisseminateRequest: handleDisseminatePacket,
+	DisseminateReport:  handleDisseminateReport,
 	//BlockMsg //serialized block
 	//AckBlockMsg
 }
@@ -59,7 +63,8 @@ type response struct {
 	packet any
 }
 
-func (p *Peer) reply(code uint64, data any) error {
+func (p *Peer) send(code uint64, data any) error {
+	// to remove
 	return p2p.Send(p, code, data)
 }
 
@@ -113,18 +118,17 @@ func (p *Peer) sendPing() (uint64, error) {
 	}
 }
 
-func handlePing(p *Peer, data io.Reader) error {
+func handlePing(_ *Engine, p *Peer, data io.Reader) error {
 	now := uint64(time.Now().UnixNano())
 	var ping PingPacket
 	if err := rlp.Decode(data, &ping); err != nil {
 		return err
 	}
 	fmt.Println("[PING] << , [PONG] >> ", ping.RequestId)
-	return p.reply(PongMsg, PongPacket{ping.RequestId, now})
+	return p.send(PongMsg, PongPacket{ping.RequestId, now})
 }
 
-func handlePong(p *Peer, msg io.Reader) error {
-	fmt.Println("[PREPONG] <<")
+func handlePong(_ *Engine, p *Peer, msg io.Reader) error {
 	var pong PongPacket
 	if err := rlp.Decode(msg, &pong); err != nil {
 		return err
@@ -171,17 +175,17 @@ func (p *Peer) sendDataAsync(data []byte) (chan any, error) {
 	return p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 }
 
-func handleData(p *Peer, data io.Reader) error {
+func handleData(_ *Engine, p *Peer, data io.Reader) error {
 	var dataPacket DataPacket
 	if err := rlp.Decode(data, &dataPacket); err != nil {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	fmt.Println("[DATAPACKET] << ", dataPacket.RequestId)
-	return p.reply(AckDataMsg, AckDataPacket{dataPacket.RequestId, now})
+	return p.send(AckDataMsg, AckDataPacket{dataPacket.RequestId, now})
 }
 
-func handleAckData(p *Peer, msg io.Reader) error {
+func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
 	var ack AckDataPacket
 	if err := rlp.Decode(msg, &ack); err != nil {
 		return err
@@ -189,6 +193,10 @@ func handleAckData(p *Peer, msg io.Reader) error {
 	fmt.Println("[ACKDATA] << ", ack.RequestId)
 	return p.dispatchResponse(ack.RequestId, ack)
 }
+
+// ***************************
+// ***** UpdateTCPSocket **** *
+// ***************************
 
 type TCPOptionsPacket struct {
 	BufferSize uint64
@@ -202,7 +210,7 @@ func (p *Peer) sendUpdateTcpSocket(bufferSize int, noDelay bool) error {
 	return err
 }
 
-func handleUpdateTcpSocket(p *Peer, msg io.Reader) error {
+func handleUpdateTcpSocket(_ *Engine, p *Peer, msg io.Reader) error {
 	log.Info("received handle update")
 	var opts TCPOptionsPacket
 	if err := rlp.Decode(msg, &opts); err != nil {
@@ -210,5 +218,78 @@ func handleUpdateTcpSocket(p *Peer, msg io.Reader) error {
 		return err
 	}
 	p.UpdateSocketOptions(int(opts.BufferSize), opts.NoDelay)
+	return nil
+}
+
+type DisseminatePacket struct {
+	RequestId      uint64
+	OriginalSender uint64
+	Hop            uint8
+	Data           []byte
+}
+
+type DisseminateReportPacket struct {
+	RequestId uint64
+	Sender    uint64
+	Hop       uint8
+	Time      uint64
+}
+
+func (p *Peer) sendDisseminate(dataId uint64, data []byte, senderId uint64, hop uint8) error {
+	fmt.Println("[DisseminatePacket] >> ", dataId, "hop", hop)
+	p2p.Send(p, DisseminateRequest, DisseminatePacket{
+		RequestId:      dataId,
+		OriginalSender: senderId,
+		Hop:            hop,
+		Data:           data,
+	})
+	return nil
+}
+
+func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
+	var packet DisseminatePacket
+	if err := rlp.Decode(data, &packet); err != nil {
+		return err
+	}
+	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
+	fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "HOP", packet.Hop)
+	// check if first time received.
+	if _, ok := e.receivedPackets[packet.RequestId]; ok {
+		// do nothing
+		return nil
+	}
+	e.receivedPackets[packet.RequestId] = struct{}{}
+	if packet.Hop == 1 {
+		// need to disseminate in the group
+		group := disseminationGroup(e.id, e.peers)
+		for i := range group {
+			if group[i] != nil {
+				group[i].sendDisseminate(packet.RequestId, packet.Data, packet.OriginalSender, 0)
+			}
+		}
+	}
+	if packet.Hop == 0 {
+		// todo: include random peer selection logic - maybe set it as a parameter?
+	}
+	e.peers[packet.OriginalSender].send(DisseminateReport, DisseminateReportPacket{
+		RequestId: 0,
+		Sender:    uint64(e.peerToId(p)),
+		Hop:       packet.Hop,
+		Time:      now,
+	}) // should we ask for ACK?
+	return nil
+}
+
+func handleDisseminateReport(e *Engine, _ *Peer, data io.Reader) error {
+	var packet DisseminateReportPacket
+	if err := rlp.Decode(data, &packet); err != nil {
+		return err
+	}
+	channel, ok := e.receivedReports[DataMsg]
+	if !ok {
+		log.Error("Dissemination report id not found!")
+		return nil // or error maybe
+	}
+	channel <- &packet
 	return nil
 }

@@ -222,7 +222,7 @@ func run(c *cli.Context) error {
 	if err != nil {
 		log.Crit("can't load key", "key", key)
 	}
-	engine := newEngine(cfg, skey, c.String(networkModeFlag.Name))
+	engine := newEngine(cfg, localId, skey, c.String(networkModeFlag.Name))
 	if err := rpc.Register(&P2POp{engine}); err != nil {
 		log.Error("can't register RPC", "err", err)
 		os.Exit(1)

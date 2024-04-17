@@ -5,11 +5,12 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math"
+	rand2 "math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
@@ -622,6 +623,67 @@ func (p *P2POp) SimpleBroadcast(args *ArgSizeCount, reply *ResultSimpleBroadcast
 		StartTime:     startTime,
 	}
 	return nil
+}
+
+// ***************************
+// ***** DISSEMINATE *********
+// ***************************
+// Explanations:
+// Assume p = sqrt(n) where n is the network size
+// This mechanism works by splitting N into m groups of m  nodes.
+// From each group we pick-up a random node, we call it the group leader.
+// We broadcast initially only to the group leaders our message.
+// Upon reception, the group leader is responsible to broadcast to the other members of his group the message.
+// For added redundancy, after this first phase, we can randomly select some other nodes for a second round.
+
+func (p *P2POp) Disseminate(args *ArgSizeCount, reply *ResultSimpleBroadcast) error {
+	buff := make([]byte, args.Size)
+	if _, err := rand.Read(buff); err != nil {
+		return err
+	}
+	packetId := rand2.Uint64()
+	p.engine.receivedReports[packetId] = make(chan *DisseminateReportPacket, len(p.engine.peers))
+	groupSize := int(math.Sqrt(float64(len(p.engine.peers))))
+	groupCount := groupSize
+	if groupSize*groupCount < len(p.engine.peers) {
+		groupCount++
+	}
+	for i := 0; i < groupCount; i++ {
+		var target *Peer
+		for target == nil {
+			l := rand2.Intn(groupSize)
+			target = p.engine.peers[i*groupSize+l]
+			// edge cases:
+			// no suitable target found in the group to deal with
+			// last group size
+		}
+		target.sendDisseminate(packetId, buff, uint64(p.engine.id), 1)
+	}
+
+	// phase 2. select some other random peers
+	for {
+		select {
+		case packet := <-p.engine.receivedReports[packetId]:
+
+		}
+	}
+	// Wait for reports
+	return nil
+}
+
+func disseminationGroup(id int, peers []*Peer) []*Peer {
+	// todo: create a special object for each propagation strategy to not overload state
+	groupSize := int(math.Sqrt(float64(len(peers))))
+	groupCount := groupSize
+	if groupSize*groupCount < len(peers) {
+		groupCount++
+	}
+	group := make([]*Peer, groupCount)
+	myGroup := id % groupSize
+	for i := range group {
+		group[i] = peers[myGroup*groupSize+i]
+	}
+	return group // we are returning ourselves so caller be aware
 }
 
 func checkPeer(id int, peers []*Peer) (*Peer, error) {
