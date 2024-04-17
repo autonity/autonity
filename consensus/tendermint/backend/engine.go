@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -381,11 +380,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
 	if metrics.Enabled {
-<<<<<<< HEAD
 		sealDelayBg.Add(delay.Nanoseconds())
-=======
-		sealDelayBg.Add(time.Duration(math.Abs(float64(delay))).Nanoseconds())
->>>>>>> d8560e809 (add option to disable to gossip)
 	}
 	select {
 	case <-time.After(delay):
