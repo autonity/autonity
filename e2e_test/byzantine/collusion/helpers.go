@@ -6,9 +6,8 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
-	e2e "github.com/autonity/autonity/e2e_test"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -25,53 +24,48 @@ import (
  */
 
 type collusionPlaner interface {
-	plan(h uint64, r int64, v *types.Block, members []*gengen.Validator) (map[common.Address]map[uint64]map[int64]map[core.Step]message.Msg, *gengen.Validator, []*gengen.Validator)
+	setupRoles(members []*gengen.Validator) (*gengen.Validator, []*gengen.Validator)
 }
 
 // configurations for different testcases
-var colludedActions = map[autonity.Rule]*colludedBehaviours{}
-var colludedActionsLock = sync.RWMutex{}
+var collusionContexts = map[autonity.Rule]*collusionContext{}
+var collusionContextsLock = sync.RWMutex{}
 
-type colludedBehaviours struct {
+type collusionContext struct {
 	leader       *gengen.Validator
 	followers    []*gengen.Validator
 	h            uint64
 	r            int64
 	rule         autonity.Rule
 	invalidValue *types.Block
-	//lock         sync.RWMutex
-	// message queues for faulty members, each member will consume message and broadcast it.
-	colludedBehaviours map[common.Address]map[uint64]map[int64]map[core.Step]message.Msg
+	lock         sync.RWMutex
 }
 
-func collusionBehaviour(rule autonity.Rule) *colludedBehaviours {
-	colludedActionsLock.RLock()
-	defer colludedActionsLock.RUnlock()
-	return colludedActions[rule]
+func (c *collusionContext) context() (uint64, int64, *types.Block) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.h, c.r, c.invalidValue
 }
 
-/*
-func (cp *colludedBehaviours) removeMessage(actor common.Address, height uint64, round int64, step core.Step) message.Msg {
-	cp.lock.Lock()
-	defer cp.lock.Unlock()
+func (c *collusionContext) setupContext(h uint64, r int64, invalidValue *types.Block) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.h = h
+	c.r = r
+	c.invalidValue = invalidValue
+}
 
-	// Check if the actor exists in the map
-	if actorMap, ok := cp.colludedBehaviours[actor]; ok {
-		// Check if the height exists in the actor map
-		if heightMap, ok := actorMap[height]; ok {
-			// Check if the round exists in the height map
-			if roundMap, ok := heightMap[round]; ok {
-				// Check if the step exists in the round map
-				if msg, ok := roundMap[step]; ok {
-					// Remove the message from the map
-					delete(roundMap, step)
-					return msg
-				}
-			}
-		}
-	}
-	return nil
-}*/
+func (c *collusionContext) isReady() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.invalidValue != nil
+}
+
+func getCollusionContext(rule autonity.Rule) *collusionContext {
+	collusionContextsLock.RLock()
+	defer collusionContextsLock.RUnlock()
+	return collusionContexts[rule]
+}
 
 func newBlockHeader(height uint64) *types.Header {
 	// use random nonce to create different blocks
@@ -85,7 +79,7 @@ func newBlockHeader(height uint64) *types.Header {
 	}
 }
 
-func createCollusionParty(vals []*gengen.Validator, h uint64, r int64, rule autonity.Rule, planer collusionPlaner) {
+func initCollusionContext(vals []*gengen.Validator, rule autonity.Rule, planer collusionPlaner) {
 	f := bft.F(new(big.Int).SetUint64(uint64(len(vals))))
 	if f.Uint64() < 2 {
 		panic("collusion test requires at least two faulty nodes")
@@ -94,19 +88,23 @@ func createCollusionParty(vals []*gengen.Validator, h uint64, r int64, rule auto
 	for i := uint64(0); i < f.Uint64(); i++ {
 		faultyMembers = append(faultyMembers, vals[i])
 	}
-	header := newBlockHeader(h)
-	block := types.NewBlockWithHeader(header)
-	e2e.FuzBlock(block, new(big.Int).SetUint64(h))
 
-	b := &colludedBehaviours{
-		h:            h,
-		r:            r,
-		rule:         rule,
-		invalidValue: block,
+	b := &collusionContext{
+		rule: rule,
 	}
+	b.leader, b.followers = planer.setupRoles(faultyMembers)
 
-	b.colludedBehaviours, b.leader, b.followers = planer.plan(h, r, block, faultyMembers)
-	colludedActionsLock.Lock()
-	defer colludedActionsLock.Unlock()
-	colludedActions[rule] = b
+	collusionContextsLock.Lock()
+	defer collusionContextsLock.Unlock()
+	collusionContexts[rule] = b
+}
+
+func validProposer(address common.Address, h uint64, r int64, core *core.Core) bool {
+	contract := core.Backend().BlockChain().ProtocolContracts()
+	db := core.Backend().BlockChain().StateCache()
+	statedb, err := state.New(core.LastHeader().Root, db, nil)
+	if err != nil {
+		panic("cannot load state from block chain.")
+	}
+	return address == contract.Proposer(core.LastHeader(), statedb, h, r)
 }

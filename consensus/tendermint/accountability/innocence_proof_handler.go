@@ -261,6 +261,7 @@ func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender com
 	}
 	// the proof is valid, withdraw the off chain challenge.
 	fd.removeOffChainAccusation(proof)
+	fd.logger.Info("Withdraw accusation", "rule", proof.Rule, "suspected account", proof.Message.Sender())
 	return nil
 }
 

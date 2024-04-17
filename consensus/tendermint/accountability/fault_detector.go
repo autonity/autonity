@@ -236,7 +236,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
-					fd.logger.Warn("Detected faulty message", "return", err)
+					fd.logger.Warn("Fault detector detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
 			case events.AccountabilityEvent:
