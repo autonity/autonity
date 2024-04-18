@@ -131,7 +131,7 @@ func Hash(data []byte) common.Hash {
 	return blake2b.Sum256(data)
 }
 
-func HashFromIOReader(payload *bytes.Reader) (common.Hash, error) {
+func HashFromReader(payload *bytes.Reader) (common.Hash, error) {
 	hasher, err := blake2b.New256(nil)
 	if err != nil {
 		return common.Hash{}, err

@@ -28,7 +28,6 @@ import (
 	"github.com/autonity/autonity/trie"
 )
 
-
 // ErrStartedEngine is returned if the engine is already started
 var ErrStartedEngine = errors.New("started engine")
 
@@ -345,12 +344,8 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	//sb.coreMu.RLock()
-	//isStarted := sb.coreStarted
-	//stoppedCh := sb.stopped
-	//sb.coreMu.RUnlock()
-	if !sb.coreStarted.Load() {
+func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<- *types.Block, stop <-chan struct{}) error {
+	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
 	// update the block header and signature and propose the block to core engine
@@ -387,12 +382,6 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	}
 	now := time.Now()
 
-	// TODO: investigate coreMu - why do we need it before processing message
-	// capture this time stamp - separate metrics
-	// check if all the validators have such spikes in proposal sent(1s) - data verification - could this be issue with grafna pulling data from influxdb
-	// why is propsoal sent taking long when seal delay is positive
-	// known messages caches - check the core mutex contention
-	//sb.setResultChan(results)
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
@@ -476,10 +465,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 	// the mutex along with coreStarted should prevent double start
 	//sb.coreMu.Lock()
 	//defer sb.coreMu.Unlock()
-	//if sb.coreStarted.Load() {
-	//}
-
-	if !sb.coreStarted.CompareAndSwap(false, true) {
+	if !sb.coreStarting.CompareAndSwap(false, true) {
 		return ErrStartedEngine
 	}
 
@@ -491,6 +477,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 	go sb.faultyValidatorsWatcher(ctx)
 	sb.wg.Add(1)
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
+	sb.coreRunning.CompareAndSwap(false, true)
 	return nil
 }
 
@@ -505,9 +492,10 @@ func (sb *Backend) Close() error {
 	//sb.coreStarted.Store(false)
 	expValue := true
 	newValue := false
-	if !sb.coreStarted.CompareAndSwap(expValue, newValue) {
+	if !sb.coreStarting.CompareAndSwap(expValue, newValue) {
 		return ErrStoppedEngine
 	}
+	sb.coreRunning.CompareAndSwap(true, false)
 	//sb.coreMu.Unlock()
 	// We need to make sure we close sb.stopped before calling sb.core.Stop
 	// otherwise we can end up with a deadlock where sb.core.Stop is waiting

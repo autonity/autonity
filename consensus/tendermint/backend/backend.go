@@ -53,7 +53,7 @@ func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, services *interfaces
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         log,
-		coreStarted:    atomic.Bool{},
+		coreStarting:   atomic.Bool{},
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
@@ -86,7 +86,8 @@ type Backend struct {
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
-	coreStarted       atomic.Bool
+	coreStarting      atomic.Bool
+	coreRunning       atomic.Bool
 	core              interfaces.Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup

@@ -62,6 +62,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	go eventLoop()
 	seal := func() {
 		resultCh := make(chan *types.Block)
+		engine.SetResultChan(resultCh)
 		err = engine.Seal(chain, block, resultCh, nil)
 		if err != nil {
 			t.Error("seal should not return error", err.Error())
@@ -87,6 +88,7 @@ func TestSealCommitted(t *testing.T) {
 	expectedBlock, _ := engine.AddSeal(block)
 
 	resultCh := make(chan *types.Block)
+	engine.SetResultChan(resultCh)
 	err = engine.Seal(chain, block, resultCh, nil)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -425,7 +427,7 @@ func TestClose(t *testing.T) {
 			core:    tendermintC,
 			stopped: make(chan struct{}),
 		}
-		b.coreStarted.Store(true)
+		b.coreStarting.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -443,7 +445,7 @@ func TestClose(t *testing.T) {
 			core:    tendermintC,
 			stopped: make(chan struct{}),
 		}
-		b.coreStarted.Store(true)
+		b.coreStarting.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -465,7 +467,7 @@ func TestClose(t *testing.T) {
 			core:    tendermintC,
 			stopped: make(chan struct{}),
 		}
-		b.coreStarted.Store(true)
+		b.coreStarting.Store(true)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -518,7 +520,7 @@ func TestStart(t *testing.T) {
 			gossiper:   g,
 			blockchain: chain,
 		}
-		b.coreStarted.Store(false)
+		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -527,7 +529,7 @@ func TestStart(t *testing.T) {
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
 		b := &Backend{}
-		b.coreStarted.Store(true)
+		b.coreStarting.Store(true)
 
 		err := b.Start(context.Background())
 		assertError(t, ErrStartedEngine, err)
@@ -550,7 +552,7 @@ func TestStart(t *testing.T) {
 			gossiper:   g,
 			blockchain: chain,
 		}
-		b.coreStarted.Store(false)
+		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -576,7 +578,7 @@ func TestStart(t *testing.T) {
 			gossiper:   g,
 			blockchain: chain,
 		}
-		b.coreStarted.Store(false)
+		b.coreStarting.Store(false)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -631,7 +633,7 @@ func TestMultipleRestart(t *testing.T) {
 		gossiper:   g,
 		blockchain: chain,
 	}
-	b.coreStarted.Store(false)
+	b.coreStarting.Store(false)
 
 	for i := 0; i < times; i++ {
 		err := b.Start(ctx)
@@ -660,14 +662,14 @@ func assertNilError(t *testing.T, err error) {
 
 func assertCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if !b.coreStarted.Load() {
+	if !b.coreStarting.Load() {
 		t.Fatal("expected core to have started")
 	}
 }
 
 func assertNotCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if b.coreStarted.Load() {
+	if b.coreStarting.Load() {
 		t.Fatal("expected core to have stopped")
 	}
 }

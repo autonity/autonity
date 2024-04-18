@@ -620,6 +620,7 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 	}
 
 	resultCh := make(chan *types.Block)
+	engine.SetResultChan(resultCh)
 	err = engine.Seal(chain, block, resultCh, nil)
 	if err != nil {
 		return nil, err

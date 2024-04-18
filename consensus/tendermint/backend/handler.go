@@ -98,14 +98,14 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
 	case SyncNetworkMsg:
-		if !sb.coreStarted.Load() {
+		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Debug("Received sync message", "from", addr)
 		go sb.Post(events.SyncEvent{Addr: addr})
 	case AccountabilityNetworkMsg:
-		if !sb.coreStarted.Load() {
+		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
@@ -129,20 +129,11 @@ func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
-	//buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
-	// We copy the message here as it can't be saved directly due to
-	// a call to Discard in the eth handler which is going to empty this buffer.
-	//var buffer bytes.Buffer
-	//if _, err := io.Copy(&buffer, p2pMsg.Payload); err != nil {
-	//	return true, err
-	//}
-	//hash := crypto.Hash(buffer.Bytes())
-	//if sb.knownMessages.Contains(hash) {
-	//	return true, nil
-	//}
 
+	// we type cast it to byte.Reader because that's the only reader
+	// type we expect here
 	bReader := p2pMsg.Payload.(*bytes.Reader)
-	hash, err := crypto.HashFromIOReader(bReader)
+	hash, err := crypto.HashFromReader(bReader)
 	if err != nil {
 		log.Error("Failed to hash payload", "error", err)
 		return true, err
@@ -152,16 +143,16 @@ func handleConsensusMsg[T any, PT interface {
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
+	if !sb.coreRunning.Load() {
+		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
+		return true, nil
+	}
 
 	go func() {
 		if metrics.Enabled {
 			defer func(start time.Time) {
-				getProcessMetric(p2pMsg.Code).Add((time.Since(start).Nanoseconds()))
+				getProcessMetric(p2pMsg.Code).Add(time.Since(start).Nanoseconds())
 			}(time.Now())
-		}
-		if !sb.coreStarted.Load() {
-			sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
-			return
 		}
 		// Mark peer's message as known.
 		ms, ok := sb.recentMessages.Get(sender)
@@ -203,7 +194,7 @@ func (sb *Backend) SetEnqueuer(enqueuer consensus.Enqueuer) {
 func (sb *Backend) NewChainHead() error {
 	//sb.coreMu.RLock()
 	//defer sb.coreMu.RUnlock()
-	if !sb.coreStarted.Load() {
+	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
 	go sb.Post(events.CommitEvent{})

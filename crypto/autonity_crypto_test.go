@@ -240,7 +240,7 @@ func BenchmarkHashFromIOReader(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		b.StartTimer()
-		hash, _ := HashFromIOReader(bReader)
+		hash, _ := HashFromReader(bReader)
 		bReader.Seek(0, io.SeekStart)
 		b.StopTimer()
 
