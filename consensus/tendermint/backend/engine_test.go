@@ -428,6 +428,7 @@ func TestClose(t *testing.T) {
 			stopped: make(chan struct{}),
 		}
 		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -446,6 +447,7 @@ func TestClose(t *testing.T) {
 			stopped: make(chan struct{}),
 		}
 		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -468,6 +470,7 @@ func TestClose(t *testing.T) {
 			stopped: make(chan struct{}),
 		}
 		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -520,7 +523,6 @@ func TestStart(t *testing.T) {
 			gossiper:   g,
 			blockchain: chain,
 		}
-		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -530,6 +532,7 @@ func TestStart(t *testing.T) {
 	t.Run("engine is running, error returned", func(t *testing.T) {
 		b := &Backend{}
 		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Start(context.Background())
 		assertError(t, ErrStartedEngine, err)
@@ -662,14 +665,14 @@ func assertNilError(t *testing.T, err error) {
 
 func assertCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if !b.coreStarting.Load() {
+	if !b.coreRunning.Load() {
 		t.Fatal("expected core to have started")
 	}
 }
 
 func assertNotCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if b.coreStarting.Load() {
+	if b.coreRunning.Load() {
 		t.Fatal("expected core to have stopped")
 	}
 }

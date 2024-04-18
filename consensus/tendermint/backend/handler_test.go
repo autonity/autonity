@@ -2,10 +2,14 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 
@@ -138,11 +142,22 @@ func TestNewChainHead(t *testing.T) {
 	})
 
 	t.Run("engine is running, no errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		ctx := context.Background()
+		tendermintC := interfaces.NewMockCore(ctrl)
+		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		tendermintC.EXPECT().Post(gomock.Any()).MaxTimes(1)
+		chain, _ := newBlockChain(1)
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
+
 		b := &Backend{
-			eventMux: event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0)),
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
 		}
-		b.coreRunning.Store(true)
-		b.coreStarting.Store(true)
+		b.Start(ctx)
 
 		err := b.NewChainHead()
 		if err != nil {
