@@ -7,7 +7,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,7 @@ func TestCollusionPVO(t *testing.T) {
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	initCollusionContext(users, autonity.PVO, newCollusionPVOPlaner())
+	initCollusion(users, autonity.PVO, newCollusionPVOPlaner())
 
 	// creates a network of 8 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
@@ -37,7 +36,7 @@ func TestCollusionPVO(t *testing.T) {
 	err = network.WaitToMineNBlocks(120, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
-	b := getCollusionContext(autonity.PVO)
+	b := getCollusion(autonity.PVO)
 	// the leader should be slashed by PO accusation, since there is no innocence proof for it.
 	leader := crypto.PubkeyToAddress(b.leader.NodeKey.PublicKey)
 	detected := e2e.AccountabilityEventDetected(t, leader, autonity.Accusation, autonity.PO, network)
@@ -59,18 +58,13 @@ func newCollusionPVOPlaner() *collusionPVOPlanner {
 
 // setupRoles setup message queues for faulty members, and it also setups implementations of interface: propose, prevote
 // and precommit for members.
-func (p *collusionPVOPlanner) setupRoles(members []*gengen.Validator) (*gengen.Validator, []*gengen.Validator) {
+func (p *collusionPVOPlanner) setupRoles(leader *gengen.Validator, followers []*gengen.Validator) {
 	// To simulate PVO collusion, we ask a member to be leader to propose an invalid old proposal,
 	// and the followers should pre-vote for the invalid proposal as a valid one.
-	leader := members[0]
-	followers := members[1:]
-
-	// setup collusion context functions
 	leader.TendermintServices = &interfaces.Services{Broadcaster: newColludedPVOLeader}
 	for _, f := range followers {
 		f.TendermintServices = &interfaces.Services{Prevoter: newColludedPVOFollower}
 	}
-	return leader, followers
 }
 
 func newColludedPVOFollower(c interfaces.Core) interfaces.Prevoter {
@@ -83,16 +77,7 @@ type colludedPVOFollower struct {
 }
 
 func (c *colludedPVOFollower) SendPrevote(_ context.Context, _ bool) {
-	h, r, v := getCollusionContext(autonity.PVO).context()
-	// if the leader haven't set up the context, skip.
-	if v == nil || h != c.Height().Uint64() {
-		return
-	}
-
-	// send prevote for the planned invalid proposal.
-	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign)
-	c.SetSentPrevote(true)
-	c.BroadcastAll(vote)
+	sendPrevote(c.Core, autonity.PVO)
 }
 
 func newColludedPVOLeader(c interfaces.Core) interfaces.Broadcaster {
@@ -105,41 +90,10 @@ type colludedPVOLeader struct {
 }
 
 func (c *colludedPVOLeader) Broadcast(msg message.Msg) {
-	ctx := getCollusionContext(autonity.PVO)
-	if !ctx.isReady() {
-		c.setupContext()
-		c.BroadcastAll(msg)
-		return
-	}
-
-	h, r, v := ctx.context()
-
-	if h != c.Height().Uint64() {
-		c.BroadcastAll(msg)
-		return
-	}
-
-	// send invalid proposal with the planed data.
-	validRound := r - 1
-	p := message.NewPropose(r, h, validRound, v, c.Backend().Sign)
-	c.BroadcastAll(p)
+	sendProposal(c, autonity.PVO, msg)
 }
 
 // setupContext, it resolves a future height and round for the colludedPVOLeader to set up the collusion context.
-func (c *colludedPVOLeader) setupContext() {
-	leader := c.Address()
-	futureHeight := c.Height().Uint64() + 5
-	round := int64(0)
-
-	// make sure the round >= 1, thus we can set the valid round > -1
-	for ; ; round++ {
-		if round == 0 {
-			continue
-		}
-		if validProposer(leader, futureHeight, round, c.Core) {
-			break
-		}
-	}
-
-	getCollusionContext(autonity.PVO).setupContext(futureHeight, round, types.NewBlockWithHeader(newBlockHeader(futureHeight)))
+func (c *colludedPVOLeader) SetupCollusionContext() {
+	setupCollusionContext(c, autonity.PVO)
 }

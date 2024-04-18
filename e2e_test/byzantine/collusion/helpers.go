@@ -6,8 +6,11 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	e2e "github.com/autonity/autonity/e2e_test"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -24,14 +27,23 @@ import (
  */
 
 type collusionPlaner interface {
-	setupRoles(members []*gengen.Validator) (*gengen.Validator, []*gengen.Validator)
+	setupRoles(leader *gengen.Validator, followers []*gengen.Validator)
+}
+
+type faultyBroadcaster interface {
+	SetupCollusionContext()
+	BroadcastAll(msg message.Msg)
+	Height() *big.Int
+	Backend() interfaces.Backend
+	Address() common.Address
+	LastHeader() *types.Header
 }
 
 // configurations for different testcases
-var collusionContexts = map[autonity.Rule]*collusionContext{}
-var collusionContextsLock = sync.RWMutex{}
+var collusions = map[autonity.Rule]*collusion{}
+var collusionsLock = sync.RWMutex{}
 
-type collusionContext struct {
+type collusion struct {
 	leader       *gengen.Validator
 	followers    []*gengen.Validator
 	h            uint64
@@ -41,13 +53,13 @@ type collusionContext struct {
 	lock         sync.RWMutex
 }
 
-func (c *collusionContext) context() (uint64, int64, *types.Block) {
+func (c *collusion) context() (uint64, int64, *types.Block) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.h, c.r, c.invalidValue
 }
 
-func (c *collusionContext) setupContext(h uint64, r int64, invalidValue *types.Block) {
+func (c *collusion) setupContext(h uint64, r int64, invalidValue *types.Block) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.h = h
@@ -55,16 +67,16 @@ func (c *collusionContext) setupContext(h uint64, r int64, invalidValue *types.B
 	c.invalidValue = invalidValue
 }
 
-func (c *collusionContext) isReady() bool {
+func (c *collusion) contextReady() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.invalidValue != nil
 }
 
-func getCollusionContext(rule autonity.Rule) *collusionContext {
-	collusionContextsLock.RLock()
-	defer collusionContextsLock.RUnlock()
-	return collusionContexts[rule]
+func getCollusion(rule autonity.Rule) *collusion {
+	collusionsLock.RLock()
+	defer collusionsLock.RUnlock()
+	return collusions[rule]
 }
 
 func newBlockHeader(height uint64) *types.Header {
@@ -79,7 +91,7 @@ func newBlockHeader(height uint64) *types.Header {
 	}
 }
 
-func initCollusionContext(vals []*gengen.Validator, rule autonity.Rule, planer collusionPlaner) {
+func initCollusion(vals []*gengen.Validator, rule autonity.Rule, planer collusionPlaner) {
 	f := bft.F(new(big.Int).SetUint64(uint64(len(vals))))
 	if f.Uint64() < 2 {
 		panic("collusion test requires at least two faulty nodes")
@@ -89,17 +101,19 @@ func initCollusionContext(vals []*gengen.Validator, rule autonity.Rule, planer c
 		faultyMembers = append(faultyMembers, vals[i])
 	}
 
-	b := &collusionContext{
-		rule: rule,
+	b := &collusion{
+		rule:      rule,
+		leader:    faultyMembers[0],
+		followers: faultyMembers[1:],
 	}
-	b.leader, b.followers = planer.setupRoles(faultyMembers)
+	planer.setupRoles(b.leader, b.followers)
 
-	collusionContextsLock.Lock()
-	defer collusionContextsLock.Unlock()
-	collusionContexts[rule] = b
+	collusionsLock.Lock()
+	defer collusionsLock.Unlock()
+	collusions[rule] = b
 }
 
-func validProposer(address common.Address, h uint64, r int64, core *core.Core) bool {
+func validProposer(address common.Address, h uint64, r int64, core faultyBroadcaster) bool {
 	contract := core.Backend().BlockChain().ProtocolContracts()
 	db := core.Backend().BlockChain().StateCache()
 	statedb, err := state.New(core.LastHeader().Root, db, nil)
@@ -107,4 +121,66 @@ func validProposer(address common.Address, h uint64, r int64, core *core.Core) b
 		panic("cannot load state from block chain.")
 	}
 	return address == contract.Proposer(core.LastHeader(), statedb, h, r)
+}
+
+func sendPrevote(c *core.Core, rule autonity.Rule) {
+	h, r, v := getCollusion(rule).context()
+	// if the leader haven't set up the context, skip.
+	if v == nil || h != c.Height().Uint64() {
+		return
+	}
+
+	// send prevote for the planned invalid proposal.
+	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign)
+	c.SetSentPrevote(true)
+	c.BroadcastAll(vote)
+}
+
+func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
+	ctx := getCollusion(rule)
+	if !ctx.contextReady() {
+		c.SetupCollusionContext()
+		c.BroadcastAll(msg)
+		return
+	}
+
+	h, r, v := ctx.context()
+	if h != c.Height().Uint64() {
+		c.BroadcastAll(msg)
+		return
+	}
+
+	vr := r - 1
+	if rule == autonity.PVN {
+		vr = -1
+	}
+
+	// send invalid proposal with the planed data.
+	p := message.NewPropose(r, h, vr, v, c.Backend().Sign)
+	c.BroadcastAll(p)
+}
+
+func setupCollusionContext(c faultyBroadcaster, rule autonity.Rule) {
+	leader := c.Address()
+	futureHeight := c.Height().Uint64() + 5
+	round := int64(0)
+
+	for ; ; round++ {
+		// select a none proposer to propose faulty value in PVN context.
+		if rule == autonity.PVN && !validProposer(leader, futureHeight, round, c) {
+			break
+		}
+
+		// select a proposer to propose faulty value in PVO and C1 context
+		if round != 0 && rule != autonity.PVN && validProposer(leader, futureHeight, round, c) {
+			break
+		}
+	}
+
+	b := types.NewBlockWithHeader(newBlockHeader(futureHeight))
+	if rule == autonity.PVN {
+		e2e.FuzBlock(b, new(big.Int).SetUint64(futureHeight))
+	}
+
+	getCollusion(rule).setupContext(futureHeight, round, b)
 }

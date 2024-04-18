@@ -7,7 +7,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
@@ -26,7 +25,7 @@ func TestCollusionPC(t *testing.T) {
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	initCollusionContext(users, autonity.C1, newCollusionC1Planer())
+	initCollusion(users, autonity.C1, newCollusionC1Planer())
 
 	// creates a network of 8 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
@@ -37,7 +36,7 @@ func TestCollusionPC(t *testing.T) {
 	err = network.WaitToMineNBlocks(120, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
-	b := getCollusionContext(autonity.C1)
+	b := getCollusion(autonity.C1)
 	// the leader should be slashed by PO accusation, since there is no innocence proof for it.
 	leader := crypto.PubkeyToAddress(b.leader.NodeKey.PublicKey)
 	detected := e2e.AccountabilityEventDetected(t, leader, autonity.Accusation, autonity.PO, network)
@@ -59,67 +58,17 @@ func newCollusionC1Planer() *collusionC1Planner {
 
 // setupRoles setup message queues for faulty members, and it also setups implementations of interface: propose, prevote
 // and precommit for members.
-func (p *collusionC1Planner) setupRoles(members []*gengen.Validator) (*gengen.Validator, []*gengen.Validator) {
+func (p *collusionC1Planner) setupRoles(leader *gengen.Validator, followers []*gengen.Validator) {
 	// To simulate C1 collusion, we ask a member to be leader to propose an invalid old proposal,
 	// and the followers should pre-commit for the invalid proposal as valid without seeing quorum prevotes of it.
-	leader := members[0]
-	followers := members[1:]
-
-	// setup collusion context functions
 	leader.TendermintServices = &interfaces.Services{Broadcaster: newColludedC1Leader}
 	for _, f := range followers {
 		f.TendermintServices = &interfaces.Services{Precommiter: newColludedC1Follower}
 	}
-	return leader, followers
 }
 
 func newColludedC1Leader(c interfaces.Core) interfaces.Broadcaster {
 	return &colludedC1Leader{c.(*core.Core), c.Broadcaster()}
-}
-
-type colludedC1Leader struct {
-	*core.Core
-	interfaces.Broadcaster
-}
-
-func (c *colludedC1Leader) Broadcast(msg message.Msg) {
-	ctx := getCollusionContext(autonity.C1)
-	if !ctx.isReady() {
-		c.setupContext()
-		c.BroadcastAll(msg)
-		return
-	}
-
-	h, r, v := ctx.context()
-
-	if h != c.Height().Uint64() {
-		c.BroadcastAll(msg)
-		return
-	}
-
-	// send invalid proposal with the planed data.
-	validRound := r - 1
-	p := message.NewPropose(r, h, validRound, v, c.Backend().Sign)
-	c.BroadcastAll(p)
-}
-
-// setupContext, it resolves a future height and round for the colludedC1Leader to set up the collusion context.
-func (c *colludedC1Leader) setupContext() {
-	leader := c.Address()
-	futureHeight := c.Height().Uint64() + 5
-	round := int64(0)
-
-	// make sure the round >= 1, thus we can set the valid round > -1
-	for ; ; round++ {
-		if round == 0 {
-			continue
-		}
-		if validProposer(leader, futureHeight, round, c.Core) {
-			break
-		}
-	}
-
-	getCollusionContext(autonity.C1).setupContext(futureHeight, round, types.NewBlockWithHeader(newBlockHeader(futureHeight)))
 }
 
 func newColludedC1Follower(c interfaces.Core) interfaces.Precommiter {
@@ -132,7 +81,7 @@ type colludedC1Follower struct {
 }
 
 func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
-	h, r, v := getCollusionContext(autonity.C1).context()
+	h, r, v := getCollusion(autonity.C1).context()
 	// if the leader haven't set up the context, skip.
 	if v == nil || h != c.Height().Uint64() {
 		return
@@ -142,4 +91,18 @@ func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
 	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign)
 	c.SetSentPrecommit(true)
 	c.Broadcaster().Broadcast(precommit)
+}
+
+type colludedC1Leader struct {
+	*core.Core
+	interfaces.Broadcaster
+}
+
+func (c *colludedC1Leader) Broadcast(msg message.Msg) {
+	sendProposal(c, autonity.C1, msg)
+}
+
+// setupContext, it resolves a future height and round for the colludedC1Leader to set up the collusion context.
+func (c *colludedC1Leader) SetupCollusionContext() {
+	setupCollusionContext(c, autonity.C1)
 }
