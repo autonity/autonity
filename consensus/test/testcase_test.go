@@ -91,6 +91,7 @@ func runTest(t *testing.T, test *testCase) {
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify.(*nonrecursiveTree).internal"),
 			goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+			goleak.IgnoreTopFunction("github.com/hashicorp/golang-lru/v2/expirable.NewLRU[...].func1"),
 			goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
 			goleak.IgnoreTopFunction("github.com/autonity/autonity/miner.(*worker).loop"),
 			goleak.IgnoreTopFunction("github.com/autonity/autonity/miner.(*worker).updater"),

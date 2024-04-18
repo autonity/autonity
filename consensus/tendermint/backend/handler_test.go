@@ -49,23 +49,20 @@ func TestTendermintMessage(t *testing.T) {
 	counter := 0
 	peerCacheNil, peerCacheEmpty, selfCacheEmpty := false, false, false
 
-loop:
 	for {
-		select {
-		case <-tic.C:
-			if ms, ok := backend.recentMessages.Get(testAddress); ms == nil || !ok {
-				peerCacheNil = true
-			} else if _, ok := ms.Get(data.Hash()); !ok {
-				peerCacheEmpty = true
-			}
-			if _, ok := backend.knownMessages.Get(data.Hash()); !ok {
-				selfCacheEmpty = true
-			}
-			if !peerCacheNil && !peerCacheEmpty && !selfCacheEmpty {
-				break loop
-			}
-			peerCacheNil, peerCacheEmpty, selfCacheEmpty = false, false, false
+		<-tic.C
+		if ms, ok := backend.recentMessages.Get(testAddress); ms == nil || !ok {
+			peerCacheNil = true
+		} else if _, ok := ms.Get(data.Hash()); !ok {
+			peerCacheEmpty = true
 		}
+		if _, ok := backend.knownMessages.Get(data.Hash()); !ok {
+			selfCacheEmpty = true
+		}
+		if !peerCacheNil && !peerCacheEmpty && !selfCacheEmpty {
+			break
+		}
+		peerCacheNil, peerCacheEmpty, selfCacheEmpty = false, false, false
 		if counter >= maxWait {
 			t.Fatalf("the cache of messages cannot be found")
 		}
