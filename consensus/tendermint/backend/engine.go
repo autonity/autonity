@@ -447,9 +447,6 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 // Start implements consensus.Start
 // youssef: I'm not sure about the use case of this context in argument
 func (sb *Backend) Start(ctx context.Context) error {
-	// the mutex along with coreStarted should prevent double start
-	//sb.coreMu.Lock()
-	//defer sb.coreMu.Unlock()
 	if !sb.coreStarting.CompareAndSwap(false, true) {
 		return ErrStartedEngine
 	}
