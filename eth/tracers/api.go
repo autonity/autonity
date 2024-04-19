@@ -101,6 +101,18 @@ func (context *chainContext) Engine() consensus.Engine {
 	return context.api.backend.Engine()
 }
 
+func (context *chainContext) GetHeaderByNumber(number uint64) *types.Header {
+	header, err := context.api.backend.HeaderByNumber(context.ctx, rpc.BlockNumber(number))
+	if err != nil {
+		return nil
+	}
+	return header
+}
+
+func (context *chainContext) GetProposer(*types.Header, vm.StateDB, uint64, int64) common.Address {
+	return common.Address{}
+}
+
 func (context *chainContext) GetHeader(hash common.Hash, number uint64) *types.Header {
 	header, err := context.api.backend.HeaderByNumber(context.ctx, rpc.BlockNumber(number))
 	if err != nil {

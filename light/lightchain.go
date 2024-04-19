@@ -21,6 +21,7 @@ package light
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/core/vm"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -515,6 +516,12 @@ func (lc *LightChain) GetAncestor(hash common.Hash, number, ancestor uint64, max
 // caching it (associated with its hash) if found.
 func (lc *LightChain) GetHeaderByNumber(number uint64) *types.Header {
 	return lc.hc.GetHeaderByNumber(number)
+}
+
+// GetProposer retrieves block proposer of height and round with the parent header,
+func (lc *LightChain) GetProposer(*types.Header, vm.StateDB, uint64, int64) common.Address {
+	// todo: can we elect proposer on top of light chain?
+	return common.Address{}
 }
 
 // GetHeaderByNumberOdr retrieves a block header from the database or network

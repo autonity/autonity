@@ -28,6 +28,9 @@ import (
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
 type ChainContext interface {
+	GetProposer(*types.Header, vm.StateDB, uint64, int64) common.Address
+	// GetHeaderByNumber returns the header corresponding to their height
+	GetHeaderByNumber(uint64) *types.Header
 	// GetHeader returns the hash corresponding to their hash.
 	GetHeader(common.Hash, uint64) *types.Header
 	// Engine retrieves the chain's consensus engine.
@@ -58,6 +61,9 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
 		GetHash:     GetHashFn(header, chain),
+		GetHeader:   GetHeaderFn(chain),
+		GetProposer: GetProposerFn(chain),
+
 		Coinbase:    beneficiary,
 		BlockNumber: new(big.Int).Set(header.Number),
 		Time:        new(big.Int).SetUint64(header.Time),
@@ -75,6 +81,8 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			CanTransfer: CanTransfer,
 			Transfer:    Transfer,
 			GetHash:     GetHashFn(header, chain),
+			GetHeader:   GetHeaderFn(chain),
+			GetProposer: GetProposerFn(chain),
 			Coinbase:    header.Coinbase,
 			BlockNumber: new(big.Int).Set(header.Number),
 			Time:        new(big.Int).SetUint64(header.Time),
@@ -110,6 +118,20 @@ func NewEVMTxContext(msg Message) vm.TxContext {
 	return vm.TxContext{
 		Origin:   msg.From(),
 		GasPrice: new(big.Int).Set(msg.GasPrice()),
+	}
+}
+
+// GetProposerFn returns a GetProposerFunc with retrieves the protocol contracts
+func GetProposerFn(chain ChainContext) func(parentHeader *types.Header, db vm.StateDB, height uint64, round int64) common.Address {
+	return func(parentHeader *types.Header, db vm.StateDB, height uint64, round int64) common.Address {
+		return chain.GetProposer(parentHeader, db, height, round)
+	}
+}
+
+// GetHeaderFn returns a GetHeaderFunc which retrieves header by number
+func GetHeaderFn(chain ChainContext) func(n uint64) *types.Header {
+	return func(n uint64) *types.Header {
+		return chain.GetHeaderByNumber(n)
 	}
 }
 

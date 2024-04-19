@@ -200,7 +200,8 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		fd.logger.Info("over rated accusation over a height", "error", err)
 		return err
 	}
-	if err = verifyProofSignatures(fd.blockchain, proof); err != nil {
+
+	if err = verifyProofSignatures(fd.blockchain.GetHeaderByNumber(proof.Message.H()), proof); err != nil {
 		return err
 	}
 	// handle accusation and provide innocence proof.
@@ -222,7 +223,13 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	}
 
 	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+		return nil
+	}
+
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation
+	if fd.blockchain.GetBlock(accusation.Message.Value(), accusation.Message.H()) != nil {
+		// return nil just skip to drop the peer connection.
 		return nil
 	}
 
@@ -255,8 +262,16 @@ func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender com
 	if proof.Message.Sender() != sender {
 		return errInvalidInnocenceProof
 	}
+
+	// as the challenger raise the accusation, thus it already got the checkpoint height synced, if the prover send a
+	// proof with wrong height, its peer should be dropped.
+	lastHeader := fd.blockchain.GetHeaderByNumber(proof.Message.H() - 1)
+	if lastHeader == nil {
+		return errInvalidInnocenceProof
+	}
+
 	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
-	if !verifyInnocenceProof(proof, fd.blockchain) {
+	if !verifyInnocenceProof(proof, lastHeader) {
 		return errInvalidInnocenceProof
 	}
 	// the proof is valid, withdraw the off chain challenge.

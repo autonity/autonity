@@ -13,7 +13,6 @@ import (
 	big "math/big"
 	reflect "reflect"
 
-	autonity "github.com/autonity/autonity/autonity"
 	common "github.com/autonity/autonity/common"
 	consensus "github.com/autonity/autonity/consensus"
 	core "github.com/autonity/autonity/core"
@@ -199,20 +198,6 @@ func (m *MockChainContext) MinBaseFee() *big.Int {
 func (mr *MockChainContextMockRecorder) MinBaseFee() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainContext)(nil).MinBaseFee))
-}
-
-// ProtocolContracts mocks base method.
-func (m *MockChainContext) ProtocolContracts() *autonity.ProtocolContracts {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProtocolContracts")
-	ret0, _ := ret[0].(*autonity.ProtocolContracts)
-	return ret0
-}
-
-// ProtocolContracts indicates an expected call of ProtocolContracts.
-func (mr *MockChainContextMockRecorder) ProtocolContracts() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtocolContracts", reflect.TypeOf((*MockChainContext)(nil).ProtocolContracts))
 }
 
 // State mocks base method.

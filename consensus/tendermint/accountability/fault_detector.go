@@ -209,12 +209,12 @@ func (fd *FaultDetector) deleteFutureHeightMsg(height uint64) {
 	delete(fd.futureMessages, height)
 }
 
-func preCheckMessage(m message.Msg, chain ChainContext) error {
+func preCheckMessage(m message.Msg, chain ChainContext) (error, *types.Header) {
 	lastHeader := chain.GetHeaderByNumber(m.H() - 1)
 	if lastHeader == nil {
-		return errFutureMsg
+		return errFutureMsg, nil
 	}
-	return m.Validate(lastHeader.CommitteeMember)
+	return m.Validate(lastHeader.CommitteeMember), lastHeader
 }
 
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
@@ -342,7 +342,7 @@ loop:
 			}
 			// The signatures must be valid at this stage, however we have to recover the original
 			// senders, hence the following call.
-			if err := verifyProofSignatures(fd.blockchain, decodedProof); err != nil {
+			if err := verifyProofSignatures(fd.blockchain.GetHeaderByNumber(decodedProof.Message.H()), decodedProof); err != nil {
 				fd.logger.Error("Can't verify proof signatures", "err", err)
 				break
 			}
@@ -577,7 +577,8 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 // processMsg, check and submit any auto-incriminating, equivocation challenges, and then only store checked msg in msg store.
 func (fd *FaultDetector) processMsg(m message.Msg) error {
 	// check if msg is from valid committee member
-	if err := preCheckMessage(m, fd.blockchain); err != nil {
+	err, lastHeader := preCheckMessage(m, fd.blockchain)
+	if err != nil {
 		if errors.Is(err, errFutureMsg) {
 			fd.saveFutureHeightMsg(m)
 		}
@@ -585,7 +586,7 @@ func (fd *FaultDetector) processMsg(m message.Msg) error {
 	}
 	switch msg := m.(type) {
 	case *message.Propose:
-		if err := fd.checkSelfIncriminatingProposal(msg); err != nil {
+		if err := fd.checkSelfIncriminatingProposal(msg, lastHeader); err != nil {
 			return err
 		}
 	case *message.Prevote, *message.Precommit:
@@ -1269,7 +1270,7 @@ func (fd *FaultDetector) submitMisbehavior(m message.Msg, evidence []message.Msg
 	fd.misbehaviourProofCh <- proof
 }
 
-func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propose) error {
+func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propose, lastHeader *types.Header) error {
 	// skip processing duplicated msg.
 	duplicated := engineCore.GetStore(fd.msgStore, proposal.H(), func(p *message.Propose) bool {
 		return p.R() == proposal.R() &&
@@ -1283,7 +1284,7 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 	}
 
 	// account for wrong proposer.
-	if !isProposerValid(fd.blockchain, proposal) {
+	if !isProposerValid(fd.blockchain.ProtocolContracts(), lastHeader, proposal) {
 		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errProposer)
 		return errProposer
 	}
@@ -1345,29 +1346,10 @@ func errorToRule(err error) (autonity.Rule, error) {
 // TODO: this function basically reimplements committee.GetProposer
 // it would be better to use that function but it requires sharing the CommitteeSet between Core and the FD.
 // It would reduce code repetition, however the proposer cache is already shared so it would not improve performance.
-func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
-	parentHeader := chain.GetHeaderByNumber(h - 1)
-	// to prevent the panic on node shutdown.
-	if parentHeader == nil {
-		return common.Address{}, fmt.Errorf("cannot find parent header")
-	}
-	statedb, err := chain.State()
-	if err != nil {
-		log.Crit("could not retrieve state")
-		return common.Address{}, err
-	}
-	proposer := chain.ProtocolContracts().Proposer(parentHeader, statedb, parentHeader.Number.Uint64(), r)
+func isProposerValid(contracts *autonity.ProtocolContracts, parentHeader *types.Header, m message.Msg) bool {
+	proposer := contracts.Proposer(parentHeader, nil, m.H(), m.R())
 	member := parentHeader.CommitteeMember(proposer)
 	if member == nil {
-		return common.Address{}, fmt.Errorf("cannot find correct proposer")
-	}
-	return proposer, nil
-}
-
-func isProposerValid(chain ChainContext, m message.Msg) bool {
-	proposer, err := getProposer(chain, m.H(), m.R())
-	if err != nil {
-		log.Error("get proposer err", "err", err)
 		return false
 	}
 	return m.Sender() == proposer

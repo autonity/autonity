@@ -239,8 +239,13 @@ func (d *dummyChain) Engine() consensus.Engine {
 	return nil
 }
 
+// GetHeaderByNumber returns the header corresponding to the height
+func (d *dummyChain) GetHeaderByNumber(h uint64) *types.Header {
+	return d.GetHeader(common.Hash{}, h)
+}
+
 // GetHeader returns the hash corresponding to their hash.
-func (d *dummyChain) GetHeader(h common.Hash, n uint64) *types.Header {
+func (d *dummyChain) GetHeader(_ common.Hash, n uint64) *types.Header {
 	d.counter++
 	parentHash := common.Hash{}
 	s := common.LeftPadBytes(big.NewInt(int64(n-1)).Bytes(), 32)

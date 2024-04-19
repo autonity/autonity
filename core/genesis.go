@@ -375,6 +375,10 @@ func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
 		GetHash:     func(n uint64) common.Hash { return common.Hash{} },
+		GetHeader:   func(u uint64) *types.Header { return nil },
+		GetProposer: func(parentHeader *types.Header, db vm.StateDB, height uint64, round int64) common.Address {
+			return common.Address{}
+		},
 		Coinbase:    genesis.Coinbase,
 		BlockNumber: big.NewInt(0),
 		Time:        new(big.Int).SetUint64(genesis.Timestamp),

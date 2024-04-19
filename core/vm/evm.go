@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"github.com/autonity/autonity/core/types"
 	"math"
 	"math/big"
 	"sync/atomic"
@@ -39,7 +40,9 @@ type (
 	TransferFunc func(StateDB, common.Address, common.Address, *big.Int)
 	// GetHashFunc returns the n'th block hash in the blockchain
 	// and is used by the BLOCKHASH EVM op code.
-	GetHashFunc func(uint64) common.Hash
+	GetHashFunc     func(uint64) common.Hash
+	GetHeaderFunc   func(uint64) *types.Header
+	GetProposerFunc func(*types.Header, StateDB, uint64, int64) common.Address
 )
 
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
@@ -70,6 +73,10 @@ type BlockContext struct {
 	Transfer TransferFunc
 	// GetHash returns the hash corresponding to n
 	GetHash GetHashFunc
+	// GetHeader returns the header corresponding to n
+	GetHeader GetHeaderFunc
+	// GetProposer returns the proposer of a
+	GetProposer GetProposerFunc
 
 	// Block information
 	Coinbase    common.Address // Provides information for COINBASE
