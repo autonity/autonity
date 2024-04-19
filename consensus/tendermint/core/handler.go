@@ -52,8 +52,8 @@ func (c *Core) subscribeEvents() {
 		backlogMessageEvent{},
 		backlogUntrustedMessageEvent{},
 		StateRequestEvent{})
-	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent)
-	c.committedCh = make(chan events.CommitEvent)
+	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
+	c.committedCh = make(chan events.CommitEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
