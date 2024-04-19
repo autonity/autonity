@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"sync"
 
+	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -17,18 +18,22 @@ type Engine struct {
 
 	peers  []*Peer // nil never connected, can do probably cleaner
 	enodes []*enode.Node
+
 	// state of received messages
+	state      strats.State
+	strategies []strats.Strategy
 	// this should belong to its own object if needed at one point
 	receivedPackets map[uint64]struct{}
-	receivedReports map[uint64]chan *DisseminateReportPacket
+	receivedReports map[uint64]chan *IndividualDisseminateResult
 	sync.RWMutex
 }
 
 func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := &Engine{
 		receivedPackets: map[uint64]struct{}{},
-		receivedReports: map[uint64]chan *DisseminateReportPacket{},
+		receivedReports: map[uint64]chan *IndividualDisseminateResult{},
 	}
+	e.RegisterStrategy(strats.Simple{})
 	runner := func(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 		node, err := e.addPeer(peer, rw)
 		defer log.Debug("Reading loop broken")
@@ -123,6 +128,9 @@ func (e *Engine) peerCount() int {
 
 func (e *Engine) peerToId(peer *Peer) int {
 	for i := range e.peers {
+		if e.peers[i] == nil {
+			continue
+		}
 		if e.peers[i].ID() == peer.ID() {
 			return i
 		}

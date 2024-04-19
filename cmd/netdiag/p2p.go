@@ -236,7 +236,7 @@ type DisseminateReportPacket struct {
 }
 
 func (p *Peer) sendDisseminate(dataId uint64, data []byte, senderId uint64, hop uint8) error {
-	fmt.Println("[DisseminatePacket] >> ", dataId, "hop", hop)
+	fmt.Println("[DisseminatePacket] >> ", dataId, "HOP:", hop, "ORIGIN", senderId)
 	p2p.Send(p, DisseminateRequest, DisseminatePacket{
 		RequestId:      dataId,
 		OriginalSender: senderId,
@@ -252,7 +252,7 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "HOP", packet.Hop)
+	fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "ORIGIN", packet.OriginalSender, "HOP", packet.Hop)
 	// check if first time received.
 	if _, ok := e.receivedPackets[packet.RequestId]; ok {
 		// do nothing
@@ -271,8 +271,12 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	if packet.Hop == 0 {
 		// todo: include random peer selection logic - maybe set it as a parameter?
 	}
+	if e.peers[packet.OriginalSender] == nil {
+		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
+		return nil
+	}
 	e.peers[packet.OriginalSender].send(DisseminateReport, DisseminateReportPacket{
-		RequestId: 0,
+		RequestId: packet.RequestId,
 		Sender:    uint64(e.peerToId(p)),
 		Hop:       packet.Hop,
 		Time:      now,
@@ -280,16 +284,21 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	return nil
 }
 
-func handleDisseminateReport(e *Engine, _ *Peer, data io.Reader) error {
+func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 	var packet DisseminateReportPacket
 	if err := rlp.Decode(data, &packet); err != nil {
 		return err
 	}
-	channel, ok := e.receivedReports[DataMsg]
+	channel, ok := e.receivedReports[packet.RequestId]
 	if !ok {
 		log.Error("Dissemination report id not found!")
 		return nil // or error maybe
 	}
-	channel <- &packet
+	channel <- &IndividualDisseminateResult{
+		Sender:        e.peerToId(p),
+		Relay:         int(packet.Sender),
+		Hop:           int(packet.Hop),
+		ReceptionTime: time.Unix(int64(packet.Time)/int64(time.Second), int64(packet.Time)%int64(time.Second)),
+	}
 	return nil
 }
