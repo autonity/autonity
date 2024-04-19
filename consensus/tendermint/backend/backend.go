@@ -199,7 +199,14 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 }
 
 func (sb *Backend) Post(ev any) {
-	sb.eventMux.Post(ev)
+	switch ev.(type) {
+	case events.CommitEvent:
+		sb.core.Post(ev)
+	case events.NewCandidateBlockEvent:
+		sb.core.Post(ev)
+	default:
+		sb.eventMux.Post(ev)
+	}
 }
 
 func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {
