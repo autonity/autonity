@@ -78,14 +78,14 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, addr, msg, errCh)
 	case SyncNetworkMsg:
-		if !sb.coreStarted {
+		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Debug("Received sync message", "from", addr)
 		go sb.Post(events.SyncEvent{Addr: addr})
 	case AccountabilityNetworkMsg:
-		if !sb.coreStarted {
+		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
@@ -116,7 +116,7 @@ func handleConsensusMsg[T any, PT interface {
 		return true, err
 	}
 	p2pMsg.Payload = bytes.NewReader(buffer.Bytes())
-	if !sb.coreStarted {
+	if !sb.coreRunning.Load() {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
@@ -160,9 +160,7 @@ func (sb *Backend) SetEnqueuer(enqueuer consensus.Enqueuer) {
 }
 
 func (sb *Backend) NewChainHead() error {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-	if !sb.coreStarted {
+	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
 	go sb.Post(events.CommitEvent{})

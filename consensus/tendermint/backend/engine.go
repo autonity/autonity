@@ -7,20 +7,19 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/crypto"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
@@ -347,12 +346,8 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	sb.coreMu.RLock()
-	isStarted := sb.coreStarted
-	stoppedCh := sb.stopped
-	sb.coreMu.RUnlock()
-	if !isStarted {
+func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<- *types.Block, stop <-chan struct{}) error {
+	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
 	// update the block header and signature and propose the block to core engine
@@ -379,37 +374,29 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	select {
 	case <-time.After(delay):
 		// nothing to do
-	case <-stoppedCh:
+	case <-sb.stopped:
 		return nil
 	case <-stop:
 		return nil
 	}
-	sb.setResultChan(results)
+
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
 	})
+
 	return nil
 }
 
-func (sb *Backend) setResultChan(results chan<- *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
+func (sb *Backend) SetResultChan(results chan<- *types.Block) {
 	sb.commitCh = results
 }
 
 func (sb *Backend) sendResultChan(block *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
 	sb.commitCh <- block
 }
 
 func (sb *Backend) isResultChanNil() bool {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-
 	return sb.commitCh == nil
 }
 
@@ -461,11 +448,12 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 // youssef: I'm not sure about the use case of this context in argument
 func (sb *Backend) Start(ctx context.Context) error {
 	// the mutex along with coreStarted should prevent double start
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-	if sb.coreStarted {
+	//sb.coreMu.Lock()
+	//defer sb.coreMu.Unlock()
+	if !sb.coreStarting.CompareAndSwap(false, true) {
 		return ErrStartedEngine
 	}
+
 	sb.stopped = make(chan struct{})
 	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
@@ -474,20 +462,16 @@ func (sb *Backend) Start(ctx context.Context) error {
 	go sb.faultyValidatorsWatcher(ctx)
 	sb.wg.Add(1)
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
-	sb.coreStarted = true
+	sb.coreRunning.CompareAndSwap(false, true)
 	return nil
 }
 
 // Close signals core to stop all background threads.
 func (sb *Backend) Close() error {
-	// the mutex along with coreStarted should prevent double stop
-	sb.coreMu.Lock()
-	if !sb.coreStarted {
-		sb.coreMu.Unlock()
+	if !sb.coreStarting.CompareAndSwap(true, false) {
 		return ErrStoppedEngine
 	}
-	sb.coreStarted = false
-	sb.coreMu.Unlock()
+	sb.coreRunning.CompareAndSwap(true, false)
 	// We need to make sure we close sb.stopped before calling sb.core.Stop
 	// otherwise we can end up with a deadlock where sb.core.Stop is waiting
 	// for a routine to return from calling sb.AskSync but sb.AskSync will
