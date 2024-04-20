@@ -1,11 +1,8 @@
 package strats
 
 import (
-	"fmt"
 	"math"
 	rand2 "math/rand"
-	"sort"
-	"strings"
 )
 
 // *******************************
@@ -18,64 +15,40 @@ import (
 // responsible to broadcast to the other members of his group the message.
 // For added redundancy, after this first phase, we can randomly select some other nodes for a second round.
 
-type PeersAccessor interface {
-	Peer(int i)
-	SendToPeer(i int)
-}
-
 type Simple struct {
-	// Disseminator
-	// Peer retriever
-	//
+	BaseStrategy
 }
 
 type ResultDisseminate struct {
-	ResultBase
+	BaseResult
 }
 
-func (p *Simple) Execute(data []byte, state *State, maxPeers uint64) (uint64, error) {
-	groupSize := int(math.Sqrt(float64(len(p.engine.peers))))
+func (p *Simple) Execute(packetId uint64, data []byte, maxPeers int) error {
+	groupSize := int(math.Sqrt(float64(maxPeers)))
 	groupCount := groupSize
-	if groupSize*groupCount < len(p.engine.peers) {
+	if groupSize*groupCount < maxPeers {
 		groupCount++
 	}
 	for i := 0; i < groupCount; i++ {
 		var (
-			target *Peer
+			target Peer
 			peerId int
 		)
 		for target == nil {
 			l := rand2.Intn(groupSize)
 			peerId = i*groupSize + l
-			target = p.engine.peers[peerId]
+			target = p.Peers(peerId)
 			// edge cases:
 			// no suitable target found in the group to deal with
 			// last group size
 		}
-		fmt.Println("TARGET FOUND", target.ip, "id", peerId)
-		target.sendDisseminate(packetId, buff, uint64(p.engine.id), 1)
+		target.Send(SimpleCode, DisseminatePacket{packetId, uint64(p.State.Id), 1, data})
 	}
 	return nil
 }
 
-func (r *ResultDisseminate) String() string {
-	var builder strings.Builder
-	fmt.Fprintf(&builder, "Disseminate Results \n")
-	var results []*IndividualDisseminateResult
-	for i, res := range r.IndividualResults {
-		if res.ErrorTimeout {
-			continue
-		}
-		results = append(results, r.IndividualResults[i])
-		fmt.Fprintf(&builder, "Peer %d Duration: %s Hops: %d Relay: %d\n", i, res.ReceptionTime.Sub(r.StartTime), res.Hop, res.Relay)
-	}
-	sort.Slice(results, func(a, b int) bool {
-		return results[a].ReceptionTime.Before(results[b].ReceptionTime)
-	})
-	n := len(results)
-	fmt.Fprintf(&builder, "min: %s, median:%s 2/3rd:%s max: %s\n", results[0].ReceptionTime.Sub(r.StartTime), results[n/2].ReceptionTime.Sub(r.StartTime), results[(2*n)/3].ReceptionTime.Sub(r.StartTime), results[n-1].ReceptionTime.Sub(r.StartTime))
+func (p *Simple) HandlePacket() {
 
-	return builder.String()
 }
 
 func disseminationGroup(id int, peers []*Peer) []*Peer {

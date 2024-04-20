@@ -20,7 +20,7 @@ type Engine struct {
 	enodes []*enode.Node
 
 	// state of received messages
-	state      strats.State
+	state      *strats.State
 	strategies []strats.Strategy
 	// this should belong to its own object if needed at one point
 	receivedPackets map[uint64]struct{}
@@ -30,10 +30,16 @@ type Engine struct {
 
 func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := &Engine{
+		state:           &strats.State{Id: id},
 		receivedPackets: map[uint64]struct{}{},
 		receivedReports: map[uint64]chan *IndividualDisseminateResult{},
 	}
-	e.RegisterStrategy(strats.Simple{})
+	e.strategies = []strats.Strategy{
+		&strats.Simple{
+			Peers: e.peer,
+			State: e.state,
+		},
+	}
 	runner := func(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 		node, err := e.addPeer(peer, rw)
 		defer log.Debug("Reading loop broken")
@@ -124,6 +130,10 @@ func (e *Engine) peerCount() int {
 	e.Lock()
 	defer e.Unlock()
 	return len(e.peers)
+}
+
+func (e *Engine) peer(i int) strats.Peer {
+	return e.peers[i]
 }
 
 func (e *Engine) peerToId(peer *Peer) int {

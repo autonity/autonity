@@ -20,7 +20,20 @@ type Strategy interface {
 	Execute(data []byte) error
 }
 
-type ResultBase struct {
+type Peer interface {
+	Send(code uint64, data any)
+}
+
+type PeerGetter func(int) Peer
+
+type DisseminatePacket struct {
+	RequestId      uint64
+	OriginalSender uint64
+	Hop            uint8
+	Data           []byte
+}
+
+type BaseResult struct {
 	Size              int
 	StartTime         time.Time
 	IndividualResults []IndividualDisseminateResult
@@ -34,7 +47,7 @@ type IndividualDisseminateResult struct {
 	ErrorTimeout  bool
 }
 
-func (r *ResultBase) String() string {
+func (r *BaseResult) String() string {
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Disseminate Results \n")
 	var results []IndividualDisseminateResult
@@ -54,7 +67,12 @@ func (r *ResultBase) String() string {
 	return builder.String()
 }
 
-func (r *ResultBase) CollectReports() {
+type BaseStrategy struct {
+	Peers PeerGetter
+	State *State
+}
+
+func (b *BaseStrategy) CollectReports(packetId int) {
 	individualResults := make([]*IndividualDisseminateResult, len(p.engine.peers))
 	timer := time.NewTimer(5 * time.Second)
 

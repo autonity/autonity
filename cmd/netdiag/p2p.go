@@ -63,7 +63,7 @@ type response struct {
 	packet any
 }
 
-func (p *Peer) send(code uint64, data any) error {
+func (p *Peer) Send(code uint64, data any) error {
 	// to remove
 	return p2p.Send(p, code, data)
 }
@@ -125,7 +125,7 @@ func handlePing(_ *Engine, p *Peer, data io.Reader) error {
 		return err
 	}
 	fmt.Println("[PING] << , [PONG] >> ", ping.RequestId)
-	return p.send(PongMsg, PongPacket{ping.RequestId, now})
+	return p2p.Send(p, PongMsg, PongPacket{ping.RequestId, now})
 }
 
 func handlePong(_ *Engine, p *Peer, msg io.Reader) error {
@@ -182,7 +182,7 @@ func handleData(_ *Engine, p *Peer, data io.Reader) error {
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	fmt.Println("[DATAPACKET] << ", dataPacket.RequestId)
-	return p.send(AckDataMsg, AckDataPacket{dataPacket.RequestId, now})
+	return p2p.Send(p, AckDataMsg, AckDataPacket{dataPacket.RequestId, now})
 }
 
 func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
@@ -221,29 +221,11 @@ func handleUpdateTcpSocket(_ *Engine, p *Peer, msg io.Reader) error {
 	return nil
 }
 
-type DisseminatePacket struct {
-	RequestId      uint64
-	OriginalSender uint64
-	Hop            uint8
-	Data           []byte
-}
-
 type DisseminateReportPacket struct {
 	RequestId uint64
 	Sender    uint64
 	Hop       uint8
 	Time      uint64
-}
-
-func (p *Peer) sendDisseminate(dataId uint64, data []byte, senderId uint64, hop uint8) error {
-	fmt.Println("[DisseminatePacket] >> ", dataId, "HOP:", hop, "ORIGIN", senderId)
-	p2p.Send(p, DisseminateRequest, DisseminatePacket{
-		RequestId:      dataId,
-		OriginalSender: senderId,
-		Hop:            hop,
-		Data:           data,
-	})
-	return nil
 }
 
 func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
@@ -275,7 +257,7 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
 		return nil
 	}
-	e.peers[packet.OriginalSender].send(DisseminateReport, DisseminateReportPacket{
+	p2p.Send(e.peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
 		RequestId: packet.RequestId,
 		Sender:    uint64(e.peerToId(p)),
 		Hop:       packet.Hop,
