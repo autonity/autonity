@@ -50,24 +50,24 @@ func New(privateKey *ecdsa.PrivateKey,
 	log log.Logger) *Backend {
 
 	recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
-	knownMessages := lru.NewLRU[common.Hash, bool](0, nil, ttlSec)
+	knownMessages := lru.NewLRU[common.Hash, bool](0, nil, ttl)
 	backend := &Backend{
-		eventMux:       event.NewTypeMuxSilent(evMux, log),
-		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log,
-		coreStarted:    false,
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		vmConfig:       vmConfig,
-		MsgStore:       ms,
-		jailed:         make(map[common.Address]uint64),
+		eventMux:          event.NewTypeMuxSilent(evMux, log),
+		privateKey:        privateKey,
+		address:           crypto.PubkeyToAddress(privateKey.PublicKey),
+		logger:            log,
+		coreStarted:       false,
+		peerKnownMessages: recentMessages,
+		knownMessages:     knownMessages,
+		vmConfig:          vmConfig,
+		MsgStore:          ms,
+		jailed:            make(map[common.Address]uint64),
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 	core := tendermintCore.New(backend, services, backend.address, log)
 
-	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
+	backend.gossiper = NewGossiper(backend.peerKnownMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
@@ -106,8 +106,8 @@ type Backend struct {
 	gossiper interfaces.Gossiper
 
 	//ARCCache is patented by IBM but it has expired https://patents.google.com/patent/US7167953B2/en
-	recentMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
-	knownMessages  *lru.LRU[common.Hash, bool]                           // the cache of self messages
+	peerKnownMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
+	knownMessages     *lru.LRU[common.Hash, bool]                           // the cache of self messages
 
 	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
@@ -153,9 +153,7 @@ func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
 	m := make([]common.Hash, 0, sb.knownMessages.Len())
-	for _, v := range sb.knownMessages.Keys() {
-		m = append(m, v)
-	}
+	m = append(m, sb.knownMessages.Keys()...)
 	return m
 }
 
@@ -391,7 +389,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 }
 
 func (sb *Backend) ResetPeerCache(address common.Address) {
-	sb.recentMessages.Remove(address)
+	sb.peerKnownMessages.Remove(address)
 }
 
 func (sb *Backend) RemoveMessageFromLocalCache(message message.Msg) {

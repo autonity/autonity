@@ -23,7 +23,7 @@ func TestTendermintMessage(t *testing.T) {
 
 	// 1. this message should not be in cache
 	// for peers
-	if _, ok := backend.recentMessages.Get(testAddress); ok {
+	if _, ok := backend.peerKnownMessages.Get(testAddress); ok {
 		t.Fatalf("the cache of messages for this peer should be nil")
 	}
 
@@ -39,7 +39,7 @@ func TestTendermintMessage(t *testing.T) {
 		t.Fatalf("handle message failed: %v", err)
 	}
 	// for peers
-	if ms, ok := backend.recentMessages.Get(testAddress); ms == nil || !ok {
+	if ms, ok := backend.peerKnownMessages.Get(testAddress); ms == nil || !ok {
 		t.Fatalf("the cache of messages for this peer cannot be nil")
 	} else if _, ok := ms.Get(data.Hash()); !ok {
 		t.Fatalf("the cache of messages for this peer cannot be found")

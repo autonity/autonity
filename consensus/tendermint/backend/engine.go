@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	ttlSec = time.Second * 30
+	ttl = time.Second * 20
 )
 
 // ErrStartedEngine is returned if the engine is already started

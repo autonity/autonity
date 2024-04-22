@@ -14,7 +14,7 @@ type Gossiper interface {
 	AskSync(header *types.Header)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Broadcaster() consensus.Broadcaster
-	RecentMessages() *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]]
+	PeerKnownMessages() *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]]
 	KnownMessages() *lru.LRU[common.Hash, bool]
 	Address() common.Address
 	UpdateStopChannel(chan struct{})

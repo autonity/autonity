@@ -121,15 +121,15 @@ func handleConsensusMsg[T any, PT interface {
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
 	hash := crypto.Hash(buffer.Bytes())
-	ms, ok := sb.recentMessages.Get(sender)
+	ms, ok := sb.peerKnownMessages.Get(sender)
 	if ok {
 		if !ms.Contains(hash) {
 			ms.Add(hash, true)
 		}
 	} else {
-		ms = lru.NewLRU[common.Hash, bool](0, nil, ttlSec)
+		ms = lru.NewLRU[common.Hash, bool](0, nil, ttl)
 		ms.Add(hash, true)
-		sb.recentMessages.Add(sender, ms)
+		sb.peerKnownMessages.Add(sender, ms)
 	}
 	// Mark the message known for ourselves
 	if _, ok := sb.knownMessages.Get(hash); ok {

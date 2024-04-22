@@ -15,7 +15,7 @@ import (
 )
 
 type Gossiper struct {
-	recentMessages     *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
+	peerKnownMessages  *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
 	knownMessages      *lru.LRU[common.Hash, bool]                           // the cache of self messages
 	address            common.Address                                        // address of the local peer
 	broadcaster        consensus.Broadcaster
@@ -26,7 +26,7 @@ type Gossiper struct {
 
 func NewGossiper(recentMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]], knownMessages *lru.LRU[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
 	return &Gossiper{
-		recentMessages:     recentMessages,
+		peerKnownMessages:  recentMessages,
 		knownMessages:      knownMessages,
 		address:            address,
 		logger:             logger,
@@ -43,8 +43,8 @@ func (g *Gossiper) Broadcaster() consensus.Broadcaster {
 	return g.broadcaster
 }
 
-func (g *Gossiper) RecentMessages() *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] {
-	return g.recentMessages
+func (g *Gossiper) PeerKnownMessages() *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] {
+	return g.peerKnownMessages
 }
 
 func (g *Gossiper) KnownMessages() *lru.LRU[common.Hash, bool] {
@@ -83,7 +83,7 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 					<-g.concurrencyLimiter
 				}()
 				g.concurrencyLimiter <- struct{}{}
-				ms, ok := g.recentMessages.Get(addr)
+				ms, ok := g.peerKnownMessages.Get(addr)
 				if ok {
 					if ms.Contains(hash) {
 						// This peer had this event, skip it
@@ -91,9 +91,9 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 					}
 					ms.Add(hash, true)
 				} else {
-					ms = lru.NewLRU[common.Hash, bool](0, nil, ttlSec)
+					ms = lru.NewLRU[common.Hash, bool](0, nil, ttl)
 					ms.Add(hash, true)
-					g.recentMessages.Add(addr, ms)
+					g.peerKnownMessages.Add(addr, ms)
 				}
 				p.SendRaw(code, payload) //nolint
 			}()

@@ -145,9 +145,9 @@ func BenchmarkGossipLRU(b *testing.B) {
 	address3Cache.Add(msgs[0].Hash(), true)
 	recentMessages.Add(addresses[3], address3Cache)
 	bk := &Backend{
-		knownMessages:  knownMessages,
-		recentMessages: recentMessages,
-		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		knownMessages:     knownMessages,
+		peerKnownMessages: recentMessages,
+		gossiper:          NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
 	}
 	bk.SetBroadcaster(broadcaster)
 
@@ -200,9 +200,9 @@ func TestGossip(t *testing.T) {
 	address3Cache.Add(msg.Hash(), true)
 	recentMessages.Add(addresses[3], address3Cache)
 	b := &Backend{
-		knownMessages:  knownMessages,
-		recentMessages: recentMessages,
-		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		knownMessages:     knownMessages,
+		peerKnownMessages: recentMessages,
+		gossiper:          NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
 	}
 	b.SetBroadcaster(broadcaster)
 
@@ -269,7 +269,7 @@ func TestResetPeerCache(t *testing.T) {
 	recentMessages.Add(addr, msgCache)
 
 	b := &Backend{
-		recentMessages: recentMessages,
+		peerKnownMessages: recentMessages,
 	}
 
 	b.ResetPeerCache(addr)
@@ -454,10 +454,10 @@ func TestSyncPeer(t *testing.T) {
 		gossiper := interfaces.NewMockGossiper(ctrl)
 		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 		b := &Backend{
-			logger:         log.New("backend", "test", "id", 0),
-			gossiper:       gossiper,
-			recentMessages: recentMessages,
-			core:           tendermintC,
+			logger:            log.New("backend", "test", "id", 0),
+			gossiper:          gossiper,
+			peerKnownMessages: recentMessages,
+			core:              tendermintC,
 		}
 		b.SetBroadcaster(broadcaster)
 

@@ -24,7 +24,7 @@ func newCustomGossiper(b interfaces.Backend) interfaces.Gossiper {
 	return &customGossiper{
 		Gossiper:       defaultGossiper,
 		knownMessages:  defaultGossiper.KnownMessages(),
-		recentMessages: defaultGossiper.RecentMessages(),
+		recentMessages: defaultGossiper.PeerKnownMessages(),
 		address:        defaultGossiper.Address(),
 	}
 }
