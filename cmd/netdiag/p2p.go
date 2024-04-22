@@ -63,9 +63,23 @@ type response struct {
 	packet any
 }
 
-func (p *Peer) Send(code uint64, data any) error {
-	// to remove
-	return p2p.Send(p, code, data)
+type DisseminatePacket struct {
+	StrategyCode   uint64
+	RequestId      uint64
+	OriginalSender uint64
+	Hop            uint8
+	Data           any
+}
+
+func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, data any) error {
+	packet := DisseminatePacket{
+		StrategyCode:   code,
+		RequestId:      requestId,
+		OriginalSender: originalSender,
+		Hop:            hop,
+		Data:           data,
+	}
+	return p2p.Send(p, DisseminateRequest, packet)
 }
 
 func (p *Peer) dispatchResponse(requestId uint64, packet any) error {
@@ -241,18 +255,8 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 		return nil
 	}
 	e.receivedPackets[packet.RequestId] = struct{}{}
-	if packet.Hop == 1 {
-		// need to disseminate in the group
-		group := disseminationGroup(e.id, e.peers)
-		for i := range group {
-			if group[i] != nil {
-				group[i].sendDisseminate(packet.RequestId, packet.Data, packet.OriginalSender, 0)
-			}
-		}
-	}
-	if packet.Hop == 0 {
-		// todo: include random peer selection logic - maybe set it as a parameter?
-	}
+	e.strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.Data)
+
 	if e.peers[packet.OriginalSender] == nil {
 		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
 		return nil
@@ -271,7 +275,7 @@ func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 	if err := rlp.Decode(data, &packet); err != nil {
 		return err
 	}
-	channel, ok := e.receivedReports[packet.RequestId]
+	channel, ok := e.state.receivedReports[packet.RequestId]
 	if !ok {
 		log.Error("Dissemination report id not found!")
 		return nil // or error maybe

@@ -535,6 +535,33 @@ func (p *P2POp) SendRandomDataFrequencyAnalysis(args *ArgTargetSize, reply *Resu
 	return nil
 }
 
+type ResultDissemination struct {
+	Size              int
+	MaxPeers          int
+	StartTime         time.Time
+	IndividualResults []strats.IndividualDisseminateResult
+}
+
+func (r *ResultDissemination) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "Disseminate Results \n")
+	var results []strats.IndividualDisseminateResult
+	for i, res := range r.IndividualResults {
+		if res.ErrorTimeout {
+			continue
+		}
+		results = append(results, r.IndividualResults[i])
+		fmt.Fprintf(&builder, "Peer %d Duration: %s Hops: %d Relay: %d\n", i, res.ReceptionTime.Sub(r.StartTime), res.Hop, res.Relay)
+	}
+	sort.Slice(results, func(a, b int) bool {
+		return results[a].ReceptionTime.Before(results[b].ReceptionTime)
+	})
+	n := len(results)
+	fmt.Fprintf(&builder, "min: %s, median:%s 2/3rd:%s max: %s\n", results[0].ReceptionTime.Sub(r.StartTime), results[n/2].ReceptionTime.Sub(r.StartTime), results[(2*n)/3].ReceptionTime.Sub(r.StartTime), results[n-1].ReceptionTime.Sub(r.StartTime))
+
+	return builder.String()
+}
+
 type ResultSimpleBroadcast struct {
 	Size          int
 	Count         int
@@ -582,24 +609,76 @@ func (r *ResultSimpleBroadcast) String() string {
 	return builder.String()
 }
 
-type ArgDisseminate struct {
-	ArgStrategy
-	ArgBenchmark
-	ArgMaxPeers
-	ArgSize
-	ArgCount
+type ArgStrategy struct {
+	Strategy int
 }
 
-func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultSimpleBroadcast) error {
+func (a *ArgStrategy) AskUserInput() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Available Dissemination Strategies:")
+	for i := 0; i < int(strats.StrategyCount); i++ {
+		fmt.Println(i, "-", strats.StratCode(i))
+	}
+	input, _ := reader.ReadString('\n')
+	index, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil || index >= int(strats.StrategyCount) || index < 0 {
+		fmt.Println("Invalid strategy selected")
+		return err
+	}
+	a.Strategy = index
+	return nil
+}
+
+type ArgMaxPeers struct {
+	MaxPeers int
+}
+
+func (a *ArgMaxPeers) AskUserInput() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Number of peers to disseminate:")
+	input, _ := reader.ReadString('\n')
+	index, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil {
+		fmt.Println("Invalid number")
+		return err
+	}
+	a.MaxPeers = index
+	return nil
+}
+
+type ArgDisseminate struct {
+	ArgStrategy
+	ArgMaxPeers
+	ArgSize
+}
+
+func (a *ArgDisseminate) AskUserInput() error {
+	if err := a.ArgStrategy.AskUserInput(); err != nil {
+		return err
+	}
+	if err := a.ArgMaxPeers.AskUserInput(); err != nil {
+		return err
+	}
+	if err := a.ArgSize.AskUserInput(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultDissemination) error {
 	buff := make([]byte, args.Size)
 	if _, err := rand.Read(buff); err != nil {
 		return err
 	}
 	reply.StartTime = time.Now()
+	reply.Size = args.Size
+	reply.MaxPeers = args.MaxPeers
 	packetId := rand2.Uint64()
-	p.engine.receivedReports[packetId] = make(chan *strats.IndividualDisseminateResult, len(p.engine.peers))
-
-	p.engine.strategies[arg].Execute(buff)
+	if err := p.engine.strategies[args.Strategy].Execute(packetId, buff, args.MaxPeers); err != nil {
+		return err
+	}
+	reply.IndividualResults = p.engine.state.CollectReports(packetId, args.MaxPeers)
+	return nil
 }
 
 func checkPeer(id int, peers []*Peer) (*Peer, error) {

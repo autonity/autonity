@@ -6,14 +6,10 @@ import (
 )
 
 type Broadcast struct {
-	Peers PeerGetter
+	BaseStrategy
 }
 
-func (p *Broadcast) Execute(args *ArgSizeCount, reply *ResultSimpleBroadcast) error {
-	buff := make([]byte, args.Size)
-	if _, err := rand.Read(buff); err != nil {
-		return err
-	}
+func (p *Broadcast) Execute(packetId uint64, data []byte, maxPeers int) error {
 
 	results := make([][]PacketResult, len(p.engine.peers))
 	startTime := time.Now()
