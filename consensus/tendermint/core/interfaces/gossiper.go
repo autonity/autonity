@@ -1,7 +1,7 @@
 package interfaces
 
 import (
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2/expirable"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -14,8 +14,8 @@ type Gossiper interface {
 	AskSync(header *types.Header)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Broadcaster() consensus.Broadcaster
-	RecentMessages() *lru.ARCCache
-	KnownMessages() *lru.ARCCache
+	RecentMessages() *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]]
+	KnownMessages() *lru.LRU[common.Hash, bool]
 	Address() common.Address
 	UpdateStopChannel(chan struct{})
 }

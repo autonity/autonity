@@ -10,7 +10,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2/expirable"
 	ring "github.com/zfjagann/golang-ring"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -49,9 +49,8 @@ func New(privateKey *ecdsa.PrivateKey,
 	ms *tendermintCore.MsgStore,
 	log log.Logger) *Backend {
 
-	recentMessages, _ := lru.NewARC(inmemoryPeers)
-	knownMessages, _ := lru.NewARC(inmemoryMessages)
-
+	recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
+	knownMessages := lru.NewLRU[common.Hash, bool](0, nil, ttlSec)
 	backend := &Backend{
 		eventMux:       event.NewTypeMuxSilent(evMux, log),
 		privateKey:     privateKey,
@@ -107,8 +106,8 @@ type Backend struct {
 	gossiper interfaces.Gossiper
 
 	//ARCCache is patented by IBM but it has expired https://patents.google.com/patent/US7167953B2/en
-	recentMessages *lru.ARCCache // the cache of peer's messages
-	knownMessages  *lru.ARCCache // the cache of self messages
+	recentMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
+	knownMessages  *lru.LRU[common.Hash, bool]                           // the cache of self messages
 
 	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
@@ -155,7 +154,7 @@ func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
 func (sb *Backend) KnownMsgHash() []common.Hash {
 	m := make([]common.Hash, 0, sb.knownMessages.Len())
 	for _, v := range sb.knownMessages.Keys() {
-		m = append(m, v.(common.Hash))
+		m = append(m, v)
 	}
 	return m
 }
@@ -392,12 +391,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 }
 
 func (sb *Backend) ResetPeerCache(address common.Address) {
-	ms, ok := sb.recentMessages.Get(address)
-	var m *lru.ARCCache
-	if ok {
-		m, _ = ms.(*lru.ARCCache)
-		m.Purge()
-	}
+	sb.recentMessages.Remove(address)
 }
 
 func (sb *Backend) RemoveMessageFromLocalCache(message message.Msg) {

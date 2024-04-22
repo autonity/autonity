@@ -17,12 +17,13 @@
 package eth
 
 import (
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/log"
 	"math"
 	"math/big"
 	"math/rand"
 	"testing"
+
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -46,7 +47,6 @@ var (
 	testAddr = crypto.PubkeyToAddress(testKey.PublicKey)
 )
 
-// testBackend is a mock implementation of the live Ethereum message handler. Its
 // purpose is to allow testing the request/reply workflows and wire serialization
 // in the `eth` protocol without actually doing any data processing.
 type testBackend struct {

@@ -91,6 +91,7 @@ func runTest(t *testing.T, test *testCase) {
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify._Cfunc_CFRunLoopRun"),
 			goleak.IgnoreTopFunction("github.com/JekaMas/notify.(*nonrecursiveTree).internal"),
 			goleak.IgnoreTopFunction("internal/poll.runtime_pollWait"),
+			goleak.IgnoreTopFunction("github.com/hashicorp/golang-lru/v2/expirable.NewLRU[...].func1"),
 			goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
 			goleak.IgnoreTopFunction("github.com/autonity/autonity/miner.(*worker).loop"),
 			goleak.IgnoreTopFunction("github.com/autonity/autonity/miner.(*worker).updater"),
@@ -162,6 +163,8 @@ func runTest(t *testing.T, test *testCase) {
 			fmt.Sprintf("127.0.0.1:%d", peer.acnPort),
 			peer.rpcPort, rates.in, rates.out)
 
+		//TODO: this causes a data race in Deploy Contract, the global bytecode for contracts
+		// is being appended to, so a concurrent access should not be done
 		wg.Go(func() error {
 			// if we have only a single validator, force mining start to bypass sync check
 			return peer.startNode(nodesNum == 1)

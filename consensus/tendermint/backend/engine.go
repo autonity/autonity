@@ -28,9 +28,7 @@ import (
 )
 
 const (
-	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 150
-	inmemoryMessages  = 8192
+	ttlSec = time.Second * 30
 )
 
 // ErrStartedEngine is returned if the engine is already started

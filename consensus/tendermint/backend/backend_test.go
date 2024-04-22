@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"math"
 	"math/big"
@@ -13,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	ethereum "github.com/autonity/autonity"
@@ -25,7 +25,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto/blst"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2/expirable"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -87,10 +87,8 @@ func TestAskSync(t *testing.T) {
 	for _, p := range addresses {
 		m[p] = struct{}{}
 	}
-	knownMessages, err := lru.NewARC(inmemoryMessages)
-	require.NoError(t, err)
-	recentMessages, err := lru.NewARC(inmemoryMessages)
-	require.NoError(t, err)
+	knownMessages := lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+	recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
@@ -104,6 +102,58 @@ func TestAskSync(t *testing.T) {
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 5 {
 		t.Fatalf("ask sync message transmission failure")
+	}
+}
+
+func BenchmarkGossipLRU(b *testing.B) {
+	ctrl := gomock.NewController(b)
+	defer ctrl.Finish()
+
+	header := newTestHeader(200)
+	validators := header.Committee
+	msgs := make([]*message.Prevote, 0)
+	for i := 0; i < 1000; i++ {
+		b := [32]byte{}
+		rand.Read(b[:])
+		msg := message.NewPrevote(1, 1, b, testSigner)
+		msgs = append(msgs, msg)
+	}
+
+	addresses := make([]common.Address, 0, len(validators))
+	peers := make(map[common.Address]ethereum.Peer)
+	//counter := uint64(0)
+	for _, val := range validators {
+		addresses = append(addresses, val.Address)
+		mockedPeer := tendermint.NewMockPeer(ctrl)
+		// Address n3 is supposed to already have this message
+		mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).AnyTimes()
+		peers[val.Address] = mockedPeer
+	}
+
+	m := make(map[common.Address]struct{})
+	for _, p := range addresses {
+		m[p] = struct{}{}
+	}
+
+	broadcaster := consensus.NewMockBroadcaster(ctrl)
+	broadcaster.EXPECT().FindPeers(m).Return(peers).AnyTimes()
+
+	knownMessages := lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+	recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
+	address3Cache := lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+
+	address3Cache.Add(msgs[0].Hash(), true)
+	recentMessages.Add(addresses[3], address3Cache)
+	bk := &Backend{
+		knownMessages:  knownMessages,
+		recentMessages: recentMessages,
+		gossiper:       NewGossiper(recentMessages, knownMessages, common.Address{}, log.New(), make(chan struct{})),
+	}
+	bk.SetBroadcaster(broadcaster)
+
+	for n := 0; n < b.N; n++ {
+		i := n % 1000
+		bk.Gossip(validators, msgs[i])
 	}
 }
 
@@ -143,12 +193,9 @@ func TestGossip(t *testing.T) {
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
 
-	knownMessages, err := lru.NewARC(inmemoryMessages)
-	require.NoError(t, err)
-	recentMessages, err := lru.NewARC(inmemoryMessages)
-	require.NoError(t, err)
-	address3Cache, err := lru.NewARC(inmemoryMessages)
-	require.NoError(t, err)
+	knownMessages := lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+	recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
+	address3Cache := lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
 
 	address3Cache.Add(msg.Hash(), true)
 	recentMessages.Add(addresses[3], address3Cache)
@@ -214,16 +261,11 @@ func TestVerifyProposal(t *testing.T) {
 }
 func TestResetPeerCache(t *testing.T) {
 	addr := common.HexToAddress("0x01234567890")
-	msgCache, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
-	msgCache.Add(addr, addr)
+	hash := addr.Hash()
+	msgCache := lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+	msgCache.Add(hash, true)
 
-	recentMessages, err := lru.NewARC(inmemoryMessages)
-	if err != nil {
-		t.Fatalf("Expected <nil>, got %v", err)
-	}
+	recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
 	recentMessages.Add(addr, msgCache)
 
 	b := &Backend{
@@ -231,7 +273,7 @@ func TestResetPeerCache(t *testing.T) {
 	}
 
 	b.ResetPeerCache(addr)
-	if msgCache.Contains(addr) {
+	if recentMessages.Contains(addr) {
 		t.Fatalf("expected empty cache")
 	}
 }
@@ -404,10 +446,7 @@ func TestSyncPeer(t *testing.T) {
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		broadcaster.EXPECT().FindPeers(peersAddrMap).Return(peers)
 
-		recentMessages, err := lru.NewARC(inmemoryPeers)
-		if err != nil {
-			t.Fatalf("Expected <nil>, got %v", err)
-		}
+		recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
 
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
