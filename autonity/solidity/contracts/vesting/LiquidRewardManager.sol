@@ -14,7 +14,6 @@ contract LiquidRewardManager {
     Autonity internal autonity;
 
     struct LiquidInfo {
-        uint256 totalLiquid;
         uint256 lastUnrealisedFeeFactor;
         uint256 unclaimedRewards;
         Liquid liquidContract;
@@ -71,14 +70,12 @@ contract LiquidRewardManager {
         _realiseFees(_id, _validator);
         liquidBalances[_id][_validator] -= _amount;
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        _liquidInfo.totalLiquid -= _amount;
     }
 
     function _increaseLiquid(uint256 _id, address _validator, uint256 _amount) internal {
         _realiseFees(_id, _validator);
         liquidBalances[_id][_validator] += _amount;
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        _liquidInfo.totalLiquid += _amount;
     }
 
     function _realiseFees(uint256 _id, address _validator) private returns (uint256 _realisedFees) {
@@ -105,7 +102,6 @@ contract LiquidRewardManager {
      * calculates total rewards for a schedule and deletes realisedFees[id][validator] as reward is claimed
      */ 
     function _rewards(uint256 _id) internal returns (uint256) {
-        _clearValidators(_id);
         address[] memory _validators = bondedValidators[_id];
         uint256 _totalFees = 0;
         for (uint256 i = 0; i < _validators.length; i++) {
@@ -117,7 +113,6 @@ contract LiquidRewardManager {
     }
 
     function _addValidator(uint256 _id, address _validator) internal {
-        _clearValidators(_id);
         if (validatorIdx[_id][_validator] > 0) return;
         address[] storage _validators = bondedValidators[_id];
         _validators.push(_validator);
@@ -159,7 +154,7 @@ contract LiquidRewardManager {
             _contract = autonity.getValidator(_validator).liquidContract;
             _liquidInfo.liquidContract = _contract;
         }
-        uint256 _totalLiquid = _liquidInfo.totalLiquid;
+        uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid == 0) {
             return;
         }
@@ -169,7 +164,6 @@ contract LiquidRewardManager {
     }
 
     function _unclaimedRewards(uint256 _id) internal returns (uint256) {
-        _clearValidators(_id);
         uint256 _totalFee = 0;
         address[] memory _validators = bondedValidators[_id];
         for (uint256 i = 0; i < _validators.length; i++) {
