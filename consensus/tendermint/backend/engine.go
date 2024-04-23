@@ -66,8 +66,7 @@ var (
 	nilUncleHash                  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce                    = types.BlockNonce{}
 	now                           = time.Now
-	sealDelayBg                   = metrics.NewRegisteredBufferedGauge("work/seal/delay", nil, nil)   // injected sleep delay before producing new candidate block
-	submitDelayBg                 = metrics.NewRegisteredBufferedGauge("work/submit/delay", nil, nil) // delay between post and handling in core handler
+	sealDelayBg                   = metrics.NewRegisteredBufferedGauge("work/seal/delay", nil, nil) // injected sleep delay before producing new candidate block
 )
 
 // Author retrieves the Ethereum address of the account that minted the given
@@ -391,14 +390,10 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 		return nil
 	}
 	sb.setResultChan(results)
-	now := time.Now()
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
 	})
-	if metrics.Enabled {
-		submitDelayBg.Add(time.Since(now).Nanoseconds())
-	}
 	return nil
 }
 
