@@ -37,7 +37,6 @@ func TestUnhandledMsgs(t *testing.T) {
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
-			msg.Discard() // simulate discarding of payload from acn handler
 		}
 
 		for i := int64(0); i < ringCapacity; i++ {
@@ -56,7 +55,7 @@ func TestUnhandledMsgs(t *testing.T) {
 				t.Fatalf("couldnt decode payload")
 			}
 			expectedPayload := append(counter, []byte("data")...)
-			if !reflect.DeepEqual(addr, expectedAddr) || !reflect.DeepEqual(payload, expectedPayload) {
+			if !reflect.DeepEqual(addr, expectedAddr) || !bytes.Equal(payload, expectedPayload) {
 				t.Fatalf("message lost or not expected")
 			}
 		}
@@ -86,7 +85,6 @@ func TestUnhandledMsgs(t *testing.T) {
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
-			msg.Discard() // simulate discarding of payload from acn handler
 		}
 		sub := backend.eventMux.Subscribe(events.MessageEvent{})
 		if err := backend.Start(context.Background()); err != nil {
