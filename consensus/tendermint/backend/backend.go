@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -52,7 +53,6 @@ func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, services *interfaces
 		privateKey:     privateKey,
 		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:         log,
-		coreStarted:    false,
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
@@ -85,7 +85,8 @@ type Backend struct {
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
-	coreStarted       bool
+	coreStarting      atomic.Bool
+	coreRunning       atomic.Bool
 	core              interfaces.Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup

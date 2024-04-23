@@ -64,9 +64,8 @@ func TestSynchronisationMessage(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
-			coreStarted: false,
-			logger:      log.New("backend", "test", "id", 0),
-			eventMux:    eventMux,
+			logger:   log.New("backend", "test", "id", 0),
+			eventMux: eventMux,
 		}
 		msg := makeMsg(SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
@@ -86,10 +85,11 @@ func TestSynchronisationMessage(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
-			coreStarted: true,
-			logger:      log.New("backend", "test", "id", 0),
-			eventMux:    eventMux,
+			logger:   log.New("backend", "test", "id", 0),
+			eventMux: eventMux,
 		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 		msg := makeMsg(SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)

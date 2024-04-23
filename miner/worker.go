@@ -28,6 +28,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/metrics"
 
+	mapset "github.com/deckarep/golang-set"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
@@ -38,7 +40,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
-	mapset "github.com/deckarep/golang-set"
 )
 
 const (
@@ -639,6 +640,7 @@ func (w *worker) taskLoop() {
 			stopCh = nil
 		}
 	}
+	w.engine.SetResultChan(w.resultCh)
 	for {
 		select {
 		case task := <-w.taskCh:

@@ -275,7 +275,7 @@ func TestCommit(t *testing.T) {
 		_, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
-		backend.setResultChan(commitCh)
+		backend.SetResultChan(commitCh)
 
 		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 		testCases := []struct {
@@ -581,6 +581,7 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 	}
 
 	resultCh := make(chan *types.Block)
+	engine.SetResultChan(resultCh)
 	err = engine.Seal(chain, block, resultCh, nil)
 	if err != nil {
 		return nil, err
