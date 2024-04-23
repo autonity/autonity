@@ -53,27 +53,16 @@ type Peer struct {
 	sync.RWMutex
 }
 
-type request struct {
-	code       uint64
-	packet     any
-	responseCh <-chan any
-}
-
-type response struct {
-	code   uint64
-	packet any
-}
-
 type DisseminatePacket struct {
 	StrategyCode   uint64
 	RequestId      uint64
 	OriginalSender uint64
 	MaxPeers       uint64
 	Hop            uint8
-	Data           any
+	Data           []byte
 }
 
-func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, maxPeers uint64, originalSender uint64, data any) error {
+func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
 	packet := DisseminatePacket{
 		StrategyCode:   code,
 		RequestId:      requestId,
@@ -82,7 +71,11 @@ func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, maxP
 		Hop:            hop,
 		Data:           data,
 	}
-	return p2p.Send(p, DisseminateRequest, packet)
+	if p == nil {
+		log.Error("p is nil ??")
+	}
+	fmt.Println("[DISSEMINATE] >>", p.ip, "|", "maxPeers", maxPeers, "originalSender", originalSender)
+	return p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
 }
 
 func (p *Peer) dispatchResponse(requestId uint64, packet any) error {
@@ -266,13 +259,12 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
 		return nil
 	}
-	p2p.Send(e.peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
+	return p2p.Send(e.peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
 		RequestId: packet.RequestId,
 		Sender:    uint64(e.peerToId(p)),
 		Hop:       packet.Hop,
 		Time:      now,
 	}) // should we ask for ACK?
-	return nil
 }
 
 func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {

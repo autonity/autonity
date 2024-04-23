@@ -37,7 +37,7 @@ func (p *Broadcast) Execute(packetId uint64, data []byte, maxPeers int) error {
 	return nil
 }
 
-func (p *Broadcast) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data any) error {
+func (p *Broadcast) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
 	// Simple broadcast - nothing to propagate.
 	return nil
 }

@@ -13,13 +13,14 @@ type registeredStrategy struct {
 }
 
 func registerStrategy(name string, newFn func(base BaseStrategy) Strategy) {
+	id := uint64(len(StrategyRegistry))
 	newRegistration := registeredStrategy{
 		Name: name,
-		Code: uint64(len(StrategyRegistry)),
+		Code: id,
 		Constructor: func(peerGetter PeerGetter, state *State) Strategy {
 			base := BaseStrategy{
 				Peers: peerGetter,
-				Code:  uint64(len(StrategyRegistry)),
+				Code:  id,
 				State: state,
 			}
 			return newFn(base)
@@ -75,13 +76,14 @@ LOOP:
 
 type Strategy interface {
 	// Execute contains the logic for the dissemination strategy from the source sender perspective.
+	// The strategy should disseminate packets with recipient from id = 0 to id = maxPeers-1
 	Execute(packetId uint64, data []byte, maxPeers int) error
 	// HandlePacket has the logic when receiving a packet.
-	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data any) error
+	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error
 }
 
 type Peer interface {
-	DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data any) error
+	DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error
 }
 
 type PeerGetter func(int) Peer

@@ -126,6 +126,9 @@ func (e *Engine) peerCount() int {
 }
 
 func (e *Engine) peer(i int) strats.Peer {
+	if e.peers[i] == nil {
+		return nil
+	}
 	return e.peers[i]
 }
 
