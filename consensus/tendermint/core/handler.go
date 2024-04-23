@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/metrics"
 )
 
 // todo: resolve proper tendermint state synchronization timeout from block period.
@@ -128,6 +129,9 @@ eventLoop:
 			}
 			newCandidateBlockEvent := ev
 			pb := &newCandidateBlockEvent.NewCandidateBlock
+			if metrics.Enabled && c.IsProposer() {
+				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
+			}
 			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
