@@ -14,11 +14,9 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
@@ -33,10 +31,7 @@ var (
 	AutonityABIKey = []byte("ABISPEC")
 )
 
-// Errors
 var (
-	ErrAutonityContract = errors.New("could not call Autonity contract")
-	ErrWrongParameter   = errors.New("wrong parameter")
 	ErrNoAutonityConfig = errors.New("autonity section missing from genesis")
 )
 
@@ -205,6 +200,8 @@ func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*
 	return c.callGetMinimumBaseFee(db, block)
 }
 
+// Proposer buffering is managed by this Autonity contract instance, as proposer election might be placed at AC side,
+// thus, we keep it here although the committee object has the proposer election function.
 func (c *AutonityContract) Proposer(committee *types.Committee, height uint64, round int64) (proposer common.Address) {
 	c.Lock()
 	defer c.Unlock()
@@ -219,7 +216,7 @@ func (c *AutonityContract) Proposer(committee *types.Committee, height uint64, r
 
 	proposer, ok = c.proposers[height][round]
 	if !ok {
-		proposer = c.electProposer(committee, height, round)
+		proposer = committee.Proposer(height, round)
 		c.proposers[height][round] = proposer
 	}
 
@@ -230,32 +227,6 @@ func (c *AutonityContract) Proposer(committee *types.Committee, height uint64, r
 	}
 
 	return proposer
-}
-
-// electProposer is a part of consensus, that it elect proposer from the committee which was returned
-// from autonity contract stable ordered by voting power in evm context.
-func (c *AutonityContract) electProposer(committee *types.Committee, height uint64, round int64) common.Address {
-	seed := big.NewInt(constants.MaxRound)
-	totalVotingPower := committee.TotalVotingPower()
-
-	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
-	h := new(big.Int).SetUint64(height)
-	r := new(big.Int).SetInt64(round)
-	key := r.Add(r, h.Mul(h, seed))
-	value := new(big.Int).SetBytes(crypto.Keccak256(key.Bytes()))
-	index := value.Mod(value, totalVotingPower)
-	// find the index hit which committee member which line up in the committee list.
-	// we assume there is no 0 stake/power validators.
-	counter := new(big.Int).SetUint64(0)
-	for _, member := range committee.Members {
-		counter.Add(counter, member.VotingPower)
-		if index.Cmp(counter) == -1 {
-			return member.Address
-		}
-	}
-
-	// otherwise, we elect with round-robin.
-	return committee.Members[round%int64(committee.Len())].Address
 }
 
 /* the Proposer election function is called from core and from the fault detector.

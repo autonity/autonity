@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"golang.org/x/crypto/blake2b"
@@ -301,4 +302,30 @@ func (c *Committee) Sort() {
 			return bytes.Compare(c.Members[i].Address.Bytes(), c.Members[j].Address.Bytes()) < 0
 		})
 	}
+}
+
+func (c *Committee) Proposer(height uint64, round int64) common.Address {
+	totalVotingPower := c.TotalVotingPower()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	seed := big.NewInt(constants.MaxRound)
+	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
+	h := new(big.Int).SetUint64(height)
+	r := new(big.Int).SetInt64(round)
+	key := r.Add(r, h.Mul(h, seed))
+	value := new(big.Int).SetBytes(crypto.Keccak256(key.Bytes()))
+	index := value.Mod(value, totalVotingPower)
+	// find the index hit which committee member which line up in the committee list.
+	// we assume there is no 0 stake/power validators.
+	counter := new(big.Int).SetUint64(0)
+	for _, member := range c.Members {
+		counter.Add(counter, member.VotingPower)
+		if index.Cmp(counter) == -1 {
+			return member.Address
+		}
+	}
+
+	// otherwise, we elect with round-robin.
+	return c.Members[round%int64(c.Len())].Address
 }

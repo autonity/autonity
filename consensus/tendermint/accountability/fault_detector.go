@@ -19,7 +19,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/internal/ethapi"
@@ -31,11 +30,7 @@ type ChainContext interface {
 	consensus.ChainReader
 	CurrentBlock() *types.Block
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
-	State() (*state.StateDB, error)
 	ProtocolContracts() *autonity.ProtocolContracts
-	StateAt(root common.Hash) (*state.StateDB, error)
-	HasBadBlock(hash common.Hash) bool
-	Validator() core.Validator
 }
 
 const (
@@ -339,9 +334,16 @@ loop:
 				fd.logger.Error("Can't decode accusation", "err", err)
 				break
 			}
+
+			committee, err := fd.blockchain.CommitteeOfHeight(decodedProof.Message.H())
+			if err != nil {
+				fd.logger.Error("Can't retrieve committee of height", "height", decodedProof.Message.H())
+				break
+			}
+
 			// The signatures must be valid at this stage, however we have to recover the original
 			// senders, hence the following call.
-			if err := verifyProofSignatures(fd.blockchain, decodedProof); err != nil {
+			if err := verifyProofSignatures(committee, decodedProof); err != nil {
 				fd.logger.Error("Can't verify proof signatures", "err", err)
 				break
 			}

@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/core/types"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -13,7 +14,6 @@ import (
 )
 
 var (
-	errNoParentHeader              = errors.New("no parent header")
 	errInvalidAccusation           = errors.New("invalid accusation")
 	errPeerDuplicatedAccusation    = errors.New("remote peer is sending duplicated accusation")
 	errInvalidInnocenceProof       = errors.New("invalid proof of innocence")
@@ -200,7 +200,8 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		fd.logger.Info("over rated accusation over a height", "error", err)
 		return err
 	}
-	if err = verifyProofSignatures(fd.blockchain, proof); err != nil {
+
+	if err = verifyProofSignatures(committee, proof); err != nil {
 		return err
 	}
 	// handle accusation and provide innocence proof.
@@ -210,7 +211,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// handle innocence proof and to withdraw those pending accusation.
 	if proof.Type == autonity.Innocence {
-		return fd.handleOffChainProofOfInnocence(proof, sender)
+		return fd.handleOffChainProofOfInnocence(committee, proof, sender)
 	}
 	return fmt.Errorf("wrong proof type for off chain accusation events")
 }
@@ -222,7 +223,13 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	}
 
 	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+		return nil
+	}
+
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation
+	if fd.blockchain.GetBlock(accusation.Message.Value(), accusation.Message.H()) != nil {
+		// return nil just skip to drop the peer connection.
 		return nil
 	}
 
@@ -250,13 +257,13 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	return nil
 }
 
-func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender common.Address) error {
+func (fd *FaultDetector) handleOffChainProofOfInnocence(committee *types.Committee, proof *Proof, sender common.Address) error {
 	// if the sender is not the one being challenged against, then drop the peer by returning error.
 	if proof.Message.Sender() != sender {
 		return errInvalidInnocenceProof
 	}
 	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
-	if !verifyInnocenceProof(proof, fd.blockchain) {
+	if !verifyInnocenceProof(committee, proof) {
 		return errInvalidInnocenceProof
 	}
 	// the proof is valid, withdraw the off chain challenge.

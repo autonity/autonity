@@ -140,12 +140,15 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 public lastEpochBlock;
     uint256 public epochTotalBondedStake;
 
+    // epochCommittees, saves committee for per epoch in the history.
+    // k: epochID, value: array of CommitteeMember
+    mapping(uint256=>CommitteeMember[]) internal epochCommittees;
+
     CommitteeMember[] internal committee;
     uint256 public totalRedistributed;
     uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
-
 
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
@@ -245,6 +248,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function finalizeInitialization() onlyProtocol public {
         _stakingOperations();
         computeCommittee();
+        epochCommittees[epochID] = committee;
     }
 
     /**
@@ -626,6 +630,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _performRedistribution();
             _stakingOperations();
             _applyNewCommissionRates();
+            // save history committee.
+            epochCommittees[epochID] = committee;
             address[] memory voters = computeCommittee();
             config.contracts.oracleContract.setVoters(voters);
             lastEpochBlock = block.number;
@@ -698,7 +704,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /**
-* @notice Returns the un-bonding period.
+    * @notice Returns the un-bonding period.
     */
     function getUnbondingPeriod() external view virtual returns (uint256) {
         return config.policy.unbondingPeriod;
@@ -724,6 +730,28 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      */
     function getCommittee() external view virtual returns (CommitteeMember[] memory) {
         return committee;
+    }
+
+    /**
+     * @notice Returns the committee of a specific height.
+     * @param _height the input block number.h
+     */
+    function getCommitteeOfHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
+        require(_height <= block.number, "cannot get committee for a future height");
+        // as current block haven't been finalized, thus we should always return the parent height's committee.
+        uint256 parentHeight = _height - 1;
+        if (parentHeight == 0) {
+            return committee;
+        }
+        uint256 eID = blockEpochMap[parentHeight];
+
+        // if current epoch haven't been finalized, then return current committee.
+        CommitteeMember[] memory members = epochCommittees[eID];
+        if (members.length == 0) {
+            return committee;
+        }
+        // return finalized epoch's committee
+        return members;
     }
 
     /**
@@ -815,10 +843,12 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * state.
     */
     function getProposer(uint256 height, uint256 round) external view virtual returns (address) {
+        CommitteeMember[] memory members = getCommitteeOfHeight(height);
+
         // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
         uint256 total_voting_power = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            total_voting_power += committee[i].votingPower;
+        for (uint256 i = 0; i < members.length; i++) {
+            total_voting_power += members[i].votingPower;
         }
 
         require(total_voting_power != 0, "The committee is not staking");
@@ -831,10 +861,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         // find the index hit which committee member which line up in the committee list.
         // we assume there is no 0 stake/power validators.
         uint256 counter = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            counter += committee[i].votingPower;
+        for (uint256 i = 0; i < members.length; i++) {
+            counter += members[i].votingPower;
             if (index <= counter - 1) {
-                return committee[i].addr;
+                return members[i].addr;
             }
         }
         revert("There is no validator left in the network");

@@ -281,7 +281,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
-	accountability.LoadPrecompiles(eth.blockchain)
+	accountability.LoadPrecompiles()
 	// Create Fault Detector for each full node for the time being,
 
 	eth.accountability = accountability.NewFaultDetector(

@@ -525,7 +525,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		invalidProposal := newProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee.Members[0]), invalidCommittee, nil).MustVerify(stubVerifier)
 		p.Message = invalidProposal
 
-		err := fd.handleOffChainProofOfInnocence(&p, invalidCommittee.Members[0].Address)
+		err := fd.handleOffChainProofOfInnocence(committee, &p, invalidCommittee.Members[0].Address)
 		require.Equal(t, errInvalidInnocenceProof, err)
 	})
 
@@ -566,7 +566,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		lastHeader := newBlockHeader(lastHeight, committee)
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader).AnyTimes()
 
-		err := fd.handleOffChainProofOfInnocence(&proofPO, proposer)
+		err := fd.handleOffChainProofOfInnocence(committee, &proofPO, proposer)
 
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fd.offChainAccusations))

@@ -103,5 +103,6 @@
   "33f98c77": "latestRoundData(string)",
   "8d4f75d2": "setSymbols(string[])",
   "845023f2": "setVoters(address[])",
-  "307de9b6": "vote(uint256,int256[],uint256)"
+  "307de9b6": "vote(uint256,int256[],uint256)",
+  "cf18ab10": "getCommitteeOfHeight(uint256)"
 }
