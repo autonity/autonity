@@ -48,7 +48,6 @@ func Handler(reg metrics.Registry) http.Handler {
 			case metrics.Gauge:
 				c.addGauge(name, m.Snapshot())
 			case metrics.BufferedGauge:
-				// TODO: need to add support for bufferedGauge to correct prometheus type
 			case metrics.GaugeFloat64:
 				c.addGaugeFloat64(name, m.Snapshot())
 			case metrics.Histogram:

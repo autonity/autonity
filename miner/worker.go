@@ -754,6 +754,7 @@ func (w *worker) resultLoop() {
 				now := time.Now()
 				PersistWorkTimer.Update(now.Sub(persistStart))
 				PersistWorkBg.Add(now.Sub(persistStart).Nanoseconds())
+				TotalTaskProcessBg.Add(now.Sub(task.createdAt).Nanoseconds())
 			}
 			w.eth.Logger().Info("🔨 Proposed block validated with success", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
@@ -1201,6 +1202,9 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 
 		select {
 		case w.taskCh <- &task{receipts: env.receipts, state: env.state, block: block, createdAt: time.Now()}:
+			if metrics.Enabled {
+				TotalTaskPrepareBg.Add(time.Since(start).Nanoseconds())
+			}
 			w.eth.Logger().Info("Preparing new block proposal", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
 				"uncles", len(env.uncles), "txs", env.tcount,
 				"gas", block.GasUsed(), "fees", totalFees(block, env.receipts),
@@ -1209,7 +1213,6 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		case <-w.exitCh:
 			w.eth.Logger().Info("Worker has exited")
 		}
-
 	}
 	if update {
 		w.updateSnapshot(env)

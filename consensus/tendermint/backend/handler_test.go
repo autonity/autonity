@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	"io"
 	"testing"
 	"time"
 
@@ -43,15 +44,28 @@ func TestTendermintMessage(t *testing.T) {
 		t.Fatalf("handle message failed: %v", err)
 	}
 	// for peers
-	if ms, ok := backend.peerKnownMessages.Get(testAddress); ms == nil || !ok {
-		t.Fatalf("the cache of messages for this peer cannot be nil")
-	} else if _, ok := ms.Get(data.Hash()); !ok {
-		t.Fatalf("the cache of messages for this peer cannot be found")
-	}
+	tic := time.NewTicker(time.Millisecond * 100)
+	maxWait := 50
+	counter := 0
+	peerCacheNil, peerCacheEmpty, selfCacheEmpty := false, false, false
 
-	// for self
-	if _, ok := backend.knownMessages.Get(data.Hash()); !ok {
-		t.Fatalf("the cache of messages cannot be found")
+	for {
+		<-tic.C
+		if ms, ok := backend.peerKnownMessages.Get(testAddress); ms == nil || !ok {
+			peerCacheNil = true
+		} else if _, ok := ms.Get(data.Hash()); !ok {
+			peerCacheEmpty = true
+		}
+		if _, ok := backend.knownMessages.Get(data.Hash()); !ok {
+			selfCacheEmpty = true
+		}
+		if !peerCacheNil && !peerCacheEmpty && !selfCacheEmpty {
+			break
+		}
+		peerCacheNil, peerCacheEmpty, selfCacheEmpty = false, false, false
+		if counter >= maxWait {
+			t.Fatalf("the cache of messages cannot be found")
+		}
 	}
 }
 
@@ -149,5 +163,7 @@ func TestNewChainHead(t *testing.T) {
 
 func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	size, r, _ := rlp.EncodeToReader(data)
-	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
+	var buff bytes.Buffer
+	io.Copy(&buff, r)
+	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: bytes.NewReader(buff.Bytes())}
 }

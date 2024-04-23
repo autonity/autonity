@@ -100,6 +100,20 @@ func shouldDisconnectSender(err error) bool {
 	}
 }
 
+func recordMessageProcessingTime(code uint8, start time.Time) {
+	switch code {
+	case message.ProposalCode:
+		MsgProposalBg.Add(time.Since(start).Nanoseconds())
+		MsgProposalPackets.Mark(1)
+	case message.PrevoteCode:
+		MsgPrevoteBg.Add(time.Since(start).Nanoseconds())
+		MsgPrevotePackets.Mark(1)
+	case message.PrecommitCode:
+		MsgPrecommitBg.Add(time.Since(start).Nanoseconds())
+		MsgPrecommitPackets.Mark(1)
+	}
+}
+
 func (c *Core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
@@ -121,6 +135,7 @@ eventLoop:
 		default:
 			select {
 			case ev, ok := <-c.messageSub.Chan():
+				start := time.Now()
 				if !ok {
 					break eventLoop
 				}
@@ -139,6 +154,7 @@ eventLoop:
 					if !c.noGossip {
 						go c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
 					}
+					recordMessageProcessingTime(e.Message.Code(), start)
 				case backlogMessageEvent:
 					// No need to check signature for internal messages
 					c.logger.Debug("Started handling consensus backlog event")
@@ -149,6 +165,7 @@ eventLoop:
 					if !c.noGossip {
 						go c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
 					}
+					recordMessageProcessingTime(e.msg.Code(), start)
 				case backlogUntrustedMessageEvent:
 					c.logger.Debug("Started handling backlog unchecked event")
 					// messages in the untrusted buffer were successfully decoded
@@ -159,6 +176,7 @@ eventLoop:
 					if !c.noGossip {
 						go c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
 					}
+					recordMessageProcessingTime(e.msg.Code(), start)
 				case StateRequestEvent:
 					// Process Tendermint state dump request.
 					c.handleStateDump(e)
