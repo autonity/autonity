@@ -4,40 +4,43 @@ import (
 	"time"
 )
 
-type StratCode uint64
+var StrategyRegistry []registeredStrategy
 
-const (
-	BroadcastCode = StratCode(iota)
-	SimpleCode
-	// LatRandCode
-	// RandRandCode
-	// LatLatCode
-	StrategyCount
-)
+type registeredStrategy struct {
+	Name        string
+	Code        uint64
+	Constructor func(peerGetter PeerGetter, state *State) Strategy
+}
 
-func (s StratCode) String() string {
-	switch s {
-	case BroadcastCode:
-		return "Simple Broadcast"
-	case SimpleCode:
-		return "Simple Tree Dissemination"
-	default:
-		panic("unhandled default case")
+func registerStrategy(name string, newFn func(base BaseStrategy) Strategy) {
+	newRegistration := registeredStrategy{
+		Name: name,
+		Code: uint64(len(StrategyRegistry)),
+		Constructor: func(peerGetter PeerGetter, state *State) Strategy {
+			base := BaseStrategy{
+				Peers: peerGetter,
+				Code:  uint64(len(StrategyRegistry)),
+				State: state,
+			}
+			return newFn(base)
+		},
 	}
+	StrategyRegistry = append(StrategyRegistry, newRegistration)
 }
 
 // State is a shared object amongst strategies.
 type State struct {
-	Id              int
-	receivedPackets map[uint64]struct{}
-	receivedReports map[uint64]chan *IndividualDisseminateResult
+	Id uint64
+	// Those need to be protected
+	ReceivedPackets map[uint64]struct{}
+	ReceivedReports map[uint64]chan *IndividualDisseminateResult
 }
 
-func NewState(id int) *State {
+func NewState(id uint64) *State {
 	return &State{
 		Id:              id,
-		receivedPackets: make(map[uint64]struct{}),
-		receivedReports: make(map[uint64]chan *IndividualDisseminateResult),
+		ReceivedPackets: make(map[uint64]struct{}),
+		ReceivedReports: make(map[uint64]chan *IndividualDisseminateResult),
 	}
 }
 
@@ -48,7 +51,7 @@ func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDissem
 LOOP:
 	for i := 0; i < maxPeers; i++ { //we're not expecting ourselves to send it back
 		select {
-		case report := <-s.receivedReports[packetId]:
+		case report := <-s.ReceivedReports[packetId]:
 			individualResults[report.Sender] = *report
 		case <-timer.C:
 			break LOOP
@@ -74,7 +77,7 @@ type Strategy interface {
 	// Execute contains the logic for the dissemination strategy from the source sender perspective.
 	Execute(packetId uint64, data []byte, maxPeers int) error
 	// HandlePacket has the logic when receiving a packet.
-	HandlePacket(requestId uint64, hop uint8, originalSender uint64, data any) error
+	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data any) error
 }
 
 type Peer interface {
@@ -93,5 +96,6 @@ type IndividualDisseminateResult struct {
 
 type BaseStrategy struct {
 	Peers PeerGetter
+	Code  uint64
 	State *State
 }

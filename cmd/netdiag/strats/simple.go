@@ -19,6 +19,12 @@ type Simple struct {
 	BaseStrategy
 }
 
+func init() {
+	registerStrategy("Simple Dissemination Tree", func(base BaseStrategy) Strategy {
+		return &Simple{base}
+	})
+}
+
 func (p *Simple) Execute(packetId uint64, data []byte, maxPeers int) error {
 	// SENDER Should be excluded from maxPeers !
 	groupSize := int(math.Sqrt(float64(maxPeers)))
@@ -39,7 +45,7 @@ func (p *Simple) Execute(packetId uint64, data []byte, maxPeers int) error {
 			// - no suitable target found in the group to deal with
 			// - last group size
 		}
-		err := target.DisseminateRequest(uint64(SimpleCode), packetId, 1, uint64(p.State.Id), uint64(maxPeers), data)
+		err := target.DisseminateRequest(p.Code, packetId, 1, uint64(p.State.Id), uint64(maxPeers), data)
 		if err != nil {
 			return err
 		}
@@ -54,12 +60,12 @@ func (p *Simple) HandlePacket(requestId uint64, hop uint8, originalSender uint64
 		for i := range allPeers {
 			allPeers[i] = p.Peers(i)
 		}
-		group := disseminationGroup(p.State.Id, allPeers)
+		group := disseminationGroup(int(p.State.Id), allPeers)
 		for i := range group {
 			if group[i] == nil {
 				continue
 			}
-			err := group[i].DisseminateRequest(uint64(SimpleCode), requestId, 0, originalSender, maxPeers, data)
+			err := group[i].DisseminateRequest(p.Code, requestId, 0, originalSender, maxPeers, data)
 			if err != nil {
 				return err
 			}

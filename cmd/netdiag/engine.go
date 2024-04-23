@@ -19,7 +19,6 @@ type Engine struct {
 	peers  []*Peer // nil never connected, can do probably cleaner
 	enodes []*enode.Node
 
-	// state of received messages
 	state      *strats.State
 	strategies []strats.Strategy
 
@@ -28,15 +27,10 @@ type Engine struct {
 
 func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := &Engine{
-		state: strats.NewState(id),
+		state: strats.NewState(uint64(id)),
 	}
-	base := strats.BaseStrategy{
-		Peers: e.peer,
-		State: e.state,
-	}
-	e.strategies = []strats.Strategy{
-		&strats.Broadcast{BaseStrategy: base},
-		&strats.Simple{BaseStrategy: base},
+	for _, s := range strats.StrategyRegistry {
+		e.strategies = append(e.strategies, s.Constructor(e.peer, e.state))
 	}
 
 	runner := func(peer *p2p.Peer, rw p2p.MsgReadWriter) error {

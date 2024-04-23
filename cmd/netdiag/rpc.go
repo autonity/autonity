@@ -616,12 +616,12 @@ type ArgStrategy struct {
 func (a *ArgStrategy) AskUserInput() error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Available Dissemination Strategies:")
-	for i := 0; i < int(strats.StrategyCount); i++ {
-		fmt.Println(i, "-", strats.StratCode(i))
+	for i, s := range strats.StrategyRegistry {
+		fmt.Println(i, "-", s.Name)
 	}
 	input, _ := reader.ReadString('\n')
 	index, err := strconv.Atoi(strings.TrimSpace(input))
-	if err != nil || index >= int(strats.StrategyCount) || index < 0 {
+	if err != nil || index >= len(strats.StrategyRegistry) || index < 0 {
 		fmt.Println("Invalid strategy selected")
 		return err
 	}

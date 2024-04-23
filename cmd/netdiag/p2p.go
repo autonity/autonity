@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
@@ -67,15 +68,17 @@ type DisseminatePacket struct {
 	StrategyCode   uint64
 	RequestId      uint64
 	OriginalSender uint64
+	MaxPeers       uint64
 	Hop            uint8
 	Data           any
 }
 
-func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, data any) error {
+func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, maxPeers uint64, originalSender uint64, data any) error {
 	packet := DisseminatePacket{
 		StrategyCode:   code,
 		RequestId:      requestId,
 		OriginalSender: originalSender,
+		MaxPeers:       maxPeers,
 		Hop:            hop,
 		Data:           data,
 	}
@@ -250,13 +253,15 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "ORIGIN", packet.OriginalSender, "HOP", packet.Hop)
 	// check if first time received.
-	if _, ok := e.receivedPackets[packet.RequestId]; ok {
+	if _, ok := e.state.ReceivedPackets[packet.RequestId]; ok {
 		// do nothing
 		return nil
 	}
-	e.receivedPackets[packet.RequestId] = struct{}{}
-	e.strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.Data)
+	e.state.ReceivedPackets[packet.RequestId] = struct{}{}
 
+	if err := e.strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.MaxPeers, packet.Data); err != nil {
+		log.Error("Error handling packet: ", err)
+	}
 	if e.peers[packet.OriginalSender] == nil {
 		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
 		return nil
@@ -275,12 +280,12 @@ func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 	if err := rlp.Decode(data, &packet); err != nil {
 		return err
 	}
-	channel, ok := e.state.receivedReports[packet.RequestId]
+	channel, ok := e.state.ReceivedReports[packet.RequestId]
 	if !ok {
 		log.Error("Dissemination report id not found!")
 		return nil // or error maybe
 	}
-	channel <- &IndividualDisseminateResult{
+	channel <- &strats.IndividualDisseminateResult{
 		Sender:        e.peerToId(p),
 		Relay:         int(packet.Sender),
 		Hop:           int(packet.Hop),

@@ -2,59 +2,42 @@ package strats
 
 import (
 	"sync"
-	"time"
+
+	"github.com/autonity/autonity/log"
 )
 
 type Broadcast struct {
 	BaseStrategy
 }
 
-func (p *Broadcast) Execute(packetId uint64, data []byte, maxPeers int) error {
+func init() {
+	registerStrategy("Simple Broadcast", func(base BaseStrategy) Strategy {
+		return &Broadcast{base}
+	})
+}
 
-	results := make([][]PacketResult, len(p.engine.peers))
-	startTime := time.Now()
+func (p *Broadcast) Execute(packetId uint64, data []byte, maxPeers int) error {
 	var wg sync.WaitGroup
-	for i := range p.engine.peers {
-		if p.engine.peers[i] == nil {
+	for i := 0; i < maxPeers; i++ {
+		peer := p.Peers(i)
+		if peer == nil {
 			continue
 		}
-		results[i] = make([]PacketResult, args.PacketCount)
 		wg.Add(1)
-		go func(id int) {
-			resultsCh := make([]chan any, args.PacketCount)
-			for j := 0; j < args.PacketCount; j++ {
-				var err error
-				resultsCh[j], err = p.engine.peers[id].sendDataAsync(buff)
-				if err != nil {
-					log.Error("error sending data async", "err", err)
-				}
-			}
-			timer := time.NewTimer(5 * time.Second)
-			for j := 0; j < args.PacketCount; j++ {
-				select {
-				case ans := <-resultsCh[j]:
-					replyTime := ans.(AckDataPacket).Time
-					results[id][j] = PacketResult{
-						TimeReqReceived: time.Unix(int64(replyTime)/int64(time.Second), int64(replyTime)%int64(time.Second)),
-						SyscallDuration: 0,
-						Err:             "",
-					}
-
-				case <-timer.C:
-					results[id][j] = PacketResult{Err: "TIMEOUT"}
-					timer.Reset(5 * time.Millisecond)
-				}
+		go func() {
+			err := peer.DisseminateRequest(p.Code, packetId, 0, p.State.Id, uint64(maxPeers), data)
+			if err != nil {
+				log.Error("DisseminateRequest err:", err)
 			}
 			wg.Done()
-		}(i)
+		}()
 	}
 
 	wg.Wait()
-	*reply = ResultSimpleBroadcast{
-		Size:          args.Size,
-		Count:         args.PacketCount,
-		PacketResults: results,
-		StartTime:     startTime,
-	}
+	return nil
+}
+
+func (p *Broadcast) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data any) error {
+	// Simple broadcast - nothing to propagate.
 	return nil
 }
