@@ -140,11 +140,11 @@ func handleConsensusMsg[T any, PT interface {
 		log.Error("Failed to hash payload", "error", err)
 		return true, err
 	}
-	bReader.Seek(0, io.SeekStart)
-	p2pMsg.Payload = bReader
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
+	bReader.Seek(0, io.SeekStart)
+	p2pMsg.Payload = bReader
 	if !sb.coreStarted {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil
