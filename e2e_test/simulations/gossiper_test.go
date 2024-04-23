@@ -4,8 +4,9 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
@@ -23,15 +24,15 @@ func newCustomGossiper(b interfaces.Backend) interfaces.Gossiper {
 	return &customGossiper{
 		Gossiper:       defaultGossiper,
 		knownMessages:  defaultGossiper.KnownMessages(),
-		recentMessages: defaultGossiper.RecentMessages(),
+		recentMessages: defaultGossiper.PeerKnownMessages(),
 		address:        defaultGossiper.Address(),
 	}
 }
 
 type customGossiper struct {
 	interfaces.Gossiper
-	knownMessages  *lru.ARCCache
-	recentMessages *lru.ARCCache
+	recentMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
+	knownMessages  *lru.LRU[common.Hash, bool]                           // the cache of self messages
 	address        common.Address
 }
 
@@ -69,19 +70,17 @@ func (cg *customGossiper) Gossip(committee types.Committee, msg message.Msg) {
 	ps := cg.Broadcaster().FindPeers(targets)
 	for addr, p := range ps {
 		ms, ok := cg.recentMessages.Get(addr)
-		var m *lru.ARCCache
 		if ok {
-			m, _ = ms.(*lru.ARCCache)
-			if _, k := m.Get(hash); k {
+			if _, k := ms.Get(hash); k {
 				// This peer had this event, skip it
 				continue
 			}
+			ms.Add(hash, true)
 		} else {
-			m, _ = lru.NewARC(1024) //   backend.inmemoryMessages  = 1024
+			ms = lru.NewLRU[common.Hash, bool](0, nil, time.Second*10)
+			ms.Add(hash, true)
+			cg.recentMessages.Add(addr, ms)
 		}
-
-		m.Add(hash, true)
-		cg.recentMessages.Add(addr, m)
 
 		go p.SendRaw(backend.NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}

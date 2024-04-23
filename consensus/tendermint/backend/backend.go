@@ -11,7 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2/expirable"
 	ring "github.com/zfjagann/golang-ring"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -45,25 +45,24 @@ var (
 // New creates an Ethereum Backend for BFT core engine.
 func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config, services *interfaces.Services, evMux *event.TypeMux, ms *tendermintCore.MsgStore, log log.Logger, noGossip bool) *Backend {
 
-	recentMessages, _ := lru.NewARC(inmemoryPeers)
-	knownMessages, _ := lru.NewARC(inmemoryMessages)
-
+	recentMessages := lru.NewLRU[common.Address, *lru.LRU[common.Hash, bool]](0, nil, 0)
+	knownMessages := lru.NewLRU[common.Hash, bool](0, nil, ttl)
 	backend := &Backend{
-		eventMux:       event.NewTypeMuxSilent(evMux, log),
-		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log,
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		vmConfig:       vmConfig,
-		MsgStore:       ms,
-		jailed:         make(map[common.Address]uint64),
+		eventMux:          event.NewTypeMuxSilent(evMux, log),
+		privateKey:        privateKey,
+		address:           crypto.PubkeyToAddress(privateKey.PublicKey),
+		logger:            log,
+		peerKnownMessages: recentMessages,
+		knownMessages:     knownMessages,
+		vmConfig:          vmConfig,
+		MsgStore:          ms,
+		jailed:            make(map[common.Address]uint64),
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
 
-	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
+	backend.gossiper = NewGossiper(backend.peerKnownMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
@@ -103,8 +102,8 @@ type Backend struct {
 	gossiper interfaces.Gossiper
 
 	//ARCCache is patented by IBM but it has expired https://patents.google.com/patent/US7167953B2/en
-	recentMessages *lru.ARCCache // the cache of peer's messages
-	knownMessages  *lru.ARCCache // the cache of self messages
+	peerKnownMessages *lru.LRU[common.Address, *lru.LRU[common.Hash, bool]] // the cache of peer's messages
+	knownMessages     *lru.LRU[common.Hash, bool]                           // the cache of self messages
 
 	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
@@ -150,9 +149,7 @@ func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
 	m := make([]common.Hash, 0, sb.knownMessages.Len())
-	for _, v := range sb.knownMessages.Keys() {
-		m = append(m, v.(common.Hash))
-	}
+	m = append(m, sb.knownMessages.Keys()...)
 	return m
 }
 
@@ -395,12 +392,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 }
 
 func (sb *Backend) ResetPeerCache(address common.Address) {
-	ms, ok := sb.recentMessages.Get(address)
-	var m *lru.ARCCache
-	if ok {
-		m, _ = ms.(*lru.ARCCache)
-		m.Purge()
-	}
+	sb.peerKnownMessages.Remove(address)
 }
 
 func (sb *Backend) RemoveMessageFromLocalCache(message message.Msg) {

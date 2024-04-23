@@ -16,7 +16,7 @@ import (
 	consensus "github.com/autonity/autonity/consensus"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	types "github.com/autonity/autonity/core/types"
-	lru "github.com/hashicorp/golang-lru"
+	expirable "github.com/hashicorp/golang-lru/v2/expirable"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -95,32 +95,32 @@ func (mr *MockGossiperMockRecorder) Gossip(committee, message any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, message)
 }
 
-// KnownMessages mocks base method.
-func (m *MockGossiper) KnownMessages() *lru.ARCCache {
+// PeerKnownMessages mocks base method.
+func (m *MockGossiper) PeerKnownMessages() *expirable.LRU[common.Address, *expirable.LRU[common.Hash, bool]] {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KnownMessages")
-	ret0, _ := ret[0].(*lru.ARCCache)
+	ret := m.ctrl.Call(m, "PeerKnownMessages")
+	ret0, _ := ret[0].(*expirable.LRU[common.Address, *expirable.LRU[common.Hash, bool]])
 	return ret0
 }
 
-// KnownMessages indicates an expected call of KnownMessages.
-func (mr *MockGossiperMockRecorder) KnownMessages() *gomock.Call {
+// PeerKnownMessages indicates an expected call of PeerKnownMessages.
+func (mr *MockGossiperMockRecorder) PeerKnownMessages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KnownMessages", reflect.TypeOf((*MockGossiper)(nil).KnownMessages))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PeerKnownMessages", reflect.TypeOf((*MockGossiper)(nil).PeerKnownMessages))
 }
 
-// RecentMessages mocks base method.
-func (m *MockGossiper) RecentMessages() *lru.ARCCache {
+// SelfKnownMessages mocks base method.
+func (m *MockGossiper) KnownMessages() *expirable.LRU[common.Hash, bool] {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecentMessages")
-	ret0, _ := ret[0].(*lru.ARCCache)
+	ret := m.ctrl.Call(m, "SelfKnownMessages")
+	ret0, _ := ret[0].(*expirable.LRU[common.Hash, bool])
 	return ret0
 }
 
-// RecentMessages indicates an expected call of RecentMessages.
-func (mr *MockGossiperMockRecorder) RecentMessages() *gomock.Call {
+// SelfKnownMessages indicates an expected call of SelfKnownMessages.
+func (mr *MockGossiperMockRecorder) SelfKnownMessages() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecentMessages", reflect.TypeOf((*MockGossiper)(nil).RecentMessages))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelfKnownMessages", reflect.TypeOf((*MockGossiper)(nil).KnownMessages))
 }
 
 // SetBroadcaster mocks base method.
