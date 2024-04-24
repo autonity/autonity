@@ -1,3 +1,0 @@
-package strats
-
-// todo

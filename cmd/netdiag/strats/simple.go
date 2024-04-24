@@ -20,7 +20,7 @@ type Simple struct {
 }
 
 func init() {
-	registerStrategy("Simple Dissemination Tree", func(base BaseStrategy) Strategy {
+	registerStrategy("Simple Tree", func(base BaseStrategy) Strategy {
 		return &Simple{base}
 	})
 }

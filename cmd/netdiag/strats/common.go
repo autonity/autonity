@@ -35,6 +35,7 @@ type State struct {
 	// Those need to be protected
 	ReceivedPackets map[uint64]struct{}
 	ReceivedReports map[uint64]chan *IndividualDisseminateResult
+	Latency         map[uint64]uint64
 }
 
 func NewState(id uint64) *State {

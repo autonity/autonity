@@ -617,7 +617,7 @@ func (a *ArgStrategy) AskUserInput() error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Available Dissemination Strategies: ")
 	for i, s := range strats.StrategyRegistry {
-		fmt.Println(i, "-", s.Name)
+		fmt.Printf("[%d] %s", i, s.Name)
 	}
 	fmt.Print("Chose strategy: ")
 	input, _ := reader.ReadString('\n')

@@ -19,22 +19,22 @@ type Random struct {
 }
 
 func init() {
-	registerStrategy("Limited Random Dissemination 10%", func(base BaseStrategy) Strategy {
+	registerStrategy("Limited Relays Random 10%", func(base BaseStrategy) Strategy {
 		return &Random{base, 10, false}
 	})
-	registerStrategy("Limited Random Dissemination 25%", func(base BaseStrategy) Strategy {
+	registerStrategy("Limited Relays Random 25%", func(base BaseStrategy) Strategy {
 		return &Random{base, 25, false}
 	})
-	registerStrategy("Limited Random Dissemination 50%", func(base BaseStrategy) Strategy {
+	registerStrategy("Limited Relays Random 50%", func(base BaseStrategy) Strategy {
 		return &Random{base, 50, false}
 	})
-	registerStrategy("Full Random Dissemination 10%", func(base BaseStrategy) Strategy {
+	registerStrategy("Full Relays Random 10%", func(base BaseStrategy) Strategy {
 		return &Random{base, 10, true}
 	})
-	registerStrategy("Full Random Dissemination 25%", func(base BaseStrategy) Strategy {
+	registerStrategy("Full Relays Random 25%", func(base BaseStrategy) Strategy {
 		return &Random{base, 25, true}
 	})
-	registerStrategy("Full Random Dissemination 50%", func(base BaseStrategy) Strategy {
+	registerStrategy("Full Relays Random 50%", func(base BaseStrategy) Strategy {
 		return &Random{base, 50, true}
 	})
 }
@@ -59,6 +59,7 @@ func (p *Random) randomDissemination(packetId uint64, data []byte, maxPeers int,
 			target = p.Peers(peerId)
 		}
 		sent[peerId] = struct{}{}
+		// TODO : test async!
 		if err := target.DisseminateRequest(p.Code, packetId, uint8(hop), originalSender, uint64(maxPeers), data); err != nil {
 			return err
 		}
