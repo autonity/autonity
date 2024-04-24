@@ -90,9 +90,6 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return false, nil
 	}
 
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
 	switch msg.Code {
 	case ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
@@ -150,6 +147,7 @@ func handleConsensusMsg[T any, PT interface {
 		return true, nil
 	}
 
+	// TODO: no need to create a goroutine per message - could be better
 	go func() {
 		if metrics.Enabled {
 			defer func(start time.Time) {
@@ -158,6 +156,7 @@ func handleConsensusMsg[T any, PT interface {
 		}
 
 		// Mark peer's message as known.
+		//TODO: top level map doesn't have to be review
 		ms, ok := sb.peerKnownMessages.Get(sender)
 		if ok {
 			if !ms.Contains(hash) {
@@ -168,6 +167,7 @@ func handleConsensusMsg[T any, PT interface {
 			ms.Add(hash, true)
 			sb.peerKnownMessages.Add(sender, ms)
 		}
+		// TODO: this map could be improved - lock free
 		sb.knownMessages.Add(hash, true)
 		msg := PT(new(T))
 		if err := p2pMsg.Decode(msg); err != nil {
@@ -175,6 +175,7 @@ func handleConsensusMsg[T any, PT interface {
 			errCh <- err
 			return
 		}
+		//TODO: buffered Channel - per sender
 		sb.Post(events.MessageEvent{
 			Message: msg,
 			ErrCh:   errCh,
