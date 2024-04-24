@@ -95,7 +95,6 @@ type Backend struct {
 	core              interfaces.Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup
-	coreMu            sync.RWMutex
 
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
