@@ -106,7 +106,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 	faultyFactor := 1 + (float32(len(faultyNodes)) / float32(nodesCount))
 
 	// consensus engine now takes ~10 second to start, since it waits for block sync success
-	consensusEngineOffset := float32(10)
+	consensusEngineOffset := float32(20)
 
 	// run extra epochs
 	for i := 1; i < epochs; i++ {
