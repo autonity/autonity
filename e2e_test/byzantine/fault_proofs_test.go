@@ -225,18 +225,15 @@ type InvalidProposer struct {
 
 func (s *InvalidProposer) Broadcast(msg message.Msg) {
 	// if current node is the proposer of current round, skip and return.
-	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
-		s.BroadcastAll(msg)
-		return
-	}
-	// current node is not the proposer of current round, propose a proposal.
-	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
-	block := types.NewBlockWithHeader(header)
-	msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign)
+	if s.CommitteeSet().GetProposer(msg.R()).Address != s.Address() {
+		// current node is not the proposer of current round, propose a proposal.
+		header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
+		block := types.NewBlockWithHeader(header)
+		msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign)
 
-	s.Logger().Info("Invalid proposer simulation")
-	s.BroadcastAll(msg)
-	s.BroadcastAll(msgP)
+		s.Logger().Info("Invalid proposer simulation")
+		s.BroadcastAll(msgP)
+	}
 }
 
 func newEquivocation(c interfaces.Core) interfaces.Broadcaster {

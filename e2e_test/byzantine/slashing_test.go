@@ -246,12 +246,11 @@ func TestHistoryFactor(t *testing.T) {
 	timeout, cancel := context.WithTimeout(context.TODO(), 150*time.Second)
 	defer cancel()
 	slashingEventA := WaitForSlashingEvent(timeout, t, dedicatedNode)
-
 	// wait until we can un-jail (+1 just in case)
 	err = network.WaitForHeight(slashingEventA.ReleaseBlock.Uint64()+1, 70)
 	require.NoError(t, err)
 
-	//un-jail
+	//un-jailgi
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(
 		validators[faultyNode].TreasuryKey,
 		chainID,

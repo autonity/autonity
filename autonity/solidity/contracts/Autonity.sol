@@ -738,12 +738,10 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      */
     function getCommitteeOfHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
         require(_height <= block.number, "cannot get committee for a future height");
-        // as current block haven't been finalized, thus we should always return the parent height's committee.
-        uint256 parentHeight = _height - 1;
-        if (parentHeight == 0) {
+        if (_height == 0) {
             return committee;
         }
-        uint256 eID = blockEpochMap[parentHeight];
+        uint256 eID = blockEpochMap[_height];
 
         // if current epoch haven't been finalized, then return current committee.
         CommitteeMember[] memory members = epochCommittees[eID];
