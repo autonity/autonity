@@ -35,14 +35,15 @@ type State struct {
 	// Those need to be protected
 	ReceivedPackets map[uint64]struct{}
 	ReceivedReports map[uint64]chan *IndividualDisseminateResult
-	Latency         map[uint64]uint64
+	AverageRTT      []time.Duration
 }
 
-func NewState(id uint64) *State {
+func NewState(id uint64, peers int) *State {
 	return &State{
 		Id:              id,
 		ReceivedPackets: make(map[uint64]struct{}),
 		ReceivedReports: make(map[uint64]chan *IndividualDisseminateResult),
+		AverageRTT:      make([]time.Duration, peers),
 	}
 }
 
@@ -85,6 +86,7 @@ type Strategy interface {
 
 type Peer interface {
 	DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error
+	RTT() time.Duration
 }
 
 type PeerGetter func(int) Peer

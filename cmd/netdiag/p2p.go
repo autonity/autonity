@@ -48,6 +48,7 @@ type Peer struct {
 	// ICMP stats
 	// Delay on TIME
 	ip        string
+	rtt       time.Duration
 	requests  map[uint64]chan any
 	connected bool
 	sync.RWMutex
@@ -91,6 +92,10 @@ func (p *Peer) dispatchResponse(requestId uint64, packet any) error {
 	delete(p.requests, requestId)
 	p.Unlock()
 	return nil
+}
+
+func (p *Peer) RTT() time.Duration {
+	return p.rtt
 }
 
 func (p *Peer) dispatchRequest(requestId uint64, code uint64, packet any) (chan any, error) {

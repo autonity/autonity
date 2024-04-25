@@ -27,7 +27,7 @@ type Engine struct {
 
 func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := &Engine{
-		state: strats.NewState(uint64(id)),
+		state: strats.NewState(uint64(id), len(cfg.Nodes)),
 	}
 	for _, s := range strats.StrategyRegistry {
 		e.strategies = append(e.strategies, s.Constructor(e.peer, e.state))

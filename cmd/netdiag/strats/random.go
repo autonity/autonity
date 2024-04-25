@@ -19,33 +19,33 @@ type Random struct {
 }
 
 func init() {
-	registerStrategy("Limited Relays Random 10%", func(base BaseStrategy) Strategy {
+	registerStrategy("10% Random Broadcast - 10% Random Relay - Single Hop", func(base BaseStrategy) Strategy {
 		return &Random{base, 10, false}
 	})
-	registerStrategy("Limited Relays Random 25%", func(base BaseStrategy) Strategy {
+	registerStrategy("25% Random Broadcast - 25% Random Relay - Single Hop", func(base BaseStrategy) Strategy {
 		return &Random{base, 25, false}
 	})
-	registerStrategy("Limited Relays Random 50%", func(base BaseStrategy) Strategy {
+	registerStrategy("50% Random Broadcast - 50% Random Relay - Single Hop", func(base BaseStrategy) Strategy {
 		return &Random{base, 50, false}
 	})
-	registerStrategy("Full Relays Random 10%", func(base BaseStrategy) Strategy {
+	registerStrategy("10% Random Broadcast - 10% Random Relay - Multi Hops", func(base BaseStrategy) Strategy {
 		return &Random{base, 10, true}
 	})
-	registerStrategy("Full Relays Random 25%", func(base BaseStrategy) Strategy {
+	registerStrategy("25% Random Broadcast - 25% Random Relay - Multi Hops", func(base BaseStrategy) Strategy {
 		return &Random{base, 25, true}
 	})
-	registerStrategy("Full Relays Random 50%", func(base BaseStrategy) Strategy {
+	registerStrategy("50% Random Broadcast - 50% Random Relay - Multi Hops", func(base BaseStrategy) Strategy {
 		return &Random{base, 50, true}
 	})
 }
 
 func (p *Random) Execute(packetId uint64, data []byte, maxPeers int) error {
-	return p.randomDissemination(packetId, data, maxPeers, uint64(p.State.Id), 1)
+	return p.randomDissemination(p.RandomPC, packetId, data, maxPeers, uint64(p.State.Id), 1)
 }
 
-func (p *Random) randomDissemination(packetId uint64, data []byte, maxPeers int, originalSender uint64, hop int) error {
+func (p *BaseStrategy) randomDissemination(randomPc int, packetId uint64, data []byte, maxPeers int, originalSender uint64, hop int) error {
 	sent := map[int]struct{}{}
-	numRecipients := (maxPeers * p.RandomPC) / 100
+	numRecipients := (maxPeers * randomPc) / 100
 	for i := 0; i < numRecipients; i++ {
 		var (
 			target Peer
@@ -69,10 +69,10 @@ func (p *Random) randomDissemination(packetId uint64, data []byte, maxPeers int,
 
 func (p *Random) HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
 	if hop == 1 {
-		return p.randomDissemination(packetId, data, int(maxPeers), originalSender, 0)
+		return p.randomDissemination(p.RandomPC, packetId, data, int(maxPeers), originalSender, 0)
 	}
 	if hop == 0 && p.Hop0 {
-		return p.randomDissemination(packetId, data, int(maxPeers), originalSender, 0)
+		return p.randomDissemination(p.RandomPC, packetId, data, int(maxPeers), originalSender, 0)
 	}
 	return nil
 }

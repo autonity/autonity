@@ -202,6 +202,7 @@ func (p *P2POp) PingIcmp(args *ArgTarget, reply *ResultPingIcmp) error {
 type ResultIcmpAll []*probing.Statistics
 
 func (r *ResultIcmpAll) String() string {
+	// This tabular view was a bad idea ! convert that into simple rows later ...
 	var (
 		builder     strings.Builder
 		header      = ""
@@ -251,7 +252,11 @@ func (p *P2POp) PingIcmpBroadcast(_ *ArgEmpty, reply *ResultIcmpAll) error {
 		replyChannels[i] = pingIcmp(peer.ip)
 	}
 	for i, ch := range replyChannels {
-		(*reply)[i] = <-ch
+		peerStats := <-ch
+		if p.engine.peers[i] != nil {
+			p.engine.peers[i].rtt = peerStats.AvgRtt
+		}
+		(*reply)[i] = peerStats
 	}
 	return nil
 }
@@ -617,7 +622,7 @@ func (a *ArgStrategy) AskUserInput() error {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Available Dissemination Strategies: ")
 	for i, s := range strats.StrategyRegistry {
-		fmt.Printf("[%d] %s", i, s.Name)
+		fmt.Printf("[%d] %s\n", i, s.Name)
 	}
 	fmt.Print("Chose strategy: ")
 	input, _ := reader.ReadString('\n')

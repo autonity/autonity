@@ -1,43 +1,47 @@
 package strats
 
 import (
-	"sync"
+	"sort"
 
 	"github.com/autonity/autonity/log"
 )
 
 type LowRTT struct {
 	BaseStrategy
+	RandomRatio int
 }
 
 func init() {
-	registerStrategy("Low RTT Priority", func(base BaseStrategy) Strategy {
-		return &Broadcast{base}
+	registerStrategy("Low RTT Priority - Relay 10% Random", func(base BaseStrategy) Strategy {
+		return &LowRTT{base, 10}
+	})
+	registerStrategy("Low RTT Priority - Relay 50% Random", func(base BaseStrategy) Strategy {
+		return &LowRTT{base, 50}
 	})
 }
 
-func (p *LowRTT) Execute(packetId uint64, data []byte, maxPeers int) error {
-	var wg sync.WaitGroup
+func (l *LowRTT) Execute(packetId uint64, data []byte, maxPeers int) error {
+	sortedPeers := make([]Peer, 0)
 	for i := 0; i < maxPeers; i++ {
-		peer := p.Peers(i)
-		if peer == nil {
-			continue
+		if p := l.Peers(i); p != nil {
+			sortedPeers = append(sortedPeers, p)
 		}
-		wg.Add(1)
-		go func() {
-			err := peer.DisseminateRequest(p.Code, packetId, 0, p.State.Id, uint64(maxPeers), data)
-			if err != nil {
-				log.Error("DisseminateRequest err:", err)
-			}
-			wg.Done()
-		}()
 	}
 
-	wg.Wait()
+	sort.Slice(sortedPeers, func(i, j int) bool {
+		return sortedPeers[i].RTT() < sortedPeers[j].RTT()
+	})
+
+	for _, p := range sortedPeers {
+		err := p.DisseminateRequest(l.Code, packetId, 0, l.State.Id, uint64(maxPeers), data)
+		if err != nil {
+			log.Error("DisseminateRequest err:", err)
+		}
+	}
 	return nil
 }
 
-func (p *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
-	// Simple broadcast - nothing to propagate.
-	return nil
+func (l *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
+	// randomDissemination is defined in random.go
+	return l.randomDissemination(l.RandomRatio, requestId, data, int(maxPeers), originalSender, int(hop+1))
 }
