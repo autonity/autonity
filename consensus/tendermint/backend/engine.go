@@ -338,11 +338,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	if len(committeeSet) != 0 {
 		committee.Members = make([]*types.CommitteeMember, len(committeeSet))
 		for i, m := range committeeSet {
-			committee.Members[i] = &types.CommitteeMember{
-				Address:      m.Address,
-				VotingPower:  new(big.Int).Set(m.VotingPower),
-				ConsensusKey: m.ConsensusKey,
-			}
+			committee.Members[i] = &m
 		}
 		// As committee as sorted by contract already, thus we don't sort it again.
 		sb.logger.Debug("Finalized epoch change block", "committee", committee)
