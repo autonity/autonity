@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 
@@ -14,8 +13,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 )
 
@@ -40,27 +37,7 @@ var (
 		message.PrevoteCode:   PrevoteNetworkMsg,
 		message.PrecommitCode: PrecommitNetworkMsg,
 	}
-	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, nil)                  // time between round start and proposal sent
-	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, getIntPointer(1024))   // time between round start and proposal receiv
-	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, getIntPointer(1024)) // time to verify proposal
-	DefaultProcessBg   = metrics.NewRegisteredBufferedGauge("acn/any/process", nil, nil)                       // time to verify proposal
 )
-
-func getIntPointer(val int) *int {
-	return &val
-}
-
-func getProcessMetric(msgCode uint64) metrics.BufferedGauge {
-	switch msgCode {
-	case 0x11:
-		return ProposalProcessBg
-	case 0x12:
-		return PrevoteProcessBg
-	case 0x13:
-		return PrecommitProcessBg
-	}
-	return DefaultProcessBg
-}
 
 // Protocol implements consensus.Handler.Protocol
 func (sb *Backend) Protocol() (protocolName string, extraMsgCodes uint64) {
@@ -132,53 +109,42 @@ func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
-	// we type cast it to byte.Reader because that's the only reader
-	// type we expect here
-	bReader := p2pMsg.Payload.(*bytes.Reader)
-	hash, err := crypto.HashFromReader(bReader)
-	if err != nil {
-		log.Error("Failed to hash payload", "error", err)
+	buffer := bytes.NewBuffer(make([]byte, 0, p2pMsg.Size))
+	// We copy the message here as it can't be saved directly due to
+	// a call to Discard in the eth handler which is going to empty this buffer.
+	if _, err := io.Copy(buffer, p2pMsg.Payload); err != nil {
 		return true, err
 	}
-	if sb.knownMessages.Contains(hash) {
-		return true, nil
-	}
-	bReader.Seek(0, io.SeekStart)
-	p2pMsg.Payload = bReader
+	p2pMsg.Payload = bytes.NewReader(buffer.Bytes())
 	if !sb.coreStarted {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
+		return true, nil // return nil to avoid shutting down connection during block sync.
+	}
+	hash := crypto.Hash(buffer.Bytes())
+	// Mark peer's message as known.
+	ms, ok := sb.recentMessages.Get(sender)
+	var m *lru.ARCCache
+	if ok {
+		m, _ = ms.(*lru.ARCCache)
+	} else {
+		m, _ = lru.NewARC(inmemoryMessages)
+		sb.recentMessages.Add(sender, m)
+	}
+	m.Add(hash, true)
+	// Mark the message known for ourselves
+	if _, ok := sb.knownMessages.Get(hash); ok {
 		return true, nil
 	}
-
-	go func() {
-		if metrics.Enabled {
-			defer func(start time.Time) {
-				getProcessMetric(p2pMsg.Code).Add(time.Since(start).Nanoseconds())
-			}(time.Now())
-		}
-
-		// Mark peer's message as known.
-		ms, ok := sb.recentMessages.Get(sender)
-		var m *lru.ARCCache
-		if ok {
-			m, _ = ms.(*lru.ARCCache)
-		} else {
-			m, _ = lru.NewARC(inmemoryMessages)
-			sb.recentMessages.Add(sender, m)
-		}
-		m.Add(hash, true)
-		sb.knownMessages.Add(hash, true)
-		msg := PT(new(T))
-		if err := p2pMsg.Decode(msg); err != nil {
-			sb.logger.Error("Error decoding consensus message", "err", err)
-			errCh <- err
-			return
-		}
-		sb.Post(events.MessageEvent{
-			Message: msg,
-			ErrCh:   errCh,
-		})
-	}()
+	sb.knownMessages.Add(hash, true)
+	msg := PT(new(T))
+	if err := p2pMsg.Decode(msg); err != nil {
+		sb.logger.Error("Error decoding consensus message", "err", err)
+		return true, err
+	}
+	go sb.Post(events.MessageEvent{
+		Message: msg,
+		ErrCh:   errCh,
+	})
 	return true, nil
 }
 
