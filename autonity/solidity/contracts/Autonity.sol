@@ -1330,7 +1330,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         }
         uint256 _gasLeft = gasLeft[_delegator];
         uint256 _gasUsed = gasleft();
-        try IStakeProxy(_delegator).unbondingReleased(_id, _unbonding.delegatee, _amount, _rejected) {
+        try IStakeProxy(_delegator).unbondingReleased(_id, _amount, _rejected) {
             _gasUsed -= gasleft();
         } catch {
             _gasUsed -= gasleft();
@@ -1563,18 +1563,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         for (uint256 i = 0; i < _length; i++) {
             address _contract = contractAddresses[i];
             address[] memory _validators = validatorsStaked[_contract];
-            uint256[] memory _delegatedStake = new uint256[] (_validators.length);
-            uint256[] memory _liquidSupply = new uint256[] (_validators.length);
             for (uint256 j = 0; j < _validators.length; j++) {
                 delete isValidatorStaked[_contract][_validators[i]];
-                Validator storage _validator = validators[_validators[i]];
-                _delegatedStake[j] = _validator.bondedStake - _validator.selfBondedStake;
-                _liquidSupply[j] = _validator.liquidSupply;
             }
             delete validatorsStaked[_contract];
             uint256 _gasLeft = gasLeft[_contract];
             uint256 _gasUsed = gasleft();
-            try IStakeProxy(_contract).rewardsDistributed{gas: _gasLeft}(_validators, _delegatedStake, _liquidSupply) {
+            try IStakeProxy(_contract).rewardsDistributed{gas: _gasLeft}(_validators) {
                 _gasUsed -= gasleft();
             } catch {
                 _gasUsed -= gasleft();

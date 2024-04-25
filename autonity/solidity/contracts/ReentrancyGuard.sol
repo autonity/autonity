@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.8.19;
 
@@ -26,10 +26,6 @@ abstract contract ReentrancyGuard {
     uint256 private constant ENTERED = 1;
 
     uint256 private status;
-
-    /** @dev Unauthorized reentrant call.
-     */
-    error ReentrancyGuardReentrantCall();
 
     constructor() {}
 
