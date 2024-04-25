@@ -750,7 +750,8 @@ func committeeOfHeight(height uint64, evm *vm.EVM) (*types.Committee, error) {
 	if len(committeeSet) != 0 {
 		committee.Members = make([]*types.CommitteeMember, len(committeeSet))
 		for i, m := range committeeSet {
-			committee.Members[i] = &m
+			c := m
+			committee.Members[i] = &c
 		}
 		// As the committee is already sorted by the contract, thus we don't need sort again.
 	}
