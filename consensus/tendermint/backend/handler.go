@@ -67,9 +67,6 @@ func (sb *Backend) HandleMsg(addr common.Address, msg p2p.Msg, errCh chan<- erro
 		return false, nil
 	}
 
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
 	switch msg.Code {
 	case ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, addr, msg, errCh)
