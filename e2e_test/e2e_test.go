@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -221,9 +222,6 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 // a node is verifying a proposal, but while he is verifying the finalized block is injected from p2p layer
 func TestNodeAlreadyHasProposedBlock(t *testing.T) {
-	// todo: resolve the right proposer key before handle the proposal, otherwise it will return errInvalidProposer
-	// rather than ErrAlreadyHaveBlock.
-	t.Skip("This test is flaky since the account used to generate the proposal is not always the valid proposer")
 	vals, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
@@ -250,8 +248,20 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 
 	// get latest inserted block and generate proposal out of it
 	block := node.Eth.BlockChain().CurrentBlock()
+	committee, err := node.Eth.BlockChain().CommitteeOfHeight(block.NumberU64())
+	require.NoError(t, err)
+
+	// select a valid proposer to propose this inserted block to expect the ErrAlreadyHaveBlock to be returned.
+	electedProposer := node.Eth.BlockChain().ProtocolContracts().Proposer(committee, block.NumberU64(), 0)
+	var signerKey *ecdsa.PrivateKey
+	if electedProposer == node.Address {
+		signerKey = node.Key
+	} else {
+		signerKey = network[1].Key
+	}
+
 	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], node.Key)
+		out, _ := crypto.Sign(hash[:], signerKey)
 		return out, common.Address{}
 	}).MustVerify(func(address common.Address) *types.CommitteeMember {
 		return &types.CommitteeMember{

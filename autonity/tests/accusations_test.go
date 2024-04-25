@@ -23,19 +23,12 @@ var (
 	offenderKey, _ = crypto.HexToECDSA(params.TestNodeKeys[0])
 	offender       = crypto.PubkeyToAddress(offenderKey.PublicKey)
 	cm             = types.CommitteeMember{Address: offender}
-	header         = &types.Header{Committee: newCommittee()}
 	signer         = func(hash common.Hash) ([]byte, common.Address) {
 		out, _ := crypto.Sign(hash[:], offenderKey)
 		return out, offender
 	}
 	reporter = *params.TestAutonityContractConfig.Validators[0].NodeAddress
 )
-
-func newCommittee() *types.Committee {
-	c := new(types.Committee)
-	c.Members = append(c.Members, &cm)
-	return c
-}
 
 func stubVerifier(address common.Address) *types.CommitteeMember {
 	return &types.CommitteeMember{
