@@ -229,7 +229,6 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 
 	// if the suspicious message is for a value that got committed in the same height --> reject accusation
 	if fd.blockchain.GetBlock(accusation.Message.Value(), accusation.Message.H()) != nil {
-		// return nil just skip to drop the peer connection.
 		return nil
 	}
 

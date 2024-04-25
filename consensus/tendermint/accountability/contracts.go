@@ -57,7 +57,6 @@ func LoadPrecompiles() {
 
 // AccusationVerifier implemented as a native contract to validate if an accusation is valid
 type AccusationVerifier struct {
-	//chain ChainContext
 }
 
 // RequiredGas the gas cost to execute AccusationVerifier contract, weighted by input data size.
@@ -173,7 +172,6 @@ func verifyAccusation(p *Proof) bool {
 
 // MisbehaviourVerifier implemented as a native contract to validate if misbehaviour is valid
 type MisbehaviourVerifier struct {
-	//chain ChainContext
 }
 
 // RequiredGas the gas cost to execute MisbehaviourVerifier contract, weighted by input data size.
@@ -499,7 +497,6 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(committee *types.Committee, 
 
 // InnocenceVerifier implemented as a native contract to validate an innocence Proof.
 type InnocenceVerifier struct {
-	//chain ChainContext
 }
 
 // RequiredGas the gas cost to execute this Proof validator contract, weighted by input data size.
@@ -745,7 +742,7 @@ func overQuorumVotes(committee *types.Committee, msgs []message.Msg) bool {
 
 func committeeOfHeight(height uint64, evm *vm.EVM) (*types.Committee, error) {
 	var committeeSet []types.CommitteeMember
-	err := acCall(evm, "getCommitteeOfHeight", &committeeSet, new(big.Int).SetUint64(height))
+	err := acCall(evm, "getCommitteeByHeight", &committeeSet, new(big.Int).SetUint64(height))
 	if err != nil {
 		return nil, err
 	}
@@ -759,7 +756,7 @@ func committeeOfHeight(height uint64, evm *vm.EVM) (*types.Committee, error) {
 				ConsensusKey: m.ConsensusKey,
 			}
 		}
-		//committee.Sort()
+		// As the committee is already sorted by the contract, thus we don't need sort again.
 	}
 
 	return committee, err

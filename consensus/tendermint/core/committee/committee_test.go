@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/autonity/autonity/crypto/blst"
+	"golang.org/x/exp/slices"
 	"math/big"
 	"math/rand"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -84,19 +84,25 @@ func TestNewRoundRobinSet(t *testing.T) {
 // We need to ensure that the committee is sorted, so that block hashes are the same for all validators.
 func TestCommitteeIsSorted(t *testing.T) {
 	c := createTestCommitteeMembers(t, 10, 10)
-	require.False(t, sort.IsSorted(c))
+	c.Sort()
+	sorted := slices.IsSortedFunc(c.Members, func(a, b *types.CommitteeMember) bool {
+		return b.VotingPower.Cmp(a.VotingPower) < 0
+	})
+	require.True(t, sorted)
 
 	set, err := NewRoundRobinSet(c, c.Members[0].Address)
 	require.NoError(t, err)
-	assert.True(t, sort.IsSorted(set.Committee()))
+	assert.True(t, slices.IsSortedFunc(set.Committee().Members, func(a, b *types.CommitteeMember) bool {
+		return b.VotingPower.Cmp(a.VotingPower) < 0
+	}))
 }
 
 func TestSet_Committee(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetCommittee = func(t *testing.T, n int64) {
 		c := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
+		c.Sort()
 		set, err := NewRoundRobinSet(c.Copy(), c.Members[0].Address)
-		sort.Sort(c)
 		assertNilError(t, err)
 
 		gotCommittee := set.Committee()

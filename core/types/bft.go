@@ -301,11 +301,10 @@ func (c *Committee) Sort() {
 	}
 }
 
+// Proposer elects a proposer from the sorted committee for the height and round, it implements the same logics as
+// autonity contract does in golang to improve performance. Committee sorting is done by precompile contracts!
 func (c *Committee) Proposer(height uint64, round int64) common.Address {
 	totalVotingPower := c.TotalVotingPower()
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
 	seed := big.NewInt(constants.MaxRound)
 	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
 	h := new(big.Int).SetUint64(height)
@@ -316,6 +315,8 @@ func (c *Committee) Proposer(height uint64, round int64) common.Address {
 	// find the index hit which committee member which line up in the committee list.
 	// we assume there is no 0 stake/power validators.
 	counter := new(big.Int).SetUint64(0)
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	for _, member := range c.Members {
 		counter.Add(counter, member.VotingPower)
 		if index.Cmp(counter) == -1 {
@@ -324,7 +325,7 @@ func (c *Committee) Proposer(height uint64, round int64) common.Address {
 	}
 
 	// otherwise, we elect with round-robin.
-	return c.Members[round%int64(c.Len())].Address
+	return c.Members[round%int64(len(c.Members))].Address
 }
 
 // SortCommitteeMembers sort validators according to their voting power in descending order

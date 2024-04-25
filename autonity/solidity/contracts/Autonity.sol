@@ -736,7 +736,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      * @notice Returns the committee of a specific height.
      * @param _height the input block number.h
      */
-    function getCommitteeOfHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
+    function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
         require(_height <= block.number, "cannot get committee for a future height");
         if (_height == 0) {
             return committee;
@@ -841,9 +841,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * state.
     */
     function getProposer(uint256 height, uint256 round) external view virtual returns (address) {
-        CommitteeMember[] memory members = getCommitteeOfHeight(height);
+        CommitteeMember[] memory members = getCommitteeByHeight(height);
 
-        // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
+        // calculate total voting power from the corresponding committee, the system does not allow validator with 0 stake/power.
         uint256 total_voting_power = 0;
         for (uint256 i = 0; i < members.length; i++) {
             total_voting_power += members[i].votingPower;

@@ -344,7 +344,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 				ConsensusKey: m.ConsensusKey,
 			}
 		}
-		//committee.Sort()
+		// As committee as sorted by contract already, thus we don't sort it again.
 		sb.logger.Debug("Finalized epoch change block", "committee", committee)
 	}
 
