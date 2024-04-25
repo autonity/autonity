@@ -88,6 +88,7 @@ type runner struct {
 	stabilization       *Stabilization
 	upgradeManager      *UpgradeManager
 	inflationController *InflationController
+	vestingManager      *VestingManager
 
 	validators []AutonityValidator // genesis validators for easy access
 }
@@ -123,6 +124,7 @@ func (r *runner) run(name string, f func(r *runner)) {
 		snap := r.snapshot()
 		f(r)
 		r.revertSnapshot(snap)
+		r.evm.Context.BlockNumber = common.Big0
 		r.t = t
 	})
 }
@@ -153,6 +155,9 @@ func (r *runner) waitNBlocks(n int) { //nolint
 	for i := 0; i < n; i++ {
 		// Finalize is not the only block closing operation - fee redistribution is missing and prob
 		// other stuff. Left as todo.
+		r.evm.Context.Time = big.NewInt(time.Now().Unix())
+		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
+		fmt.Printf("block %v\n", r.evm.Context.BlockNumber)
 		_, err := r.autonity.Finalize(&runOptions{origin: common.Address{}})
 		// consider monitoring gas cost here and fail if it's too much
 		require.NoError(r.t, err, "finalize function error in waitNblocks", i)
@@ -317,6 +322,17 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	_, _, r.inflationController, err = r.deployInflationController(nil, *p)
 	require.NoError(r.t, err)
 
+	//
+	// Step 9: Vesting Manager contract deployment
+	//
+	_, _, r.vestingManager, err = r.deployVestingManager(
+		nil,
+		r.autonity.address,
+		defaultAutonityConfig.Protocol.OperatorAccount,
+	)
+	require.NoError(t, err)
+	require.Equal(t, r.vestingManager.address, params.VestingManagerContractAddress)
+
 	r.evm.Context.BlockNumber = common.Big1
 	r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
 	return r
@@ -343,6 +359,6 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 		TotalSlashed:             v.TotalSlashed,
 		JailReleaseBlock:         v.JailReleaseBlock,
 		ProvableFaultCount:       v.ProvableFaultCount,
-		State:                    0,
+		State:                    *v.State,
 	}
 }
