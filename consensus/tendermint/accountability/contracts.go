@@ -759,7 +759,7 @@ func committeeOfHeight(height uint64, evm *vm.EVM) (*types.Committee, error) {
 				ConsensusKey: m.ConsensusKey,
 			}
 		}
-		committee.Sort()
+		//committee.Sort()
 	}
 
 	return committee, err

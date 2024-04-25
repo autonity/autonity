@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"io"
 	"math/big"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -297,10 +297,7 @@ func (c *Committee) TotalVotingPower() *big.Int {
 
 func (c *Committee) Sort() {
 	if len(c.Members) != 0 {
-		// sort the slice by address
-		sort.SliceStable(c.Members, func(i, j int) bool {
-			return bytes.Compare(c.Members[i].Address.Bytes(), c.Members[j].Address.Bytes()) < 0
-		})
+		SortCommitteeMembers(c.Members)
 	}
 }
 
@@ -328,4 +325,12 @@ func (c *Committee) Proposer(height uint64, round int64) common.Address {
 
 	// otherwise, we elect with round-robin.
 	return c.Members[round%int64(c.Len())].Address
+}
+
+// SortCommitteeMembers sort validators according to their voting power in descending order
+// stable sort keeps the original order of equal elements
+func SortCommitteeMembers(members []*CommitteeMember) {
+	slices.SortStableFunc(members, func(a, b *CommitteeMember) int {
+		return b.VotingPower.Cmp(a.VotingPower)
+	})
 }

@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"slices"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -322,12 +321,7 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	}
 
 	committeeSize := min(len(validators), int(inputs.maxCommitteeSize))
-	// sort validators according to their voting power in descending order
-	// stable sort keeps the original order of equal elements
-	slices.SortStableFunc(validators, func(a, b *types.CommitteeMember) int {
-		return b.VotingPower.Cmp(a.VotingPower)
-	})
-
+	types.SortCommitteeMembers(validators)
 	err := a.updateCommittee(inputs, validators, committeeSize, caller, stateDB)
 	return nil, err
 }
