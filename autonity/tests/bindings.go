@@ -149,6 +149,17 @@ type StabilizationConfig struct {
 	TargetPrice               *big.Int
 }
 
+// VestingManagerSchedule is an auto generated low-level Go binding around an user-defined struct.
+type VestingManagerSchedule struct {
+	CurrentNTNAmount *big.Int
+	WithdrawnValue   *big.Int
+	Start            *big.Int
+	Cliff            *big.Int
+	End              *big.Int
+	CanStake         bool
+	Canceled         bool
+}
+
 // ACUMetaData contains all meta data concerning the ACU contract.
 var ACUMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[{\"internalType\":\"string[]\",\"name\":\"symbols_\",\"type\":\"string[]\"},{\"internalType\":\"uint256[]\",\"name\":\"quantities_\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"scale_\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidBasket\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NoACUValue\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string[]\",\"name\":\"symbols\",\"type\":\"string[]\"},{\"indexed\":false,\"internalType\":\"uint256[]\",\"name\":\"quantities\",\"type\":\"uint256[]\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"scale\",\"type\":\"uint256\"}],\"name\":\"BasketModified\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"height\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"value\",\"type\":\"int256\"}],\"name\":\"Updated\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"string[]\",\"name\":\"symbols_\",\"type\":\"string[]\"},{\"internalType\":\"uint256[]\",\"name\":\"quantities_\",\"type\":\"uint256[]\"},{\"internalType\":\"uint256\",\"name\":\"scale_\",\"type\":\"uint256\"}],\"name\":\"modifyBasket\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"quantities\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"round\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"scale\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"scaleFactor\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"oracle\",\"type\":\"address\"}],\"name\":\"setOracle\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbols\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"update\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"status\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"value\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
@@ -1533,9 +1544,11 @@ var AutonityMetaData = &bind.MetaData{
 		"e7f43c68": "getOperator()",
 		"833b1fce": "getOracle()",
 		"5f7d3949": "getProposer(uint256,uint256)",
+		"b6ef8c67": "getRevertingAmount(uint256)",
 		"f7866ee3": "getTreasuryAccount()",
 		"29070c6d": "getTreasuryFee()",
 		"6fd2c80b": "getUnbondingPeriod()",
+		"a9af1059": "getUnbondingReleaseState(uint256)",
 		"1904bb2e": "getValidator(address)",
 		"b7ab4db5": "getValidators()",
 		"0d8e6e2c": "getVersion()",
@@ -1556,11 +1569,13 @@ var AutonityMetaData = &bind.MetaData{
 		"520fdbbc": "setOperatorAccount(address)",
 		"496ccd9b": "setOracleContract(address)",
 		"cfd19fb9": "setStabilizationContract(address)",
+		"6a929cef": "setStakingGasPrice(uint256)",
 		"b3ecbadd": "setSupplyControlContract(address)",
 		"d886f8a2": "setTreasuryAccount(address)",
 		"77e741c7": "setTreasuryFee(uint256)",
 		"114eaf55": "setUnbondingPeriod(uint256)",
 		"ceaad455": "setUpgradeManagerContract(address)",
+		"6bb9cb0e": "stakingGasPrice()",
 		"95d89b41": "symbol()",
 		"18160ddd": "totalSupply()",
 		"a9059cbb": "transfer(address,uint256)",
@@ -1952,6 +1967,21 @@ func (_Autonity *Autonity) GetProposer(opts *runOptions, height *big.Int, round 
 
 }
 
+// GetRevertingAmount is a free data retrieval call binding the contract method 0xb6ef8c67.
+//
+// Solidity: function getRevertingAmount(uint256 _unbondingID) view returns(uint256)
+func (_Autonity *Autonity) GetRevertingAmount(opts *runOptions, _unbondingID *big.Int) (*big.Int, uint64, error) {
+	out, consumed, err := _Autonity.call(opts, "getRevertingAmount", _unbondingID)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
 // GetTreasuryAccount is a free data retrieval call binding the contract method 0xf7866ee3.
 //
 // Solidity: function getTreasuryAccount() view returns(address)
@@ -1993,6 +2023,21 @@ func (_Autonity *Autonity) GetUnbondingPeriod(opts *runOptions) (*big.Int, uint6
 	}
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetUnbondingReleaseState is a free data retrieval call binding the contract method 0xa9af1059.
+//
+// Solidity: function getUnbondingReleaseState(uint256 _unbondingID) view returns(uint8)
+func (_Autonity *Autonity) GetUnbondingReleaseState(opts *runOptions, _unbondingID *big.Int) (uint8, uint64, error) {
+	out, consumed, err := _Autonity.call(opts, "getUnbondingReleaseState", _unbondingID)
+
+	if err != nil {
+		return *new(uint8), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
 	return out0, consumed, err
 
 }
@@ -2102,6 +2147,21 @@ func (_Autonity *Autonity) Name(opts *runOptions) (string, uint64, error) {
 
 }
 
+// StakingGasPrice is a free data retrieval call binding the contract method 0x6bb9cb0e.
+//
+// Solidity: function stakingGasPrice() view returns(uint256)
+func (_Autonity *Autonity) StakingGasPrice(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _Autonity.call(opts, "stakingGasPrice")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
 //
 // Solidity: function symbol() pure returns(string)
@@ -2150,7 +2210,7 @@ func (_Autonity *Autonity) Approve(opts *runOptions, spender common.Address, amo
 
 // Bond is a paid mutator transaction binding the contract method 0xa515366a.
 //
-// Solidity: function bond(address _validator, uint256 _amount) returns()
+// Solidity: function bond(address _validator, uint256 _amount) payable returns(uint256)
 func (_Autonity *Autonity) Bond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
 	_, consumed, err := _Autonity.call(opts, "bond", _validator, _amount)
 	return consumed, err
@@ -2308,6 +2368,14 @@ func (_Autonity *Autonity) SetStabilizationContract(opts *runOptions, _address c
 	return consumed, err
 }
 
+// SetStakingGasPrice is a paid mutator transaction binding the contract method 0x6a929cef.
+//
+// Solidity: function setStakingGasPrice(uint256 _price) returns()
+func (_Autonity *Autonity) SetStakingGasPrice(opts *runOptions, _price *big.Int) (uint64, error) {
+	_, consumed, err := _Autonity.call(opts, "setStakingGasPrice", _price)
+	return consumed, err
+}
+
 // SetSupplyControlContract is a paid mutator transaction binding the contract method 0xb3ecbadd.
 //
 // Solidity: function setSupplyControlContract(address _address) returns()
@@ -2366,7 +2434,7 @@ func (_Autonity *Autonity) TransferFrom(opts *runOptions, _sender common.Address
 
 // Unbond is a paid mutator transaction binding the contract method 0xa5d059ca.
 //
-// Solidity: function unbond(address _validator, uint256 _amount) returns()
+// Solidity: function unbond(address _validator, uint256 _amount) payable returns(uint256)
 func (_Autonity *Autonity) Unbond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
 	_, consumed, err := _Autonity.call(opts, "unbond", _validator, _amount)
 	return consumed, err
@@ -2561,6 +2629,163 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 		func (_Autonity *Autonity) ParseActivatedValidator(log types.Log) (*AutonityActivatedValidator, error) {
 			event := new(AutonityActivatedValidator)
 			if err := _Autonity.contract.UnpackLog(event, "ActivatedValidator", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityAppliedUnbondingRevertedIterator is returned from FilterAppliedUnbondingReverted and is used to iterate over the raw logs and unpacked data for AppliedUnbondingReverted events raised by the Autonity contract.
+		type AutonityAppliedUnbondingRevertedIterator struct {
+			Event *AutonityAppliedUnbondingReverted // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityAppliedUnbondingRevertedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityAppliedUnbondingReverted)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityAppliedUnbondingReverted)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityAppliedUnbondingRevertedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityAppliedUnbondingRevertedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityAppliedUnbondingReverted represents a AppliedUnbondingReverted event raised by the Autonity contract.
+		type AutonityAppliedUnbondingReverted struct {
+			Validator common.Address;
+			Delegator common.Address;
+			SelfBonded bool;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterAppliedUnbondingReverted is a free log retrieval operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_Autonity *Autonity) FilterAppliedUnbondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityAppliedUnbondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "AppliedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityAppliedUnbondingRevertedIterator{contract: _Autonity.contract, event: "AppliedUnbondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchAppliedUnbondingReverted is a free log subscription operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_Autonity *Autonity) WatchAppliedUnbondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityAppliedUnbondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "AppliedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityAppliedUnbondingReverted)
+						if err := _Autonity.contract.UnpackLog(event, "AppliedUnbondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseAppliedUnbondingReverted is a log parse operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_Autonity *Autonity) ParseAppliedUnbondingReverted(log types.Log) (*AutonityAppliedUnbondingReverted, error) {
+			event := new(AutonityAppliedUnbondingReverted)
+			if err := _Autonity.contract.UnpackLog(event, "AppliedUnbondingReverted", log); err != nil {
 				return nil, err
 			}
 			event.Raw = log
@@ -2788,8 +3013,8 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 
 		// AutonityBondingRejected represents a BondingRejected event raised by the Autonity contract.
 		type AutonityBondingRejected struct {
+			Validator common.Address;
 			Delegator common.Address;
-			Delegatee common.Address;
 			Amount *big.Int;
 			State uint8;
 			Raw types.Log // Blockchain specific contextual infos
@@ -2797,15 +3022,21 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 
 		// FilterBondingRejected is a free log retrieval operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
-		// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
- 		func (_Autonity *Autonity) FilterBondingRejected(opts *bind.FilterOpts) (*AutonityBondingRejectedIterator, error) {
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+ 		func (_Autonity *Autonity) FilterBondingRejected(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityBondingRejectedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
 
 
 
-
-
-
-			logs, sub, err := _Autonity.contract.FilterLogs(opts, "BondingRejected")
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "BondingRejected", validatorRule, delegatorRule)
 			if err != nil {
 				return nil, err
 			}
@@ -2814,15 +3045,21 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 
 		// WatchBondingRejected is a free log subscription operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
-		// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
-		func (_Autonity *Autonity) WatchBondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityBondingRejected) (event.Subscription, error) {
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+		func (_Autonity *Autonity) WatchBondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityBondingRejected, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
 
 
 
-
-
-
-			logs, sub, err := _Autonity.contract.WatchLogs(opts, "BondingRejected")
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "BondingRejected", validatorRule, delegatorRule)
 			if err != nil {
 				return nil, err
 			}
@@ -2856,10 +3093,164 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 
 		// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
-		// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
 		func (_Autonity *Autonity) ParseBondingRejected(log types.Log) (*AutonityBondingRejected, error) {
 			event := new(AutonityBondingRejected)
 			if err := _Autonity.contract.UnpackLog(event, "BondingRejected", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityBondingRevertedIterator is returned from FilterBondingReverted and is used to iterate over the raw logs and unpacked data for BondingReverted events raised by the Autonity contract.
+		type AutonityBondingRevertedIterator struct {
+			Event *AutonityBondingReverted // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityBondingRevertedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityBondingReverted)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityBondingReverted)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityBondingRevertedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityBondingRevertedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityBondingReverted represents a BondingReverted event raised by the Autonity contract.
+		type AutonityBondingReverted struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterBondingReverted is a free log retrieval operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_Autonity *Autonity) FilterBondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityBondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "BondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityBondingRevertedIterator{contract: _Autonity.contract, event: "BondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchBondingReverted is a free log subscription operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) WatchBondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityBondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "BondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityBondingReverted)
+						if err := _Autonity.contract.UnpackLog(event, "BondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseBondingReverted is a log parse operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) ParseBondingReverted(log types.Log) (*AutonityBondingReverted, error) {
+			event := new(AutonityBondingReverted)
+			if err := _Autonity.contract.UnpackLog(event, "BondingReverted", log); err != nil {
 				return nil, err
 			}
 			event.Raw = log
@@ -4326,6 +4717,163 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 		}
 
 
+		// AutonityReleasedUnbondingRevertedIterator is returned from FilterReleasedUnbondingReverted and is used to iterate over the raw logs and unpacked data for ReleasedUnbondingReverted events raised by the Autonity contract.
+		type AutonityReleasedUnbondingRevertedIterator struct {
+			Event *AutonityReleasedUnbondingReverted // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityReleasedUnbondingRevertedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityReleasedUnbondingReverted)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityReleasedUnbondingReverted)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityReleasedUnbondingRevertedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityReleasedUnbondingRevertedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityReleasedUnbondingReverted represents a ReleasedUnbondingReverted event raised by the Autonity contract.
+		type AutonityReleasedUnbondingReverted struct {
+			Validator common.Address;
+			Delegator common.Address;
+			SelfBonded bool;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterReleasedUnbondingReverted is a free log retrieval operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_Autonity *Autonity) FilterReleasedUnbondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityReleasedUnbondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "ReleasedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityReleasedUnbondingRevertedIterator{contract: _Autonity.contract, event: "ReleasedUnbondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchReleasedUnbondingReverted is a free log subscription operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_Autonity *Autonity) WatchReleasedUnbondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityReleasedUnbondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "ReleasedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityReleasedUnbondingReverted)
+						if err := _Autonity.contract.UnpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseReleasedUnbondingReverted is a log parse operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_Autonity *Autonity) ParseReleasedUnbondingReverted(log types.Log) (*AutonityReleasedUnbondingReverted, error) {
+			event := new(AutonityReleasedUnbondingReverted)
+			if err := _Autonity.contract.UnpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
 		// AutonityRewardedIterator is returned from FilterRewarded and is used to iterate over the raw logs and unpacked data for Rewarded events raised by the Autonity contract.
 		type AutonityRewardedIterator struct {
 			Event *AutonityRewarded // Event containing the contract specifics and raw log
@@ -4628,6 +5176,163 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 		}
 
 
+		// AutonityUnbondingRejectedIterator is returned from FilterUnbondingRejected and is used to iterate over the raw logs and unpacked data for UnbondingRejected events raised by the Autonity contract.
+		type AutonityUnbondingRejectedIterator struct {
+			Event *AutonityUnbondingRejected // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUnbondingRejectedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUnbondingRejected)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUnbondingRejected)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUnbondingRejectedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUnbondingRejectedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUnbondingRejected represents a UnbondingRejected event raised by the Autonity contract.
+		type AutonityUnbondingRejected struct {
+			Validator common.Address;
+			Delegator common.Address;
+			SelfBonded bool;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterUnbondingRejected is a free log retrieval operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_Autonity *Autonity) FilterUnbondingRejected(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUnbondingRejectedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "UnbondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUnbondingRejectedIterator{contract: _Autonity.contract, event: "UnbondingRejected", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchUnbondingRejected is a free log subscription operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_Autonity *Autonity) WatchUnbondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityUnbondingRejected, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "UnbondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUnbondingRejected)
+						if err := _Autonity.contract.UnpackLog(event, "UnbondingRejected", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseUnbondingRejected is a log parse operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_Autonity *Autonity) ParseUnbondingRejected(log types.Log) (*AutonityUnbondingRejected, error) {
+			event := new(AutonityUnbondingRejected)
+			if err := _Autonity.contract.UnpackLog(event, "UnbondingRejected", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
 */
 
 // AutonityUpgradeTestMetaData contains all meta data concerning the AutonityUpgradeTest contract.
@@ -4665,9 +5370,11 @@ var AutonityUpgradeTestMetaData = &bind.MetaData{
 		"e7f43c68": "getOperator()",
 		"833b1fce": "getOracle()",
 		"5f7d3949": "getProposer(uint256,uint256)",
+		"b6ef8c67": "getRevertingAmount(uint256)",
 		"f7866ee3": "getTreasuryAccount()",
 		"29070c6d": "getTreasuryFee()",
 		"6fd2c80b": "getUnbondingPeriod()",
+		"a9af1059": "getUnbondingReleaseState(uint256)",
 		"1904bb2e": "getValidator(address)",
 		"b7ab4db5": "getValidators()",
 		"0d8e6e2c": "getVersion()",
@@ -4688,11 +5395,13 @@ var AutonityUpgradeTestMetaData = &bind.MetaData{
 		"520fdbbc": "setOperatorAccount(address)",
 		"496ccd9b": "setOracleContract(address)",
 		"cfd19fb9": "setStabilizationContract(address)",
+		"6a929cef": "setStakingGasPrice(uint256)",
 		"b3ecbadd": "setSupplyControlContract(address)",
 		"d886f8a2": "setTreasuryAccount(address)",
 		"77e741c7": "setTreasuryFee(uint256)",
 		"114eaf55": "setUnbondingPeriod(uint256)",
 		"ceaad455": "setUpgradeManagerContract(address)",
+		"6bb9cb0e": "stakingGasPrice()",
 		"95d89b41": "symbol()",
 		"18160ddd": "totalSupply()",
 		"a9059cbb": "transfer(address,uint256)",
@@ -5084,6 +5793,21 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) GetProposer(opts *runOptions, h
 
 }
 
+// GetRevertingAmount is a free data retrieval call binding the contract method 0xb6ef8c67.
+//
+// Solidity: function getRevertingAmount(uint256 _unbondingID) view returns(uint256)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) GetRevertingAmount(opts *runOptions, _unbondingID *big.Int) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "getRevertingAmount", _unbondingID)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
 // GetTreasuryAccount is a free data retrieval call binding the contract method 0xf7866ee3.
 //
 // Solidity: function getTreasuryAccount() view returns(address)
@@ -5125,6 +5849,21 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) GetUnbondingPeriod(opts *runOpt
 	}
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetUnbondingReleaseState is a free data retrieval call binding the contract method 0xa9af1059.
+//
+// Solidity: function getUnbondingReleaseState(uint256 _unbondingID) view returns(uint8)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) GetUnbondingReleaseState(opts *runOptions, _unbondingID *big.Int) (uint8, uint64, error) {
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "getUnbondingReleaseState", _unbondingID)
+
+	if err != nil {
+		return *new(uint8), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
 	return out0, consumed, err
 
 }
@@ -5234,6 +5973,21 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Name(opts *runOptions) (string,
 
 }
 
+// StakingGasPrice is a free data retrieval call binding the contract method 0x6bb9cb0e.
+//
+// Solidity: function stakingGasPrice() view returns(uint256)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) StakingGasPrice(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "stakingGasPrice")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
 //
 // Solidity: function symbol() pure returns(string)
@@ -5282,7 +6036,7 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Approve(opts *runOptions, spend
 
 // Bond is a paid mutator transaction binding the contract method 0xa515366a.
 //
-// Solidity: function bond(address _validator, uint256 _amount) returns()
+// Solidity: function bond(address _validator, uint256 _amount) payable returns(uint256)
 func (_AutonityUpgradeTest *AutonityUpgradeTest) Bond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
 	_, consumed, err := _AutonityUpgradeTest.call(opts, "bond", _validator, _amount)
 	return consumed, err
@@ -5440,6 +6194,14 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) SetStabilizationContract(opts *
 	return consumed, err
 }
 
+// SetStakingGasPrice is a paid mutator transaction binding the contract method 0x6a929cef.
+//
+// Solidity: function setStakingGasPrice(uint256 _price) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) SetStakingGasPrice(opts *runOptions, _price *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setStakingGasPrice", _price)
+	return consumed, err
+}
+
 // SetSupplyControlContract is a paid mutator transaction binding the contract method 0xb3ecbadd.
 //
 // Solidity: function setSupplyControlContract(address _address) returns()
@@ -5498,7 +6260,7 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) TransferFrom(opts *runOptions, 
 
 // Unbond is a paid mutator transaction binding the contract method 0xa5d059ca.
 //
-// Solidity: function unbond(address _validator, uint256 _amount) returns()
+// Solidity: function unbond(address _validator, uint256 _amount) payable returns(uint256)
 func (_AutonityUpgradeTest *AutonityUpgradeTest) Unbond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
 	_, consumed, err := _AutonityUpgradeTest.call(opts, "unbond", _validator, _amount)
 	return consumed, err
@@ -5693,6 +6455,163 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseActivatedValidator(log types.Log) (*AutonityUpgradeTestActivatedValidator, error) {
 			event := new(AutonityUpgradeTestActivatedValidator)
 			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "ActivatedValidator", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityUpgradeTestAppliedUnbondingRevertedIterator is returned from FilterAppliedUnbondingReverted and is used to iterate over the raw logs and unpacked data for AppliedUnbondingReverted events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestAppliedUnbondingRevertedIterator struct {
+			Event *AutonityUpgradeTestAppliedUnbondingReverted // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestAppliedUnbondingReverted)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestAppliedUnbondingReverted)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestAppliedUnbondingReverted represents a AppliedUnbondingReverted event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestAppliedUnbondingReverted struct {
+			Validator common.Address;
+			Delegator common.Address;
+			SelfBonded bool;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterAppliedUnbondingReverted is a free log retrieval operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterAppliedUnbondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestAppliedUnbondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "AppliedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestAppliedUnbondingRevertedIterator{contract: _AutonityUpgradeTest.contract, event: "AppliedUnbondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchAppliedUnbondingReverted is a free log subscription operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchAppliedUnbondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestAppliedUnbondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "AppliedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestAppliedUnbondingReverted)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "AppliedUnbondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseAppliedUnbondingReverted is a log parse operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseAppliedUnbondingReverted(log types.Log) (*AutonityUpgradeTestAppliedUnbondingReverted, error) {
+			event := new(AutonityUpgradeTestAppliedUnbondingReverted)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "AppliedUnbondingReverted", log); err != nil {
 				return nil, err
 			}
 			event.Raw = log
@@ -5920,8 +6839,8 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 
 		// AutonityUpgradeTestBondingRejected represents a BondingRejected event raised by the AutonityUpgradeTest contract.
 		type AutonityUpgradeTestBondingRejected struct {
+			Validator common.Address;
 			Delegator common.Address;
-			Delegatee common.Address;
 			Amount *big.Int;
 			State uint8;
 			Raw types.Log // Blockchain specific contextual infos
@@ -5929,15 +6848,21 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 
 		// FilterBondingRejected is a free log retrieval operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
-		// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
- 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterBondingRejected(opts *bind.FilterOpts) (*AutonityUpgradeTestBondingRejectedIterator, error) {
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterBondingRejected(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestBondingRejectedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
 
 
 
-
-
-
-			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "BondingRejected")
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "BondingRejected", validatorRule, delegatorRule)
 			if err != nil {
 				return nil, err
 			}
@@ -5946,15 +6871,21 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 
 		// WatchBondingRejected is a free log subscription operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
-		// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchBondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestBondingRejected) (event.Subscription, error) {
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchBondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestBondingRejected, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
 
 
 
-
-
-
-			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "BondingRejected")
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "BondingRejected", validatorRule, delegatorRule)
 			if err != nil {
 				return nil, err
 			}
@@ -5988,10 +6919,164 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 
 		// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
-		// Solidity: event BondingRejected(address delegator, address delegatee, uint256 amount, uint8 state)
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
 		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBondingRejected(log types.Log) (*AutonityUpgradeTestBondingRejected, error) {
 			event := new(AutonityUpgradeTestBondingRejected)
 			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "BondingRejected", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityUpgradeTestBondingRevertedIterator is returned from FilterBondingReverted and is used to iterate over the raw logs and unpacked data for BondingReverted events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestBondingRevertedIterator struct {
+			Event *AutonityUpgradeTestBondingReverted // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestBondingRevertedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestBondingReverted)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestBondingReverted)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestBondingRevertedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestBondingRevertedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestBondingReverted represents a BondingReverted event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestBondingReverted struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterBondingReverted is a free log retrieval operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterBondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestBondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "BondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestBondingRevertedIterator{contract: _AutonityUpgradeTest.contract, event: "BondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchBondingReverted is a free log subscription operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchBondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestBondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "BondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestBondingReverted)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "BondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseBondingReverted is a log parse operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBondingReverted(log types.Log) (*AutonityUpgradeTestBondingReverted, error) {
+			event := new(AutonityUpgradeTestBondingReverted)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "BondingReverted", log); err != nil {
 				return nil, err
 			}
 			event.Raw = log
@@ -7458,6 +8543,163 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 		}
 
 
+		// AutonityUpgradeTestReleasedUnbondingRevertedIterator is returned from FilterReleasedUnbondingReverted and is used to iterate over the raw logs and unpacked data for ReleasedUnbondingReverted events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestReleasedUnbondingRevertedIterator struct {
+			Event *AutonityUpgradeTestReleasedUnbondingReverted // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestReleasedUnbondingReverted)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestReleasedUnbondingReverted)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestReleasedUnbondingReverted represents a ReleasedUnbondingReverted event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestReleasedUnbondingReverted struct {
+			Validator common.Address;
+			Delegator common.Address;
+			SelfBonded bool;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterReleasedUnbondingReverted is a free log retrieval operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterReleasedUnbondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestReleasedUnbondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "ReleasedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestReleasedUnbondingRevertedIterator{contract: _AutonityUpgradeTest.contract, event: "ReleasedUnbondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchReleasedUnbondingReverted is a free log subscription operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchReleasedUnbondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestReleasedUnbondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "ReleasedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestReleasedUnbondingReverted)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseReleasedUnbondingReverted is a log parse operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseReleasedUnbondingReverted(log types.Log) (*AutonityUpgradeTestReleasedUnbondingReverted, error) {
+			event := new(AutonityUpgradeTestReleasedUnbondingReverted)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
 		// AutonityUpgradeTestRewardedIterator is returned from FilterRewarded and is used to iterate over the raw logs and unpacked data for Rewarded events raised by the AutonityUpgradeTest contract.
 		type AutonityUpgradeTestRewardedIterator struct {
 			Event *AutonityUpgradeTestRewarded // Event containing the contract specifics and raw log
@@ -7753,6 +8995,163 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseTransfer(log types.Log) (*AutonityUpgradeTestTransfer, error) {
 			event := new(AutonityUpgradeTestTransfer)
 			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "Transfer", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityUpgradeTestUnbondingRejectedIterator is returned from FilterUnbondingRejected and is used to iterate over the raw logs and unpacked data for UnbondingRejected events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestUnbondingRejectedIterator struct {
+			Event *AutonityUpgradeTestUnbondingRejected // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestUnbondingRejectedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestUnbondingRejected)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestUnbondingRejected)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestUnbondingRejectedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestUnbondingRejectedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestUnbondingRejected represents a UnbondingRejected event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestUnbondingRejected struct {
+			Validator common.Address;
+			Delegator common.Address;
+			SelfBonded bool;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterUnbondingRejected is a free log retrieval operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterUnbondingRejected(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestUnbondingRejectedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "UnbondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestUnbondingRejectedIterator{contract: _AutonityUpgradeTest.contract, event: "UnbondingRejected", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchUnbondingRejected is a free log subscription operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchUnbondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestUnbondingRejected, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "UnbondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestUnbondingRejected)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "UnbondingRejected", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseUnbondingRejected is a log parse operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseUnbondingRejected(log types.Log) (*AutonityUpgradeTestUnbondingRejected, error) {
+			event := new(AutonityUpgradeTestUnbondingRejected)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "UnbondingRejected", log); err != nil {
 				return nil, err
 			}
 			event.Raw = log
@@ -9688,6 +11087,75 @@ func (_IStabilization *IStabilization) SetOracle(opts *runOptions, oracle common
 
  */
 
+// IStakeProxyMetaData contains all meta data concerning the IStakeProxy contract.
+var IStakeProxyMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_bondingID\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_liquid\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_selfDelegation\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"bondingApplied\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"receiveAut\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_validators\",\"type\":\"address[]\"}],\"name\":\"rewardsDistributed\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"unbondingApplied\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"unbondingReleased\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"9dfd1b8e": "bondingApplied(uint256,address,uint256,bool,bool)",
+		"edbe0026": "receiveAut()",
+		"d18736ab": "rewardsDistributed(address[])",
+		"a8920241": "unbondingApplied(uint256,address,bool)",
+		"3c54c290": "unbondingReleased(uint256,uint256,bool)",
+	},
+}
+
+// IStakeProxyABI is the input ABI used to generate the binding from.
+// Deprecated: Use IStakeProxyMetaData.ABI instead.
+var IStakeProxyABI = IStakeProxyMetaData.ABI
+
+// Deprecated: Use IStakeProxyMetaData.Sigs instead.
+// IStakeProxyFuncSigs maps the 4-byte function signature to its string representation.
+var IStakeProxyFuncSigs = IStakeProxyMetaData.Sigs
+
+// IStakeProxy is an auto generated Go binding around an Ethereum contract.
+type IStakeProxy struct {
+	*contract
+}
+
+// BondingApplied is a paid mutator transaction binding the contract method 0x9dfd1b8e.
+//
+// Solidity: function bondingApplied(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) returns()
+func (_IStakeProxy *IStakeProxy) BondingApplied(opts *runOptions, _bondingID *big.Int, _validator common.Address, _liquid *big.Int, _selfDelegation bool, _rejected bool) (uint64, error) {
+	_, consumed, err := _IStakeProxy.call(opts, "bondingApplied", _bondingID, _validator, _liquid, _selfDelegation, _rejected)
+	return consumed, err
+}
+
+// ReceiveAut is a paid mutator transaction binding the contract method 0xedbe0026.
+//
+// Solidity: function receiveAut() payable returns()
+func (_IStakeProxy *IStakeProxy) ReceiveAut(opts *runOptions) (uint64, error) {
+	_, consumed, err := _IStakeProxy.call(opts, "receiveAut")
+	return consumed, err
+}
+
+// RewardsDistributed is a paid mutator transaction binding the contract method 0xd18736ab.
+//
+// Solidity: function rewardsDistributed(address[] _validators) returns()
+func (_IStakeProxy *IStakeProxy) RewardsDistributed(opts *runOptions, _validators []common.Address) (uint64, error) {
+	_, consumed, err := _IStakeProxy.call(opts, "rewardsDistributed", _validators)
+	return consumed, err
+}
+
+// UnbondingApplied is a paid mutator transaction binding the contract method 0xa8920241.
+//
+// Solidity: function unbondingApplied(uint256 _unbondingID, address _validator, bool _rejected) returns()
+func (_IStakeProxy *IStakeProxy) UnbondingApplied(opts *runOptions, _unbondingID *big.Int, _validator common.Address, _rejected bool) (uint64, error) {
+	_, consumed, err := _IStakeProxy.call(opts, "unbondingApplied", _unbondingID, _validator, _rejected)
+	return consumed, err
+}
+
+// UnbondingReleased is a paid mutator transaction binding the contract method 0x3c54c290.
+//
+// Solidity: function unbondingReleased(uint256 _unbondingID, uint256 _amount, bool _rejected) returns()
+func (_IStakeProxy *IStakeProxy) UnbondingReleased(opts *runOptions, _unbondingID *big.Int, _amount *big.Int, _rejected bool) (uint64, error) {
+	_, consumed, err := _IStakeProxy.call(opts, "unbondingReleased", _unbondingID, _amount, _rejected)
+	return consumed, err
+}
+
+/* EVENTS ARE NOT YET SUPPORTED
+
+ */
+
 // ISupplyControlMetaData contains all meta data concerning the ISupplyControl contract.
 var ISupplyControlMetaData = &bind.MetaData{
 	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Burn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Mint\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"availableSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"stabilizer_\",\"type\":\"address\"}],\"name\":\"setStabilizer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stabilizer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
@@ -10842,6 +12310,68 @@ func (_Liquid *Liquid) Unlock(opts *runOptions, _account common.Address, _amount
 
 */
 
+// LiquidRewardManagerMetaData contains all meta data concerning the LiquidRewardManager contract.
+var LiquidRewardManagerMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"FEE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
+	},
+	Bin: "0x608060405234801561001057600080fd5b5060405161011138038061011183398101604081905261002f91610054565b600180546001600160a01b0319166001600160a01b0392909216919091179055610084565b60006020828403121561006657600080fd5b81516001600160a01b038116811461007d57600080fd5b9392505050565b607f806100926000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063187cf4d714602d575b600080fd5b6037633b9aca0081565b60405190815260200160405180910390f3fea2646970667358221220a97ccf38b6454c982b13bf072be891c4b25afff54df2a63163ce1e16c43d47e464736f6c63430008150033",
+}
+
+// LiquidRewardManagerABI is the input ABI used to generate the binding from.
+// Deprecated: Use LiquidRewardManagerMetaData.ABI instead.
+var LiquidRewardManagerABI = LiquidRewardManagerMetaData.ABI
+
+// Deprecated: Use LiquidRewardManagerMetaData.Sigs instead.
+// LiquidRewardManagerFuncSigs maps the 4-byte function signature to its string representation.
+var LiquidRewardManagerFuncSigs = LiquidRewardManagerMetaData.Sigs
+
+// LiquidRewardManagerBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use LiquidRewardManagerMetaData.Bin instead.
+var LiquidRewardManagerBin = LiquidRewardManagerMetaData.Bin
+
+// DeployLiquidRewardManager deploys a new Ethereum contract, binding an instance of LiquidRewardManager to it.
+func (r *runner) deployLiquidRewardManager(opts *runOptions, _autonity common.Address) (common.Address, uint64, *LiquidRewardManager, error) {
+	parsed, err := LiquidRewardManagerMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
+	}
+
+	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(LiquidRewardManagerBin), _autonity)
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	return address, gasConsumed, &LiquidRewardManager{contract: c}, nil
+}
+
+// LiquidRewardManager is an auto generated Go binding around an Ethereum contract.
+type LiquidRewardManager struct {
+	*contract
+}
+
+// FEEFACTORUNITRECIP is a free data retrieval call binding the contract method 0x187cf4d7.
+//
+// Solidity: function FEE_FACTOR_UNIT_RECIP() view returns(uint256)
+func (_LiquidRewardManager *LiquidRewardManager) FEEFACTORUNITRECIP(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _LiquidRewardManager.call(opts, "FEE_FACTOR_UNIT_RECIP")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+/* EVENTS ARE NOT YET SUPPORTED
+
+ */
+
 // OracleMetaData contains all meta data concerning the Oracle contract.
 var OracleMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_voters\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"_autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"},{\"internalType\":\"string[]\",\"name\":\"_symbols\",\"type\":\"string[]\"},{\"internalType\":\"uint256\",\"name\":\"_votePeriod\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_height\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_votePeriod\",\"type\":\"uint256\"}],\"name\":\"NewRound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string[]\",\"name\":\"_symbols\",\"type\":\"string[]\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"}],\"name\":\"NewSymbols\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"int256[]\",\"name\":\"_votes\",\"type\":\"int256[]\"}],\"name\":\"Voted\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"finalize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPrecision\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"getRoundData\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"int256\",\"name\":\"price\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"status\",\"type\":\"uint256\"}],\"internalType\":\"structIOracle.RoundData\",\"name\":\"data\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSymbols\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVotePeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastRoundBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastVoterUpdateRound\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"latestRoundData\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"int256\",\"name\":\"price\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"status\",\"type\":\"uint256\"}],\"internalType\":\"structIOracle.RoundData\",\"name\":\"data\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"newSymbols\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"reports\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"round\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string[]\",\"name\":\"_symbols\",\"type\":\"string[]\"}],\"name\":\"setSymbols\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_newVoters\",\"type\":\"address[]\"}],\"name\":\"setVoters\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbolUpdatedRound\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"symbols\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_commit\",\"type\":\"uint256\"},{\"internalType\":\"int256[]\",\"name\":\"_reports\",\"type\":\"int256[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"}],\"name\":\"vote\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"votePeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"votingInfo\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"commit\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isVoter\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
@@ -11813,6 +13343,24 @@ func (_Precompiled *Precompiled) UPGRADERCONTRACT(opts *runOptions) (common.Addr
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 	return out0, consumed, err
 
+}
+
+/* EVENTS ARE NOT YET SUPPORTED
+
+ */
+
+// ReentrancyGuardMetaData contains all meta data concerning the ReentrancyGuard contract.
+var ReentrancyGuardMetaData = &bind.MetaData{
+	ABI: "[]",
+}
+
+// ReentrancyGuardABI is the input ABI used to generate the binding from.
+// Deprecated: Use ReentrancyGuardMetaData.ABI instead.
+var ReentrancyGuardABI = ReentrancyGuardMetaData.ABI
+
+// ReentrancyGuard is an auto generated Go binding around an Ethereum contract.
+type ReentrancyGuard struct {
+	*contract
 }
 
 /* EVENTS ARE NOT YET SUPPORTED
@@ -13655,6 +15203,454 @@ func (_Upgradeable *Upgradeable) ResetContractUpgrade(opts *runOptions) (uint64,
 // Solidity: function upgradeContract(bytes _bytecode, string _abi) returns()
 func (_Upgradeable *Upgradeable) UpgradeContract(opts *runOptions, _bytecode []byte, _abi string) (uint64, error) {
 	_, consumed, err := _Upgradeable.call(opts, "upgradeContract", _bytecode, _abi)
+	return consumed, err
+}
+
+/* EVENTS ARE NOT YET SUPPORTED
+
+ */
+
+// VestingManagerMetaData contains all meta data concerning the VestingManager contract.
+var VestingManagerMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"FEE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"UPDATE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"bond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_bondingID\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_liquid\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_selfDelegation\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"bondingApplied\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"canStake\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"}],\"name\":\"cancelSchedule\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"contractVersion\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getBondedValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getSchedule\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliff\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"end\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"canceled\",\"type\":\"bool\"}],\"internalType\":\"structVestingManager.Schedule\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"getSchedules\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliff\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"end\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"canceled\",\"type\":\"bool\"}],\"internalType\":\"structVestingManager.Schedule[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"liquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"lockedLiquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_cliffBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_endBlock\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_canStake\",\"type\":\"bool\"}],\"name\":\"newSchedule\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"receiveAut\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseAllLNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseAllNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"releaseLNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"releaseNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"requiredGasCostBond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"requiredGasCostUnbond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_validators\",\"type\":\"address[]\"}],\"name\":\"rewardsDistributed\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_gas\",\"type\":\"uint256\"}],\"name\":\"setRequiredGasBond\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_gas\",\"type\":\"uint256\"}],\"name\":\"setRequiredGasUnbond\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"totalSchedules\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unbond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"unbondingApplied\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"unbondingReleased\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"unlockedFunds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"unlockedLiquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"updateFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
+		"9c478de2": "UPDATE_FACTOR_UNIT_RECIP()",
+		"c0d3895e": "bond(uint256,address,uint256)",
+		"9dfd1b8e": "bondingApplied(uint256,address,uint256,bool,bool)",
+		"2afbbacb": "canStake(address,uint256)",
+		"a17a5027": "cancelSchedule(address,uint256,address)",
+		"372500ab": "claimRewards()",
+		"a0a8e460": "contractVersion()",
+		"4b468d4c": "getBondedValidators(address,uint256)",
+		"7264c4da": "getSchedule(address,uint256)",
+		"6c04e040": "getSchedules(address)",
+		"447ff061": "liquidBalanceOf(address,uint256,address)",
+		"85e01abe": "lockedLiquidBalanceOf(address,uint256,address)",
+		"56ed4b6e": "newSchedule(address,uint256,uint256,uint256,uint256,bool)",
+		"edbe0026": "receiveAut()",
+		"e69ecd2a": "releaseAllLNTN(uint256)",
+		"3577a8f8": "releaseAllNTN(uint256)",
+		"4d68282f": "releaseFunds(uint256)",
+		"ec85303d": "releaseLNTN(uint256,address,uint256)",
+		"81170628": "releaseNTN(uint256,uint256)",
+		"8f49d770": "requiredGasCostBond()",
+		"2c4dc4b9": "requiredGasCostUnbond()",
+		"d18736ab": "rewardsDistributed(address[])",
+		"6a94b441": "setRequiredGasBond(uint256)",
+		"2ebc0660": "setRequiredGasUnbond(uint256)",
+		"472c513a": "totalSchedules(address)",
+		"ba19a4ae": "unbond(uint256,address,uint256)",
+		"a8920241": "unbondingApplied(uint256,address,bool)",
+		"3c54c290": "unbondingReleased(uint256,uint256,bool)",
+		"949813b8": "unclaimedRewards(address)",
+		"21ec4487": "unlockedFunds(address,uint256)",
+		"f73b3da1": "unlockedLiquidBalanceOf(address,uint256,address)",
+		"0ba6d271": "updateFunds(address,uint256)",
+	},
+	Bin: "0x60806040526001600655617530600755620186a06008553480156200002357600080fd5b506040516200444a3803806200444a833981016040819052620000469162000091565b600180546001600160a01b039384166001600160a01b03199182161790915560098054929093169116179055620000d0565b6001600160a01b03811681146200008e57600080fd5b50565b60008060408385031215620000a557600080fd5b8251620000b28162000078565b6020840151909250620000c58162000078565b809150509250929050565b61436a80620000e06000396000f3fe6080604052600436106101ee5760003560e01c80637264c4da1161010d578063a17a5027116100a0578063d18736ab1161006f578063d18736ab14610568578063e69ecd2a14610588578063ec85303d146105a8578063edbe002614610213578063f73b3da1146105c857600080fd5b8063a17a502714610502578063a892024114610522578063ba19a4ae14610542578063c0d3895e1461055557600080fd5b8063949813b8116100dc578063949813b8146104ac5780639c478de2146102155780639dfd1b8e146104cc578063a0a8e460146104ec57600080fd5b80637264c4da1461042a578063811706281461045757806385e01abe146104775780638f49d7701461049757600080fd5b80633c54c290116101855780634d68282f116101545780634d68282f1461039d57806356ed4b6e146103bd5780636a94b441146103dd5780636c04e040146103fd57600080fd5b80633c54c290146102fa578063447ff0611461031a578063472c513a1461033a5780634b468d4c1461037057600080fd5b80632c4dc4b9116101c15780632c4dc4b9146102905780632ebc0660146102a55780633577a8f8146102c5578063372500ab146102e557600080fd5b80630ba6d271146101f3578063187cf4d71461021557806321ec4487146102405780632afbbacb14610260575b600080fd5b3480156101ff57600080fd5b5061021361020e366004613adb565b6105e8565b005b34801561022157600080fd5b5061022d633b9aca0081565b6040519081526020015b60405180910390f35b34801561024c57600080fd5b5061022d61025b366004613adb565b61060d565b34801561026c57600080fd5b5061028061027b366004613adb565b61068e565b6040519015158152602001610237565b34801561029c57600080fd5b5061022d6106cc565b3480156102b157600080fd5b506102136102c0366004613b07565b61074c565b3480156102d157600080fd5b506102136102e0366004613b07565b61077b565b3480156102f157600080fd5b50610213610806565b34801561030657600080fd5b50610213610315366004613b2e565b610917565b34801561032657600080fd5b5061022d610335366004613b67565b61094c565b34801561034657600080fd5b5061022d610355366004613b9e565b6001600160a01b03166000908152600a602052604090205490565b34801561037c57600080fd5b5061039061038b366004613adb565b61096b565b6040516102379190613bbb565b3480156103a957600080fd5b506102136103b8366004613b07565b61097f565b3480156103c957600080fd5b506102136103d8366004613c08565b610a1c565b3480156103e957600080fd5b506102136103f8366004613b07565b610c64565b34801561040957600080fd5b5061041d610418366004613b9e565b610c93565b6040516102379190613cae565b34801561043657600080fd5b5061044a610445366004613adb565b610e20565b6040516102379190613cf0565b34801561046357600080fd5b50610213610472366004613cfe565b610ef2565b34801561048357600080fd5b5061022d610492366004613b67565b610fe6565b3480156104a357600080fd5b5061022d610ffb565b3480156104b857600080fd5b5061022d6104c7366004613b9e565b611076565b3480156104d857600080fd5b506102136104e7366004613d20565b6110e7565b3480156104f857600080fd5b5061022d60065481565b34801561050e57600080fd5b5061021361051d366004613b67565b61111e565b34801561052e57600080fd5b5061021361053d366004613d7f565b6112a0565b61022d610550366004613db6565b6112d5565b61022d610563366004613db6565b6115bc565b34801561057457600080fd5b50610213610583366004613e5f565b61191a565b34801561059457600080fd5b506102136105a3366004613b07565b611950565b3480156105b457600080fd5b506102136105c3366004613db6565b6119d4565b3480156105d457600080fd5b5061022d6105e3366004613b67565b611bf5565b60006105f48383611c0a565b90506105ff81611ca4565b61060881611e2f565b505050565b600081600061061c3383611c0a565b9050600b818154811061063157610631613f05565b6000918252602090912060069091020160050154610100900460ff16156106735760405162461bcd60e51b815260040161066a90613f1b565b60405180910390fd5b6106856106808686611c0a565b6121ff565b95945050505050565b6000600b61069c8484611c0a565b815481106106ac576106ac613f05565b600091825260209091206005600690920201015460ff1690505b92915050565b600154604080516335dce58760e11b815290516000926001600160a01b031691636bb9cb0e9160048083019260209291908290030181865afa158015610716573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061073a9190613f46565b6008546107479190613f75565b905090565b6009546001600160a01b031633146107765760405162461bcd60e51b815260040161066a90613f8c565b600855565b8060006107883383611c0a565b9050600b818154811061079d5761079d613f05565b6000918252602090912060069091020160050154610100900460ff16156107d65760405162461bcd60e51b815260040161066a90613f1b565b60006107e23385611c0a565b90506107ed816122bb565b6107ff816107fa836121ff565b6122d6565b5050505050565b336000908152600a6020526040812090805b82548110156108895761084683828154811061083657610836613f05565b90600052602060002001546122bb565b61086b83828154811061085b5761085b613f05565b9060005260206000200154612363565b6108759083613fc3565b91508061088181613fd6565b915050610818565b50604051600090339083908381818185875af1925050503d80600081146108cc576040519150601f19603f3d011682016040523d82523d6000602084013e6108d1565b606091505b50509050806106085760405162461bcd60e51b815260206004820152601260248201527111985a5b1959081d1bc81cd95b990810555560721b604482015260640161066a565b6001546001600160a01b031633146109415760405162461bcd60e51b815260040161066a90613fef565b610608838383612490565b600061096161095b8585611c0a565b83612538565b90505b9392505050565b606061096461097a8484611c0a565b612587565b80600061098c3383611c0a565b9050600b81815481106109a1576109a1613f05565b6000918252602090912060069091020160050154610100900460ff16156109da5760405162461bcd60e51b815260040161066a90613f1b565b60006109e63385611c0a565b90506109f1816122bb565b60006109fc826121ff565b9050610a0882826122d6565b9050610a1482826125f3565b505050505050565b6009546001600160a01b03163314610a465760405162461bcd60e51b815260040161066a90613f8c565b83831015610a965760405162461bcd60e51b815260206004820152601e60248201527f636c696666206d757374206265206772656174657220746f2073746172740000604482015260640161066a565b828211610ae55760405162461bcd60e51b815260206004820152601e60248201527f656e64206d7573742062652067726561746572207468616e20636c6966660000604482015260640161066a565b600b80546040805160e08101825297885260006020808a018281528a8401998a5260608b0198895260808b0197885295151560a08b0190815260c08b01838152600180870188559684529a51600686027f0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01db981019190915596517f0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01dba88015598517f0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01dbb87015596517f0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01dbc86015594517f0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01dbd85015595517f0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01dbe9093018054975115156101000261ff00199415159490941661ffff1990981697909717929092179095556001600160a01b039095168152600a825291822080549384018155825290200155565b6009546001600160a01b03163314610c8e5760405162461bcd60e51b815260040161066a90613f8c565b600755565b6001600160a01b0381166000908152600a6020526040812080546060929067ffffffffffffffff811115610cc957610cc9613dee565b604051908082528060200260200182016040528015610d3e57816020015b610d2b6040518060e0016040528060008152602001600081526020016000815260200160008152602001600081526020016000151581526020016000151581525090565b815260200190600190039081610ce75790505b50905060005b8151811015610e1857600b838281548110610d6157610d61613f05565b906000526020600020015481548110610d7c57610d7c613f05565b60009182526020918290206040805160e081018252600690930290910180548352600181015493830193909352600283015490820152600382015460608201526004820154608082015260059091015460ff808216151560a084015261010090910416151560c08201528251839083908110610dfa57610dfa613f05565b60200260200101819052508080610e1090613fd6565b915050610d44565b509392505050565b610e646040518060e0016040528060008152602001600081526020016000815260200160008152602001600081526020016000151581526020016000151581525090565b600b610e708484611c0a565b81548110610e8057610e80613f05565b60009182526020918290206040805160e081018252600690930290910180548352600181015493830193909352600283015490820152600382015460608201526004820154608082015260059091015460ff808216151560a084015261010090910416151560c0820152905092915050565b816000610eff3383611c0a565b9050600b8181548110610f1457610f14613f05565b6000918252602090912060069091020160050154610100900460ff1615610f4d5760405162461bcd60e51b815260040161066a90613f1b565b6000610f593386611c0a565b9050610f64816122bb565b6000600b8281548110610f7957610f79613f05565b906000526020600020906006020190504381600301541115610fad5760405162461bcd60e51b815260040161066a90614037565b6000610fb8836121ff565b905080861015610fd257610fcd8333886127b3565b610fdd565b610fdd8333836127b3565b50505050505050565b6000610961610ff58585611c0a565b8361281d565b600154604080516335dce58760e11b815290516000926001600160a01b031691636bb9cb0e9160048083019260209291908290030181865afa158015611045573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906110699190613f46565b6007546107479190613f75565b6001600160a01b0381166000908152600a602052604081208190815b81548110156110de576110c08282815481106110b0576110b0613f05565b906000526020600020015461285d565b6110ca9084613fc3565b9250806110d681613fd6565b915050611092565b50909392505050565b6001546001600160a01b031633146111115760405162461bcd60e51b815260040161066a90613fef565b6107ff85858585856129f2565b6009546001600160a01b031633146111485760405162461bcd60e51b815260040161066a90613f8c565b60006111548484611c0a565b90506000600b828154811061116b5761116b613f05565b600091825260209091206006909102016005810154909150610100900460ff16156111d85760405162461bcd60e51b815260206004820152601960248201527f7363686564756c6520616c72656164792063616e63656c656400000000000000604482015260640161066a565b60006111e383612587565b905060005b81518110156112565760006112168584848151811061120957611209613f05565b6020026020010151612b42565b905080156112435761124385878386868151811061123657611236613f05565b6020026020010151612b82565b508061124e81613fd6565b9150506111e8565b5060058201805461ff001916610100179055600083815260146020526040902080546001600160a01b0386166001600160a01b03199091161790558154610a1490849086906127b3565b6001546001600160a01b031633146112ca5760405162461bcd60e51b815260040161066a90613fef565b610608838383612ba1565b60008360006112e43383611c0a565b9050600b81815481106112f9576112f9613f05565b6000918252602090912060069091020160050154610100900460ff16156113325760405162461bcd60e51b815260040161066a90613f1b565b600160009054906101000a90046001600160a01b03166001600160a01b0316636bb9cb0e6040518163ffffffff1660e01b8152600401602060405180830381865afa158015611385573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906113a99190613f46565b6008546113b69190613f75565b3410156114205760405162461bcd60e51b815260206004820152603260248201527f6e6f7420656e6f7567682067617320676976656e20666f72206e6f74696669636044820152716174696f6e206f6e20756e626f6e64696e6760701b606482015260840161066a565b600061142c3388611c0a565b9050611437816122bb565b611442818787612c72565b6001546040516352e82ce560e11b81526001600160a01b03888116600483015260248201889052600092169063a5d059ca90349060440160206040518083038185885af1158015611497573d6000803e3d6000fd5b50505050506040513d601f19601f820116820180604052508101906114bc9190613f46565b90506114c9826001613fc3565b60106000838152602001908152602001600020819055506040518060a001604052808781526020016114f9612d1d565b81526001600160a01b03808a16602080840191909152600060408085018290526060948501829052868252600d8352808220865181558684015160018201558682015160029091018054968801516080909801511515600160a81b0260ff60a81b19981515600160a01b026001600160a81b031990981692909616919091179590951795909516929092179092558481526011825282812060138054835292529182208390558054916115ab83613fd6565b909155509098975050505050505050565b60008360006115cb3383611c0a565b9050600b81815481106115e0576115e0613f05565b6000918252602090912060069091020160050154610100900460ff16156116195760405162461bcd60e51b815260040161066a90613f1b565b600160009054906101000a90046001600160a01b03166001600160a01b0316636bb9cb0e6040518163ffffffff1660e01b8152600401602060405180830381865afa15801561166c573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906116909190613f46565b60075461169d9190613f75565b3410156117055760405162461bcd60e51b815260206004820152603060248201527f6e6f7420656e6f7567682067617320676976656e20666f72206e6f746966696360448201526f6174696f6e206f6e20626f6e64696e6760801b606482015260840161066a565b60006117113388611c0a565b905061171c816122bb565b6000600b828154811061173157611731613f05565b60009182526020909120600690910201600581015490915060ff1661178c5760405162461bcd60e51b81526020600482015260116024820152706e6f742061626c6520746f207374616b6560781b604482015260640161066a565b80548611156117d15760405162461bcd60e51b81526020600482015260116024820152706e6f7420656e6f75676820746f6b656e7360781b604482015260640161066a565b60015460405163528a9b3560e11b81526001600160a01b03898116600483015260248201899052600092169063a515366a90349060440160206040518083038185885af1158015611826573d6000803e3d6000fd5b50505050506040513d601f19601f8201168201806040525081019061184b9190613f46565b905086826000016000828254611861919061406e565b90915550506000838152600f6020908152604082208054600181810183559184529190922001829055611895908490613fc3565b600e60008381526020019081526020016000208190555060405180606001604052808881526020016118c5612d1d565b815260006020918201819052838152600c82526040908190208351815591830151600183015591909101516002909101805460ff191691151591909117905561190e8389612d8b565b98975050505050505050565b6001546001600160a01b031633146119445760405162461bcd60e51b815260040161066a90613fef565b61194d81612df6565b50565b80600061195d3383611c0a565b9050600b818154811061197257611972613f05565b6000918252602090912060069091020160050154610100900460ff16156119ab5760405162461bcd60e51b815260040161066a90613f1b565b60006119b73385611c0a565b90506119c2816122bb565b6107ff816119cf836121ff565b6125f3565b8260006119e13383611c0a565b9050600b81815481106119f6576119f6613f05565b6000918252602090912060069091020160050154610100900460ff1615611a2f5760405162461bcd60e51b815260040161066a90613f1b565b60008311611a8b5760405162461bcd60e51b815260206004820152602360248201527f7265717569726520706f73697469766520616d6f756e7420746f207472616e736044820152623332b960e91b606482015260840161066a565b6000611a973387611c0a565b9050611aa2816122bb565b6000600b8281548110611ab757611ab7613f05565b906000526020600020906006020190504381600301541115611aeb5760405162461bcd60e51b815260040161066a90614037565b6000611af78388612b42565b905085811015611b495760405162461bcd60e51b815260206004820152601860248201527f6e6f7420656e6f75676820756e6c6f636b6564204c4e544e0000000000000000604482015260640161066a565b6000611b54846121ff565b90506000611b628989612e3a565b905081811115611bc3575080611b788982612ee9565b975082881115611bc35760405162461bcd60e51b8152602060048201526016602482015275636f6e76657273696f6e206e6f7420776f726b696e6760501b604482015260640161066a565b80846001016000828254611bd79190613fc3565b90915550611be9905085338a8c612b82565b50505050505050505050565b6000610961611c048585611c0a565b83612b42565b6001600160a01b0382166000908152600a60205260408120548210611c675760405162461bcd60e51b81526020600482015260136024820152721a5b9d985b1a59081cd8da19591d5b19481a59606a1b604482015260640161066a565b6001600160a01b0383166000908152600a60205260409020805483908110611c9157611c91613f05565b9060005260206000200154905092915050565b6000818152600f6020526040812080549091808080611cc1612d1d565b905060005b85811015611d7f57868181548110611ce057611ce0613f05565b90600052602060002001549450600c6000868152602001908152602001600020935081846001015403611d17575050505050505050565b835415611d6d57600284015460ff161515600003611d3e578354611d3b9084613fc3565b92505b6000858152600c6020908152604080832083815560018101849055600201805460ff19169055600e9091528120555b80611d7781613fd6565b915050611cc6565b506000878152600f60205260408120611d9791613a94565b81600003611da85750505050505050565b6000600b8881548110611dbd57611dbd613f05565b906000526020600020906006020190508060050160019054906101000a900460ff1615611e0b57600088815260146020526040902054611e06906001600160a01b031684612f86565b611e25565b82816000016000828254611e1f9190613fc3565b90915550505b5050505050505050565b600060125490506000806000600b8581548110611e4e57611e4e613f05565b6000918252602080832088845260119091526040909220601354600690920290920192505b808610156121f15760008681526020839052604080822054600154915163a9af105960e01b8152600481018290529097506001600160a01b039091169063a9af105990602401602060405180830381865afa158015611ed6573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190611efa919061409e565b90506000816003811115611f1057611f106140bb565b03611f1b57506121f1565b60008781526020848152604080832083905588835260109091528120556001816003811115611f4c57611f4c6140bb565b03611f8157506000858152600d60205260408120818155600181019190915560020180546001600160b01b03191690556121df565b6000868152600d6020526040902060028101549095506001600160a01b03166003826003811115611fb457611fb46140bb565b036120b0576002860154600160a81b900460ff1661202f5760405162461bcd60e51b815260206004820152603260248201527f756e626f6e64696e67207761732072656c656173656420627574206e6f74206160448201527170706c6965642073756363657366756c6c7960701b606482015260840161066a565b61203881613043565b60015460405163b6ef8c6760e01b8152600481018990526120b0918b9184916001600160a01b03169063b6ef8c6790602401602060405180830381865afa158015612087573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906120ab9190613f46565b6131a0565b60028260038111156120c4576120c46140bb565b03612172576002860154600160a81b900460ff161561214b5760405162461bcd60e51b815260206004820152603b60248201527f756e626f6e64696e6720776173206170706c696564207375636365737366756c60448201527f6c79206275742072656c65617365207761732072656a65637465640000000000606482015260840161066a565b6002860154600160a01b900460ff16151560000361217257612172898288600001546131e1565b6000878152600d60205260408120818155600181019190915560020180546001600160b01b03191690556005850154610100900460ff16156121dc576000898152601460205260409020546121dc908a906001600160a01b03166121d68285612538565b84612b82565b50505b856121e981613fd6565b965050611e73565b505050601292909255505050565b600080600b838154811061221557612215613f05565b90600052602060002090600602019050806003015443101561223a5750600092915050565b600061224584613218565b905060008260040154431061225b575080612295565b8260020154836004015461226f919061406e565b600284015461227e904361406e565b6122889084613f75565b61229291906140d1565b90505b82600101548111156122b0576001830154610685908261406e565b506000949350505050565b6122c481611ca4565b6122cd81611e2f565b61194d816132cf565b600080600b84815481106122ec576122ec613f05565b9060005260206000209060060201905043816003015411156123205760405162461bcd60e51b815260040161066a90614037565b805483111561234b578054612335908461406e565b9150612346843383600001546127b3565b61235c565b821561235c5761235c8433856127b3565b5092915050565b6000818152600360209081526040808320805482518185028101850190935280835284938301828280156123c057602002820191906000526020600020905b81546001600160a01b031681526001909101906020018083116123a2575b505050505090506000805b8251811015610e18576123f68382815181106123e9576123e9613f05565b60200260200101516133ee565b6124198584838151811061240c5761240c613f05565b6020026020010151613471565b6124239083613fc3565b9150600160056000878152602001908152602001600020600085848151811061244e5761244e613f05565b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002060020181905550808061248890613fd6565b9150506123cb565b6000838152601060205260408120546124ab9060019061406e565b90506000600b82815481106124c2576124c2613f05565b9060005260206000209060060201905082156124df575050505050565b6005810154610100900460ff161561251857600082815260146020526040902054612513906001600160a01b031685612f86565b6107ff565b8381600001600082825461252c9190613fc3565b90915550505050505050565b60008281526005602090815260408083206001600160a01b03851684529091528120600481015460ff161561257d5780546125759060019061406e565b9150506106c6565b5060009392505050565b6000818152600360209081526040918290208054835181840281018401909452808452606093928301828280156125e757602002820191906000526020600020905b81546001600160a01b031681526001909101906020018083116125c9575b50505050509050919050565b600080600b848154811061260957612609613f05565b90600052602060002090600602019050438160030154111561263d5760405162461bcd60e51b815260040161066a90614037565b829150600061264b85612587565b905060005b8151811080156126605750600084115b1561278757600061267d8784848151811061120957611209613f05565b90508060000361268d5750612775565b60006126b28484815181106126a4576126a4613f05565b602002602001015183612e3a565b90508086106126e4576126c5818761406e565b95506126df88338487878151811061123657611236613f05565b612772565b60006127098585815181106126fb576126fb613f05565b602002602001015188612ee9565b9050828111156127545760405162461bcd60e51b8152602060048201526016602482015275636f6e76657273696f6e206e6f7420776f726b696e6760501b604482015260640161066a565b6000965061277089338388888151811061123657611236613f05565b505b50505b8061277f81613fd6565b915050612650565b50612792838561406e565b8260010160008282546127a59190613fc3565b909155509295945050505050565b6000600b84815481106127c8576127c8613f05565b90600052602060002090600602019050818160000160008282546127ec919061406e565b92505081905550818160010160008282546128079190613fc3565b9091555061281790508383612f86565b50505050565b60008281526005602090815260408083206001600160a01b03851684529091528120600481015460ff161561257d5760018160010154612575919061406e565b60008181526003602090815260408083208054825181850281018501909352808352849384939291908301828280156128bf57602002820191906000526020600020905b81546001600160a01b031681526001909101906020018083116128a1575b5050505050905060005b81518110156110de5760006128f68383815181106128e9576128e9613f05565b60200260200101516134df565b6002600085858151811061290c5761290c613f05565b60200260200101516001600160a01b03166001600160a01b03168152602001908152602001600020600001546129429190613fc3565b9050600060056000888152602001908152602001600020600085858151811061296d5761296d613f05565b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002090506129b6600182600001546129ab919061406e565b82600301548461361a565b600182600201546129c7919061406e565b6129d19190613fc3565b6129db9086613fc3565b9450505080806129ea90613fd6565b9150506128c9565b8115612a405760405162461bcd60e51b815260206004820152601b60248201527f626f6e64696e672073686f756c642062652064656c6567617465640000000000604482015260640161066a565b6000858152600e6020526040812054612a5b9060019061406e565b6000878152600c6020526040812060028101805460ff19166001179055600b8054939450909284908110612a9157612a91613f05565b906000526020600020906006020190508060050160019054906101000a900460ff1615612b12578315612ae7576000838152601460205260409020548254612ae2916001600160a01b031690612f86565b612b0a565b600083815260146020526040902054612b0a906001600160a01b03168789613650565b5050506107ff565b8315612b3757815481548290600090612b2c908490613fc3565b90915550611e259050565b611e258388886131a0565b60008281526005602090815260408083206001600160a01b03851684529091528120600481015460ff161561257d5760018101548154612575919061406e565b612b8b81613043565b612b9684828461372b565b612817838383613650565b600083815260106020526040812054612bbc9060019061406e565b6000858152600d60205260409020805491925090612bdb8386836131e1565b6000600b8481548110612bf057612bf0613f05565b906000526020600020906006020190508415612c525760028301805460ff60a01b1916600160a01b1790556005810154610100900460ff1615610fdd57600084815260146020526040902054610fdd9085906001600160a01b03168489612b82565b60028301805460ff60a81b1916600160a81b179055610fdd84878461372b565b60008381526005602090815260408083206001600160a01b03861684529091529020600181015481548391612ca69161406e565b1015612cfe5760405162461bcd60e51b815260206004820152602160248201527f6e6f7420656e6f75676820756e6c6f636b6564206c697175696420746f6b656e6044820152607360f81b606482015260840161066a565b81816001016000828254612d129190613fc3565b909155505050505050565b600154604080516332765ebd60e21b815290516000926001600160a01b03169163c9d97af49160048083019260209291908290030181865afa158015612d67573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906107479190613f46565b612d95828261376c565b60008281526005602090815260408083206001600160a01b03851684529091529020600481015460ff1615612dc957505050565b600160028201819055600382018190558082558181018190556004909101805460ff191690911790555050565b60005b8151811015612e3657612e24828281518110612e1757612e17613f05565b6020026020010151613043565b80612e2e81613fd6565b915050612df9565b5050565b600154604051630c825d9760e11b81526001600160a01b0384811660048301526000928392911690631904bb2e90602401600060405180830381865afa158015612e88573d6000803e3d6000fd5b505050506040513d6000823e601f3d908101601f19168201604052612eb09190810190614183565b9050806101a001518161010001518260a00151612ecd919061406e565b612ed79085613f75565b612ee191906140d1565b949350505050565b600154604051630c825d9760e11b81526001600160a01b0384811660048301526000928392911690631904bb2e90602401600060405180830381865afa158015612f37573d6000803e3d6000fd5b505050506040513d6000823e601f3d908101601f19168201604052612f5f9190810190614183565b90508061010001518160a00151612f76919061406e565b6101a0820151612ed79085613f75565b60015460405163a9059cbb60e01b81526001600160a01b03848116600483015260248201849052600092169063a9059cbb906044016020604051808303816000875af1158015612fda573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190612ffe9190614301565b9050806106085760405162461bcd60e51b8152602060048201526013602482015272139513881b9bdd081d1c985b9cd9995c9c9959606a1b604482015260640161066a565b6001600160a01b0381811660009081526002602081905260408083209182015490516370a0823160e01b8152306004820152919316919082906370a0823190602401602060405180830381865afa1580156130a2573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906130c69190613f46565b9050806000036130d65750505050565b604051631293027760e31b81523060048201526000906001906001600160a01b0385169063949813b890602401602060405180830381865afa158015613120573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906131449190613f46565b61314e9190613fc3565b905081633b9aca00856001015483613166919061406e565b6131709190613f75565b61317a91906140d1565b84600001600082825461318d9190613fc3565b9091555050600190930192909255505050565b6131aa8383613471565b5060008381526005602090815260408083206001600160a01b03861684529091528120805490918391839190612d12908490613fc3565b60008381526005602090815260408083206001600160a01b0386168452909152812060018101805491928492612d1290849061406e565b60008061322483612587565b90506000600b848154811061323b5761323b613f05565b6000918252602082206006909102015491505b8251811015610e1857600061327c8685848151811061326f5761326f613f05565b6020026020010151612538565b90508060000361328c57506132bd565b6132af8483815181106132a1576132a1613f05565b602002602001015182612e3a565b6132b99084613fc3565b9250505b806132c781613fd6565b91505061324e565b600081815260036020526040812090805b82548110156128175760056000858152602001908152602001600020600084838154811061331057613310613f05565b60009182526020808320909101546001600160a01b03168352820192909252604001902091505b8154600114801561334c575060018260020154145b156133dc576133818484838154811061336757613367613f05565b6000918252602090912001546001600160a01b0316613807565b82548110156133dc576005600085815260200190815260200160002060008483815481106133b1576133b1613f05565b60009182526020808320909101546001600160a01b0316835282019290925260400190209150613337565b806133e681613fd6565b9150506132e0565b6001600160a01b038116600090815260026020526040902061340f82613043565b60018181015560028101546040805163372500ab60e01b815290516001600160a01b039092169163372500ab9160048082019260009290919082900301818387803b15801561345d57600080fd5b505af1158015610a14573d6000803e3d6000fd5b6001600160a01b0381166000818152600260209081526040808320548684526005835281842094845293909152812080549192916134b5906129ab9060019061406e565b81600201546134c49190613fc3565b6002820181905560038201839055925061068560018461406e565b6001600160a01b0381811660009081526002602081905260408083209182015490516370a0823160e01b815230600482015292939192911690839082906370a0823190602401602060405180830381865afa158015613542573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906135669190613f46565b90508060000361357b57506000949350505050565b600180840154604051631293027760e31b81523060048201528392633b9aca0092916001600160a01b0387169063949813b890602401602060405180830381865afa1580156135ce573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906135f29190613f46565b6135fc9190613fc3565b613606919061406e565b6136109190613f75565b61068591906140d1565b60008360000361362c57506000610964565b633b9aca008461363c858561406e565b6136469190613f75565b61096191906140d1565b6001600160a01b0380821660009081526002602081905260408220015490911660405163a9059cbb60e01b81526001600160a01b03868116600483015260248201869052919091169063a9059cbb906044016020604051808303816000875af11580156136c1573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906136e59190614301565b9050806128175760405162461bcd60e51b815260206004820152601460248201527313139513881d1c985b9cd9995c8819985a5b195960621b604482015260640161066a565b6137358383613471565b5060008381526005602090815260408083206001600160a01b03861684529091528120805490918391839190612d1290849061406e565b60008281526004602090815260408083206001600160a01b038516845290915290205415613798575050565b600082815260036020908152604080832080546001810182558185528385200180546001600160a01b0319166001600160a01b038781169182179092558254888752600486528487209187529085528386205560029384905291909320909101541661060857610608826139ba565b6000828152600360209081526040808320600483528184206001600160a01b03861685529092528220549091906138409060019061406e565b8254909150613850826001613fc3565b036138b057818054806138655761386561431e565b60008281526020808220830160001990810180546001600160a01b03191690559092019092559481526004855260408082206001600160a01b03959095168252939094525050812055565b815460009083906138c39060019061406e565b815481106138d3576138d3613f05565b9060005260206000200160009054906101000a90046001600160a01b031690508083838154811061390657613906613f05565b600091825260209091200180546001600160a01b0319166001600160a01b039290921691909117905561393a826001613fc3565b60008681526004602090815260408083206001600160a01b0386168452909152902055825483908061396e5761396e61431e565b60008281526020808220830160001990810180546001600160a01b03191690559092019092559581526004865260408082206001600160a01b0396909616825294909552505050812055565b600154604051630c825d9760e11b81526001600160a01b0383811660048301526000921690631904bb2e90602401600060405180830381865afa158015613a05573d6000803e3d6000fd5b505050506040513d6000823e601f3d908101601f19168201604052613a2d9190810190614183565b610180015160408051606081018252600180825260208083018281526001600160a01b03958616848601908152978616600090815260029283905294909420925183559251908201559351930180546001600160a01b031916939091169290921790915550565b508054600082559060005260206000209081019061194d91905b80821115613ac25760008155600101613aae565b5090565b6001600160a01b038116811461194d57600080fd5b60008060408385031215613aee57600080fd5b8235613af981613ac6565b946020939093013593505050565b600060208284031215613b1957600080fd5b5035919050565b801515811461194d57600080fd5b600080600060608486031215613b4357600080fd5b83359250602084013591506040840135613b5c81613b20565b809150509250925092565b600080600060608486031215613b7c57600080fd5b8335613b8781613ac6565b9250602084013591506040840135613b5c81613ac6565b600060208284031215613bb057600080fd5b813561096481613ac6565b6020808252825182820181905260009190848201906040850190845b81811015613bfc5783516001600160a01b031683529284019291840191600101613bd7565b50909695505050505050565b60008060008060008060c08789031215613c2157600080fd5b8635613c2c81613ac6565b95506020870135945060408701359350606087013592506080870135915060a0870135613c5881613b20565b809150509295509295509295565b805182526020810151602083015260408101516040830152606081015160608301526080810151608083015260a0810151151560a083015260c0810151151560c08301525050565b6020808252825182820181905260009190848201906040850190845b81811015613bfc57613cdd838551613c66565b9284019260e09290920191600101613cca565b60e081016106c68284613c66565b60008060408385031215613d1157600080fd5b50508035926020909101359150565b600080600080600060a08688031215613d3857600080fd5b853594506020860135613d4a81613ac6565b9350604086013592506060860135613d6181613b20565b91506080860135613d7181613b20565b809150509295509295909350565b600080600060608486031215613d9457600080fd5b833592506020840135613da681613ac6565b91506040840135613b5c81613b20565b600080600060608486031215613dcb57600080fd5b833592506020840135613ddd81613ac6565b929592945050506040919091013590565b634e487b7160e01b600052604160045260246000fd5b604051610280810167ffffffffffffffff81118282101715613e2857613e28613dee565b60405290565b604051601f8201601f1916810167ffffffffffffffff81118282101715613e5757613e57613dee565b604052919050565b60006020808385031215613e7257600080fd5b823567ffffffffffffffff80821115613e8a57600080fd5b818501915085601f830112613e9e57600080fd5b813581811115613eb057613eb0613dee565b8060051b9150613ec1848301613e2e565b8181529183018401918481019088841115613edb57600080fd5b938501935b8385101561190e5784359250613ef583613ac6565b8282529385019390850190613ee0565b634e487b7160e01b600052603260045260246000fd5b6020808252601190820152701cd8da19591d5b194818d85b98d95b1959607a1b604082015260600190565b600060208284031215613f5857600080fd5b5051919050565b634e487b7160e01b600052601160045260246000fd5b80820281158282048414176106c6576106c6613f5f565b6020808252601a908201527f63616c6c6572206973206e6f7420746865206f70657261746f72000000000000604082015260600190565b808201808211156106c6576106c6613f5f565b600060018201613fe857613fe8613f5f565b5060010190565b60208082526028908201527f66756e6374696f6e207265737472696374656420746f204175746f6e6974792060408201526718dbdb9d1c9858dd60c21b606082015260800190565b6020808252601c908201527f6e6f74207265616368656420636c69666620706572696f642079657400000000604082015260600190565b818103818111156106c6576106c6613f5f565b6004811061194d57600080fd5b805161409981614081565b919050565b6000602082840312156140b057600080fd5b815161096481614081565b634e487b7160e01b600052602160045260246000fd5b6000826140ee57634e487b7160e01b600052601260045260246000fd5b500490565b805161409981613ac6565b600082601f83011261410f57600080fd5b815167ffffffffffffffff81111561412957614129613dee565b602061413d601f8301601f19168201613e2e565b828152858284870101111561415157600080fd5b60005b8381101561416f578581018301518282018401528201614154565b506000928101909101919091529392505050565b60006020828403121561419557600080fd5b815167ffffffffffffffff808211156141ad57600080fd5b9083019061028082860312156141c257600080fd5b6141ca613e04565b6141d3836140f3565b81526141e1602084016140f3565b60208201526141f2604084016140f3565b604082015260608301518281111561420957600080fd5b614215878286016140fe565b6060830152506080830151608082015260a083015160a082015260c083015160c082015260e083015160e08201526101008084015181830152506101208084015181830152506101408084015181830152506101608084015181830152506101806142818185016140f3565b908201526101a083810151908201526101c080840151908201526101e080840151908201526102008084015190820152610220808401519082015261024080840151838111156142d057600080fd5b6142dc888287016140fe565b82840152505061026091506142f282840161408e565b91810191909152949350505050565b60006020828403121561431357600080fd5b815161096481613b20565b634e487b7160e01b600052603160045260246000fdfea26469706673582212205d625b642f0d984dd5c3083d05072073b7cc505ba0dca70d13030338c69ad7bf64736f6c63430008150033",
+}
+
+// VestingManagerABI is the input ABI used to generate the binding from.
+// Deprecated: Use VestingManagerMetaData.ABI instead.
+var VestingManagerABI = VestingManagerMetaData.ABI
+
+// Deprecated: Use VestingManagerMetaData.Sigs instead.
+// VestingManagerFuncSigs maps the 4-byte function signature to its string representation.
+var VestingManagerFuncSigs = VestingManagerMetaData.Sigs
+
+// VestingManagerBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use VestingManagerMetaData.Bin instead.
+var VestingManagerBin = VestingManagerMetaData.Bin
+
+// DeployVestingManager deploys a new Ethereum contract, binding an instance of VestingManager to it.
+func (r *runner) deployVestingManager(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *VestingManager, error) {
+	parsed, err := VestingManagerMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
+	}
+
+	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(VestingManagerBin), _autonity, _operator)
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	return address, gasConsumed, &VestingManager{contract: c}, nil
+}
+
+// VestingManager is an auto generated Go binding around an Ethereum contract.
+type VestingManager struct {
+	*contract
+}
+
+// FEEFACTORUNITRECIP is a free data retrieval call binding the contract method 0x187cf4d7.
+//
+// Solidity: function FEE_FACTOR_UNIT_RECIP() view returns(uint256)
+func (_VestingManager *VestingManager) FEEFACTORUNITRECIP(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "FEE_FACTOR_UNIT_RECIP")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UPDATEFACTORUNITRECIP is a free data retrieval call binding the contract method 0x9c478de2.
+//
+// Solidity: function UPDATE_FACTOR_UNIT_RECIP() view returns(uint256)
+func (_VestingManager *VestingManager) UPDATEFACTORUNITRECIP(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "UPDATE_FACTOR_UNIT_RECIP")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// CanStake is a free data retrieval call binding the contract method 0x2afbbacb.
+//
+// Solidity: function canStake(address _beneficiary, uint256 _id) view returns(bool)
+func (_VestingManager *VestingManager) CanStake(opts *runOptions, _beneficiary common.Address, _id *big.Int) (bool, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "canStake", _beneficiary, _id)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// ContractVersion is a free data retrieval call binding the contract method 0xa0a8e460.
+//
+// Solidity: function contractVersion() view returns(uint256)
+func (_VestingManager *VestingManager) ContractVersion(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "contractVersion")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetBondedValidators is a free data retrieval call binding the contract method 0x4b468d4c.
+//
+// Solidity: function getBondedValidators(address _beneficiary, uint256 _id) view returns(address[])
+func (_VestingManager *VestingManager) GetBondedValidators(opts *runOptions, _beneficiary common.Address, _id *big.Int) ([]common.Address, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "getBondedValidators", _beneficiary, _id)
+
+	if err != nil {
+		return *new([]common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	return out0, consumed, err
+
+}
+
+// GetSchedule is a free data retrieval call binding the contract method 0x7264c4da.
+//
+// Solidity: function getSchedule(address _beneficiary, uint256 _id) view returns((uint256,uint256,uint256,uint256,uint256,bool,bool))
+func (_VestingManager *VestingManager) GetSchedule(opts *runOptions, _beneficiary common.Address, _id *big.Int) (VestingManagerSchedule, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "getSchedule", _beneficiary, _id)
+
+	if err != nil {
+		return *new(VestingManagerSchedule), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(VestingManagerSchedule)).(*VestingManagerSchedule)
+	return out0, consumed, err
+
+}
+
+// GetSchedules is a free data retrieval call binding the contract method 0x6c04e040.
+//
+// Solidity: function getSchedules(address _beneficiary) view returns((uint256,uint256,uint256,uint256,uint256,bool,bool)[])
+func (_VestingManager *VestingManager) GetSchedules(opts *runOptions, _beneficiary common.Address) ([]VestingManagerSchedule, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "getSchedules", _beneficiary)
+
+	if err != nil {
+		return *new([]VestingManagerSchedule), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]VestingManagerSchedule)).(*[]VestingManagerSchedule)
+	return out0, consumed, err
+
+}
+
+// LiquidBalanceOf is a free data retrieval call binding the contract method 0x447ff061.
+//
+// Solidity: function liquidBalanceOf(address _beneficiary, uint256 _id, address _validator) view returns(uint256)
+func (_VestingManager *VestingManager) LiquidBalanceOf(opts *runOptions, _beneficiary common.Address, _id *big.Int, _validator common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "liquidBalanceOf", _beneficiary, _id, _validator)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// LockedLiquidBalanceOf is a free data retrieval call binding the contract method 0x85e01abe.
+//
+// Solidity: function lockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) view returns(uint256)
+func (_VestingManager *VestingManager) LockedLiquidBalanceOf(opts *runOptions, _beneficiary common.Address, _id *big.Int, _validator common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "lockedLiquidBalanceOf", _beneficiary, _id, _validator)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// RequiredGasCostBond is a free data retrieval call binding the contract method 0x8f49d770.
+//
+// Solidity: function requiredGasCostBond() view returns(uint256)
+func (_VestingManager *VestingManager) RequiredGasCostBond(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "requiredGasCostBond")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// RequiredGasCostUnbond is a free data retrieval call binding the contract method 0x2c4dc4b9.
+//
+// Solidity: function requiredGasCostUnbond() view returns(uint256)
+func (_VestingManager *VestingManager) RequiredGasCostUnbond(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "requiredGasCostUnbond")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// TotalSchedules is a free data retrieval call binding the contract method 0x472c513a.
+//
+// Solidity: function totalSchedules(address _beneficiary) view returns(uint256)
+func (_VestingManager *VestingManager) TotalSchedules(opts *runOptions, _beneficiary common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "totalSchedules", _beneficiary)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UnclaimedRewards is a free data retrieval call binding the contract method 0x949813b8.
+//
+// Solidity: function unclaimedRewards(address _beneficiary) view returns(uint256)
+func (_VestingManager *VestingManager) UnclaimedRewards(opts *runOptions, _beneficiary common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "unclaimedRewards", _beneficiary)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UnlockedFunds is a free data retrieval call binding the contract method 0x21ec4487.
+//
+// Solidity: function unlockedFunds(address _beneficiary, uint256 _id) view returns(uint256)
+func (_VestingManager *VestingManager) UnlockedFunds(opts *runOptions, _beneficiary common.Address, _id *big.Int) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "unlockedFunds", _beneficiary, _id)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UnlockedLiquidBalanceOf is a free data retrieval call binding the contract method 0xf73b3da1.
+//
+// Solidity: function unlockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) view returns(uint256)
+func (_VestingManager *VestingManager) UnlockedLiquidBalanceOf(opts *runOptions, _beneficiary common.Address, _id *big.Int, _validator common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _VestingManager.call(opts, "unlockedLiquidBalanceOf", _beneficiary, _id, _validator)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Bond is a paid mutator transaction binding the contract method 0xc0d3895e.
+//
+// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+func (_VestingManager *VestingManager) Bond(opts *runOptions, _id *big.Int, _validator common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "bond", _id, _validator, _amount)
+	return consumed, err
+}
+
+// BondingApplied is a paid mutator transaction binding the contract method 0x9dfd1b8e.
+//
+// Solidity: function bondingApplied(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) returns()
+func (_VestingManager *VestingManager) BondingApplied(opts *runOptions, _bondingID *big.Int, _validator common.Address, _liquid *big.Int, _selfDelegation bool, _rejected bool) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "bondingApplied", _bondingID, _validator, _liquid, _selfDelegation, _rejected)
+	return consumed, err
+}
+
+// CancelSchedule is a paid mutator transaction binding the contract method 0xa17a5027.
+//
+// Solidity: function cancelSchedule(address _beneficiary, uint256 _id, address _recipient) returns()
+func (_VestingManager *VestingManager) CancelSchedule(opts *runOptions, _beneficiary common.Address, _id *big.Int, _recipient common.Address) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "cancelSchedule", _beneficiary, _id, _recipient)
+	return consumed, err
+}
+
+// ClaimRewards is a paid mutator transaction binding the contract method 0x372500ab.
+//
+// Solidity: function claimRewards() returns()
+func (_VestingManager *VestingManager) ClaimRewards(opts *runOptions) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "claimRewards")
+	return consumed, err
+}
+
+// NewSchedule is a paid mutator transaction binding the contract method 0x56ed4b6e.
+//
+// Solidity: function newSchedule(address _beneficiary, uint256 _amount, uint256 _startBlock, uint256 _cliffBlock, uint256 _endBlock, bool _canStake) returns()
+func (_VestingManager *VestingManager) NewSchedule(opts *runOptions, _beneficiary common.Address, _amount *big.Int, _startBlock *big.Int, _cliffBlock *big.Int, _endBlock *big.Int, _canStake bool) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "newSchedule", _beneficiary, _amount, _startBlock, _cliffBlock, _endBlock, _canStake)
+	return consumed, err
+}
+
+// ReceiveAut is a paid mutator transaction binding the contract method 0xedbe0026.
+//
+// Solidity: function receiveAut() payable returns()
+func (_VestingManager *VestingManager) ReceiveAut(opts *runOptions) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "receiveAut")
+	return consumed, err
+}
+
+// ReleaseAllLNTN is a paid mutator transaction binding the contract method 0xe69ecd2a.
+//
+// Solidity: function releaseAllLNTN(uint256 _id) returns()
+func (_VestingManager *VestingManager) ReleaseAllLNTN(opts *runOptions, _id *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "releaseAllLNTN", _id)
+	return consumed, err
+}
+
+// ReleaseAllNTN is a paid mutator transaction binding the contract method 0x3577a8f8.
+//
+// Solidity: function releaseAllNTN(uint256 _id) returns()
+func (_VestingManager *VestingManager) ReleaseAllNTN(opts *runOptions, _id *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "releaseAllNTN", _id)
+	return consumed, err
+}
+
+// ReleaseFunds is a paid mutator transaction binding the contract method 0x4d68282f.
+//
+// Solidity: function releaseFunds(uint256 _id) returns()
+func (_VestingManager *VestingManager) ReleaseFunds(opts *runOptions, _id *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "releaseFunds", _id)
+	return consumed, err
+}
+
+// ReleaseLNTN is a paid mutator transaction binding the contract method 0xec85303d.
+//
+// Solidity: function releaseLNTN(uint256 _id, address _validator, uint256 _amount) returns()
+func (_VestingManager *VestingManager) ReleaseLNTN(opts *runOptions, _id *big.Int, _validator common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "releaseLNTN", _id, _validator, _amount)
+	return consumed, err
+}
+
+// ReleaseNTN is a paid mutator transaction binding the contract method 0x81170628.
+//
+// Solidity: function releaseNTN(uint256 _id, uint256 _amount) returns()
+func (_VestingManager *VestingManager) ReleaseNTN(opts *runOptions, _id *big.Int, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "releaseNTN", _id, _amount)
+	return consumed, err
+}
+
+// RewardsDistributed is a paid mutator transaction binding the contract method 0xd18736ab.
+//
+// Solidity: function rewardsDistributed(address[] _validators) returns()
+func (_VestingManager *VestingManager) RewardsDistributed(opts *runOptions, _validators []common.Address) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "rewardsDistributed", _validators)
+	return consumed, err
+}
+
+// SetRequiredGasBond is a paid mutator transaction binding the contract method 0x6a94b441.
+//
+// Solidity: function setRequiredGasBond(uint256 _gas) returns()
+func (_VestingManager *VestingManager) SetRequiredGasBond(opts *runOptions, _gas *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "setRequiredGasBond", _gas)
+	return consumed, err
+}
+
+// SetRequiredGasUnbond is a paid mutator transaction binding the contract method 0x2ebc0660.
+//
+// Solidity: function setRequiredGasUnbond(uint256 _gas) returns()
+func (_VestingManager *VestingManager) SetRequiredGasUnbond(opts *runOptions, _gas *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "setRequiredGasUnbond", _gas)
+	return consumed, err
+}
+
+// Unbond is a paid mutator transaction binding the contract method 0xba19a4ae.
+//
+// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+func (_VestingManager *VestingManager) Unbond(opts *runOptions, _id *big.Int, _validator common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "unbond", _id, _validator, _amount)
+	return consumed, err
+}
+
+// UnbondingApplied is a paid mutator transaction binding the contract method 0xa8920241.
+//
+// Solidity: function unbondingApplied(uint256 _unbondingID, address _validator, bool _rejected) returns()
+func (_VestingManager *VestingManager) UnbondingApplied(opts *runOptions, _unbondingID *big.Int, _validator common.Address, _rejected bool) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "unbondingApplied", _unbondingID, _validator, _rejected)
+	return consumed, err
+}
+
+// UnbondingReleased is a paid mutator transaction binding the contract method 0x3c54c290.
+//
+// Solidity: function unbondingReleased(uint256 _unbondingID, uint256 _amount, bool _rejected) returns()
+func (_VestingManager *VestingManager) UnbondingReleased(opts *runOptions, _unbondingID *big.Int, _amount *big.Int, _rejected bool) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "unbondingReleased", _unbondingID, _amount, _rejected)
+	return consumed, err
+}
+
+// UpdateFunds is a paid mutator transaction binding the contract method 0x0ba6d271.
+//
+// Solidity: function updateFunds(address _beneficiary, uint256 _id) returns()
+func (_VestingManager *VestingManager) UpdateFunds(opts *runOptions, _beneficiary common.Address, _id *big.Int) (uint64, error) {
+	_, consumed, err := _VestingManager.call(opts, "updateFunds", _beneficiary, _id)
 	return consumed, err
 }
 

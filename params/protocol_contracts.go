@@ -79,6 +79,7 @@ var (
 	StabilizationContractAddress       = crypto.CreateAddress(DeployerAddress, 5)
 	UpgradeManagerContractAddress      = crypto.CreateAddress(DeployerAddress, 6)
 	InflationControllerContractAddress = crypto.CreateAddress(DeployerAddress, 7)
+	VestingManagerContractAddress      = crypto.CreateAddress(DeployerAddress, 8)
 )
 
 type AutonityContractGenesis struct {
