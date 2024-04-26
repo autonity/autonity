@@ -97,6 +97,12 @@ func TestAccusation(t *testing.T) {
 		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
+	r.run("reporter is not in committee, should be reverted", func(r *runner) {
+		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
+		noAccessor := common.Address{}
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+	})
 }
 
 func TestAccusationTiming(t *testing.T) {

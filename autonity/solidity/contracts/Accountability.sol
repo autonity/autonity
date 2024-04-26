@@ -255,7 +255,10 @@ contract Accountability is IAccountability {
         // By according to the canAccuse(), in an EPOCH, the accusations over a validator are graded by severity, a
         // validator cannot be accused more then once unless it breaks higher severity rules, thus rate limit of rising
         // accusation during an EPOCH is calculated as: (len(committee)-1) * the max levels of rule severity. As all the
-        // severity is MID now, we cap it to: (len(committee)-1) * (Severity.Mid+1) of per EPOCH for a reporter.
+        // severity is MID now, we cap it to: (len(committee)-1) * (Severity.Mid+1) of per EPOCH for a reporter. However,
+        // in reality, one is not accusable if it is processing a pending accusation, thus a malicious reporter cannot
+        // DoS the protocol since the abused accusations shall be reverted without reimbursement, and it has to wait
+        // until the suspected one become accusable again for innocenceProofSubmissionWindow blocks.
         uint256 _cap = (curCommittee.length-1)*(uint256(Severity.Mid)+1);
         if (_ev.epoch < _curEpoch) {
             _cap = (lastCommittee.length-1)*(uint256(Severity.Mid)+1);
