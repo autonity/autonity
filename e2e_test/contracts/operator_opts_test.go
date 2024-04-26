@@ -15,7 +15,7 @@ import (
 func TestOperatorOpts(t *testing.T) {
 	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(2, 10, false)
@@ -85,7 +85,7 @@ func TestOperatorOpts(t *testing.T) {
 func TestUpgradeAC(t *testing.T) {
 	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(2, 10, false)

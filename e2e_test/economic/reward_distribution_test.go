@@ -27,7 +27,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 	network, err := e2e.NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	n := network[0]
 

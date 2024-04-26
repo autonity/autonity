@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/autonity/autonity/common/graph"
+	"go.uber.org/goleak"
 	"math/big"
 	"net"
 	"os"
@@ -678,7 +679,8 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
-func (nw Network) Shutdown() {
+func (nw Network) Shutdown(t *testing.T) {
+	defer checkGoRoutineLeak(t)
 	for _, node := range nw {
 		if node != nil && node.isRunning {
 			err := node.Close(true)
@@ -687,6 +689,15 @@ func (nw Network) Shutdown() {
 			}
 		}
 	}
+}
+
+func checkGoRoutineLeak(t *testing.T) {
+	time.Sleep(1 * time.Second)
+	goleak.VerifyNone(t,
+		// this routine from 3rd party SDK is used only by E2E test framework for port query, it does not have a shutdown
+		// triggered from inside of it, and we cannot shut down it from e2e test framework side as well.
+		goleak.IgnoreTopFunction("github.com/hashicorp/consul/sdk/freeport.checkFreedPorts"),
+	)
 }
 
 type TopologyManager struct {

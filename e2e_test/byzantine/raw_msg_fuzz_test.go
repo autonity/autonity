@@ -81,7 +81,7 @@ func TestRawMessageFuzzer(t *testing.T) {
 	// creates a network of 10 vals and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForHeight(120, 240)
 	require.NoError(t, err)

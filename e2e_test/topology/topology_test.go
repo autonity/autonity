@@ -38,7 +38,7 @@ func TestTopology(t *testing.T) {
 func runTopologyTest(t *testing.T, topology string) {
 	network, err := e2e.NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(2, 10, false)

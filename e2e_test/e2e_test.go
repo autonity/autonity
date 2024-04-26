@@ -39,7 +39,7 @@ import (
 func TestSendingValue(t *testing.T) {
 	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
@@ -50,7 +50,7 @@ func TestSendingValue(t *testing.T) {
 func TestProtocolContractsDeployment(t *testing.T) {
 	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// Autonity Contract
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	autonityConfig, err := autonityContract.Config(nil)
@@ -98,7 +98,7 @@ func TestProtocolContractCache(t *testing.T) {
 	t.Run("If minimum base fee is updated, cached value is updated as well", func(t *testing.T) {
 		network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 		require.NoError(t, err)
-		defer network.Shutdown()
+		defer network.Shutdown(t)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
@@ -141,7 +141,7 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	// start the network
 	network, err := NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// mine a couple blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
@@ -172,7 +172,7 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 func TestStartingAndStoppingNodes(t *testing.T) {
 	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	n := network[0]
 	// Send a TX to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -252,7 +252,7 @@ func (s *broadcasterWithCheck) Broadcast(msg message.Msg) {
 func TestWaitForChainSyncAfterStop(t *testing.T) {
 	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitToMineNBlocks(10, 60, false)
 	require.NoError(t, err)
@@ -307,7 +307,7 @@ func TestTendermintQuorum(t *testing.T) {
 	require.NoError(t, err)
 	network, err := NewNetworkFromValidators(t, users, false)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	for i, n := range network {
 		// start 3 nodes
 		if i < 3 {
@@ -341,7 +341,7 @@ func TestTendermintQuorum2(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// stop 3 nodes and verify if transaction processing is halted
 	for i, n := range network {
 		// stop last 3 nodes
@@ -383,7 +383,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	// creates a network of 7 users and starts all the nodes in it
 	network, err := NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
@@ -483,7 +483,7 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
@@ -608,7 +608,7 @@ func TestLargeNetwork(t *testing.T) {
 		genesis.Config.AutonityContractConfig.MaxCommitteeSize = maxCommittee
 	})
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()

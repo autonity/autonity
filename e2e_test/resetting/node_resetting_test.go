@@ -13,7 +13,7 @@ func TestResetAllNodes(t *testing.T) {
 	numOfNodes := 6
 	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(10, 60, false)
 
@@ -41,7 +41,7 @@ func TestResetRandomFNodes(t *testing.T) {
 	numOfNodes := 6
 	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(10, 60, false)
 
@@ -81,7 +81,7 @@ func TestResetRandomFPlusOneNodes(t *testing.T) {
 	numOfNodes := 6
 	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(10, 60, false)
 
@@ -120,7 +120,7 @@ func TestResetRandomFPlusTwoNodes(t *testing.T) {
 	numOfNodes := 6
 	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(10, 60, false)
 
@@ -163,7 +163,7 @@ func TestKeepResettingRandomOneNode(t *testing.T) {
 	numOfNodes := 6
 	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(10, 60, false)
 
@@ -192,7 +192,7 @@ func TestKeepResettingRandomTwoNodes(t *testing.T) {
 	numOfNodes := 6
 	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(10, 60, false)
 
@@ -228,7 +228,7 @@ func TestKeepResettingRandomThreeNodes(t *testing.T) {
 	numOfNodes := 6
 	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
 	network.WaitToMineNBlocks(10, 60, false)
 

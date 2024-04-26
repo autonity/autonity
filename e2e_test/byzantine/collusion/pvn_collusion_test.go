@@ -29,7 +29,7 @@ func TestCollusionPVN(t *testing.T) {
 	// creates a network of 8 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(120, 180, false)

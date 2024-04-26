@@ -30,7 +30,7 @@ func runTest(t *testing.T, services *interfaces.Services, eventType autonity.Acc
 	// creates a network of 4 validators and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, validators, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(period, 500, false)

@@ -324,7 +324,7 @@ func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testP
 	// creates a network of 4 validators and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, validators, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(testPeriod, numSec, false)
@@ -347,7 +347,7 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 	// creates a network of 4 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(testPeriod, 500, false)
