@@ -553,7 +553,7 @@ contract Accountability is IAccountability {
     * @dev Modifier that checks if the caller is the slashing contract.
     */
     modifier onlyAutonity {
-        require(msg.sender == address(autonity) , "function restricted to the validator");
+        require(msg.sender == address(autonity) , "function restricted to the autonity protocol contract");
         _;
     }
 
