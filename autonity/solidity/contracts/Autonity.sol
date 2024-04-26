@@ -626,9 +626,9 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             _performRedistribution();
             _stakingOperations();
             _applyNewCommissionRates();
-            (address[] memory oracleVoters, address[] memory afdReporters) = computeCommittee();
-            config.contracts.oracleContract.setVoters(oracleVoters);
-            config.contracts.accountabilityContract.setAFDReporters(afdReporters);
+            (address[] memory newOracles, address[] memory newCommittee) = computeCommittee();
+            config.contracts.oracleContract.setVoters(newOracles);
+            config.contracts.accountabilityContract.setCommittee(newCommittee);
             lastEpochBlock = block.number;
             epochID += 1;
             emit NewEpoch(epochID);

@@ -133,5 +133,7 @@
   "6e3d9ff0": "upgrade(address,string)",
   "ceaad455": "setUpgradeManagerContract(address)",
   "4c9f72e3": "setReporters(address[])",
-  "0f4d14d6": "setAFDReporters(address[])"
+  "0f4d14d6": "setAFDReporters(address[])",
+  "67f0bcff": "finalize(bool,(address,uint256,bytes)[])",
+  "e08b14ed": "setCommittee(address[])"
 }

@@ -19,8 +19,6 @@ contract Accountability is IAccountability {
     }
 
     uint256 public epochPeriod;
-    address[] internal afdReporters;
-    mapping(address => bool) private isAFDReporter;
     enum EventType {
         FaultProof,
         Accusation,
@@ -79,8 +77,12 @@ contract Accountability is IAccountability {
     // the id is incremented by one to handle the special case id = 0.
     mapping(address => uint256) private validatorAccusation;
 
-    // reporting counters of rising accusation during an epoch, resets to zero on epoch rotation.
-    mapping(address => uint256) private accusationCounter;
+    address[] internal lastCommittee;
+    address[] internal curCommittee;
+    mapping(address => bool) private allowedReporters;
+    // counters of rising accusation by a validator of epoch.
+    // mapping address => epoch => counter
+    mapping(address => mapping(uint256 => uint256)) private epochAccusationCounter;
 
     // mapping address => epoch => severity
     mapping (address =>  mapping(uint256 => uint256)) public slashingHistory;
@@ -95,8 +97,8 @@ contract Accountability is IAccountability {
         epochPeriod = autonity.getEpochPeriod();
         Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
         for (uint256 i=0; i < committee.length; i++) {
-            afdReporters.push(committee[i].addr);
-            isAFDReporter[committee[i].addr] = true;
+            curCommittee.push(committee[i].addr);
+            allowedReporters[committee[i].addr] = true;
         }
         config = _config;
     }
@@ -110,7 +112,6 @@ contract Accountability is IAccountability {
         // on each block, try to promote accusations without proof of innocence into misconducts.
         _promoteGuiltyAccusations();
         if (_epochEnd) {
-            _resetAccusationCounters();
             _performSlashingTasks();
         }
     }
@@ -144,15 +145,8 @@ contract Accountability is IAccountability {
     * as the treasury-linked account will be used in case of a successful slashing event.
     */
     function handleAccusation(Event memory _event) public onlyAFDReporter {
-        accusationCounter[msg.sender] += 1;
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
-        // By according to the canAccuse(), in an EPOCH, the accusations over a validator are graded by severity, a
-        // validator cannot be accused more then once unless it breaks higher severity rules, thus rate limit of rising
-        // accusation during an EPOCH is calculated as: len(committee) * the max levels of rule severity. As all the
-        // severity is MID now, we cap it to: len(committee) * (Severity.Mid+1) of per EPOCH for a reporter.
-        require(accusationCounter[msg.sender] <= afdReporters.length*(uint256(Severity.Mid)+1),
-            "report too much accusations in an epoch");
         _handleAccusation(_event);
     }
 
@@ -168,15 +162,17 @@ contract Accountability is IAccountability {
 
     // @dev return true if sending the event can lead to slashing
     function canSlash(address _offender, Rule _rule, uint256 _block) public view returns (bool) {
+        require(_rule >= Rule.PN && _rule <= Rule.Equivocation, "rule id must be valid");
         uint256 _severity = _ruleSeverity(_rule);
         uint256 _epoch = autonity.getEpochFromBlock(_block);
 
-        return slashingHistory[_offender][_epoch] < _severity ;
+        return slashingHistory[_offender][_epoch] < _severity;
     }
 
     // @dev return true sender can accuse, can cover the cost for accusation
     function canAccuse(address _offender, Rule _rule, uint256 _block) public view
     returns (bool _result, uint256 _deadline) {
+        require(_rule >= Rule.PN && _rule <= Rule.Equivocation, "rule id must be valid");
         uint256 _severity = _ruleSeverity(_rule);
         uint256 _epoch = autonity.getEpochFromBlock(_block);
         if (slashingHistory[_offender][_epoch] >= _severity){
@@ -249,13 +245,24 @@ contract Accountability is IAccountability {
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
 
         uint256 _epoch = autonity.getEpochFromBlock(_block);
+        uint256 _curEpoch = autonity.epochID();
 
         _ev.block = _block;
         _ev.epoch = _epoch;
         _ev.reportingBlock = block.number;
         _ev.messageHash = _messageHash;
 
+        // By according to the canAccuse(), in an EPOCH, the accusations over a validator are graded by severity, a
+        // validator cannot be accused more then once unless it breaks higher severity rules, thus rate limit of rising
+        // accusation during an EPOCH is calculated as: (len(committee)-1) * the max levels of rule severity. As all the
+        // severity is MID now, we cap it to: (len(committee)-1) * (Severity.Mid+1) of per EPOCH for a reporter.
+        uint256 _cap = (curCommittee.length-1)*(uint256(Severity.Mid)+1);
+        if (_ev.epoch < _curEpoch) {
+            _cap = (lastCommittee.length-1)*(uint256(Severity.Mid)+1);
+        }
+        require(epochAccusationCounter[msg.sender][_epoch] <= _cap, "validator shouldn't abuse accusation in an epoch");
         _handleValidAccusation(_ev);
+        epochAccusationCounter[msg.sender][_epoch] += 1;
     }
     
     function _handleValidAccusation(Event memory _ev) internal {
@@ -412,16 +419,6 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @notice reset the accusation counter to zero, it is called on epoch rotation.
-    */
-    function _resetAccusationCounters() internal {
-        address[] memory _validators = autonity.getValidators();
-        for (uint256 i=0; i < _validators.length; i++) {
-            accusationCounter[_validators[i]] = 0;
-        }
-    }
-
-    /**
     * @notice perform slashing over faulty validators at the end of epoch. The fine in stake token are moved from
     * validator account to autonity contract account, and the corresponding slash counter as a reputation for validator
     * increase too.
@@ -515,17 +512,37 @@ contract Accountability is IAccountability {
     function setEpochPeriod(uint256 _newPeriod) external onlyAutonity{
         epochPeriod = _newPeriod;
     }
+    /**
+    * @notice setCommittee is called by autonity only on new epoch, it remove stale
+    * committee from the reporter set, then replace the last committee with current
+    * committee, and set the current committee with the input new committee.
+    */
+    function setCommittee(address[] memory _newCommittee) external onlyAutonity{
+        // revoke report access for stale committee.
+        _revokeReportAccess(lastCommittee);
 
-    function setAFDReporters(address[] memory _afdReporters) external onlyAutonity{
-        // clean up last reporter set
-        for (uint256 i=0; i < afdReporters.length; i++) {
-            delete isAFDReporter[afdReporters[i]];
+        // as last revoke might withdraw access for overlapped committee, thus
+        // make sure they are still in the reporter set, then replace last committee
+        // with current committee.
+        _grantReportAccess(curCommittee);
+        delete lastCommittee;
+        lastCommittee = curCommittee;
+
+        // grant access for new committee and replace current committee with new one.
+        _grantReportAccess(_newCommittee);
+        delete curCommittee;
+        curCommittee = _newCommittee;
+    }
+
+    function _grantReportAccess(address[] memory _members) internal onlyAutonity {
+        for (uint256 i=0; i < _members.length; i++) {
+            allowedReporters[_members[i]] = true;
         }
-        delete afdReporters;
-        // set new reporter set
-        for (uint256 i=0; i < _afdReporters.length; i++) {
-            afdReporters.push(_afdReporters[i]);
-            isAFDReporter[_afdReporters[i]] = true;
+    }
+
+    function _revokeReportAccess(address[] memory _members) internal onlyAutonity {
+        for (uint256 i=0; i < _members.length; i++) {
+            delete allowedReporters[_members[i]];
         }
     }
 
@@ -538,10 +555,10 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @dev Modifier that checks if the caller is an AFD reporter (a committee member).
+    * @dev Modifier that checks if the caller is an AFD reporter (a committee member of last or current epoch).
     */
     modifier onlyAFDReporter {
-        require(isAFDReporter[msg.sender] == true, "function restricted to a committee member");
+        require(allowedReporters[msg.sender] == true, "function restricted to a committee member");
         _;
     }
 }
