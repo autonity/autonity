@@ -30,7 +30,7 @@ func (p *Broadcast) Execute(packetId uint64, data []byte, maxPeers int) error {
 			continue
 		}
 		wg.Add(1)
-		go func() { // todo: TEST WITHOUT PROTORW !!!
+		go func() {
 			err := peer.DisseminateRequest(p.Code, packetId, 0, p.State.Id, uint64(maxPeers), data)
 			if err != nil {
 				log.Error("DisseminateRequest err:", err)

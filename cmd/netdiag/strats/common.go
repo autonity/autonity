@@ -49,10 +49,17 @@ func NewState(id uint64, peers int) *State {
 
 func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDisseminateResult {
 	individualResults := make([]IndividualDisseminateResult, maxPeers)
+	recipients := maxPeers
+	if s.Id < uint64(recipients) {
+		// local node is dismissed during propagation
+		individualResults[s.Id]
+		recipients--
+	}
+
 	timer := time.NewTimer(5 * time.Second)
 
 LOOP:
-	for i := 0; i < maxPeers; i++ { //we're not expecting ourselves to send it back
+	for i := 0; i < recipients; i++ {
 		select {
 		case report := <-s.ReceivedReports[packetId]:
 			individualResults[report.Sender] = *report
