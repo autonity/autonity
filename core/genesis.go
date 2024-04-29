@@ -338,11 +338,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if len(genesisCommittee) != 0 {
 		committee.Members = make([]*types.CommitteeMember, len(genesisCommittee))
 		for i, m := range genesisCommittee {
-			committee.Members[i] = &types.CommitteeMember{
-				Address:      m.Address,
-				VotingPower:  new(big.Int).Set(m.VotingPower),
-				ConsensusKey: m.ConsensusKey,
-			}
+			c := m
+			committee.Members[i] = &c
 		}
 		committee.Sort()
 	}
