@@ -261,7 +261,6 @@ func (s *Equivocation) Broadcast(msg message.Msg) {
 }
 
 func TestFaultProofs(t *testing.T) {
-	t.Parallel()
 	testCases := []struct {
 		name         string
 		broadcasters func(c interfaces.Core) interfaces.Broadcaster
