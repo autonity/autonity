@@ -9,7 +9,7 @@ contract LiquidRewardManager {
     uint256 public constant FEE_FACTOR_UNIT_RECIP = 1_000_000_000;
 
     address private operator;
-    Autonity internal autonity;
+    Autonity private autonity;
 
     // when initiated, all values are offset by 1
     uint256 private constant OFFSET = 1;

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "./VestingManager.sol";
+import "./StakableVestingManager.sol";
 
-contract VestingManagerTest is VestingManager {
-    constructor(address payable _autonity, address _operator) VestingManager(_autonity, _operator) {}
+contract StakableVestingManagerTest is StakableVestingManager {
+    constructor(address payable _autonity, address _operator) StakableVestingManager(_autonity, _operator) {}
 
     function applyBonding(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) public {
         _applyBonding(_bondingID, _validator, _liquid, _selfDelegation, _rejected);
@@ -18,7 +18,7 @@ contract VestingManagerTest is VestingManager {
         _releaseUnbonding(_unbondingID, _amount, _rejected);
     }
 
-    function updateValidatorRewardAndRatio(address[] memory _validators) public {
-        _updateValidatorRewardAndRatio(_validators);
+    function updateValidatorReward(address[] memory _validators) public {
+        _updateValidatorReward(_validators);
     }
 }

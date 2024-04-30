@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "../Autonity.sol";
+
+contract ScheduleBase {
+
+    struct Schedule {
+        uint256 currentNTNAmount;
+        uint256 withdrawnValue;
+        uint256 start;
+        uint256 cliff;
+        uint256 end;
+        bool canStake;
+        bool canceled;
+    }
+
+    // stores the unique ids of schedules assigned to a beneficiary, but beneficiary does not need to know the id
+    // beneficiary will number his schedules as: 0 for first schedule, 1 for 2nd and so on
+    // we can get the unique schedule id from beneficiarySchedules as follows
+    // beneficiarySchedules[beneficiary][0] is the unique id of his first schedule
+    // beneficiarySchedules[beneficiary][1] is the unique id of his 2nd schedule and so on
+    mapping(address => uint256[]) internal beneficiarySchedules;
+
+    // list of all schedules
+    Schedule[] internal schedules;
+
+    Autonity internal autonity;
+    address private operator;
+
+    constructor(address payable _autonity, address _operator) {
+        autonity = Autonity(_autonity);
+        operator = _operator;
+    }
+
+    function _createSchedule(
+        address _beneficiary,
+        uint256 _amount,
+        uint256 _startBlock,
+        uint256 _cliffBlock,
+        uint256 _endBlock,
+        bool _canStake
+    ) internal returns (uint256) {
+        require(_cliffBlock >= _startBlock, "cliff must be greater to start");
+        require(_endBlock > _cliffBlock, "end must be greater than cliff");
+
+        // bool _transferred = autonity.transferFrom(operator, address(this), _amount);
+        // require(_transferred, "amount not approved");
+
+        uint256 _scheduleID = schedules.length;
+        schedules.push(
+            Schedule(
+                _amount, 0, _startBlock, _cliffBlock, _endBlock, _canStake, false
+            )
+        );
+        beneficiarySchedules[_beneficiary].push(_scheduleID);
+        return _scheduleID;
+    }
+
+    function _releaseNTN(
+        uint256 _scheduleID, uint256 _amount
+    ) internal returns (uint256 _remaining) {
+        Schedule storage _schedule = schedules[_scheduleID];
+        require(_schedule.cliff <= block.number, "not reached cliff period yet");
+        
+        if (_amount > _schedule.currentNTNAmount) {
+            _remaining = _amount - _schedule.currentNTNAmount;
+            _updateAndTransferNTN(_scheduleID, msg.sender, _schedule.currentNTNAmount);
+        }
+        else if (_amount > 0) {
+            _updateAndTransferNTN(_scheduleID, msg.sender, _amount);
+        }
+    }
+
+    function _calculateUnlockedFundsAtHeight(
+        uint256 _scheduleID, uint256 _totalValue, uint256 _blockNumber
+    ) internal view returns (uint256) {
+        Schedule storage _schedule = schedules[_scheduleID];
+        if (_blockNumber < _schedule.cliff) return 0;
+
+        uint256 _unlocked = _calculateUnlockedFunds(_schedule.start, _schedule.end, _blockNumber, _totalValue);
+        if (_unlocked > _schedule.withdrawnValue) {
+            return _unlocked - _schedule.withdrawnValue;
+        }
+        return 0;
+    }
+
+    function _calculateUnlockedFunds(
+        uint256 _start, uint256 _end, uint256 _currentBlock, uint256 _totalAmount
+    ) internal pure returns (uint256) {
+        if (_currentBlock >= _end) {
+            return _totalAmount;
+        }
+        return _totalAmount * (_currentBlock - _start) / (_end - _start);
+    }
+
+    /**
+     * @dev returns a unique id for each schedule
+     * @param _beneficiary address of the schedule holder
+     * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (including canceled ones)
+     */
+    function _getUniqueScheduleID(address _beneficiary, uint256 _id) internal view returns (uint256) {
+        require(beneficiarySchedules[_beneficiary].length > _id, "invalid schedule id");
+        return beneficiarySchedules[_beneficiary][_id];
+    }
+
+    function _updateAndTransferNTN(uint256 _scheduleID, address _to, uint256 _amount) internal {
+        Schedule storage _schedule = schedules[_scheduleID];
+        _schedule.currentNTNAmount -= _amount;
+        _schedule.withdrawnValue += _amount;
+        _transferNTN(_to, _amount);
+    }
+
+    function _transferNTN(address _to, uint256 _amount) internal {
+        bool _sent = autonity.transfer(_to, _amount);
+        require(_sent, "NTN not transferred");
+    }
+
+    /*
+    ============================================================
+         Getters
+    ============================================================
+     */
+
+    /**
+     * @notice returns a schedule entitled to _beneficiary
+     * @param _beneficiary beneficiary address
+     * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (including canceled ones)
+     */
+    function getSchedule(address _beneficiary, uint256 _id) virtual external view returns (Schedule memory) {
+        return schedules[_getUniqueScheduleID(_beneficiary, _id)];
+    }
+
+    /**
+     * @notice returns the list of current schedules assigned to a beneficiary
+     * @param _beneficiary address of the beneficiary
+     */
+    function getSchedules(address _beneficiary) virtual external view returns (Schedule[] memory) {
+        uint256[] storage _scheduleIDs = beneficiarySchedules[_beneficiary];
+        Schedule[] memory _res = new Schedule[](_scheduleIDs.length);
+        for (uint256 i = 0; i < _res.length; i++) {
+            _res[i] = schedules[_scheduleIDs[i]];
+        }
+        return _res;
+    }
+
+    /**
+     * @notice returns if beneficiary can stake from his schedule
+     * @param _beneficiary beneficiary address
+     */
+    function canStake(address _beneficiary, uint256 _id) virtual external view returns (bool) {
+        return schedules[_getUniqueScheduleID(_beneficiary, _id)].canStake;
+    }
+
+    /**
+     * @notice returns the number of schudeled entitled to some beneficiary
+     * @param _beneficiary address of the beneficiary
+     */
+    function totalSchedules(address _beneficiary) virtual external view returns (uint256) {
+        return beneficiarySchedules[_beneficiary].length;
+    }
+
+
+    /*
+    ============================================================
+
+        Modifiers
+
+    ============================================================
+     */
+
+    /**
+     * @dev Modifier that checks if the caller is the governance operator account.
+     */
+    modifier onlyOperator {
+        require(operator == msg.sender, "caller is not the operator");
+        _;
+    }
+
+    modifier onlyAutonity {
+        require(msg.sender == address(autonity) , "function restricted to Autonity contract");
+        _;
+    }
+
+    modifier onlyActive(uint256 _id) {
+        uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
+        require(schedules[_scheduleID].canceled == false, "schedule canceled");
+        _;
+    }
+}
