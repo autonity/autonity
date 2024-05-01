@@ -154,6 +154,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
     uint256 internal stakeSupply;
+    uint256 public inflationReserve;
 
     /*
     We're saving the address of who is deploying the contract and we use it
@@ -630,8 +631,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             // calculate new NTN injected supply for this epoch
             uint256 _inflationReward =
                 config.contracts.inflationControllerContract.calculateSupplyDelta(stakeSupply, lastEpochBlock, block.number);
-            // mint inflation NTN that to this address
-            // - all rewards belong to the Autonity Contract before redistribution.
+            // mint inflation NTN with the AC recipient
+            // all rewards belong to the Autonity Contract before redistribution.
             _mint(address(this), _inflationReward);
             // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
