@@ -18,5 +18,5 @@ import "./AutonityUpgradeTest.sol";
 import "./Tests.sol";
 import "./UpgradeManager.sol";
 import "./InflationController.sol";
-import "./vesting/NonStakableVestingManager.sol";
-import "./vesting/StakableVestingManager.sol";
+import "./vesting/NonStakableVesting.sol";
+import "./vesting/StakableVesting.sol";

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../Autonity.sol";
 import "./ScheduleBase.sol";
 
-contract NonStakableVestingManager is ScheduleBase {
+contract NonStakableVesting is ScheduleBase {
 
     struct ScheduleClass {
         uint256 start;
@@ -23,6 +22,9 @@ contract NonStakableVestingManager is ScheduleBase {
         address payable _autonity, address _operator
     ) ScheduleBase(_autonity, _operator) {}
 
+    /**
+     * @notice creates a new class of schedule, restricted to operator
+     */
     function createScheduleClass(
         uint256 _startBlock,
         uint256 _cliffBlock,
@@ -32,7 +34,7 @@ contract NonStakableVestingManager is ScheduleBase {
     }
 
     /**
-     * @notice creates a new stakable schedule, restricted to only operator
+     * @notice creates a new non stakable schedule, restricted to only operator
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
      * @param _scheduleClass schedule class to subscribe
@@ -47,13 +49,14 @@ contract NonStakableVestingManager is ScheduleBase {
         uint256 _scheduleID = _createSchedule(
             _beneficiary, _amount, _classData.start, _classData.cliff, _classData.end, false
         );
+        _classData.totalAmount += _amount;
         classID[_scheduleID] = _scheduleClass;
     }
 
     /**
      * @notice used by beneficiary to transfer all unlocked NTN of some schedule to his own address
      */
-    function releaseAllFunds(uint256 _id) virtual external onlyActive(_id) {
+    function releaseAllFunds(uint256 _id) virtual external { // onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         _releaseNTN(_scheduleID, _unlockedFunds(_scheduleID));
     }
@@ -63,30 +66,23 @@ contract NonStakableVestingManager is ScheduleBase {
      * @notice used by beneficiary to transfer some amount of unlocked NTN of some schedule to his own address
      * @param _amount amount of NTN to release
      */
-    function releaseFund(uint256 _id, uint256 _amount) virtual external onlyActive(_id) {
+    function releaseFund(uint256 _id, uint256 _amount) virtual external { // onlyActive(_id) {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         require(_amount <= _unlockedFunds(_scheduleID), "not enough unlocked funds");
         _releaseNTN(_scheduleID, _amount);
     }
 
     /**
-     * @notice release of all unlocked NTN of some schedule and return them to the _recipient account
-     * effectively cancelling a vesting schedule. only operator is able to call the function
+     * @notice changes the beneficiary of some schedule to the _recipient address. _recipient can release tokens from the schedule
+     * only operator is able to call the function
      * @param _beneficiary beneficiary address whose schedule will be canceled
      * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (including canceled ones)
-     * @param _recipient to whome the all funds will be transferred
+     * @param _recipient whome the schedule is transferred to
      */
     function cancelSchedule(
         address _beneficiary, uint256 _id, address _recipient
-    ) virtual external onlyOperator onlyActive(_id) {
-        // TODO: remove the schedule from its class
-        // TODO: we can only transfer unlocked tokens, because locked tokens are not minted yet. what to do with it?
-        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        _removeScheduleFromClass(_scheduleID);
-        Schedule storage _schedule = schedules[_scheduleID];
-        _schedule.canceled = true;
-        // locked tokens are not minted yet, so we can transfer only unlocked tokens
-        _updateAndTransferNTN(_scheduleID, _recipient, _unlockedFunds(_scheduleID));
+    ) virtual external onlyOperator {
+        _cancelSchedule(_beneficiary, _id, _recipient);
     }
 
     /**
@@ -121,13 +117,6 @@ contract NonStakableVestingManager is ScheduleBase {
         );
     }
 
-    function _removeScheduleFromClass(uint256 _scheduleID) private {
-        ScheduleClass storage _class = scheduleClasses[classID[_scheduleID]];
-        Schedule storage _schedule = schedules[_scheduleID];
-        _class.totalUnlocked -= _unlockedFunds(_scheduleID) + _schedule.withdrawnValue;
-        _class.totalAmount -= _calculateTotalValue(_scheduleID);
-    }
-
     /*
     ============================================================
          Getters
@@ -139,7 +128,7 @@ contract NonStakableVestingManager is ScheduleBase {
      */
     function unlockedFunds(
         address _beneficiary, uint256 _id
-    ) virtual external view onlyActive(_id) returns (uint256) {
+    ) virtual external view returns (uint256) {
         return _unlockedFunds(_getUniqueScheduleID(_beneficiary, _id));
     }
 }

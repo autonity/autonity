@@ -34,7 +34,7 @@ contract LiquidRewardManager {
 
     // stores the array of validators bonded to a schedule
     mapping(uint256 => address[]) private bondedValidators;
-    // stores the (index+1) of validator in bondedValidators[id] array
+    // validatorIdx[_id][_validator] stores the (index+1) of _validator in bondedValidators[_id] array
     mapping(uint256 => mapping(address => uint256)) private validatorIdx;
 
     mapping(uint256 => mapping(address => Account)) private accounts;
@@ -43,17 +43,12 @@ contract LiquidRewardManager {
         autonity = Autonity(_autonity);
     }
 
-    function _unlock(uint256 _id, address _validator, uint256 _amount) internal {
-        Account storage _account = accounts[_id][_validator];
-        _account.lockedLiquidBalance -= _amount;
-    }
-
-    function _lock(uint256 _id, address _validator, uint256 _amount) internal {
-        Account storage _account = accounts[_id][_validator];
-        require(_account.liquidBalance - _account.lockedLiquidBalance >= _amount, "not enough unlocked liquid tokens");
-        _account.lockedLiquidBalance += _amount;
-    }
-
+    /**
+     * @dev initiate a pair (_id, _validator) only once for lifetime
+     * initiating the pair helps to reduces maximum allowed gas usage for notification of staking operations
+     * @param _id schedule id
+     * @param _validator validator address
+     */
     function _initiate(uint256 _id, address _validator) internal {
         _addValidator(_id, _validator);
         
@@ -69,11 +64,25 @@ contract LiquidRewardManager {
         _account.initiated = true;
     }
 
+    function _unlock(uint256 _id, address _validator, uint256 _amount) internal {
+        Account storage _account = accounts[_id][_validator];
+        _account.lockedLiquidBalance -= _amount;
+    }
+
+    function _lock(uint256 _id, address _validator, uint256 _amount) internal {
+        Account storage _account = accounts[_id][_validator];
+        require(_account.liquidBalance - _account.lockedLiquidBalance >= _amount, "not enough unlocked liquid tokens");
+        _account.lockedLiquidBalance += _amount;
+    }
+
     /**
-     * @dev _decreaseLiquid, _increaseLiquid, _realiseFees, _computeUnrealisedFees follows the same logic as done in Liquid.sol
-     * the only difference is in _realiseFees, we claim rewards from the validator first, because this contract does not know
+     * @dev _decreaseLiquid, _increaseLiquid, _realiseFees follow the same logic as done in Liquid.sol
+     * the only difference is we update unclaimed rewards from the validator first, because this contract does not know
      * when the epoch ends, and so cannot claim rewards at each epoch end.
-     * _claimRewards claim rewards from a validator at most once per epoch, so spamming _claimRewards is not a problem
+     * _updateUnclaimedReward or _claimRewards must be called before calling _decreaseLiquid, _increaseLiquid, _resetFees functions.
+     * In the process of notification from autonity for staking operation, at first vesting contract is notified about the validators
+     * in rewardsDistributed function, where we call _updateUnclaimedReward. Then vesting contract is notified about staking operations
+     * in bondingApplied and unbondingApplied where we call _decreaseLiquid and _increaseLiquid
      */
     function _decreaseLiquid(uint256 _id, address _validator, uint256 _amount) internal {
         _realiseFees(_id, _validator);
@@ -87,12 +96,24 @@ contract LiquidRewardManager {
         _account.liquidBalance += _amount;
     }
 
+    function _resetFees(uint256 _id) internal returns (uint256 _realisedFees) {
+        address[] memory _validators = bondedValidators[_id];
+        for (uint256 i = 0; i < _validators.length; i++) {
+            _updateUnclaimedReward(_validators[i]);
+            _realisedFees += _realiseFees(_id, _validators[i]);
+            accounts[_id][_validators[i]].realisedFee = OFFSET;
+        }
+    }
+
+    /**
+     * @dev _updateUnclaimedReward or _claimRewards must be called before this function
+     */
     function _realiseFees(uint256 _id, address _validator) private returns (uint256 _realisedFees) {
         uint256 _lastUnrealisedFeeFactor = liquidInfo[_validator].lastUnrealisedFeeFactor;
         Account storage _account = accounts[_id][_validator];
         _realisedFees = _account.realisedFee
                         + _computeUnrealisedFees(
-                            _account.liquidBalance-1, _account.unrealisedFeeFactor, _lastUnrealisedFeeFactor
+                            _account.liquidBalance-OFFSET, _account.unrealisedFeeFactor, _lastUnrealisedFeeFactor
                         );
         _account.realisedFee = _realisedFees;
         _account.unrealisedFeeFactor = _lastUnrealisedFeeFactor;
@@ -109,7 +130,11 @@ contract LiquidRewardManager {
         return (_lastUnrealisedFeeFactor - _unrealisedFeeFactor) * _balance / FEE_FACTOR_UNIT_RECIP;
     }
 
-    function _claimRewards(address _validator) internal {
+    /**
+     * @dev claims all rewards from the liquid contract of the _validator
+     * @param _validator validator address
+     */
+    function _claimRewards(address _validator) private {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
         _updateUnclaimedReward(_validator);
         // because all the rewards are being claimed
@@ -119,12 +144,12 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev call _rewards(_id) only when rewards are claimed
-     * calculates total rewards for a schedule and deletes realisedFees[id][validator] as reward is claimed
+     * @dev call _claimRewards(_id) only when rewards are claimed
+     * calculates total rewards for a schedule and resets realisedFees[id][validator] as reward is claimed
      */ 
-    function _rewards(uint256 _id) internal returns (uint256) {
+    function _claimRewards(uint256 _id) internal returns (uint256) {
         address[] memory _validators = bondedValidators[_id];
-        uint256 _totalFees = 0;
+        uint256 _totalFees;
         for (uint256 i = 0; i < _validators.length; i++) {
             _claimRewards(_validators[i]);
             _totalFees += _realiseFees(_id, _validators[i]);
@@ -139,6 +164,9 @@ contract LiquidRewardManager {
         liquidInfo[_validator] = LiquidInfo(OFFSET, OFFSET, _contract);
     }
 
+    /**
+     * @dev adds _validator in bondedValidators[_id] array
+     */
     function _addValidator(uint256 _id, address _validator) private {
         if (validatorIdx[_id][_validator] > 0) return;
         address[] storage _validators = bondedValidators[_id];
@@ -146,16 +174,25 @@ contract LiquidRewardManager {
         // offset by 1 to handle empty value
         validatorIdx[_id][_validator] = _validators.length;
         if (liquidInfo[_validator].liquidContract == Liquid(address(0))) {
-            // _liquidInfo.liquidContract = autonity.getValidator(_validator).liquidContract;
             _initiateValidator(_validator);
         }
     }
 
+    /**
+     * @dev removes all the validators that are not needed for _id anymore, i.e. any validator
+     * that has 0 liquid for _id and all rewards from the validator are claimed
+     * @param _id schedule id
+     */
     function _clearValidators(uint256 _id) internal {
+        // must take a storage pointer
+        // otherwise _validators will not be updated when _removeValidator is called
         address[] storage _validators = bondedValidators[_id];
         Account storage _account;
         for (uint256 i = 0; i < _validators.length ; i++) {
             _account = accounts[_id][_validators[i]];
+            // actual balance is (balance - OFFSET)
+            // if liquidBalance is 0, then unrealisedFee is 0
+            // if both liquidBalance and realisedFee are 0 then the validator is not needed anymore
             while (_account.liquidBalance == OFFSET && _account.realisedFee == OFFSET) {
                 _removeValidator(_id, _validators[i]);
                 if (i >= _validators.length) {
@@ -168,24 +205,28 @@ contract LiquidRewardManager {
 
     function _removeValidator(uint256 _id, address _validator) private {
         address[] storage _validators = bondedValidators[_id];
-        uint256 _idx = validatorIdx[_id][_validator]-1;
-        if (_idx+1 == _validators.length) {
+        uint256 _idxDelete = validatorIdx[_id][_validator]-1;
+        if (_idxDelete+1 == _validators.length) {
+            // it is the last validator in the array
             _validators.pop();
             delete validatorIdx[_id][_validator];
             return;
         }
         
         // the _validator to be deleted sits in the middle of the array
-        // removing _validator by replacing it with last one
-        // otherwise we will need to iterate the whole array
         address _lastValidator = _validators[_validators.length-1];
-        _validators[_idx] = _lastValidator;
-        validatorIdx[_id][_lastValidator] = _idx+1;
+        // replacing the _validator in _idxDelete with _lastValidator, effectively deleting it
+        _validators[_idxDelete] = _lastValidator;
+        validatorIdx[_id][_lastValidator] = _idxDelete+1;
         // deleting the last one
         _validators.pop();
         delete validatorIdx[_id][_validator];
     }
 
+    /**
+     * @dev updates the unclaimed AUT from _validator and also updates lastUnrealisedFeeFactor which is used
+     * to compute unrealised fees for accounts
+     */
     function _updateUnclaimedReward(address _validator) internal {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
         Liquid _contract = _liquidInfo.liquidContract;
@@ -199,7 +240,11 @@ contract LiquidRewardManager {
         _liquidInfo.unclaimedRewards = _reward;
     }
 
-    function _unfetchedFeeFactor(address _validator) internal view returns (uint256) {
+    /**
+     * @dev fetches the unclaimedRewards from liquid contract and calculates the changes in lastUnrealisedFeeFactor
+     * but does not update any state variable. This function exists only to support _unclaimedRewards to act as view only function
+     */
+    function _unfetchedFeeFactor(address _validator) private view returns (uint256) {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
         Liquid _contract = _liquidInfo.liquidContract;
         uint256 _totalLiquid = _contract.balanceOf(address(this));
@@ -210,6 +255,9 @@ contract LiquidRewardManager {
         return (_contract.unclaimedRewards(address(this))+OFFSET-_liquidInfo.unclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
     }
 
+    /**
+     * @dev calculates the rewards yet to claim for _id
+     */
     function _unclaimedRewards(uint256 _id) internal view returns (uint256) {
         uint256 _totalFee;
         address[] memory _validators = bondedValidators[_id];
@@ -221,7 +269,7 @@ contract LiquidRewardManager {
             // remove offset from realisedFee
             _totalFee += _account.realisedFee - OFFSET
                         + _computeUnrealisedFees(
-                            _account.liquidBalance-1, _account.unrealisedFeeFactor, _lastUnrealisedFeeFactor
+                            _account.liquidBalance-OFFSET, _account.unrealisedFeeFactor, _lastUnrealisedFeeFactor
                         );
         
         }
@@ -252,7 +300,9 @@ contract LiquidRewardManager {
         return 0;
     }
 
-    // returns the list of validator addresses wich are bonded to schedule _id assigned to _account
+    /**
+     * @dev returns the list of validator addresses wich are bonded to schedule _id assigned to _account
+     */
     function _bondedValidators(uint256 _id) internal view returns (address[] memory) {
         return bondedValidators[_id];
     }

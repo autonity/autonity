@@ -12,7 +12,6 @@ contract ScheduleBase {
         uint256 cliff;
         uint256 end;
         bool canStake;
-        bool canceled;
     }
 
     // stores the unique ids of schedules assigned to a beneficiary, but beneficiary does not need to know the id
@@ -44,13 +43,11 @@ contract ScheduleBase {
         require(_cliffBlock >= _startBlock, "cliff must be greater to start");
         require(_endBlock > _cliffBlock, "end must be greater than cliff");
 
-        // bool _transferred = autonity.transferFrom(operator, address(this), _amount);
-        // require(_transferred, "amount not approved");
-
+        // TODO: will all stakable NTNs be minted and transferred to StakableVesting contract before creating schedule??
         uint256 _scheduleID = schedules.length;
         schedules.push(
             Schedule(
-                _amount, 0, _startBlock, _cliffBlock, _endBlock, _canStake, false
+                _amount, 0, _startBlock, _cliffBlock, _endBlock, _canStake
             )
         );
         beneficiarySchedules[_beneficiary].push(_scheduleID);
@@ -92,6 +89,29 @@ contract ScheduleBase {
             return _totalAmount;
         }
         return _totalAmount * (_currentBlock - _start) / (_end - _start);
+    }
+
+    function _cancelSchedule(
+        address _beneficiary, uint256 _id, address _recipient
+    ) internal {
+        uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
+        _changeScheduleBeneficiary(_scheduleID, _beneficiary, _recipient);
+    }
+
+    function _changeScheduleBeneficiary(
+        uint256 _scheduleID, address _oldBeneficiary, address _newBeneficiary
+    ) private {
+        uint256[] storage _scheduleIDs = beneficiarySchedules[_oldBeneficiary];
+        uint256[] memory _newScheduleIDs = new uint256[] (_scheduleIDs.length - 1);
+        uint256 j = 0;
+        for (uint256 i = 0; i < _scheduleIDs.length; i++) {
+            if (_scheduleIDs[i] == _scheduleID) {
+                continue;
+            }
+            _newScheduleIDs[j++] = _scheduleIDs[i];
+        }
+        beneficiarySchedules[_oldBeneficiary] = _newScheduleIDs;
+        beneficiarySchedules[_newBeneficiary].push(_scheduleID);
     }
 
     /**
@@ -179,12 +199,6 @@ contract ScheduleBase {
 
     modifier onlyAutonity {
         require(msg.sender == address(autonity) , "function restricted to Autonity contract");
-        _;
-    }
-
-    modifier onlyActive(uint256 _id) {
-        uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
-        require(schedules[_scheduleID].canceled == false, "schedule canceled");
         _;
     }
 }
