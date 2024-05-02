@@ -88,7 +88,8 @@ type runner struct {
 	stabilization       *Stabilization
 	upgradeManager      *UpgradeManager
 	inflationController *InflationController
-	vestingManager      *VestingManager
+	stakableVesting     *StakableVesting
+	nonStakableVesting  *NonStakableVesting
 
 	validators []AutonityValidator // genesis validators for easy access
 }
@@ -121,10 +122,15 @@ func (r *runner) run(name string, f func(r *runner)) {
 		t := r.t
 		r.t = t2
 		// in the future avoid mutating for supporting parallel testing
+		// blockNumber := r.evm.Context.BlockNumber
+		// time := r.evm.Context.Time
+		context := r.evm.Context
 		snap := r.snapshot()
 		f(r)
 		r.revertSnapshot(snap)
-		r.evm.Context.BlockNumber = common.Big0
+		r.evm.Context = context
+		// r.evm.Context.BlockNumber = blockNumber
+		// r.evm.Context.Time = time
 		r.t = t
 	})
 }
@@ -157,7 +163,6 @@ func (r *runner) waitNBlocks(n int) { //nolint
 		// other stuff. Left as todo.
 		r.evm.Context.Time = big.NewInt(time.Now().Unix())
 		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
-		fmt.Printf("block %v\n", r.evm.Context.BlockNumber)
 		_, err := r.autonity.Finalize(&runOptions{origin: common.Address{}})
 		// consider monitoring gas cost here and fail if it's too much
 		require.NoError(r.t, err, "finalize function error in waitNblocks", i)
@@ -323,15 +328,26 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	require.NoError(r.t, err)
 
 	//
-	// Step 9: Vesting Manager contract deployment
+	// Step 9: Stakable Vesting contract deployment
 	//
-	_, _, r.vestingManager, err = r.deployVestingManager(
+	_, _, r.stakableVesting, err = r.deployStakableVesting(
 		nil,
 		r.autonity.address,
 		defaultAutonityConfig.Protocol.OperatorAccount,
 	)
 	require.NoError(t, err)
-	require.Equal(t, r.vestingManager.address, params.VestingManagerContractAddress)
+	require.Equal(t, r.stakableVesting.address, params.StakableVestingContractAddress)
+
+	//
+	// Step 10: Non-Stakable Vesting contract deployment
+	//
+	_, _, r.nonStakableVesting, err = r.deployNonStakableVesting(
+		nil,
+		r.autonity.address,
+		defaultAutonityConfig.Protocol.OperatorAccount,
+	)
+	require.NoError(t, err)
+	require.Equal(t, r.nonStakableVesting.address, params.NonStakableVestingContractAddress)
 
 	r.evm.Context.BlockNumber = common.Big1
 	r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
