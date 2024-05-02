@@ -35,19 +35,18 @@ contract ScheduleBase {
     function _createSchedule(
         address _beneficiary,
         uint256 _amount,
-        uint256 _startBlock,
-        uint256 _cliffBlock,
-        uint256 _endBlock,
+        uint256 _startTime,
+        uint256 _cliffTime,
+        uint256 _endTime,
         bool _canStake
     ) internal returns (uint256) {
-        require(_cliffBlock >= _startBlock, "cliff must be greater to start");
-        require(_endBlock > _cliffBlock, "end must be greater than cliff");
+        require(_cliffTime >= _startTime, "cliff must be greater than or equal to start");
+        require(_endTime > _cliffTime, "end must be greater than cliff");
 
-        // TODO: will all stakable NTNs be minted and transferred to StakableVesting contract before creating schedule??
         uint256 _scheduleID = schedules.length;
         schedules.push(
             Schedule(
-                _amount, 0, _startBlock, _cliffBlock, _endBlock, _canStake
+                _amount, 0, _startTime, _cliffTime, _endTime, _canStake
             )
         );
         beneficiarySchedules[_beneficiary].push(_scheduleID);
@@ -58,7 +57,7 @@ contract ScheduleBase {
         uint256 _scheduleID, uint256 _amount
     ) internal returns (uint256 _remaining) {
         Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.cliff <= block.number, "not reached cliff period yet");
+        require(_schedule.cliff <= block.number, "cliff period not reached yet");
         
         if (_amount > _schedule.currentNTNAmount) {
             _remaining = _amount - _schedule.currentNTNAmount;
@@ -69,13 +68,13 @@ contract ScheduleBase {
         }
     }
 
-    function _calculateUnlockedFundsAtHeight(
-        uint256 _scheduleID, uint256 _totalValue, uint256 _blockNumber
+    function _calculateUnlockedFundsAtTime(
+        uint256 _scheduleID, uint256 _totalValue, uint256 _time
     ) internal view returns (uint256) {
         Schedule storage _schedule = schedules[_scheduleID];
-        if (_blockNumber < _schedule.cliff) return 0;
+        if (_time < _schedule.cliff) return 0;
 
-        uint256 _unlocked = _calculateUnlockedFunds(_schedule.start, _schedule.end, _blockNumber, _totalValue);
+        uint256 _unlocked = _calculateUnlockedFunds(_schedule.start, _schedule.end, _time, _totalValue);
         if (_unlocked > _schedule.withdrawnValue) {
             return _unlocked - _schedule.withdrawnValue;
         }
@@ -83,12 +82,12 @@ contract ScheduleBase {
     }
 
     function _calculateUnlockedFunds(
-        uint256 _start, uint256 _end, uint256 _currentBlock, uint256 _totalAmount
+        uint256 _start, uint256 _end, uint256 _time, uint256 _totalAmount
     ) internal pure returns (uint256) {
-        if (_currentBlock >= _end) {
+        if (_time >= _end) {
             return _totalAmount;
         }
-        return _totalAmount * (_currentBlock - _start) / (_end - _start);
+        return _totalAmount * (_time - _start) / (_end - _start);
     }
 
     function _cancelSchedule(
@@ -117,7 +116,7 @@ contract ScheduleBase {
     /**
      * @dev returns a unique id for each schedule
      * @param _beneficiary address of the schedule holder
-     * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (including canceled ones)
+     * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (excluding canceled ones)
      */
     function _getUniqueScheduleID(address _beneficiary, uint256 _id) internal view returns (uint256) {
         require(beneficiarySchedules[_beneficiary].length > _id, "invalid schedule id");
@@ -145,7 +144,7 @@ contract ScheduleBase {
     /**
      * @notice returns a schedule entitled to _beneficiary
      * @param _beneficiary beneficiary address
-     * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (including canceled ones)
+     * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (excluding canceled ones)
      */
     function getSchedule(address _beneficiary, uint256 _id) virtual external view returns (Schedule memory) {
         return schedules[_getUniqueScheduleID(_beneficiary, _id)];

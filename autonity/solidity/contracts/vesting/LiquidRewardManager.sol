@@ -79,7 +79,7 @@ contract LiquidRewardManager {
      * @dev _decreaseLiquid, _increaseLiquid, _realiseFees follow the same logic as done in Liquid.sol
      * the only difference is we update unclaimed rewards from the validator first, because this contract does not know
      * when the epoch ends, and so cannot claim rewards at each epoch end.
-     * _updateUnclaimedReward or _claimRewards must be called before calling _decreaseLiquid, _increaseLiquid, _resetFees functions.
+     * _updateUnclaimedReward or _claimRewards must be called before calling _decreaseLiquid, _increaseLiquid functions.
      * In the process of notification from autonity for staking operation, at first vesting contract is notified about the validators
      * in rewardsDistributed function, where we call _updateUnclaimedReward. Then vesting contract is notified about staking operations
      * in bondingApplied and unbondingApplied where we call _decreaseLiquid and _increaseLiquid
@@ -94,15 +94,6 @@ contract LiquidRewardManager {
         _realiseFees(_id, _validator);
         Account storage _account = accounts[_id][_validator];
         _account.liquidBalance += _amount;
-    }
-
-    function _resetFees(uint256 _id) internal returns (uint256 _realisedFees) {
-        address[] memory _validators = bondedValidators[_id];
-        for (uint256 i = 0; i < _validators.length; i++) {
-            _updateUnclaimedReward(_validators[i]);
-            _realisedFees += _realiseFees(_id, _validators[i]);
-            accounts[_id][_validators[i]].realisedFee = OFFSET;
-        }
     }
 
     /**
