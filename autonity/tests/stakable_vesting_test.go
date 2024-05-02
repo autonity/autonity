@@ -108,7 +108,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	validator := committee[0].Addr
 	validators, _, err := r.autonity.GetValidators(nil)
 	require.NoError(r.t, err)
-	bondingGas, _, err := r.stakableVesting.RequiredGasCostBond(nil)
+	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
 	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
 	require.NoError(r.t, err)
@@ -192,9 +192,9 @@ func TestUnbondingGasConsumption(t *testing.T) {
 	committee, _, err := r.autonity.GetCommittee(nil)
 	require.NoError(r.t, err)
 	validator := committee[0].Addr
-	bondingGas, _, err := r.stakableVesting.RequiredGasCostBond(nil)
+	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
-	unbondingGas, _, err := r.stakableVesting.RequiredGasCostUnbond(nil)
+	unbondingGas, _, err := r.stakableVesting.RequiredUnbondingGasCost(nil)
 	require.NoError(r.t, err)
 	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
 	require.NoError(r.t, err)
