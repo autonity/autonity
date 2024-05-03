@@ -122,15 +122,11 @@ func (r *runner) run(name string, f func(r *runner)) {
 		t := r.t
 		r.t = t2
 		// in the future avoid mutating for supporting parallel testing
-		// blockNumber := r.evm.Context.BlockNumber
-		// time := r.evm.Context.Time
 		context := r.evm.Context
 		snap := r.snapshot()
 		f(r)
 		r.revertSnapshot(snap)
 		r.evm.Context = context
-		// r.evm.Context.BlockNumber = blockNumber
-		// r.evm.Context.Time = time
 		r.t = t
 	})
 }
@@ -161,7 +157,8 @@ func (r *runner) waitNBlocks(n int) { //nolint
 	for i := 0; i < n; i++ {
 		// Finalize is not the only block closing operation - fee redistribution is missing and prob
 		// other stuff. Left as todo.
-		r.evm.Context.Time = big.NewInt(time.Now().Unix())
+		// each block takes 1 second
+		r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
 		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
 		_, err := r.autonity.Finalize(&runOptions{origin: common.Address{}})
 		// consider monitoring gas cost here and fail if it's too much
