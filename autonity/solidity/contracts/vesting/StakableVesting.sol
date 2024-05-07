@@ -198,6 +198,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
      * @param _amount amount of NTN to bond
      */
     function bond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
+        // TODO: do we need to wait till _schedule.start before bonding??
         require(msg.value >= requiredBondingGasCost(), "not enough gas given for notification on bonding");
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         _cleanup(_scheduleID);

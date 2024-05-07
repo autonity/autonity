@@ -94,6 +94,11 @@ type runner struct {
 	validators []AutonityValidator // genesis validators for easy access
 }
 
+func (r *runner) NoError(gasConsumed uint64, err error) uint64 {
+	require.NoError(r.t, err)
+	return gasConsumed
+}
+
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
 	r.evm.Origin = r.origin
 	value := common.Big0
