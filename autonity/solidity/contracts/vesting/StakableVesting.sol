@@ -18,6 +18,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
     struct PendingBondingRequest {
         uint256 amount;
         uint256 epochID;
+        address validator;
         bool processed;
     }
 
@@ -210,7 +211,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
         // offset by 1 to handle empty value
         scheduleToBonding[_scheduleID].push(_bondingID);
         bondingToSchedule[_bondingID] = _scheduleID+1;
-        pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _epochID(), false);
+        pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _epochID(), _validator, false);
         _initiate(_scheduleID, _validator);
         return _bondingID;
     }
@@ -484,6 +485,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
                 // all the request in the array are from current epoch
                 return;
             }
+            _bondingRequestExpired(_scheduleID, _oldBondingRequest.validator);
             // if the request is not processed successfully, then we need to revert it
             if (_oldBondingRequest.processed == false) {
                 _totalAmount += _oldBondingRequest.amount;
@@ -562,14 +564,14 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
      */
 
     /**
-     * @notice returns the gas cost required to notify vesting manager when the bonding is applied
+     * @notice returns the gas cost required in "wei" to notify vesting manager when the bonding is applied
      */
     function requiredBondingGasCost() public view returns (uint256) {
         return requiredGasBond * autonity.stakingGasPrice();
     }
 
     /**
-     * @notice returns the gas cost required to notify vesting manager when the unbonding is applied and released
+     * @notice returns the gas cost required in "wei" to notify vesting manager when the unbonding is applied and released
      */
     function requiredUnbondingGasCost() public view returns (uint256) {
         return requiredGasUnbond * autonity.stakingGasPrice();

@@ -26,6 +26,7 @@ contract LiquidRewardManager {
         uint256 realisedFee;
         uint256 unrealisedFeeFactor;
         bool initiated;
+        bool newBondingRequested;
     }
 
     // stores total liquid and lastUnrealisedFeeFactor for each validator
@@ -43,6 +44,10 @@ contract LiquidRewardManager {
         autonity = Autonity(_autonity);
     }
 
+    function _bondingRequestExpired(uint256 _id, address _validator) internal {
+        accounts[_id][_validator].newBondingRequested = false;
+    }
+
     /**
      * @dev initiate a pair (_id, _validator) only once for lifetime
      * initiating the pair helps to reduces maximum allowed gas usage for notification of staking operations
@@ -52,8 +57,8 @@ contract LiquidRewardManager {
     function _initiate(uint256 _id, address _validator) internal {
         _addValidator(_id, _validator);
         
-        // lockedLiquidBalances[_id][_validator] = 1;
         Account storage _account = accounts[_id][_validator];
+        _account.newBondingRequested = true;
         if (_account.initiated) {
             return;
         }
@@ -183,8 +188,10 @@ contract LiquidRewardManager {
             _account = accounts[_id][_validators[i]];
             // actual balance is (balance - OFFSET)
             // if liquidBalance is 0, then unrealisedFee is 0
-            // if both liquidBalance and realisedFee are 0 then the validator is not needed anymore
-            while (_account.liquidBalance == OFFSET && _account.realisedFee == OFFSET) {
+            // if both liquidBalance and realisedFee are 0 and no new bonding is requested then the validator is not needed anymore
+            while (
+                _account.newBondingRequested == false && _account.liquidBalance == OFFSET && _account.realisedFee == OFFSET
+            ) {
                 _removeValidator(_id, _validators[i]);
                 if (i >= _validators.length) {
                     break;
@@ -265,6 +272,10 @@ contract LiquidRewardManager {
         
         }
         return _totalFee;
+    }
+
+    function _isNewBondingRequested(uint256 _id, address _validator) internal view returns (bool) {
+        return accounts[_id][_validator].newBondingRequested;
     }
 
     function _liquidBalanceOf(uint256 _id, address _validator) internal view returns (uint256) {
