@@ -179,44 +179,8 @@ func (c *Core) SetSentPrecommit(sentPrecommit bool) {
 	c.sentPrecommit = sentPrecommit
 }
 
-func (c *Core) SetValidRoundAndValue() bool {
-	return c.setValidRoundAndValue
-}
-
-func (c *Core) SetSetValidRoundAndValue(setValidRoundAndValue bool) {
-	c.setValidRoundAndValue = setValidRoundAndValue
-}
-
-func (c *Core) LockedRound() int64 {
-	return c.lockedRound
-}
-
-func (c *Core) SetLockedRound(lockedRound int64) {
-	c.lockedRound = lockedRound
-}
-
 func (c *Core) ValidRound() int64 {
 	return c.validRound
-}
-
-func (c *Core) SetValidRound(validRound int64) {
-	c.validRound = validRound
-}
-
-func (c *Core) LockedValue() *types.Block {
-	return c.lockedValue
-}
-
-func (c *Core) SetLockedValue(lockedValue *types.Block) {
-	c.lockedValue = lockedValue
-}
-
-func (c *Core) ValidValue() *types.Block {
-	return c.validValue
-}
-
-func (c *Core) SetValidValue(validValue *types.Block) {
-	c.validValue = validValue
 }
 
 func (c *Core) ProposeTimeout() *Timeout {
@@ -349,7 +313,6 @@ func (c *Core) setInitialState(r int64) {
 	c.sentProposal = false
 	c.sentPrevote = false
 	c.sentPrecommit = false
-	c.setValidRoundAndValue = false
 	c.setRound(r)
 
 	// update round duration timer
