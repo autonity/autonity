@@ -295,6 +295,7 @@ func (c *Core) setInitialState(r int64) {
 		c.lockedValue = nil
 		c.validRound = -1
 		c.validValue = nil
+		c.setValidRoundAndValue = false
 		c.messages.Reset()
 		c.futureRoundChange = make(map[int64]map[common.Address]*big.Int)
 		// update height duration timer
