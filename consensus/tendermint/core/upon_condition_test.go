@@ -1023,6 +1023,41 @@ func TestQuorumPrevote(t *testing.T) {
 		assert.Equal(t, currentHeight, c.Height())
 		assert.Equal(t, currentRound, c.Round())
 
+		// step to new round with a proposal that propose an old value of last round proposal, and there are quorum
+		// prevotes of this value of new round been received, assume we are at step >= prevote. As this is not the 1st
+		// time of line36 condition is matched, thus the node still locked the values and rounds as it did at previous
+		// round, nothing should be changed in the state machine.
+		newRound := currentRound + 1
+		c.setRound(newRound)
+		c.SetStep(context.Background(), currentStep)
+		c.curRoundMessages = c.messages.GetOrCreate(newRound)
+		nextRoundProposal := message.NewPropose(newRound, currentHeight.Uint64(), currentRound, proposal.Block(), signer(newRound))
+		// add quorum prevotes of new round for the proposal
+		newRoundFakePrevote := message.Fake{
+			FakeValue:  proposal.Block().Hash(),
+			FakeRound:  newRound,
+			FakeHeight: currentHeight.Uint64(),
+			FakeSender: members[int(newRound+1)%len(members)].Address,
+			FakePower:  new(big.Int).Sub(c.CommitteeSet().Quorum(), common.Big1),
+		}
+		c.curRoundMessages.AddPrevote(message.NewFakePrevote(newRoundFakePrevote))
+		c.curRoundMessages.SetProposal(nextRoundProposal, true)
+		newPrevoteMsg := message.NewPrevote(newRound, currentHeight.Uint64(), nextRoundProposal.Block().Hash(), signer(newRound)).MustVerify(stubVerifier)
+		err := c.handleValidMsg(context.Background(), newPrevoteMsg)
+		assert.NoError(t, err)
+
+		// should overwrite the valid value and valid round.
+		assert.Equal(t, proposal.Block(), c.validValue)
+		assert.Equal(t, currentRound, c.validRound)
+
+		// shouldn't overwrite the locked value and round.
+		if currentStep == Prevote {
+			assert.Equal(t, proposal.Block(), c.lockedValue)
+			assert.Equal(t, currentRound, c.lockedRound)
+		} else if currentStep == Precommit {
+			assert.Equal(t, nil, c.lockedValue)
+			assert.Equal(t, -1, c.lockedRound)
+		}
 	})
 
 	t.Run("receive more than quorum prevote for proposal block when in step >= prevote", func(t *testing.T) {
