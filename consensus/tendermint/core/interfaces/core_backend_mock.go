@@ -301,12 +301,11 @@ func (mr *MockBackendMockRecorder) SetProposedBlockHash(hash any) *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockBackend) Sign(hash common.Hash) (blst.Signature, common.Address) {
+func (m *MockBackend) Sign(hash common.Hash) blst.Signature {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sign", hash)
 	ret0, _ := ret[0].(blst.Signature)
-	ret1, _ := ret[1].(common.Address)
-	return ret0, ret1
+	return ret0
 }
 
 // Sign indicates an expected call of Sign.
