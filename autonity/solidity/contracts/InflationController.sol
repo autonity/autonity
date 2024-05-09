@@ -118,8 +118,8 @@ contract InflationController is IInflationController {
         returns (uint256)
     {
         return uint256(convert(
-            convert(int256(_inflationReserve)) *  (_currentEpochBlock -  _lastEpochBlock) * params.iPerm )
-        );
+            convert(int256(_inflationReserve)) *  (_currentEpochBlock -  _lastEpochBlock) * params.iPerm
+        ));
     }
 
 }

@@ -136,5 +136,7 @@
   "a0ce552d": "redistribute(uint256)",
   "d885f18d": "calculateSupplyDelta(uint256,uint256,uint256)",
   "9ac31074": "inflationReserve()",
-  "92eff3cd": "calculateSupplyDelta(uint256,uint256,uint256,uint256)"
+  "92eff3cd": "calculateSupplyDelta(uint256,uint256,uint256,uint256)",
+  "89c614b8": "lastEpochTime()",
+  "f03b959d": "setInflationControllerContract(address)"
 }

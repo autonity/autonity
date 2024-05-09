@@ -142,6 +142,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 public epochID;
     mapping(uint256 => uint256) internal blockEpochMap;
     uint256 public lastEpochBlock;
+    uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
     CommitteeMember[] internal committee;
@@ -250,6 +251,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function finalizeInitialization() onlyProtocol public {
         _stakingOperations();
         computeCommittee();
+        lastEpochTime = block.timestamp;
     }
 
     /**
@@ -535,7 +537,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @notice Set the Inflation Controller contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setStabilizationContract(IInflationController _address) public virtual onlyOperator {
+    function setInflationControllerContract(IInflationController _address) public virtual onlyOperator {
         config.contracts.inflationControllerContract = _address;
     }
 
@@ -640,8 +642,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(
                 stakeSupply,
                 inflationReserve,
-                lastEpochBlock,
-                block.number
+                lastEpochTime,
+                block.timestamp
             );
             if (inflationReserve < _inflationReward){
                 // If this code path is taken there is something deeply wrong happening in the inflation controller
@@ -660,6 +662,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
             address[] memory _voters = computeCommittee();
             config.contracts.oracleContract.setVoters(_voters);
             lastEpochBlock = block.number;
+            lastEpochTime = block.timestamp;
             epochID += 1;
             emit NewEpoch(epochID);
         }

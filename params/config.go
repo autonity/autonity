@@ -475,15 +475,16 @@ var (
 	TestValidatorConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
 
 	TestAutonityContractConfig = &AutonityContractGenesis{
-		MaxCommitteeSize: 21,
-		BlockPeriod:      1,
-		UnbondingPeriod:  120,
-		EpochPeriod:      30,
-		DelegationRate:   1200, // 12%
-		Treasury:         common.Address{120},
-		TreasuryFee:      1500000000000000, // 0.15%,
-		MinBaseFee:       InitialBaseFee,
-		Operator:         common.Address{},
+		MaxCommitteeSize:        21,
+		BlockPeriod:             1,
+		UnbondingPeriod:         120,
+		EpochPeriod:             30,
+		DelegationRate:          1200, // 12%
+		Treasury:                common.Address{120},
+		TreasuryFee:             1500000000000000, // 0.15%,
+		MinBaseFee:              InitialBaseFee,
+		InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
+		Operator:                common.Address{},
 	}
 
 	TestChainConfig = &ChainConfig{

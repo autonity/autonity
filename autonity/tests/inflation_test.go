@@ -13,10 +13,6 @@ import (
 )
 
 var (
-	DecimalPrecision = int64(18)
-	SecondsInYear    = int64(365 * 24 * 60 * 60)
-	DecimalFactor    = new(big.Int).Exp(big.NewInt(10), big.NewInt(DecimalPrecision), nil)
-	NTNDecimalFactor = new(big.Int).SetUint64(params.Ether)
 	GoFloatPrecision = uint(100)
 )
 
@@ -29,7 +25,7 @@ type goParams struct {
 }
 
 func newGoParams(p *InflationControllerParams) goParams {
-	denomination := new(big.Float).SetPrec(GoFloatPrecision).SetInt(DecimalFactor)
+	denomination := new(big.Float).SetPrec(GoFloatPrecision).SetInt(params.DecimalFactor)
 	return goParams{
 		iInit:  new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.IInit), denomination),
 		iTrans: new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.ITrans), denomination),
@@ -88,17 +84,19 @@ func (p goParams) calculateSupplyDelta(currentSupply, lastEpochBlock, currentBlo
 
 func TestInflationContract(t *testing.T) {
 	r := setup(t, nil)
-	T := big.NewInt(10 * SecondsInYear)
+	T := big.NewInt(10 * params.SecondsInYear)
 	p := &InflationControllerParams{
-		IInit:  new(big.Int).Div(new(big.Int).Mul(big.NewInt(10), DecimalFactor), big.NewInt(100*SecondsInYear)),
-		ITrans: new(big.Int).Div(new(big.Int).Mul(big.NewInt(6), DecimalFactor), big.NewInt(100*SecondsInYear)),
-		AE:     new(big.Int).Div(new(big.Int).Mul(big.NewInt(-124_267), DecimalFactor), big.NewInt(100_000)),
-		T:      new(big.Int).Mul(big.NewInt(3*SecondsInYear), DecimalFactor),
+		IInit:  (*big.Int)(params.DefaultInflationControllerGenesis.IInit),
+		ITrans: (*big.Int)(params.DefaultInflationControllerGenesis.IInit),
+		AE:     (*big.Int)(params.DefaultInflationControllerGenesis.Ae),
+		T:      (*big.Int)(params.DefaultInflationControllerGenesis.T),
+		IPerm:  (*big.Int)(params.DefaultInflationControllerGenesis.IPerm),
 	}
+	inflationReserve := (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve)
 	goP := newGoParams(p)
 	_, _, inflationControllerContract, err := r.deployInflationController(nil, *p)
 	require.NoError(r.t, err)
-	currentSupply := new(big.Int).Mul(big.NewInt(60_000_000), NTNDecimalFactor) // NTN precision is 18
+	currentSupply := new(big.Int).Mul(big.NewInt(60_000_000), params.NTNDecimalFactor) // NTN precision is 18
 	epochPeriod := big.NewInt(4 * 60 * 60)
 	epochCount := new(big.Int).Div(T, epochPeriod)
 	r.t.Log("total epoch", epochCount)
@@ -109,16 +107,16 @@ func TestInflationContract(t *testing.T) {
 		days := (currentTime / (time.Hour * 24)) % 365
 		years := currentTime / (time.Hour * 24 * 365)
 
-		delta, gasConsumed, err := inflationControllerContract.CalculateSupplyDelta(nil, currentSupply, lastEpochBlock, currentBlock)
+		delta, gasConsumed, err := inflationControllerContract.CalculateSupplyDelta(nil, currentSupply, inflationReserve, lastEpochBlock, currentBlock)
 		require.LessOrEqual(r.t, gasConsumed, uint64(30_000))
 		goDeltaComputation := goP.calculateSupplyDelta(currentSupply, lastEpochBlock, currentBlock)
 
 		// Compare the go implementation with the solidity one
 		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
-		fmt.Println("y:", int(years), "d:", int(days), "b:", currentBlock, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
+		fmt.Println("y:", int(years), "d:", int(days), "b:", currentBlock, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
 		require.NoError(r.t, err)
 		currentSupply.Add(currentSupply, delta)
 	}
-	r.t.Log("final NTN supply", new(big.Int).Div(currentSupply, NTNDecimalFactor))
+	r.t.Log("final NTN supply", new(big.Int).Div(currentSupply, params.NTNDecimalFactor))
 }

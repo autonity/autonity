@@ -135,24 +135,18 @@ func DeployInflationControllerContract(config *params.ChainConfig, evmContracts 
 	} else {
 		config.InflationContractConfig.SetDefaults()
 	}
-
-	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
-
-	evmContracts.AddBalance(params.DeployerAddress, value)
-	err := evmContracts.DeploySupplyControlContract(
-		params.AutonityContractAddress,
-		config.AutonityContractConfig.Operator,
-		params.StabilizationContractAddress,
-		generated.SupplyControlBytecode,
-		value)
-
-	if err != nil {
-		log.Error("DeploySupplyControlContract failed", "err", err)
-		return fmt.Errorf("failed to deploy SupplyControl contract: %w", err)
+	param := InflationControllerParams{
+		IInit:  (*big.Int)(config.InflationContractConfig.IInit),
+		ITrans: (*big.Int)(config.InflationContractConfig.ITrans),
+		AE:     (*big.Int)(config.InflationContractConfig.Ae),
+		T:      (*big.Int)(config.InflationContractConfig.T),
+		IPerm:  (*big.Int)(config.InflationContractConfig.IPerm),
 	}
-
-	log.Info("Deployed ASM supply control contract", "address", params.SupplyControlContractAddress)
-
+	if err := evmContracts.DeployInflationControllerContract(generated.InflationControllerBytecode, param); err != nil {
+		log.Error("DeployInflationControllerContract failed", "err", err)
+		return fmt.Errorf("failed to deploy inflation controller contract: %w", err)
+	}
+	log.Info("Deployed inflation controller contract", "address", params.InflationControllerContractAddress)
 	return nil
 }
 

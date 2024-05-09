@@ -19,6 +19,11 @@ import (
 )
 
 var (
+	DecimalPrecision = int64(18)
+	SecondsInYear    = int64(365 * 24 * 60 * 60)
+	DecimalFactor    = new(big.Int).Exp(big.NewInt(10), big.NewInt(DecimalPrecision), nil)
+	NTNDecimalFactor = new(big.Int).SetUint64(Ether)
+
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
 	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USD", "NTN-USD", "NTN-ATN"}
@@ -48,11 +53,11 @@ var (
 	}
 
 	DefaultInflationControllerGenesis = &InflationControllerGenesis{
-		IInit:  (*math.HexOrDecimal256)(math.MustParseBig256("50_000_000_000_000_000")),
-		ITrans: (*math.HexOrDecimal256)(math.MustParseBig256("50_000_000_000_000_000")),
-		IPerm:  (*math.HexOrDecimal256)(math.MustParseBig256("50_000_000_000_000_000")),
-		T:      (*math.HexOrDecimal256)(big.NewInt(4 * 365 * 24 * 60 * 60)),
-		Ae:     (*math.HexOrDecimal256)(math.MustParseBig256("50_000_000_000_000_000")),
+		IInit:  (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(75), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 7.5% AR
+		ITrans: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 5.5% AR
+		IPerm:  (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.328% AR
+		T:      (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear), DecimalFactor)),
+		Ae:     (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_429), DecimalFactor), big.NewInt(1_000))), // -1.429
 	}
 
 	DefaultAccountabilityConfig = &AccountabilityGenesis{

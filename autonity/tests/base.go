@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -20,19 +21,21 @@ var (
 	// todo: replicate truffle tests default config.
 	defaultAutonityConfig = AutonityConfig{
 		Policy: AutonityPolicy{
-			TreasuryFee:     new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
-			MinBaseFee:      new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
-			DelegationRate:  new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
-			UnbondingPeriod: new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
-			TreasuryAccount: params.TestAutonityContractConfig.Operator,
+			TreasuryFee:             new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
+			MinBaseFee:              new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
+			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
+			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
+			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
+			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract: params.AccountabilityContractAddress,
-			OracleContract:         params.OracleContractAddress,
-			AcuContract:            params.ACUContractAddress,
-			SupplyControlContract:  params.SupplyControlContractAddress,
-			StabilizationContract:  params.StabilizationContractAddress,
-			UpgradeManagerContract: params.UpgradeManagerContractAddress,
+			AccountabilityContract:      params.AccountabilityContractAddress,
+			OracleContract:              params.OracleContractAddress,
+			AcuContract:                 params.ACUContractAddress,
+			SupplyControlContract:       params.SupplyControlContractAddress,
+			StabilizationContract:       params.StabilizationContractAddress,
+			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
+			InflationControllerContract: params.InflationControllerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: params.TestAutonityContractConfig.Operator,
@@ -149,6 +152,7 @@ func (r *runner) waitNBlocks(n int) { //nolint
 		// consider monitoring gas cost here and fail if it's too much
 		require.NoError(r.t, err, "finalize function error in waitNblocks", i)
 		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
+		r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
 	}
 }
 
@@ -177,6 +181,7 @@ func initalizeEVM() (*vm.EVM, error) {
 		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
 		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
 		BlockNumber: common.Big0,
+		Time:        big.NewInt(time.Now().Unix()),
 	}
 	txContext := vm.TxContext{
 		Origin:   common.Address{},
