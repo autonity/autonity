@@ -88,15 +88,16 @@ var (
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		AutonityContractConfig: &AutonityContractGenesis{
-			MinBaseFee:       500_000_000,
-			EpochPeriod:      30 * 60,
-			UnbondingPeriod:  6 * 60 * 60,
-			BlockPeriod:      1,
-			MaxCommitteeSize: 9,
-			Operator:         common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
-			Treasury:         common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
-			TreasuryFee:      10_000_000_000_000_000,
-			DelegationRate:   1000,
+			MinBaseFee:              500_000_000,
+			EpochPeriod:             30 * 60,
+			UnbondingPeriod:         6 * 60 * 60,
+			BlockPeriod:             1,
+			MaxCommitteeSize:        9,
+			Operator:                common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
+			Treasury:                common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
+			TreasuryFee:             10_000_000_000_000_000,
+			DelegationRate:          1000,
+			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			Validators: []*Validator{
 				{
 					Treasury:      common.HexToAddress("0x75474aC55768fAb6fE092191eea8016b955072F5"),
@@ -171,7 +172,6 @@ var (
 		AccountabilityConfig: DefaultAccountabilityConfig,
 	}
 
-	// BakerlooChainConfig todo: ask Raj to generate validator key for validators in the BakerlooChainConfig
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
 	BakerlooChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_010_002),
@@ -194,15 +194,16 @@ var (
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		AutonityContractConfig: &AutonityContractGenesis{
-			MinBaseFee:       500_000_000,
-			EpochPeriod:      30 * 60,
-			UnbondingPeriod:  6 * 60 * 60,
-			BlockPeriod:      1,
-			MaxCommitteeSize: 50,
-			Operator:         common.HexToAddress("0x293039dDC627B1dF9562380c0E5377848F94325A"),
-			Treasury:         common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"),
-			TreasuryFee:      10_000_000_000_000_000,
-			DelegationRate:   1000,
+			MinBaseFee:              500_000_000,
+			EpochPeriod:             30 * 60,
+			UnbondingPeriod:         6 * 60 * 60,
+			BlockPeriod:             1,
+			MaxCommitteeSize:        50,
+			Operator:                common.HexToAddress("0x293039dDC627B1dF9562380c0E5377848F94325A"),
+			Treasury:                common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"),
+			TreasuryFee:             10_000_000_000_000_000,
+			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
+			DelegationRate:          1000,
 			Validators: []*Validator{{
 				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
 				OracleAddress: common.HexToAddress("0x4D8387E38F42084aa24CE7DA137222786fF23A3E"),
@@ -454,7 +455,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, AsmConfig{}, false}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, false}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -508,6 +509,7 @@ var (
 		TestAutonityContractConfig,
 		DefaultAccountabilityConfig,
 		DefaultGenesisOracleConfig,
+		DefaultInflationControllerGenesis,
 		AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,
 			StabilizationContractConfig: DefaultStabilizationGenesis,
@@ -619,12 +621,12 @@ type ChainConfig struct {
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
 
 	// Various consensus engines
-	Ethash                 *EthashConfig            `json:"ethash,omitempty"`
-	AutonityContractConfig *AutonityContractGenesis `json:"autonity,omitempty"`
-	AccountabilityConfig   *AccountabilityGenesis   `json:"accountability,omitempty"`
-	OracleContractConfig   *OracleContractGenesis   `json:"oracle,omitempty"`
-
-	ASM AsmConfig `json:"asm,omitempty"`
+	Ethash                  *EthashConfig               `json:"ethash,omitempty"`
+	AutonityContractConfig  *AutonityContractGenesis    `json:"autonity,omitempty"`
+	AccountabilityConfig    *AccountabilityGenesis      `json:"accountability,omitempty"`
+	OracleContractConfig    *OracleContractGenesis      `json:"oracle,omitempty"`
+	InflationContractConfig *InflationControllerGenesis `json:"inflation,omitempty"`
+	ASM                     AsmConfig                   `json:"asm,omitempty"`
 
 	// true if run in testmode, false by default
 	TestMode bool `json:"testMode,omitempty"`
