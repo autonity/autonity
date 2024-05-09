@@ -1046,7 +1046,7 @@ func TestQuorumPrevote(t *testing.T) {
 		err := c.handleValidMsg(context.Background(), newPrevoteMsg)
 		assert.NoError(t, err)
 
-		// should overwrite the valid value and valid round.
+		// shouldn't overwrite the valid value and valid round.
 		assert.Equal(t, proposal.Block(), c.validValue)
 		assert.Equal(t, currentRound, c.validRound)
 
