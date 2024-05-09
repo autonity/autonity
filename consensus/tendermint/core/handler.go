@@ -178,13 +178,14 @@ eventLoop:
 					hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
 					if hasQuorum {
 						c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+						recordMessageProcessingTime(msg.Code(), start)
 						break // do not gossip single message, only complex aggregate
 					}
 				}
 
 				// gossip message. We should arrive here only if we did not already gossip a complex aggregate
 				c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-				recordMessageProcessingTime(msg, start)
+				recordMessageProcessingTime(msg.Code(), start)
 			case backlogMessageEvent:
 				// TODO(lorenzo) refinements, should we check for disconnection also here?
 				// I am not sure we can get the error ch though
@@ -206,6 +207,7 @@ eventLoop:
 					hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
 					if hasQuorum {
 						c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+						recordMessageProcessingTime(msg.Code(), start)
 						break // do not gossip single message, only complex aggregate
 					}
 				}

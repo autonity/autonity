@@ -27,13 +27,13 @@ const (
 // aggregator metrics
 var (
 	// metrics for different aggregator flows
-	MessageBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/message", nil)     // time it takes to process a single message as received by backend
-	RoundBg       = metrics.NewRegisteredBufferedGauge("aggregator/bg/round", nil)       // time it takes to process a round change event
-	PowerBg       = metrics.NewRegisteredBufferedGauge("aggregator/bg/power", nil)       // time it takes to process a power change event
-	FuturePowerBg = metrics.NewRegisteredBufferedGauge("aggregator/bg/futurepower", nil) // time it takes to process a future power change event
-	ProcessBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/process", nil)     // time it takes to process batches of messages
-	BatchesBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/batches", nil)     // size of batches (aggregated together with a single fastAggregateVerify)
-	InvalidBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/invalid", nil)     // number of invalid sigs
+	MessageBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/message", nil, nil)     // time it takes to process a single message as received by backend
+	RoundBg       = metrics.NewRegisteredBufferedGauge("aggregator/bg/round", nil, nil)       // time it takes to process a round change event
+	PowerBg       = metrics.NewRegisteredBufferedGauge("aggregator/bg/power", nil, nil)       // time it takes to process a power change event
+	FuturePowerBg = metrics.NewRegisteredBufferedGauge("aggregator/bg/futurepower", nil, nil) // time it takes to process a future power change event
+	ProcessBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/process", nil, nil)     // time it takes to process batches of messages
+	BatchesBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/batches", nil, nil)     // size of batches (aggregated together with a single fastAggregateVerify)
+	InvalidBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/invalid", nil, nil)     // number of invalid sigs
 )
 
 type eventerFn func(msg message.Msg, errCh chan<- error) interface{}
