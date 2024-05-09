@@ -78,7 +78,6 @@ func (c *Core) quorumPrevotesCheck(ctx context.Context, proposal *message.Propos
 	// we are at prevote or precommit step
 	if c.curRoundMessages.PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
 		if metrics.Enabled {
-			//PrevoteQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
 			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 		}
 		if c.step == Prevote {
@@ -101,7 +100,6 @@ func (c *Core) quorumPrevotesNilCheck(ctx context.Context) {
 	}
 	if c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		if metrics.Enabled {
-			//PrevoteQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
 			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 		}
 		c.precommiter.SendPrecommit(ctx, true)
@@ -133,7 +131,6 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 		return false
 	}
 	if metrics.Enabled {
-		//PrecommitQuorumReceivedBg.Add(time.Since(c.newRound).Nanoseconds())
 		PrecommitQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 

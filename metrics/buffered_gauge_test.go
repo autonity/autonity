@@ -20,7 +20,7 @@ func TestBufferedGauge(t *testing.T) {
 	g := NewBufferedGauge(&capacity)
 	g.Add(int64(47))
 	g.Add(int64(12))
-	//require.Equal(t, 2, g.Len())
+	require.Equal(t, 2, g.Len())
 	values := g.Values()
 	require.Equal(t, int64(47), values[0].Value())
 	require.Equal(t, int64(12), values[1].Value())
@@ -87,8 +87,8 @@ func TestBufferedGaugeSnapshotAndClear(t *testing.T) {
 
 func TestGetOrRegisterBufferedGauge(t *testing.T) {
 	r := NewRegistry()
-	//	NewRegisteredBufferedGauge("foo", r, nil).Add(int64(47))
+	NewRegisteredBufferedGauge("foo", r, nil).Add(int64(47))
 	g := GetOrRegisterBufferedGauge("foo", r)
-	g.Add(int64(47))
+	require.Equal(t, 1, g.Len())
 	require.Equal(t, int64(47), g.Values()[0].Value())
 }

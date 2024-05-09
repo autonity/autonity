@@ -393,6 +393,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
+		CreatedAt:         time.Now(),
 	})
 	return nil
 }

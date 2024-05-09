@@ -64,10 +64,8 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	// c.curRoundMessages.Step() < prevote. The propose Timeout which is started at the beginning of the round
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
-	//n := time.Now()
 	c.curRoundMessages.AddPrevote(prevote)
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Sender().String(), c.address.String())
-	//PrevoteStepOneBg.Add(time.Since(n).Nanoseconds())
 
 	// check upon conditions for current round proposal
 	c.currentPrevoteChecks(ctx)
