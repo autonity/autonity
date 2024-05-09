@@ -117,6 +117,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 minBaseFee;
         uint256 delegationRate;
         uint256 unbondingPeriod;
+        uint256 initialInflationReserve;
         address payable treasuryAccount;
     }
 
@@ -219,7 +220,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         Config memory _config
     ) internal {
         config = _config;
-
+        inflationReserve = config.policy.initialInflationReserve;
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
            it avoids us adding more complexity to the contract and running into
@@ -531,6 +532,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /*
+    * @notice Set the Inflation Controller contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setStabilizationContract(IInflationController _address) public virtual onlyOperator {
+        config.contracts.inflationControllerContract = _address;
+    }
+
+    /*
     * @notice Set the Upgrade Manager contract address. Restricted to the Operator account.
     * It is only meant to be used for internal testing purposes. Anything different than
     * 0x3C368B86AF00565Df7a3897Cfa9195B9434A59f9 will break the upgrade function live!
@@ -620,27 +629,36 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next block consensus committee.
     */
-    function finalize() external virtual onlyProtocol
-    returns (bool, CommitteeMember[] memory) {
+    function finalize() external virtual onlyProtocol returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
         if (epochEnded) {
-            // calculate new NTN injected supply for this epoch
-            uint256 _inflationReward =
-                config.contracts.inflationControllerContract.calculateSupplyDelta(stakeSupply, lastEpochBlock, block.number);
+            // We first calculate the new NTN injected supply for this epoch
+            uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(
+                stakeSupply,
+                inflationReserve,
+                lastEpochBlock,
+                block.number
+            );
+            if (inflationReserve < _inflationReward){
+                // If this code path is taken there is something deeply wrong happening in the inflation controller
+                // contract.
+                _inflationReward = inflationReserve;
+            }
             // mint inflation NTN with the AC recipient
             // all rewards belong to the Autonity Contract before redistribution.
             _mint(address(this), _inflationReward);
+            inflationReserve -= _inflationReward;
             // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
             // end of epoch here
             _stakingOperations();
             _applyNewCommissionRates();
-            address[] memory voters = computeCommittee();
-            config.contracts.oracleContract.setVoters(voters);
+            address[] memory _voters = computeCommittee();
+            config.contracts.oracleContract.setVoters(_voters);
             lastEpochBlock = block.number;
             epochID += 1;
             emit NewEpoch(epochID);

@@ -134,5 +134,7 @@
   "ceaad455": "setUpgradeManagerContract(address)",
   "e98712b2": "atnTotalRedistributed()",
   "a0ce552d": "redistribute(uint256)",
-  "d885f18d": "calculateSupplyDelta(uint256,uint256,uint256)"
+  "d885f18d": "calculateSupplyDelta(uint256,uint256,uint256)",
+  "9ac31074": "inflationReserve()",
+  "92eff3cd": "calculateSupplyDelta(uint256,uint256,uint256,uint256)"
 }

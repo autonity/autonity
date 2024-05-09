@@ -15,36 +15,57 @@ contract InflationController is IInflationController {
         SD59x18 aE;
         // Transition Period
         SD59x18 T;
-
+        // Constant IR post T
+        SD59x18 iPerm;
         // Note: All time related parameters MUST be denominated in seconds.
     }
 
     Params public params;
-    uint256 public outstandingReserve;
 
-    constructor(Params memory _params, uint256 _outstandingReserve){
+    constructor(Params memory _params){
         params = _params;
-        outstandingReserve = _outstandingReserve;
     }
 
     /**
-    * @notice Main function. Calculate NTN current supply delta.
+    * @notice Main function. Calculate NTN inflation.
     */
-    function calculateSupplyDelta(uint256 _currentSupply, uint256 _inflationReserve, uint256 _lastEpochTime, uint256 _currentEpochTime) public view returns (uint256) {
-        if (_currentEpochTime <= params.T) {
-            return calculateTransitionRegime(_currentSupply, _lastEpochTime, _currentEpochTime);
+    function calculateSupplyDelta(
+        uint256 _currentSupply,
+        uint256 _inflationReserve,
+        uint256 _lastEpochTime,
+        uint256 _currentEpochTime
+    )
+        external
+        view
+        returns (uint256)
+    {
+        SD59x18 _lastTime = convert(int256(_lastEpochTime));
+        SD59x18 _currentTime = convert(int256(_currentEpochTime));
+        if (_currentTime <= params.T) {
+            return calculateTransitionRegime(_currentSupply, _lastTime, _currentTime);
         }
-        if (_lastEpochTime < params.T && _currentEpochTime > params.T){
-            uint256 _untilT = calculateTransitionRegime(_currentSupply, _lastEpochTime, params.T);
-            uint256 _afterT = calculatePermanentRegime(_currentSupply, _inflationReserve, params.T, _currentEpochTime);
+        if (_lastTime < params.T && _currentTime > params.T){
+            uint256 _untilT = calculateTransitionRegime(_currentSupply, _lastTime, params.T);
+            uint256 _afterT = calculatePermanentRegime(_inflationReserve, params.T, _currentTime);
             return _untilT + _afterT;
         }
-         return calculatePermanentRegime(_currentSupply, _inflationReserve, _lastEpochTime, _currentEpochTime);
+         return calculatePermanentRegime(_inflationReserve, _lastTime, _currentTime);
     }
 
-    function calculateSupplyDelta(uint256 _currentSupply,  uint256 _lastEpochTime, uint256 _currentEpochTime) public view returns (uint256) {
-       SD59x18 _t0 = convert(int256(_lastEpochBlock));
-       SD59x18 _t1 = convert(int256(_currentEpochBlock));
+   /**
+    * @dev Temporary. To compare against the other function for numerical precision checks.
+    */
+    function calculateSupplyDeltaOLD(
+        uint256 _currentSupply,
+        uint256 _lastEpochTime,
+        uint256 _currentEpochTime
+    )
+        public
+        view
+        returns (uint256)
+    {
+       SD59x18 _t0 = convert(int256(_lastEpochTime));
+       SD59x18 _t1 = convert(int256(_currentEpochTime));
 
        SD59x18 _lExp0 = (params.aE * _t0)/params.T;
        SD59x18 _lExp1 = (params.aE * _t1)/params.T;
@@ -60,20 +81,45 @@ contract InflationController is IInflationController {
            ));
     }
 
-    function calculateTransitionRegime(uint256 _currentSupply, uint256 _lastEpochTime, uint256 _currentEpochTime) internal view returns (uint256) {
-        if (params.aE == 0){
-
+    /**
+    * @notice Calculate inflation before transition.
+    */
+    function calculateTransitionRegime(
+        uint256 _currentSupply,
+        SD59x18 _lastEpochTime,
+        SD59x18 _currentEpochTime
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        SD59x18 _rate;
+        if (params.aE == convert(0)){
+            _rate =  params.iInit + (params.iTrans - params.iInit) * _lastEpochTime / params.T;
         } else {
-            SD59x18 _lExp = (params.aE * _t0)/params.T;
+            SD59x18 _lExp = (params.aE * _lastEpochTime)/params.T;
             SD59x18 _rFact = (_lExp.exp() - convert(1))/ (params.aE.exp() - convert(1));
-            SD59x18 _rate =  params.iInit + (params.iInit - params.iTrans) * _rFact;
-            SD59x18 _result = _rate * convert(int256(_currentSupply)) * (_currentEpochTime - _lastEpochTime);
-            return uint256(convert(result));
+            _rate =  params.iInit + (params.iTrans - params.iInit) * _rFact;
         }
+        SD59x18 _result = _rate * convert(int256(_currentSupply)) * (_currentEpochTime - _lastEpochTime);
+        return uint256(convert(_result));
     }
 
-    function calculatePermanentRegime(uint256 _currentSupply, uint256 _inflationReserve, uint256 _lastEpochBlock, uint256 _currentEpochBlock) internal view returns (uint256) {
-
+    /**
+    * @notice Calculate inflation after transition.
+    */
+    function calculatePermanentRegime(
+        uint256 _inflationReserve,
+        SD59x18 _lastEpochBlock,
+        SD59x18 _currentEpochBlock
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        return uint256(convert(
+            convert(int256(_inflationReserve)) *  (_currentEpochBlock -  _lastEpochBlock) * params.iPerm )
+        );
     }
 
 }
