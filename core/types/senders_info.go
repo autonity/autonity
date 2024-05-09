@@ -1,10 +1,10 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
-	"sort"
 
 	"github.com/autonity/autonity/common"
 )
@@ -19,6 +19,13 @@ var (
 	// 00111111 11001111 11110011 11111100
 	setMasks  = []byte{0x3F, 0xCF, 0xF3, 0xFC}
 	maxUint16 = (1 << 16) - 1
+
+	ErrNilSendersInfo       = errors.New("validator bitmap or coefficient array is nil")
+	ErrOversizedSendersInfo = errors.New("validator bitmap or coefficient array is oversized")
+	ErrEmptySendersInfo     = errors.New("senders information is empty")
+	ErrWrongCoefficientLen  = errors.New("coefficient array has incorrect length")
+	ErrInvalidSingleSig     = errors.New("individual signature has coefficient != 1")
+	ErrInvalidCoefficient   = errors.New("coefficient exceeds maximum boundary (committee size - 1)")
 )
 
 // represents the senders of an aggregated signature
@@ -43,7 +50,7 @@ type SendersInfo struct {
 
 	// these fields are not serialized, but instead computed at preValidate steps
 	committeeSize int                    `rlp:"-"`
-	addresses     map[int]common.Address `rlp:"-"` // TODO(lorenzo) turn these into arrays?
+	addresses     map[int]common.Address `rlp:"-"` // TODO(lorenzo) performance, turn these into arrays? we will have sparse arrays but maybe it is fine. Other option is using functions
 	powers        map[int]*big.Int       `rlp:"-"`
 }
 
@@ -100,17 +107,16 @@ func (vb validatorBitmap) Set(validatorIndex int, value byte) {
 	vb[byteIndex] = vb[byteIndex] | valueShifted
 }
 
-// TODO(lorenzo) return error instead of bool
 // validates the sender info, used to ensure received aggregates have correctly sized buffers
-func (s *SendersInfo) Valid(committeeSize int) bool {
+func (s *SendersInfo) Valid(committeeSize int) error {
 	// whether locally created or received from wire, Bits and Coefficients are never nil
 	if s.Bits == nil || s.Coefficients == nil {
-		return false
+		return ErrNilSendersInfo
 	}
 
 	// length safety check
 	if !s.Bits.Valid(committeeSize) || len(s.Coefficients) > committeeSize {
-		return false
+		return ErrOversizedSendersInfo
 	}
 
 	// gather data about senders bits
@@ -130,106 +136,27 @@ func (s *SendersInfo) Valid(committeeSize int) bool {
 
 	// there has to be at least a sender
 	if sum == 0 {
-		return false
+		return ErrEmptySendersInfo
 	}
 
 	// len(s.Coefficients) should be the same as the number of elements with value 11 in s.Bits
 	if len(s.Coefficients) != countLong {
-		return false
+		return ErrWrongCoefficientLen
 	}
 
 	// if individual signature, its coefficient should be one (01)
 	if countNonZero == 1 && sum != 1 {
-		return false
+		return ErrInvalidSingleSig
 	}
 
-	// shortcircuit validation here if single sig with coefficient one
-	if countNonZero == 1 {
-		return true
-	}
-
-	//TODO(lorenzo) do we still need this? I think it might still be correct, but is probably overkill
-	// to be reviewed after I change the aggregation
-
-	/* The following rules are enforced when aggregating votes:
-	 	*   1. votes are ordered by decreasing number of distinct senders before aggregation
-	  *   2. a vote is aggregated to the previous ones only if it adds useful information (i.e. adds a new sender)
-		*
-		* 	Example: AggregateVotes(AB,ABC,D) = ABCD. AB is discarded because it doesn't add any meaningful information and it just bloats the aggregate
-		* 					 See the AggregateVotes function in message.go for more details
-		*
-		*  These aggregation rules cause that all aggregates needs to respect the following polynomial form:
-		*    Assuming N distinct senders, let's define N' = N - 2 for convenience
-		*    aggregate: A * 2^N' + B * 2^(N' - 1) + C * 2^(N' - 2) + ... + X * 2^(N' - N') + Y
-		*
-		*    NOTE:
-		*      - This polynomial form defines the maximum coefficient that senders in an aggregate can have. However it is possible for the senders to have lower coefficients. See examples below.
-		*      - there are two elements with coefficient 1 at the end (X and Y)
-		*
-		*  Examples:
-		* 		- A + B + C + D   ---> VALID
-		*     - 255A + B        ---> INVALID
-		*     - 4A + 2B + C + D ---> VALID
-		*     - 4A + 3B + C + D ---> INVALID
-		*     - 5A + 2B + C + D ---> INVALID (A coefficient too high)
-		*     - 4A + 2B + C     ---> INVALID (missing term)
-		*
-		*  Therefore we can infer the following validation rules. Each coefficient needs to be:
-		* 	1. less or equal to 2^(N' - i)
-		*   2. less or equal to the sum of all the remaining lower order coefficients
-	*/
-
-	// compute coefficients
-	var coefficients []int
-	count := 0
-	for i := 0; i < committeeSize; i++ {
-		value := s.Bits.Get(i)
-		if value == 0 {
-			continue // ignore 0 coefficients
-		}
-		if value == 1 || value == 2 {
-			coefficients = append(coefficients, int(value))
-		}
-		if value == 3 { // look into s.Coefficients
-			coefficients = append(coefficients, int(s.Coefficients[count]))
-			count++
+	// check that all coefficients respect the maximum allowed boundary (committeeSize - 1)
+	for _, coefficient := range s.Coefficients {
+		if int(coefficient) > (committeeSize - 1) {
+			return ErrInvalidCoefficient
 		}
 	}
 
-	// sort in descending order
-	sort.Slice(coefficients, func(i, j int) bool {
-		return coefficients[i] > coefficients[j]
-	})
-
-	N := len(coefficients) // N >= 2 here
-	Nprime := N - 2        // Nprime >= 0
-	for i, coefficient := range coefficients {
-		if i < N-1 {
-			// we are not dealing with the last element of the array
-
-			// check rule 1
-			limit := int(math.Pow(2, float64(Nprime-i))) //TODO(lorenzo) what if doesn't fit
-			if coefficient > limit {
-				return false
-			}
-
-			// check rule 2
-			sum := 0
-			for j := i + 1; j < N; j++ {
-				sum += coefficients[j]
-			}
-			if coefficient > sum {
-				return false
-			}
-		} else {
-			// last element, just check that coefficient == 1
-			if coefficient != 1 {
-				return false
-			}
-		}
-	}
-
-	return true
+	return nil
 }
 
 // TODO(lorenzo) refinements, maybe I can do this more efficiently using bitwise operations
@@ -344,6 +271,7 @@ Loop:
 
 // returns aggregated power of all senders
 func (s *SendersInfo) Power() *big.Int {
+	// TODO(Lorenzo) performance, add caching layer. Note: check that cache invalidated if re-using senders info
 	power := new(big.Int)
 	for i := 0; i < s.committeeSize; i++ {
 		// regardless of the value, we sum power only once (to prevent counting duplicated messages power twice)

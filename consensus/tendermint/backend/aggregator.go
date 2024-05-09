@@ -402,7 +402,7 @@ func (a *aggregator) processVote(voteEvent events.UnverifiedMessageEvent, quorum
 }
 
 // checks if a message is already in core
-// TODO(lorenzo) do something more efficient without iterating over all messages of Core
+// TODO(lorenzo) performance, do something more efficient without iterating over all messages of Core
 // Depending on how implemented, it might be possible to remove core.futureRoundLock
 func (a *aggregator) alreadyProcessed(msg message.Msg) bool {
 	for _, m := range a.core.CurrentHeightMessages() {

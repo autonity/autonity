@@ -31,7 +31,6 @@ import (
 var (
 	ErrBadSignature            = errors.New("bad signature")
 	ErrUnauthorizedAddress     = errors.New("unauthorized address")
-	ErrInvalidSenders          = errors.New("invalid senders information")
 	ErrInvalidComplexAggregate = errors.New("complex aggregate does not carry quorum")
 )
 
@@ -218,7 +217,7 @@ func (p *Propose) PreValidate(header *types.Header) error {
 
 	p.senderKey = validator.ConsensusKey
 	p.senderIndex = int(validator.Index)
-	p.power = validator.VotingPower //TODO(lorenzo) do I need a copy here?
+	p.power = validator.VotingPower //TODO(lorenzo) do I need a copy here? same for lightproposal
 	return nil
 }
 
@@ -395,36 +394,34 @@ func (v *vote) Senders() *types.SendersInfo {
 }
 
 func (v *vote) PreValidate(header *types.Header) error {
-	if !v.senders.Valid(len(header.Committee)) {
-		return ErrInvalidSenders
+	if err := v.senders.Valid(len(header.Committee)); err != nil {
+		return fmt.Errorf("Invalid senders information: %w", err)
 	}
 	v.senders.SetCommitteeSize(len(header.Committee))
 
-	// compute aggregated key
+	// compute aggregated key and auxiliary data structures
 	indexes := v.senders.Flatten()
 	keys := make([][]byte, len(indexes))
+	addresses := make(map[int]common.Address)
+	powers := make(map[int]*big.Int)
+
 	for i, index := range indexes {
-		keys[i] = header.Committee[index].ConsensusKeyBytes
+		member := header.Committee[index]
+
+		keys[i] = member.ConsensusKeyBytes
+		// if a member has coefficient > 1 the map entry will be updated multiple time with the same value
+		addresses[index] = member.Address
+		powers[index] = new(big.Int).Set(member.VotingPower)
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
 		panic("Error while aggregating keys from committee: " + err.Error())
 	}
 
-	// build auxiliary data structures
-	indexesUniq := v.senders.FlattenUniq()
-	addresses := make(map[int]common.Address)
-	powers := make(map[int]*big.Int)
-
-	for _, index := range indexesUniq {
-		member := header.Committee[index]
-		addresses[index] = member.Address
-		powers[index] = new(big.Int).Set(member.VotingPower)
-	}
-
 	v.senders.SetPowers(powers)
 	v.senders.SetAddresses(addresses)
 
+	// TODO(lorenzo) performance, compute it in the previous loop
 	v.power = v.senders.Power()
 	v.senderKey = aggregatedKey
 

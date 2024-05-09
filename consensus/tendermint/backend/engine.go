@@ -220,12 +220,13 @@ func (sb *Backend) verifySigner(header, parent *types.Header) error {
 // committee members and that the voting power of the committed seals constitutes
 // a quorum.
 func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
+	// un-finalized proposals will have these fields set to nil
 	if header.CommittedSeals.Signature == nil || header.CommittedSeals.Senders == nil {
 		return types.ErrEmptyCommittedSeals
 	}
 	//TODO(lorenzo) do we need the bls sig zero check?
-	if !header.CommittedSeals.Senders.Valid(len(parent.Committee)) {
-		return types.ErrInvalidCommittedSeals
+	if err := header.CommittedSeals.Senders.Valid(len(parent.Committee)); err != nil {
+		return fmt.Errorf("Invalid committed seals senders information: %w", err)
 	}
 	header.CommittedSeals.Senders.SetCommitteeSize(len(parent.Committee))
 
