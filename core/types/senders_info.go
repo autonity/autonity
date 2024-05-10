@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-
-	"github.com/autonity/autonity/common"
 )
 
 var (
@@ -49,9 +47,9 @@ type SendersInfo struct {
 	Coefficients []uint16 // support up to 65535 committee members
 
 	// these fields are not serialized, but instead computed at preValidate steps
-	committeeSize int                    `rlp:"-"`
-	addresses     map[int]common.Address `rlp:"-"` // TODO(lorenzo) performance, turn these into arrays? we will have sparse arrays but maybe it is fine. Other option is using functions
-	powers        map[int]*big.Int       `rlp:"-"`
+	committeeSize int              `rlp:"-"`
+	powers        map[int]*big.Int `rlp:"-"` // TODO(lorenzo) performance, turn these into arrays? we will have sparse arrays but maybe it is fine. Other option is using functions
+	power         *big.Int         `rlp:"-"` // aggregated power of all senders
 }
 
 func NewSendersInfo(committeeSize int) *SendersInfo {
@@ -62,8 +60,8 @@ func NewSendersInfo(committeeSize int) *SendersInfo {
 		Bits:          NewValidatorBitmap(committeeSize),
 		Coefficients:  make([]uint16, 0),
 		committeeSize: committeeSize,
-		addresses:     make(map[int]common.Address),
 		powers:        make(map[int]*big.Int),
+		power:         new(big.Int),
 	}
 }
 
@@ -234,8 +232,13 @@ func (s *SendersInfo) Increment(member *CommitteeMember) {
 	}
 	s.increment(index)
 
-	s.addresses[index] = member.Address
-	s.powers[index] = new(big.Int).Set(member.VotingPower)
+	//TODO(lorenzo) can senders info be updated concurrently?
+
+	_, alreadyPresent := s.powers[index]
+	if !alreadyPresent {
+		s.powers[index] = new(big.Int).Set(member.VotingPower)
+		s.power.Add(s.power, member.VotingPower)
+	}
 }
 
 func (s *SendersInfo) Merge(other *SendersInfo) {
@@ -264,29 +267,24 @@ Loop:
 			}
 			count++
 		}
-		s.addresses[i] = other.addresses[i]
-		s.powers[i] = new(big.Int).Set(other.powers[i])
+		_, alreadyPresent := s.powers[i]
+		if !alreadyPresent {
+			s.powers[i] = new(big.Int).Set(other.powers[i])
+			s.power.Add(s.power, other.powers[i])
+		}
 	}
 }
 
 // returns aggregated power of all senders
 func (s *SendersInfo) Power() *big.Int {
-	// TODO(Lorenzo) performance, add caching layer. Note: check that cache invalidated if re-using senders info
-	power := new(big.Int)
-	for i := 0; i < s.committeeSize; i++ {
-		// regardless of the value, we sum power only once (to prevent counting duplicated messages power twice)
-		if s.Bits.Get(i) > 0 {
-			power.Add(power, s.powers[i])
-		}
-	}
-	return power
+	return s.power
+}
+
+func (s *SendersInfo) SetPower(power *big.Int) {
+	s.power = power
 }
 
 func (s *SendersInfo) Copy() *SendersInfo {
-	addresses := make(map[int]common.Address)
-	for index, address := range s.addresses {
-		addresses[index] = address
-	}
 	powers := make(map[int]*big.Int)
 	for index, power := range s.powers {
 		powers[index] = new(big.Int).Set(power)
@@ -295,8 +293,8 @@ func (s *SendersInfo) Copy() *SendersInfo {
 		Bits:          append(s.Bits[:0:0], s.Bits...),
 		Coefficients:  append(s.Coefficients[:0:0], s.Coefficients...),
 		committeeSize: s.committeeSize,
-		addresses:     addresses,
 		powers:        powers,
+		power:         s.power,
 	}
 }
 
@@ -363,13 +361,6 @@ func (s *SendersInfo) IsComplex() bool {
 
 func (s *SendersInfo) String() string {
 	return fmt.Sprintf("Bits: %08b, Coefficients: %v", s.Bits, s.Coefficients)
-}
-
-func (s *SendersInfo) Addresses() map[int]common.Address {
-	return s.addresses
-}
-func (s *SendersInfo) SetAddresses(addresses map[int]common.Address) {
-	s.addresses = addresses
 }
 
 func (s *SendersInfo) Powers() map[int]*big.Int {

@@ -547,6 +547,7 @@ loop:
 						for _, e := range evs {
 							//TODO(lorenzo) possible problem here, processVote might call `process` which is going to delete stuff in the map
 							// generally is fine but double check if it causes issue in this case
+							// other problem, processVote re-adds the message to the messages map
 							a.processVote(e, quorum)
 						}
 					}
@@ -583,6 +584,7 @@ loop:
 				if evs, ok := a.messages[height][round][code][value]; ok {
 					if len(evs) > 1 {
 						// processing one vote for the value for which power changed is enough to do all necessary checks
+						//TODO(lorenzo) processVote re-adds the message to the messages map
 						a.processVote(evs[0], quorum)
 					}
 				}

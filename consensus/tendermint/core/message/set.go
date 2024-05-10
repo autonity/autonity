@@ -12,14 +12,16 @@ import (
 func NewSet() *Set {
 	return &Set{
 		votes: make(map[common.Hash][]Vote),
+		//powers: make(map[common.Hash]*big.Int),
 	}
 }
 
 type Set struct {
 	// In some conditions we might receive prevotes or precommit before
 	// receiving a proposal, so we must save received message with different proposed block hash.
-	votes        map[common.Hash][]Vote // map[proposedBlockHash][]vote
-	sync.RWMutex                        //TODO(lorenzo) refinements, do we need this lock since there is already one is round_messages?
+	votes map[common.Hash][]Vote // map[proposedBlockHash][]vote
+	//powers       map[common.Hash]*big.Int //map[proposedBlockHash][]vote
+	sync.RWMutex //TODO(lorenzo) refinements, do we need this lock since there is already one is round_messages?
 }
 
 func (s *Set) Add(vote Vote) {
@@ -31,6 +33,7 @@ func (s *Set) Add(vote Vote) {
 
 	if !ok {
 		s.votes[value] = []Vote{vote}
+		//s.powers[value] = vote.Senders().Power()
 		return
 	}
 

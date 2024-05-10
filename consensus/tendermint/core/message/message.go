@@ -49,8 +49,9 @@ type Propose struct {
 	validRound int64
 	// node address of the sender, populated at decoding phase
 	sender common.Address
-	// index of the sender in the committee, populated at PreValidate phase
-	senderIndex int
+	// populated at PreValidate phase
+	senderIndex int      // index of the sender in the committee
+	power       *big.Int // power of sender
 	base
 }
 
@@ -76,6 +77,10 @@ func (p *Propose) Code() uint8 {
 
 func (p *Propose) Block() *types.Block {
 	return p.block
+}
+
+func (p *Propose) Power() *big.Int {
+	return p.power
 }
 
 func (p *Propose) ValidRound() int64 {
@@ -126,6 +131,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 		validRound:  vr,
 		sender:      validator,
 		senderIndex: int(self.Index),
+		power:       new(big.Int).Set(self.VotingPower),
 		base: base{
 			height:         h,
 			round:          r,
@@ -135,7 +141,6 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 			hash:           crypto.Hash(payload),
 			verified:       true,
 			senderKey:      self.ConsensusKey,
-			power:          new(big.Int).Set(self.VotingPower),
 		},
 	}
 }
@@ -226,8 +231,9 @@ type LightProposal struct {
 	validRound int64
 	// node address of the sender, populated at decoding phase
 	sender common.Address
-	// index of the sender in the committee, populated at PreValidate phase
-	senderIndex int
+	// populated at PreValidate phase
+	senderIndex int      // index of the sender in the committee
+	power       *big.Int // power of sender
 	base
 }
 
@@ -252,6 +258,10 @@ func (p *LightProposal) ValidRound() int64 {
 
 func (p *LightProposal) Value() common.Hash {
 	return p.blockHash
+}
+
+func (p *LightProposal) Power() *big.Int {
+	return p.power
 }
 
 // TODO(lorenzo) refinements, would be useful to print also sender and power, but we need to make sure they are trsuted (verified)
@@ -287,13 +297,13 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 		validRound:  proposal.validRound,
 		sender:      proposal.sender,
 		senderIndex: proposal.senderIndex,
+		power:       proposal.power,
 		base: base{
 			round:          proposal.round,
 			height:         proposal.height,
 			signature:      proposal.signature,
 			signatureInput: proposal.signatureInput,
 			payload:        payload,
-			power:          proposal.Power(),
 			hash:           crypto.Hash(payload),
 			verified:       true,
 			senderKey:      proposal.senderKey,
@@ -393,6 +403,10 @@ func (v *vote) Senders() *types.SendersInfo {
 	return v.senders
 }
 
+func (v *vote) Power() *big.Int {
+	return v.senders.Power()
+}
+
 func (v *vote) PreValidate(header *types.Header) error {
 	if err := v.senders.Valid(len(header.Committee)); err != nil {
 		return fmt.Errorf("Invalid senders information: %w", err)
@@ -402,16 +416,19 @@ func (v *vote) PreValidate(header *types.Header) error {
 	// compute aggregated key and auxiliary data structures
 	indexes := v.senders.Flatten()
 	keys := make([][]byte, len(indexes))
-	addresses := make(map[int]common.Address)
 	powers := make(map[int]*big.Int)
+	power := new(big.Int)
 
 	for i, index := range indexes {
 		member := header.Committee[index]
 
 		keys[i] = member.ConsensusKeyBytes
-		// if a member has coefficient > 1 the map entry will be updated multiple time with the same value
-		addresses[index] = member.Address
-		powers[index] = new(big.Int).Set(member.VotingPower)
+
+		_, alreadyPresent := powers[index]
+		if !alreadyPresent {
+			powers[index] = new(big.Int).Set(member.VotingPower)
+			power.Add(power, member.VotingPower)
+		}
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
@@ -419,14 +436,12 @@ func (v *vote) PreValidate(header *types.Header) error {
 	}
 
 	v.senders.SetPowers(powers)
-	v.senders.SetAddresses(addresses)
+	v.senders.SetPower(power)
 
-	// TODO(lorenzo) performance, compute it in the previous loop
-	v.power = v.senders.Power()
 	v.senderKey = aggregatedKey
 
 	// if the aggregate is a complex aggregate, it needs to carry quorum
-	if v.senders.IsComplex() && v.power.Cmp(bft.Quorum(header.TotalVotingPower())) < 0 {
+	if v.senders.IsComplex() && v.Power().Cmp(bft.Quorum(header.TotalVotingPower())) < 0 {
 		return ErrInvalidComplexAggregate
 	}
 	return nil
@@ -447,7 +462,7 @@ func (p *Prevote) Value() common.Hash {
 
 func (p *Prevote) String() string {
 	return fmt.Sprintf("{r:  %v, h: %v , power: %v, Code: %v, value: %v}",
-		p.round, p.height, p.power, p.Code(), p.value)
+		p.round, p.height, p.Power(), p.Code(), p.value)
 }
 
 type Precommit struct {
@@ -465,7 +480,7 @@ func (p *Precommit) Value() common.Hash {
 
 func (p *Precommit) String() string {
 	return fmt.Sprintf("{r:  %v, h: %v , power: %v, Code: %v, value: %v}",
-		p.round, p.height, p.power, p.Code(), p.value)
+		p.round, p.height, p.Power(), p.Code(), p.value)
 }
 
 func newVote[
@@ -506,7 +521,6 @@ func newVote[
 				signatureInput: signatureInput,
 				verified:       true,
 				senderKey:      self.ConsensusKey,
-				power:          new(big.Int).Set(self.VotingPower),
 			},
 		},
 	}
@@ -617,7 +631,6 @@ func AggregateVotes[
 				payload:        payload,
 				hash:           crypto.Hash(payload),
 				verified:       true,                // verified due to all votes being verified
-				power:          senders.Power(),     // aggregated power
 				senderKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
 			},
 		},
@@ -734,9 +747,8 @@ func AggregateVotesSimple[
 					signature:      aggregatedSignature,
 					payload:        payload,
 					hash:           crypto.Hash(payload),
-					verified:       true,                   // verified due to all votes being verified
-					power:          sendersList[i].Power(), // aggregated power
-					senderKey:      aggregatedPublicKey,    // this is not strictly necessary since the vote is already verified
+					verified:       true,                // verified due to all votes being verified
+					senderKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
 				},
 			},
 		}
@@ -830,28 +842,27 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 }
 
 // computes the power of a set of messages. Every sender's power is counted only once
-// TODO(lorenzo) write tests for this and add caches
+// TODO(lorenzo) write tests for this and add caches (cache could use sender bitmap as key)
 func Power(messages []Msg) *big.Int {
-	accountedFor := make(map[common.Address]struct{})
+	accountedFor := make(map[int]struct{}) //TODO(lorenzo) turn this into array? How to know the size though?
 	power := new(big.Int)
 
 	for _, msg := range messages {
 		switch m := msg.(type) {
 		case *Propose:
-			_, accounted := accountedFor[m.Sender()]
+			_, accounted := accountedFor[m.SenderIndex()]
 			if !accounted {
 				power.Add(power, m.Power())
-				accountedFor[m.Sender()] = struct{}{}
+				accountedFor[m.SenderIndex()] = struct{}{}
 			}
 		case *Prevote, *Precommit:
 			vote := m.(Vote)
-			addresses := vote.Senders().Addresses()
 			powers := vote.Senders().Powers()
 			for _, index := range vote.Senders().FlattenUniq() {
-				_, accounted := accountedFor[addresses[index]]
+				_, accounted := accountedFor[index]
 				if !accounted {
 					power.Add(power, powers[index])
-					accountedFor[addresses[index]] = struct{}{}
+					accountedFor[index] = struct{}{}
 				}
 			}
 		default:

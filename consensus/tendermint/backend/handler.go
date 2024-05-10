@@ -173,7 +173,8 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, p2pSend
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
-		for _, sender := range vote.Senders().Addresses() {
+		for _, senderIndex := range vote.Senders().FlattenUniq() {
+			sender := header.Committee[senderIndex].Address
 			if sb.IsJailed(sender) {
 				sb.logger.Debug("Vote message contains signature from jailed validator, ignoring message", "address", sender)
 				// same
