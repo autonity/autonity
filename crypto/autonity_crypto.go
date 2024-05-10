@@ -2,15 +2,18 @@ package crypto
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
+
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto/blst"
-	"golang.org/x/crypto/blake2b"
-	"os"
 )
 
 const ECDSAKeyLen = 32
@@ -126,6 +129,18 @@ func hexDecode(src []byte) ([]byte, error) {
 // compatible since it is used by precompiled contract for on-boarding validators of the whole lifecycle of a blockchain.
 func Hash(data []byte) common.Hash {
 	return blake2b.Sum256(data)
+}
+
+func HashFromReader(payload *bytes.Reader) (common.Hash, error) {
+	hasher, err := blake2b.New256(nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	_, err = payload.WriteTo(hasher)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.Hash(hasher.Sum(nil)), nil
 }
 
 // BLSPOPProof generate POP of BLS private key of Autonity protocol, the hash input start with a prefix of treasury

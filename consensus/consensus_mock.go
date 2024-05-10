@@ -14,8 +14,8 @@ import (
 	big "math/big"
 	reflect "reflect"
 
-	ethereum "github.com/autonity/autonity"
 	common "github.com/autonity/autonity/common"
+	FixedCache "github.com/autonity/autonity/common/fixsizecache"
 	state "github.com/autonity/autonity/core/state"
 	types "github.com/autonity/autonity/core/types"
 	p2p "github.com/autonity/autonity/p2p"
@@ -1046,18 +1046,6 @@ func (m *MockSyncer) EXPECT() *MockSyncerMockRecorder {
 	return m.recorder
 }
 
-// ResetPeerCache mocks base method.
-func (m *MockSyncer) ResetPeerCache(address common.Address) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ResetPeerCache", address)
-}
-
-// ResetPeerCache indicates an expected call of ResetPeerCache.
-func (mr *MockSyncerMockRecorder) ResetPeerCache(address any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetPeerCache", reflect.TypeOf((*MockSyncer)(nil).ResetPeerCache), address)
-}
-
 // SyncPeer mocks base method.
 func (m *MockSyncer) SyncPeer(address common.Address) {
 	m.ctrl.T.Helper()
@@ -1128,11 +1116,26 @@ func (m *MockBroadcaster) EXPECT() *MockBroadcasterMockRecorder {
 	return m.recorder
 }
 
+// FindPeer mocks base method.
+func (m *MockBroadcaster) FindPeer(arg0 common.Address) (Peer, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindPeer", arg0)
+	ret0, _ := ret[0].(Peer)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// FindPeer indicates an expected call of FindPeer.
+func (mr *MockBroadcasterMockRecorder) FindPeer(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindPeer", reflect.TypeOf((*MockBroadcaster)(nil).FindPeer), arg0)
+}
+
 // FindPeers mocks base method.
-func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common.Address]ethereum.Peer {
+func (m *MockBroadcaster) FindPeers(arg0 []common.Address) map[common.Address]Peer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindPeers", arg0)
-	ret0, _ := ret[0].(map[common.Address]ethereum.Peer)
+	ret0, _ := ret[0].(map[common.Address]Peer)
 	return ret0
 }
 
@@ -1140,4 +1143,69 @@ func (m *MockBroadcaster) FindPeers(arg0 map[common.Address]struct{}) map[common
 func (mr *MockBroadcasterMockRecorder) FindPeers(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindPeers", reflect.TypeOf((*MockBroadcaster)(nil).FindPeers), arg0)
+}
+
+// MockPeer is a mock of Peer interface.
+type MockPeer struct {
+	ctrl     *gomock.Controller
+	recorder *MockPeerMockRecorder
+}
+
+// MockPeerMockRecorder is the mock recorder for MockPeer.
+type MockPeerMockRecorder struct {
+	mock *MockPeer
+}
+
+// NewMockPeer creates a new mock instance.
+func NewMockPeer(ctrl *gomock.Controller) *MockPeer {
+	mock := &MockPeer{ctrl: ctrl}
+	mock.recorder = &MockPeerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPeer) EXPECT() *MockPeerMockRecorder {
+	return m.recorder
+}
+
+// Cache mocks base method.
+func (m *MockPeer) Cache() *FixedCache.Cache[common.Hash, bool] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cache")
+	ret0, _ := ret[0].(*FixedCache.Cache[common.Hash, bool])
+	return ret0
+}
+
+// Cache indicates an expected call of Cache.
+func (mr *MockPeerMockRecorder) Cache() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cache", reflect.TypeOf((*MockPeer)(nil).Cache))
+}
+
+// Send mocks base method.
+func (m *MockPeer) Send(msgcode uint64, data any) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Send", msgcode, data)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Send indicates an expected call of Send.
+func (mr *MockPeerMockRecorder) Send(msgcode, data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockPeer)(nil).Send), msgcode, data)
+}
+
+// SendRaw mocks base method.
+func (m *MockPeer) SendRaw(msgcode uint64, data []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendRaw", msgcode, data)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendRaw indicates an expected call of SendRaw.
+func (mr *MockPeerMockRecorder) SendRaw(msgcode, data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRaw", reflect.TypeOf((*MockPeer)(nil).SendRaw), msgcode, data)
 }

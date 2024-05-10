@@ -3,12 +3,13 @@ package accountability
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/autonity/autonity/consensus/ethash"
-	"github.com/autonity/autonity/core/rawdb"
-	"github.com/autonity/autonity/core/vm"
 	"math/big"
 	"math/rand"
 	"testing"
+
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/vm"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

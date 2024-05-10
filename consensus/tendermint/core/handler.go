@@ -37,11 +37,8 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 // Stop implements Core.Engine.Stop
 func (c *Core) Stop() {
 	c.logger.Debug("Stopping Tendermint Core", "addr", c.address.String())
-
 	c.stopAllTimeouts()
-
 	c.cancel()
-
 	c.proposer.StopFutureProposalTimer()
 	c.unsubscribeEvents()
 
@@ -52,22 +49,20 @@ func (c *Core) Stop() {
 
 func (c *Core) subscribeEvents() {
 	c.messageSub = c.backend.Subscribe(
-		events.MessageEvent{},
 		backlogMessageEvent{},
 		backlogUntrustedMessageEvent{},
 		StateRequestEvent{})
-	c.candidateBlockSub = c.backend.Subscribe(events.NewCandidateBlockEvent{})
+	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
+	c.messageCh = make(chan events.MessageEvent, 1000)
+	c.committedCh = make(chan events.CommitEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
-	c.committedSub = c.backend.Subscribe(events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
 // Unsubscribe all messageSub
 func (c *Core) unsubscribeEvents() {
 	c.messageSub.Unsubscribe()
-	c.candidateBlockSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
-	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
 }
 
@@ -128,15 +123,26 @@ func (c *Core) mainEventLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case ev, ok := <-c.messageSub.Chan():
-			start := time.Now()
+		case ev, ok := <-c.candidateBlockCh:
 			if !ok {
 				break eventLoop
 			}
-			// A real ev arrived, process interesting content
-			switch e := ev.Data.(type) {
-			case events.MessageEvent:
-
+			newCandidateBlockEvent := ev
+			pb := &newCandidateBlockEvent.NewCandidateBlock
+			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
+			if metrics.Enabled && c.IsProposer() {
+				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
+			}
+		case <-ctx.Done():
+			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
+			break eventLoop
+		default:
+			select {
+			case e, ok := <-c.messageCh:
+				if !ok {
+					break eventLoop
+				}
+				start := time.Now()
 				// At this stage, a message is parsed and all the internal fields must be accessible
 				if err := c.handleMsg(ctx, e.Message); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
@@ -147,75 +153,70 @@ eventLoop:
 					continue
 				}
 				if !c.noGossip {
-					c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
+					go c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
 				}
 				recordMessageProcessingTime(e.Message.Code(), start)
-			case backlogMessageEvent:
-				// No need to check signature for internal messages
-				c.logger.Debug("Started handling consensus backlog event")
-				if err := c.handleValidMsg(ctx, e.msg); err != nil {
-					c.logger.Debug("BacklogEvent message handling failed", "err", err)
-					continue
+			case ev, ok := <-c.messageSub.Chan():
+				if !ok {
+					break eventLoop
 				}
-				if !c.noGossip {
-					c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				start := time.Now()
+				// A real ev arrived, process interesting content
+				switch e := ev.Data.(type) {
+				case backlogMessageEvent:
+					// No need to check signature for internal messages
+					c.logger.Debug("Started handling consensus backlog event")
+					if err := c.handleValidMsg(ctx, e.msg); err != nil {
+						c.logger.Debug("BacklogEvent message handling failed", "err", err)
+						continue
+					}
+					if !c.noGossip {
+						go c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+					}
+					recordMessageProcessingTime(e.msg.Code(), start)
+				case backlogUntrustedMessageEvent:
+					c.logger.Debug("Started handling backlog unchecked event")
+					// messages in the untrusted buffer were successfully decoded
+					if err := c.handleMsg(ctx, e.msg); err != nil {
+						c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
+						continue
+					}
+					if !c.noGossip {
+						go c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+					}
+					recordMessageProcessingTime(e.msg.Code(), start)
+				case StateRequestEvent:
+					// Process Tendermint state dump request.
+					c.handleStateDump(e)
 				}
-				recordMessageProcessingTime(e.msg.Code(), start)
-			case backlogUntrustedMessageEvent:
-				c.logger.Debug("Started handling backlog unchecked event")
-				// messages in the untrusted buffer were successfully decoded
-				if err := c.handleMsg(ctx, e.msg); err != nil {
-					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
-					continue
+			case ev, ok := <-c.timeoutEventSub.Chan():
+				if !ok {
+					break eventLoop
 				}
-				if !c.noGossip {
-					c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
+					// if we already decided on this height block, ignore the timeout. It is useless by now.
+					if c.step == PrecommitDone {
+						c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
+						continue
+					}
+					switch timeoutE.Step {
+					case Propose:
+						c.handleTimeoutPropose(ctx, timeoutE)
+					case Prevote:
+						c.handleTimeoutPrevote(ctx, timeoutE)
+					case Precommit:
+						c.handleTimeoutPrecommit(ctx, timeoutE)
+					}
 				}
-				recordMessageProcessingTime(e.msg.Code(), start)
-			case StateRequestEvent:
-				// Process Tendermint state dump request.
-				c.handleStateDump(e)
-			}
-		case ev, ok := <-c.timeoutEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
-				// if we already decided on this height block, ignore the timeout. It is useless by now.
-				if c.step == PrecommitDone {
-					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
-					continue
+			case _, ok := <-c.committedCh:
+				if !ok {
+					break eventLoop
 				}
-				switch timeoutE.Step {
-				case Propose:
-					c.handleTimeoutPropose(ctx, timeoutE)
-				case Prevote:
-					c.handleTimeoutPrevote(ctx, timeoutE)
-				case Precommit:
-					c.handleTimeoutPrecommit(ctx, timeoutE)
-				}
-			}
-		case ev, ok := <-c.committedSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			switch ev.Data.(type) {
-			case events.CommitEvent:
 				c.precommiter.HandleCommit(ctx)
+			default:
+				// minimal sleep if nothing is ready so we don't end up consuming the core
+				time.Sleep(100 * time.Microsecond)
 			}
-		case ev, ok := <-c.candidateBlockSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			newCandidateBlockEvent := ev.Data.(events.NewCandidateBlockEvent)
-			if metrics.Enabled && c.IsProposer() {
-				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
-			}
-			pb := &newCandidateBlockEvent.NewCandidateBlock
-			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
-		case <-ctx.Done():
-			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
-			break eventLoop
 		}
 	}
 

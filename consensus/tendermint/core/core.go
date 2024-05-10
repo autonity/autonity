@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -70,8 +71,9 @@ type Core struct {
 	cancel  context.CancelFunc
 
 	messageSub          *event.TypeMuxSubscription
-	candidateBlockSub   *event.TypeMuxSubscription
-	committedSub        *event.TypeMuxSubscription
+	messageCh           chan events.MessageEvent
+	candidateBlockCh    chan events.NewCandidateBlockEvent
+	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
 	syncEventSub        *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
@@ -148,6 +150,17 @@ func (c *Core) Address() common.Address {
 
 func (c *Core) Step() Step {
 	return c.step
+}
+
+func (c *Core) Post(ev any) {
+	switch ev := ev.(type) {
+	case events.CommitEvent:
+		c.committedCh <- ev
+	case events.NewCandidateBlockEvent:
+		c.candidateBlockCh <- ev
+	case events.MessageEvent:
+		c.messageCh <- ev
+	}
 }
 
 func (c *Core) CurRoundMessages() *message.RoundMessages {

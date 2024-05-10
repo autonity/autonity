@@ -5,11 +5,11 @@ import (
 	"math/rand"
 	"testing"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -21,18 +21,16 @@ import (
 func newCustomGossiper(b interfaces.Backend) interfaces.Gossiper {
 	defaultGossiper := b.Gossiper()
 	return &customGossiper{
-		Gossiper:       defaultGossiper,
-		knownMessages:  defaultGossiper.KnownMessages(),
-		recentMessages: defaultGossiper.RecentMessages(),
-		address:        defaultGossiper.Address(),
+		Gossiper:      defaultGossiper,
+		knownMessages: defaultGossiper.KnownMessages(),
+		address:       defaultGossiper.Address(),
 	}
 }
 
 type customGossiper struct {
 	interfaces.Gossiper
-	knownMessages  *lru.ARCCache
-	recentMessages *lru.ARCCache
-	address        common.Address
+	knownMessages *fixsizecache.Cache[common.Hash, bool]
+	address       common.Address
 }
 
 // this is a test custom gossip function, just to illustrate how to build one
@@ -48,11 +46,11 @@ func (cg *customGossiper) Gossip(committee types.Committee, msg message.Msg) {
 	num := uint(math.Ceil(math.Sqrt(float64(len(committee)))))
 	subset := fullset[:num] //nolint
 
-	targets := make(map[common.Address]struct{})
+	targets := make([]common.Address, 0)
 	i := 0
 	for _, val := range committee {
 		if val.Address != cg.address && slices.Contains(subset, i) {
-			targets[val.Address] = struct{}{}
+			targets = append(targets, val.Address)
 		}
 		i++
 	}
@@ -67,22 +65,12 @@ func (cg *customGossiper) Gossip(committee types.Committee, msg message.Msg) {
 	}
 
 	ps := cg.Broadcaster().FindPeers(targets)
-	for addr, p := range ps {
-		ms, ok := cg.recentMessages.Get(addr)
-		var m *lru.ARCCache
-		if ok {
-			m, _ = ms.(*lru.ARCCache)
-			if _, k := m.Get(hash); k {
-				// This peer had this event, skip it
-				continue
-			}
-		} else {
-			m, _ = lru.NewARC(1024) //   backend.inmemoryMessages  = 1024
+	for _, p := range ps {
+		if p.Cache().Contains(hash) {
+			// This peer had this event, skip it
+			continue
 		}
-
-		m.Add(hash, true)
-		cg.recentMessages.Add(addr, m)
-
+		p.Cache().Add(hash, true)
 		go p.SendRaw(backend.NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }

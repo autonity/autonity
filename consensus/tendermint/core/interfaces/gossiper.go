@@ -1,9 +1,8 @@
 package interfaces
 
 import (
-	lru "github.com/hashicorp/golang-lru"
-
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -14,8 +13,7 @@ type Gossiper interface {
 	AskSync(header *types.Header)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Broadcaster() consensus.Broadcaster
-	RecentMessages() *lru.ARCCache
-	KnownMessages() *lru.ARCCache
+	KnownMessages() *fixsizecache.Cache[common.Hash, bool]
 	Address() common.Address
 	UpdateStopChannel(chan struct{})
 }

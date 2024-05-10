@@ -28,12 +28,6 @@ import (
 	"github.com/autonity/autonity/trie"
 )
 
-const (
-	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 150
-	inmemoryMessages  = 8192
-)
-
 // ErrStartedEngine is returned if the engine is already started
 var ErrStartedEngine = errors.New("started engine")
 
@@ -472,10 +466,9 @@ func (sb *Backend) Start(ctx context.Context) error {
 
 // Close signals core to stop all background threads.
 func (sb *Backend) Close() error {
-	if !sb.coreStarting.CompareAndSwap(true, false) {
+	if !sb.coreRunning.CompareAndSwap(true, false) {
 		return ErrStoppedEngine
 	}
-	sb.coreRunning.CompareAndSwap(true, false)
 	// We need to make sure we close sb.stopped before calling sb.core.Stop
 	// otherwise we can end up with a deadlock where sb.core.Stop is waiting
 	// for a routine to return from calling sb.AskSync but sb.AskSync will
@@ -484,6 +477,7 @@ func (sb *Backend) Close() error {
 	// Stop Tendermint
 	sb.core.Stop()
 	sb.wg.Wait()
+	sb.coreStarting.CompareAndSwap(true, false)
 	return nil
 }
 

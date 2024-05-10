@@ -3,8 +3,10 @@ package protocol
 import (
 	"time"
 
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/p2p/enode"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
@@ -17,15 +19,20 @@ var (
 	DefaultWriteBg   = metrics.NewRegisteredBufferedGauge("acn/any/write", nil, nil)
 )
 
+const (
+	buckets = 199
+	entries = 10
+)
+
 // Peer is a collection of relevant information we have about a `acn` peer.
 type Peer struct {
-	id      string // Unique ID for the peer, cached
+	id      enode.ID // Unique ID for the peer, cached
 	address common.Address
 
 	*p2p.Peer                   // The embedded P2P package peer
 	rw        p2p.MsgReadWriter // Input/output streams for snap
 	version   uint              // Protocol version negotiated
-
+	cache     *fixsizecache.Cache[common.Hash, bool]
 }
 
 // peerInfo represents a short summary of the `acn` protocol metadata known
@@ -38,13 +45,18 @@ type peerInfo struct {
 // version.
 func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 	peer := &Peer{
-		id:      p.ID().String(),
+		id:      p.ID(),
 		address: crypto.PubkeyToAddress(*p.Node().Pubkey()),
 		Peer:    p,
 		rw:      rw,
 		version: version,
+		cache:   fixsizecache.New[common.Hash, bool](buckets, entries, 0, fixsizecache.HashKey[common.Hash]),
 	}
 	return peer
+}
+
+func (p *Peer) Cache() *fixsizecache.Cache[common.Hash, bool] {
+	return p.cache
 }
 
 // Close can be used to do peer related clean up, nothing for now
@@ -53,7 +65,7 @@ func (p *Peer) Close() {
 }
 
 // ID retrieves the peer's unique identifier.
-func (p *Peer) ID() string {
+func (p *Peer) ID() enode.ID {
 
 	return p.id
 }
