@@ -56,13 +56,15 @@ func oldHeightEventer(msg message.Msg, errCh chan<- error) interface{} {
 
 func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger) *aggregator {
 	return &aggregator{
-		backend:     backend,
-		core:        core,
-		oldMessages: make(map[common.Hash][]events.UnverifiedMessageEvent),
-		messages:    make(map[uint64]map[int64]map[uint8]map[common.Hash][]events.UnverifiedMessageEvent),
-		logger:      logger,
-		votesFrom:   make(map[common.Address][]common.Hash),
-		toIgnore:    make(map[common.Hash]struct{}),
+		backend:           backend,
+		core:              core,
+		oldMessages:       make(map[common.Hash][]events.UnverifiedMessageEvent),
+		messages:          make(map[uint64]map[int64]map[uint8]map[common.Hash][]events.UnverifiedMessageEvent),
+		votesPowerInfo:    make(map[uint64]map[int64]map[uint8]*message.PowerInfo),
+		votesPowerForInfo: make(map[uint64]map[int64]map[uint8]map[common.Hash]*message.PowerInfo),
+		logger:            logger,
+		votesFrom:         make(map[common.Address][]common.Hash),
+		toIgnore:          make(map[common.Hash]struct{}),
 	}
 }
 
@@ -71,9 +73,14 @@ type aggregator struct {
 	core    interfaces.Core
 	// old height messages
 	oldMessages map[common.Hash][]events.UnverifiedMessageEvent
-	// TODO(lorenzo) might be worth to re-use the set logic that is used in Core (without locks)
+	// TODO(lorenzo) might be worth to re-use the set logic that is used in Core (without locks). In any case it is definitely to refactor.
 	// map[height][round][code][value][]msgs
-	messages  map[uint64]map[int64]map[uint8]map[common.Hash][]events.UnverifiedMessageEvent
+	messages map[uint64]map[int64]map[uint8]map[common.Hash][]events.UnverifiedMessageEvent
+	// power of a set of votes
+	votesPowerInfo map[uint64]map[int64]map[uint8]*message.PowerInfo
+	// power of a set of votes for a certain value
+	votesPowerForInfo map[uint64]map[int64]map[uint8]map[common.Hash]*message.PowerInfo
+	//power
 	votesFrom map[common.Address][]common.Hash
 	toIgnore  map[common.Hash]struct{}
 	// TODO(lorenzo) can one sub starve the other?
@@ -126,18 +133,99 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 	}
 
 	a.messages[h][r][c][v] = append(a.messages[h][r][c][v], e)
+
+	if c == message.ProposalCode {
+		return
+	}
+
+	// if vote, update power caches
+	vote := e.Message.(message.Vote)
+
+	// fetch vote type power cache
+	if _, ok := a.votesPowerInfo[h]; !ok {
+		a.votesPowerInfo[h] = make(map[int64]map[uint8]*message.PowerInfo)
+	}
+
+	if _, ok := a.votesPowerInfo[h][r]; !ok {
+		a.votesPowerInfo[h][r] = make(map[uint8]*message.PowerInfo)
+	}
+
+	if _, ok := a.votesPowerInfo[h][r][c]; !ok {
+		a.votesPowerInfo[h][r][c] = message.NewPowerInfo()
+	}
+
+	votesPowerInfo := a.votesPowerInfo[h][r][c]
+
+	// fetch vote value power cache
+	if _, ok := a.votesPowerForInfo[h]; !ok {
+		a.votesPowerForInfo[h] = make(map[int64]map[uint8]map[common.Hash]*message.PowerInfo)
+	}
+
+	if _, ok := a.votesPowerForInfo[h][r]; !ok {
+		a.votesPowerForInfo[h][r] = make(map[uint8]map[common.Hash]*message.PowerInfo)
+	}
+
+	if _, ok := a.votesPowerForInfo[h][r][c]; !ok {
+		a.votesPowerForInfo[h][r][c] = make(map[common.Hash]*message.PowerInfo)
+	}
+
+	if _, ok := a.votesPowerForInfo[h][r][c][v]; !ok {
+		a.votesPowerForInfo[h][r][c][v] = message.NewPowerInfo()
+	}
+
+	votesPowerForInfo := a.votesPowerForInfo[h][r][c][v]
+
+	// update vote type power and power for value
+	for index, power := range vote.Senders().Powers() {
+		votesPowerInfo.Set(index, power)
+		votesPowerForInfo.Set(index, power)
+	}
+
 }
 
 func (a *aggregator) power(h uint64, r int64) *big.Int {
 	return a._power(h, r)
+	// TODO(lorenzo) cache also here?
 }
 
-func (a *aggregator) votesPower(h uint64, r int64, code uint8) *big.Int {
-	return a._power(h, r, code)
+func (a *aggregator) votesPower(h uint64, r int64, c uint8) *big.Int {
+	//return a._power(h, r, code)
+	//TODO(lorenzo) fix properly
+	if _, ok := a.votesPowerInfo[h]; !ok {
+		return new(big.Int)
+	}
+
+	if _, ok := a.votesPowerInfo[h][r]; !ok {
+		return new(big.Int)
+	}
+
+	if _, ok := a.votesPowerInfo[h][r][c]; !ok {
+		return new(big.Int)
+	}
+
+	return a.votesPowerInfo[h][r][c].Pow()
 }
 
-func (a *aggregator) votesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int {
-	return a._power(h, r, code, v)
+func (a *aggregator) votesPowerFor(h uint64, r int64, c uint8, v common.Hash) *big.Int {
+	//	return a._power(h, r, code, v)
+	//TODO(lorenzo) fix properly
+	if _, ok := a.votesPowerForInfo[h]; !ok {
+		return new(big.Int)
+	}
+
+	if _, ok := a.votesPowerForInfo[h][r]; !ok {
+		return new(big.Int)
+	}
+
+	if _, ok := a.votesPowerForInfo[h][r][c]; !ok {
+		return new(big.Int)
+	}
+
+	if _, ok := a.votesPowerForInfo[h][r][c][v]; !ok {
+		return new(big.Int)
+	}
+
+	return a.votesPowerForInfo[h][r][c][v].Pow()
 }
 
 func parse(codeAndValue []interface{}) (uint8, common.Hash, bool, bool) {
@@ -231,10 +319,15 @@ func (a *aggregator) process(h uint64, r int64, codeAndValue ...interface{}) {
 	switch {
 	case !filterByCode && !filterByValue:
 		delete(a.messages[h], r)
+		delete(a.votesPowerInfo[h], r)
+		delete(a.votesPowerForInfo[h], r)
 	case filterByCode && !filterByValue:
 		delete(a.messages[h][r], c)
+		delete(a.votesPowerInfo[h][r], c)
+		delete(a.votesPowerForInfo[h][r], c)
 	case filterByCode && filterByValue:
 		delete(a.messages[h][r][c], v)
+		delete(a.votesPowerForInfo[h][r][c], v)
 	case !filterByCode && filterByValue:
 		a.logger.Crit("Trying to filter by value without filtering by code")
 	}

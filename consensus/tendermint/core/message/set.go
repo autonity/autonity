@@ -9,13 +9,15 @@ import (
 
 //TODO(lorenzo) refinements2, analyze more duplicated msgs and equivocation scnearios
 
+//TODO(lorenzo) not sure this is the right place for this
+
 // auxiliary data structure to take into account aggregated power of a set of senders
-type powerInfo struct {
+type PowerInfo struct {
 	power   *big.Int
 	senders *big.Int // used as bitmap, we do not care about coefficients here, only if a validator is present or not
 }
 
-func (p *powerInfo) set(index int, power *big.Int) {
+func (p *PowerInfo) Set(index int, power *big.Int) {
 	if p.senders.Bit(index) == 1 {
 		return
 	}
@@ -24,8 +26,12 @@ func (p *powerInfo) set(index int, power *big.Int) {
 	p.power.Add(p.power, power)
 }
 
-func newPowerInfo() *powerInfo {
-	return &powerInfo{power: new(big.Int), senders: new(big.Int)}
+func (p *PowerInfo) Pow() *big.Int {
+	return p.power
+}
+
+func NewPowerInfo() *PowerInfo {
+	return &PowerInfo{power: new(big.Int), senders: new(big.Int)}
 }
 
 type Set struct {
@@ -37,8 +43,8 @@ type Set struct {
 	* 1. duplicated votes between different overlapping aggregates for the same value
 	* 2. equivocated votes from the same validator across different values
 	 */
-	powers     map[common.Hash]*powerInfo // cumulative voting power for each value
-	totalPower *powerInfo                 // total voting power of votes
+	powers     map[common.Hash]*PowerInfo // cumulative voting power for each value
+	totalPower *PowerInfo                 // total voting power of votes
 
 	sync.RWMutex //TODO(lorenzo) refinements, do we need this lock since there is already one is round_messages?
 }
@@ -46,8 +52,8 @@ type Set struct {
 func NewSet() *Set {
 	return &Set{
 		votes:      make(map[common.Hash][]Vote),
-		powers:     make(map[common.Hash]*powerInfo),
-		totalPower: newPowerInfo(),
+		powers:     make(map[common.Hash]*PowerInfo),
+		totalPower: NewPowerInfo(),
 	}
 }
 
@@ -59,14 +65,14 @@ func (s *Set) Add(vote Vote) {
 	previousVotes, ok := s.votes[value]
 	if !ok {
 		s.votes[value] = make([]Vote, 1)
-		s.powers[value] = newPowerInfo()
+		s.powers[value] = NewPowerInfo()
 	}
 
 	// update total power and power for value
 	powers := vote.Senders().Powers()
 	for index, power := range powers {
-		s.totalPower.set(index, power)
-		s.powers[value].set(index, power)
+		s.totalPower.Set(index, power)
+		s.powers[value].Set(index, power)
 	}
 
 	// check if we are adding the first vote
