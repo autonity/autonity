@@ -157,6 +157,10 @@ func (s *SendersInfo) Valid(committeeSize int) error {
 	return nil
 }
 
+func (s *SendersInfo) Contains(index int) bool {
+	return s.Bits.Get(index) != 0
+}
+
 // TODO(lorenzo) refinements, maybe I can do this more efficiently using bitwise operations
 // however it is not trivial since we use two bits per validators
 func (s *SendersInfo) AddsInformation(other *SendersInfo) bool {
