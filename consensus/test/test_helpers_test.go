@@ -38,7 +38,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	genesis.ExtraData = nil
 	genesis.GasLimit = 10000000000
 	genesis.GasUsed = 0
-	genesis.Timestamp = 0
+	genesis.Timestamp = uint64(time.Now().Unix())
 	genesis.Nonce = 0
 	genesis.Mixhash = types.BFTDigest
 
@@ -46,7 +46,7 @@ func makeGenesis(t *testing.T, nodes map[string]*testNode, names []string) *core
 	genesis.Config.Ethash = nil
 	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Config.AutonityContractConfig.MaxCommitteeSize = 21
-
+	genesis.Config.AutonityContractConfig.EpochPeriod = 60
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, validator := range nodes {
 		genesis.Alloc[crypto.PubkeyToAddress(validator.nodeKey.PublicKey)] = core.GenesisAccount{

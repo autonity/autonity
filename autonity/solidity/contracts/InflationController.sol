@@ -44,12 +44,13 @@ contract InflationController is IInflationController {
         if (_currentTime <= params.T) {
             return calculateTransitionRegime(_currentSupply, _lastTime, _currentTime);
         }
-        if (_lastTime < params.T && _currentTime > params.T){
+        // _currentTime > params.T from here
+        if (_lastTime < params.T){
             uint256 _untilT = calculateTransitionRegime(_currentSupply, _lastTime, params.T);
             uint256 _afterT = calculatePermanentRegime(_inflationReserve, params.T, _currentTime);
             return _untilT + _afterT;
         }
-         return calculatePermanentRegime(_inflationReserve, _lastTime, _currentTime);
+        return calculatePermanentRegime(_inflationReserve, _lastTime, _currentTime);
     }
 
    /**

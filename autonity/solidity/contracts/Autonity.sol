@@ -198,7 +198,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidContract);
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
-    event Rewarded(address indexed addr, uint256 amount);
+    event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
     event EpochPeriodUpdated(uint256 period);
     event NewEpoch(uint256 epoch);
 
@@ -927,7 +927,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @dev Emit a {Rewarded} event for every account that collected rewards.
     * @param _atn: Amount of ATN to be redistributed. The source funds will be taken from
     * this contract balance.
-    * @param _atn: Amount of NTN to be redistributed. The source funds will minted here.
+    * @param _ntn: Amount of NTN to be redistributed. The source funds will be minted here.
     */
     function _performRedistribution(uint256 _atn, uint256 _ntn) internal virtual {
         // exit early if nothing to redistribute.
@@ -977,7 +977,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
                 // from a user perspective then ?
-                emit Rewarded(_val.nodeAddress, _atnReward);
+                emit Rewarded(_val.nodeAddress, _atnReward, _ntnReward);
             }
         }
     }

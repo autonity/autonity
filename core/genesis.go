@@ -592,15 +592,16 @@ func DefaultGoerliGenesisBlock() *Genesis {
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	testAutonityContractConfig := params.AutonityContractGenesis{
-		MaxCommitteeSize: 1,
-		BlockPeriod:      1,
-		UnbondingPeriod:  120,
-		EpochPeriod:      30,               //seconds
-		DelegationRate:   1200,             // 12%
-		TreasuryFee:      1500000000000000, // 0.15%,
-		MinBaseFee:       10000000000,
-		Operator:         faucet.Address,
-		Treasury:         faucet.Address,
+		MaxCommitteeSize:        1,
+		BlockPeriod:             1,
+		UnbondingPeriod:         120,
+		EpochPeriod:             30,               //seconds
+		DelegationRate:          1200,             // 12%
+		TreasuryFee:             1500000000000000, // 0.15%,
+		MinBaseFee:              10000000000,
+		Operator:                faucet.Address,
+		Treasury:                faucet.Address,
+		InitialInflationReserve: params.TestAutonityContractConfig.InitialInflationReserve,
 		Validators: []*params.Validator{
 			{
 				Treasury:      faucet.Address,

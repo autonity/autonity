@@ -290,12 +290,6 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 
 	// set header's timestamp
 	// todo: block period from contract
-	// Pt = 6 -> Ht(L298) = 7
-	// T = 0 : Ht = 7
-	// T = 6 : Ht = 7
-	// 6 < T < 7 : Ht = 7 (elapsed = 7 - T)
-	// T= 7: Ht = 7 |  (elapsed = 0)
-	// T = 8: Ht = 8
 	header.Time = parent.Time + 1
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())

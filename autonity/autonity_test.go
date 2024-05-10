@@ -325,19 +325,21 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, erro
 func autonityTestConfig() AutonityConfig {
 	config := AutonityConfig{
 		Policy: AutonityPolicy{
-			TreasuryFee:     new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
-			MinBaseFee:      new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
-			DelegationRate:  new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
-			UnbondingPeriod: new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
-			TreasuryAccount: params.TestAutonityContractConfig.Operator,
+			TreasuryFee:             new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
+			MinBaseFee:              new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
+			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
+			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
+			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
+			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract: params.AccountabilityContractAddress,
-			OracleContract:         params.OracleContractAddress,
-			AcuContract:            params.ACUContractAddress,
-			SupplyControlContract:  params.SupplyControlContractAddress,
-			StabilizationContract:  params.StabilizationContractAddress,
-			UpgradeManagerContract: params.UpgradeManagerContractAddress,
+			AccountabilityContract:      params.AccountabilityContractAddress,
+			OracleContract:              params.OracleContractAddress,
+			AcuContract:                 params.ACUContractAddress,
+			SupplyControlContract:       params.SupplyControlContractAddress,
+			StabilizationContract:       params.StabilizationContractAddress,
+			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
+			InflationControllerContract: params.InflationControllerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: params.TestAutonityContractConfig.Operator,

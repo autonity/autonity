@@ -50,6 +50,7 @@ var genesisTest = struct {
 					"maxCommitteeSize":7,
 					"minBaseFee":10000000,
 					"unbondingPeriod": 120,
+					"initialInflationReserve": "0x20000000000",
 					"epochPeriod": 30,
 					"validators" : [ 
 						{
@@ -108,6 +109,7 @@ var genesisTest = struct {
 					"epochPeriod": 30,
 					"maxCommitteeSize":7,
 					"minBaseFee":100000000,
+					"initialInflationReserve": "0x20000000000",
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
@@ -143,6 +145,7 @@ var genesisTest = struct {
 					"unbondingPeriod": 120,
 					"epochPeriod": 30,
 					"maxCommitteeSize":7,
+					"initialInflationReserve": "0x20000000000",
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",

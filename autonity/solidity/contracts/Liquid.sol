@@ -99,13 +99,13 @@ contract Liquid is IERC20
         // Step 1 : transfer entitled amount of fees to validator's
         // treasury account.
         uint256 _atnValidatorReward = (_atnReward * commissionRate) / COMMISSION_RATE_PRECISION;
-        require(_atnValidatorReward <= _atnReward, "invalid validator reward");
+        require(_atnValidatorReward <= _atnReward, "invalid atn validator reward");
         _atnReward -= _atnValidatorReward;
         // TODO: handle failure.
         treasury.call{value: _atnValidatorReward, gas:2300}("");
 
         uint256 _ntnValidatorReward = (_ntnReward * commissionRate) / COMMISSION_RATE_PRECISION;
-        require(_ntnValidatorReward <= _ntnReward, "invalid validator reward");
+        require(_ntnValidatorReward <= _ntnReward, "invalid ntn validator reward");
         _ntnReward -= _ntnValidatorReward;
         autonityContract.transfer(treasury,_ntnValidatorReward);
 
