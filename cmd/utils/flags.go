@@ -597,7 +597,7 @@ var (
 
 	NoGossip = cli.BoolFlag{
 		Name:  "nogossip",
-		Usage: "disable consensensus message gossip",
+		Usage: "disable consensus message gossip",
 	}
 	//Consensus Network settings
 	ConsensusListenPortFlag = cli.IntFlag{
