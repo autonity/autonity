@@ -358,6 +358,20 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		r := msg.R()
 		c.futureRoundLock.Lock()
 		c.futureRound[r] = append(c.futureRound[r], msg)
+
+		// update future power
+		_, ok := c.futurePower[r]
+		if !ok {
+			c.futurePower[r] = message.NewPowerInfo()
+		}
+		switch m := msg.(type) {
+		case *message.Propose:
+			c.futurePower[r].Set(m.SenderIndex(), m.Power())
+		case *message.Prevote, *message.Precommit:
+			for index, power := range m.(message.Vote).Senders().Powers() {
+				c.futurePower[r].Set(index, power)
+			}
+		}
 		c.futureRoundLock.Unlock()
 
 		c.backend.Post(events.FuturePowerChangeEvent{Height: c.Height().Uint64(), Round: r})

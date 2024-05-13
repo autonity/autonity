@@ -29,6 +29,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		logger:                 logger,
 		backend:                backend,
 		futureRound:            make(map[int64][]message.Msg),
+		futurePower:            make(map[int64]*message.PowerInfo),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -101,6 +102,7 @@ type Core struct {
 	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
 	// they need a lock.
 	futureRound     map[int64][]message.Msg
+	futurePower     map[int64]*message.PowerInfo // power cache for future value msgs (per round)
 	futureRoundLock sync.RWMutex
 
 	sentProposal          bool
@@ -303,6 +305,7 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 			})
 		}
 		delete(c.futureRound, r)
+		delete(c.futurePower, r)
 	}
 }
 
@@ -367,6 +370,7 @@ func (c *Core) setInitialState(r int64) {
 		c.messages.Reset()
 		c.futureRoundLock.Lock()
 		c.futureRound = make(map[int64][]message.Msg)
+		c.futurePower = make(map[int64]*message.PowerInfo)
 		c.futureRoundLock.Unlock()
 		// update height duration timer
 		if metrics.Enabled {
@@ -526,14 +530,15 @@ func (c *Core) Power(h uint64, r int64) *big.Int {
 		return new(big.Int)
 	}
 
-	var power *big.Int
+	power := new(big.Int)
 	if r > c.Round() {
 		// future round
 		c.futureRoundLock.RLock()
-		futureMsgs := c.futureRound[r]
+		powerInfo, ok := c.futurePower[r]
+		if ok {
+			power = powerInfo.Pow()
+		}
 		c.futureRoundLock.RUnlock()
-
-		power = message.Power(futureMsgs)
 	} else {
 		// old or current round
 		power = c.messages.GetOrCreate(r).Power()

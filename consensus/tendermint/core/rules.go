@@ -159,10 +159,14 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 // check if we need to skip to a new round
 func (c *Core) roundSkipCheck(ctx context.Context, r int64) {
 	c.futureRoundLock.RLock()
-	futureRoundMsgs := c.futureRound[r]
+	futurePowerInfo, ok := c.futurePower[r]
 	c.futureRoundLock.RUnlock()
 
-	if message.Power(futureRoundMsgs).Cmp(c.CommitteeSet().F()) > 0 {
+	if !ok {
+		return
+	}
+
+	if futurePowerInfo.Pow().Cmp(c.CommitteeSet().F()) > 0 {
 		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", r)
 		c.StartRound(ctx, r)
 	}

@@ -78,6 +78,7 @@ type RoundMessages struct {
 	proposal         *Propose
 	prevotes         *Set
 	precommits       *Set
+	power            *PowerInfo // power for all messages
 	sync.RWMutex
 }
 
@@ -86,6 +87,7 @@ func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
 		prevotes:         NewSet(),
 		precommits:       NewSet(),
+		power:            NewPowerInfo(),
 		verifiedProposal: false,
 	}
 }
@@ -95,17 +97,12 @@ func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 	defer s.Unlock()
 	s.proposal = proposal
 	s.verifiedProposal = verified
+	s.power.Set(proposal.SenderIndex(), proposal.Power())
 }
 
 // total power for round (each sender counted only once, regardless of msg type)
 func (s *RoundMessages) Power() *big.Int {
-	var messages []Msg
-	messages = append(messages, s.AllPrevotes()...)
-	messages = append(messages, s.AllPrecommits()...)
-	if s.proposal != nil {
-		messages = append(messages, s.proposal)
-	}
-	return Power(messages)
+	return s.power.Pow()
 }
 
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
@@ -126,6 +123,12 @@ func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
 
 func (s *RoundMessages) AddPrevote(prevote *Prevote) {
 	s.prevotes.Add(prevote)
+	//TODO(lorenzo) can be moved in the set Add if computationally expensive
+	// update round power cache
+	for index, power := range prevote.Senders().Powers() {
+		s.power.Set(index, power)
+	}
+
 }
 
 func (s *RoundMessages) AllPrevotes() []Msg {
@@ -138,6 +141,11 @@ func (s *RoundMessages) AllPrecommits() []Msg {
 
 func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
 	s.precommits.Add(precommit)
+	//TODO(lorenzo) can be moved in the set Add if computationally expensive
+	// update round power cache
+	for index, power := range precommit.Senders().Powers() {
+		s.power.Set(index, power)
+	}
 }
 
 // used to gossip quorum of prevotes
