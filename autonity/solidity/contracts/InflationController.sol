@@ -22,8 +22,11 @@ contract InflationController is IInflationController {
 
     Params public params;
 
+    uint256 internal genesisTime;
+
     constructor(Params memory _params){
         params = _params;
+        genesisTime = block.timestamp;
     }
 
     /**
@@ -39,8 +42,8 @@ contract InflationController is IInflationController {
         view
         returns (uint256)
     {
-        SD59x18 _lastTime = convert(int256(_lastEpochTime));
-        SD59x18 _currentTime = convert(int256(_currentEpochTime));
+        SD59x18 _lastTime = convert(int256(_lastEpochTime - genesisTime));
+        SD59x18 _currentTime = convert(int256(_currentEpochTime - genesisTime));
         if (_currentTime <= params.T) {
             return calculateTransitionRegime(_currentSupply, _lastTime, _currentTime);
         }
@@ -65,8 +68,8 @@ contract InflationController is IInflationController {
         view
         returns (uint256)
     {
-       SD59x18 _t0 = convert(int256(_lastEpochTime));
-       SD59x18 _t1 = convert(int256(_currentEpochTime));
+       SD59x18 _t0 = convert(int256(_lastEpochTime - genesisTime));
+       SD59x18 _t1 = convert(int256(_currentEpochTime - genesisTime));
 
        SD59x18 _lExp0 = (params.aE * _t0)/params.T;
        SD59x18 _lExp1 = (params.aE * _t1)/params.T;
