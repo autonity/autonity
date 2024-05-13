@@ -6,6 +6,7 @@ const EPOCH_PERIOD = 30;
 const DELEGATION_RATE = 100;
 const UN_BONDING_PERIOD = 60;
 const TREASURY_FEE = "10000000000000000";
+const INITIAL_INFLATION_RESERVE = "40000000000000000000000000";
 const MIN_EPOCH_PERIOD = 30;
 const VERSION = 0;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -69,6 +70,7 @@ function autonityConfig(operator, treasuryAccount) {
             "delegationRate": DELEGATION_RATE,
             "unbondingPeriod" : UN_BONDING_PERIOD,
             "treasuryAccount": treasuryAccount,
+            "initialInflationReserve": INITIAL_INFLATION_RESERVE,
         },
         "contracts": {
             "oracleContract" : ZERO_ADDRESS, // gets updated in deployContracts()
@@ -77,6 +79,7 @@ function autonityConfig(operator, treasuryAccount) {
             "supplyControlContract" :ZERO_ADDRESS,
             "stabilizationContract" :ZERO_ADDRESS,
             "upgradeManagerContract" :ZERO_ADDRESS,
+            "inflationControllerContract" :ZERO_ADDRESS,
         },
         "protocol": {
             "operatorAccount": operator,

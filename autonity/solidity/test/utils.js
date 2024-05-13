@@ -8,6 +8,7 @@ const Oracle = artifacts.require("Oracle")
 const Acu = artifacts.require("ACU")
 const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
+const InflationController = artifacts.require("InflationController")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
 const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
@@ -243,6 +244,13 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   }
   const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
+  const inflationController = await InflationController.new({
+    "iInit": 0,
+    "iTrans": 0,
+    "aE": 0,
+    "T": 0,
+    "iPerm": 0,
+  } ,{from:deployer})
   // setters
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
   
@@ -252,6 +260,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
+  await autonity.setInflationControllerContract(inflationController.address, {from:operator});
   await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
 }
 

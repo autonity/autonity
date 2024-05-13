@@ -111,6 +111,7 @@ func TestInflationContract(t *testing.T) {
 		years := currentTime.Year()
 
 		delta, gasConsumed, err := inflationControllerContract.CalculateSupplyDelta(nil, currentSupply, inflationReserve, lastEpochTime, currentEpochTime)
+		require.NoError(r.t, err)
 		require.LessOrEqual(r.t, gasConsumed, uint64(30_000))
 		inflationReserve.Sub(inflationReserve, delta)
 		goDeltaComputation := goP.calculateSupplyDelta(currentSupply, lastEpochTime, currentEpochTime)
@@ -118,8 +119,8 @@ func TestInflationContract(t *testing.T) {
 		// Compare the go implementation with the solidity one
 		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
-		fmt.Println("y:", int(years), "d:", int(days), "b:", currentEpochTime, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
-		require.NoError(r.t, err)
+		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
+
 		currentSupply.Add(currentSupply, delta)
 	}
 	r.t.Log("final NTN supply", new(big.Int).Div(currentSupply, params.NTNDecimalFactor))

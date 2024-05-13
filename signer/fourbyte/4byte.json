@@ -138,5 +138,6 @@
   "9ac31074": "inflationReserve()",
   "92eff3cd": "calculateSupplyDelta(uint256,uint256,uint256,uint256)",
   "89c614b8": "lastEpochTime()",
-  "f03b959d": "setInflationControllerContract(address)"
+  "f03b959d": "setInflationControllerContract(address)",
+  "a8031a1d": "distributeRewards(address,uint256)"
 }

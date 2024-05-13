@@ -954,7 +954,8 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
                 // committee members in the jailed state were just found guilty in the current epoch.
                 // committee members in jailbound state are permanently jailed
                 if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
-                    config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[i].addr);
+                    _transfer(address(this), address(config.contracts.accountabilityContract), _ntnReward);
+                    config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[i].addr, _ntnReward);
                     continue;
                 }
                 // non-jailed validators have a strict amount of bonded newton.
