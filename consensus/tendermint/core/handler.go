@@ -130,7 +130,9 @@ eventLoop:
 					}
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
+				if !c.noGossip {
+					c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
+				}
 			case backlogMessageEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling consensus backlog event")
@@ -138,7 +140,9 @@ eventLoop:
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				if !c.noGossip {
+					c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				}
 
 			case backlogUntrustedMessageEvent:
 				c.logger.Debug("Started handling backlog unchecked event")
@@ -147,7 +151,9 @@ eventLoop:
 					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				if !c.noGossip {
+					c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				}
 			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
