@@ -9,7 +9,7 @@ import (
 
 //TODO(lorenzo) refinements2, analyze more duplicated msgs and equivocation scnearios
 
-//TODO(lorenzo) not sure this is the right place for this
+//TODO(lorenzo) not sure this is the right place for this + add tests for it
 
 // auxiliary data structure to take into account aggregated power of a set of senders
 type PowerInfo struct {
@@ -28,6 +28,10 @@ func (p *PowerInfo) Set(index int, power *big.Int) {
 
 func (p *PowerInfo) Pow() *big.Int {
 	return p.power
+}
+
+func (p *PowerInfo) Copy() *PowerInfo {
+	return &PowerInfo{power: new(big.Int).Set(p.power), senders: new(big.Int).Set(p.senders)}
 }
 
 func NewPowerInfo() *PowerInfo {
