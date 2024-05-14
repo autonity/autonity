@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/autonity/autonity/metrics"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -64,6 +66,7 @@ var (
 	nilUncleHash                  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce                    = types.BlockNonce{}
 	now                           = time.Now
+	sealDelayBg                   = metrics.NewRegisteredBufferedGauge("work/seal/delay", nil, nil) // injected sleep delay before producing new candidate block
 )
 
 // Author retrieves the Ethereum address of the account that minted the given
@@ -371,6 +374,9 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
+	if metrics.Enabled {
+		sealDelayBg.Add(delay.Nanoseconds())
+	}
 	select {
 	case <-time.After(delay):
 		// nothing to do
@@ -383,6 +389,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
+		CreatedAt:         time.Now(),
 	})
 
 	return nil
