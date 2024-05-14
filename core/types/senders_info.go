@@ -161,6 +161,35 @@ func (s *SendersInfo) Contains(index int) bool {
 	return s.Bits.Get(index) != 0
 }
 
+// checks that the resulting aggregate still respects the committeeSize - 1 boundary
+func (s *SendersInfo) RespectsBoundaries(other *SendersInfo) bool {
+	//TODO(lorenzo) refinements, add check on length of the two senderinfo?
+
+	var firstCoefficient int
+	var count int
+	var secondCoefficient int
+	var count2 int
+
+	for i := 0; i < s.committeeSize; i++ {
+		firstCoefficient = s.Bits.Get(i)
+		if firstCoefficient == 3 {
+			firstCoefficient = s.Coefficients[count]
+			count++
+		}
+
+		secondCoefficient = other.Bits.Get(i)
+		if secondCoefficient == 3 {
+			secondCoefficient = other.Coefficients[count]
+			count2++
+		}
+
+		if firstCoefficient+secondCoefficient > s.committeeSize-1 {
+			return false
+		}
+	}
+	return true
+}
+
 // TODO(lorenzo) refinements, maybe I can do this more efficiently using bitwise operations
 // however it is not trivial since we use two bits per validators
 func (s *SendersInfo) AddsInformation(other *SendersInfo) bool {

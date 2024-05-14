@@ -592,7 +592,9 @@ func AggregateVotes[
 		// do not aggregate votes if they do not add any useful information
 		// e.g. senders contains already at least 1 signature for all signers of vote.Senders()
 		// we would just create and gossip new aggregates that would uselessly flood the network
-		if senders.AddsInformation(vote.Senders()) {
+		// additionally, we also check if the resulting aggregate respects the coefficient boundaries.
+		// this avoids that we aggregate two complex aggregates together, which can lead to coefficient breaching.
+		if senders.AddsInformation(vote.Senders()) && senders.RespectsBoundaries(vote.Senders()) {
 			senders.Merge(vote.Senders())
 			signatures = append(signatures, vote.Signature())
 			publicKeys = append(publicKeys, vote.SenderKey().Marshal())
