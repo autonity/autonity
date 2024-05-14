@@ -62,6 +62,22 @@ const GENESIS_PRIVATE_KEYS = [
     "0c8698f456533170fe07c6dcb753d47bef8bedd46443efa57a859c989887b56b",
 ];
 
+const INFLATION_CONTROLLER_CONFIG = {
+    "iInit": "0x8dc0fa1e",
+    "iTrans": "0x67f3ea9f",
+    "aE": "0x13d4d3edc8088000",
+    "T": "0x685807f13a9c4278000000",
+    "iPerm": "0x147820d72",
+}
+
+const STABILIZATION_CONFIG = {
+    "borrowInterestRate" : 0,
+    "liquidationRatio" : 1,
+    "minCollateralizationRatio" : 2,
+    "minDebtRequirement" : 0,
+    "targetPrice" : 0,
+}
+
 function autonityConfig(operator, treasuryAccount) {
     return {
         "policy": {
@@ -139,6 +155,8 @@ module.exports = {
     GENESIS_NODE_ADDRESSES: GENESIS_NODE_ADDRESSES,
     BASE_VALIDATOR: BASE_VALIDATOR,
     GENESIS_PRIVATE_KEYS: GENESIS_PRIVATE_KEYS,
+    INFLATION_CONTROLLER_CONFIG: INFLATION_CONTROLLER_CONFIG,
+    STABILIZATION_CONFIG: STABILIZATION_CONFIG,
     autonityConfig: autonityConfig,
     validators: validators,
 };

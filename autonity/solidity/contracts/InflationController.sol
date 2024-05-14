@@ -56,35 +56,6 @@ contract InflationController is IInflationController {
         return calculatePermanentRegime(_inflationReserve, _lastTime, _currentTime);
     }
 
-   /**
-    * @dev Temporary. To compare against the other function for numerical precision checks.
-    */
-    function calculateSupplyDeltaOLD(
-        uint256 _currentSupply,
-        uint256 _lastEpochTime,
-        uint256 _currentEpochTime
-    )
-        public
-        view
-        returns (uint256)
-    {
-       SD59x18 _t0 = convert(int256(_lastEpochTime - genesisTime));
-       SD59x18 _t1 = convert(int256(_currentEpochTime - genesisTime));
-
-       SD59x18 _lExp0 = (params.aE * _t0)/params.T;
-       SD59x18 _lExp1 = (params.aE * _t1)/params.T;
-
-       SD59x18 expTerm = params.iInit * (_t1 - _t0) +
-               ((params.iInit - params.iTrans) * (_t1 - _t0) )/(params.aE.exp() - convert(1))  +
-               ((params.iTrans - params.iInit) * params.T * (_lExp1.exp() - _lExp0.exp()))
-                   /((params.aE.exp() - convert(1)) * params.aE);
-
-       return uint256(convert(
-               expTerm.exp() * convert(int256(_currentSupply)) -
-               convert(int256(_currentSupply))
-           ));
-    }
-
     /**
     * @notice Calculate inflation before transition.
     */
@@ -114,15 +85,15 @@ contract InflationController is IInflationController {
     */
     function calculatePermanentRegime(
         uint256 _inflationReserve,
-        SD59x18 _lastEpochBlock,
-        SD59x18 _currentEpochBlock
+        SD59x18 _lastEpochTime,
+        SD59x18 _currentEpochTime
     )
         internal
         view
         returns (uint256)
     {
         return uint256(convert(
-            convert(int256(_inflationReserve)) *  (_currentEpochBlock -  _lastEpochBlock) * params.iPerm
+            convert(int256(_inflationReserve)) *  (_currentEpochTime -  _lastEpochTime) * params.iPerm
         ));
     }
 

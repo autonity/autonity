@@ -1,5 +1,6 @@
 const assert = require('assert');
 const util = require('util');
+const config = require('./config');
 const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
@@ -235,14 +236,8 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000",{from:deployer,value:1})
 
   // stabilization contract, random temporary config and zeroAddress as collateral token
-  config = { 
-    "borrowInterestRate" : 0,
-    "liquidationRatio" : 1,
-    "minCollateralizationRatio" : 2,
-    "minDebtRequirement" : 0,
-    "targetPrice" : 0,
-  }
-  const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
+
+  const stabilization = await Stabilization.new(config.STABILIZATION_CONFIG,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
 
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
@@ -263,13 +258,7 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // greater than the one of the autonity contract. This is obviously not going to happen for a real network but
     // we can't really simulate a proper genesis sequence with truffle. As consequence all calculations
     // regarding the inflation rate will be wrong here which should be tested using the native go framework.
-    const inflationController = await InflationController.new({
-      "iInit": "0x8dc0fa1e",
-      "iTrans": "0x67f3ea9f",
-      "aE": "0x13d4d3edc8088000",
-      "T": "0x685807f13a9c4278000000",
-      "iPerm": "0x147820d72",
-    } ,{from:deployer})
+    const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG ,{from:deployer})
     // autonity contract
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
     await autonity.setInflationControllerContract(inflationController.address, {from:operator});
@@ -280,7 +269,9 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+    const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
+    await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
 };

@@ -168,7 +168,7 @@ func (r *runner) waitNextEpoch() { //nolint
 	require.NoError(r.t, err)
 	nextEpochBlock := new(big.Int).Add(epochPeriod, lastEpochBlock)
 	diff := new(big.Int).Sub(nextEpochBlock, r.evm.Context.BlockNumber)
-	r.waitNBlocks(int(diff.Uint64()))
+	r.waitNBlocks(int(diff.Uint64() + 1))
 }
 
 func (r *runner) sendAUT(sender, recipient common.Address, value *big.Int) { //nolint
@@ -316,6 +316,9 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	}
 	_, _, r.inflationController, err = r.deployInflationController(nil, *p)
 	require.NoError(r.t, err)
+
+	r.evm.Context.BlockNumber = common.Big1
+	r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
 	return r
 }
 
