@@ -16,4 +16,5 @@ interface IAutonity {
     * @notice Returns the current Oracle account.
     */
     function getOracle() external view returns (address);
+
 }

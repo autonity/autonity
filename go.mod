@@ -3,6 +3,7 @@ module github.com/autonity/autonity
 go 1.21
 
 require (
+	github.com/ALTree/bigfloat v0.2.0
 	github.com/Azure/azure-storage-blob-go v0.7.0
 	github.com/JekaMas/notify v0.9.4
 	github.com/JekaMas/pretty v0.0.0-20161213095928-bfc6f9ec9574

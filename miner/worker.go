@@ -659,7 +659,7 @@ func (w *worker) taskLoop() {
 			if w.skipSealHook != nil && w.skipSealHook(task) {
 				continue
 			}
-			w.eth.Logger().Debug("New block Seal request", "hash", w.engine.SealHash(task.block.Header()))
+			w.eth.Logger().Debug("New block Seal request", "hash", sealHash)
 			w.pendingMu.Lock()
 			w.pendingTasks[sealHash] = task
 			w.pendingMu.Unlock()

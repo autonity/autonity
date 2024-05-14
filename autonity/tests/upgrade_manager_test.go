@@ -13,8 +13,7 @@ import (
 )
 
 var (
-	operator = &runOptions{origin: defaultAutonityConfig.Protocol.OperatorAccount}
-	user     = common.HexToAddress("0x99")
+	user = common.HexToAddress("0x99")
 )
 
 func TestExample1(t *testing.T) {
@@ -47,11 +46,11 @@ func TestExample2(t *testing.T) {
 func TestSetOperatorAccount(t *testing.T) {
 	r := setup(t, nil)
 	r.run("setOperatorAccount is restricted to Autonity contract", func(r *runner) {
-		_, err := r.UpgradeManager.SetOperator(&runOptions{origin: user}, user)
+		_, err := r.upgradeManager.SetOperator(&runOptions{origin: user}, user)
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
-		_, err = r.UpgradeManager.SetOperator(operator, user)
+		_, err = r.upgradeManager.SetOperator(operator, user)
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
-		_, err = r.UpgradeManager.SetOperator(&runOptions{origin: r.autonity.address}, user)
+		_, err = r.upgradeManager.SetOperator(&runOptions{origin: r.autonity.address}, user)
 		require.NoError(r.t, err)
 	})
 }
@@ -69,7 +68,7 @@ func TestUpgrade(t *testing.T) {
 	}
 	r := setup(t, nil)
 	r.run("restricted to the operator", func(r *runner) {
-		_, err := r.UpgradeManager.Upgrade(&runOptions{origin: user}, r.autonity.address, "0x1111")
+		_, err := r.upgradeManager.Upgrade(&runOptions{origin: user}, r.autonity.address, "0x1111")
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted) // maybe check revert reason
 	})
 	r.run("upgrade target contract", func(r *runner) {
@@ -80,7 +79,7 @@ func TestUpgrade(t *testing.T) {
 		require.Equal(r.t, v1string, "v1")
 		calldata := makeCalldata(TestUpgradedMetaData, "hello", "v2")
 		// call the replace function
-		gas, err := r.UpgradeManager.Upgrade(operator, base.address, string(calldata))
+		gas, err := r.upgradeManager.Upgrade(operator, base.address, string(calldata))
 		require.NoError(r.t, err)
 		r.t.Log("gas consumed:", gas)
 		// check if base has been updated
@@ -91,7 +90,7 @@ func TestUpgrade(t *testing.T) {
 	r.run("upgrade autonity contract", func(r *runner) {
 		calldata := makeCalldata(AutonityUpgradeTestMetaData)
 		r.t.Log("upgrade autonity: calldata size:", len(calldata)/1000, "kB")
-		gas, err := r.UpgradeManager.Upgrade(operator, r.autonity.address, string(calldata))
+		gas, err := r.upgradeManager.Upgrade(operator, r.autonity.address, string(calldata))
 		require.NoError(r.t, err)
 		r.t.Log("upgrade autonity: gas consumed:", gas)
 		cfg, _, err := r.autonity.Config(nil)

@@ -281,7 +281,7 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 
 	// set header's timestamp
 	// todo: block period from contract
-	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(1)).Uint64()
+	header.Time = parent.Time + 1
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())
 	}
