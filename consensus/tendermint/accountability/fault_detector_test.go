@@ -108,7 +108,7 @@ func TestSubmitMisbehaviour(t *testing.T) {
 		logger:              log.New("FaultDetector", nil),
 	}
 
-	fd.submitMisbehavior(proposal, proofs, errEquivocation)
+	fd.submitMisbehavior(proposal, proofs, errEquivocation, proposer)
 	p := <-fd.misbehaviourProofCh
 
 	require.Equal(t, uint8(autonity.Misbehaviour), p.EventType)

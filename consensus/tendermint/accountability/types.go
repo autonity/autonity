@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/common"
 	"io"
 
 	"github.com/autonity/autonity/autonity"
@@ -64,6 +65,7 @@ type Proof struct {
 	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.
 	Message   message.Msg                      // the consensus message which is accountable.
 	Evidences []message.Msg                    // the proofs of the accountability event.
+	Offender  common.Address                   // the offender who break the rule.
 }
 
 type encodedProof struct {

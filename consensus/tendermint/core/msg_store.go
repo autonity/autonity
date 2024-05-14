@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/autonity/autonity/core/types"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -13,7 +14,10 @@ type MsgStore struct {
 	sync.RWMutex
 	// the first height that msg are buffered from after node is start.
 	firstHeight uint64
-	// map[Height]map[Round]map[MsgType]map[common.address][]*Message
+	// To keep a more flexible query interface and a better query performance for msg store,
+	// we'd need to keep the legacy data schema for msg store, thus the save msg function
+	// need to save duplicated pointers of aggregated votes.
+	// map[Height]map[Round]map[Step]map[Sender][]*Message
 	messages map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg
 }
 
@@ -24,50 +28,72 @@ func NewMsgStore() *MsgStore {
 		messages:    make(map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg)}
 }
 
-// Save store msg into msg store
+// Save store msg into msg store, it assumes the msg signature was verified.
 func (ms *MsgStore) Save(m message.Msg) {
 	ms.Lock()
 	defer ms.Unlock()
-	//TODO(lorenzo) fix
-	return
-	/*
-	   	if ms.firstHeight == uint64(0) {
-	   		ms.firstHeight = m.H()
-	   	}
+	if ms.firstHeight == uint64(0) {
+		ms.firstHeight = m.H()
+	}
 
-	   height := m.H()
-	   roundMap, ok := ms.messages[height]
+	height := m.H()
+	roundMap, ok := ms.messages[height]
 
-	   	if !ok {
-	   		roundMap = make(map[int64]map[uint8]map[common.Address][]message.Msg)
-	   		ms.messages[height] = roundMap
-	   	}
+	if !ok {
+		roundMap = make(map[int64]map[uint8]map[common.Address][]message.Msg)
+		ms.messages[height] = roundMap
+	}
 
-	   round := m.R()
-	   msgTypeMap, ok := roundMap[round]
+	round := m.R()
+	msgTypeMap, ok := roundMap[round]
 
-	   	if !ok {
-	   		msgTypeMap = make(map[uint8]map[common.Address][]message.Msg)
-	   		roundMap[round] = msgTypeMap
-	   	}
+	if !ok {
+		msgTypeMap = make(map[uint8]map[common.Address][]message.Msg)
+		roundMap[round] = msgTypeMap
+	}
 
-	   addressMap, ok := msgTypeMap[m.Code()]
+	addressMap, ok := msgTypeMap[m.Code()]
+	if !ok {
+		addressMap = make(map[common.Address][]message.Msg)
+		msgTypeMap[m.Code()] = addressMap
+	}
 
-	   	if !ok {
-	   		addressMap = make(map[common.Address][]message.Msg)
-	   		msgTypeMap[m.Code()] = addressMap
-	   	}
+	// as proposal is not aggregatable, save it and return
+	if m.Code() == message.ProposalCode {
+		sender := m.(*message.Propose).Sender()
+		msgs, ok := addressMap[sender]
+		if !ok {
+			var msgList []message.Msg
+			addressMap[sender] = append(msgList, m)
+			return
+		}
+		addressMap[sender] = append(msgs, m)
+		return
+	}
 
-	   msgs, ok := addressMap[m.Sender()]
+	// todo(Jason): for votes, save them with not overlapped ones for each sender.
+	// for votes, save them for each sender.
+	var votesInfo *types.SendersInfo
+	if m.Code() == message.PrevoteCode {
+		votesInfo = m.(*message.Prevote).Senders()
+	}
+	if m.Code() == message.PrecommitCode {
+		votesInfo = m.(*message.Precommit).Senders()
+	}
 
-	   	if !ok {
-	   		var msgList []message.Msg
-	   		addressMap[m.Sender()] = append(msgList, m)
-	   		return
-	   	}
+	if votesInfo == nil {
+		return
+	}
 
-	   addressMap[m.Sender()] = append(msgs, m)
-	*/
+	for _, sender := range votesInfo.Addresses() {
+		msgs, ok := addressMap[sender]
+		if !ok {
+			var msgList []message.Msg
+			addressMap[sender] = append(msgList, m)
+			return
+		}
+		addressMap[sender] = append(msgs, m)
+	}
 }
 
 func (ms *MsgStore) FirstHeightBuffered() uint64 {
@@ -87,15 +113,8 @@ func (ms *MsgStore) DeleteOlds(height uint64) {
 	}
 }
 
-// RemoveMsg only used for integration tests.
-func (ms *MsgStore) RemoveMsg(height uint64, round int64, step uint8, sender common.Address) {
-	ms.Lock()
-	defer ms.Unlock()
-	delete(ms.messages[height][round][step], sender)
-}
-
 // Get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(height uint64, query func(message.Msg) bool) []message.Msg {
+func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, senders ...common.Address) []message.Msg {
 	ms.RLock()
 	defer ms.RUnlock()
 
@@ -105,17 +124,70 @@ func (ms *MsgStore) Get(height uint64, query func(message.Msg) bool) []message.M
 		return result
 	}
 
-	for _, msgTypeMap := range roundMap {
-		for _, addressMap := range msgTypeMap {
-			for _, msgs := range addressMap {
-				for _, msg := range msgs {
-					if query(msg) {
-						result = append(result, msg)
+	// querying without the sender address nominated, it iterates all senders.
+	if len(senders) == 0 {
+		for _, msgTypeMap := range roundMap {
+			for _, addressMap := range msgTypeMap {
+				for _, msgs := range addressMap {
+					for _, msg := range msgs {
+						if query(msg) {
+							result = append(result, msg)
+						}
 					}
 				}
 			}
 		}
+		return result
 	}
+
+	// querying with sender address
+	sender := senders[0]
+	for _, msgTypeMap := range roundMap {
+		for _, addressMap := range msgTypeMap {
+			messages, ok := addressMap[sender]
+			if !ok {
+				break
+			}
+
+			for _, msg := range messages {
+				if query(msg) {
+					result = append(result, msg)
+				}
+			}
+		}
+	}
+	return result
+}
+
+func (ms *MsgStore) GetEquivocatedVotes(height uint64, round int64, step uint8, sender common.Address, value common.Hash) []message.Msg {
+	ms.RLock()
+	defer ms.RUnlock()
+	var result []message.Msg
+	roundMap, ok := ms.messages[height]
+	if !ok {
+		return result
+	}
+	stepMap, ok := roundMap[round]
+	if !ok {
+		return result
+	}
+
+	senderMap, ok := stepMap[step]
+	if !ok {
+		return result
+	}
+
+	messages, ok := senderMap[sender]
+	if !ok {
+		return result
+	}
+
+	for _, m := range messages {
+		if m.Value() != value {
+			result = append(result, m)
+		}
+	}
+
 	return result
 }
 
