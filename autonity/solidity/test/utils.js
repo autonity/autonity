@@ -1,5 +1,6 @@
 const assert = require('assert');
 const util = require('util');
+const config = require('./config');
 const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
@@ -8,6 +9,7 @@ const Oracle = artifacts.require("Oracle")
 const Acu = artifacts.require("ACU")
 const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
+const InflationController = artifacts.require("InflationController")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
 const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
@@ -234,16 +236,10 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000",{from:deployer,value:1})
 
   // stabilization contract, random temporary config and zeroAddress as collateral token
-  config = { 
-    "borrowInterestRate" : 0,
-    "liquidationRatio" : 1,
-    "minCollateralizationRatio" : 2,
-    "minDebtRequirement" : 0,
-    "targetPrice" : 0,
-  }
-  const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
+
+  const stabilization = await Stabilization.new(config.STABILIZATION_CONFIG,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
-  // setters
+
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
   
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
@@ -252,20 +248,30 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
+
   await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
 }
 
 // deploys protocol contracts
 const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+    // we deploy first the inflation controller contract because it requires a genesis timestamp
+    // greater than the one of the autonity contract. This is obviously not going to happen for a real network but
+    // we can't really simulate a proper genesis sequence with truffle. As consequence all calculations
+    // regarding the inflation rate will be wrong here which should be tested using the native go framework.
+    const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG ,{from:deployer})
     // autonity contract
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
+    await autonity.setInflationControllerContract(inflationController.address, {from:operator});
     await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
+
     return autonity;
 };
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+    const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
+    await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
 };
