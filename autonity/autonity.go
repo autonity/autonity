@@ -425,6 +425,10 @@ type UpgradeManagerContract struct {
 	EVMContract
 }
 
+type InflationControllerContract struct {
+	EVMContract
+}
+
 func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
 	evmProvider := func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		if header != nil {
@@ -489,6 +493,14 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 				chainConfig: chainConfig,
 			},
 		},
+		InflationControllerContract: InflationControllerContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.InflationControllerAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
 		statedb: statedb,
 	}
 }
@@ -501,6 +513,7 @@ type GenesisEVMContracts struct {
 	SupplyControlContract
 	StabilizationContract
 	UpgradeManagerContract
+	InflationControllerContract
 
 	statedb vm.StateDB
 }
@@ -570,4 +583,8 @@ func (c *GenesisEVMContracts) DeployStabilizationContract(
 
 func (c *GenesisEVMContracts) DeployUpgradeManagerContract(autonityAddress common.Address, operatorAddress common.Address, bytecode []byte) error {
 	return c.UpgradeManagerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, operatorAddress)
+}
+
+func (c *GenesisEVMContracts) DeployInflationControllerContract(bytecode []byte, param InflationControllerParams) error {
+	return c.InflationControllerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, param)
 }

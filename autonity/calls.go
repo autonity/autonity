@@ -47,6 +47,9 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployUpgradeManagerContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the upgrade manager contract: %w", err)
 	}
+	if err := DeployInflationControllerContract(genesisConfig, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the upgrade manager contract: %w", err)
+	}
 	return nil
 }
 
@@ -125,6 +128,28 @@ func DeploySupplyControlContract(config *params.ChainConfig, evmContracts *Genes
 	return nil
 }
 
+func DeployInflationControllerContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	if config.InflationContractConfig == nil {
+		log.Info("Config missing, using default parameters for the Inflation Controller contract")
+		config.InflationContractConfig = params.DefaultInflationControllerGenesis
+	} else {
+		config.InflationContractConfig.SetDefaults()
+	}
+	param := InflationControllerParams{
+		IInit:  (*big.Int)(config.InflationContractConfig.IInit),
+		ITrans: (*big.Int)(config.InflationContractConfig.ITrans),
+		AE:     (*big.Int)(config.InflationContractConfig.Ae),
+		T:      (*big.Int)(config.InflationContractConfig.T),
+		IPerm:  (*big.Int)(config.InflationContractConfig.IPerm),
+	}
+	if err := evmContracts.DeployInflationControllerContract(generated.InflationControllerBytecode, param); err != nil {
+		log.Error("DeployInflationControllerContract failed", "err", err)
+		return fmt.Errorf("failed to deploy inflation controller contract: %w", err)
+	}
+	log.Info("Deployed inflation controller contract", "address", params.InflationControllerContractAddress)
+	return nil
+}
+
 func DeployACUContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
 	if config.ASM.ACUContractConfig == nil {
 		log.Info("Config missing, using default parameters for the ACU contract")
@@ -182,19 +207,21 @@ func DeployAccountabilityContract(config *params.AccountabilityGenesis, evmContr
 func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts) error {
 	contractConfig := AutonityConfig{
 		Policy: AutonityPolicy{
-			TreasuryFee:     new(big.Int).SetUint64(genesisConfig.TreasuryFee),
-			MinBaseFee:      new(big.Int).SetUint64(genesisConfig.MinBaseFee),
-			DelegationRate:  new(big.Int).SetUint64(genesisConfig.DelegationRate),
-			UnbondingPeriod: new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
-			TreasuryAccount: genesisConfig.Treasury,
+			TreasuryFee:             new(big.Int).SetUint64(genesisConfig.TreasuryFee),
+			MinBaseFee:              new(big.Int).SetUint64(genesisConfig.MinBaseFee),
+			DelegationRate:          new(big.Int).SetUint64(genesisConfig.DelegationRate),
+			UnbondingPeriod:         new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
+			InitialInflationReserve: (*big.Int)(genesisConfig.InitialInflationReserve),
+			TreasuryAccount:         genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract: params.AccountabilityContractAddress,
-			OracleContract:         params.OracleContractAddress,
-			AcuContract:            params.ACUContractAddress,
-			SupplyControlContract:  params.SupplyControlContractAddress,
-			StabilizationContract:  params.StabilizationContractAddress,
-			UpgradeManagerContract: params.UpgradeManagerContractAddress,
+			AccountabilityContract:      params.AccountabilityContractAddress,
+			OracleContract:              params.OracleContractAddress,
+			AcuContract:                 params.ACUContractAddress,
+			SupplyControlContract:       params.SupplyControlContractAddress,
+			StabilizationContract:       params.StabilizationContractAddress,
+			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
+			InflationControllerContract: params.InflationControllerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: genesisConfig.Operator,

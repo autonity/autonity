@@ -19,6 +19,11 @@ import (
 )
 
 var (
+	DecimalPrecision = int64(18)
+	SecondsInYear    = int64(365 * 24 * 60 * 60)
+	DecimalFactor    = new(big.Int).Exp(big.NewInt(10), big.NewInt(DecimalPrecision), nil)
+	NTNDecimalFactor = new(big.Int).SetUint64(Ether)
+
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
 	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USD", "NTN-USD", "NTN-ATN"}
@@ -47,6 +52,14 @@ var (
 		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), common.Big1)),
 	}
 
+	DefaultInflationControllerGenesis = &InflationControllerGenesis{
+		IInit:  (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(75), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 7.5% AR
+		ITrans: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 5.5% AR
+		IPerm:  (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.328% AR
+		T:      (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear), DecimalFactor)),
+		Ae:     (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_429), DecimalFactor), big.NewInt(1_000))), // -1.429
+	}
+
 	DefaultAccountabilityConfig = &AccountabilityGenesis{
 		InnocenceProofSubmissionWindow: 100,
 		BaseSlashingRateLow:            1000, // 10%
@@ -57,29 +70,31 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
-	DeployerAddress               = common.Address{}
-	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress         = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
-	UpgradeManagerContractAddress = crypto.CreateAddress(DeployerAddress, 6)
+	DeployerAddress                    = common.Address{}
+	AutonityContractAddress            = crypto.CreateAddress(DeployerAddress, 0)
+	AccountabilityContractAddress      = crypto.CreateAddress(DeployerAddress, 1)
+	OracleContractAddress              = crypto.CreateAddress(DeployerAddress, 2)
+	ACUContractAddress                 = crypto.CreateAddress(DeployerAddress, 3)
+	SupplyControlContractAddress       = crypto.CreateAddress(DeployerAddress, 4)
+	StabilizationContractAddress       = crypto.CreateAddress(DeployerAddress, 5)
+	UpgradeManagerContractAddress      = crypto.CreateAddress(DeployerAddress, 6)
+	InflationControllerContractAddress = crypto.CreateAddress(DeployerAddress, 7)
 )
 
 type AutonityContractGenesis struct {
-	Bytecode         hexutil.Bytes  `json:"bytecode,omitempty" toml:",omitempty"`
-	ABI              *abi.ABI       `json:"abi,omitempty" toml:",omitempty"`
-	MinBaseFee       uint64         `json:"minBaseFee"`
-	EpochPeriod      uint64         `json:"epochPeriod"`
-	UnbondingPeriod  uint64         `json:"unbondingPeriod"`
-	BlockPeriod      uint64         `json:"blockPeriod"`
-	MaxCommitteeSize uint64         `json:"maxCommitteeSize"`
-	Operator         common.Address `json:"operator"`
-	Treasury         common.Address `json:"treasury"`
-	TreasuryFee      uint64         `json:"treasuryFee"`
-	DelegationRate   uint64         `json:"delegationRate"`
-	Validators       []*Validator   `json:"validators"` // todo: Can we change that to []Validator
+	Bytecode                hexutil.Bytes         `json:"bytecode,omitempty" toml:",omitempty"`
+	ABI                     *abi.ABI              `json:"abi,omitempty" toml:",omitempty"`
+	MinBaseFee              uint64                `json:"minBaseFee"`
+	EpochPeriod             uint64                `json:"epochPeriod"`
+	UnbondingPeriod         uint64                `json:"unbondingPeriod"`
+	BlockPeriod             uint64                `json:"blockPeriod"`
+	MaxCommitteeSize        uint64                `json:"maxCommitteeSize"`
+	Operator                common.Address        `json:"operator"`
+	Treasury                common.Address        `json:"treasury"`
+	TreasuryFee             uint64                `json:"treasuryFee"`
+	DelegationRate          uint64                `json:"delegationRate"`
+	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
+	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 }
 
 type AccountabilityGenesis struct {
@@ -399,5 +414,32 @@ type SupplyControlGenesis struct {
 func (s *SupplyControlGenesis) SetDefaults() {
 	if s.InitialAllocation == nil {
 		s.InitialAllocation = DefaultSupplyControlGenesis.InitialAllocation
+	}
+}
+
+type InflationControllerGenesis struct {
+	// Those parameters need to be compatible with the solidity SD59x18 format
+	IInit  *math.HexOrDecimal256 `json:"iInit"`
+	ITrans *math.HexOrDecimal256 `json:"iTrans"`
+	IPerm  *math.HexOrDecimal256 `json:"iPerm"`
+	T      *math.HexOrDecimal256 `json:"T"`
+	Ae     *math.HexOrDecimal256 `json:"ae"`
+}
+
+func (s *InflationControllerGenesis) SetDefaults() {
+	if s.IInit == nil {
+		s.IInit = DefaultInflationControllerGenesis.IInit
+	}
+	if s.ITrans == nil {
+		s.IInit = DefaultInflationControllerGenesis.ITrans
+	}
+	if s.IPerm == nil {
+		s.IInit = DefaultInflationControllerGenesis.IPerm
+	}
+	if s.T == nil {
+		s.IInit = DefaultInflationControllerGenesis.T
+	}
+	if s.Ae == nil {
+		s.IInit = DefaultInflationControllerGenesis.Ae
 	}
 }

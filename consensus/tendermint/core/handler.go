@@ -211,8 +211,7 @@ eventLoop:
 			if metrics.Enabled && c.IsProposer() {
 				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
 			}
-			pb := &newCandidateBlockEvent.NewCandidateBlock
-			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
+			c.proposer.HandleNewCandidateBlockMsg(ctx, &newCandidateBlockEvent.NewCandidateBlock)
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
 			break eventLoop

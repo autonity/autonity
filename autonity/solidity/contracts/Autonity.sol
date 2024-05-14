@@ -15,6 +15,7 @@ import "./asm/IStabilization.sol";
 import "./interfaces/IAccountability.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
+import "./interfaces/IInflationController.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 enum ValidatorState {active, paused, jailed, jailbound}
@@ -108,6 +109,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         ISupplyControl supplyControlContract;
         IStabilization stabilizationContract;
         UpgradeManager upgradeManagerContract;
+        IInflationController inflationControllerContract;
     }
 
     struct Policy {
@@ -115,6 +117,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         uint256 minBaseFee;
         uint256 delegationRate;
         uint256 unbondingPeriod;
+        uint256 initialInflationReserve;
         address payable treasuryAccount;
     }
 
@@ -139,10 +142,11 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     uint256 public epochID;
     mapping(uint256 => uint256) internal blockEpochMap;
     uint256 public lastEpochBlock;
+    uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
     CommitteeMember[] internal committee;
-    uint256 public totalRedistributed;
+    uint256 public atnTotalRedistributed;
     uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
@@ -152,6 +156,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
     uint256 internal stakeSupply;
+    uint256 public inflationReserve;
 
     /*
     We're saving the address of who is deploying the contract and we use it
@@ -193,7 +198,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidContract);
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
-    event Rewarded(address indexed addr, uint256 amount);
+    event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
     event EpochPeriodUpdated(uint256 period);
     event NewEpoch(uint256 epoch);
 
@@ -216,7 +221,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         Config memory _config
     ) internal {
         config = _config;
-
+        inflationReserve = config.policy.initialInflationReserve;
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
            it avoids us adding more complexity to the contract and running into
@@ -246,6 +251,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function finalizeInitialization() onlyProtocol public {
         _stakingOperations();
         computeCommittee();
+        lastEpochTime = block.timestamp;
     }
 
     /**
@@ -549,6 +555,14 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /*
+    * @notice Set the Inflation Controller contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setInflationControllerContract(IInflationController _address) public virtual onlyOperator {
+        config.contracts.inflationControllerContract = _address;
+    }
+
+    /*
     * @notice Set the Upgrade Manager contract address. Restricted to the Operator account.
     * It is only meant to be used for internal testing purposes. Anything different than
     * 0x3C368B86AF00565Df7a3897Cfa9195B9434A59f9 will break the upgrade function live!
@@ -563,9 +577,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @dev emit a MintStake event.
     */
     function mint(address _addr, uint256 _amount) public virtual onlyOperator {
-        accounts[_addr] += _amount;
-        stakeSupply += _amount;
-        emit MintedStake(_addr, _amount);
+        _mint(_addr, _amount);
     }
 
     /**
@@ -588,6 +600,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     */
     function transfer(address _recipient, uint256 _amount) external virtual override returns (bool) {
         _transfer(msg.sender, _recipient, _amount);
+        emit Transfer(msg.sender, _recipient, _amount);
         return true;
     }
 
@@ -615,10 +628,13 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) external virtual override returns (bool){
-        _transfer(sender, recipient, amount);
-        uint256 newAllowance = allowances[sender][msg.sender] - amount;
-        _approve(sender, msg.sender, newAllowance);
+    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual override returns (bool){
+        //TODO URGENT require(allowances[_sender][msg.sender] > 0, "no allowance");
+        //require(allowances[_sender][msg.sender] >= _amount, "unsufficient allowance");
+        _transfer(_sender, _recipient, _amount);
+        uint256 newAllowance = allowances[_sender][msg.sender] - _amount;
+        _approve(_sender, msg.sender, newAllowance);
+        emit Transfer(_sender, _recipient, _amount);
         return true;
     }
 
@@ -636,20 +652,38 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next block consensus committee.
     */
-    function finalize() external virtual onlyProtocol
-    returns (bool, CommitteeMember[] memory) {
+    function finalize() external virtual onlyProtocol returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
         if (epochEnded) {
-            _performRedistribution();
+            // We first calculate the new NTN injected supply for this epoch
+            uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(
+                stakeSupply,
+                inflationReserve,
+                lastEpochTime,
+                block.timestamp
+            );
+            if (inflationReserve < _inflationReward){
+                // If this code path is taken there is something deeply wrong happening in the inflation controller
+                // contract.
+                _inflationReward = inflationReserve;
+            }
+            // mint inflation NTN with the AC recipient
+            // all rewards belong to the Autonity Contract before redistribution.
+            _mint(address(this), _inflationReward);
+            inflationReserve -= _inflationReward;
+            // redistribute ATN tx fees and newly minted NTN inflation reward
+            _performRedistribution(address(this).balance, _inflationReward);
+            // end of epoch here
             _stakingOperations();
             _applyNewCommissionRates();
-            address[] memory voters = computeCommittee();
-            config.contracts.oracleContract.setVoters(voters);
+            address[] memory _voters = computeCommittee();
+            config.contracts.oracleContract.setVoters(_voters);
             lastEpochBlock = block.number;
+            lastEpochTime = block.timestamp;
             epochID += 1;
             emit NewEpoch(epochID);
         }
@@ -908,59 +942,81 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     */
 
     /**
-    * @notice Perform Auton reward distribution. The transaction fees
+    * @notice Perform ATN and NTN reward distribution. The rewards fees
     * are simply re-distributed to all stake-holders, including validators,
     * pro-rata the amount of stake held.
     * @dev Emit a {Rewarded} event for every account that collected rewards.
+    * @param _atn: Amount of ATN to be redistributed. The source funds will be taken from
+    * this contract balance.
+    * @param _ntn: Amount of NTN to be redistributed. The source funds will be minted here.
     */
-    function _performRedistribution() internal virtual {
-        if (address(this).balance == 0) {
+    function _performRedistribution(uint256 _atn, uint256 _ntn) internal virtual {
+        // exit early if nothing to redistribute.
+        if (_atn == 0 && _ntn == 0) {
             return;
         }
-        uint256 _amount = address(this).balance;
-        // take treasury fee.
-        uint256 _treasuryReward = (config.policy.treasuryFee * _amount) / 10 ** 18;
-        if (_treasuryReward > 0) {
+        // Take ATN treasury fee.
+        uint256 _atnTreasuryReward = (config.policy.treasuryFee * _atn) / 10 ** 18;
+        if (_atnTreasuryReward > 0) {
             // Using "call" to let the treasury contract do any kind of computation on receive.
-            (bool sent,) = config.policy.treasuryAccount.call{value: _treasuryReward}("");
+            (bool sent,) = config.policy.treasuryAccount.call{value: _atnTreasuryReward}("");
             if (sent == true) {
-                _amount -= _treasuryReward;
+                _atn -= _atnTreasuryReward;
             }
         }
         // Redistribute fees through the Liquid Newton contract
-        totalRedistributed += _amount;
+        atnTotalRedistributed += _atn;
         for (uint256 i = 0; i < committee.length; i++) {
             Validator storage _val = validators[committee[i].addr];
             // votingPower in the committee struct is the amount of bonded-stake pre-slashing event.
-            uint256 _reward = (committee[i].votingPower * _amount) / epochTotalBondedStake;
-            if (_reward > 0) {
+            uint256 _atnReward = (committee[i].votingPower * _atn) / epochTotalBondedStake;
+            uint256 _ntnReward = (committee[i].votingPower * _ntn) / epochTotalBondedStake;
+            if (_atnReward > 0 || _ntnReward > 0) {
                 // committee members in the jailed state were just found guilty in the current epoch.
                 // committee members in jailbound state are permanently jailed
                 if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
-                    config.contracts.accountabilityContract.distributeRewards{value: _reward}(committee[i].addr);
+                    _transfer(address(this), address(config.contracts.accountabilityContract), _ntnReward);
+                    config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[i].addr, _ntnReward);
                     continue;
                 }
                 // non-jailed validators have a strict amount of bonded newton.
                 // the distribution account for the PAS ratio post-slashing.
-                uint256 _selfReward = (_val.selfBondedStake * _reward) / _val.bondedStake;
-                uint256 _delegationReward = _reward - _selfReward;
-                if (_selfReward > 0) {
+                uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;
+                if (_atnSelfReward > 0) {
                     // todo: handle failure scenario here although not critical.
-                    _val.treasury.call{value: _selfReward, gas: 2300}("");
+                    _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
                 }
-                if (_delegationReward > 0) {
-                    _val.liquidContract.redistribute{value: _delegationReward}();
+                uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
+                if (_ntnSelfReward > 0) {
+                    _transfer(address(this), _val.treasury, _ntnSelfReward);
                 }
-                emit Rewarded(_val.nodeAddress, _reward);
+                uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
+                uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
+                if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
+                    _transfer(address(this), address(_val.liquidContract), _ntnDelegationReward);
+                    _val.liquidContract.redistribute{value: _atnDelegationReward}(_ntnDelegationReward);
+                }
+                // TODO: This has to be reconsidered - I feel it is too expensive
+                // to emit an event per validator. But what is our recommend way to track rewards
+                // from a user perspective then ?
+                emit Rewarded(_val.nodeAddress, _atnReward, _ntnReward);
             }
         }
     }
 
+    // @dev No side effects on this function, so safe to be called in the middle of something (but may revert).
+    // We may want to switch to OZ's ERC20 at one point to deal with callbacks
+    // but we'll have to deal with re-entrency stuff in this case. For the time being we are conservative.
     function _transfer(address _sender, address _recipient, uint256 _amount) internal virtual {
         require(accounts[_sender] >= _amount, "amount exceeds balance");
         accounts[_sender] -= _amount;
         accounts[_recipient] += _amount;
-        emit Transfer(_sender, _recipient, _amount);
+    }
+
+    function _mint(address _addr, uint256 _amount) internal virtual {
+        accounts[_addr] += _amount;
+        stakeSupply += _amount;
+        emit MintedStake(_addr, _amount);
     }
 
     /**

@@ -17,3 +17,4 @@ import "./asm/SupplyControl.sol";
 import "./AutonityUpgradeTest.sol";
 import "./Tests.sol";
 import "./UpgradeManager.sol";
+import "./InflationController.sol";
