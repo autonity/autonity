@@ -18,6 +18,8 @@ import (
 )
 
 var (
+	operator = &runOptions{origin: defaultAutonityConfig.Protocol.OperatorAccount}
+
 	// todo: replicate truffle tests default config.
 	defaultAutonityConfig = AutonityConfig{
 		Policy: AutonityPolicy{
@@ -78,13 +80,16 @@ type runner struct {
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	autonity       *Autonity
-	accountability *Accountability
-	oracle         *Oracle
-	acu            *ACU
-	supplyControl  *SupplyControl
-	stabilization  *Stabilization
-	UpgradeManager *UpgradeManager
+	autonity            *Autonity
+	accountability      *Accountability
+	oracle              *Oracle
+	acu                 *ACU
+	supplyControl       *SupplyControl
+	stabilization       *Stabilization
+	upgradeManager      *UpgradeManager
+	inflationController *InflationController
+
+	validators []AutonityValidator // genesis validators for easy access
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -208,11 +213,11 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	//
 	// Step 1: Autonity Contract Deployment
 	//
-	validators := make([]AutonityValidator, 0, len(params.TestAutonityContractConfig.Validators))
+	r.validators = make([]AutonityValidator, 0, len(params.TestAutonityContractConfig.Validators))
 	for _, v := range params.TestAutonityContractConfig.Validators {
-		validators = append(validators, genesisToAutonityVal(v))
+		r.validators = append(r.validators, genesisToAutonityVal(v))
 	}
-	_, _, r.autonity, err = r.deployAutonity(nil, validators, defaultAutonityConfig)
+	_, _, r.autonity, err = r.deployAutonity(nil, r.validators, defaultAutonityConfig)
 	require.NoError(t, err)
 	require.Equal(t, r.autonity.address, params.AutonityContractAddress)
 	_, err = r.autonity.FinalizeInitialization(nil)
@@ -293,11 +298,24 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	//
 	// Step 7: Upgrade Manager contract deployment
 	//
-	_, _, r.UpgradeManager, err = r.deployUpgradeManager(nil,
+	_, _, r.upgradeManager, err = r.deployUpgradeManager(nil,
 		r.autonity.address,
 		defaultAutonityConfig.Protocol.OperatorAccount)
 	require.NoError(t, err)
-	require.Equal(t, r.UpgradeManager.address, params.UpgradeManagerContractAddress)
+	require.Equal(t, r.upgradeManager.address, params.UpgradeManagerContractAddress)
+
+	//
+	// Step 8: Deploy Inflation Controller
+	//
+	p := &InflationControllerParams{
+		IInit:  (*big.Int)(params.DefaultInflationControllerGenesis.IInit),
+		ITrans: (*big.Int)(params.DefaultInflationControllerGenesis.ITrans),
+		AE:     (*big.Int)(params.DefaultInflationControllerGenesis.Ae),
+		T:      (*big.Int)(params.DefaultInflationControllerGenesis.T),
+		IPerm:  (*big.Int)(params.DefaultInflationControllerGenesis.IPerm),
+	}
+	_, _, r.inflationController, err = r.deployInflationController(nil, *p)
+	require.NoError(r.t, err)
 	return r
 }
 

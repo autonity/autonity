@@ -244,14 +244,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   }
   const stabilization = await Stabilization.new(config,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
-  const inflationController = await InflationController.new({
-    "iInit": 0,
-    "iTrans": 0,
-    "aE": 0,
-    "T": 0,
-    "iPerm": 0,
-  } ,{from:deployer})
-  // setters
+
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
   
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
@@ -260,15 +253,28 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
-  await autonity.setInflationControllerContract(inflationController.address, {from:operator});
+
   await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
 }
 
 // deploys protocol contracts
 const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+    // we deploy first the inflation controller contract because it requires a genesis timestamp
+    // greater than the one of the autonity contract. This is obviously not going to happen for a real network but
+    // we can't really simulate a proper genesis sequence with truffle. As consequence all calculations
+    // regarding the inflation rate will be wrong here which should be tested using the native go framework.
+    const inflationController = await InflationController.new({
+      "iInit": "0x8dc0fa1e",
+      "iTrans": "0x67f3ea9f",
+      "aE": "0x13d4d3edc8088000",
+      "T": "0x685807f13a9c4278000000",
+      "iPerm": "0x147820d72",
+    } ,{from:deployer})
     // autonity contract
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
+    await autonity.setInflationControllerContract(inflationController.address, {from:operator});
     await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
+
     return autonity;
 };
 
