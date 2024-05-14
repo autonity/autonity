@@ -68,7 +68,7 @@ contract ScheduleBase {
         }
     }
 
-    function _calculateUnlockedFundsAtTime(
+    function _calculateAvailableUnlockedFunds(
         uint256 _scheduleID, uint256 _totalValue, uint256 _time
     ) internal view returns (uint256) {
         Schedule storage _schedule = schedules[_scheduleID];

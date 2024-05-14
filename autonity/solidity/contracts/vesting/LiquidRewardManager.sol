@@ -15,16 +15,20 @@ contract LiquidRewardManager {
     uint256 private constant OFFSET = 1;
 
     struct LiquidInfo {
-        uint256 lastUnrealisedFeeFactor;
-        uint256 unclaimedRewards;
+        uint256 atnLastUnrealisedFeeFactor;
+        uint256 atnUnclaimedRewards;
+        uint256 ntnLastUnrealisedFeeFactor;
+        uint256 ntnUnclaimedRewards;
         Liquid liquidContract;
     }
 
     struct Account {
         uint256 liquidBalance;
         uint256 lockedLiquidBalance;
-        uint256 realisedFee;
-        uint256 unrealisedFeeFactor;
+        uint256 atnRealisedFee;
+        uint256 atnUnrealisedFeeFactor;
+        uint256 ntnRealisedFee;
+        uint256 ntnUnrealisedFeeFactor;
         bool initiated;
         bool newBondingRequested;
     }
@@ -62,11 +66,7 @@ contract LiquidRewardManager {
         if (_account.initiated) {
             return;
         }
-        _account.realisedFee = OFFSET;
-        _account.unrealisedFeeFactor = OFFSET;
-        _account.liquidBalance = OFFSET;
-        _account.lockedLiquidBalance = OFFSET;
-        _account.initiated = true;
+        accounts[_id][_validator] = Account(OFFSET, OFFSET, OFFSET, OFFSET, OFFSET, OFFSET, true, false);
     }
 
     function _unlock(uint256 _id, address _validator, uint256 _amount) internal {
@@ -104,17 +104,28 @@ contract LiquidRewardManager {
     /**
      * @dev _updateUnclaimedReward or _claimRewards must be called before this function
      */
-    function _realiseFees(uint256 _id, address _validator) private returns (uint256 _realisedFees) {
-        uint256 _lastUnrealisedFeeFactor = liquidInfo[_validator].lastUnrealisedFeeFactor;
+    function _realiseFees(uint256 _id, address _validator) private returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) {
+        uint256 _atnLastUnrealisedFeeFactor = liquidInfo[_validator].atnLastUnrealisedFeeFactor;
         Account storage _account = accounts[_id][_validator];
-        _realisedFees = _account.realisedFee
+        uint256 _balance = _account.liquidBalance-OFFSET;
+        _atnRealisedFees = _account.atnRealisedFee
                         + _computeUnrealisedFees(
-                            _account.liquidBalance-OFFSET, _account.unrealisedFeeFactor, _lastUnrealisedFeeFactor
+                            _balance, _account.atnUnrealisedFeeFactor, _atnLastUnrealisedFeeFactor
                         );
-        _account.realisedFee = _realisedFees;
-        _account.unrealisedFeeFactor = _lastUnrealisedFeeFactor;
+        _account.atnRealisedFee = _atnRealisedFees;
+        _account.atnUnrealisedFeeFactor = _atnLastUnrealisedFeeFactor;
         // remove the offset
-        _realisedFees -= OFFSET;
+        _atnRealisedFees -= OFFSET;
+
+        uint256 _ntnLastUnrealisedFeeFactor = liquidInfo[_validator].ntnLastUnrealisedFeeFactor;
+        _ntnRealisedFees = _account.ntnRealisedFee
+                        + _computeUnrealisedFees(
+                            _balance, _account.ntnUnrealisedFeeFactor, _ntnLastUnrealisedFeeFactor
+                        );
+        _account.ntnRealisedFee = _ntnRealisedFees;
+        _account.ntnUnrealisedFeeFactor = _ntnLastUnrealisedFeeFactor;
+        // remove the offset
+        _ntnRealisedFees -= OFFSET;
     }
 
     function _computeUnrealisedFees(
@@ -135,29 +146,30 @@ contract LiquidRewardManager {
         _updateUnclaimedReward(_validator);
         // because all the rewards are being claimed
         // offset by 1
-        _liquidInfo.unclaimedRewards = OFFSET;
+        _liquidInfo.atnUnclaimedRewards = OFFSET;
+        _liquidInfo.ntnUnclaimedRewards = OFFSET;
         _liquidInfo.liquidContract.claimRewards();
     }
 
     /**
-     * @dev call _claimRewards(_id) only when rewards are claimed
-     * calculates total rewards for a schedule and resets realisedFees[id][validator] as reward is claimed
+     * @dev calculates total rewards for a schedule and resets realisedFees[id][validator] as reward is claimed
      */ 
-    function _claimRewards(uint256 _id) internal returns (uint256) {
+    function _claimRewards(uint256 _id) internal returns (uint256 _atnTotalFees, uint256 _ntnTotalFees) {
         address[] memory _validators = bondedValidators[_id];
-        uint256 _totalFees;
         for (uint256 i = 0; i < _validators.length; i++) {
             _claimRewards(_validators[i]);
-            _totalFees += _realiseFees(_id, _validators[i]);
-            accounts[_id][_validators[i]].realisedFee = OFFSET;
+            (uint256 _atnFee, uint256 _ntnFee) = _realiseFees(_id, _validators[i]);
+            _atnTotalFees += _atnFee;
+            _ntnTotalFees += _ntnFee;
+            accounts[_id][_validators[i]].atnRealisedFee = OFFSET;
+            accounts[_id][_validators[i]].ntnRealisedFee = OFFSET;
         }
-        return _totalFees;
     }
 
     function _initiateValidator(address _validator) private {
         Liquid _contract = autonity.getValidator(_validator).liquidContract;
         // offset by 1
-        liquidInfo[_validator] = LiquidInfo(OFFSET, OFFSET, _contract);
+        liquidInfo[_validator] = LiquidInfo(OFFSET, OFFSET, OFFSET, OFFSET, _contract);
     }
 
     /**
@@ -169,7 +181,7 @@ contract LiquidRewardManager {
         _validators.push(_validator);
         // offset by 1 to handle empty value
         validatorIdx[_id][_validator] = _validators.length;
-        if (liquidInfo[_validator].liquidContract == Liquid(address(0))) {
+        if (address(liquidInfo[_validator].liquidContract) == address(0)) {
             _initiateValidator(_validator);
         }
     }
@@ -190,7 +202,8 @@ contract LiquidRewardManager {
             // if liquidBalance is 0, then unrealisedFee is 0
             // if both liquidBalance and realisedFee are 0 and no new bonding is requested then the validator is not needed anymore
             while (
-                _account.newBondingRequested == false && _account.liquidBalance == OFFSET && _account.realisedFee == OFFSET
+                _account.newBondingRequested == false && _account.liquidBalance == OFFSET
+                && _account.atnRealisedFee == OFFSET && _account.ntnRealisedFee == OFFSET
             ) {
                 _removeValidator(_id, _validators[i]);
                 if (i >= _validators.length) {
@@ -232,46 +245,59 @@ contract LiquidRewardManager {
         if (_totalLiquid == 0) {
             return;
         }
-        // _reward is increased by the same OFFSET of _liquidInfo.unclaimedRewards
-        uint256 _reward = _contract.unclaimedRewards(address(this))+OFFSET;
-        _liquidInfo.lastUnrealisedFeeFactor += (_reward-_liquidInfo.unclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
-        _liquidInfo.unclaimedRewards = _reward;
+        // reward is increased by  OFFSET
+        (uint256 _atnReward, uint256 _ntnReward) = _contract.unclaimedRewards(address(this));
+        _atnReward += OFFSET;
+        _liquidInfo.atnLastUnrealisedFeeFactor += (_atnReward-_liquidInfo.atnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+        _liquidInfo.atnUnclaimedRewards = _atnReward;
+
+        _ntnReward += OFFSET;
+        _liquidInfo.ntnLastUnrealisedFeeFactor += (_ntnReward-_liquidInfo.ntnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+        _liquidInfo.ntnUnclaimedRewards = _ntnReward;
     }
 
     /**
      * @dev fetches the unclaimedRewards from liquid contract and calculates the changes in lastUnrealisedFeeFactor
      * but does not update any state variable. This function exists only to support _unclaimedRewards to act as view only function
      */
-    function _unfetchedFeeFactor(address _validator) private view returns (uint256) {
+    function _unfetchedFeeFactor(address _validator) private view returns (uint256 _atnFeeFactor, uint256 _ntnFeeFactor) {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
         Liquid _contract = _liquidInfo.liquidContract;
         uint256 _totalLiquid = _contract.balanceOf(address(this));
-        if (_totalLiquid == 0) {
-            return 0;
+        if (_totalLiquid > 0) {
+            // reward is increased by  OFFSET
+            (uint256 _atnReward, uint256 _ntnReward) = _contract.unclaimedRewards(address(this));
+            _atnFeeFactor = (_atnReward+OFFSET-_liquidInfo.atnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+            _ntnFeeFactor = (_ntnReward+OFFSET-_liquidInfo.ntnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
         }
-        // _contract.unclaimedRewards is increased by the same OFFSET of _liquidInfo.unclaimedRewards
-        return (_contract.unclaimedRewards(address(this))+OFFSET-_liquidInfo.unclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
     }
 
     /**
      * @dev calculates the rewards yet to claim for _id
      */
-    function _unclaimedRewards(uint256 _id) internal view returns (uint256) {
+    function _unclaimedRewards(uint256 _id) internal view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
         uint256 _totalFee;
         address[] memory _validators = bondedValidators[_id];
         for (uint256 i = 0; i < _validators.length; i++) {
-            uint256 _lastUnrealisedFeeFactor = liquidInfo[_validators[i]].lastUnrealisedFeeFactor
-                                                + _unfetchedFeeFactor(_validators[i]);
+            (uint256 _atnLastUnrealisedFeeFactor, uint256 _ntnLastUnrealisedFeeFactor) = _unfetchedFeeFactor(_validators[i]);
+            LiquidInfo storage _liquidInfo = liquidInfo[_validators[i]];
+            _atnLastUnrealisedFeeFactor += _liquidInfo.atnLastUnrealisedFeeFactor;
+            _ntnLastUnrealisedFeeFactor += _liquidInfo.ntnLastUnrealisedFeeFactor;
 
             Account storage _account = accounts[_id][_validators[i]];
+            uint256 _balance = _account.liquidBalance-OFFSET;
             // remove offset from realisedFee
-            _totalFee += _account.realisedFee - OFFSET
+            _atnTotalFee += _account.atnRealisedFee - OFFSET
                         + _computeUnrealisedFees(
-                            _account.liquidBalance-OFFSET, _account.unrealisedFeeFactor, _lastUnrealisedFeeFactor
+                            _balance, _account.atnUnrealisedFeeFactor, _atnLastUnrealisedFeeFactor
+                        );
+
+            _ntnTotalFee += _account.ntnRealisedFee - OFFSET
+                        + _computeUnrealisedFees(
+                            _balance, _account.ntnUnrealisedFeeFactor, _ntnLastUnrealisedFeeFactor
                         );
         
         }
-        return _totalFee;
     }
 
     function _isNewBondingRequested(uint256 _id, address _validator) internal view returns (bool) {

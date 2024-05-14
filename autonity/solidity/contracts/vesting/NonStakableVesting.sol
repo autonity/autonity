@@ -137,7 +137,7 @@ contract NonStakableVesting is ScheduleBase {
      * the unlocked tokens are minted by calling the function unlockTokens()
      */
     function _unlockedFunds(uint256 _scheduleID) private view returns (uint256) {
-        return _calculateUnlockedFundsAtTime(
+        return _calculateAvailableUnlockedFunds(
             _scheduleID,
             _calculateTotalValue(_scheduleID),
             scheduleClasses[classID[_scheduleID]].lastUnlockTime

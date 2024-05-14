@@ -58,7 +58,8 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
 
     // AUT rewards entitled to some beneficiary for bonding from some schedule before it has been cancelled
     // see cancelSchedule for more clarity.
-    mapping(address => uint256) private rewards;
+    mapping(address => uint256) private atnRewards;
+    mapping(address => uint256) private ntnRewards;
 
     constructor(
         address payable _autonity, address _operator
@@ -158,8 +159,8 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
     /**
      * @notice changes the beneficiary of some schedule to the _recipient address. _recipient can release and stake tokens from the schedule.
      * only operator is able to call this function.
-     * rewards (AUT) which have been entitled to the beneficiary due to bonding from this schedule are not transferred to _recipient
-     * @dev rewards (AUT) earned until this point from this schedule are calculated and stored in rewards[_beneficiary] mapping so that
+     * rewards which have been entitled to the beneficiary due to bonding from this schedule are not transferred to _recipient
+     * @dev rewards earned until this point from this schedule are calculated and stored in atnRewards and ntnRewards mapping so that
      * _beneficiary can later claim them even though _beneficiary is not entitled to this schedule.
      * @param _beneficiary beneficiary address whose schedule will be canceled
      * @param _id schedule id numbered from 0 to (n-1); n = total schedules entitled to the beneficiary (excluding already canceled ones)
@@ -169,7 +170,9 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
         uint256 _scheduleID = _getUniqueScheduleID(_beneficiary, _id);
-        rewards[_beneficiary] += _claimRewards(_scheduleID);
+        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_scheduleID);
+        atnRewards[_beneficiary] += _atnReward;
+        ntnRewards[_beneficiary] += _ntnReward;
         _cancelSchedule(_beneficiary, _id, _recipient);
     }
 
@@ -238,22 +241,30 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
     }
 
     /**
-     * @notice used by beneficiary to claim all rewards (AUT) which is entitled due to bonding
+     * @notice used by beneficiary to claim all rewards which is entitled due to bonding
      * @dev Rewards from some cancelled schedules are stored in rewards mapping. All rewards from
      * schedules that are still entitled to the beneficiary need to be calculated via _claimRewards
      */
     function claimRewards() virtual external {
         uint256[] storage _scheduleIDs = beneficiarySchedules[msg.sender];
-        uint256 _totalFees = rewards[msg.sender];
-        rewards[msg.sender] = 0;
+        uint256 _atnTotalFees = atnRewards[msg.sender];
+        uint256 _ntnTotalFees = ntnRewards[msg.sender];
+        atnRewards[msg.sender] = 0;
+        ntnRewards[msg.sender] = 0;
+        
         for (uint256 i = 0; i < _scheduleIDs.length; i++) {
             _cleanup(_scheduleIDs[i]);
-            _totalFees += _claimRewards(_scheduleIDs[i]);
+            (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_scheduleIDs[i]);
+            _atnTotalFees += _atnReward;
+            _ntnTotalFees += _ntnReward;
         }
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
-        (bool _sent, ) = msg.sender.call{value: _totalFees}("");
+        (bool _sent, ) = msg.sender.call{value: _atnTotalFees}("");
         require(_sent, "Failed to send AUT");
+
+        _sent = autonity.transfer(msg.sender, _ntnTotalFees);
+        require(_sent, "Failed to send NTN");
     }
 
     /**
@@ -377,7 +388,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
      * @dev calculates the amount of unlocked funds in NTN until last epoch block time
      */
     function _unlockedFunds(uint256 _scheduleID) private view returns (uint256) {
-        return _calculateUnlockedFundsAtTime(
+        return _calculateAvailableUnlockedFunds(
             _scheduleID, _calculateTotalValue(_scheduleID), autonity.lastEpochBlockTime()
         );
     }
@@ -578,16 +589,18 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
     }
 
     /**
-     * @notice returns the amount of all unclaimed rewards (AUT) due to all the bonding from schedules entitled to beneficiary
+     * @notice returns the amount of all unclaimed rewards due to all the bonding from schedules entitled to beneficiary
      * @param _beneficiary beneficiary address
      */
-    function unclaimedRewards(address _beneficiary) virtual external view returns (uint256) {
-        uint256 _totalFee = rewards[_beneficiary];
+    function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
+        _atnTotalFee = atnRewards[_beneficiary];
+        _ntnTotalFee = ntnRewards[_beneficiary];
         uint256[] storage _scheduleIDs = beneficiarySchedules[_beneficiary];
         for (uint256 i = 0; i < _scheduleIDs.length; i++) {
-            _totalFee += _unclaimedRewards(_scheduleIDs[i]);
+            (uint256 _atnFee, uint256 _ntnFee) = _unclaimedRewards(_scheduleIDs[i]);
+            _atnTotalFee += _atnFee;
+            _ntnTotalFee += _ntnFee;
         }
-        return _totalFee;
     }
 
     /**
