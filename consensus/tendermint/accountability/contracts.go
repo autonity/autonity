@@ -718,6 +718,7 @@ func decodeRawProof(b []byte) (*Proof, error) {
 
 // verifyProofSignatures checks if the consensus message is from valid member of the committee.
 func verifyProofSignatures(chain ChainContext, p *Proof) error {
+	/*  //TODO(lorenzo) fix, might need to verify single message signatures here --> DoS?
 	h := p.Message.H()
 	lastHeader := chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
@@ -747,6 +748,7 @@ func verifyProofSignatures(chain ChainContext, p *Proof) error {
 			return err
 		}
 	}
+	*/
 	return nil
 }
 

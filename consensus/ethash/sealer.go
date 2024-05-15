@@ -22,10 +22,6 @@ import (
 	crand "crypto/rand"
 	"encoding/json"
 	"errors"
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/hexutil"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/core/types"
 	"math"
 	"math/big"
 	"math/rand"
@@ -33,6 +29,11 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core/types"
 )
 
 const (
@@ -44,6 +45,8 @@ var (
 	errNoMiningWork      = errors.New("no mining work available yet")
 	errInvalidSealResult = errors.New("invalid or stale proof-of-work solution")
 )
+
+func (ethash *Ethash) SetResultChan(_ chan<- *types.Block) {}
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
@@ -338,10 +341,11 @@ func (s *remoteSealer) loop() {
 // makeWork creates a work package for external miner.
 //
 // The work package consists of 3 strings:
-//   result[0], 32 bytes hex encoded current block header pow-hash
-//   result[1], 32 bytes hex encoded seed hash used for DAG
-//   result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
-//   result[3], hex encoded block number
+//
+//	result[0], 32 bytes hex encoded current block header pow-hash
+//	result[1], 32 bytes hex encoded seed hash used for DAG
+//	result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
+//	result[3], hex encoded block number
 func (s *remoteSealer) makeWork(block *types.Block) {
 	hash := s.ethash.SealHash(block.Header())
 	s.currentWork[0] = hash.Hex()

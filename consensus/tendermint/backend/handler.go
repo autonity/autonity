@@ -63,9 +63,6 @@ func (sb *Backend) HandleMsg(p2pSender common.Address, msg p2p.Msg, errCh chan<-
 		return false, nil
 	}
 
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
 	switch msg.Code {
 	case ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, p2pSender, msg, errCh)
@@ -74,14 +71,14 @@ func (sb *Backend) HandleMsg(p2pSender common.Address, msg p2p.Msg, errCh chan<-
 	case PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, p2pSender, msg, errCh)
 	case SyncNetworkMsg:
-		if !sb.coreStarted {
+		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
 		sb.logger.Debug("Received sync message", "from", p2pSender)
 		go sb.Post(events.SyncEvent{Addr: p2pSender})
 	case AccountabilityNetworkMsg:
-		if !sb.coreStarted {
+		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
 		}
@@ -112,7 +109,8 @@ func handleConsensusMsg[T any, PT interface {
 		return true, err
 	}
 	p2pMsg.Payload = bytes.NewReader(buffer.Bytes())
-	if !sb.coreStarted {
+
+	if !sb.coreRunning.Load() {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: p2pSender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
@@ -173,7 +171,8 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, p2pSend
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
-		for _, sender := range vote.Senders().Addresses() {
+		for _, senderIndex := range vote.Senders().FlattenUniq() {
+			sender := header.Committee[senderIndex].Address
 			if sb.IsJailed(sender) {
 				sb.logger.Debug("Vote message contains signature from jailed validator, ignoring message", "address", sender)
 				// same
@@ -282,9 +281,7 @@ func (sb *Backend) SetEnqueuer(enqueuer consensus.Enqueuer) {
 }
 
 func (sb *Backend) NewChainHead() error {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-	if !sb.coreStarted {
+	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
 	go sb.Post(events.CommitEvent{})

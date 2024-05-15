@@ -301,7 +301,7 @@ func TestHandleMsg(t *testing.T) {
 		backendMock.EXPECT().IsJailed(sender.Address).Return(tc.jailed).MaxTimes(1)
 
 		logger := log.New("backend", "test", "id", 3)
-		c := New(backendMock, nil, currentValidator.Address, logger)
+		c := New(backendMock, nil, currentValidator.Address, logger, false)
 
 		c.height = tc.height
 		c.round = tc.round
@@ -364,7 +364,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	c := New(backendMock, nil, common.HexToAddress("0x0123456789"), log.Root())
+	c := New(backendMock, nil, common.HexToAddress("0x0123456789"), log.Root(), false)
 	_, c.cancel = context.WithCancel(context.Background())
 	c.subscribeEvents()
 	c.stopped <- struct{}{}

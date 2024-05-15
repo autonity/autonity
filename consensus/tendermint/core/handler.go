@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/metrics"
 )
 
 // todo: resolve proper tendermint state synchronization timeout from block period.
@@ -102,6 +103,20 @@ func shouldDisconnectSender(err error) bool {
 	}
 }
 
+func recordMessageProcessingTime(code uint8, start time.Time) {
+	switch code {
+	case message.ProposalCode:
+		MsgProposalBg.Add(time.Since(start).Nanoseconds())
+		MsgProposalPackets.Mark(1)
+	case message.PrevoteCode:
+		MsgPrevoteBg.Add(time.Since(start).Nanoseconds())
+		MsgPrevotePackets.Mark(1)
+	case message.PrecommitCode:
+		MsgPrecommitBg.Add(time.Since(start).Nanoseconds())
+		MsgPrecommitPackets.Mark(1)
+	}
+}
+
 func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	quorum := false
 	switch code {
@@ -136,6 +151,7 @@ eventLoop:
 	for {
 		select {
 		case ev, ok := <-c.messageSub.Chan():
+			start := time.Now()
 			if !ok {
 				break eventLoop
 			}
@@ -144,8 +160,11 @@ eventLoop:
 			case events.MessageEvent:
 				msg := e.Message
 
-				// check if we have quorum for message type for this round
-				hadQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				var hadQuorum bool
+				if !c.noGossip {
+					// check if we have quorum for message type for this round
+					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				}
 
 				if err := c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
@@ -156,26 +175,33 @@ eventLoop:
 					break
 				}
 
-				if !hadQuorum {
-					// if we did not have quorum and we reached it now
-					// gossip the (complex) aggregate with quorum to everyone instead of the current message
-					hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
-					if hasQuorum {
-						c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
-						break // do not gossip single message, only complex aggregate
+				if !c.noGossip {
+					if !hadQuorum {
+						// if we did not have quorum and we reached it now
+						// gossip the (complex) aggregate with quorum to everyone instead of the current message
+						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						if hasQuorum {
+							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+							recordMessageProcessingTime(msg.Code(), start)
+							break // do not gossip single message, only complex aggregate
+						}
 					}
-				}
 
-				// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-				c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
+					c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					recordMessageProcessingTime(msg.Code(), start)
+				}
 			case backlogMessageEvent:
 				// TODO(lorenzo) refinements, should we check for disconnection also here?
 				// I am not sure we can get the error ch though
 
 				msg := e.msg
 
-				// check if we have quorum for message type for this round
-				hadQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				var hadQuorum bool
+				if !c.noGossip {
+					// check if we have quorum for message type for this round
+					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				}
 
 				c.logger.Debug("Handling consensus backlog event")
 				if err := c.handleMsg(ctx, msg); err != nil {
@@ -183,18 +209,22 @@ eventLoop:
 					continue
 				}
 
-				if !hadQuorum {
-					// if we did not have quorum and we reached it now
-					// gossip the (complex) aggregate with quorum to everyone instead of the current message
-					hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
-					if hasQuorum {
-						c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
-						break // do not gossip single message, only complex aggregate
+				if !c.noGossip {
+					if !hadQuorum {
+						// if we did not have quorum and we reached it now
+						// gossip the (complex) aggregate with quorum to everyone instead of the current message
+						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						if hasQuorum {
+							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+							recordMessageProcessingTime(msg.Code(), start)
+							break // do not gossip single message, only complex aggregate
+						}
 					}
-				}
 
-				// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-				c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
+					c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					recordMessageProcessingTime(msg.Code(), start)
+				}
 			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -231,6 +261,9 @@ eventLoop:
 				break eventLoop
 			}
 			newCandidateBlockEvent := ev.Data.(events.NewCandidateBlockEvent)
+			if metrics.Enabled && c.IsProposer() {
+				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
+			}
 			pb := &newCandidateBlockEvent.NewCandidateBlock
 			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
 		case <-ctx.Done():
@@ -335,6 +368,20 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		r := msg.R()
 		c.futureRoundLock.Lock()
 		c.futureRound[r] = append(c.futureRound[r], msg)
+
+		// update future power
+		_, ok := c.futurePower[r]
+		if !ok {
+			c.futurePower[r] = message.NewPowerInfo()
+		}
+		switch m := msg.(type) {
+		case *message.Propose:
+			c.futurePower[r].Set(m.SenderIndex(), m.Power())
+		case *message.Prevote, *message.Precommit:
+			for index, power := range m.(message.Vote).Senders().Powers() {
+				c.futurePower[r].Set(index, power)
+			}
+		}
 		c.futureRoundLock.Unlock()
 
 		c.backend.Post(events.FuturePowerChangeEvent{Height: c.Height().Uint64(), Round: r})

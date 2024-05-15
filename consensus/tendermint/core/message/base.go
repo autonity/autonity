@@ -3,7 +3,6 @@ package message
 import (
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/blst"
@@ -23,7 +22,6 @@ type base struct {
 
 	// populated at PreValidate() phase
 	senderKey blst.PublicKey
-	power     *big.Int
 }
 
 func (b *base) H() uint64 {
@@ -60,10 +58,6 @@ func (b *base) SenderKey() blst.PublicKey {
 	return b.senderKey
 }
 
-func (b *base) Power() *big.Int {
-	return b.power
-}
-
 func (b *base) Validate() error {
 	if b.verified {
 		return nil
@@ -79,8 +73,8 @@ func (b *base) Validate() error {
 }
 
 func (b *base) String() string {
-	return fmt.Sprintf("h: %v, r: %v, power: %v, verified: %v",
-		b.height, b.round, b.power, b.verified)
+	return fmt.Sprintf("h: %v, r: %v, verified: %v",
+		b.height, b.round, b.verified)
 }
 
 /* //TODO(lorenzo) refinements, for later

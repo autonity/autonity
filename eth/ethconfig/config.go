@@ -241,5 +241,6 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 	}
 
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
-	return tendermintBackend.New(nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger())
+	noGossip := ctx.Config().NoGossip
+	return tendermintBackend.New(nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger(), noGossip)
 }

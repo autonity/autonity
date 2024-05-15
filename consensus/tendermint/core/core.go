@@ -20,7 +20,7 @@ import (
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
@@ -29,6 +29,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		logger:                 logger,
 		backend:                backend,
 		futureRound:            make(map[int64][]message.Msg),
+		futurePower:            make(map[int64]*message.PowerInfo),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -42,6 +43,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
+		noGossip:               noGossip,
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -101,6 +103,7 @@ type Core struct {
 	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
 	// they need a lock.
 	futureRound     map[int64][]message.Msg
+	futurePower     map[int64]*message.PowerInfo // power cache for future value msgs (per round)
 	futureRoundLock sync.RWMutex
 
 	sentProposal          bool
@@ -129,8 +132,10 @@ type Core struct {
 	proposer    interfaces.Proposer
 
 	// these timestamps are used to compute metrics for tendermint
-	newHeight time.Time
-	newRound  time.Time
+	newHeight          time.Time
+	newRound           time.Time
+	currBlockTimeStamp time.Time
+	noGossip           bool
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -302,6 +307,7 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 			})
 		}
 		delete(c.futureRound, r)
+		delete(c.futurePower, r)
 	}
 }
 
@@ -366,6 +372,7 @@ func (c *Core) setInitialState(r int64) {
 		c.messages.Reset()
 		c.futureRoundLock.Lock()
 		c.futureRound = make(map[int64][]message.Msg)
+		c.futurePower = make(map[int64]*message.PowerInfo)
 		c.futureRoundLock.Unlock()
 		// update height duration timer
 		if metrics.Enabled {
@@ -525,14 +532,15 @@ func (c *Core) Power(h uint64, r int64) *big.Int {
 		return new(big.Int)
 	}
 
-	var power *big.Int
+	power := new(big.Int)
 	if r > c.Round() {
 		// future round
 		c.futureRoundLock.RLock()
-		futureMsgs := c.futureRound[r]
+		powerInfo, ok := c.futurePower[r]
+		if ok {
+			power = powerInfo.Pow()
+		}
 		c.futureRoundLock.RUnlock()
-
-		power = message.Power(futureMsgs)
 	} else {
 		// old or current round
 		power = c.messages.GetOrCreate(r).Power()
@@ -629,7 +637,6 @@ type Broadcaster struct {
 }
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
-	logger := s.Logger().New("step", s.Step())
-	logger.Debug("Broadcasting", "message", msg.String())
+	s.logger.Debug("Broadcasting", "message", log.Lazy{Fn: msg.String})
 	s.BroadcastAll(msg)
 }

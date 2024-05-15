@@ -275,7 +275,11 @@ func TestCommit(t *testing.T) {
 		_, backend := newBlockChain(4)
 
 		commitCh := make(chan *types.Block, 1)
-		backend.setResultChan(commitCh)
+		backend.SetResultChan(commitCh)
+
+		// signature is not verified when committing, therefore we can just insert a bogus sig
+		seals := make(types.Signatures)
+		seals[backend.address] = testSignature.(*blst.BlsSignature)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		seals := make(types.Signatures)
@@ -481,7 +485,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := new(tdmcore.MsgStore)
 	// Use the first key as private key
-	b := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root())
+	b := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)
@@ -590,6 +594,7 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 	}
 
 	resultCh := make(chan *types.Block)
+	engine.SetResultChan(resultCh)
 	err = engine.Seal(chain, block, resultCh, nil)
 	if err != nil {
 		return nil, err

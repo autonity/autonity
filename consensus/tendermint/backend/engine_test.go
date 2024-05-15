@@ -62,6 +62,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	go eventLoop()
 	seal := func() {
 		resultCh := make(chan *types.Block)
+		engine.SetResultChan(resultCh)
 		err = engine.Seal(chain, block, resultCh, nil)
 		if err != nil {
 			t.Error("seal should not return error", err.Error())
@@ -87,6 +88,7 @@ func TestSealCommitted(t *testing.T) {
 	expectedBlock, _ := engine.AddSeal(block)
 
 	resultCh := make(chan *types.Block)
+	engine.SetResultChan(resultCh)
 	err = engine.Seal(chain, block, resultCh, nil)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -420,10 +422,11 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:    tendermintC,
+			stopped: make(chan struct{}),
 		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -438,10 +441,11 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:    tendermintC,
+			stopped: make(chan struct{}),
 		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -460,10 +464,11 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:    tendermintC,
+			stopped: make(chan struct{}),
 		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -512,10 +517,9 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
 		}
 
 		err := b.Start(ctx)
@@ -524,9 +528,9 @@ func TestStart(t *testing.T) {
 	})
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
-		b := &Backend{
-			coreStarted: true,
-		}
+		b := &Backend{}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Start(context.Background())
 		assertError(t, ErrStartedEngine, err)
@@ -545,11 +549,11 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
 		}
+		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -571,11 +575,11 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
 		}
+		b.coreStarting.Store(false)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -626,11 +630,11 @@ func TestMultipleRestart(t *testing.T) {
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 
 	b := &Backend{
-		core:        tendermintC,
-		gossiper:    g,
-		coreStarted: false,
-		blockchain:  chain,
+		core:       tendermintC,
+		gossiper:   g,
+		blockchain: chain,
 	}
+	b.coreStarting.Store(false)
 
 	for i := 0; i < times; i++ {
 		err := b.Start(ctx)
@@ -659,14 +663,14 @@ func assertNilError(t *testing.T, err error) {
 
 func assertCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if !b.coreStarted {
+	if !b.coreRunning.Load() {
 		t.Fatal("expected core to have started")
 	}
 }
 
 func assertNotCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if b.coreStarted {
+	if b.coreRunning.Load() {
 		t.Fatal("expected core to have stopped")
 	}
 }

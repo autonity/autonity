@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -51,7 +52,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger) *Backend {
+	log log.Logger, noGossip bool) *Backend {
 
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
@@ -62,7 +63,6 @@ func New(nodeKey *ecdsa.PrivateKey,
 		consensusKey:   consensusKey,
 		address:        crypto.PubkeyToAddress(nodeKey.PublicKey),
 		logger:         log,
-		coreStarted:    false,
 		recentMessages: recentMessages,
 		knownMessages:  knownMessages,
 		vmConfig:       vmConfig,
@@ -79,7 +79,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 		backend.gossiper = services.Gossiper(backend)
 	}
 
-	core := tendermintCore.New(backend, services, backend.address, log)
+	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
 	backend.core = core
 
 	backend.aggregator = newAggregator(backend, core, log)
@@ -102,11 +102,11 @@ type Backend struct {
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
 	proposedBlockHash common.Hash
-	coreStarted       bool
+	coreStarting      atomic.Bool
+	coreRunning       atomic.Bool
 	core              interfaces.Core
 	stopped           chan struct{}
 	wg                sync.WaitGroup
-	coreMu            sync.RWMutex
 
 	// used to save consensus messages while core is stopped
 	pendingMessages ring.Ring

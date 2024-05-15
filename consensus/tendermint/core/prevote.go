@@ -2,11 +2,17 @@ package core
 
 import (
 	"context"
+	"math/big"
+	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 type Prevoter struct {
@@ -32,6 +38,9 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote, c.address.String(), "broadcast")
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)
+	if metrics.Enabled {
+		PrevoteSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
+	}
 }
 
 func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {
@@ -70,23 +79,22 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 }
 
 func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevote, from, to string) {
-	currentProposalHash := c.curRoundMessages.ProposalHash()
 	c.logger.Debug(message,
 		"from", from,
 		"to", to,
-		"currentHeight", c.Height(),
+		"currentHeight", log.Lazy{Fn: c.Height},
 		"msgHeight", prevote.H(),
-		"currentRound", c.Round(),
+		"currentRound", log.Lazy{Fn: c.Round},
 		"msgRound", prevote.R(),
 		"currentStep", c.step,
-		"isProposer", c.IsProposer(),
-		"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+		"isProposer", log.Lazy{Fn: c.IsProposer},
+		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", prevote.Value() == common.Hash{},
 		"value", prevote.Value(),
 		"type", "Prevote",
-		"totalVotes", c.curRoundMessages.PrevotesTotalPower(),
-		"totalNilVotes", c.curRoundMessages.PrevotesPower(common.Hash{}),
-		"quorum", c.committee.Quorum(),
-		"VoteProposedBlock", c.curRoundMessages.PrevotesPower(currentProposalHash),
+		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrevotesTotalPower},
+		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(common.Hash{}) }},
+		"quorum", log.Lazy{Fn: c.committee.Quorum},
+		"VoteProposedBlock", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(c.curRoundMessages.ProposalHash()) }},
 	)
 }

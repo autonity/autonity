@@ -432,6 +432,18 @@ func (mr *MockEngineMockRecorder) SealHash(header any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockEngine)(nil).SealHash), header)
 }
 
+// SetResultChan mocks base method.
+func (m *MockEngine) SetResultChan(results chan<- *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetResultChan", results)
+}
+
+// SetResultChan indicates an expected call of SetResultChan.
+func (mr *MockEngineMockRecorder) SetResultChan(results any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResultChan", reflect.TypeOf((*MockEngine)(nil).SetResultChan), results)
+}
+
 // VerifyHeader mocks base method.
 func (m *MockEngine) VerifyHeader(chain ChainHeaderReader, header *types.Header, seal bool) error {
 	m.ctrl.T.Helper()
@@ -718,6 +730,18 @@ func (mr *MockPoWMockRecorder) SealHash(header any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockPoW)(nil).SealHash), header)
 }
 
+// SetResultChan mocks base method.
+func (m *MockPoW) SetResultChan(results chan<- *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetResultChan", results)
+}
+
+// SetResultChan indicates an expected call of SetResultChan.
+func (mr *MockPoWMockRecorder) SetResultChan(results any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResultChan", reflect.TypeOf((*MockPoW)(nil).SetResultChan), results)
+}
+
 // VerifyHeader mocks base method.
 func (m *MockPoW) VerifyHeader(chain ChainHeaderReader, header *types.Header, seal bool) error {
 	m.ctrl.T.Helper()
@@ -912,6 +936,18 @@ func (m *MockBFT) SealHash(header *types.Header) common.Hash {
 func (mr *MockBFTMockRecorder) SealHash(header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockBFT)(nil).SealHash), header)
+}
+
+// SetResultChan mocks base method.
+func (m *MockBFT) SetResultChan(results chan<- *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetResultChan", results)
+}
+
+// SetResultChan indicates an expected call of SetResultChan.
+func (mr *MockBFTMockRecorder) SetResultChan(results any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetResultChan", reflect.TypeOf((*MockBFT)(nil).SetResultChan), results)
 }
 
 // Start mocks base method.

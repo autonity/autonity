@@ -186,6 +186,7 @@ tendermintMsgLoop:
 			if !ok {
 				break tendermintMsgLoop
 			}
+
 			currentHeight := fd.blockchain.CurrentBlock().NumberU64()
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
@@ -195,12 +196,14 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 				if err := fd.processMsg(e.Message); err != nil {
+
 					fd.logger.Warn("Detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
 				//TODO(lorenzo) should we gossip old height messages?
 				// might be useful for accountability, but might be exploitable for DoS
 				// (Jason): No, gossiping does not happens here, it requires the underlying layer to do so.
+
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {
@@ -393,6 +396,10 @@ func (fd *FaultDetector) innocenceProof(p *Proof) (*autonity.AccountabilityEvent
 	case autonity.C1:
 		return fd.innocenceProofC1(p)
 	default:
+		// TODO(lorenzo) apply
+		// whether the accusation comes from off-chain or on-chain
+		// it always gets verified before we try to fetch the innocence proof
+		//panic("Trying to fetch innocence proof for invalid accusation")
 		return nil, errUnprovableRule
 	}
 }
@@ -632,6 +639,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 		proposalsForR := fd.msgStore.Get(func(m message.Msg) bool {
 			return m.Code() == message.ProposalCode && m.R() == proposal.R()
 		}, height, sender)
+
 		// Due to the for loop there must be at least one proposal
 		if len(proposalsForR) > 1 {
 			continue
@@ -641,6 +649,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 		precommits := fd.msgStore.Get(func(m message.Msg) bool {
 			return m.Code() == message.PrecommitCode && m.R() < proposal.R() && m.Value() != nilValue
 		}, height, sender)
+
 		if len(precommits) != 0 {
 			proof := &Proof{
 				Type:      autonity.Misbehaviour,
@@ -651,6 +660,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 			}
 			proofs = append(proofs, proof)
 			fd.logger.Info("Misbehaviour detected", "rule", "PN", "incriminated", sender)
+
 		}
 	}
 	return proofs
@@ -676,6 +686,7 @@ oldProposalLoop:
 		proposalsForR := fd.msgStore.Get(func(m message.Msg) bool {
 			return m.Code() == message.ProposalCode && m.R() == proposal.R()
 		}, height, sender)
+
 		// Due to the for loop there must be at least one proposal
 		if len(proposalsForR) > 1 {
 			continue oldProposalLoop
@@ -710,6 +721,7 @@ oldProposalLoop:
 			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < proposal.R() &&
 				m.Value() != nilValue
 		}, height, sender)
+
 		if len(precommitsFromPiAfterVR) > 0 {
 			proof := &Proof{
 				Type:      autonity.Misbehaviour,
@@ -799,7 +811,6 @@ prevotesLoop:
 
 		// check for each prevote senders.
 		vote := prevote.(*message.Prevote)
-
 	sendersLoop:
 		for _, sender := range vote.Senders().Addresses() {
 			// Skip the prevotes that the sender addressed as equivocated
@@ -947,6 +958,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 
 				// precommit at r' is not for V --> remote peer is malicious
 				fd.logger.Info("Misbehaviour detected", "rule", "PVN", "incriminated", sender)
+
 				proof := &Proof{
 					Type:     autonity.Misbehaviour,
 					Rule:     autonity.PVN,
@@ -1048,7 +1060,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		// PVO1 and PVO2 can be merged together. We just need to fetch all precommits between (validRound, currentR)
 		// check that we have no gaps and raise a misbehaviour if the last one is not for V.
 
-		// todo: Jason may need to filter duplicated/overlapped ones
 		precommitsFromPi := fd.msgStore.Get(func(m message.Msg) bool {
 			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < currentR
 		}, height, sender)
@@ -1142,7 +1153,6 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 		vote := precommit.(*message.Precommit)
 	sendersLoop:
 		for _, sender := range vote.Senders().Addresses() {
-
 			// Skip if preCommit is equivocated
 			precommitsForR := fd.msgStore.GetEquivocatedVotes(height, precommit.R(), message.PrecommitCode, sender, precommit.Value())
 			// Due to the for loop there must be at least one preCommit.
@@ -1341,13 +1351,10 @@ func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) 
 }
 
 func isProposerValid(chain ChainContext, m message.Msg) bool {
-	return true
-	/* //TODO(lorenzo) fix
 	proposer, err := getProposer(chain, m.H(), m.R())
 	if err != nil {
 		log.Error("get proposer err", "err", err)
 		return false
 	}
 	return m.Sender() == proposer
-	*/
 }

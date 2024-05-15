@@ -431,7 +431,7 @@ func TestProcessBacklog(t *testing.T) {
 		val, err := committeeSet.GetByIndex(0)
 		require.NoError(t, err)
 
-		c := New(backendMock, nil, common.HexToAddress("0x1234567890"), log.Root())
+		c := New(backendMock, nil, common.HexToAddress("0x1234567890"), log.Root(), false)
 		c.setRound(1)
 		c.setHeight(big.NewInt(4))
 		c.step = Prevote
