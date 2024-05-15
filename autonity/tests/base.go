@@ -162,9 +162,6 @@ func (r *runner) waitNBlocks(n int) { //nolint
 	for i := 0; i < n; i++ {
 		// Finalize is not the only block closing operation - fee redistribution is missing and prob
 		// other stuff. Left as todo.
-		// each block takes 1 second
-		r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
-		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
 		_, err := r.autonity.Finalize(&runOptions{origin: common.Address{}})
 		// consider monitoring gas cost here and fail if it's too much
 		require.NoError(r.t, err, "finalize function error in waitNblocks", i)
