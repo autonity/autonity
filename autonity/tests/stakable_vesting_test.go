@@ -641,7 +641,7 @@ func bondAndApply(
 	require.NoError(r.t, err)
 	liquidContract := &Liquid{&contract{validator.LiquidContract, abi, r}}
 	r.NoError(
-		liquidContract.Redistribute(fromSender(r.autonity.address, reward)),
+		liquidContract.Redistribute(fromSender(r.autonity.address, reward), common.Big0),
 	)
 	bondedValidators := make([]common.Address, 1)
 	bondedValidators[0] = validatorAddress
@@ -689,7 +689,7 @@ func unbondAndApply(
 	require.NoError(r.t, err)
 	liquidContract := &Liquid{&contract{validator.LiquidContract, abi, r}}
 	r.NoError(
-		liquidContract.Redistribute(fromSender(r.autonity.address, reward)),
+		liquidContract.Redistribute(fromSender(r.autonity.address, reward), common.Big0),
 	)
 	bondedValidators := make([]common.Address, 1)
 	bondedValidators[0] = validatorAddress

@@ -124,4 +124,8 @@ func TestInflationContract(t *testing.T) {
 		currentSupply.Add(currentSupply, delta)
 	}
 	r.t.Log("final NTN supply", new(big.Int).Div(currentSupply, params.NTNDecimalFactor))
+	r.waitNextEpoch()
+	r.waitNextEpoch()
+	r.waitNextEpoch()
+	r.waitNextEpoch()
 }
