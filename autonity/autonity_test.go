@@ -91,6 +91,21 @@ func TestUpdateEnode(t *testing.T) {
 		require.Equal(t, tempNode.String(), out.Enode)
 	})
 
+	t.Run("Failure: update to invalid enode format", func(t *testing.T) {
+		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		var header *types.Header
+		val := validators[0]
+		testKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
+		tempNode := enode.NewV4(&testKey.PublicKey, net.IP{127, 0, 0, 1}, 1234, 0)
+		res, err := callContractFunctionAs(evmContract, contractAddress,
+			stateDB, header, contractAbi, val.Treasury,
+			"updateEnode", val.NodeAddress, tempNode.String()+"junk")
+		require.Error(t, err)
+
+		revertReason, _ := abi.UnpackRevert(res)
+		require.Equal(t, "enode error", revertReason)
+	})
+
 	t.Run("Failure: update node address of enode", func(t *testing.T) {
 		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
 		var header *types.Header
