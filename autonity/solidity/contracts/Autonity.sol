@@ -326,6 +326,27 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     }
 
     /**
+    * @notice Update enode of a registered validator. This function updates the network connection information (IP or/and port)
+    of a registered validator. you cannot change the validator's address (pubkey part of the enode)
+    * @param _nodeAddress This identifies the validator you want to update
+    * @param _enode new enode to be updated
+    */
+    function updateEnode(address _nodeAddress, string memory _enode) public virtual {
+        Validator storage _val = validators[_nodeAddress];
+        require(_val.nodeAddress == _nodeAddress, "validator not registered");
+        require(_val.treasury == msg.sender, "require caller to be validator treasury account");
+        require(!_inCommittee(_nodeAddress), "validator must not be in committee");
+
+        uint _err;
+        address _enodePubkey;
+        (_enodePubkey, _err) = Precompiled.parseEnode(_enode);
+        require(_err == 0, "enode error");
+
+        require(_val.nodeAddress == _enodePubkey, "validator node address can't be updated");
+        _val.enode = _enode;
+    }
+
+    /**
     * @notice Create a bonding(delegation) request with the caller as delegator.
     * @param _validator address of the validator to delegate stake to.
     *        _amount total amount of NTN to bond.
@@ -502,7 +523,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
     }
-    
+
     /*
     * @notice Set the ACU contract address. Restricted to the Operator account.
     * @param _address the contract address
@@ -510,7 +531,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function setAcuContract(IACU _address) public virtual onlyOperator {
         config.contracts.acuContract = _address;
     }
-    
+
     /*
     * @notice Set the SupplyControl contract address. Restricted to the Operator account.
     * @param _address the contract address
@@ -518,7 +539,7 @@ contract Autonity is IAutonity, IERC20, Upgradeable {
     function setSupplyControlContract(ISupplyControl _address) public virtual onlyOperator {
         config.contracts.supplyControlContract = _address;
     }
-    
+
     /*
     * @notice Set the Stabilization contract address. Restricted to the Operator account.
     * @param _address the contract address
