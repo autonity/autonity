@@ -276,7 +276,6 @@ contract LiquidRewardManager {
      * @dev calculates the rewards yet to claim for _id
      */
     function _unclaimedRewards(uint256 _id) internal view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
-        uint256 _totalFee;
         address[] memory _validators = bondedValidators[_id];
         for (uint256 i = 0; i < _validators.length; i++) {
             (uint256 _atnLastUnrealisedFeeFactor, uint256 _ntnLastUnrealisedFeeFactor) = _unfetchedFeeFactor(_validators[i]);

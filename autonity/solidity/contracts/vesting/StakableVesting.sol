@@ -389,7 +389,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
      */
     function _unlockedFunds(uint256 _scheduleID) private view returns (uint256) {
         return _calculateAvailableUnlockedFunds(
-            _scheduleID, _calculateTotalValue(_scheduleID), autonity.lastEpochBlockTime()
+            _scheduleID, _calculateTotalValue(_scheduleID), autonity.lastEpochTime()
         );
     }
 

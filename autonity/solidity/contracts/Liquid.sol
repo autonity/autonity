@@ -165,19 +165,18 @@ contract Liquid is IERC20
         delete atnRealisedFees[msg.sender];
         delete ntnRealisedFees[msg.sender];
 
-        if (_isContract(msg.sender)) {
-            IStakeProxy(msg.sender).receiveAut{value: totalFees}();
-            return;
-        }
+        // Send the NTN
+        bool sent = autonityContract.transfer(msg.sender, _ntnRealisedFees);
+        require(sent, "Failed to send NTN");
 
         // Send the AUT
+        if (_isContract(msg.sender)) {
+            IStakeProxy(msg.sender).receiveAut{value: _atnRealisedFees}();
+            return;
+        }
         //   solhint-disable-next-line avoid-low-level-calls
-        (bool sent, ) = msg.sender.call{value: _atnRealisedFees}("");
+        (sent, ) = msg.sender.call{value: _atnRealisedFees}("");
         require(sent, "Failed to send ATN");
-
-        // Send the NTN
-        sent = autonityContract.transfer(msg.sender,_ntnRealisedFees);
-        require(sent, "Failed to send NTN");
     }
 
     /**

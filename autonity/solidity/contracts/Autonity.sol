@@ -558,10 +558,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         config.policy.treasuryFee = _treasuryFee;
     }
 
-   /*
-    * @notice Set the accountability contract address. Restricted to the Operator account.
-    * @param _address the contract address
-    */
+    /*
+     * @notice Set the accountability contract address. Restricted to the Operator account.
+     * @param _address the contract address
+     */
     function setAccountabilityContract(IAccountability _address) public virtual onlyOperator {
         config.contracts.accountabilityContract = _address;
     }
