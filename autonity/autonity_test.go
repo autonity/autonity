@@ -72,7 +72,7 @@ func TestUpdateEnode(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Success: update node ip of enode", func(t *testing.T) {
-		stateDB, evmContract, contractAddress, err := deployAutonity(5, validators, deployer)
+		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
 		var header *types.Header
 		val := validators[0]
 		node, _ := enode.ParseV4(val.Enode)
@@ -138,7 +138,7 @@ func TestUpdateEnode(t *testing.T) {
 	t.Run("Failure: update ip of enode, validator not registered", func(t *testing.T) {
 		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
 		var header *types.Header
-		randVals, err := randomValidators(1, 100)
+		randVals, _ := randomValidators(1, 100)
 		val := randVals[0]
 		node, _ := enode.ParseV4(val.Enode)
 		res, err := callContractFunctionAs(evmContract, contractAddress,
@@ -152,19 +152,20 @@ func TestUpdateEnode(t *testing.T) {
 
 	t.Run("Failure: update ip of enode, validator In Committee", func(t *testing.T) {
 		// update committee size to 10, so all the validators will be in committeee
-		stateDB, evmContract, contractAddress, err := deployAutonity(10, validators, deployer)
+		stateDB, evmContract, contractAddress, _ := deployAutonity(10, validators, deployer)
 		var header *types.Header
 		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
 		require.NoError(t, err)
-		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
+		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
 		require.NoError(t, err)
 
 		val := validators[0]
 		node, _ := enode.ParseV4(val.Enode)
 		tempNode := enode.NewV4(node.Pubkey(), net.IP{127, 0, 0, 1}, 1234, 0)
-		res, err = callContractFunctionAs(evmContract, contractAddress,
+		res, err := callContractFunctionAs(evmContract, contractAddress,
 			stateDB, header, contractAbi, val.Treasury,
 			"updateEnode", val.NodeAddress, tempNode.String())
+		require.Error(t, err)
 		revertReason, _ := abi.UnpackRevert(res)
 		require.Equal(t, "validator must not be in committee", revertReason)
 
@@ -361,7 +362,7 @@ func callContractFunction(
 // Packs the args and then calls the function and returns result
 func callContractFunctionAs(
 	evmContract *EVMContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
-	origin common.Address, methodName string, args ...interface{},
+	origin common.Address, methodName string, args ...interface{}, //nolint:unparam
 ) ([]byte, error) {
 	argsPacked, err := abi.Pack(methodName, args...)
 	if err != nil {
