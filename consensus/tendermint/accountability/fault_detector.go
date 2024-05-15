@@ -55,6 +55,7 @@ var (
 	errEquivocation    = errors.New("equivocation")
 	errNotCommitteeMsg = errors.New("msg from none committee member")
 	errProposer        = errors.New("proposal is not from proposer")
+	errFutureMsg       = errors.New("future message")
 
 	errNoEvidenceForPO  = errors.New("no proof of innocence found for rule PO")
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
@@ -392,10 +393,6 @@ func (fd *FaultDetector) innocenceProof(p *Proof) (*autonity.AccountabilityEvent
 	case autonity.C1:
 		return fd.innocenceProofC1(p)
 	default:
-		// TODO(lorenzo) apply
-		// whether the accusation comes from off-chain or on-chain
-		// it always gets verified before we try to fetch the innocence proof
-		//panic("Trying to fetch innocence proof for invalid accusation")
 		return nil, errUnprovableRule
 	}
 }

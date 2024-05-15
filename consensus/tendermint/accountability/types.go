@@ -71,14 +71,16 @@ type Proof struct {
 type encodedProof struct {
 	Type      autonity.AccountabilityEventType
 	Rule      autonity.Rule
+	Offender  common.Address
 	Message   typedMessage
 	Evidences []typedMessage
 }
 
 func (p *Proof) EncodeRLP(w io.Writer) error {
 	encoded := encodedProof{
-		Type: p.Type,
-		Rule: p.Rule,
+		Type:     p.Type,
+		Rule:     p.Rule,
+		Offender: p.Offender,
 	}
 	encoded.Message = typedMessage{p.Message}
 	for _, m := range p.Evidences {
@@ -94,6 +96,7 @@ func (p *Proof) DecodeRLP(stream *rlp.Stream) error {
 	}
 	p.Type = encoded.Type
 	p.Rule = encoded.Rule
+	p.Offender = encoded.Offender
 	p.Message = encoded.Message.Msg
 
 	p.Evidences = make([]message.Msg, len(encoded.Evidences))

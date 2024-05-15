@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/rlp"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -199,9 +200,23 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		fd.logger.Info("over rated accusation over a height", "error", err)
 		return err
 	}
+
+	// if the suspected msg's sender is not current peer, then it would be a DoS attack, drop the peer with an error returned.
+	if proof.Offender != fd.address {
+		return errInvalidAccusation
+	}
+
+	// last param represent the current height for which we are doing consensus (lastBlock + 1)
+	if err := preVerifyAccusation(fd.blockchain, proof.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
+		return nil
+	}
+
+	// verify proof signatures at last since it is more cost-full than other checkers.
 	if err = verifyProofSignatures(fd.blockchain, proof); err != nil {
 		return err
 	}
+
 	// handle accusation and provide innocence proof.
 	if proof.Type == autonity.Accusation {
 		return fd.handleOffChainAccusation(proof, sender, msgHash)
@@ -215,17 +230,6 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 }
 
 func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash) error {
-	// if the suspected msg's sender is not current peer, then it would be a DoS attack, drop the peer with an error returned.
-	/* //TODO(lorenzo) fix
-	if accusation.Message.Sender() != fd.address {
-		return errInvalidAccusation
-	}*/
-
-	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
-		return nil
-	}
-
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
 	if !verifyAccusation(accusation) {
 		return errInvalidAccusation
@@ -235,6 +239,10 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	ev, err := fd.innocenceProof(accusation)
 	if err != nil {
 		fd.logger.Warn("cannot collect ev of innocence for the accusation", "err", err)
+		// to disconnect remote peer by rising the error.
+		if errors.Is(err, errUnprovableRule) {
+			return errUnprovableRule
+		}
 		return nil
 	}
 
@@ -252,14 +260,15 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 
 func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender common.Address) error {
 	// if the sender is not the one being challenged against, then drop the peer by returning error.
-	/* //TODO(lorenzo) fix
-	if proof.Message.Sender() != sender {
+	if proof.Offender != sender {
 		return errInvalidInnocenceProof
-	}*/
+	}
+
 	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
 	if !verifyInnocenceProof(proof, fd.blockchain) {
 		return errInvalidInnocenceProof
 	}
+
 	// the proof is valid, withdraw the off chain challenge.
 	fd.removeOffChainAccusation(proof)
 	return nil
@@ -321,7 +330,6 @@ func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
 
 // send the off chain accusation msg to the peer suspected
 func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
-	/* //TODO(lorenzo) fix
 	// send the off chain accusation msg to the suspected one,
 	if fd.broadcaster == nil {
 		fd.logger.Warn("p2p protocol handler is not ready yet")
@@ -329,7 +337,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 	}
 
 	targets := make(map[common.Address]struct{})
-	targets[accusation.Message.Sender()] = struct{}{}
+	targets[accusation.Offender] = struct{}{}
 	peers := fd.broadcaster.FindPeers(targets)
 	if len(peers) == 0 {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.
@@ -343,9 +351,8 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 		return
 	}
 
-	fd.logger.Info("Attempting direct p2p resolution..", "suspect", accusation.Message.Sender())
-	go peers[accusation.Message.Sender()].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
-	*/
+	fd.logger.Info("Attempting direct p2p resolution..", "suspect", accusation.Offender)
+	go peers[accusation.Offender].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
 }
 
 // sendOffChainInnocenceProof, send an innocence proof to receiver peer.

@@ -8,9 +8,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
@@ -150,7 +148,7 @@ func verifyAccusation(p *Proof) bool {
 		return false
 	}
 
-	// p case of PVO accusation, we need to check corresponding old proposal of this preVote.
+	// in case of PVO accusation, we need to check corresponding old proposal of this preVote.
 	if p.Rule == autonity.PVO {
 		if len(p.Evidences) != 1 {
 			return false
@@ -566,6 +564,7 @@ func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 		return false
 	}
 
+	// check the votes match for the corresponding proposal, and there is no equivocation vote in the proof.
 	for _, m := range p.Evidences {
 		if !(m.Code() == message.PrevoteCode &&
 			m.Value() == proposal.Value() &&
@@ -575,7 +574,7 @@ func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 	}
 
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasEquivocatedVotes(p.Evidences) {
+	if hasRedundantVotes(p.Evidences) {
 		return false
 	}
 
@@ -636,7 +635,7 @@ func validInnocenceProofOfPVO(p *Proof, chain ChainContext) bool {
 	}
 
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasEquivocatedVotes(p.Evidences[1:]) {
+	if hasRedundantVotes(p.Evidences[1:]) {
 		return false
 	}
 
@@ -659,7 +658,7 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 	if preCommit.Value() == nilValue {
 		return false
 	}
-	// check quorum prevotes for V at the same round.
+	// check quorum prevotes for V at the same round, there is no allow for providing equivocated votes.
 	for _, m := range p.Evidences {
 		if !(m.Code() == message.PrevoteCode && m.Value() == preCommit.Value() &&
 			m.R() == preCommit.R()) {
@@ -667,7 +666,7 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 		}
 	}
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasEquivocatedVotes(p.Evidences) {
+	if hasRedundantVotes(p.Evidences) {
 		return false
 	}
 	height := preCommit.H()
@@ -677,6 +676,19 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
 	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+}
+
+func hasRedundantVotes(votes []message.Msg) bool {
+	hashMap := make(map[common.Hash]struct{})
+	for _, vote := range votes {
+		_, ok := hashMap[vote.Hash()]
+		if !ok {
+			hashMap[vote.Hash()] = struct{}{}
+		} else {
+			return true
+		}
+	}
+	return false
 }
 
 func hasEquivocatedVotes(votes []message.Msg) bool {
@@ -704,30 +716,37 @@ func decodeRawProof(b []byte) (*Proof, error) {
 	return p, nil
 }
 
-// checkMsgSignature checks if the consensus message is from valid member of the committee.
+// verifyProofSignatures checks if the consensus message is from valid member of the committee.
 func verifyProofSignatures(chain ChainContext, p *Proof) error {
-	/*  //TODO(lorenzo) fix, might need to verify single message signatures here --> DoS?
 	h := p.Message.H()
 	lastHeader := chain.GetHeaderByNumber(h - 1)
 	if lastHeader == nil {
 		return errFutureMsg
 	}
-	if err := p.Message.Validate(lastHeader.CommitteeMember); err != nil {
+
+	// assign power and bls sender key
+	if err := p.Message.PreValidate(lastHeader); err != nil {
+		return err
+	}
+
+	// verify signature
+	if err := p.Message.Validate(); err != nil {
 		return errNotCommitteeMsg
 	}
-	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
-	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
-		return errMaxEvidences
-	}
+
 	for _, msg := range p.Evidences {
 		if msg.H() != h {
 			return errBadHeight
 		}
-		if err := msg.Validate(lastHeader.CommitteeMember); err != nil {
-			return errNotCommitteeMsg
+
+		if err := msg.PreValidate(lastHeader); err != nil {
+			return err
+		}
+
+		if err := msg.Validate(); err != nil {
+			return err
 		}
 	}
-	*/
 	return nil
 }
 
@@ -756,17 +775,4 @@ func validReturn(m message.Msg, rule autonity.Rule) []byte {
 	//copy(result[96:128], block)
 	//copy(result[128:160], m.Hash().Bytes())
 	return result
-}
-
-// TODO(lorenzo) this might not be true anymore due to bls agg
-// proofs that include the maximum amount of messages are the ones that require:
-// 1. a proposal + a quorum of prevotes (worst-case number of evidence = MaxCommitteeSize + 1)
-// 2. a proposal + a list of precommits (worst-case number of evidence = MaxRound + 1).
-// thus the maximum number of evidence possible is the max between those two values
-func maxEvidenceMessages(header *types.Header) int {
-	committeeSize := len(header.Committee)
-	if committeeSize > constants.MaxRound {
-		return committeeSize + 1
-	}
-	return constants.MaxRound + 1
 }
