@@ -111,9 +111,9 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 			ConsensusKeyBytes: hexutil.MustDecode("0xa460c204c407b6272f7731b0d15daca8f2564cf7ace301769e3b42de2482fc3bf8116dd13c0545e806441d074d02dcc2"),
 			VotingPower:       hexutil.MustDecodeBig("0x3039"),
 		}},
-		ProposerSeal:   bytes.Repeat([]byte("c"), 65),
-		Round:          uint64(3),
-		CommittedSeals: make(Signatures),
+		ProposerSeal:      bytes.Repeat([]byte("c"), 65),
+		Round:             uint64(3),
+		QuorumCertificate: make(Signatures),
 	}
 
 	err := header.Committee.DeserializeConsensusKeys()
@@ -125,14 +125,14 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 	seal2, err := blst.SignatureFromBytes(hexutil.MustDecode("0xa2f685ab4925fa955796dc2fe83038036ec96a19ce7c8c76ab6ec2a65143a35a3540ee902fb87755ba8566f6550bc4ef1024489b34d2ad0ac1f3d2d238f265b5ebe2e1cd265472bb352bf3ecc57ec4269931c9dc8fcdf83fbe0bb1f9ec5cefd1"))
 	require.NoError(t, err)
 
-	header.CommittedSeals[header.Committee[2].Address] = seal1.(*blst.BlsSignature)
-	header.CommittedSeals[header.Committee[0].Address] = seal2.(*blst.BlsSignature)
+	header.QuorumCertificate[header.Committee[2].Address] = seal1.(*blst.BlsSignature)
+	header.QuorumCertificate[header.Committee[0].Address] = seal2.(*blst.BlsSignature)
 
 	hExtra := headerExtra{
-		Committee:      header.Committee,
-		ProposerSeal:   header.ProposerSeal,
-		Round:          header.Round,
-		CommittedSeals: header.CommittedSeals,
+		Committee:         header.Committee,
+		ProposerSeal:      header.ProposerSeal,
+		Round:             header.Round,
+		QuorumCertificate: header.QuorumCertificate,
 	}
 
 	extra, err := rlp.EncodeToBytes(hExtra)

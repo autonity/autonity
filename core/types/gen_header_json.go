@@ -16,27 +16,27 @@ var _ = (*headerMarshaling)(nil)
 // MarshalJSON marshals as JSON.
 func (h Header) MarshalJSON() ([]byte, error) {
 	type Header struct {
-		ParentHash     common.Hash        `json:"parentHash"       gencodec:"required"`
-		UncleHash      common.Hash        `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase       common.Address     `json:"miner"            gencodec:"required"`
-		Root           common.Hash        `json:"stateRoot"        gencodec:"required"`
-		TxHash         common.Hash        `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash    common.Hash        `json:"receiptsRoot"     gencodec:"required"`
-		Bloom          Bloom              `json:"logsBloom"        gencodec:"required"`
-		Difficulty     *hexutil.Big       `json:"difficulty"       gencodec:"required"`
-		Number         *hexutil.Big       `json:"number"           gencodec:"required"`
-		GasLimit       hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
-		GasUsed        hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
-		Time           hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
-		Extra          hexutil.Bytes      `json:"extraData"        gencodec:"required"`
-		MixDigest      common.Hash        `json:"mixHash"`
-		Nonce          BlockNonce         `json:"nonce"`
-		BaseFee        *hexutil.Big       `json:"baseFeePerGas"`
-		Committee      Committee          `json:"committee"           gencodec:"required"`
-		ProposerSeal   hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
-		Round          hexutil.Uint64     `json:"round"               gencodec:"required"`
-		CommittedSeals AggregateSignature `json:"committedSeals"      gencodec:"required"`
-		Hash           common.Hash        `json:"hash"`
+		ParentHash        common.Hash        `json:"parentHash"       gencodec:"required"`
+		UncleHash         common.Hash        `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase          common.Address     `json:"miner"            gencodec:"required"`
+		Root              common.Hash        `json:"stateRoot"        gencodec:"required"`
+		TxHash            common.Hash        `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash       common.Hash        `json:"receiptsRoot"     gencodec:"required"`
+		Bloom             Bloom              `json:"logsBloom"        gencodec:"required"`
+		Difficulty        *hexutil.Big       `json:"difficulty"       gencodec:"required"`
+		Number            *hexutil.Big       `json:"number"           gencodec:"required"`
+		GasLimit          hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
+		GasUsed           hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
+		Time              hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
+		Extra             hexutil.Bytes      `json:"extraData"        gencodec:"required"`
+		MixDigest         common.Hash        `json:"mixHash"`
+		Nonce             BlockNonce         `json:"nonce"`
+		BaseFee           *hexutil.Big       `json:"baseFeePerGas"`
+		Committee         Committee          `json:"committee"           gencodec:"required"`
+		ProposerSeal      hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
+		Round             hexutil.Uint64     `json:"round"               gencodec:"required"`
+		QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+		Hash              common.Hash        `json:"hash"`
 	}
 	var enc Header
 	enc.ParentHash = h.ParentHash
@@ -58,7 +58,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.Committee = h.Committee
 	enc.ProposerSeal = h.ProposerSeal
 	enc.Round = hexutil.Uint64(h.Round)
-	enc.CommittedSeals = h.CommittedSeals
+	enc.QuorumCertificate = h.QuorumCertificate
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -66,26 +66,26 @@ func (h Header) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (h *Header) UnmarshalJSON(input []byte) error {
 	type Header struct {
-		ParentHash     *common.Hash        `json:"parentHash"       gencodec:"required"`
-		UncleHash      *common.Hash        `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase       *common.Address     `json:"miner"            gencodec:"required"`
-		Root           *common.Hash        `json:"stateRoot"        gencodec:"required"`
-		TxHash         *common.Hash        `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash    *common.Hash        `json:"receiptsRoot"     gencodec:"required"`
-		Bloom          *Bloom              `json:"logsBloom"        gencodec:"required"`
-		Difficulty     *hexutil.Big        `json:"difficulty"       gencodec:"required"`
-		Number         *hexutil.Big        `json:"number"           gencodec:"required"`
-		GasLimit       *hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
-		GasUsed        *hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
-		Time           *hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
-		Extra          *hexutil.Bytes      `json:"extraData"        gencodec:"required"`
-		MixDigest      *common.Hash        `json:"mixHash"`
-		Nonce          *BlockNonce         `json:"nonce"`
-		BaseFee        *hexutil.Big        `json:"baseFeePerGas"`
-		Committee      *Committee          `json:"committee"           gencodec:"required"`
-		ProposerSeal   *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
-		Round          *hexutil.Uint64     `json:"round"               gencodec:"required"`
-		CommittedSeals *AggregateSignature `json:"committedSeals"      gencodec:"required"`
+		ParentHash        *common.Hash        `json:"parentHash"       gencodec:"required"`
+		UncleHash         *common.Hash        `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase          *common.Address     `json:"miner"            gencodec:"required"`
+		Root              *common.Hash        `json:"stateRoot"        gencodec:"required"`
+		TxHash            *common.Hash        `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash       *common.Hash        `json:"receiptsRoot"     gencodec:"required"`
+		Bloom             *Bloom              `json:"logsBloom"        gencodec:"required"`
+		Difficulty        *hexutil.Big        `json:"difficulty"       gencodec:"required"`
+		Number            *hexutil.Big        `json:"number"           gencodec:"required"`
+		GasLimit          *hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
+		GasUsed           *hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
+		Time              *hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
+		Extra             *hexutil.Bytes      `json:"extraData"        gencodec:"required"`
+		MixDigest         *common.Hash        `json:"mixHash"`
+		Nonce             *BlockNonce         `json:"nonce"`
+		BaseFee           *hexutil.Big        `json:"baseFeePerGas"`
+		Committee         *Committee          `json:"committee"           gencodec:"required"`
+		ProposerSeal      *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
+		Round             *hexutil.Uint64     `json:"round"               gencodec:"required"`
+		QuorumCertificate *AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -164,10 +164,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'round' for Header")
 	}
 	h.Round = uint64(*dec.Round)
-	if dec.CommittedSeals == nil {
-		return errors.New("missing required field 'committedSeals' for Header")
+	if dec.QuorumCertificate == nil {
+		return errors.New("missing required field 'quorumCertificate' for Header")
 	}
-	h.CommittedSeals = *dec.CommittedSeals
+	h.QuorumCertificate = *dec.QuorumCertificate
 
 	//TODO(lorenzo) Added this manually to make the e2e test work. Fix it properly.
 	if err := h.Committee.Enrich(); err != nil {

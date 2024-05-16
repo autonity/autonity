@@ -51,11 +51,13 @@ var (
 			ConsensusKeyBytes: hexutil.MustDecode("0xa679c8ebd47d18b93acd90cd380debdcfdb140f38eca207c61463a47be85398ec3082a66f7f30635c11470f5c8e5cf6b"),
 			VotingPower:       hexutil.MustDecodeBig("0x7033"),
 		}},
-		ProposerSeal:   bytes.Repeat([]byte("c"), 65),
-		Round:          uint64(3),
-		CommittedSeals: new(AggregateSignature),
+		ProposerSeal:      bytes.Repeat([]byte("c"), 65),
+		Round:             uint64(3),
+		QuorumCertificate: new(AggregateSignature),
 	}
 )
+
+// TODO(lorenzo) add tests for malformed bit and coefficient length (e.g. longer and shorter than supposed)
 
 func TestValidatorBitmap(t *testing.T) {
 	t.Run("Simple bitmap with 4 validators (1 byte)", func(t *testing.T) {
@@ -131,7 +133,7 @@ func TestValidatorBitmap(t *testing.T) {
 func TestSerialization(t *testing.T) {
 	t.Run("auxiliary data structures are not serialized on the wire", func(t *testing.T) {
 		// increment some sender info
-		s := NewSendersInfo(len(header.Committee))
+		s := NewSigners(len(header.Committee))
 		// 11 01 01 10
 		s.Increment(header, 0)
 		s.Increment(header, 0)
@@ -154,7 +156,7 @@ func TestSerialization(t *testing.T) {
 		// encode and decode
 		payload, err := rlp.EncodeToBytes(s)
 		require.NoError(t, err)
-		decoded := &SendersInfo{}
+		decoded := &Signers{}
 		err = rlp.Decode(bytes.NewBuffer(payload), decoded)
 		require.NoError(t, err)
 
@@ -169,11 +171,11 @@ func TestSerialization(t *testing.T) {
 	})
 }
 
-func TestSendersInfo(t *testing.T) {
+func TestSigners(t *testing.T) {
 	//TODO(lorenzo) refinements2, boundaries tests
 	t.Run("Increment should update the bitmap and the auxiliary maps correctly", func(t *testing.T) {
 		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
-		s := NewSendersInfo(len(header.Committee) + 10)
+		s := NewSigners(len(header.Committee) + 10)
 
 		require.Equal(t, s.Bits.Get(0), byte(0))
 		s.Increment(header, 0)
@@ -249,10 +251,10 @@ func TestSendersInfo(t *testing.T) {
 	})
 	t.Run("Merge correctly merges two senders info", func(t *testing.T) {
 		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
-		s1 := NewSendersInfo(len(header.Committee) + 10)
+		s1 := NewSigners(len(header.Committee) + 10)
 		s1.Increment(header, 0)
 		s1.Increment(header, 1)
-		s2 := NewSendersInfo(len(header.Committee) + 10)
+		s2 := NewSigners(len(header.Committee) + 10)
 		s2.Increment(header, 2)
 		s2.Increment(header, 3)
 		s2.Increment(header, 4)
@@ -267,7 +269,7 @@ func TestSendersInfo(t *testing.T) {
 			require.Equal(t, s1.Addresses()[i], member.Address)
 		}
 
-		s3 := NewSendersInfo(len(header.Committee) + 10)
+		s3 := NewSigners(len(header.Committee) + 10)
 		s3.Increment(header, 0)
 		s3.Increment(header, 1)
 		s3.Increment(header, 2)
@@ -284,7 +286,7 @@ func TestSendersInfo(t *testing.T) {
 			require.Equal(t, s1.Addresses()[i], member.Address)
 		}
 
-		s4 := NewSendersInfo(len(header.Committee) + 10)
+		s4 := NewSigners(len(header.Committee) + 10)
 		s4.Increment(header, 0)
 		s4.Increment(header, 0)
 		s4.Increment(header, 0)
@@ -300,7 +302,7 @@ func TestSendersInfo(t *testing.T) {
 		require.Equal(t, s1.Bits.Get(2), uint8(3))
 		require.Equal(t, s1.Coefficients[1], uint16(6))
 
-		s5 := NewSendersInfo(len(header.Committee) + 10)
+		s5 := NewSigners(len(header.Committee) + 10)
 		s5.Increment(header, 1)
 
 		s1.Merge(s5)
@@ -313,7 +315,7 @@ func TestSendersInfo(t *testing.T) {
 
 	})
 	t.Run("Power returns the aggregated power of the senders", func(t *testing.T) {
-		s := NewSendersInfo(len(header.Committee))
+		s := NewSigners(len(header.Committee))
 		s.Increment(header, 0)
 		s.Increment(header, 1)
 
@@ -333,7 +335,7 @@ func TestSendersInfo(t *testing.T) {
 	})
 	t.Run("Flatten returns the indexes of the senders (repeated in case of multiple contribution to the signature)", func(t *testing.T) {
 		// +10 to avoid hitting the panic related to maximum allowed coefficient in `increment`
-		s := NewSendersInfo(len(header.Committee) + 10)
+		s := NewSigners(len(header.Committee) + 10)
 		s.Increment(header, 0)
 		s.Increment(header, 1)
 
@@ -358,7 +360,7 @@ func TestSendersInfo(t *testing.T) {
 		require.Equal(t, s.Flatten(), []int{0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 3, 3})
 	})
 	t.Run("FlattenUniq returns the indexes of the senders (de-duplicated)", func(t *testing.T) {
-		s := NewSendersInfo(len(header.Committee))
+		s := NewSigners(len(header.Committee))
 		s.Increment(header, 0)
 		s.Increment(header, 1)
 
@@ -379,7 +381,7 @@ func TestSendersInfo(t *testing.T) {
 func TestValidation(t *testing.T) {
 	csize := 10
 	t.Run("Valid aggregates should be valid", func(t *testing.T) {
-		s := NewSendersInfo(csize)
+		s := NewSigners(csize)
 
 		// A
 		s.increment(0)
@@ -418,7 +420,7 @@ func TestValidation(t *testing.T) {
 		require.True(t, s.Valid(csize))
 
 		// 3A + 3B + C + D + E
-		s = NewSendersInfo(csize)
+		s = NewSigners(csize)
 		s.increment(0)
 		s.increment(0)
 		s.increment(0)
@@ -432,7 +434,7 @@ func TestValidation(t *testing.T) {
 		require.True(t, s.Valid(csize))
 	})
 	t.Run("Invalid aggregates should be invalid", func(t *testing.T) {
-		s := NewSendersInfo(csize)
+		s := NewSigners(csize)
 
 		// 2A
 		s.increment(0)
@@ -480,7 +482,7 @@ func TestValidation(t *testing.T) {
 		fmt.Println(s.String())
 		require.False(t, s.Valid(csize))
 
-		s = NewSendersInfo(csize)
+		s = NewSigners(csize)
 
 		// 2A + 2B + C
 		s.increment(0)
@@ -498,7 +500,7 @@ func TestValidation(t *testing.T) {
 		fmt.Println(s.String())
 		require.False(t, s.Valid(csize))
 
-		s = NewSendersInfo(csize)
+		s = NewSigners(csize)
 
 		// 3A + B + C + 8D + E
 		s.increment(0)

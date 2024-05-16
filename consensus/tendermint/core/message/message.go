@@ -393,17 +393,17 @@ type extVote struct {
 	Round     uint64
 	Height    uint64
 	Value     common.Hash
-	Senders   *types.SendersInfo
+	Senders   *types.Signers
 	Signature *blst.BlsSignature
 }
 
 // TODO: would be good to do the same thing for proposal and lightproposal (to avoid code repetition)
 type vote struct {
-	senders *types.SendersInfo
+	senders *types.Signers
 	base
 }
 
-func (v *vote) Senders() *types.SendersInfo {
+func (v *vote) Senders() *types.Signers {
 	return v.senders
 }
 
@@ -413,7 +413,7 @@ func (v *vote) Power() *big.Int {
 
 func (v *vote) PreValidate(header *types.Header) error {
 	if err := v.senders.Valid(len(header.Committee)); err != nil {
-		return fmt.Errorf("Invalid senders information: %w", err)
+		return fmt.Errorf("Invalid signers information: %w", err)
 	}
 
 	// compute aggregated key and auxiliary data structures
@@ -499,7 +499,7 @@ func newVote[
 	signature := signer(signatureInput)
 
 	// TODO(lorenzo) refinements, aggregates for different heights might have different len(senders.bits). Is that a problem?
-	senders := types.NewSendersInfo(csize)
+	senders := types.NewSigners(csize)
 	senders.Increment(self)
 
 	payload, _ := rlp.EncodeToBytes(extVote{
@@ -565,7 +565,7 @@ func AggregateVotes[
 	representative := votes[0]
 
 	// TODO(lorenzo) refinements, aggregates for different heights might have different len(senders.bits). Is that a problem?
-	senders := types.NewSendersInfo(representative.Senders().CommitteeSize())
+	senders := types.NewSigners(representative.Senders().CommitteeSize())
 
 	// order votes by decreasing number of distinct signers.
 	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
@@ -573,7 +573,7 @@ func AggregateVotes[
 		return votes[i].Senders().Len() > votes[j].Senders().Len()
 	})
 
-	// compute new aggregated signature and related sender information
+	// compute new aggregated signature and related signers information
 	var signatures []blst.Signature
 	var publicKeys [][]byte
 	for _, vote := range votes {
@@ -651,7 +651,7 @@ func AggregateVotesSimple[
 	code := PE(new(E)).Code()
 
 	skip := make([]bool, len(votes))
-	var sendersList []*types.SendersInfo
+	var sendersList []*types.Signers
 	var signaturesList [][]blst.Signature
 	var publicKeysList [][][]byte
 

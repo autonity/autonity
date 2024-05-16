@@ -101,17 +101,17 @@ type aggregator struct {
 	votesFrom map[common.Address][]common.Hash
 	toIgnore  map[common.Hash]struct{}
 
-	// TODO(lorenzo) can one sub starve the other?
-	sub     *event.TypeMuxSubscription // backend events
-	coreSub *event.TypeMuxSubscription // core events
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	logger  log.Logger
+	// TODO(lorenzo) can one backendSub starve the other?
+	backendSub *event.TypeMuxSubscription // backend events
+	coreSub    *event.TypeMuxSubscription // core events
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
+	logger     log.Logger
 }
 
 func (a *aggregator) start(ctx context.Context) {
 	a.logger.Info("Starting the aggregator routine")
-	a.sub = a.backend.Subscribe(events.UnverifiedMessageEvent{})
+	a.backendSub = a.backend.Subscribe(events.UnverifiedMessageEvent{})
 	a.coreSub = a.backend.Subscribe(events.RoundChangeEvent{}, events.PowerChangeEvent{}, events.FuturePowerChangeEvent{})
 	ctx, a.cancel = context.WithCancel(ctx)
 	a.wg.Add(1)
@@ -635,7 +635,7 @@ func (a *aggregator) loop(ctx context.Context) {
 loop:
 	for {
 		select {
-		case ev, ok := <-a.sub.Chan():
+		case ev, ok := <-a.backendSub.Chan():
 			start := time.Now()
 			if !ok {
 				break loop
@@ -850,7 +850,7 @@ loop:
 func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
-	a.sub.Unsubscribe()
+	a.backendSub.Unsubscribe()
 	a.coreSub.Unsubscribe()
 	a.wg.Wait()
 }

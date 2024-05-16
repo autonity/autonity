@@ -58,6 +58,6 @@ type Msg interface {
 
 // Votes have an additional method, which returns all the available information about the senders
 type Vote interface {
-	Senders() *types.SendersInfo
+	Senders() *types.Signers
 	Msg
 }

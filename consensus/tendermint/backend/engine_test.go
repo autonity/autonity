@@ -55,7 +55,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		senders := types.NewSendersInfo(4)
+		senders := types.NewSigners(4)
 		senders.Increment(&otherBlock.Header().Committee[0])
 		err = engine.Commit(otherBlock, 0, types.AggregateSignature{Signature: new(blst.BlsSignature), Senders: senders})
 		if err != nil {
@@ -107,15 +107,15 @@ func TestSealCommitted(t *testing.T) {
 func TestVerifyHeader(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
-	// errEmptyCommittedSeals case
+	// errEmptyQuorumCertificate case
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
 	}
 	block, _ = engine.AddSeal(block)
 	err = engine.VerifyHeader(chain, block.Header(), false)
-	if err != types.ErrEmptyCommittedSeals {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyCommittedSeals)
+	if err != types.ErrEmptyQuorumCertificate {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyQuorumCertificate)
 	}
 
 	header := block.Header()
@@ -235,8 +235,8 @@ OUT1:
 		case err := <-results:
 			if err != nil {
 				//  The two following errors mean that the processing has gone right
-				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
-					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
+					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
 					break OUT1
 				}
 			}
@@ -292,8 +292,8 @@ OUT2:
 		select {
 		case err := <-results:
 			if err != nil {
-				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
-					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
+					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
 					break OUT2
 				}
 			}
@@ -357,7 +357,7 @@ OUT3:
 		select {
 		case err := <-results:
 			if err != nil {
-				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
+				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
 					errorCount++
 				}
 			}
@@ -374,26 +374,26 @@ OUT3:
 	}
 }
 
-func TestWriteCommittedSeals(t *testing.T) {
-	expectedCommittedSeal := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Senders: types.NewSendersInfo(1)}
-	expectedCommittedSeal.Senders.Increment(testCommitteeMember)
+func TestWriteQuorumCertificate(t *testing.T) {
+	expectedQuorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Senders: types.NewSigners(1)}
+	expectedQuorumCertificate.Senders.Increment(testCommitteeMember)
 
 	h := &types.Header{}
 
 	// normal case
-	err := types.WriteCommittedSeals(h, expectedCommittedSeal)
+	err := types.WriteQuorumCertificate(h, expectedQuorumCertificate)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want %v", err, nil)
 	}
 
-	if !reflect.DeepEqual(h.CommittedSeals, expectedCommittedSeal) {
-		t.Errorf("extra data mismatch: have %v, want %v", h.CommittedSeals, expectedCommittedSeal)
+	if !reflect.DeepEqual(h.QuorumCertificate, expectedQuorumCertificate) {
+		t.Errorf("extra data mismatch: have %v, want %v", h.QuorumCertificate, expectedQuorumCertificate)
 	}
 
 	// invalid seal
-	err = types.WriteCommittedSeals(h, types.AggregateSignature{})
-	if err != types.ErrInvalidCommittedSeals {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidCommittedSeals)
+	err = types.WriteQuorumCertificate(h, types.AggregateSignature{})
+	if err != types.ErrInvalidQuorumCertificate {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidQuorumCertificate)
 	}
 }
 
@@ -424,8 +424,8 @@ func fakeAggregator() *aggregator {
 				panic("aggregator stopped two times")
 			}
 		},
-		sub:     mux.Subscribe(),
-		coreSub: mux.Subscribe(),
+		backendSub: mux.Subscribe(),
+		coreSub:    mux.Subscribe(),
 	}
 	return fakeAggregator
 }

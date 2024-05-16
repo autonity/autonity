@@ -175,13 +175,13 @@ func TestHandlePrecommit(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Commit(proposal.Block(), gomock.Any(), gomock.Any()).Return(nil).Do(
-			func(proposalBlock *types.Block, round int64, seals types.Signatures) {
+			func(proposalBlock *types.Block, round int64, quorumCertificate types.Signatures) {
 				if round != 2 {
 					t.Fatal("Commit called with round different than precommit seal")
 				}
-				expectedSeals := make(types.Signatures)
-				expectedSeals[msg.Sender()] = msg.Signature().(*blst.BlsSignature)
-				if !reflect.DeepEqual(expectedSeals, seals) {
+				expectedQuorumCertificate := make(types.Signatures)
+				expectedQuorumCertificate[msg.Sender()] = msg.Signature().(*blst.BlsSignature)
+				if !reflect.DeepEqual(expectedQuorumCertificate, quorumCertificate) {
 					t.Fatal("Commit called with wrong seal")
 				}
 			})

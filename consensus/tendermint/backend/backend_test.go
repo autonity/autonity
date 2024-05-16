@@ -207,18 +207,18 @@ func TestVerifyProposal(t *testing.T) {
 			t.Fatalf("could not verify block %d, err=%s", i, err)
 		}
 
-		// VerifyProposal does not need committed seals, but InsertChain does
+		// VerifyProposal does not need a quorum certificate, but InsertChain does
 		committedSeal := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 
-		// Append committed seals into extra-data
+		// Append quorum certificate into extra-data
 		quorumCertificate := types.AggregateSignature{
 			Signature: committedSeal.(*blst.BlsSignature),
-			Senders:   types.NewSendersInfo(len(parent.Header().Committee)),
+			Senders:   types.NewSigners(len(parent.Header().Committee)),
 		}
 		quorumCertificate.Senders.Increment(&parent.Header().Committee[0])
 		header := block.Header()
-		if err := types.WriteCommittedSeals(header, quorumCertificate); err != nil {
-			t.Fatalf("could not write committed seal %d, err=%s", i, err)
+		if err := types.WriteQuorumCertificate(header, quorumCertificate); err != nil {
+			t.Fatalf("could not write quorum certificate %d, err=%s", i, err)
 		}
 		block = block.WithSeal(header)
 
@@ -293,19 +293,19 @@ func TestCommit(t *testing.T) {
 		backend.SetResultChan(commitCh)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
-		seals := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Senders: types.NewSendersInfo(4)}
-		seals.Senders.Increment(&chain.Genesis().Header().Committee[0])
+		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Senders: types.NewSigners(4)}
+		quorumCertificate.Senders.Increment(&chain.Genesis().Header().Committee[0])
 
 		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 		testCases := []struct {
-			expectedErr   error
-			expectedSeals types.AggregateSignature
-			expectedBlock func() *types.Block
+			expectedErr               error
+			expectedQuorumCertificate types.AggregateSignature
+			expectedBlock             func() *types.Block
 		}{
 			{
 				// normal case
 				nil,
-				seals,
+				quorumCertificate,
 				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -318,8 +318,8 @@ func TestCommit(t *testing.T) {
 			},
 			{
 				// invalid signature
-				types.ErrInvalidCommittedSeals,
-				types.AggregateSignature{Signature: nil, Senders: types.NewSendersInfo(4)},
+				types.ErrInvalidQuorumCertificate,
+				types.AggregateSignature{Signature: nil, Senders: types.NewSigners(4)},
 				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -336,7 +336,7 @@ func TestCommit(t *testing.T) {
 			expBlock := test.expectedBlock()
 
 			backend.proposedBlockHash = expBlock.Hash()
-			if err := backend.Commit(expBlock, 0, test.expectedSeals); err != nil {
+			if err := backend.Commit(expBlock, 0, test.expectedQuorumCertificate); err != nil {
 				if err != test.expectedErr {
 					t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
 				}
@@ -385,10 +385,10 @@ func TestCommit(t *testing.T) {
 		b.SetEnqueuer(enqueuer)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
-		seals := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Senders: types.NewSendersInfo(1)}
-		seals.Senders.Increment(&chain.Genesis().Header().Committee[0])
+		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Senders: types.NewSigners(1)}
+		quorumCertificate.Senders.Increment(&chain.Genesis().Header().Committee[0])
 
-		err = b.Commit(newBlock, 0, seals)
+		err = b.Commit(newBlock, 0, quorumCertificate)
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
