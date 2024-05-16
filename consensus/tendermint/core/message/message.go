@@ -80,6 +80,9 @@ func (p *Propose) Block() *types.Block {
 }
 
 func (p *Propose) Power() *big.Int {
+	if !p.preverified {
+		panic("Trying to access power on not preverified proposal")
+	}
 	return p.power
 }
 
@@ -140,18 +143,11 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 			payload:        payload,
 			hash:           crypto.Hash(payload),
 			verified:       true,
+			preverified:    true,
 			senderKey:      self.ConsensusKey,
 		},
 	}
 }
-
-/* //TODO(lorenzo) refinements, for later
-// used in tests. Simulates an unverified proposal coming from a remote peer
-func NewUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer) *Propose {
-	propose := NewPropose(r, h, vr, block, signer)
-	propose.unvalidate()
-	return propose
-}*/
 
 func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()
@@ -203,6 +199,7 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
 	p.verified = false
+	p.preverified = false
 	return nil
 }
 
@@ -211,6 +208,9 @@ func (p *Propose) Sender() common.Address {
 }
 
 func (p *Propose) SenderIndex() int {
+	if !p.preverified {
+		panic("Trying to access sender index on not preverified proposal")
+	}
 	return p.senderIndex
 }
 
@@ -223,6 +223,7 @@ func (p *Propose) PreValidate(header *types.Header) error {
 	p.senderKey = validator.ConsensusKey
 	p.senderIndex = int(validator.Index)
 	p.power = validator.VotingPower //TODO(lorenzo) do I need a copy here? same for lightproposal
+	p.preverified = true
 	return nil
 }
 
@@ -271,7 +272,7 @@ func (p *LightProposal) String() string {
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
-	if !proposal.verified {
+	if !proposal.verified || !proposal.preverified {
 		//temporary panic to catch bugs.
 		panic("unverified light-proposal creation")
 	}
@@ -306,6 +307,7 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 			payload:        payload,
 			hash:           crypto.Hash(payload),
 			verified:       true,
+			preverified:    true,
 			senderKey:      proposal.senderKey,
 		},
 	}
@@ -357,6 +359,7 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
 	p.verified = false
+	p.preverified = false
 	return nil
 }
 
@@ -377,6 +380,7 @@ func (p *LightProposal) PreValidate(header *types.Header) error {
 	p.senderKey = validator.ConsensusKey
 	p.senderIndex = int(validator.Index)
 	p.power = validator.VotingPower
+	p.preverified = true
 	return nil
 }
 
@@ -411,7 +415,6 @@ func (v *vote) PreValidate(header *types.Header) error {
 	if err := v.senders.Valid(len(header.Committee)); err != nil {
 		return fmt.Errorf("Invalid senders information: %w", err)
 	}
-	v.senders.SetCommitteeSize(len(header.Committee))
 
 	// compute aggregated key and auxiliary data structures
 	indexes := v.senders.Flatten()
@@ -435,10 +438,9 @@ func (v *vote) PreValidate(header *types.Header) error {
 		panic("Error while aggregating keys from committee: " + err.Error())
 	}
 
-	v.senders.SetPowers(powers)
-	v.senders.SetPower(power)
-
+	v.senders.AssignPower(powers, power)
 	v.senderKey = aggregatedKey
+	v.preverified = true
 
 	// if the aggregate is a complex aggregate, it needs to carry quorum
 	if v.senders.IsComplex() && v.Power().Cmp(bft.Quorum(header.TotalVotingPower())) < 0 {
@@ -461,8 +463,8 @@ func (p *Prevote) Value() common.Hash {
 }
 
 func (p *Prevote) String() string {
-	return fmt.Sprintf("{r:  %v, h: %v , power: %v, Code: %v, value: %v}",
-		p.round, p.height, p.Power(), p.Code(), p.value)
+	return fmt.Sprintf("{r:  %v, h: %v , Code: %v, value: %v}",
+		p.round, p.height, p.Code(), p.value)
 }
 
 type Precommit struct {
@@ -479,8 +481,8 @@ func (p *Precommit) Value() common.Hash {
 }
 
 func (p *Precommit) String() string {
-	return fmt.Sprintf("{r:  %v, h: %v , power: %v, Code: %v, value: %v}",
-		p.round, p.height, p.Power(), p.Code(), p.value)
+	return fmt.Sprintf("{r:  %v, h: %v , Code: %v, value: %v}",
+		p.round, p.height, p.Code(), p.value)
 }
 
 func newVote[
@@ -520,6 +522,7 @@ func newVote[
 				hash:           crypto.Hash(payload),
 				signatureInput: signatureInput,
 				verified:       true,
+				preverified:    true,
 				senderKey:      self.ConsensusKey,
 			},
 		},
@@ -531,24 +534,9 @@ func NewPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types
 	return newVote[Prevote](r, h, value, signer, self, csize)
 }
 
-/* //TODO(lorenzo) refinements, for later
-// used in tests. Simulates an unverified prevote coming from a remote peer
-func NewUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer) *Prevote {
-	prevote := newVote[Prevote](r, h, value, signer)
-	prevote.unvalidate()
-	return prevote
-}*/
-
 func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Precommit {
 	return newVote[Precommit](r, h, value, signer, self, csize)
 }
-
-/* //TODO(lorenzo) refinements, for later
-func NewUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer Signer) *Precommit {
-	precommit := newVote[Precommit](r, h, value, signer)
-	precommit.unvalidate()
-	return precommit
-}*/
 
 // NOTE: these functions allow for the creation of complex aggregates
 func AggregatePrevotes(votes []Vote) *Prevote {
@@ -563,7 +551,7 @@ func AggregatePrecommits(votes []Vote) *Precommit {
 
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
-// 2. all votes have previously been cryptographically verified
+// 2. all votes have previously been preverified and cryptographically verified
 func AggregateVotes[
 	E Prevote | Precommit,
 	PE interface {
@@ -632,7 +620,8 @@ func AggregateVotes[
 				signature:      aggregatedSignature,
 				payload:        payload,
 				hash:           crypto.Hash(payload),
-				verified:       true,                // verified due to all votes being verified
+				verified:       true, // verified due to all votes being verified
+				preverified:    true,
 				senderKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
 			},
 		},
@@ -749,7 +738,8 @@ func AggregateVotesSimple[
 					signature:      aggregatedSignature,
 					payload:        payload,
 					hash:           crypto.Hash(payload),
-					verified:       true,                // verified due to all votes being verified
+					verified:       true, // verified due to all votes being verified
+					preverified:    true,
 					senderKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
 				},
 			},
@@ -795,6 +785,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
 	p.verified = false
+	p.preverified = false
 	return nil
 }
 
@@ -833,6 +824,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	p.signatureInput = crypto.Hash(signaturePayload)
 	p.hash = crypto.Hash(payload)
 	p.verified = false
+	p.preverified = false
 	return nil
 }
 

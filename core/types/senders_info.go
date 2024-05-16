@@ -24,6 +24,9 @@ var (
 	ErrWrongCoefficientLen  = errors.New("coefficient array has incorrect length")
 	ErrInvalidSingleSig     = errors.New("individual signature has coefficient != 1")
 	ErrInvalidCoefficient   = errors.New("coefficient exceeds maximum boundary (committee size)")
+
+	ErrNotValidated  = errors.New("Using un-validated senders information")
+	ErrDifferentSize = errors.New("Comparing senders information with different committee size")
 )
 
 // represents the senders of an aggregated signature
@@ -50,6 +53,10 @@ type SendersInfo struct {
 	committeeSize int              `rlp:"-"`
 	powers        map[int]*big.Int `rlp:"-"` // TODO(lorenzo) performance, turn these into arrays? we will have sparse arrays but maybe it is fine. Other option is using functions
 	power         *big.Int         `rlp:"-"` // aggregated power of all senders
+
+	// auxiliary data structures flags
+	validated     bool `rlp:"-"` // if true --> Bits and Coefficients have correct length + committeeSize is assigned
+	powerAssigned bool `rlp:"-"` // if true --> powers and power assigned
 }
 
 func NewSendersInfo(committeeSize int) *SendersInfo {
@@ -62,6 +69,8 @@ func NewSendersInfo(committeeSize int) *SendersInfo {
 		committeeSize: committeeSize,
 		powers:        make(map[int]*big.Int),
 		power:         new(big.Int),
+		validated:     true,
+		powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
 	}
 }
 
@@ -154,16 +163,26 @@ func (s *SendersInfo) Valid(committeeSize int) error {
 		}
 	}
 
+	s.committeeSize = committeeSize
+	s.validated = true
 	return nil
 }
 
-func (s *SendersInfo) Contains(index int) bool {
-	return s.Bits.Get(index) != 0
+func safetyCheck(first *SendersInfo, second *SendersInfo) error {
+	if !first.validated || !second.validated {
+		return ErrNotValidated
+	}
+	if first.committeeSize != second.committeeSize {
+		return ErrDifferentSize
+	}
+	return nil
 }
 
 // checks that the resulting aggregate still respects the `committeeSize` boundary
 func (s *SendersInfo) RespectsBoundaries(other *SendersInfo) bool {
-	//TODO(lorenzo) refinements, add check on length of the two senderinfo?
+	if err := safetyCheck(s, other); err != nil {
+		panic(err.Error())
+	}
 
 	var firstCoefficient int
 	var count int
@@ -193,7 +212,9 @@ func (s *SendersInfo) RespectsBoundaries(other *SendersInfo) bool {
 // TODO(lorenzo) refinements, maybe I can do this more efficiently using bitwise operations
 // however it is not trivial since we use two bits per validators
 func (s *SendersInfo) AddsInformation(other *SendersInfo) bool {
-	//TODO(lorenzo) refinements, add check on length of the two senderinfo?
+	if err := safetyCheck(s, other); err != nil {
+		panic(err.Error())
+	}
 
 	for i := 0; i < s.committeeSize; i++ {
 		if s.Bits.Get(i) == 0 && other.Bits.Get(i) != 0 {
@@ -206,7 +227,9 @@ func (s *SendersInfo) AddsInformation(other *SendersInfo) bool {
 // TODO(lorenzo) refinements, maybe I can do this more efficiently using bitwise operations
 // however it is not trivial since we use two bits per validators
 func (s *SendersInfo) CanMergeSimple(other *SendersInfo) bool {
-	//TODO(lorenzo) refinements, add check on length of the two senderinfo?
+	if err := safetyCheck(s, other); err != nil {
+		panic(err.Error())
+	}
 
 	for i := 0; i < s.committeeSize; i++ {
 		if s.Bits.Get(i)+other.Bits.Get(i) > 1 {
@@ -217,6 +240,9 @@ func (s *SendersInfo) CanMergeSimple(other *SendersInfo) bool {
 }
 
 func (s *SendersInfo) increment(index int) {
+	if !s.validated {
+		panic("Using un-validated senders information")
+	}
 	previousValue := s.Bits.Get(index)
 	var value byte
 	switch previousValue {
@@ -259,6 +285,13 @@ func (s *SendersInfo) increment(index int) {
 }
 
 func (s *SendersInfo) Increment(member *CommitteeMember) {
+	if !s.validated {
+		panic("Using un-validated senders information")
+	}
+	if !s.powerAssigned {
+		panic("Power has not been assigned in senders information")
+	}
+
 	index := int(member.Index)
 	if index >= s.committeeSize {
 		panic("trying to increment sender information of non-existant committee member")
@@ -275,10 +308,11 @@ func (s *SendersInfo) Increment(member *CommitteeMember) {
 }
 
 func (s *SendersInfo) Merge(other *SendersInfo) {
-	//TODO(lorenzo) refinements, maybe we can skip this since the Valid() check at preValidate()
-	if len(s.Bits) != len(other.Bits) || s.committeeSize != other.committeeSize {
-		// should always merge for the same height --> same committee size --> same legnth
-		panic("trying to merge sender information with different length")
+	if err := safetyCheck(s, other); err != nil {
+		panic(err.Error())
+	}
+	if !s.powerAssigned || !other.powerAssigned {
+		panic("Power has not been assigned in senders information")
 	}
 
 	count := 0
@@ -310,11 +344,16 @@ Loop:
 
 // returns aggregated power of all senders
 func (s *SendersInfo) Power() *big.Int {
+	if !s.powerAssigned {
+		panic("Power has not been assigned in senders information")
+	}
 	return s.power
 }
 
-func (s *SendersInfo) SetPower(power *big.Int) {
+func (s *SendersInfo) AssignPower(powers map[int]*big.Int, power *big.Int) {
+	s.powers = powers
 	s.power = power
+	s.powerAssigned = true
 }
 
 func (s *SendersInfo) Copy() *SendersInfo {
@@ -328,6 +367,8 @@ func (s *SendersInfo) Copy() *SendersInfo {
 		committeeSize: s.committeeSize,
 		powers:        powers,
 		power:         s.power,
+		validated:     s.validated,
+		powerAssigned: s.powerAssigned,
 	}
 }
 
@@ -335,6 +376,9 @@ func (s *SendersInfo) Copy() *SendersInfo {
 // e.g. for bitmap [0 1 2 1 0] will return [ 1 2 2 3 ]
 // the index 2 is repeated because we need to aggregate two times his key
 func (s *SendersInfo) Flatten() []int {
+	if !s.validated {
+		panic("Using un-validated senders information")
+	}
 	var indexes []int
 	count := 0
 Loop:
@@ -360,6 +404,9 @@ Loop:
 
 // same as before, but repeated indexes are returned only once
 func (s *SendersInfo) FlattenUniq() []int {
+	if !s.validated {
+		panic("Using un-validated senders information")
+	}
 	var indexes []int
 	for i := 0; i < s.committeeSize; i++ {
 		if s.Bits.Get(i) > 0 {
@@ -371,6 +418,9 @@ func (s *SendersInfo) FlattenUniq() []int {
 
 // returns number of distinct signers of the aggregate
 func (s *SendersInfo) Len() int {
+	if !s.validated {
+		panic("Using un-validated senders information")
+	}
 	count := 0
 	for i := 0; i < s.committeeSize; i++ {
 		if s.Bits.Get(i) > 0 {
@@ -384,6 +434,9 @@ func (s *SendersInfo) Len() int {
 //   - a simple aggregate (all coefficients are 0 or 1)
 //   - a complex aggregate (at least one coefficient is > 1)
 func (s *SendersInfo) IsComplex() bool {
+	if !s.validated {
+		panic("Using un-validated senders information")
+	}
 	for i := 0; i < s.committeeSize; i++ {
 		if s.Bits.Get(i) > 1 {
 			return true
@@ -397,18 +450,16 @@ func (s *SendersInfo) String() string {
 }
 
 func (s *SendersInfo) Powers() map[int]*big.Int {
+	if !s.powerAssigned {
+		panic("Power has not been assigned in senders information")
+	}
 	return s.powers
-}
-
-func (s *SendersInfo) SetPowers(powers map[int]*big.Int) {
-	s.powers = powers
 }
 
 // Len returns how many committee members the sendersInfo contains
 func (s *SendersInfo) CommitteeSize() int {
+	if !s.validated {
+		panic("Using un-validated senders information")
+	}
 	return s.committeeSize
-}
-
-func (s *SendersInfo) SetCommitteeSize(committeeSize int) {
-	s.committeeSize = committeeSize
 }

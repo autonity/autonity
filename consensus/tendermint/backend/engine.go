@@ -229,7 +229,6 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 	if err := header.CommittedSeals.Senders.Valid(len(parent.Committee)); err != nil {
 		return fmt.Errorf("Invalid committed seals senders information: %w", err)
 	}
-	header.CommittedSeals.Senders.SetCommitteeSize(len(parent.Committee))
 
 	// Calculate total voting power of committee
 	committeeVotingPower := new(big.Int)
