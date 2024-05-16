@@ -48,7 +48,13 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 		return fmt.Errorf("error when deploying the upgrade manager contract: %w", err)
 	}
 	if err := DeployInflationControllerContract(genesisConfig, evmContracts); err != nil {
-		return fmt.Errorf("error when deploying the upgrade manager contract: %w", err)
+		return fmt.Errorf("error when deploying the inflation controller contract: %w", err)
+	}
+	if err := DeployStakableVestingContract(genesisConfig.AutonityContractConfig.Operator, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the stakable vesting contract: %w", err)
+	}
+	if err := DeployNonStakableVestingContract(genesisConfig.AutonityContractConfig.Operator, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
 	}
 	return nil
 }
@@ -147,6 +153,24 @@ func DeployInflationControllerContract(config *params.ChainConfig, evmContracts 
 		return fmt.Errorf("failed to deploy inflation controller contract: %w", err)
 	}
 	log.Info("Deployed inflation controller contract", "address", params.InflationControllerContractAddress)
+	return nil
+}
+
+func DeployStakableVestingContract(operator common.Address, evmContracts *GenesisEVMContracts) error {
+	if err := evmContracts.DeployStakableVestingContract(generated.StakableVestingBytecode, params.AutonityContractAddress, operator); err != nil {
+		log.Error("DeployStakableVestingContract failed", "err", err)
+		return fmt.Errorf("failed to deploy stakable vesting contract: %w", err)
+	}
+	log.Info("Deployed stakable vesting contract", "address", params.StakableVestingContractAddress)
+	return nil
+}
+
+func DeployNonStakableVestingContract(operator common.Address, evmContracts *GenesisEVMContracts) error {
+	if err := evmContracts.DeployNonStakableVestingContract(generated.NonStakableVestingBytecode, params.AutonityContractAddress, operator); err != nil {
+		log.Error("DeployNonStakableVestingContract failed", "err", err)
+		return fmt.Errorf("failed to deploy non-stakable vesting contract: %w", err)
+	}
+	log.Info("Deployed non-stakable vesting contract", "address", params.NonStakableVestingContractAddress)
 	return nil
 }
 

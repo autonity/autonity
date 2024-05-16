@@ -429,6 +429,14 @@ type InflationControllerContract struct {
 	EVMContract
 }
 
+type StakableVestingContract struct {
+	EVMContract
+}
+
+type NonStakableVestingContract struct {
+	EVMContract
+}
+
 func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
 	evmProvider := func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		if header != nil {
@@ -501,6 +509,22 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 				chainConfig: chainConfig,
 			},
 		},
+		StakableVestingContract: StakableVestingContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.StakableVestingAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		NonStakableVestingContract: NonStakableVestingContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.NonStakableVestingAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
 		statedb: statedb,
 	}
 }
@@ -514,6 +538,8 @@ type GenesisEVMContracts struct {
 	StabilizationContract
 	UpgradeManagerContract
 	InflationControllerContract
+	StakableVestingContract
+	NonStakableVestingContract
 
 	statedb vm.StateDB
 }
@@ -587,4 +613,12 @@ func (c *GenesisEVMContracts) DeployUpgradeManagerContract(autonityAddress commo
 
 func (c *GenesisEVMContracts) DeployInflationControllerContract(bytecode []byte, param InflationControllerParams) error {
 	return c.InflationControllerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, param)
+}
+
+func (c *GenesisEVMContracts) DeployStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
+	return c.StakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
+}
+
+func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
+	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
 }
