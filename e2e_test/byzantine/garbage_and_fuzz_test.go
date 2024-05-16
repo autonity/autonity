@@ -19,6 +19,8 @@ import (
 	"github.com/autonity/autonity/e2e_test"
 )
 
+//todo: (Jason) the fuzz of signature field in the propose, prevote and precommit messages are still missing.
+
 func newRandomBytesBroadcaster(c interfaces.Core) interfaces.Broadcaster {
 	return &randomBytesBroadcaster{c.(*core.Core)}
 }

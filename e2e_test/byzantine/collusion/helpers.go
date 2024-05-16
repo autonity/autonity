@@ -92,6 +92,7 @@ func newBlockHeader(height uint64) *types.Header {
 }
 
 func initCollusion(vals []*gengen.Validator, rule autonity.Rule, planer collusionPlaner) {
+	// it assumes the voting power of validator for collusion test equals to 1 for each.
 	f := bft.F(new(big.Int).SetUint64(uint64(len(vals))))
 	if f.Uint64() < 2 {
 		panic("collusion test requires at least two faulty nodes")

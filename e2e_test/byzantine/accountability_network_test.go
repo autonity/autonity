@@ -133,6 +133,7 @@ func fuzzedMessages() []message.Msg {
 	for i := 0; i < num; i++ {
 		m := &message.Fake{}
 		f.Fuzz(m)
+		// todo: (Jason) add fuzz for the proposal contains in the accusation accountability message.
 		// since our RLP encoding of accusation msg does not allow a full proposal, thus we skip the proposal code.
 		if m.FakeCode == message.ProposalCode {
 			m.FakeCode++
@@ -331,6 +332,7 @@ func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testP
 	require.NoError(t, err)
 
 	// no longer to check the peer count since the client will keep reconnecting after 30s.
+	// todo: (Jason) create a framework to test the peer dropping and peer reconnecting scenarios.
 }
 
 func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Services, tp autonity.AccountabilityEventType,

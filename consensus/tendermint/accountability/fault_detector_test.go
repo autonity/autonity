@@ -228,6 +228,9 @@ func TestGenerateOnChainProof(t *testing.T) {
 	})
 }
 
+// todo: (Jason) add test to cover an accusation over a committed block scenario,
+//  in such context, the accusation is considered as useless, it should be dropped.
+
 func TestAccusationProvers(t *testing.T) {
 	height := uint64(100)
 	lastHeight := height - 1
@@ -501,9 +504,10 @@ func TestAccusationProvers(t *testing.T) {
 	})
 }
 
+// Please refer to the rules in the rule engine for each step of tendermint to understand the test context.
+// TestNewProposalAccountabilityCheck, it tests the accountability events over a new proposal sent by a proposer.
 func TestNewProposalAccountabilityCheck(t *testing.T) {
 	height := uint64(0)
-
 	newProposal0 := newProposalMessage(height, 3, -1, signer, committee, nil).MustVerify(stubVerifier)
 	nonNilPrecommit0 := message.NewPrecommit(1, height, common.BytesToHash([]byte("test")), signer).MustVerify(stubVerifier)
 	nilPrecommit0 := message.NewPrecommit(1, height, common.Hash{}, signer).MustVerify(stubVerifier)
@@ -602,6 +606,7 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 	})
 }
 
+// TestOldProposalsAccountabilityCheck, it tests the accountability events over a proposal that was validated at previous round
 func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	height := uint64(0)
@@ -868,6 +873,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 }
 
+// TestPrevotesAccountabilityCheck, it tests the accountability events over prevotes messages sent by pi.
 func TestPrevotesAccountabilityCheck(t *testing.T) {
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	height := uint64(0)
@@ -1331,6 +1337,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 }
 
+// TestPrecommitsAccountabilityCheck, it tests the accountability events over precommit messages sent by pi.
 func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	height := uint64(0)

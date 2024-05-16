@@ -110,10 +110,7 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
-		if e.curRound == 0 {
-			// We expect the following extra calls when round = 0
-			backendMock.EXPECT().HeadBlock().Return(e.previousValue)
-		}
+		backendMock.EXPECT().HeadBlock().Return(e.previousValue)
 		e.setupCore(backendMock, e.clientAddress)
 		e.core.pendingCandidateBlocks[e.curHeight.Uint64()] = proposal.Block()
 		e.core.StartRound(context.Background(), e.curRound)
