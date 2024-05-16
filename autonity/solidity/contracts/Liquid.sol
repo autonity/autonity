@@ -157,7 +157,7 @@ contract Liquid is IERC20
         // Send the AUT
         //   solhint-disable-next-line avoid-low-level-calls
         (bool sent, ) = msg.sender.call{value: totalFees}("");
-        require(sent, "Failed to send Ether");
+        require(sent, "Failed to send Auton");
     }
 
     /**
