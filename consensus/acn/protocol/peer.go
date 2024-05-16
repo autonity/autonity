@@ -1,10 +1,20 @@
 package protocol
 
 import (
+	"time"
+
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
+)
+
+var (
+	ProposalWriteBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/write", nil, metrics.GetIntPointer(1000))  // time to write proposal to wire
+	PrevoteWriteBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/write", nil, metrics.GetIntPointer(5000))   // time to write prevote to wire
+	PrecommitWriteBg = metrics.NewRegisteredBufferedGauge("acn/precommit/write", nil, metrics.GetIntPointer(5000)) // time to write precommit to wire
+	DefaultWriteBg   = metrics.NewRegisteredBufferedGauge("acn/any/write", nil, nil)
 )
 
 // Peer is a collection of relevant information we have about a `acn` peer.
@@ -53,11 +63,33 @@ func (p *Peer) Address() common.Address {
 }
 
 func (p *Peer) Send(msgcode uint64, data interface{}) error {
+	if metrics.Enabled {
+		defer func(start time.Time) {
+			getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
+		}(time.Now())
+	}
 	return p2p.Send(p.rw, msgcode, data)
 }
 
 func (p *Peer) SendRaw(msgcode uint64, data []byte) error {
+	if metrics.Enabled {
+		defer func(start time.Time) {
+			getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
+		}(time.Now())
+	}
 	return p2p.SendRaw(p.rw, msgcode, data)
+}
+
+func getWriteMetric(msgCode uint64) metrics.BufferedGauge {
+	switch msgCode {
+	case 0x11:
+		return ProposalWriteBg
+	case 0x12:
+		return PrevoteWriteBg
+	case 0x13:
+		return PrecommitWriteBg
+	}
+	return DefaultWriteBg
 }
 
 // Version retrieves the peer's negoatiated `acn` protocol version.

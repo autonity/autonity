@@ -18,7 +18,7 @@ import (
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
@@ -42,6 +42,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
+		noGossip:               noGossip,
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -123,8 +124,10 @@ type Core struct {
 	proposer    interfaces.Proposer
 
 	// these timestamps are used to compute metrics for tendermint
-	newHeight time.Time
-	newRound  time.Time
+	newHeight          time.Time
+	newRound           time.Time
+	currBlockTimeStamp time.Time
+	noGossip           bool
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -519,7 +522,6 @@ type Broadcaster struct {
 }
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
-	logger := s.Logger().New("step", s.Step())
-	logger.Debug("Broadcasting", "message", msg.String())
+	s.logger.Debug("Broadcasting", "message", log.Lazy{Fn: msg.String})
 	s.BroadcastAll(msg)
 }

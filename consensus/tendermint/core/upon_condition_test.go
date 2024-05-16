@@ -189,7 +189,6 @@ func TestStartRound(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().Post(TimeoutEvent{RoundWhenCalled: e.curRound, HeightWhenCalled: e.curHeight, Step: Propose})
-
 		e.setupCore(backendMock, e.clientAddress)
 		assert.False(t, e.core.proposeTimeout.TimerStarted())
 		e.core.prevoteTimeout.ScheduleTimeout(timeoutDuration, e.core.Round(), e.core.Height(), e.core.onTimeoutPropose)
@@ -556,6 +555,7 @@ func TestOldProposal(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
+
 		// construct round state with: old round's quorum-1 prevote for v on valid round.
 		fakePrevote := message.Fake{
 			FakeRound:  uint64(e.curRound),
@@ -638,6 +638,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		defer ctrl.Finish()
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
+
 		// create quorum prevote messages however there is no quorum on a specific hash
 		prevote1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -770,6 +771,7 @@ func TestQuorumPrevote(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 		e.setupCore(backendMock, e.clientAddress)
 		e.core.curRoundMessages.SetProposal(e.curProposal, true)
+
 		fakePrevote := message.Fake{
 			FakeValue:  e.curProposal.Block().Hash(),
 			FakeRound:  uint64(e.curRound),
@@ -814,6 +816,7 @@ func TestQuorumPrevote(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 		e.setupCore(backendMock, e.clientAddress)
 		e.core.curRoundMessages.SetProposal(e.curProposal, true)
+
 		fakePrevote := message.Fake{
 			FakeValue:  e.curProposal.Block().Hash(),
 			FakeSender: e.committee.Committee()[3].Address,
@@ -866,6 +869,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 	e.setupCore(backendMock, e.clientAddress)
+
 	fakePrevote := message.Fake{
 		FakeValue:  common.Hash{},
 		FakeSender: e.committee.Committee()[2].Address,
@@ -893,6 +897,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
+
 		// create quorum precommit messages however there is no quorum on a specific hash
 		fakePrecommit1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -929,6 +934,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
+
 		// create quorum precommit messages however there is no quorum on a specific hash
 		fakePrecommit1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -968,6 +974,7 @@ func TestPrecommitTimeout(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
+
 		// create quorum prevote messages however there is no quorum on a specific hash
 		fakePrecommit1 := message.Fake{
 			FakeValue:  common.Hash{},
@@ -1015,6 +1022,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		e.core.precommitTimeout.ScheduleTimeout(timeoutDuration, e.core.Round(), e.core.Height(), e.core.onTimeoutPrecommit)
 		assert.True(t, e.core.precommitTimeout.TimerStarted())
 		e.checkState(t, e.curHeight, e.curRound, e.step, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
+
 		time.Sleep(sleepDuration)
 	})
 	t.Run("at reception of precommit Timeout event next round will be started", func(t *testing.T) {
@@ -1033,9 +1041,9 @@ func TestPrecommitTimeout(t *testing.T) {
 		defer ctrl.Finish()
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
-
 		e.core.handleTimeoutPrecommit(context.Background(), timeoutE)
 		e.checkState(t, e.curHeight, e.curRound+1, Propose, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
+
 		// stop the timer to clean up, since start round can start propose Timeout
 		err := e.core.proposeTimeout.StopTimer()
 		assert.NoError(t, err)
@@ -1062,6 +1070,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	e.setupCore(backendMock, e.clientAddress)
 	e.core.curRoundMessages.SetProposal(proposal, true)
+
 	quorumPrecommitMsg := message.Fake{
 		FakeValue:  proposal.Block().Hash(),
 		FakePower:  new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big1),
@@ -1130,7 +1139,6 @@ func TestFutureRoundChange(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 		e.setupCore(backendMock, e.clientAddress)
-
 		err := e.core.handleValidMsg(context.Background(), msg1)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
 
@@ -1206,7 +1214,7 @@ func TestHandleMessage(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		t.Log("preHeight", prevHeight)
 
-		core := New(backendMock, nil, key1PubAddr, log.Root())
+		core := New(backendMock, nil, key1PubAddr, log.Root(), false)
 		core.height = new(big.Int).Add(prevHeight, common.Big1)
 		core.setCommitteeSet(committeeSet)
 		core.setLastHeader(prevBlock.Header())
@@ -1229,7 +1237,7 @@ func TestHandleMessage(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		t.Log("preHeight", prevHeight)
 
-		core := New(backendMock, nil, key1PubAddr, log.Root())
+		core := New(backendMock, nil, key1PubAddr, log.Root(), false)
 		core.setCommitteeSet(committeeSet)
 		core.setHeight(new(big.Int).Add(prevBlock.Header().Number, common.Big1))
 		core.setLastHeader(prevBlock.Header())
@@ -1345,7 +1353,7 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 }
 
 func (e *ConsensusENV) setupCore(backend interfaces.Backend, address common.Address) {
-	e.core = New(backend, nil, address, log.Root())
+	e.core = New(backend, nil, address, log.Root(), false)
 	e.core.setCommitteeSet(e.committee)
 	e.core.setHeight(e.curHeight)
 	e.core.setRound(e.curRound)

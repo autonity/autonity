@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/metrics"
 )
 
 // Line 22 in Algorithm 1 of The latest gossip on BFT consensus
@@ -75,6 +77,9 @@ func (c *Core) quorumPrevotesCheck(ctx context.Context, proposal *message.Propos
 	}
 	// we are at prevote or precommit step
 	if c.curRoundMessages.PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
+		if metrics.Enabled {
+			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
+		}
 		if c.step == Prevote {
 			c.lockedValue = proposal.Block()
 			c.lockedRound = c.Round()
@@ -94,6 +99,9 @@ func (c *Core) quorumPrevotesNilCheck(ctx context.Context) {
 		return
 	}
 	if c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+		if metrics.Enabled {
+			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
+		}
 		c.precommiter.SendPrecommit(ctx, true)
 		c.SetStep(ctx, Precommit)
 	}
@@ -121,6 +129,9 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 	// if no quorum, return without verifying the proposal
 	if rm.PrecommitsPower(hash).Cmp(c.CommitteeSet().Quorum()) < 0 {
 		return false
+	}
+	if metrics.Enabled {
+		PrecommitQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 
 	// if there is a quorum, verify the proposal if needed

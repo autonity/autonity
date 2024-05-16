@@ -140,6 +140,7 @@ var (
 		utils.BakerlooFlag,
 		utils.ConsensusListenPortFlag,
 		utils.ConsensusNATFlag,
+		utils.NoGossip,
 		configFileFlag,
 	}
 

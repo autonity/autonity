@@ -103,7 +103,7 @@ func TestCore_Setters(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	backendMock := interfaces.NewMockBackend(ctrl)
-	c := New(backendMock, nil, common.Address{}, log.Root())
+	c := New(backendMock, nil, common.Address{}, log.Root(), false)
 	t.Run("SetStep", func(t *testing.T) {
 		timeoutDuration := c.timeoutPropose(0)
 		timeoutCallback := func(_ int64, _ *big.Int) {}

@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/metrics"
 )
 
 // todo: resolve proper tendermint state synchronization timeout from block period.
@@ -105,6 +106,20 @@ func shouldDisconnectSender(err error) bool {
 	}
 }
 
+func recordMessageProcessingTime(code uint8, start time.Time) {
+	switch code {
+	case message.ProposalCode:
+		MsgProposalBg.Add(time.Since(start).Nanoseconds())
+		MsgProposalPackets.Mark(1)
+	case message.PrevoteCode:
+		MsgPrevoteBg.Add(time.Since(start).Nanoseconds())
+		MsgPrevotePackets.Mark(1)
+	case message.PrecommitCode:
+		MsgPrecommitBg.Add(time.Since(start).Nanoseconds())
+		MsgPrecommitPackets.Mark(1)
+	}
+}
+
 func (c *Core) mainEventLoop(ctx context.Context) {
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
@@ -114,6 +129,7 @@ eventLoop:
 	for {
 		select {
 		case ev, ok := <-c.messageSub.Chan():
+			start := time.Now()
 			if !ok {
 				break eventLoop
 			}
@@ -130,7 +146,10 @@ eventLoop:
 					}
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
+				if !c.noGossip {
+					c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
+				}
+				recordMessageProcessingTime(e.Message.Code(), start)
 			case backlogMessageEvent:
 				// No need to check signature for internal messages
 				c.logger.Debug("Started handling consensus backlog event")
@@ -138,8 +157,10 @@ eventLoop:
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
-
+				if !c.noGossip {
+					c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				}
+				recordMessageProcessingTime(e.msg.Code(), start)
 			case backlogUntrustedMessageEvent:
 				c.logger.Debug("Started handling backlog unchecked event")
 				// messages in the untrusted buffer were successfully decoded
@@ -147,7 +168,10 @@ eventLoop:
 					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				if !c.noGossip {
+					c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
+				}
+				recordMessageProcessingTime(e.msg.Code(), start)
 			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -184,6 +208,9 @@ eventLoop:
 				break eventLoop
 			}
 			newCandidateBlockEvent := ev.Data.(events.NewCandidateBlockEvent)
+			if metrics.Enabled && c.IsProposer() {
+				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
+			}
 			pb := &newCandidateBlockEvent.NewCandidateBlock
 			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
 		case <-ctx.Done():
