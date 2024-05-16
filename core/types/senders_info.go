@@ -157,9 +157,15 @@ func (s *SendersInfo) Valid(committeeSize int) error {
 	return nil
 }
 
+func (s *SendersInfo) Contains(valIndex int) bool {
+	_, ok := s.powers[valIndex]
+	return ok
+}
+
+/*
 func (s *SendersInfo) Contains(index int) bool {
 	return s.Bits.Get(index) != 0
-}
+}*/
 
 // checks that the resulting aggregate still respects the `committeeSize` boundary
 func (s *SendersInfo) RespectsBoundaries(other *SendersInfo) bool {

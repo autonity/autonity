@@ -61,26 +61,29 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 }
 
 type Proof struct {
-	Type      autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
-	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.
-	Message   message.Msg                      // the consensus message which is accountable.
-	Evidences []message.Msg                    // the proofs of the accountability event.
-	Offender  common.Address                   // the offender who break the rule.
+	Type          autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
+	Rule          autonity.Rule                    // Rule ID defined in AFD rule engine.
+	Message       message.Msg                      // the consensus message which is accountable.
+	Evidences     []message.Msg                    // the proofs of the accountability event.
+	Offender      common.Address                   // the offender who break the rule.
+	OffenderIndex int                              // the offender index.
 }
 
 type encodedProof struct {
-	Type      autonity.AccountabilityEventType
-	Rule      autonity.Rule
-	Offender  common.Address
-	Message   typedMessage
-	Evidences []typedMessage
+	Type          autonity.AccountabilityEventType
+	Rule          autonity.Rule
+	Offender      common.Address
+	OffenderIndex int
+	Message       typedMessage
+	Evidences     []typedMessage
 }
 
 func (p *Proof) EncodeRLP(w io.Writer) error {
 	encoded := encodedProof{
-		Type:     p.Type,
-		Rule:     p.Rule,
-		Offender: p.Offender,
+		Type:          p.Type,
+		Rule:          p.Rule,
+		Offender:      p.Offender,
+		OffenderIndex: p.OffenderIndex,
 	}
 	encoded.Message = typedMessage{p.Message}
 	for _, m := range p.Evidences {
@@ -97,6 +100,7 @@ func (p *Proof) DecodeRLP(stream *rlp.Stream) error {
 	p.Type = encoded.Type
 	p.Rule = encoded.Rule
 	p.Offender = encoded.Offender
+	p.OffenderIndex = encoded.OffenderIndex
 	p.Message = encoded.Message.Msg
 
 	p.Evidences = make([]message.Msg, len(encoded.Evidences))

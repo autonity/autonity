@@ -29,7 +29,7 @@ func NewMsgStore() *MsgStore {
 }
 
 // Save store msg into msg store, it assumes the msg signature was verified.
-func (ms *MsgStore) Save(m message.Msg) {
+func (ms *MsgStore) Save(m message.Msg, committee types.Committee) {
 	ms.Lock()
 	defer ms.Unlock()
 	if ms.firstHeight == uint64(0) {
@@ -71,21 +71,10 @@ func (ms *MsgStore) Save(m message.Msg) {
 		return
 	}
 
-	// todo(Jason): for votes, save them with not overlapped ones for each sender.
 	// for votes, save them for each sender.
-	var votesInfo *types.SendersInfo
-	if m.Code() == message.PrevoteCode {
-		votesInfo = m.(*message.Prevote).Senders()
-	}
-	if m.Code() == message.PrecommitCode {
-		votesInfo = m.(*message.Precommit).Senders()
-	}
-
-	if votesInfo == nil {
-		return
-	}
-
-	for _, sender := range votesInfo.Addresses() {
+	votesInfo := m.(message.Vote).Senders()
+	for _, senderIndex := range votesInfo.FlattenUniq() {
+		sender := committee[senderIndex].Address
 		msgs, ok := addressMap[sender]
 		if !ok {
 			var msgList []message.Msg

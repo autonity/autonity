@@ -844,8 +844,37 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 	return crypto.Hash(buf)
 }
 
-// TODO(lorenzo) refinements, update fake msg
+// computes the power of a set of messages. Every sender's power is counted only once
+func Power(messages []Msg) *big.Int {
+	accountedFor := make(map[int]struct{})
+	power := new(big.Int)
 
+	for _, msg := range messages {
+		switch m := msg.(type) {
+		case *Propose:
+			_, accounted := accountedFor[m.SenderIndex()]
+			if !accounted {
+				power.Add(power, m.Power())
+				accountedFor[m.SenderIndex()] = struct{}{}
+			}
+		case *Prevote, *Precommit:
+			vote := m.(Vote)
+			powers := vote.Senders().Powers()
+			for _, index := range vote.Senders().FlattenUniq() {
+				_, accounted := accountedFor[index]
+				if !accounted {
+					power.Add(power, powers[index])
+					accountedFor[index] = struct{}{}
+				}
+			}
+		default:
+			panic("unknown message type")
+		}
+	}
+	return power
+}
+
+// TODO(lorenzo) refinements, update fake msg
 /*
 // Fake is a dummy object used for internal testing.
 type Fake struct {

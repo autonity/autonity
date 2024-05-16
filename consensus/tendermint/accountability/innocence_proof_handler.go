@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
 
 	"github.com/autonity/autonity/autonity"
@@ -213,25 +214,27 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	}
 
 	// verify proof signatures at last since it is more cost-full than other checkers.
-	if err = verifyProofSignatures(fd.blockchain, proof); err != nil {
+	committee, err := verifyProofSignatures(fd.blockchain, proof)
+	if err != nil {
 		return err
 	}
 
 	// handle accusation and provide innocence proof.
 	if proof.Type == autonity.Accusation {
-		return fd.handleOffChainAccusation(proof, sender, msgHash)
+		return fd.handleOffChainAccusation(proof, sender, msgHash, committee)
 	}
 
 	// handle innocence proof and to withdraw those pending accusation.
 	if proof.Type == autonity.Innocence {
-		return fd.handleOffChainProofOfInnocence(proof, sender)
+		return fd.handleOffChainProofOfInnocence(proof, sender, committee)
 	}
 	return fmt.Errorf("wrong proof type for off chain accusation events")
 }
 
-func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash) error {
+func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash,
+	committee types.Committee) error {
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
-	if !verifyAccusation(accusation) {
+	if !verifyAccusation(accusation, committee) {
 		return errInvalidAccusation
 	}
 
@@ -258,14 +261,14 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	return nil
 }
 
-func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender common.Address) error {
+func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender common.Address, committee types.Committee) error {
 	// if the sender is not the one being challenged against, then drop the peer by returning error.
 	if proof.Offender != sender {
 		return errInvalidInnocenceProof
 	}
 
 	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
-	if !verifyInnocenceProof(proof, fd.blockchain) {
+	if !verifyInnocenceProof(proof, committee) {
 		return errInvalidInnocenceProof
 	}
 
