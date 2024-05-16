@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "../interfaces/INonStakableVestingVault.sol";
 import "./ScheduleBase.sol";
 
-contract NonStakableVesting is ScheduleBase {
+contract NonStakableVesting is INonStakableVestingVault, ScheduleBase {
 
     struct ScheduleClass {
         uint256 start;

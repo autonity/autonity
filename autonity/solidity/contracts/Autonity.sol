@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 
 import "./interfaces/IERC20.sol";
 import "./interfaces/IStakeProxy.sol";
+import "./interfaces/INonStakableVestingVault.sol";
 import "./Liquid.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
@@ -122,6 +123,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         IStabilization stabilizationContract;
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
+        INonStakableVestingVault nonStakableVestingContract;
     }
 
     struct Policy {
@@ -618,6 +620,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         config.contracts.upgradeManagerContract = _address;
     }
 
+    /**
+     * @notice Set the Non-stakable Vesting contract address.
+     */
+    function setNonStakableVestingContract(INonStakableVestingVault _address) public virtual onlyOperator {
+        config.contracts.nonStakableVestingContract = _address;
+    }
+
     /*
     * @notice Mint new stake token (NTN) and add it to the recipient balance. Restricted to the Operator account.
     * @dev emit a MintStake event.
@@ -721,6 +730,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // all rewards belong to the Autonity Contract before redistribution.
             _mint(address(this), _inflationReward);
             inflationReserve -= _inflationReward;
+            // mint newly unlocked NTN from non-stakable vesting contract
+            uint256 _newUnlockedTokens = config.contracts.nonStakableVestingContract.unlockTokens();
+            _mint(address(config.contracts.nonStakableVestingContract), _newUnlockedTokens);
             // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
             // end of epoch here
@@ -793,7 +805,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
 
     function getRevertingAmount(uint256 _unbondingID) external view returns (uint256) {
-        require(unbondingMap[_unbondingID].state == UnbondingReleaseState.reverted);
+        require(unbondingMap[_unbondingID].state == UnbondingReleaseState.reverted, "unbonding release not reverted");
         return unbondingMap[_unbondingID].revertingAmount;
     }
 
