@@ -566,7 +566,7 @@ func TestValidatorMigration(t *testing.T) {
 	params.TestChainConfig.AutonityContractConfig.EpochPeriod = 5
 	network, err := NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	n := network[0]
 	// wait for validator to connect to each other
