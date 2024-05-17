@@ -51,11 +51,12 @@ const (
 )
 
 var (
-	errDuplicatedMsg   = errors.New("duplicated msg")
-	errEquivocation    = errors.New("equivocation")
-	errNotCommitteeMsg = errors.New("msg from none committee member")
-	errProposer        = errors.New("proposal is not from proposer")
-	errFutureMsg       = errors.New("future message")
+	errDuplicatedMsg      = errors.New("duplicated msg")
+	errEquivocation       = errors.New("equivocation")
+	errNotCommitteeMsg    = errors.New("msg from none committee member")
+	errProposer           = errors.New("proposal is not from proposer")
+	errFutureMsg          = errors.New("future message")
+	errInvalidOffenderIdx = errors.New("invalid offender index")
 
 	errNoEvidenceForPO  = errors.New("no proof of innocence found for rule PO")
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")

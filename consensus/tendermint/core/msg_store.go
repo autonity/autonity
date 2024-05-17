@@ -114,14 +114,18 @@ func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signers ...
 		return result
 	}
 
-	// querying without the signer address nominated, it iterates all signers.
+	// querying without the signer address nominated, as it iterates all signers, we'd need to filter duplicated ones.
 	if len(signers) == 0 {
+		msgHashMap := make(map[common.Hash]struct{})
 		for _, msgTypeMap := range roundMap {
 			for _, addressMap := range msgTypeMap {
 				for _, msgs := range addressMap {
 					for _, msg := range msgs {
 						if query(msg) {
-							result = append(result, msg)
+							if _, ok := msgHashMap[msg.Hash()]; !ok {
+								result = append(result, msg)
+								msgHashMap[msg.Hash()] = struct{}{}
+							}
 						}
 					}
 				}

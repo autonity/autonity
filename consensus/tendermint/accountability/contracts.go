@@ -27,7 +27,6 @@ var (
 	successResult          = common.LeftPadBytes([]byte{1}, 32)
 	failureReturn          = make([]byte, 128)
 	errBadHeight           = errors.New("height invalid")
-	errMaxEvidences        = errors.New("above max evidence threshold")
 	errTooRecentAccusation = errors.New("accusation is too recent")
 	errTooOldAccusation    = errors.New("accusation is too old")
 	errValueCommitted      = errors.New("accusation is for a committed value")
@@ -95,7 +94,7 @@ func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64
 }
 
 // Run take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is valid, then
-// the rlp hash of the msg payload and the msg sender is returned.
+// the rlp hash of the msg payload and the msg signer is returned.
 func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
@@ -209,7 +208,7 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 }
 
 // Run take the rlp encoded Proof of challenge in byte array, decode it and validate it, if the Proof is valid, then
-// the rlp hash of the msg payload and the msg sender is returned as the valid identity for Proof management.
+// the rlp hash of the msg payload and the msg signer is returned as the valid identity for Proof management.
 func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
@@ -219,6 +218,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.A
 	if err != nil {
 		return failureReturn, nil
 	}
+
 	committee, err := verifyProofSignatures(c.chain, p)
 	if err != nil {
 		return failureReturn, nil
@@ -334,7 +334,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 			}
 		}
 
-		if hasEquivocatedVotes(p.Evidences) || hasRedundantVotes(p.Evidences) {
+		if hasEquivocatedVotes(p.Evidences) || hasDuplicatedVotes(p.Evidences) {
 			return false
 		}
 
@@ -438,7 +438,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 		}
 	}
 
-	if hasEquivocatedVotes(p.Evidences[1:]) || hasRedundantVotes(p.Evidences[1:]) {
+	if hasEquivocatedVotes(p.Evidences[1:]) || hasDuplicatedVotes(p.Evidences[1:]) {
 		return false
 	}
 
@@ -526,7 +526,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Co
 	}
 
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasEquivocatedVotes(p.Evidences) || hasRedundantVotes(p.Evidences) {
+	if hasEquivocatedVotes(p.Evidences) || hasDuplicatedVotes(p.Evidences) {
 		return false
 	}
 
@@ -547,7 +547,7 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 }
 
 // Run InnocenceVerifier, take the rlp encoded Proof of innocence, decode it and validate it, if the Proof is valid, then
-// return the rlp hash of msg and the rlp hash of msg sender as the valid identity for on-chain management of proofs,
+// return the rlp hash of msg and the rlp hash of msg signer as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
 func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 || blockNumber == 0 {
@@ -603,7 +603,7 @@ func validInnocenceProofOfPO(p *Proof, committee types.Committee) bool {
 	}
 
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasRedundantVotes(p.Evidences) {
+	if hasDuplicatedVotes(p.Evidences) {
 		return false
 	}
 
@@ -660,7 +660,7 @@ func validInnocenceProofOfPVO(p *Proof, committee types.Committee) bool {
 	}
 
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasRedundantVotes(p.Evidences[1:]) {
+	if hasDuplicatedVotes(p.Evidences[1:]) {
 		return false
 	}
 
@@ -686,15 +686,15 @@ func validInnocenceProofOfC1(p *Proof, committee types.Committee) bool {
 		}
 	}
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasRedundantVotes(p.Evidences) {
+	if hasDuplicatedVotes(p.Evidences) {
 		return false
 	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
 }
 
-// check if there is same vote messages in the set.
-func hasRedundantVotes(votes []message.Msg) bool {
+// check if there is duplicated vote messages in the set.
+func hasDuplicatedVotes(votes []message.Msg) bool {
 	hashMap := make(map[common.Hash]struct{})
 	for _, vote := range votes {
 		_, ok := hashMap[vote.Hash()]
@@ -709,12 +709,12 @@ func hasRedundantVotes(votes []message.Msg) bool {
 
 // check if there are votes for different values in the set
 func hasEquivocatedVotes(votes []message.Msg) bool {
-	voteMap := make(map[common.Hash]struct{})
-	for _, vote := range votes {
-		_, ok := voteMap[vote.Value()]
-		if !ok {
-			voteMap[vote.Value()] = struct{}{}
-		} else {
+	if len(votes) <= 1 {
+		return false
+	}
+	value := votes[0].Value()
+	for _, vote := range votes[1:] {
+		if value != vote.Value() {
 			return true
 		}
 	}
@@ -738,7 +738,12 @@ func verifyProofSignatures(chain ChainContext, p *Proof) (types.Committee, error
 		return nil, errFutureMsg
 	}
 
-	// assign power and bls sender key
+	// before signature verification, check if the offender index is valid
+	if p.OffenderIndex >= len(lastHeader.Committee) || p.OffenderIndex < 0 {
+		return nil, errInvalidOffenderIdx
+	}
+
+	// assign power and bls signer key
 	if err := p.Message.PreValidate(lastHeader); err != nil {
 		return nil, err
 	}
@@ -768,6 +773,7 @@ func checkEquivocation(m message.Msg, proof []message.Msg) error {
 	if len(proof) == 0 {
 		return fmt.Errorf("no proof")
 	}
+	// todo: fix this bug!!!
 	// check equivocations.
 	if m.Hash() != proof[0].Hash() {
 		return errEquivocation
@@ -775,8 +781,8 @@ func checkEquivocation(m message.Msg, proof []message.Msg) error {
 	return nil
 }
 
-func validReturn(m message.Msg, sender common.Address, rule autonity.Rule) []byte {
-	offender := common.LeftPadBytes(sender.Bytes(), 32)
+func validReturn(m message.Msg, signer common.Address, rule autonity.Rule) []byte {
+	offender := common.LeftPadBytes(signer.Bytes(), 32)
 	ruleID := common.LeftPadBytes([]byte{byte(rule)}, 32)
 	block := make([]byte, 32)
 	block = common.LeftPadBytes(new(big.Int).SetUint64(m.H()).Bytes(), 32)

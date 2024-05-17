@@ -61,12 +61,13 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 }
 
 type Proof struct {
-	Type          autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
-	Rule          autonity.Rule                    // Rule ID defined in AFD rule engine.
-	Message       message.Msg                      // the consensus message which is accountable.
-	Evidences     []message.Msg                    // the proofs of the accountability event.
-	Offender      common.Address                   // the offender who break the rule.
-	OffenderIndex int                              // the offender index.
+	Type      autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
+	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.
+	Message   message.Msg                      // the consensus message which is accountable.
+	Evidences []message.Msg                    // the proofs of the accountability event.
+	// todo: double check if Offender could be removed.
+	Offender      common.Address // the offender who break the rule.
+	OffenderIndex int            // the offender index.
 }
 
 type encodedProof struct {
