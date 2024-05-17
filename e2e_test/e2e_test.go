@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -28,6 +29,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 )
 
@@ -555,6 +557,110 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	// Verify network is not on hold anymore and producing blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+}
+
+func TestValidatorMigration(t *testing.T) {
+	vals, err := Validators(t, 4, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	params.TestChainConfig.AutonityContractConfig.EpochPeriod = 5
+	network, err := NewNetworkFromValidators(t, vals, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	n := network[0]
+	// wait for validator to connect to each other
+	// pause a validator
+	// turn off validator
+	// update ip of a single validator
+	// re-activate validator with new ip:
+	// activate validator again
+	// ensure all validators are connected in full mesh with new ip
+
+	// Setup Bindings
+	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[1].WsClient)
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+
+	validator, _ := autonityContract.GetValidator(nil, n.Address)
+	oldEnode, err := enode.ParseV4(validator.Enode)
+	require.NoError(t, err)
+	// use new port in the newer enode
+	newPort := freeport.GetOne(t)
+	newEnode := enode.AppendConsensusEndpoint(oldEnode.Host(), strconv.Itoa(newPort), oldEnode.String())
+
+	_, err = autonityContract.PauseValidator(transactor, n.Address)
+	require.NoError(t, err)
+
+	inCommitee := func(addr common.Address) bool {
+		members, err := autonityContract.GetCommittee(nil)
+		require.NoError(t, err)
+		found := false
+		for _, m := range members {
+			if m.Addr == addr {
+				found = true
+				break
+			}
+		}
+		return found
+	}
+
+	// wait for few blocks to get the validator out of committee
+loop1:
+	for {
+		time.Sleep(1 * time.Second)
+		if !inCommitee(n.Address) {
+			break loop1
+		}
+	}
+
+	_, err = autonityContract.UpdateEnode(transactor, n.Address, newEnode)
+	require.NoError(t, err)
+	// turn off validator to restart it with new port
+	n.Close(true)
+
+	err = network.WaitToMineNBlocks(1, 10, false)
+	require.NoError(t, err)
+	// verify other client only has 2 connection now
+	require.Equal(t, 2, network[1].ConsensusServer().PeerCount())
+
+	// start the client again
+	n.Config.ConsensusP2P.ListenAddr = oldEnode.Host() + ":" + strconv.Itoa(newPort)
+	n.Start()
+
+	// re-activate validator
+	_, err = autonityContract.ActivateValidator(transactor, n.Address)
+	require.NoError(t, err)
+
+	// wait for few blocks to get the validator in committee
+loop:
+	for {
+		time.Sleep(1 * time.Second)
+		if inCommitee(n.Address) {
+			break loop
+		}
+	}
+	err = network.WaitToMineNBlocks(30, 60, false)
+	require.NoError(t, err)
+
+	fullyConnected := false
+	tries := 30
+	// we are in committee again wait for approximately 30 second to connect everyone
+loop2:
+	for {
+		time.Sleep(1 * time.Second)
+		if n.ConsensusServer().PeerCount() == 3 {
+			fullyConnected = true
+			break loop2
+		}
+		tries--
+		if tries == 0 {
+			break loop2
+		}
+	}
+	// verify we are connected fully again
+	require.True(t, fullyConnected)
 }
 
 /*
