@@ -249,7 +249,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof) bool {
 	if !ok {
 		return false
 	}
-	if preCommit.Sender() == proposal.Sender() &&
+	if preCommit.Signer() == proposal.Signer() &&
 		preCommit.R() < proposal.R() &&
 		preCommit.Value() != nilValue {
 		return true
@@ -280,14 +280,14 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 	switch vote := p.Evidences[0].(type) {
 	case *message.Precommit:
 		if vote.R() == proposal.ValidRound() &&
-			//	vote.Sender() == p.Message.Sender() && //TODO(lorenzo) fix this
+			//	vote.Signer() == p.Message.Signer() && //TODO(lorenzo) fix this
 			vote.Value() != nilValue &&
 			vote.Value() != proposal.Value() {
 			return true
 		}
 		if vote.R() > proposal.ValidRound() &&
 			vote.R() < proposal.R() &&
-			//vote.Sender() == p.Message.Sender() && //TODO(lorenzo) fix this
+			//vote.Signer() == p.Message.Signer() && //TODO(lorenzo) fix this
 			vote.Value() != nilValue {
 			return true
 		}
@@ -345,7 +345,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 
 	for i, pc := range preCommits {
 		/* //TODO(lorenzo) fix
-		if pc.Code() != message.PrecommitCode || pc.Sender() != prevote.Sender() || pc.R() >= prevote.R() {
+		if pc.Code() != message.PrecommitCode || pc.Signer() != prevote.Signer() || pc.R() >= prevote.R() {
 			return false
 		}*/
 
@@ -447,7 +447,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	presentedRounds := make(map[int64]struct{})
 	for _, pc := range allPreCommits {
 		/* //TODO(lorenzo) fix this
-		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode || pc.Sender() != prevote.Sender() ||
+		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode || pc.Signer() != prevote.Signer() ||
 			pc.H() != prevote.H() {
 			return false
 		}*/
@@ -683,9 +683,9 @@ func hasEquivocatedVotes(votes []message.Msg) bool {
 	/* //TODO(lorenzo) fix
 	voteMap := make(map[common.Address]struct{})
 	for _, vote := range votes {
-		_, ok := voteMap[vote.Sender()]
+		_, ok := voteMap[vote.Signer()]
 		if !ok {
-			voteMap[vote.Sender()] = struct{}{}
+			voteMap[vote.Signer()] = struct{}{}
 		} else {
 			return true
 		}
@@ -744,7 +744,7 @@ func checkEquivocation(m message.Msg, proof []message.Msg) error {
 
 func validReturn(m message.Msg, rule autonity.Rule) []byte {
 	/* //TODO(lorenzo) fix
-	offender := common.LeftPadBytes(m.Sender().Bytes(), 32)
+	offender := common.LeftPadBytes(m.Signer().Bytes(), 32)
 	ruleID := common.LeftPadBytes([]byte{byte(rule)}, 32)
 	block := make([]byte, 32)
 	block = common.LeftPadBytes(new(big.Int).SetUint64(m.H()).Bytes(), 32)

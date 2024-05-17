@@ -107,7 +107,7 @@ func WriteRound(h *Header, round int64) error {
 
 // WriteQuorumCertificate writes the extra-data field of a block header with given quorumCertificate
 func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) error {
-	if quorumCertificate.Signature == nil || quorumCertificate.Senders == nil || quorumCertificate.Senders.Len() == 0 {
+	if quorumCertificate.Signature == nil || quorumCertificate.Signers == nil || quorumCertificate.Signers.Len() == 0 {
 		return ErrInvalidQuorumCertificate
 	}
 	h.QuorumCertificate = quorumCertificate.Copy()

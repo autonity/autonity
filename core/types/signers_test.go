@@ -380,44 +380,44 @@ func TestSigners(t *testing.T) {
 
 func TestValidation(t *testing.T) {
 	csize := 10
-	t.Run("Valid aggregates should be valid", func(t *testing.T) {
+	t.Run("Validate aggregates should be valid", func(t *testing.T) {
 		s := NewSigners(csize)
 
 		// A
 		s.increment(0)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 
 		// A + B
 		s.increment(1)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 
 		// A + B + C
 		s.increment(2)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 
 		// A + B + C + D
 		s.increment(3)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 
 		// 2A + B + C + D
 		s.increment(0)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 
 		// 3A + B + C + D
 		s.increment(0)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 
 		// 4A + 2B + C + D
 		s.increment(0)
 		s.increment(1)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 
 		// 3A + 3B + C + D + E
 		s = NewSigners(csize)
@@ -431,7 +431,7 @@ func TestValidation(t *testing.T) {
 		s.increment(3)
 		s.increment(4)
 		fmt.Println(s.String())
-		require.True(t, s.Valid(csize))
+		require.True(t, s.Validate(csize))
 	})
 	t.Run("Invalid aggregates should be invalid", func(t *testing.T) {
 		s := NewSigners(csize)
@@ -444,35 +444,35 @@ func TestValidation(t *testing.T) {
 		// 2A + B
 		s.increment(1)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// 3A + B + C
 		s.increment(0)
 		s.increment(2)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// 4A + 2B + C
 		s.increment(0)
 		s.increment(1)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// 5A + 2B + C + D
 		s.increment(0)
 		s.increment(3)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// 5A + 3B + C + D
 		s.increment(1)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// 5A + 3B + C + 2D
 		s.increment(3)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// 9A + 3B + C + 2D
 		s.increment(0)
@@ -480,7 +480,7 @@ func TestValidation(t *testing.T) {
 		s.increment(0)
 		s.increment(0)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		s = NewSigners(csize)
 
@@ -491,14 +491,14 @@ func TestValidation(t *testing.T) {
 		s.increment(1)
 		s.increment(2)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// 2A + 2B + 4C
 		s.increment(2)
 		s.increment(2)
 		s.increment(2)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		s = NewSigners(csize)
 
@@ -518,7 +518,7 @@ func TestValidation(t *testing.T) {
 		s.increment(3)
 		s.increment(4)
 		fmt.Println(s.String())
-		require.False(t, s.Valid(csize))
+		require.False(t, s.Validate(csize))
 
 		// TODO(lorenzo) add some more cases with greater committesize
 		// It would be good to do some sort of fuzz testing of different combinations of signatures

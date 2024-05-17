@@ -69,8 +69,8 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
-		require.Equal(t, vote.Senders().Bits, decoded.Senders().Bits)
-		require.Equal(t, vote.Senders().Coefficients, decoded.Senders().Coefficients)
+		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
+		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
 		require.Equal(t, vote.Signature(), decoded.Signature())
 	})
 	t.Run("precommit", func(t *testing.T) {
@@ -84,8 +84,8 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
-		require.Equal(t, vote.Senders().Bits, decoded.Senders().Bits)
-		require.Equal(t, vote.Senders().Coefficients, decoded.Senders().Coefficients)
+		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
+		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
 		require.Equal(t, vote.Signature(), decoded.Signature())
 	})
 	t.Run("propose", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, proposal.H(), decoded.H())
 		require.Equal(t, proposal.Value(), decoded.Value())
 		require.Equal(t, proposal.ValidRound(), decoded.ValidRound())
-		require.Equal(t, proposal.Sender(), decoded.Sender())
+		require.Equal(t, proposal.Signer(), decoded.Signer())
 		require.Equal(t, proposal.Signature(), decoded.Signature())
 	})
 	t.Run("invalid propose with vr > r", func(t *testing.T) {
@@ -201,8 +201,8 @@ func TestPreValidate(t *testing.T) {
 		}
 
 		// tamper with signers information
-		messages[0].Senders().Bits = make([]byte, 100)
-		messages[1].Senders().Bits = make([]byte, 0)
+		messages[0].Signers().Bits = make([]byte, 100)
+		messages[1].Signers().Bits = make([]byte, 0)
 
 		for _, message := range messages {
 			err := message.PreValidate(header)
@@ -213,9 +213,9 @@ func TestPreValidate(t *testing.T) {
 		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: []types.CommitteeMember{*testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember}}
 		vote := newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 5)
 
-		// let's make this vote complex by tweaking the senders (NOTE: this will not pass validate since the signature doesn't actually match the senders)
-		vote.Senders().Bits.Set(0, 2)
-		vote.Senders().Bits.Set(1, 1)
+		// let's make this vote complex by tweaking the signers (NOTE: this will not pass validate since the signature doesn't actually match the signers)
+		vote.Signers().Bits.Set(0, 2)
+		vote.Signers().Bits.Set(1, 1)
 
 		err := vote.PreValidate(header)
 		require.True(t, errors.Is(err, ErrInvalidComplexAggregate))
@@ -315,8 +315,8 @@ func makeSigner(i int) func(hash common.Hash) (signature blst.Signature, address
 /*
 func TestAggregateVotes(t *testing.T) {
 	// Rules:
-	// 1. votes are ordered by decreasing number of distinct senders
-	// 2. a vote is aggregated to the previous ones only if it adds information (i.e. adds a new sender)
+	// 1. votes are ordered by decreasing number of distinct signers
+	// 2. a vote is aggregated to the previous ones only if it adds information (i.e. adds a new signer)
 	h := uint64(1)
 	r := int64(0)
 	v := common.HexToHash("0a5843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
@@ -330,58 +330,58 @@ func TestAggregateVotes(t *testing.T) {
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(0), header))
 	aggregate := AggregatePrevotes(votes)
-	fmt.Println(aggregate.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Senders().Bits[0]), "01000000")
-	require.True(t, aggregate.Senders().Valid(csize))
+	fmt.Println(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
+	require.True(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(0), header))
 	aggregate = AggregatePrevotes(votes)
-	fmt.Println(aggregate.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Senders().Bits[0]), "01000000")
-	require.True(t, aggregate.Senders().Valid(csize))
+	fmt.Println(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
+	require.True(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(1), header))
 	aggregate = AggregatePrevotes(votes)
-	fmt.Println(aggregate.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Senders().Bits[0]), "01010000")
-	require.True(t, aggregate.Senders().Valid(csize))
+	fmt.Println(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010000")
+	require.True(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(2), header))
 	aggregate = AggregatePrevotes(votes)
-	fmt.Println(aggregate.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Senders().Bits[0]), "01010100")
-	require.True(t, aggregate.Senders().Valid(csize))
+	fmt.Println(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010100")
+	require.True(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(3), header))
 	aggregate = AggregatePrevotes(votes)
-	fmt.Println(aggregate.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Senders().Bits[0]), "01010101")
-	require.True(t, aggregate.Senders().Valid(csize))
+	fmt.Println(aggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010101")
+	require.True(t, aggregate.Signers().Validate(csize))
 
 	aggregate2 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, makeSigner(0), header), NewPrevote(r, h, v, makeSigner(1), header), NewPrevote(r, h, v, makeSigner(2), header)})
 	aggregate3 := AggregatePrevotes([]Vote{aggregate, aggregate2})
-	fmt.Println(aggregate3.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate3.Senders().Bits[0]), "01010101")
-	require.True(t, aggregate3.Senders().Valid(csize))
+	fmt.Println(aggregate3.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate3.Signers().Bits[0]), "01010101")
+	require.True(t, aggregate3.Signers().Validate(csize))
 
 	aggregate4 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, makeSigner(0), header), NewPrevote(r, h, v, makeSigner(1), header)})
 	aggregate5 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, makeSigner(0), header), NewPrevote(r, h, v, makeSigner(2), header)})
 	aggregate6 := AggregatePrevotes([]Vote{aggregate4, aggregate5})
-	fmt.Println(aggregate6.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate6.Senders().Bits[0]), "10010100")
-	require.True(t, aggregate6.Senders().Valid(csize))
+	fmt.Println(aggregate6.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate6.Signers().Bits[0]), "10010100")
+	require.True(t, aggregate6.Signers().Validate(csize))
 
 	aggregate7 := AggregatePrevotes([]Vote{aggregate6, aggregate3})
-	fmt.Println(aggregate7.Senders().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Senders().Bits[0]), "01010101")
-	require.True(t, aggregate7.Senders().Valid(csize))
+	fmt.Println(aggregate7.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Signers().Bits[0]), "01010101")
+	require.True(t, aggregate7.Signers().Validate(csize))
 
 }
 
 func TestAggregateVotesSimple(t *testing.T) {
 	// Rules:
-	// 1. votes are ordered by decreasing number of distinct senders
-	// 2. a vote is aggregated to the previous ones only if it adds information (i.e. adds a new sender)
+	// 1. votes are ordered by decreasing number of distinct signers
+	// 2. a vote is aggregated to the previous ones only if it adds information (i.e. adds a new signer)
 	// 3. a vote is aggregated to the previous one only if it does not produce a complex signature
 	h := uint64(1)
 	r := int64(0)
@@ -398,47 +398,47 @@ func TestAggregateVotesSimple(t *testing.T) {
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(0), header))
 	aggregates := AggregatePrevotesSimple(votes)
 	for _, aggregate := range aggregates {
-		fmt.Println(aggregate.Senders().String())
+		fmt.Println(aggregate.Signers().String())
 	}
 	require.Equal(t, 1, len(aggregates))
-	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Senders().Bits[0]), "01000000")
-	require.True(t, aggregates[0].Senders().Valid(csize))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01000000")
+	require.True(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(0), header))
 	aggregates = AggregatePrevotesSimple(votes)
 	for _, aggregate := range aggregates {
-		fmt.Println(aggregate.Senders().String())
+		fmt.Println(aggregate.Signers().String())
 	}
 	require.Equal(t, 1, len(aggregates))
-	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Senders().Bits[0]), "01000000")
-	require.True(t, aggregates[0].Senders().Valid(csize))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01000000")
+	require.True(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(1), header))
 	aggregates = AggregatePrevotesSimple(votes)
 	for _, aggregate := range aggregates {
-		fmt.Println(aggregate.Senders().String())
+		fmt.Println(aggregate.Signers().String())
 	}
 	require.Equal(t, 1, len(aggregates))
-	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Senders().Bits[0]), "01010000")
-	require.True(t, aggregates[0].Senders().Valid(csize))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01010000")
+	require.True(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(2), header))
 	aggregates = AggregatePrevotesSimple(votes)
 	for _, aggregate := range aggregates {
-		fmt.Println(aggregate.Senders().String())
+		fmt.Println(aggregate.Signers().String())
 	}
 	require.Equal(t, 1, len(aggregates))
-	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Senders().Bits[0]), "01010100")
-	require.True(t, aggregates[0].Senders().Valid(csize))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01010100")
+	require.True(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, makeSigner(3), header))
 	aggregates = AggregatePrevotesSimple(votes)
 	for _, aggregate := range aggregates {
-		fmt.Println(aggregate.Senders().String())
+		fmt.Println(aggregate.Signers().String())
 	}
 	require.Equal(t, 1, len(aggregates))
-	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Senders().Bits[0]), "01010101")
-	require.True(t, aggregates[0].Senders().Valid(csize))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates[0].Signers().Bits[0]), "01010101")
+	require.True(t, aggregates[0].Signers().Validate(csize))
 
 	// aggregate overlaps, should not get merged
 
@@ -446,24 +446,24 @@ func TestAggregateVotesSimple(t *testing.T) {
 	aggregates3 := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, makeSigner(0), header), NewPrevote(r, h, v, makeSigner(2), header)})
 	aggregates4 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0]})
 	for _, aggregate := range aggregates4 {
-		fmt.Println(aggregate.Senders().String())
+		fmt.Println(aggregate.Signers().String())
 	}
 	require.Equal(t, 2, len(aggregates4))
-	require.Equal(t, fmt.Sprintf("%08b", aggregates4[0].Senders().Bits[0]), "01010000")
-	require.Equal(t, fmt.Sprintf("%08b", aggregates4[1].Senders().Bits[0]), "01000100")
-	require.True(t, aggregates4[0].Senders().Valid(csize))
-	require.True(t, aggregates4[1].Senders().Valid(csize))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates4[0].Signers().Bits[0]), "01010000")
+	require.Equal(t, fmt.Sprintf("%08b", aggregates4[1].Signers().Bits[0]), "01000100")
+	require.True(t, aggregates4[0].Signers().Validate(csize))
+	require.True(t, aggregates4[1].Signers().Validate(csize))
 
 	vote := NewPrevote(r, h, v, makeSigner(3), header)
 	aggregates5 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0], vote})
 	for _, aggregate := range aggregates5 {
-		fmt.Println(aggregate.Senders().String())
+		fmt.Println(aggregate.Signers().String())
 	}
 	require.Equal(t, 2, len(aggregates5))
-	require.Equal(t, fmt.Sprintf("%08b", aggregates5[0].Senders().Bits[0]), "01010001")
-	require.Equal(t, fmt.Sprintf("%08b", aggregates5[1].Senders().Bits[0]), "01000100")
-	require.True(t, aggregates5[0].Senders().Valid(csize))
-	require.True(t, aggregates5[1].Senders().Valid(csize))
+	require.Equal(t, fmt.Sprintf("%08b", aggregates5[0].Signers().Bits[0]), "01010001")
+	require.Equal(t, fmt.Sprintf("%08b", aggregates5[1].Signers().Bits[0]), "01000100")
+	require.True(t, aggregates5[0].Signers().Validate(csize))
+	require.True(t, aggregates5[1].Signers().Validate(csize))
 
 	//TODO(Lorenzo) absolutely needs more test cases here
 }

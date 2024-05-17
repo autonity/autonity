@@ -55,9 +55,9 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		senders := types.NewSigners(4)
-		senders.Increment(&otherBlock.Header().Committee[0])
-		err = engine.Commit(otherBlock, 0, types.AggregateSignature{Signature: new(blst.BlsSignature), Senders: senders})
+		signers := types.NewSigners(4)
+		signers.Increment(&otherBlock.Header().Committee[0])
+		err = engine.Commit(otherBlock, 0, types.AggregateSignature{Signature: new(blst.BlsSignature), Signers: signers})
 		if err != nil {
 			t.Error("commit should not return error", err.Error())
 		}
@@ -375,8 +375,8 @@ OUT3:
 }
 
 func TestWriteQuorumCertificate(t *testing.T) {
-	expectedQuorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Senders: types.NewSigners(1)}
-	expectedQuorumCertificate.Senders.Increment(testCommitteeMember)
+	expectedQuorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
+	expectedQuorumCertificate.Signers.Increment(testCommitteeMember)
 
 	h := &types.Header{}
 

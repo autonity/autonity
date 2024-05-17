@@ -115,7 +115,7 @@ func (vb validatorBitmap) Set(validatorIndex int, value byte) {
 }
 
 // validates the sender info, used to ensure received aggregates have correctly sized buffers
-func (s *Signers) Valid(committeeSize int) error {
+func (s *Signers) Validate(committeeSize int) error {
 	// whether locally created or received from wire, Bits and Coefficients are never nil
 	if s.Bits == nil || s.Coefficients == nil {
 		return ErrNilSigners

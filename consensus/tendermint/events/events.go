@@ -80,7 +80,7 @@ type SyncEvent struct {
 }
 
 type AccountabilityEvent struct {
-	Sender  common.Address
-	Payload []byte
-	ErrCh   chan<- error
+	P2pSender common.Address
+	Payload   []byte
+	ErrCh     chan<- error
 }

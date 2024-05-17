@@ -213,9 +213,9 @@ tendermintMsgLoop:
 				//TODO(lorenzo) should we gossip old height messages?
 				// might be useful for accountability, but might be exploitable for DoS
 			case events.AccountabilityEvent:
-				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
+				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.P2pSender)
 				if err != nil {
-					fd.logger.Info("Accountability: Dropping peer", "peer", e.Sender)
+					fd.logger.Info("Accountability: Dropping peer", "peer", e.P2pSender)
 					// the errors return from handler could freeze the peer connection for 30 seconds by according to dev p2p protocol.
 					select {
 					case e.ErrCh <- err:
@@ -395,7 +395,7 @@ func (fd *FaultDetector) eventFromProof(p *Proof) *autonity.AccountabilityEvent 
 		EventType: uint8(p.Type),
 		Rule:      uint8(p.Rule),
 		Reporter:  fd.address,
-		//Offender:       p.Message.Sender(), //TODO(lorenzo) fix
+		//Offender:       p.Message.Signer(), //TODO(lorenzo) fix
 		Id:             common.Big0,                           // assigned contract-side
 		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side
 		ReportingBlock: common.Big0,                           // assigned contract-side
@@ -608,7 +608,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 
 	for _, proof := range proofs {
 		//TODO(lorenzo) fix
-		//offender := proof.Message.Sender()
+		//offender := proof.Message.Signer()
 		var offender common.Address
 
 		// skip misbehaviour or accusation against self
@@ -676,7 +676,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 		// Skip if proposal is equivocated
 		proposalsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo) fix
-			return /*m.Sender() == proposal.Sender() && */ m.Code() == message.ProposalCode && m.R() == proposal.R()
+			return /*m.Signer() == proposal.Signer() && */ m.Code() == message.ProposalCode && m.R() == proposal.R()
 		})
 		// Due to the for loop there must be at least one proposal
 		if len(proposalsForR) > 1 {
@@ -686,7 +686,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 		//check all precommits for previous rounds from this sender are nil
 		precommits := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo) fix
-			return /*m.Sender() == proposal.Sender() &&*/ m.Code() == message.PrecommitCode && m.R() < proposal.R() && m.Value() != nilValue
+			return /*m.Signer() == proposal.Signer() &&*/ m.Code() == message.PrecommitCode && m.R() < proposal.R() && m.Value() != nilValue
 		})
 		if len(precommits) != 0 {
 			proof := &Proof{
@@ -696,7 +696,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			//fd.logger.Info("Misbehaviour detected", "rule", "PN", "incriminated", proposal.Sender()) //TODO(lorenzo) fix
+			//fd.logger.Info("Misbehaviour detected", "rule", "PN", "incriminated", proposal.Signer()) //TODO(lorenzo) fix
 		}
 	}
 	return proofs
@@ -720,7 +720,7 @@ oldProposalLoop:
 		// Skip if proposal is equivocated
 		proposalsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo)
-			return /*m.Sender() == proposal.Sender() &&*/ m.Code() == message.ProposalCode && m.R() == proposal.R()
+			return /*m.Signer() == proposal.Signer() &&*/ m.Code() == message.ProposalCode && m.R() == proposal.R()
 
 		})
 		// Due to the for loop there must be at least one proposal
@@ -735,7 +735,7 @@ oldProposalLoop:
 		// misbehaviour can be generated.
 		precommitsFromPiInVR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo) fix
-			return m.Code() == message.PrecommitCode && m.R() == validRound && /*m.Sender() == proposal.Sender() &&*/
+			return m.Code() == message.PrecommitCode && m.R() == validRound && /*m.Signer() == proposal.Signer() &&*/
 				m.Value() != nilValue && m.Value() != proposal.Value()
 		})
 		if len(precommitsFromPiInVR) > 0 {
@@ -746,7 +746,7 @@ oldProposalLoop:
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender()) //TODO(lorenzo)
+			//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Signer()) //TODO(lorenzo)
 			continue oldProposalLoop
 		}
 
@@ -756,7 +756,7 @@ oldProposalLoop:
 		precommitsFromPiAfterVR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo) fix
 			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < proposal.R() &&
-				/*m.Sender() == proposal.Sender() &&*/ m.Value() != nilValue
+				/*m.Signer() == proposal.Signer() &&*/ m.Value() != nilValue
 		})
 		if len(precommitsFromPiAfterVR) > 0 {
 			proof := &Proof{
@@ -766,7 +766,7 @@ oldProposalLoop:
 				Message:   message.NewLightProposal(proposal.(*message.Propose)),
 			}
 			proofs = append(proofs, proof)
-			//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender()) //TODO(lorenzo)
+			//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Signer()) //TODO(lorenzo)
 			continue oldProposalLoop
 		}
 
@@ -792,7 +792,7 @@ oldProposalLoop:
 					Message:   message.NewLightProposal(proposal.(*message.Propose)),
 				}
 				proofs = append(proofs, proof)
-				//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Sender()) //TODO(lorenzo)
+				//fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Signer()) //TODO(lorenzo)
 				continue oldProposalLoop
 			}
 		}
@@ -823,7 +823,7 @@ oldProposalLoop:
 					Message: message.NewLightProposal(propose),
 				}
 				proofs = append(proofs, accusation)
-				//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PO", "suspect", proposal.Sender()) //TODO(lorenzo)
+				//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PO", "suspect", proposal.Signer()) //TODO(lorenzo)
 			}
 		}
 	}
@@ -844,7 +844,7 @@ prevotesLoop:
 		// Skip if prevote is equivocated
 		prevotesForR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo) fix
-			return /*m.Sender() == prevote.Sender() &&*/ m.Code() == message.PrevoteCode && m.R() == prevote.R()
+			return /*m.Signer() == prevote.Signer() &&*/ m.Code() == message.PrevoteCode && m.R() == prevote.R()
 
 		})
 		// Due to the for loop there must be at least one preVote.
@@ -881,7 +881,7 @@ prevotesLoop:
 						Message: prevote,
 					}
 					proofs = append(proofs, accusation)
-					//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", prevote.Sender()) //TODO(lorenzo)
+					//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", prevote.Signer()) //TODO(lorenzo)
 				}
 			}
 			continue prevotesLoop // we have no corresponding proposal, so we cannot check new and old prevote rules
@@ -956,7 +956,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 	// of misbehaviour.
 	precommitsFromPi := fd.msgStore.Get(height, func(m message.Msg) bool {
 		//TODO(lorenzo)
-		return m.Code() == message.PrecommitCode && /*prevote.Sender() == m.Sender() &&*/ m.R() < prevote.R()
+		return m.Code() == message.PrecommitCode && /*prevote.Signer() == m.Signer() &&*/ m.R() < prevote.R()
 	})
 
 	// Check for missing messages. If there are gaps those missing message could be the one that proves pi acted
@@ -976,7 +976,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 
 				// check for equivocation. If present, bail out on the checking of this rule. Remote peer has already been punished for equivocation
 				precommitsAtRPrime := fd.msgStore.Get(height, func(m message.Msg) bool { //TODO(lorenzo)
-					return m.Code() == message.PrecommitCode && /*pc.Sender() == m.Sender() &&*/ m.R() == pc.R()
+					return m.Code() == message.PrecommitCode && /*pc.Signer() == m.Signer() &&*/ m.R() == pc.R()
 				})
 				if len(precommitsAtRPrime) > 1 {
 					break
@@ -988,7 +988,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 				}
 
 				// precommit at r' is not for V --> remote peer is malicious
-				//fd.logger.Info("Misbehaviour detected", "rule", "PVN", "incriminated", prevote.Sender()) //TODO(lorenzo)
+				//fd.logger.Info("Misbehaviour detected", "rule", "PVN", "incriminated", prevote.Signer()) //TODO(lorenzo)
 				proof := &Proof{
 					Type:    autonity.Misbehaviour,
 					Rule:    autonity.PVN,
@@ -1042,7 +1042,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		// this would imply at least quorum nodes are malicious which is much higher than our assumption.
 		overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
 		if overQuorumVotes != nil {
-			//fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", prevote.Sender()) //TODO(lorenzo)
+			//fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", prevote.Signer()) //TODO(lorenzo)
 			proof := &Proof{
 				Type:    autonity.Misbehaviour,
 				Rule:    autonity.PVO,
@@ -1088,7 +1088,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 
 		precommitsFromPi := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo)
-			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < currentR /*&& m.Sender() == prevote.Sender()*/
+			return m.Code() == message.PrecommitCode && m.R() > validRound && m.R() < currentR /*&& m.Signer() == prevote.Signer()*/
 		})
 
 		if len(precommitsFromPi) > 0 {
@@ -1125,7 +1125,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 			}
 
 			if lastRoundForNotV > lastRoundForV {
-				//fd.logger.Info("Misbehaviour detected", "rule", "PVO12", "incriminated", prevote.Sender()) //TODO(lorenzo)
+				//fd.logger.Info("Misbehaviour detected", "rule", "PVO12", "incriminated", prevote.Signer()) //TODO(lorenzo)
 				proof := &Proof{
 					Type:    autonity.Misbehaviour,
 					Rule:    autonity.PVO12,
@@ -1150,7 +1150,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		* However the commit round is not deterministic between all nodes.
 		 */
 		if fd.blockchain.GetBlock(prevote.Value(), prevote.H()) == nil {
-			//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVO", "suspect", prevote.Sender()) //TODO(lorenzo)
+			//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVO", "suspect", prevote.Signer()) //TODO(lorenzo)
 			return &Proof{
 				Type:      autonity.Accusation,
 				Rule:      autonity.PVO,
@@ -1179,7 +1179,7 @@ precommitLoop:
 		// Skip if preCommit is equivocated
 		precommitsForR := fd.msgStore.Get(height, func(m message.Msg) bool {
 			//TODO(lorenzo)
-			return /*m.Sender() == precommit.Sender() &&*/ m.Code() == message.PrecommitCode && m.R() == precommit.R()
+			return /*m.Signer() == precommit.Signer() &&*/ m.Code() == message.PrecommitCode && m.R() == precommit.R()
 		})
 		// Due to the for loop there must be at least one preCommit.
 		if len(precommitsForR) > 1 {
@@ -1208,7 +1208,7 @@ precommitLoop:
 					Message:   precommit,
 				}
 				proofs = append(proofs, proof)
-				//fd.logger.Info("Misbehaviour detected", "rule", "C", "incriminated", precommit.Sender()) //TODO(lorenzo)
+				//fd.logger.Info("Misbehaviour detected", "rule", "C", "incriminated", precommit.Signer()) //TODO(lorenzo)
 				continue precommitLoop
 			}
 		}
@@ -1240,7 +1240,7 @@ precommitLoop:
 				}
 				proofs = append(proofs, accusation)
 
-				//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "C1", "suspect", precommit.Sender()) //TODO(lorenzo)
+				//fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "C1", "suspect", precommit.Signer()) //TODO(lorenzo)
 			}
 		}
 	}
@@ -1269,7 +1269,7 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 	// skip processing duplicated msg.
 	duplicated := engineCore.GetStore(fd.msgStore, proposal.H(), func(p *message.Propose) bool {
 		return p.R() == proposal.R() &&
-			p.Sender() == proposal.Sender() &&
+			p.Signer() == proposal.Signer() &&
 			p.Value() == proposal.Value() &&
 			p.ValidRound() == proposal.ValidRound()
 	})
@@ -1288,7 +1288,7 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 	equivocated := fd.msgStore.Get(proposal.H(), func(msg message.Msg) bool {
 		// todo(youssef) : again validValue missing here
 		//TODO(lorenzo)
-		return msg.R() == proposal.R() && msg.Code() == message.ProposalCode && /*msg.Sender() == proposal.Sender() &&*/ msg.Value() != proposal.Value()
+		return msg.R() == proposal.R() && msg.Code() == message.ProposalCode && /*msg.Signer() == proposal.Signer() &&*/ msg.Value() != proposal.Value()
 	})
 
 	if len(equivocated) > 0 {
@@ -1308,7 +1308,7 @@ func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
 	// skip process duplicated for votes.
 	duplicatedMsg := fd.msgStore.Get(m.H(), func(msg message.Msg) bool {
 		//TODO(lorenzo)
-		return msg.R() == m.R() && msg.Code() == m.Code() && /*msg.Sender() == m.Sender() &&*/ msg.Value() == m.Value()
+		return msg.R() == m.R() && msg.Code() == m.Code() && /*msg.Signer() == m.Signer() &&*/ msg.Value() == m.Value()
 	})
 	if len(duplicatedMsg) > 0 {
 		return errDuplicatedMsg
@@ -1316,7 +1316,7 @@ func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
 	// account for equivocation for votes.
 	equivocatedMessages := fd.msgStore.Get(m.H(), func(msg message.Msg) bool {
 		//TODO(lorenzo)
-		return msg.R() == m.R() && msg.Code() == m.Code() && /*msg.Sender() == m.Sender() &&*/ msg.Value() != m.Value()
+		return msg.R() == m.R() && msg.Code() == m.Code() && /*msg.Signer() == m.Signer() &&*/ msg.Value() != m.Value()
 	})
 	if len(equivocatedMessages) > 0 {
 		fd.submitMisbehavior(m, equivocatedMessages[:1], errEquivocation)
@@ -1376,6 +1376,6 @@ func isProposerValid(chain ChainContext, m message.Msg) bool {
 		log.Error("get proposer err", "err", err)
 		return false
 	}
-	return m.Sender() == proposer
+	return m.Signer() == proposer
 	*/
 }

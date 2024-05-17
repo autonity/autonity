@@ -97,10 +97,10 @@ func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 	defer s.Unlock()
 	s.proposal = proposal
 	s.verifiedProposal = verified
-	s.power.Set(proposal.SenderIndex(), proposal.Power())
+	s.power.Set(proposal.SignerIndex(), proposal.Power())
 }
 
-// total power for round (each sender counted only once, regardless of msg type)
+// total power for round (each signer counted only once, regardless of msg type)
 func (s *RoundMessages) Power() *big.Int {
 	return s.power.Pow()
 }
@@ -125,7 +125,7 @@ func (s *RoundMessages) AddPrevote(prevote *Prevote) {
 	s.prevotes.Add(prevote)
 	//TODO(lorenzo) can be moved in the set Add if computationally expensive
 	// update round power cache
-	for index, power := range prevote.Senders().Powers() {
+	for index, power := range prevote.Signers().Powers() {
 		s.power.Set(index, power)
 	}
 
@@ -143,7 +143,7 @@ func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
 	s.precommits.Add(precommit)
 	//TODO(lorenzo) can be moved in the set Add if computationally expensive
 	// update round power cache
-	for index, power := range precommit.Senders().Powers() {
+	for index, power := range precommit.Signers().Powers() {
 		s.power.Set(index, power)
 	}
 }

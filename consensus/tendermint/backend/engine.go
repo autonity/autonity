@@ -221,11 +221,11 @@ func (sb *Backend) verifySigner(header, parent *types.Header) error {
 // committee members and that the voting power constitute a quorum.
 func (sb *Backend) verifyQuorumCertificate(header, parent *types.Header) error {
 	// un-finalized proposals will have these fields set to nil
-	if header.QuorumCertificate.Signature == nil || header.QuorumCertificate.Senders == nil {
+	if header.QuorumCertificate.Signature == nil || header.QuorumCertificate.Signers == nil {
 		return types.ErrEmptyQuorumCertificate
 	}
 	//TODO(lorenzo) do we need the bls sig zero check?
-	if err := header.QuorumCertificate.Senders.Valid(len(parent.Committee)); err != nil {
+	if err := header.QuorumCertificate.Signers.Validate(len(parent.Committee)); err != nil {
 		return fmt.Errorf("Invalid quorum certificate signers information: %w", err)
 	}
 
@@ -240,13 +240,13 @@ func (sb *Backend) verifyQuorumCertificate(header, parent *types.Header) error {
 
 	// Total Voting power for this block
 	power := new(big.Int)
-	for _, index := range header.QuorumCertificate.Senders.FlattenUniq() {
+	for _, index := range header.QuorumCertificate.Signers.FlattenUniq() {
 		power.Add(power, parent.Committee[index].VotingPower)
 	}
 
 	// verify signature
 	var keys [][]byte
-	for _, index := range header.QuorumCertificate.Senders.Flatten() {
+	for _, index := range header.QuorumCertificate.Signers.Flatten() {
 		keys = append(keys, parent.Committee[index].ConsensusKeyBytes)
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)

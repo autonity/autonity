@@ -217,7 +217,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash) error {
 	// if the suspected msg's sender is not current peer, then it would be a DoS attack, drop the peer with an error returned.
 	/* //TODO(lorenzo) fix
-	if accusation.Message.Sender() != fd.address {
+	if accusation.Message.Signer() != fd.address {
 		return errInvalidAccusation
 	}*/
 
@@ -253,7 +253,7 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender common.Address) error {
 	// if the sender is not the one being challenged against, then drop the peer by returning error.
 	/* //TODO(lorenzo) fix
-	if proof.Message.Sender() != sender {
+	if proof.Message.Signer() != sender {
 		return errInvalidInnocenceProof
 	}*/
 	// check if the proof is valid, an invalid proof of innocence will freeze the peer connection.
@@ -329,7 +329,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 	}
 
 	targets := make(map[common.Address]struct{})
-	targets[accusation.Message.Sender()] = struct{}{}
+	targets[accusation.Message.Signer()] = struct{}{}
 	peers := fd.broadcaster.FindPeers(targets)
 	if len(peers) == 0 {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.
@@ -343,8 +343,8 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 		return
 	}
 
-	fd.logger.Info("Attempting direct p2p resolution..", "suspect", accusation.Message.Sender())
-	go peers[accusation.Message.Sender()].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
+	fd.logger.Info("Attempting direct p2p resolution..", "suspect", accusation.Message.Signer())
+	go peers[accusation.Message.Signer()].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
 	*/
 }
 

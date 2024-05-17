@@ -50,14 +50,14 @@ type Msg interface {
 	// SignatureInput returns the bytes on which the message signature is computed (i.e. the bytes that were signed)
 	SignatureInput() common.Hash
 
-	// SenderKey returns:
+	// SignerKey returns:
 	// 1. if proposal, the bls key of the proposer
-	// 2. if vote/aggregate vote, the aggregated bls key of the senders
-	SenderKey() blst.PublicKey
+	// 2. if vote/aggregate vote, the aggregated bls key of the signers
+	SignerKey() blst.PublicKey
 }
 
-// Votes have an additional method, which returns all the available information about the senders
+// Votes have an additional method, which returns all the available information about the signers
 type Vote interface {
-	Senders() *types.Signers
+	Signers() *types.Signers
 	Msg
 }

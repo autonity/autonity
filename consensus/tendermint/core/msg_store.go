@@ -58,15 +58,15 @@ func (ms *MsgStore) Save(m message.Msg) {
 	   		msgTypeMap[m.Code()] = addressMap
 	   	}
 
-	   msgs, ok := addressMap[m.Sender()]
+	   msgs, ok := addressMap[m.Signer()]
 
 	   	if !ok {
 	   		var msgList []message.Msg
-	   		addressMap[m.Sender()] = append(msgList, m)
+	   		addressMap[m.Signer()] = append(msgList, m)
 	   		return
 	   	}
 
-	   addressMap[m.Sender()] = append(msgs, m)
+	   addressMap[m.Signer()] = append(msgs, m)
 	*/
 }
 

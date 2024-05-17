@@ -108,15 +108,15 @@ type AggregateSignature struct {
 	// this is because otherwise rlp creates a signature with new(blst.BlsSignature)
 	// which causes all sorts of problem because the private inner signature s.s remains nil
 	Signature *blst.BlsSignature `rlp:"nil"`
-	Senders   *Signers           `rlp:"nil"`
+	Signers   *Signers           `rlp:"nil"`
 }
 
 func NewAggregateSignature(signature *blst.BlsSignature, senders *Signers) AggregateSignature {
-	return AggregateSignature{Signature: signature, Senders: senders}
+	return AggregateSignature{Signature: signature, Signers: senders}
 }
 
 func (a AggregateSignature) Copy() AggregateSignature {
-	return AggregateSignature{Signature: a.Signature.Copy(), Senders: a.Senders.Copy()}
+	return AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
 }
 
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
@@ -487,7 +487,7 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	quorumCertificate := AggregateSignature{}
-	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Senders != nil {
+	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Signers != nil {
 		quorumCertificate = h.QuorumCertificate.Copy()
 	}
 

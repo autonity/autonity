@@ -11,18 +11,18 @@ import (
 
 //TODO(lorenzo) not sure this is the right place for this + add tests for it
 
-// auxiliary data structure to take into account aggregated power of a set of senders
+// auxiliary data structure to take into account aggregated power of a set of signers
 type PowerInfo struct {
 	power   *big.Int
-	senders *big.Int // used as bitmap, we do not care about coefficients here, only if a validator is present or not
+	signers *big.Int // used as bitmap, we do not care about coefficients here, only if a validator is present or not
 }
 
 func (p *PowerInfo) Set(index int, power *big.Int) {
-	if p.senders.Bit(index) == 1 {
+	if p.signers.Bit(index) == 1 {
 		return
 	}
 
-	p.senders.SetBit(p.senders, index, 1)
+	p.signers.SetBit(p.signers, index, 1)
 	p.power.Add(p.power, power)
 }
 
@@ -31,11 +31,11 @@ func (p *PowerInfo) Pow() *big.Int {
 }
 
 func (p *PowerInfo) Copy() *PowerInfo {
-	return &PowerInfo{power: new(big.Int).Set(p.power), senders: new(big.Int).Set(p.senders)}
+	return &PowerInfo{power: new(big.Int).Set(p.power), signers: new(big.Int).Set(p.signers)}
 }
 
 func NewPowerInfo() *PowerInfo {
-	return &PowerInfo{power: new(big.Int), senders: new(big.Int)}
+	return &PowerInfo{power: new(big.Int), signers: new(big.Int)}
 }
 
 type Set struct {
@@ -73,7 +73,7 @@ func (s *Set) Add(vote Vote) {
 	}
 
 	// update total power and power for value
-	powers := vote.Senders().Powers()
+	powers := vote.Signers().Powers()
 	for index, power := range powers {
 		s.totalPower.Set(index, power)
 		s.powers[value].Set(index, power)

@@ -14,10 +14,10 @@ func OverQuorumVotes(msgs []message.Msg, quorum *big.Int) (overQuorumVotes []mes
 	votingPower := new(big.Int)
 	counted := make(map[common.Address]struct{})
 	for _, v := range msgs {
-		if _, ok := counted[v.Sender()]; ok {
+		if _, ok := counted[v.Signer()]; ok {
 			continue
 		}
-		counted[v.Sender()] = struct{}{}
+		counted[v.Signer()] = struct{}{}
 		votingPower = votingPower.Add(votingPower, v.Power())
 		overQuorumVotes = append(overQuorumVotes, v)
 		if votingPower.Cmp(quorum) >= 0 {

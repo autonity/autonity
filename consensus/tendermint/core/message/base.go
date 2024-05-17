@@ -22,7 +22,7 @@ type base struct {
 	preverified    bool
 
 	// populated at PreValidate() phase
-	senderKey blst.PublicKey
+	signerKey blst.PublicKey
 }
 
 func (b *base) H() uint64 {
@@ -55,11 +55,11 @@ func (b *base) Hash() common.Hash {
 }
 
 // Bls key that needs to be used to verify the signature. Can be an aggregated key.
-func (b *base) SenderKey() blst.PublicKey {
+func (b *base) SignerKey() blst.PublicKey {
 	if !b.preverified {
-		panic("Trying to access sender key on not preverified message")
+		panic("Trying to access signer key on not preverified message")
 	}
-	return b.senderKey
+	return b.signerKey
 }
 
 func (b *base) Validate() error {
@@ -70,7 +70,7 @@ func (b *base) Validate() error {
 		return nil
 	}
 
-	if valid := b.signature.Verify(b.senderKey, b.signatureInput[:]); !valid {
+	if valid := b.signature.Verify(b.signerKey, b.signatureInput[:]); !valid {
 		return ErrBadSignature
 	}
 
