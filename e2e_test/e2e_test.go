@@ -609,11 +609,9 @@ func TestValidatorMigration(t *testing.T) {
 	// wait for few blocks to get the validator out of committee
 loop1:
 	for {
-		select {
-		case <-time.After(1 * time.Second):
-			if !inCommitee(n.Address) {
-				break loop1
-			}
+		time.Sleep(1 * time.Second)
+		if !inCommitee(n.Address) {
+			break loop1
 		}
 	}
 
@@ -638,19 +636,31 @@ loop1:
 	// wait for few blocks to get the validator in committee
 loop:
 	for {
-		select {
-		case <-time.After(1 * time.Second):
-			if inCommitee(n.Address) {
-				break loop
-			}
+		time.Sleep(1 * time.Second)
+		if inCommitee(n.Address) {
+			break loop
 		}
 	}
-	// we are in committe again wait for approximately 30 second to connect everyone
 	err = network.WaitToMineNBlocks(30, 60, false)
 	require.NoError(t, err)
 
+	fullyConnected := false
+	tries := 30
+	// we are in committee again wait for approximately 30 second to connect everyone
+loop2:
+	for {
+		time.Sleep(1 * time.Second)
+		if n.ConsensusServer().PeerCount() == 3 {
+			fullyConnected = true
+			break loop2
+		}
+		tries--
+		if tries == 0 {
+			break loop2
+		}
+	}
 	// verify we are connected fully again
-	require.Equal(t, 3, n.ConsensusServer().PeerCount())
+	require.True(t, fullyConnected)
 }
 
 /*
