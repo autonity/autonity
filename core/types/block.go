@@ -89,18 +89,17 @@ type Header struct {
 	BaseFee *big.Int `json:"baseFeePerGas"`
 
 	/*
-		PoS header fields, round & committedSeals not taken into account
+		PoS header fields, round & quorumCertificate not taken into account
 		for computing the sigHash.
 	*/
 	Committee Committee `json:"committee"           gencodec:"required"`
 	// used for committee member lookup, lazily initialised.
 	committeeMap map[common.Address]*CommitteeMember
 	// Used to ensure the committeeMap is created only once.
-	once sync.Once
-
-	ProposerSeal   []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round          uint64             `json:"round"               gencodec:"required"`
-	CommittedSeals AggregateSignature `json:"committedSeals"      gencodec:"required"`
+	once              sync.Once
+	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round             uint64             `json:"round"               gencodec:"required"`
+	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
 }
 
 type AggregateSignature struct {
@@ -108,15 +107,15 @@ type AggregateSignature struct {
 	// this is because otherwise rlp creates a signature with new(blst.BlsSignature)
 	// which causes all sorts of problem because the private inner signature s.s remains nil
 	Signature *blst.BlsSignature `rlp:"nil"`
-	Senders   *SendersInfo       `rlp:"nil"`
+	Signers   *Signers           `rlp:"nil"`
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, senders *SendersInfo) AggregateSignature {
-	return AggregateSignature{Signature: signature, Senders: senders}
+func NewAggregateSignature(signature *blst.BlsSignature, senders *Signers) AggregateSignature {
+	return AggregateSignature{Signature: signature, Signers: senders}
 }
 
 func (a AggregateSignature) Copy() AggregateSignature {
-	return AggregateSignature{Signature: a.Signature.Copy(), Senders: a.Senders.Copy()}
+	return AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
 }
 
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
@@ -180,10 +179,10 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee      Committee          `json:"committee"           gencodec:"required"`
-	ProposerSeal   []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round          uint64             `json:"round"               gencodec:"required"`
-	CommittedSeals AggregateSignature `json:"committedSeals"      gencodec:"required"`
+	Committee         Committee          `json:"committee"           gencodec:"required"`
+	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round             uint64             `json:"round"               gencodec:"required"`
+	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -269,7 +268,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		if err != nil {
 			return err
 		}
-		h.CommittedSeals = hExtra.CommittedSeals
+		h.QuorumCertificate = hExtra.QuorumCertificate
 		h.Committee = hExtra.Committee
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
@@ -312,10 +311,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 // extra data.
 func (h *Header) EncodeRLP(w io.Writer) error {
 	hExtra := headerExtra{
-		Committee:      h.Committee,
-		ProposerSeal:   h.ProposerSeal,
-		Round:          h.Round,
-		CommittedSeals: h.CommittedSeals,
+		Committee:         h.Committee,
+		ProposerSeal:      h.ProposerSeal,
+		Round:             h.Round,
+		QuorumCertificate: h.QuorumCertificate,
 	}
 
 	original := h.original()
@@ -486,32 +485,32 @@ func CopyHeader(h *Header) *Header {
 		copy(proposerSeal, h.ProposerSeal)
 	}
 
-	committedSeals := AggregateSignature{}
-	if h.CommittedSeals.Signature != nil && h.CommittedSeals.Senders != nil {
-		committedSeals = h.CommittedSeals.Copy()
+	quorumCertificate := AggregateSignature{}
+	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Signers != nil {
+		quorumCertificate = h.QuorumCertificate.Copy()
 	}
 
 	cpy := &Header{
-		ParentHash:     h.ParentHash,
-		UncleHash:      h.UncleHash,
-		Coinbase:       h.Coinbase,
-		Root:           h.Root,
-		TxHash:         h.TxHash,
-		ReceiptHash:    h.ReceiptHash,
-		Bloom:          h.Bloom,
-		Difficulty:     difficulty,
-		Number:         number,
-		GasLimit:       h.GasLimit,
-		GasUsed:        h.GasUsed,
-		Time:           h.Time,
-		Extra:          extra,
-		MixDigest:      h.MixDigest,
-		Nonce:          h.Nonce,
-		Committee:      committee,
-		ProposerSeal:   proposerSeal,
-		BaseFee:        baseFee,
-		Round:          h.Round,
-		CommittedSeals: committedSeals,
+		ParentHash:        h.ParentHash,
+		UncleHash:         h.UncleHash,
+		Coinbase:          h.Coinbase,
+		Root:              h.Root,
+		TxHash:            h.TxHash,
+		ReceiptHash:       h.ReceiptHash,
+		Bloom:             h.Bloom,
+		Difficulty:        difficulty,
+		Number:            number,
+		GasLimit:          h.GasLimit,
+		GasUsed:           h.GasUsed,
+		Time:              h.Time,
+		Extra:             extra,
+		MixDigest:         h.MixDigest,
+		Nonce:             h.Nonce,
+		Committee:         committee,
+		ProposerSeal:      proposerSeal,
+		BaseFee:           baseFee,
+		Round:             h.Round,
+		QuorumCertificate: quorumCertificate,
 	}
 	return cpy
 }

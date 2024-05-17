@@ -90,7 +90,8 @@ func (sb *Backend) HandleMsg(p2pSender common.Address, msg p2p.Msg, errCh chan<-
 
 		// post the off chain accountability msg to the event handler, let the event handler to handle DoS attack vectors.
 		sb.logger.Debug("Received Accountability Msg", "from", p2pSender)
-		go sb.Post(events.AccountabilityEvent{Sender: p2pSender, Payload: data, ErrCh: errCh})
+
+		go sb.Post(events.AccountabilityEvent{P2pSender: p2pSender, Payload: data, ErrCh: errCh})
 	default:
 		return false, nil
 	}
@@ -153,7 +154,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, p2pSend
 		sb.logger.Crit("Missing parent header for non-future consensus message", "height", msg.H())
 	}
 
-	// assign power and bls sender key
+	// assign power and bls signer key
 	if err := msg.PreValidate(header); err != nil {
 		return true, err
 	}
@@ -161,8 +162,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, p2pSend
 	// if the sender is jailed, discard its messages
 	switch m := msg.(type) {
 	case *message.Propose:
-		if sb.IsJailed(m.Sender()) {
-			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Sender())
+
+		if sb.IsJailed(m.Signer()) {
+			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
 			// really assume that all the other committee members have the same view on the
 			// jailed validator list before gossip, that is risking then to disconnect honest nodes.
@@ -171,10 +173,10 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, p2pSend
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
-		for _, senderIndex := range vote.Senders().FlattenUniq() {
-			sender := header.Committee[senderIndex].Address
-			if sb.IsJailed(sender) {
-				sb.logger.Debug("Vote message contains signature from jailed validator, ignoring message", "address", sender)
+		for _, signerIndex := range vote.Signers().FlattenUniq() {
+			signer := header.Committee[signerIndex].Address
+			if sb.IsJailed(signer) {
+				sb.logger.Debug("Vote message contains signature from jailed validator, ignoring message", "address", signer)
 				// same
 				return true, nil
 			}

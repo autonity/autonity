@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/autonity/autonity/core/types"
+
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -17,7 +18,7 @@ type MsgStore struct {
 	// To keep a more flexible query interface and a better query performance for msg store,
 	// we'd need to keep the legacy data schema for msg store, thus the save msg function
 	// need to save duplicated pointers of aggregated votes.
-	// map[Height]map[Round]map[Step]map[Sender][]*Message
+	// map[Height]map[Round]map[Step]map[Signer][]*Message
 	messages map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg
 }
 
@@ -60,28 +61,28 @@ func (ms *MsgStore) Save(m message.Msg, committee types.Committee) {
 
 	// as proposal is not aggregatable, save it and return
 	if m.Code() == message.ProposalCode {
-		sender := m.(*message.Propose).Sender()
-		msgs, ok := addressMap[sender]
+		signer := m.(*message.Propose).Signer()
+		msgs, ok := addressMap[signer]
 		if !ok {
 			var msgList []message.Msg
-			addressMap[sender] = append(msgList, m)
+			addressMap[signer] = append(msgList, m)
 			return
 		}
-		addressMap[sender] = append(msgs, m)
+		addressMap[signer] = append(msgs, m)
 		return
 	}
 
-	// for votes, save them for each sender.
-	votesInfo := m.(message.Vote).Senders()
-	for _, senderIndex := range votesInfo.FlattenUniq() {
-		sender := committee[senderIndex].Address
-		msgs, ok := addressMap[sender]
+	// for vote, save vote for each signer.
+	signers := m.(message.Vote).Signers()
+	for _, valIndex := range signers.FlattenUniq() {
+		signer := committee[valIndex].Address
+		msgs, ok := addressMap[signer]
 		if !ok {
 			var msgList []message.Msg
-			addressMap[sender] = append(msgList, m)
+			addressMap[signer] = append(msgList, m)
 			return
 		}
-		addressMap[sender] = append(msgs, m)
+		addressMap[signer] = append(msgs, m)
 	}
 }
 
@@ -103,7 +104,7 @@ func (ms *MsgStore) DeleteOlds(height uint64) {
 }
 
 // Get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, senders ...common.Address) []message.Msg {
+func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signers ...common.Address) []message.Msg {
 	ms.RLock()
 	defer ms.RUnlock()
 
@@ -113,8 +114,8 @@ func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, senders ...
 		return result
 	}
 
-	// querying without the sender address nominated, it iterates all senders.
-	if len(senders) == 0 {
+	// querying without the signer address nominated, it iterates all signers.
+	if len(signers) == 0 {
 		for _, msgTypeMap := range roundMap {
 			for _, addressMap := range msgTypeMap {
 				for _, msgs := range addressMap {
@@ -129,11 +130,11 @@ func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, senders ...
 		return result
 	}
 
-	// querying with sender address
-	sender := senders[0]
+	// querying with signer address
+	signer := signers[0]
 	for _, msgTypeMap := range roundMap {
 		for _, addressMap := range msgTypeMap {
-			messages, ok := addressMap[sender]
+			messages, ok := addressMap[signer]
 			if !ok {
 				break
 			}
@@ -148,7 +149,7 @@ func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, senders ...
 	return result
 }
 
-func (ms *MsgStore) GetEquivocatedVotes(height uint64, round int64, step uint8, sender common.Address, value common.Hash) []message.Msg {
+func (ms *MsgStore) GetEquivocatedVotes(height uint64, round int64, step uint8, signer common.Address, value common.Hash) []message.Msg {
 	ms.RLock()
 	defer ms.RUnlock()
 	var result []message.Msg
@@ -161,12 +162,12 @@ func (ms *MsgStore) GetEquivocatedVotes(height uint64, round int64, step uint8, 
 		return result
 	}
 
-	senderMap, ok := stepMap[step]
+	signerMap, ok := stepMap[step]
 	if !ok {
 		return result
 	}
 
-	messages, ok := senderMap[sender]
+	messages, ok := signerMap[signer]
 	if !ok {
 		return result
 	}

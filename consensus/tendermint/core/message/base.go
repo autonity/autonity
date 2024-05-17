@@ -19,9 +19,10 @@ type base struct {
 	payload        []byte
 	hash           common.Hash
 	verified       bool
+	preverified    bool
 
 	// populated at PreValidate() phase
-	senderKey blst.PublicKey
+	signerKey blst.PublicKey
 }
 
 func (b *base) H() uint64 {
@@ -54,16 +55,22 @@ func (b *base) Hash() common.Hash {
 }
 
 // Bls key that needs to be used to verify the signature. Can be an aggregated key.
-func (b *base) SenderKey() blst.PublicKey {
-	return b.senderKey
+func (b *base) SignerKey() blst.PublicKey {
+	if !b.preverified {
+		panic("Trying to access signer key on not preverified message")
+	}
+	return b.signerKey
 }
 
 func (b *base) Validate() error {
+	if !b.preverified {
+		panic("Trying to verify a message that was not previously pre-verified")
+	}
 	if b.verified {
 		return nil
 	}
 
-	if valid := b.signature.Verify(b.senderKey, b.signatureInput[:]); !valid {
+	if valid := b.signature.Verify(b.signerKey, b.signatureInput[:]); !valid {
 		return ErrBadSignature
 	}
 
@@ -76,11 +83,3 @@ func (b *base) String() string {
 	return fmt.Sprintf("h: %v, r: %v, verified: %v",
 		b.height, b.round, b.verified)
 }
-
-/* //TODO(lorenzo) refinements, for later
-// used by tests to simulate unverified messages
-func (b *base) unvalidate() {
-	b.verified = false
-	b.power = new(big.Int)
-	b.sender = common.Address{}
-}*/

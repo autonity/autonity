@@ -114,6 +114,32 @@ func BenchmarkSigVerify(b *testing.B) {
 
 }
 
+func BenchmarkSigGroupCheck(b *testing.B) {
+	// initialize deterministic randomness
+	rand := mrand.New(mrand.NewSource(0)) //nolint
+
+	// generate msg
+	var msg [32]byte
+	rand.Read(msg[:])
+
+	// generate signature over constant msg
+	sk, err := RandKey()
+	if err != nil {
+		b.Fatal("Failed to generate random bls key: ", err)
+	}
+	sig := sk.Sign(msg[:]).(*BlsSignature)
+
+	// start the actual verification benchmarking
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		res := sig.s.SigValidate(false)
+		if !res {
+			b.Fatal("failed signature verification")
+		}
+	}
+
+}
+
 // benchmark aggregated signature verification on 1 message
 func BenchmarkSigVerifyAgg(b *testing.B) {
 	// initialize deterministic randomness

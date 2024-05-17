@@ -230,7 +230,7 @@ func (s *BlsSignature) DecodeRLP(stream *rlp.Stream) error {
 	return nil
 }
 
-// for allowing JSON encoding/decoding of committed seals in the header
+// for allowing JSON encoding/decoding of quorum certificate in the header
 func (s *BlsSignature) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(s.Marshal()).MarshalText()
 }

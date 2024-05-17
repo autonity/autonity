@@ -192,10 +192,10 @@ func (sb *Backend) Gossiper() interfaces.Gossiper {
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal *types.Block, round int64, seals types.AggregateSignature) error {
+func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
 	h := proposal.Header()
-	// Append seals and round into extra-data
-	if err := types.WriteCommittedSeals(h, seals); err != nil {
+	// Append quorum certificate and round into extra-data
+	if err := types.WriteQuorumCertificate(h, quorumCertificate); err != nil {
 		return err
 	}
 	if err := types.WriteRound(h, round); err != nil {
@@ -249,8 +249,8 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 	// verify the header of proposed proposal
 	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
-	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
-	if err == nil || errors.Is(err, types.ErrEmptyCommittedSeals) {
+	// ignore errEmptyQuorumCertificate error because we don't have the quorum certificate yet
+	if err == nil || errors.Is(err, types.ErrEmptyQuorumCertificate) {
 		var (
 			receipts types.Receipts
 

@@ -61,7 +61,7 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				CommittedSeals: seals,
+				QuorumCertificate: seals,
 			}),
 			posHeaderHash,
 		},
@@ -120,6 +120,6 @@ func setExtra(h Header, hExtra headerExtra) Header {
 	h.Committee = hExtra.Committee
 	h.ProposerSeal = hExtra.ProposerSeal
 	h.Round = hExtra.Round
-	h.CommittedSeals = hExtra.CommittedSeals
+	h.QuorumCertificate = hExtra.QuorumCertificate
 	return h
 }

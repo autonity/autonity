@@ -376,9 +376,9 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		}
 		switch m := msg.(type) {
 		case *message.Propose:
-			c.futurePower[r].Set(m.SenderIndex(), m.Power())
+			c.futurePower[r].Set(m.SignerIndex(), m.Power())
 		case *message.Prevote, *message.Precommit:
-			for index, power := range m.(message.Vote).Senders().Powers() {
+			for index, power := range m.(message.Vote).Signers().Powers() {
 				c.futurePower[r].Set(index, power)
 			}
 		}

@@ -21,8 +21,6 @@ var (
 	ErrFutureRoundMessage = errors.New("same height but future round message")
 	// ErrInvalidMessage is returned when the message is malformed.
 	ErrInvalidMessage = errors.New("invalid message")
-	// ErrInvalidSenderOfCommittedSeal is returned when the committed seal is not from the sender of the message.
-	ErrInvalidSenderOfCommittedSeal = errors.New("invalid sender of committed seal")
 	// ErrNilPrevoteSent is returned when timer could not be stopped in time
 	ErrNilPrevoteSent = errors.New("timer expired and nil prevote sent")
 	// ErrNilPrecommitSent is returned when timer could not be stopped in time

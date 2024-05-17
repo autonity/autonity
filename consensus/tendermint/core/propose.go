@@ -64,8 +64,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	// check if proposal comes from the correct proposer for pair (h,r)
-	if !c.IsFromProposer(proposal.R(), proposal.Sender()) {
-		c.logger.Warn("Ignoring proposal from non-proposer", "sender", proposal.Sender())
+	if !c.IsFromProposer(proposal.R(), proposal.Signer()) {
+		c.logger.Warn("Ignoring proposal from non-proposer", "signer", proposal.Signer())
 		return constants.ErrNotFromProposer
 	}
 
@@ -135,7 +135,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
-	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Sender().String(), c.address.String())
+	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal, proposal.Signer().String(), c.address.String())
 
 	// check upon conditions for current round proposal
 	c.currentProposalChecks(ctx, proposal)

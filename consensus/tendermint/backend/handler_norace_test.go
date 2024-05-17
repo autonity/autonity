@@ -12,13 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/p2p"
-
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/events"
-
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/p2p"
 )
 
 func TestUnhandledMsgs(t *testing.T) {
@@ -80,7 +78,8 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			vote := message.NewPrevote(1, 2, common.BigToHash(big.NewInt(i)), testSigner)
+
+			vote := message.NewPrevote(1, 1, common.BigToHash(big.NewInt(i)), backend.Sign, &blockchain.Genesis().Header().Committee[0], 1)
 			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())}
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
@@ -93,7 +92,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			t.Fatalf("could not restart core")
 		}
 		backend.HandleUnhandledMsgs(context.Background())
-		timer := time.NewTimer(time.Second)
+		timer := time.NewTimer(10 * time.Second)
 		i := 0
 		var received [ringCapacity]bool
 		// events can come out of order so we track them using an array.
@@ -102,7 +101,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			select {
 			case eve := <-sub.Chan():
 				message := eve.Data.(events.MessageEvent).Message
-				if message.R() != 1 || message.H() != 2 {
+				if message.R() != 1 || message.H() != 1 {
 					t.Fatalf("message not expected")
 				}
 				i++

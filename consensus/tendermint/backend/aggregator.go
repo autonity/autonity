@@ -101,17 +101,17 @@ type aggregator struct {
 	votesFrom map[common.Address][]common.Hash
 	toIgnore  map[common.Hash]struct{}
 
-	// TODO(lorenzo) can one sub starve the other?
-	sub     *event.TypeMuxSubscription // backend events
-	coreSub *event.TypeMuxSubscription // core events
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	logger  log.Logger
+	// TODO(lorenzo) can one backendSub starve the other?
+	backendSub *event.TypeMuxSubscription // backend events
+	coreSub    *event.TypeMuxSubscription // core events
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
+	logger     log.Logger
 }
 
 func (a *aggregator) start(ctx context.Context) {
 	a.logger.Info("Starting the aggregator routine")
-	a.sub = a.backend.Subscribe(events.UnverifiedMessageEvent{})
+	a.backendSub = a.backend.Subscribe(events.UnverifiedMessageEvent{})
 	a.coreSub = a.backend.Subscribe(events.RoundChangeEvent{}, events.PowerChangeEvent{}, events.FuturePowerChangeEvent{})
 	ctx, a.cancel = context.WithCancel(ctx)
 	a.wg.Add(1)
@@ -154,7 +154,7 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 		// update round power cache
 		proposal := e.Message.(*message.Propose)
-		roundInfo.power.Set(proposal.SenderIndex(), proposal.Power())
+		roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
 	case message.PrevoteCode:
 		roundInfo.prevotes[v] = append(roundInfo.prevotes[v], e)
 
@@ -165,7 +165,7 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 		// update power caches
 		vote := e.Message.(message.Vote)
-		for index, power := range vote.Senders().Powers() {
+		for index, power := range vote.Signers().Powers() {
 			roundInfo.power.Set(index, power)
 			roundInfo.prevotesPower.Set(index, power)
 			roundInfo.prevotesPowerFor[v].Set(index, power)
@@ -180,7 +180,7 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 		// update power caches
 		vote := e.Message.(message.Vote)
-		for index, power := range vote.Senders().Powers() {
+		for index, power := range vote.Signers().Powers() {
 			roundInfo.power.Set(index, power)
 			roundInfo.precommitsPower.Set(index, power)
 			roundInfo.precommitsPowerFor[v].Set(index, power)
@@ -315,7 +315,7 @@ func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
 		roundInfo.power = roundInfo.precommitsPower.Copy()
 		for _, proposalEvent := range roundInfo.proposals {
 			proposal := proposalEvent.Message.(*message.Propose)
-			roundInfo.power.Set(proposal.SenderIndex(), proposal.Power())
+			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
 		}
 	case message.PrecommitCode:
 		nBatches := len(roundInfo.precommits)
@@ -338,7 +338,7 @@ func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
 		roundInfo.power = roundInfo.prevotesPower.Copy()
 		for _, proposalEvent := range roundInfo.proposals {
 			proposal := proposalEvent.Message.(*message.Propose)
-			roundInfo.power.Set(proposal.SenderIndex(), proposal.Power())
+			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
 		}
 	default:
 		a.logger.Crit("Unexpected code", "c", c)
@@ -377,7 +377,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		for _, prevotesEvent := range roundInfo.prevotes {
 			for _, e := range prevotesEvent {
 				vote := e.Message.(message.Vote)
-				for index, power := range vote.Senders().Powers() {
+				for index, power := range vote.Signers().Powers() {
 					roundInfo.power.Set(index, power)
 					roundInfo.prevotesPower.Set(index, power)
 				}
@@ -388,7 +388,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		for _, precommitsEvent := range roundInfo.precommits {
 			for _, e := range precommitsEvent {
 				vote := e.Message.(message.Vote)
-				for index, power := range vote.Senders().Powers() {
+				for index, power := range vote.Signers().Powers() {
 					roundInfo.power.Set(index, power)
 				}
 			}
@@ -397,7 +397,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		// proposals
 		for _, proposalEvent := range roundInfo.proposals {
 			proposal := proposalEvent.Message.(*message.Propose)
-			roundInfo.power.Set(proposal.SenderIndex(), proposal.Power())
+			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
 		}
 	case message.PrecommitCode:
 		batch, ok := roundInfo.precommits[v]
@@ -421,7 +421,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		for _, prevotesEvent := range roundInfo.prevotes {
 			for _, e := range prevotesEvent {
 				vote := e.Message.(message.Vote)
-				for index, power := range vote.Senders().Powers() {
+				for index, power := range vote.Signers().Powers() {
 					roundInfo.power.Set(index, power)
 				}
 			}
@@ -431,7 +431,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		for _, precommitsEvent := range roundInfo.precommits {
 			for _, e := range precommitsEvent {
 				vote := e.Message.(message.Vote)
-				for index, power := range vote.Senders().Powers() {
+				for index, power := range vote.Signers().Powers() {
 					roundInfo.power.Set(index, power)
 					roundInfo.precommitsPower.Set(index, power)
 				}
@@ -441,7 +441,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		// proposals
 		for _, proposalEvent := range roundInfo.proposals {
 			proposal := proposalEvent.Message.(*message.Propose)
-			roundInfo.power.Set(proposal.SenderIndex(), proposal.Power())
+			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
 		}
 	default:
 		a.logger.Crit("Unexpected code", "c", c)
@@ -478,7 +478,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			}
 
 			messages = append(messages, m.(message.Vote))
-			publicKeys = append(publicKeys, m.SenderKey())
+			publicKeys = append(publicKeys, m.SignerKey())
 			signatures = append(signatures, m.Signature())
 			p2pSenders = append(p2pSenders, e.P2pSender)
 			errChs = append(errChs, e.ErrCh)
@@ -572,7 +572,7 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, quorum 
 	// if we do not already have quorum in Core, process right away
 	coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
 	coreVotesPower := a.core.VotesPower(height, round, code)
-	if vote.Senders().IsComplex() && (coreVotesForPower.Cmp(quorum) < 0 || coreVotesPower.Cmp(quorum) < 0) {
+	if vote.Signers().IsComplex() && (coreVotesForPower.Cmp(quorum) < 0 || coreVotesPower.Cmp(quorum) < 0) {
 		if err := vote.Validate(); err != nil {
 			a.handleInvalidMessage(errCh, err, p2pSender)
 			return
@@ -635,7 +635,7 @@ func (a *aggregator) loop(ctx context.Context) {
 loop:
 	for {
 		select {
-		case ev, ok := <-a.sub.Chan():
+		case ev, ok := <-a.backendSub.Chan():
 			start := time.Now()
 			if !ok {
 				break loop
@@ -846,7 +846,7 @@ loop:
 func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
-	a.sub.Unsubscribe()
+	a.backendSub.Unsubscribe()
 	a.coreSub.Unsubscribe()
 	a.wg.Wait()
 }

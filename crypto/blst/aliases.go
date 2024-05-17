@@ -8,5 +8,5 @@ import bind "github.com/supranational/blst/bindings/go"
 // check also: https://github.com/supranational/blst?tab=readme-ov-file#go
 type blstPublicKey = bind.P1Affine
 type blstSignature = bind.P2Affine
-type blstAggregatePublicKey = bind.P1Aggregate
 type blstAggregateSignature = bind.P2Aggregate
+type blstAggregatePublicKey = bind.P1Aggregate

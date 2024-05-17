@@ -161,7 +161,7 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 		return err
 	}
 
-	return sb.verifyCommittedSeals(header, parent)
+	return sb.verifyQuorumCertificate(header, parent)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -217,19 +217,17 @@ func (sb *Backend) verifySigner(header, parent *types.Header) error {
 	return errUnauthorized
 }
 
-// verifyCommittedSeals validates that the committed seals for header come from
-// committee members and that the voting power of the committed seals constitutes
-// a quorum.
-func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
+// verifyQuorumCertificate validates that the quorum certificate for header come from
+// committee members and that the voting power constitute a quorum.
+func (sb *Backend) verifyQuorumCertificate(header, parent *types.Header) error {
 	// un-finalized proposals will have these fields set to nil
-	if header.CommittedSeals.Signature == nil || header.CommittedSeals.Senders == nil {
-		return types.ErrEmptyCommittedSeals
+	if header.QuorumCertificate.Signature == nil || header.QuorumCertificate.Signers == nil {
+		return types.ErrEmptyQuorumCertificate
 	}
 	//TODO(lorenzo) do we need the bls sig zero check?
-	if err := header.CommittedSeals.Senders.Valid(len(parent.Committee)); err != nil {
-		return fmt.Errorf("Invalid committed seals senders information: %w", err)
+	if err := header.QuorumCertificate.Signers.Validate(len(parent.Committee)); err != nil {
+		return fmt.Errorf("Invalid quorum certificate signers information: %w", err)
 	}
-	header.CommittedSeals.Senders.SetCommitteeSize(len(parent.Committee))
 
 	// Calculate total voting power of committee
 	committeeVotingPower := new(big.Int)
@@ -242,28 +240,28 @@ func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
 
 	// Total Voting power for this block
 	power := new(big.Int)
-	for _, index := range header.CommittedSeals.Senders.FlattenUniq() {
+	for _, index := range header.QuorumCertificate.Signers.FlattenUniq() {
 		power.Add(power, parent.Committee[index].VotingPower)
 	}
 
 	// verify signature
 	var keys [][]byte
-	for _, index := range header.CommittedSeals.Senders.Flatten() {
+	for _, index := range header.QuorumCertificate.Signers.Flatten() {
 		keys = append(keys, parent.Committee[index].ConsensusKeyBytes)
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
 		sb.logger.Crit("Failed to aggregate keys from committee members", "err", err)
 	}
-	valid := header.CommittedSeals.Signature.Verify(aggregatedKey, headerSeal[:])
+	valid := header.QuorumCertificate.Signature.Verify(aggregatedKey, headerSeal[:])
 	if !valid {
 		sb.logger.Error("block had invalid committed seal")
-		return types.ErrInvalidCommittedSeals
+		return types.ErrInvalidQuorumCertificate
 	}
 
 	// We need at least a quorum for the block to be considered valid
 	if power.Cmp(bft.Quorum(committeeVotingPower)) < 0 {
-		return types.ErrInvalidCommittedSeals
+		return types.ErrInvalidQuorumCertificate
 	}
 
 	return nil

@@ -30,22 +30,22 @@ var (
 	ErrInvalidBFTHeaderExtra = errors.New("invalid pos header extra-data")
 	// ErrInvalidSignature is returned when given signature is not signed by given address.
 	ErrInvalidSignature = errors.New("invalid signature")
-	// ErrInvalidCommittedSeals is returned if the committed seal is not signed by any of parent validators.
-	ErrInvalidCommittedSeals = errors.New("invalid committed seals")
-	// ErrEmptyCommittedSeals is returned if the field of committed seals is zero.
-	ErrEmptyCommittedSeals = errors.New("zero committed seals")
+	// ErrInvalidQuorumCertificate is returned if the committed seal is not signed by any of parent validators.
+	ErrInvalidQuorumCertificate = errors.New("invalid quorum certificate")
+	// ErrEmptyQuorumCertificate is returned if the field of quorum certificate is empty.
+	ErrEmptyQuorumCertificate = errors.New("empty quorum certificate")
 	// ErrNegativeRound is returned if the round field is negative
 	ErrNegativeRound = errors.New("negative round")
 )
 
-// BFTFilteredHeader returns a filtered header which some information (like seal, committed seals)
+// BFTFilteredHeader returns a filtered header which some information (like proposerSeal, quorumCertificate)
 // are clean to fulfill the BFT hash rules.
 func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	newHeader := CopyHeader(h)
 	if !keepSeal {
 		newHeader.ProposerSeal = []byte{}
 	}
-	newHeader.CommittedSeals = AggregateSignature{}
+	newHeader.QuorumCertificate = AggregateSignature{}
 	newHeader.Round = 0
 	newHeader.Extra = []byte{}
 	return newHeader
@@ -105,12 +105,12 @@ func WriteRound(h *Header, round int64) error {
 	return nil
 }
 
-// WriteCommittedSeals writes the extra-data field of a block header with given committed seals.
-func WriteCommittedSeals(h *Header, committedSeals AggregateSignature) error {
-	if committedSeals.Senders.Len() == 0 || committedSeals.Signature == nil {
-		return ErrInvalidCommittedSeals
+// WriteQuorumCertificate writes the extra-data field of a block header with given quorumCertificate
+func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) error {
+	if quorumCertificate.Signature == nil || quorumCertificate.Signers == nil || quorumCertificate.Signers.Len() == 0 {
+		return ErrInvalidQuorumCertificate
 	}
-	h.CommittedSeals = committedSeals.Copy()
+	h.QuorumCertificate = quorumCertificate.Copy()
 	return nil
 }
 

@@ -68,7 +68,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 
 	c.curRoundMessages.AddPrecommit(precommit)
 	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
-	//c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Sender().String(), c.address.String()) //TODO(lorenzo) refinements, fix
+	//c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit, precommit.Signer().String(), c.address.String()) //TODO(lorenzo) refinements, fix
 
 	c.currentPrecommitChecks(ctx)
 	return nil

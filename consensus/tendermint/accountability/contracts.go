@@ -135,8 +135,8 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 			return false
 		}
 		lightProposal := p.Message.(*message.LightProposal)
-		if lightProposal.ValidRound() == -1 || p.Offender != lightProposal.Sender() ||
-			p.OffenderIndex != lightProposal.SenderIndex() {
+		if lightProposal.ValidRound() == -1 || p.Offender != lightProposal.Signer() ||
+			p.OffenderIndex != lightProposal.SignerIndex() {
 			return false
 		}
 
@@ -145,7 +145,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 			return false
 		}
 		prevote := p.Message.(*message.Prevote)
-		present := prevote.Senders().Contains(p.OffenderIndex)
+		present := prevote.Signers().Contains(p.OffenderIndex)
 		if !present || committee[p.OffenderIndex].Address != p.Offender {
 			return false
 		}
@@ -157,7 +157,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 			return false
 		}
 		prevote := p.Message.(*message.Prevote)
-		present := prevote.Senders().Contains(p.OffenderIndex)
+		present := prevote.Signers().Contains(p.OffenderIndex)
 		if !present || committee[p.OffenderIndex].Address != p.Offender {
 			return false
 		}
@@ -168,7 +168,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		}
 
 		precommit := p.Message.(*message.Precommit)
-		present := precommit.Senders().Contains(p.OffenderIndex)
+		present := precommit.Signers().Contains(p.OffenderIndex)
 		if !present || committee[p.OffenderIndex].Address != p.Offender {
 			return false
 		}
@@ -277,11 +277,11 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee types.C
 		return false
 	}
 
-	if !preCommit.Senders().Contains(p.OffenderIndex) {
+	if !preCommit.Signers().Contains(p.OffenderIndex) {
 		return false
 	}
 
-	if committee[p.OffenderIndex].Address != p.Offender && p.Offender == proposal.Sender() &&
+	if committee[p.OffenderIndex].Address != p.Offender && p.Offender == proposal.Signer() &&
 		preCommit.R() < proposal.R() &&
 		preCommit.Value() != nilValue {
 		return true
@@ -310,16 +310,15 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 
 	switch vote := p.Evidences[0].(type) {
 	case *message.Precommit:
-		if vote.R() == proposal.ValidRound() && vote.Senders().Contains(p.OffenderIndex) &&
-			committee[p.OffenderIndex].Address == proposal.Sender() && p.Offender == proposal.Sender() &&
-			vote.Value() != nilValue &&
-			vote.Value() != proposal.Value() {
+		if vote.R() == proposal.ValidRound() &&
+			vote.Signers().Contains(p.OffenderIndex) && committee[p.OffenderIndex].Address == proposal.Signer() &&
+			p.Offender == proposal.Signer() && vote.Value() != nilValue && vote.Value() != proposal.Value() {
 			return true
 		}
 		if vote.R() > proposal.ValidRound() &&
 			vote.R() < proposal.R() &&
-			vote.Senders().Contains(p.OffenderIndex) && committee[p.OffenderIndex].Address == proposal.Sender() &&
-			p.Offender == proposal.Sender() &&
+			vote.Signers().Contains(p.OffenderIndex) && committee[p.OffenderIndex].Address == proposal.Signer() &&
+			p.Offender == proposal.Signer() &&
 			vote.Value() != nilValue {
 			return true
 		}
@@ -353,7 +352,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof, committee types.
 		return false
 	}
 	prevote := p.Message.(*message.Prevote)
-	present := prevote.Senders().Contains(p.OffenderIndex)
+	present := prevote.Signers().Contains(p.OffenderIndex)
 	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
 		return false
@@ -377,7 +376,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof, committee types.
 
 	for i, pc := range preCommits {
 		preC := pc.(*message.Precommit)
-		if pc.Code() != message.PrecommitCode || !preC.Senders().Contains(p.OffenderIndex) || pc.R() >= prevote.R() {
+		if pc.Code() != message.PrecommitCode || !preC.Signers().Contains(p.OffenderIndex) || pc.R() >= prevote.R() {
 			return false
 		}
 
@@ -413,7 +412,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 		return false
 	}
 	prevote := p.Message.(*message.Prevote)
-	present := prevote.Senders().Contains(p.OffenderIndex)
+	present := prevote.Signers().Contains(p.OffenderIndex)
 	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
 		return false
@@ -454,7 +453,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof, committee type
 		return false
 	}
 	prevote := p.Message.(*message.Prevote)
-	present := prevote.Senders().Contains(p.OffenderIndex)
+	present := prevote.Signers().Contains(p.OffenderIndex)
 	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
 		return false
@@ -480,7 +479,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof, committee type
 	for _, pc := range allPreCommits {
 		preC := pc.(*message.Precommit)
 		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode ||
-			!preC.Senders().Contains(p.OffenderIndex) || pc.H() != prevote.H() {
+			!preC.Signers().Contains(p.OffenderIndex) || pc.H() != prevote.H() {
 			return false
 		}
 		presentedRounds[pc.R()] = struct{}{}
@@ -513,7 +512,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Co
 		return false
 	}
 	preCommit := p.Message.(*message.Precommit)
-	present := preCommit.Senders().Contains(p.OffenderIndex)
+	present := preCommit.Signers().Contains(p.OffenderIndex)
 	if !present || preCommit.Code() != message.PrecommitCode || preCommit.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
 		return false
