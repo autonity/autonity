@@ -104,7 +104,7 @@ func TestCustomGossiper(t *testing.T) {
 	// creates a network of 6 vals and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be able to mine blocks respecting the 1 block/s rate
 	err = network.WaitToMineNBlocks(10, 60, true)

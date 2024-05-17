@@ -75,7 +75,7 @@ func TestOverQuorumVotes(t *testing.T) {
 		committee, _ := GenerateCommittee(seats)
 		quorum := bft.Quorum(big.NewInt(int64(seats)))
 		height := uint64(1)
-		round := int64(0)
+		round := uint64(0)
 		notNilValue := common.Hash{0x1}
 		var preVotes []message.Msg
 		for i := 0; i < len(committee); i++ {
@@ -101,7 +101,7 @@ func TestOverQuorumVotes(t *testing.T) {
 		committee, _ := GenerateCommittee(seats)
 		quorum := bft.Quorum(new(big.Int).SetInt64(int64(seats)))
 		height := uint64(1)
-		round := int64(0)
+		round := uint64(0)
 		noneNilValue := common.Hash{0x1}
 		var preVotes []message.Msg
 		for i := 0; i < int(quorum.Uint64()-1); i++ {

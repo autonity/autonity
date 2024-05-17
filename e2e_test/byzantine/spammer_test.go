@@ -52,7 +52,7 @@ func TestPrevoteSpammer(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120, false)
@@ -96,7 +96,7 @@ func TestPrecommitSpammer(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120, false)
@@ -131,7 +131,7 @@ func TestProposalSpammer(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)

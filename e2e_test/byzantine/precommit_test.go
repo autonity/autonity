@@ -41,7 +41,7 @@ func TestMaliciousPrecommitSender(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120, false)
@@ -58,7 +58,7 @@ func TestMaliciousSenderDisc(t *testing.T) {
 	// creates a network of users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should not be able to mine blocks
 	err = network.WaitToMineNBlocks(1, 120, false)

@@ -236,7 +236,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
-					fd.logger.Warn("Detected faulty message", "return", err)
+					fd.logger.Warn("Fault detector detected faulty message", "return", err)
 					continue tendermintMsgLoop
 				}
 			case events.AccountabilityEvent:
@@ -663,6 +663,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum *big.Int) (pro
 	// old value where in each prior round we can see a quorum of precommits for a distinct value.)
 
 	// We should be here at time t = timestamp(h+1) + delta
+	// In this rule engine context, the symbol `pi` stands for a consensus participant with unique identity `i`.
 
 	proofs = append(proofs, fd.newProposalsAccountabilityCheck(height)...)
 	proofs = append(proofs, fd.oldProposalsAccountabilityCheck(height, quorum)...)

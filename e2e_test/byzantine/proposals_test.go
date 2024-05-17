@@ -49,7 +49,7 @@ func TestDuplicateProposal(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestPartialProposal(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -227,7 +227,6 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 
-	//send same proposal twice
 	c.BroadcastAll(proposal)
 }
 
@@ -248,6 +247,5 @@ func TestInvalidBlockProposal(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(5, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
-	network.Shutdown()
-	//}
+	network.Shutdown(t)
 }
