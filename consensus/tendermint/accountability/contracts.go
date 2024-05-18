@@ -2,7 +2,6 @@ package accountability
 
 import (
 	"errors"
-	"fmt"
 	"github.com/autonity/autonity/core/types"
 	"math/big"
 
@@ -244,10 +243,15 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee
 		valid = c.validMisbehaviourOfC(p, committee)
 	case autonity.InvalidProposer:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
-			valid = !isProposerValid(c.chain, lightProposal)
+			proposer, err := getProposer(c.chain, lightProposal.H(), lightProposal.R())
+			if err != nil {
+				break
+			}
+
+			valid = proposer != lightProposal.Signer() && committee[p.OffenderIndex].Address == lightProposal.Signer()
 		}
 	case autonity.Equivocation:
-		valid = errors.Is(checkEquivocation(p.Message, p.Evidences), errEquivocation)
+		valid = isEquivocated(p, committee)
 	default:
 		valid = false
 	}
@@ -769,16 +773,48 @@ func verifyProofSignatures(chain ChainContext, p *Proof) (types.Committee, error
 	return lastHeader.Committee, nil
 }
 
-func checkEquivocation(m message.Msg, proof []message.Msg) error {
-	if len(proof) == 0 {
-		return fmt.Errorf("no proof")
+func isEquivocated(proof *Proof, committee types.Committee) bool {
+	if len(proof.Evidences) == 0 {
+		return false
 	}
-	// todo: fix this bug!!!
-	// check equivocations.
-	if m.Hash() != proof[0].Hash() {
-		return errEquivocation
+
+	switch msg1 := proof.Message.(type) {
+	case *message.LightProposal:
+		// check for equivocated proposal with light proposals
+		msg2, ok := proof.Evidences[0].(*message.LightProposal)
+		if !ok {
+			return false
+		}
+
+		if msg1.H() == msg2.H() && msg1.R() == msg2.R() && msg1.Signer() == msg2.Signer() &&
+			msg1.Signer() == proof.Offender && msg1.Hash() != msg2.Hash() {
+			return true
+		}
+
+	case *message.Prevote, *message.Precommit:
+		// check for equivocated proposal with light proposals
+		vote1 := proof.Message.(message.Vote)
+		if !vote1.Signers().Contains(proof.OffenderIndex) || committee[proof.OffenderIndex].Address != proof.Offender {
+			return false
+		}
+
+		vote2, ok := proof.Evidences[0].(message.Vote)
+		if !ok {
+			return false
+		}
+		if !vote2.Signers().Contains(proof.OffenderIndex) {
+			return false
+		}
+
+		if vote1.H() == vote2.H() && vote1.R() == vote2.R() && msg1.Hash() != vote2.Hash() {
+			return true
+		}
+
+	default:
+		return false
 	}
-	return nil
+
+	return false
 }
 
 func validReturn(m message.Msg, signer common.Address, rule autonity.Rule) []byte {
