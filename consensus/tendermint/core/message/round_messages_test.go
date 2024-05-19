@@ -1,10 +1,19 @@
 package message
 
-/*
+import (
+	"bytes"
+	"testing"
+
+	"gotest.tools/assert"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
+)
+
 func TestMapReset(t *testing.T) {
 	messages := NewMap()
-	messages.GetOrCreate(0).AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier))
-	messages.GetOrCreate(1).AddPrecommit(NewPrecommit(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier))
+	messages.GetOrCreate(0).AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1))
+	messages.GetOrCreate(1).AddPrecommit(NewPrecommit(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1))
 	messages.Reset()
 	assert.Equal(t, 0, len(messages.All()))
 }
@@ -13,7 +22,7 @@ func TestGetOrCreate(t *testing.T) {
 	messages := NewMap()
 	rm0 := messages.GetOrCreate(0)
 	rm1 := messages.GetOrCreate(1)
-	rm1.AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner).MustVerify(stubVerifier))
+	rm1.AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1))
 	assert.Equal(t, rm0, messages.GetOrCreate(0))
 	assert.Equal(t, rm1, messages.GetOrCreate(1))
 }
@@ -33,9 +42,9 @@ func TestGetMessages(t *testing.T) {
 	precommitHash := common.HexToHash("precommitHash")
 	block := types.NewBlockWithHeader(&types.Header{Number: common.Big1})
 
-	proposal := NewPropose(1, 2, -1, block, defaultSigner).MustVerify(stubVerifier)
-	prevote := NewPrevote(1, 2, prevoteHash, defaultSigner).MustVerify(stubVerifier)
-	precommit := NewPrecommit(1, 2, precommitHash, defaultSigner).MustVerify(stubVerifier)
+	proposal := NewPropose(1, 2, -1, block, defaultSigner, testCommitteeMember)
+	prevote := NewPrevote(1, 2, prevoteHash, defaultSigner, testCommitteeMember, 1)
+	precommit := NewPrecommit(1, 2, precommitHash, defaultSigner, testCommitteeMember, 1)
 
 	rm0.SetProposal(proposal, false)
 	rm0.AddPrevote(prevote)
@@ -66,4 +75,3 @@ func TestGetMessages(t *testing.T) {
 		}
 	}
 }
-*/

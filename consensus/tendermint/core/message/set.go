@@ -73,8 +73,7 @@ func (s *Set) Add(vote Vote) {
 	}
 
 	// update total power and power for value
-	powers := vote.Signers().Powers()
-	for index, power := range powers {
+	for index, power := range vote.Signers().Powers() {
 		s.totalPower.Set(index, power)
 		s.powers[value].Set(index, power)
 	}

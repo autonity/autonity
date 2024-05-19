@@ -43,7 +43,7 @@ const (
 
 type Signer func(hash common.Hash) blst.Signature
 
-// TODO(lorenzo) refinements, maybe we can just send the signer index instead of the signer address
+// TODO: To save space we could send only the signer index instead of the signer address
 type Propose struct {
 	block      *types.Block
 	validRound int64
@@ -134,7 +134,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 		validRound:  vr,
 		signer:      validator,
 		signerIndex: int(self.Index),
-		power:       new(big.Int).Set(self.VotingPower),
+		power:       self.VotingPower,
 		base: base{
 			height:         h,
 			round:          r,
@@ -222,7 +222,7 @@ func (p *Propose) PreValidate(header *types.Header) error {
 
 	p.signerKey = validator.ConsensusKey
 	p.signerIndex = int(validator.Index)
-	p.power = validator.VotingPower //TODO(lorenzo) do I need a copy here? same for lightproposal
+	p.power = validator.VotingPower
 	p.preverified = true
 	return nil
 }
@@ -429,7 +429,7 @@ func (v *vote) PreValidate(header *types.Header) error {
 
 		_, alreadyPresent := powers[index]
 		if !alreadyPresent {
-			powers[index] = new(big.Int).Set(member.VotingPower)
+			powers[index] = member.VotingPower
 			power.Add(power, member.VotingPower)
 		}
 	}
@@ -498,7 +498,6 @@ func newVote[
 	signatureInput := crypto.Hash(signaturePayload)
 	signature := signer(signatureInput)
 
-	// TODO(lorenzo) refinements, aggregates for different heights might have different len(signers.bits). Is that a problem?
 	signers := types.NewSigners(csize)
 	signers.Increment(self)
 
@@ -547,8 +546,6 @@ func AggregatePrecommits(votes []Vote) *Precommit {
 	return AggregateVotes[Precommit](votes)
 }
 
-//TODO(lorenzo) refinements2, Instead of creating a new message object I can re-use one of the votes being aggregated
-
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
@@ -558,13 +555,15 @@ func AggregateVotes[
 		*E
 		Msg
 	}](votes []Vote) *E {
-	// TODO(lorenzo) what if len(votes) == 0? is it possible?
-	code := PE(new(E)).Code()
+	// length safety checks
+	if len(votes) == 0 {
+		panic("Trying to aggregate empty set of votes")
+	}
 
 	// use votes[0] as a set representative
 	representative := votes[0]
 
-	// TODO(lorenzo) refinements, aggregates for different heights might have different len(signers.bits). Is that a problem?
+	// signers of the aggregate
 	signers := types.NewSigners(representative.Signers().CommitteeSize())
 
 	// order votes by decreasing number of distinct signers.
@@ -587,7 +586,6 @@ func AggregateVotes[
 			signatures = append(signatures, vote.Signature())
 			publicKeys = append(publicKeys, vote.SignerKey().Marshal())
 		}
-		//TODO(lorenzo) here we are silently dropping votes. This is not good + we should probably do it before signature verification
 	}
 	aggregatedSignature := blst.Aggregate(signatures)
 	aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys)
@@ -595,13 +593,14 @@ func AggregateVotes[
 		panic("Cannot generate aggregate public key from valid votes: " + err.Error())
 	}
 
+	c := representative.Code()
 	h := representative.H()
 	r := representative.R()
 	value := representative.Value()
 	signatureInput := representative.SignatureInput()
 
 	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:      code,
+		Code:      c,
 		Round:     uint64(r),
 		Height:    h,
 		Value:     value,
@@ -647,7 +646,10 @@ func AggregateVotesSimple[
 		*E
 		Msg
 	}](votes []Vote) []*E {
-	// TODO(lorenzo) what if len(votes) == 0? is it possible?
+	// length safety checks
+	if len(votes) == 0 {
+		panic("Trying to aggregate empty set of votes")
+	}
 	code := PE(new(E)).Code()
 
 	skip := make([]bool, len(votes))
@@ -661,10 +663,7 @@ func AggregateVotesSimple[
 		return votes[i].Signers().Len() > votes[j].Signers().Len()
 	})
 
-	//TODO(lorenzo) in the following we are silently dropping votes. This is not good + we should probably do it before signature verification
-
-	// TODO(lorenzo) this is not the most optimized version I believe
-	// at least add an early termination
+	// TODO(lorenzo) this is not the most optimized version I believe. At least add an early termination
 	for i, vote := range votes {
 		if skip[i] {
 			continue
