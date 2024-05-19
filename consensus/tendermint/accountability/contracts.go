@@ -251,7 +251,7 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee
 			valid = proposer != lightProposal.Signer() && committee[p.OffenderIndex].Address == lightProposal.Signer()
 		}
 	case autonity.Equivocation:
-		valid = isEquivocated(p, committee)
+		valid = validMisbehaviourOfEquivocation(p, committee)
 	default:
 		valid = false
 	}
@@ -338,7 +338,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 			}
 		}
 
-		if hasEquivocatedVotes(p.Evidences) || hasDuplicatedVotes(p.Evidences) {
+		if hasDifferentVoteOfValues(p.Evidences) || hasDuplicatedVotes(p.Evidences) {
 			return false
 		}
 
@@ -442,7 +442,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 		}
 	}
 
-	if hasEquivocatedVotes(p.Evidences[1:]) || hasDuplicatedVotes(p.Evidences[1:]) {
+	if hasDifferentVoteOfValues(p.Evidences[1:]) || hasDuplicatedVotes(p.Evidences[1:]) {
 		return false
 	}
 
@@ -530,7 +530,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Co
 	}
 
 	// check no redundant vote msg in evidence in case of hacking.
-	if hasEquivocatedVotes(p.Evidences) || hasDuplicatedVotes(p.Evidences) {
+	if hasDifferentVoteOfValues(p.Evidences) || hasDuplicatedVotes(p.Evidences) {
 		return false
 	}
 
@@ -712,7 +712,7 @@ func hasDuplicatedVotes(votes []message.Msg) bool {
 }
 
 // check if there are votes for different values in the set
-func hasEquivocatedVotes(votes []message.Msg) bool {
+func hasDifferentVoteOfValues(votes []message.Msg) bool {
 	if len(votes) <= 1 {
 		return false
 	}
@@ -773,7 +773,7 @@ func verifyProofSignatures(chain ChainContext, p *Proof) (types.Committee, error
 	return lastHeader.Committee, nil
 }
 
-func isEquivocated(proof *Proof, committee types.Committee) bool {
+func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bool {
 	if len(proof.Evidences) == 0 {
 		return false
 	}

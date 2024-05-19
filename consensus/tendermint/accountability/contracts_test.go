@@ -1082,7 +1082,7 @@ func TestCheckEquivocation(t *testing.T) {
 		vote2 := message.NewPrevote(round, height, nilValue, signer)
 		var proofs []message.Msg
 		proofs = append(proofs, vote2)
-		require.Equal(t, errEquivocation, isEquivocated(vote1, proofs))
+		require.Equal(t, errEquivocation, validMisbehaviourOfEquivocation(vote1, proofs))
 	})
 
 	t.Run("check equivocation with invalid Proof of equivocation", func(t *testing.T) {
@@ -1090,7 +1090,7 @@ func TestCheckEquivocation(t *testing.T) {
 		vote1 := message.NewPrevote(round, height, proposal.Value(), signer)
 		var proofs []message.Msg
 		proofs = append(proofs, vote1)
-		require.Nil(t, isEquivocated(vote1, proofs))
+		require.Nil(t, validMisbehaviourOfEquivocation(vote1, proofs))
 	})
 }
 

@@ -29,7 +29,7 @@ func NewMsgStore() *MsgStore {
 		messages:    make(map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg)}
 }
 
-// Save store msg into msg store, it assumes the msg signature was verified.
+// Save store msg into msg store, it assumes the msg signature was verified, and there is no duplicated msg in the store.
 func (ms *MsgStore) Save(m message.Msg, committee types.Committee) {
 	ms.Lock()
 	defer ms.Unlock()
