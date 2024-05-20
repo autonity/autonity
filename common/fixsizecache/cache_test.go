@@ -89,7 +89,7 @@ func TestCacheConcurrentGetSet(t *testing.T) {
 func TestCache_Eviction(t *testing.T) {
 	c := New[[32]byte, bool](bucketCount, maxEntries, 2*time.Second, HashKey[[32]byte])
 	setupFullCache(c)
-	t.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
+	//t.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
 	time.Sleep(4 * time.Second)
 	require.Equal(t, int64(0), c.Size())
 	addEntries(c, bucketCount*2)
@@ -184,6 +184,7 @@ func BenchmarkConcurrentGet(b *testing.B) {
 	c := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
 	setupFullCache(c)
 
+	//b.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
 	i := atomic.Int64{}
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -216,6 +217,7 @@ func BenchmarkGet_LRU(b *testing.B) {
 func BenchmarkSet(b *testing.B) {
 	c := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
 	setupFullCache(c)
+	//b.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
 
 	i := atomic.Int64{}
 	b.ResetTimer()
@@ -249,6 +251,7 @@ func BenchmarkSet_LRU(b *testing.B) {
 func BenchmarkConcurrentGetSet(b *testing.B) {
 	c := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
 	setupFullCache(c)
+	//b.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
 	i := atomic.Int64{}
 	b.ResetTimer()
 	b.ReportAllocs()

@@ -94,6 +94,7 @@ require (
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/leemcloughlin/gofarmhash v0.0.0-20160919192320-0a055c5b87a8 // indirect
 	github.com/mattn/go-ieproxy v0.0.0-20190610004146-91bb50d98149 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect

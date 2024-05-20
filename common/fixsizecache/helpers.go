@@ -3,6 +3,8 @@ package fixsizecache
 import (
 	"math"
 
+	farmhash "github.com/leemcloughlin/gofarmhash"
+
 	"github.com/autonity/autonity/common"
 )
 
@@ -12,11 +14,7 @@ type keyConstraint interface {
 
 // HashKey is an helper which calculates the bucket index for a given key
 func HashKey[T keyConstraint](key T) uint {
-	var result int
-	for i, k := range key {
-		result |= int(k) << (i * 8) // Shift each byte by its position and OR with the result
-	}
-	return uint(result)
+	return uint(farmhash.Hash64(key[:]))
 }
 
 // isPrime checks if a number is prime
