@@ -28,7 +28,7 @@ func isPrime(n int) bool {
 	if n%2 == 0 || n%3 == 0 {
 		return false
 	}
-	for i := int(5); float64(i) <= math.Sqrt(float64(n)); i += 6 {
+	for i := 5; float64(i) <= math.Sqrt(float64(n)); i += 6 {
 		if n%i == 0 || n%(i+2) == 0 {
 			return false
 		}
@@ -36,28 +36,28 @@ func isPrime(n int) bool {
 	return true
 }
 
-// NextPrime returns the smallest prime number greater than n
+// NextPrime returns the smallest prime number greater than or equal to n
 func NextPrime(n int) uint {
-	if n <= 0 {
-		return 0
+	if n <= 2 {
+		return 2
 	}
 	for {
-		n++
 		if isPrime(n) {
 			return uint(n)
 		}
+		n++
 	}
 }
 
-// PreviousPrime returns the largest prime number less than n
+// PreviousPrime returns the largest prime number less than or equal to n
 func PreviousPrime(n int) uint {
 	for {
-		if n <= 0 {
-			return 0
+		if n <= 2 {
+			return 2
 		}
-		n--
 		if isPrime(n) {
 			return uint(n)
 		}
+		n--
 	}
 }
