@@ -38,18 +38,14 @@ var (
 		message.PrevoteCode:   PrevoteNetworkMsg,
 		message.PrecommitCode: PrecommitNetworkMsg,
 	}
-	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, nil)                  // time between round start and proposal sent
-	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, getIntPointer(1024))   // time between round start and proposal receiv
-	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, getIntPointer(1024)) // time to verify proposal
-	DefaultProcessBg   = metrics.NewRegisteredBufferedGauge("acn/any/process", nil, nil)                       // time to verify proposal
+	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, nil)                          // time between round start and proposal sent
+	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, metrics.GetIntPointer(1024))   // time between round start and proposal receiv
+	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, metrics.GetIntPointer(1024)) // time to verify proposal
+	DefaultProcessBg   = metrics.NewRegisteredBufferedGauge("acn/any/process", nil, nil)                               // time to verify proposal
 
 	TotalMessageReceivedBg = metrics.NewRegisteredMeter("acn/handler/message/received", nil)  // total message received
 	MessageProcessedBg     = metrics.NewRegisteredMeter("acn/handler/message/processed", nil) // total message processed
 )
-
-func getIntPointer(val int) *int {
-	return &val
-}
 
 func getProcessMetric(msgCode uint64) metrics.BufferedGauge {
 	switch msgCode {
