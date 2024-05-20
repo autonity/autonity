@@ -117,17 +117,17 @@ func (mr *MockBackendMockRecorder) Broadcast(committee, message any) *gomock.Cal
 }
 
 // Commit mocks base method.
-func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, seals types.AggregateSignature) error {
+func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, seals)
+	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, quorumCertificate)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit.
-func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, seals any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, quorumCertificate any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, seals)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, quorumCertificate)
 }
 
 // FutureMsgs mocks base method.

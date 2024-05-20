@@ -46,6 +46,10 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 }
 
 func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose) error {
+	if !proposal.PreVerified() || !proposal.Verified() {
+		panic("Handling NON cryptographically verified proposal")
+	}
+
 	if proposal.R() > c.Round() {
 		// If it's a future round proposal, the only upon condition
 		// that can be triggered is L49, but this requires more than F future round messages

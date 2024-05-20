@@ -54,6 +54,10 @@ type Msg interface {
 	// 1. if proposal, the bls key of the proposer
 	// 2. if vote/aggregate vote, the aggregated bls key of the signers
 	SignerKey() blst.PublicKey
+
+	// getters for validity flags
+	Verified() bool
+	PreVerified() bool
 }
 
 // Votes have an additional method, which returns all the available information about the signers
