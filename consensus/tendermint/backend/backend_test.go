@@ -83,7 +83,7 @@ func TestAskSync(t *testing.T) {
 
 	m := make([]common.Address, 0)
 	m = append(m, addresses...)
-	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, 0, fixsizecache.HashKey[common.Hash])
+	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
@@ -126,11 +126,11 @@ func BenchmarkGossip(b *testing.B) {
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).AnyTimes()
 		broadcaster.EXPECT().FindPeer(val.Address).Return(mockedPeer, true).AnyTimes()
-		addressCache := fixsizecache.New[common.Hash, bool](1997, 10, 0, fixsizecache.HashKey[common.Hash])
+		addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
 		mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 	}
 
-	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, 0, fixsizecache.HashKey[common.Hash])
+	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, fixsizecache.HashKey[common.Hash])
 	bk := &Backend{
 		knownMessages: knownMessages,
 		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
@@ -171,7 +171,7 @@ func TestGossip(t *testing.T) {
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
-			address3Cache := fixsizecache.New[common.Hash, bool](11, 10, 0, fixsizecache.HashKey[common.Hash])
+			address3Cache := fixsizecache.New[common.Hash, bool](11, 10, fixsizecache.HashKey[common.Hash])
 			address3Cache.Add(msg.Hash(), true)
 			mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).Times(0)
 			mockedPeer.EXPECT().Cache().Return(address3Cache)
@@ -182,14 +182,14 @@ func TestGossip(t *testing.T) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
-			addressCache := fixsizecache.New[common.Hash, bool](11, 10, 0, fixsizecache.HashKey[common.Hash])
+			addressCache := fixsizecache.New[common.Hash, bool](11, 10, fixsizecache.HashKey[common.Hash])
 			mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 		}
 		peers[val.Address] = mockedPeer
 		broadcaster.EXPECT().FindPeer(val.Address).Return(peers[val.Address], true)
 	}
 
-	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, 0, fixsizecache.HashKey[common.Hash])
+	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 	b := &Backend{
 		knownMessages: knownMessages,
 		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),

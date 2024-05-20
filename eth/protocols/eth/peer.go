@@ -515,7 +515,6 @@ func newKnownCache(maxEntries int) *knownCache {
 		hashes: fixsizecache.New[common.Hash, bool](
 			fixsizecache.NextPrime(maxEntries/20),
 			20,
-			0,
 			fixsizecache.HashKey[common.Hash]),
 	}
 }

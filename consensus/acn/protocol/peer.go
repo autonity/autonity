@@ -50,7 +50,7 @@ func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter) *Peer {
 		Peer:    p,
 		rw:      rw,
 		version: version,
-		cache:   fixsizecache.New[common.Hash, bool](buckets, entries, 0, fixsizecache.HashKey[common.Hash]),
+		cache:   fixsizecache.New[common.Hash, bool](buckets, entries, fixsizecache.HashKey[common.Hash]),
 	}
 	return peer
 }

@@ -3,7 +3,6 @@ package fixsizecache
 import (
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 const (
@@ -12,25 +11,21 @@ const (
 )
 
 type entry[K comparable, V any] struct {
-	key       K
-	value     V
-	timestamp time.Time
-	active    bool
+	key    K
+	value  V
+	active bool
 }
 
 func (e *entry[K, V]) set(key K, value V) {
 	e.active = true
 	e.key = key
 	e.value = value
-	e.timestamp = time.Now()
 }
 
 type bucket[T comparable, V any] struct {
 	sync.RWMutex
 	entries []entry[T, V] // Array to store entries
-	head    int
-	tail    int
-	full    bool
+	index   int
 }
 
 func newBucket[T comparable, V any](numEntries uint) *bucket[T, V] {
@@ -40,13 +35,12 @@ func newBucket[T comparable, V any](numEntries uint) *bucket[T, V] {
 }
 
 type Cache[T comparable, V any] struct {
-	buckets      []*bucket[T, V]
-	sum32        func(T) uint
-	size         atomic.Int64
-	evictionTime time.Duration
+	buckets []*bucket[T, V]
+	sum32   func(T) uint
+	size    atomic.Int64
 }
 
-func New[T comparable, V any](numBuckets, numEntries uint, evictionDuration time.Duration, sum32 func(T) uint) *Cache[T, V] {
+func New[T comparable, V any](numBuckets, numEntries uint, sum32 func(T) uint) *Cache[T, V] {
 	if numBuckets < 1 {
 		numBuckets = defaultBuckets
 	}
@@ -60,9 +54,6 @@ func New[T comparable, V any](numBuckets, numEntries uint, evictionDuration time
 		c.buckets[i] = newBucket[T, V](numEntries)
 	}
 
-	if evictionDuration > 0 {
-		go c.startClearing()
-	}
 	return c
 }
 
@@ -75,15 +66,12 @@ func (c *Cache[T, V]) Add(key T, value V) {
 	b := c.getBucket(sum)
 	b.Lock()
 	defer b.Unlock()
-	if b.full {
-		b.tail = (b.tail + 1) % len(b.entries)
-	}
-	if !b.entries[b.head].active {
+
+	if !b.entries[b.index].active {
 		c.size.Add(1)
 	}
-	b.entries[b.head].set(key, value)
-	b.head = (b.head + 1) % len(b.entries)
-	b.full = b.head == b.tail
+	b.entries[b.index].set(key, value)
+	b.index = (b.index + 1) % len(b.entries)
 }
 
 func (c *Cache[T, V]) Remove(key T) {
@@ -91,56 +79,26 @@ func (c *Cache[T, V]) Remove(key T) {
 	b := c.getBucket(sum)
 	b.Lock()
 	defer b.Unlock()
-	for _, entry := range b.entries {
-		if entry.key == key {
-			entry.active = false
+	for i, entry := range b.entries {
+		if entry.active && entry.key == key {
+			// Deactivate the entry
+			b.entries[i].active = false
 			c.size.Add(-1)
+			if i == b.index {
+				break
+			}
+
+			// Shift the subsequent entries
+			for j := i; j != b.index && (j+1)%len(b.entries) != b.index; j = (j + 1) % len(b.entries) {
+				nextIndex := (j + 1) % len(b.entries)
+				b.entries[j] = b.entries[nextIndex]
+				b.entries[nextIndex].active = false
+			}
+
+			// Update the index to point to the new position for the next entry
+			b.index = (b.index - 1 + len(b.entries)) % len(b.entries)
 			break
 		}
-	}
-}
-
-func (c *Cache[T, V]) evictEntries(size *atomic.Int64) {
-	for _, b := range c.buckets {
-		b.Lock()
-		var i int
-		if !b.full {
-			for i = b.tail; ; i = (i + 1) % len(b.entries) {
-				if b.entries[i].active && time.Since(b.entries[i].timestamp) > c.evictionTime {
-					b.entries[i].active = false
-					size.Add(-1)
-				}
-				if i == b.head {
-					break
-				}
-			}
-		} else {
-			for i = (b.tail - 1 + len(b.entries)) % len(b.entries); ; i = (i - 1 + len(b.entries)) % len(b.entries) {
-				if b.entries[i].active && time.Since(b.entries[i].timestamp) > c.evictionTime {
-					b.entries[i].active = false
-					size.Add(-1)
-				} else {
-					break
-				}
-				if i == b.tail {
-					break
-				}
-				if i == b.head {
-					b.full = false
-				}
-			}
-		}
-		b.tail = i
-		b.Unlock()
-	}
-}
-
-// startClearing periodically clears entries from all shards.
-func (c *Cache[T, V]) startClearing() {
-	ticker := time.NewTicker(1 * time.Second)
-	for {
-		<-ticker.C
-		c.evictEntries(&c.size)
 	}
 }
 
@@ -186,4 +144,18 @@ func (c *Cache[T, V]) Keys() []T {
 		b.RUnlock()
 	}
 	return keys
+}
+
+func (c *Cache[T, V]) Purge() {
+	for _, b := range c.buckets {
+		b.RLock()
+		for i := range b.entries {
+			if b.entries[i].active {
+				c.size.Add(-1)
+			}
+			b.entries[i].active = false
+		}
+		b.index = 0
+		b.RUnlock()
+	}
 }

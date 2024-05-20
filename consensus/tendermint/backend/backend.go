@@ -52,7 +52,7 @@ func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config,
 	ms *tendermintCore.MsgStore, log log.Logger,
 	noGossip bool, messageCh chan<- events.MessageEvent) *Backend {
 
-	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, 0, fixsizecache.HashKey[common.Hash])
+	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 	backend := &Backend{
 		eventMux:      event.NewTypeMuxSilent(evMux, log),
 		messageCh:     messageCh,

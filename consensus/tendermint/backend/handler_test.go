@@ -35,7 +35,7 @@ func TestTendermintMessage(t *testing.T) {
 	defer ctrl.Finish()
 	mockedPeer := consensus.NewMockPeer(ctrl)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	addressCache := fixsizecache.New[common.Hash, bool](1997, 10, 0, fixsizecache.HashKey[common.Hash])
+	addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
 	mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 	broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
 	backend.SetBroadcaster(broadcaster)

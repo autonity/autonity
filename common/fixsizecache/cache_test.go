@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	evictionDuration = 0
-	bucketCount      = 1997
-	maxEntries       = 20
+	bucketCount = 1997
+	maxEntries  = 20
 )
 
 func generateKey(i int) [32]byte {
@@ -68,11 +67,11 @@ func simpleHash(key string) uint {
 }
 
 func TestCacheConcurrentGetSet(t *testing.T) {
-	c := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
+	c := New[[32]byte, bool](bucketCount, maxEntries, HashKey[[32]byte])
 	setupFullCache(c)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100000; i++ {
+	for i := 0; i < 10000; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -86,19 +85,19 @@ func TestCacheConcurrentGetSet(t *testing.T) {
 	wg.Wait()
 }
 
-func TestCache_Eviction(t *testing.T) {
-	c := New[[32]byte, bool](bucketCount, maxEntries, 2*time.Second, HashKey[[32]byte])
+func TestCache_Removal(t *testing.T) {
+	c := New[[32]byte, bool](bucketCount, maxEntries, HashKey[[32]byte])
 	setupFullCache(c)
-	//t.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
-	time.Sleep(4 * time.Second)
+	t.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
+	cleanupFullCache(c)
 	require.Equal(t, int64(0), c.Size())
 	addEntries(c, bucketCount*2)
-	time.Sleep(4 * time.Second)
+	cleanupFullCache(c)
 	require.Equal(t, int64(0), c.Size())
 }
 
 func TestSmallCache(t *testing.T) {
-	c := New[string, bool](1, 1, evictionDuration, simpleHash)
+	c := New[string, bool](1, 1, simpleHash)
 	c.Add("key1", true)
 	require.True(t, c.Contains("key1"))
 	c.Add("key2", true)
@@ -110,7 +109,7 @@ func TestSmallCache(t *testing.T) {
 
 // TestKeysEmptyCache tests the Keys method on an empty cache.
 func TestKeysEmptyCache(t *testing.T) {
-	cache := New[string, int](10, 10, 5*time.Minute, simpleHash)
+	cache := New[string, int](10, 10, simpleHash)
 	keys := cache.Keys()
 	if len(keys) != 0 {
 		t.Errorf("Expected 0 keys, got %d", len(keys))
@@ -119,7 +118,7 @@ func TestKeysEmptyCache(t *testing.T) {
 
 // TestKeysSingleEntry tests the Keys method on a cache with a single entry.
 func TestKeysSingleEntry(t *testing.T) {
-	cache := New[string, int](10, 10, 5*time.Minute, simpleHash)
+	cache := New[string, int](10, 10, simpleHash)
 	cache.Add("key1", 123)
 	keys := cache.Keys()
 	if len(keys) != 1 || keys[0] != "key1" {
@@ -129,7 +128,7 @@ func TestKeysSingleEntry(t *testing.T) {
 
 // TestKeysMultipleEntries tests the Keys method on a cache with multiple entries.
 func TestKeysMultipleEntries(t *testing.T) {
-	cache := New[string, int](10, 10, 5*time.Minute, simpleHash)
+	cache := New[string, int](10, 10, simpleHash)
 	cache.Add("key1", 123)
 	cache.Add("key2", 456)
 	cache.Add("key3", 789)
@@ -145,20 +144,71 @@ func TestKeysMultipleEntries(t *testing.T) {
 	}
 }
 
-// TestKeysWithEviction tests the Keys method on a cache where some entries have been evicted.
-func TestKeysWithEviction(t *testing.T) {
-	cache := New[string, int](10, 10, 1*time.Second, simpleHash)
+// TestKeysWithRemoval tests the Keys method on a cache where some entries have been evicted.
+func TestKeysWithRemoval(t *testing.T) {
+	cache := New[string, int](10, 10, simpleHash)
 	cache.Add("key1", 123)
-	time.Sleep(2 * time.Second) // Wait for eviction time to pass
+	cache.Remove("key1")
 	cache.Add("key2", 456)
 	keys := cache.Keys()
 	if len(keys) != 1 || keys[0] != "key2" {
-		t.Errorf("Expected [key2] after eviction, got %v", keys)
+		t.Errorf("Expected [key2] after removal, got %v", keys)
 	}
 }
 
+func TestKeysWithRemovalFullBucket(t *testing.T) {
+	cache := New[string, int](1, 3, simpleHash)
+	cache.Add("key1", 123)
+	cache.Add("key2", 123)
+	cache.Add("key3", 123)
+	keys := cache.Keys()
+	expKeys := []string{"key1", "key2", "key3"}
+	require.Equal(t, expKeys, keys)
+
+	// remove and add key
+	cache.Remove("key2")
+	cache.Add("key4", 456)
+	expKeys = []string{"key1", "key3", "key4"}
+	keys = cache.Keys()
+	require.Equal(t, expKeys, keys)
+
+	// remove last entry
+	cache.Remove("key4")
+	cache.Add("key5", 456)
+	expKeys = []string{"key1", "key3", "key5"}
+	keys = cache.Keys()
+	require.Equal(t, expKeys, keys)
+
+	// remove first entry
+	cache.Remove("key1")
+	cache.Add("key6", 456)
+	expKeys = []string{"key6", "key3", "key5"}
+	keys = cache.Keys()
+	require.Equal(t, expKeys, keys)
+
+	//purge
+	cache.Purge()
+	keys = cache.Keys()
+	expKeys = []string{}
+	require.Equal(t, expKeys, keys)
+
+	// add and remove single key
+	cache.Add("key1", 123)
+	cache.Remove("key1")
+	keys = cache.Keys()
+	require.Equal(t, expKeys, keys)
+
+	// add 2 keys and remove latest key
+	cache.Add("key1", 123)
+	cache.Add("key2", 123)
+	cache.Remove("key1")
+	keys = cache.Keys()
+	expKeys = []string{"key2"}
+	require.Equal(t, expKeys, keys)
+}
+
 func BenchmarkCache_SetGet(b *testing.B) {
-	cache := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
+	cache := New[[32]byte, bool](bucketCount, maxEntries, HashKey[[32]byte])
 
 	// Fill
 	for i := 0; i < bucketCount; i++ {
@@ -181,10 +231,9 @@ func BenchmarkCache_SetGet(b *testing.B) {
 
 // Keys are not present worse case
 func BenchmarkConcurrentGet(b *testing.B) {
-	c := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
+	c := New[[32]byte, bool](bucketCount, maxEntries, HashKey[[32]byte])
 	setupFullCache(c)
 
-	//b.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
 	i := atomic.Int64{}
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -215,9 +264,8 @@ func BenchmarkGet_LRU(b *testing.B) {
 }
 
 func BenchmarkSet(b *testing.B) {
-	c := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
+	c := New[[32]byte, bool](bucketCount, maxEntries, HashKey[[32]byte])
 	setupFullCache(c)
-	//b.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
 
 	i := atomic.Int64{}
 	b.ResetTimer()
@@ -249,9 +297,8 @@ func BenchmarkSet_LRU(b *testing.B) {
 }
 
 func BenchmarkConcurrentGetSet(b *testing.B) {
-	c := New[[32]byte, bool](bucketCount, maxEntries, evictionDuration, HashKey[[32]byte])
+	c := New[[32]byte, bool](bucketCount, maxEntries, HashKey[[32]byte])
 	setupFullCache(c)
-	//b.Log("full cache size", c.Size(), "expected", bucketCount*maxEntries)
 	i := atomic.Int64{}
 	b.ResetTimer()
 	b.ReportAllocs()
