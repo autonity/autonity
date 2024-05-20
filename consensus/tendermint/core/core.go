@@ -70,7 +70,7 @@ type Core struct {
 	backend interfaces.Backend
 	cancel  context.CancelFunc
 
-	messageSub          *event.TypeMuxSubscription
+	backlogMessageSub   *event.TypeMuxSubscription
 	messageCh           chan events.MessageEvent
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
