@@ -224,7 +224,7 @@ type Server struct {
 
 	// State of run loop and listenLoop.
 	inboundHistory expHeap
-	jailed         safeExpHeap
+	suspended      safeExpHeap
 
 	committee       []*enode.Node
 	committeeSubset []*enode.Node
@@ -885,6 +885,11 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
+			reason := discReasonForError(pd.err)
+			if errors.Is(reason, DiscProtocolError) ||
+				reason == DiscSubprotocolError {
+				srv.SuspendPeer(pd.ID(), protoErrorSuspensionSpan)
+			}
 			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err, "server", srv.Net.String())
 			srv.dialsched.peerRemoved(pd.rw)
 			if pd.Inbound() {
@@ -928,7 +933,7 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 }
 
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
-	srv.jailed.expire(srv.clock.Now(), nil)
+	srv.suspended.expire(srv.clock.Now(), nil)
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
@@ -938,8 +943,8 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscAlreadyConnected
 	case c.node.ID() == srv.localnode.ID():
 		return DiscSelf
-	case srv.jailed.contains(c.node.ID().String()):
-		return DiscJailed
+	case srv.suspended.contains(c.node.ID().String()):
+		return DiscSuspended
 	case srv.Net == Consensus && !srv.inCommittee(c.node.ID()):
 		return DiscPeerNotInCommittee
 	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
@@ -1061,9 +1066,9 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	return nil
 }
 
-func (srv *Server) AddJail(id enode.ID, jailTime time.Duration) {
+func (srv *Server) SuspendPeer(id enode.ID, suspensionSpan time.Duration) {
 	now := srv.clock.Now()
-	srv.jailed.add(id.String(), now.Add(jailTime))
+	srv.suspended.add(id.String(), now.Add(suspensionSpan))
 }
 
 // SetupConn runs the handshakes and attempts to add the connection

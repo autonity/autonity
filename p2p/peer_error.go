@@ -19,12 +19,15 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 const (
 	errInvalidMsgCode = iota
 	errInvalidMsg
 )
+
+const protoErrorSuspensionSpan = 60 * time.Second
 
 var errorToString = map[int]string{
 	errInvalidMsgCode: "invalid message code",
@@ -69,7 +72,7 @@ const (
 	DiscUnexpectedIdentity
 	DiscSelf
 	DiscReadTimeout
-	DiscJailed
+	DiscSuspended
 	DiscPeerNotInCommittee
 	DiscPeerOutsideTopology
 	DiscSubprotocolError = 0x10
@@ -88,7 +91,7 @@ var discReasonToString = [...]string{
 	DiscUnexpectedIdentity:  "unexpected identity",
 	DiscSelf:                "connected to self",
 	DiscReadTimeout:         "read timeout",
-	DiscJailed:              "jailed node",
+	DiscSuspended:           "suspended node",
 	DiscPeerNotInCommittee:  "validator is not part of committee",
 	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSubprotocolError:    "subprotocol error",
