@@ -127,7 +127,8 @@ func TestRunRuleEngine(t *testing.T) {
 		fdAddr := committee[1].Address
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{fdAddr: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, fdAddr, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, fdAddr, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 		// store a msg before check point height in case of node is start from reset.
 		msgBeforeCheckPointHeight := newProposalMessage(checkPointHeight-1, 0, -1, makeSigner(keys[1], committee[1]), committee, nil).MustVerify(stubVerifier)
 		fd.msgStore.Save(msgBeforeCheckPointHeight)
@@ -178,7 +179,8 @@ func TestProcessMsg(t *testing.T) {
 		proposal := newProposalMessage(futureHeight, round, -1, signer, committee, nil)
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: bindings}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: bindings}, messageCh, log.Root())
 		require.Equal(t, errFutureMsg, fd.processMsg(proposal))
 		require.Equal(t, proposal, fd.futureMessages[futureHeight][0])
 	})
@@ -261,7 +263,8 @@ func TestAccusationProvers(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		bindings, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: bindings}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: bindings}, messageCh, log.Root())
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		fd.msgStore.Save(proposal)
@@ -297,7 +300,8 @@ func TestAccusationProvers(t *testing.T) {
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newProposalMessage(height, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		fd.msgStore.Save(proposal)
@@ -384,7 +388,8 @@ func TestAccusationProvers(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		var p Proof
 		p.Rule = autonity.PVO
@@ -407,7 +412,8 @@ func TestAccusationProvers(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 		var p Proof
 		p.Rule = autonity.PVO
 		validRound := int64(0)
@@ -440,7 +446,8 @@ func TestAccusationProvers(t *testing.T) {
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
 		for i := 0; i < len(committee); i++ {
@@ -476,7 +483,8 @@ func TestAccusationProvers(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		preCommit := message.NewPrecommit(round, height, noneNilValue, signer).MustVerify(stubVerifier)
 		fd.msgStore.Save(preCommit)

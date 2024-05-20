@@ -1,14 +1,14 @@
 package byzantine
 
 import (
-	fuzz "github.com/google/gofuzz"
 	"math/rand"
 	"testing"
+
+	fuzz "github.com/google/gofuzz"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -160,9 +160,7 @@ func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 		if c.Address == s.Address() {
 			continue
 		}
-		targets := make(map[common.Address]struct{})
-		targets[c.Address] = struct{}{}
-		peers := backEnd.Broadcaster.FindPeers(targets)
+		peer, ok := backEnd.Broadcaster.FindPeer(c.Address)
 
 		evidences := fuzzedMessages()
 		accusation := &accountability.Proof{
@@ -175,9 +173,9 @@ func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 		if err != nil {
 			panic("Failed to generate random bytes ")
 		}
-		if len(peers) > 0 {
+		if ok {
 			// send fuzzed accusation msg.
-			go peers[c.Address].Send(bk.AccountabilityNetworkMsg, proof) // nolint
+			go peer.Send(bk.AccountabilityNetworkMsg, proof) // nolint
 			s.Logger().Info("Off chain Accusation garbage accusation is simulated")
 		}
 	}
@@ -207,10 +205,8 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 	})
 
 	for _, pv := range preVotes {
-		targets := make(map[common.Address]struct{})
-		targets[pv.Sender()] = struct{}{}
-		peers := backEnd.Broadcaster.FindPeers(targets)
-		if len(peers) > 0 {
+		peer, ok := backEnd.Broadcaster.FindPeer(pv.Sender())
+		if ok {
 			accusation := &accountability.Proof{
 				Type:    autonity.Accusation,
 				Rule:    autonity.PVN,
@@ -221,8 +217,8 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 				panic("cannot encode accusation at e2e test for off chain accusation protocol")
 			}
 			// send duplicated msg.
-			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+			go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+			go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 			s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 		}
 	}
@@ -253,10 +249,8 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 			return m.Code() == message.PrevoteCode && m.Sender() != s.Address()
 		})
 		for _, pv := range preVotes {
-			targets := make(map[common.Address]struct{})
-			targets[pv.Sender()] = struct{}{}
-			peers := backEnd.Broadcaster.FindPeers(targets)
-			if len(peers) > 0 {
+			peer, ok := backEnd.Broadcaster.FindPeer(pv.Sender())
+			if ok {
 				accusation := &accountability.Proof{
 					Type:    autonity.Accusation,
 					Rule:    autonity.PVN,
@@ -267,7 +261,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 					panic("cannot encode accusation at e2e test for off chain accusation protocol")
 				}
 				// send msg.
-				go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 				s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 			}
 		}
