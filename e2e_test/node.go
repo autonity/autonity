@@ -12,6 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
+
+	"github.com/autonity/autonity/common/graph"
+
 	"github.com/hashicorp/consul/sdk/freeport"
 
 	"github.com/autonity/autonity/consensus/acn"
@@ -79,11 +83,13 @@ var (
 // *node.Node is embedded so that its api is available through Node.
 type Node struct {
 	*node.Node
-	isRunning    bool
-	Config       *node.Config
-	Eth          *eth.Ethereum
-	EthConfig    *ethconfig.Config
-	WsClient     *ethclient.Client
+	isRunning bool
+	Config    *node.Config
+	Eth       *eth.Ethereum
+	EthConfig *ethconfig.Config
+	WsClient  *ethclient.Client
+
+	Interactor   *Interactor
 	Nonce        uint64
 	Key          *ecdsa.PrivateKey
 	ConsensusKey blst.SecretKey
@@ -208,6 +214,12 @@ func (n *Node) Start() error {
 	if n.Nonce, err = n.WsClient.PendingNonceAt(context.Background(), n.Address); err != nil {
 		return err
 	}
+
+	n.Interactor = Interact(n.HTTPEndpoint())
+	if n.Interactor.err != nil {
+		return n.Interactor.err
+	}
+
 	err = n.Tracker.StartTracking(n.WsClient)
 	return err
 }
@@ -230,6 +242,7 @@ func (n *Node) Close(deleteDataDir bool) error {
 		return err
 	}
 	n.WsClient.Close()
+	n.Interactor.Close()
 	if n.Node != nil {
 		err = n.Node.Close() // This also shuts down the Eth service
 	}
@@ -673,7 +686,8 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
-func (nw Network) Shutdown() {
+func (nw Network) Shutdown(t *testing.T) {
+	defer checkGoRoutineLeak(t)
 	for _, node := range nw {
 		if node != nil && node.isRunning {
 			err := node.Close(true)
@@ -682,6 +696,83 @@ func (nw Network) Shutdown() {
 			}
 		}
 	}
+}
+
+func checkGoRoutineLeak(t *testing.T) {
+	time.Sleep(1 * time.Second)
+	goleak.VerifyNone(t,
+		// this routine from 3rd party SDK is used only by E2E test framework for port query, it does not have a shutdown
+		// triggered from inside of it, and we cannot shut down it from e2e test framework side as well.
+		goleak.IgnoreTopFunction("github.com/hashicorp/consul/sdk/freeport.checkFreedPorts"),
+	)
+}
+
+type TopologyManager struct {
+	Graph *graph.Graph
+}
+
+func NewTopologyManager(graph *graph.Graph) *TopologyManager {
+	return &TopologyManager{Graph: graph}
+}
+
+func (t *TopologyManager) transformPeerListToMap(peers []*p2p.Peer, nodes map[string]*Node) map[string]struct{} {
+	m := make(map[string]struct{})
+	mapper := make(map[enode.ID]string, len(nodes))
+	for index, n := range nodes {
+		mapper[n.ExecutionServer().Self().ID()] = index
+	}
+	for _, v := range peers {
+		index, ok := mapper[v.Node().ID()]
+		if ok {
+			m[index] = struct{}{}
+		} else {
+			panic("Node doesn't exists")
+		}
+	}
+	return m
+}
+
+func (t *TopologyManager) ApplyTopologyOverNetwork(nodes map[string]*Node) error {
+	edges := t.getEdges()
+	connections := t.getPeerConnections(edges)
+	for nodeKey, connectionsList := range connections {
+		m := t.transformPeerListToMap(nodes[nodeKey].ExecutionServer().Peers(), nodes)
+		for k := range m {
+			if _, ok := connectionsList[k]; ok {
+				continue
+			}
+			n := nodes[k]
+			log.Info("disconnecting execution peer", "peer", n.ExecutionServer().Self().String())
+			nodes[nodeKey].ExecutionServer().RemovePeer(n.ExecutionServer().Self())
+			log.Info("disconnecting acn peer", "peer", n.ConsensusServer().Self().String())
+			nodes[nodeKey].ConsensusServer().RemovePeer(n.ConsensusServer().Self())
+		}
+	}
+	return nil
+}
+
+func (t *TopologyManager) getPeerConnections(edges []*graph.Edge) map[string]map[string]struct{} {
+	res := make(map[string]map[string]struct{})
+	for _, v := range edges {
+		m, ok := res[v.LeftNode]
+		if !ok {
+			m = make(map[string]struct{})
+		}
+		m[v.RightNode] = struct{}{}
+		res[v.LeftNode] = m
+
+		m, ok = res[v.RightNode]
+		if !ok {
+			m = make(map[string]struct{})
+		}
+		m[v.LeftNode] = struct{}{}
+		res[v.RightNode] = m
+	}
+	return res
+}
+
+func (t *TopologyManager) getEdges() []*graph.Edge {
+	return t.Graph.Edges
 }
 
 // ValueTransferTransaction builds a signed value transfer transaction from the

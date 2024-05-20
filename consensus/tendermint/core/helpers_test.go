@@ -3,40 +3,45 @@ package core
 import (
 	"crypto/ecdsa"
 	"math/big"
+	"math/rand"
 	"sort"
-	"testing"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tdmcommittee "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/trie"
 )
 
-func makeSigner(key blst.SecretKey, addr common.Address) message.Signer {
-	return func(hash common.Hash) (blst.Signature, common.Address) {
-		signature := key.Sign(hash[:])
-		return signature, addr
+// this file only contains helper function and helper variables for the core tests
+
+var (
+	testKey, _          = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testConsensusKey, _ = blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
+	testAddr            = crypto.PubkeyToAddress(testKey.PublicKey)
+)
+
+func makeSigner(key blst.SecretKey) message.Signer {
+	return func(hash common.Hash) blst.Signature {
+		return key.Sign(hash[:])
 	}
 }
 
-func defaultSigner(h common.Hash) (blst.Signature, common.Address) {
-	signature := testConsensusKey.Sign(h[:])
-	return signature, testAddr
+func defaultSigner(h common.Hash) blst.Signature {
+	return testConsensusKey.Sign(h[:])
 }
 
+/*
 func defaultVerifier(address common.Address) *types.CommitteeMember {
 	return &types.CommitteeMember{
 		Address:      address,
 		VotingPower:  common.Big1,
 		ConsensusKey: testConsensusKey.PublicKey(),
 	}
-}
+}*/
 
 type AddressKeyMap map[common.Address]Keys
 
@@ -61,6 +66,10 @@ func GenerateCommittee(n int) (types.Committee, AddressKeyMap) {
 		keymap[committeeMember.Address] = Keys{consensus: consensusKey, node: privateKey}
 	}
 	sort.Sort(validators)
+	// assign indexes
+	for i := 0; i < n; i++ {
+		validators[i].Index = uint64(i)
+	}
 	return validators, keymap
 }
 
@@ -76,66 +85,45 @@ func NewTestCommitteeSetWithKeys(n int) (interfaces.Committee, AddressKeyMap) {
 	return set, keyMap
 }
 
-/*
-func GeneratePrivateKey() (*ecdsa.PrivateKey, error) {
-	key := "bb047e5940b6d83354d9432db7c449ac8fca2248008aaa7271369880f9f11cc1"
-	return crypto.HexToECDSA(key)
+func stubVerifier(consensusKey blst.PublicKey) func(address common.Address) *types.CommitteeMember {
+	return func(address common.Address) *types.CommitteeMember {
+		return &types.CommitteeMember{
+			Address:      address,
+			VotingPower:  common.Big1,
+			ConsensusKey: consensusKey,
+		}
+	}
 }
 
-func GetAddress() common.Address {
-	return common.HexToAddress("0x70524d664ffe731100208a0154e556f9bb679ae6")
-}*/
-
-func TestOverQuorumVotes(t *testing.T) {
-	t.Run("with duplicated votes, it returns none duplicated votes of just quorum ones", func(t *testing.T) {
-		seats := 10
-		committee, _ := GenerateCommittee(seats)
-		quorum := bft.Quorum(big.NewInt(int64(seats)))
-		height := uint64(1)
-		round := int64(0)
-		notNilValue := common.Hash{0x1}
-		var preVotes []message.Msg
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewFakePrevote(message.Fake{
-				FakeSender: committee[i].Address,
-				FakeRound:  round,
-				FakeHeight: height,
-				FakeValue:  notNilValue,
-				FakePower:  common.Big1,
-			})
-			preVotes = append(preVotes, preVote)
+func stubVerifierWithPower(consensusKey blst.PublicKey, power int64) func(address common.Address) *types.CommitteeMember {
+	return func(address common.Address) *types.CommitteeMember {
+		return &types.CommitteeMember{
+			Address:      address,
+			VotingPower:  big.NewInt(power),
+			ConsensusKey: consensusKey,
 		}
+	}
+}
 
-		// let duplicated msg happens, the counting should skip duplicated ones.
-		preVotes = append(preVotes, preVotes...)
+func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer message.Signer) *message.Propose {
+	var block *types.Block
+	if invalid {
+		header := &types.Header{Number: h}
+		header.Difficulty = nil
+		block = types.NewBlock(header, nil, nil, nil, new(trie.Trie))
+	} else {
+		block = generateBlock(h)
+	}
+	return message.NewPropose(r, h.Uint64(), vr, block, signer)
+}
 
-		overQuorumVotes := OverQuorumVotes(preVotes, quorum)
-		require.Equal(t, quorum.Uint64(), uint64(len(overQuorumVotes)))
-	})
-
-	t.Run("with less quorum votes, it returns no votes", func(t *testing.T) {
-		seats := 10
-		committee, _ := GenerateCommittee(seats)
-		quorum := bft.Quorum(new(big.Int).SetInt64(int64(seats)))
-		height := uint64(1)
-		round := int64(0)
-		noneNilValue := common.Hash{0x1}
-		var preVotes []message.Msg
-		for i := 0; i < int(quorum.Uint64()-1); i++ {
-			preVote := message.NewFakePrevote(message.Fake{
-				FakeRound:  round,
-				FakeHeight: height,
-				FakeValue:  noneNilValue,
-				FakeSender: committee[i].Address,
-				FakePower:  common.Big1,
-			})
-			preVotes = append(preVotes, preVote)
-		}
-
-		// let duplicated msg happens, the counting should skip duplicated ones.
-		preVotes = append(preVotes, preVotes...)
-
-		overQuorumVotes := OverQuorumVotes(preVotes, quorum)
-		require.Nil(t, overQuorumVotes)
-	})
+func generateBlock(height *big.Int) *types.Block {
+	// use random nonce to create different blocks
+	var nonce types.BlockNonce
+	for i := 0; i < len(nonce); i++ {
+		nonce[i] = byte(rand.Intn(256))
+	}
+	header := &types.Header{Number: height, Nonce: nonce}
+	block := types.NewBlockWithHeader(header)
+	return block
 }

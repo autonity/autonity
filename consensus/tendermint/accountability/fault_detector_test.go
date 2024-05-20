@@ -3,6 +3,9 @@ package accountability
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/vm"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -233,16 +236,17 @@ func TestGenerateOnChainProof(t *testing.T) {
 	})
 }
 
-func TestRuleEngine(t *testing.T) {
+// todo: (Jason) add test to cover an accusation over a committed block scenario,
+//  in such context, the accusation is considered as useless, it should be dropped.
+
+func TestAccusationProvers(t *testing.T) {
 	height := uint64(100)
 	lastHeight := height - 1
 	round := int64(3)
 	validRound := int64(1)
-	totalPower := big.NewInt(int64(len(committee)))
 	noneNilValue := common.Hash{0x1}
 	lastHeader := &types.Header{Number: new(big.Int).SetUint64(lastHeight), Committee: committee}
-	maliciousSigner := makeSigner(keys[1], committee[1])
-	maliciousVerifier := stubVerifier(keys[1].PublicKey())
+
 	t.Run("innocenceProof with unprovable rule id", func(t *testing.T) {
 		fd := FaultDetector{}
 		var input = Proof{
@@ -507,764 +511,1005 @@ func TestRuleEngine(t *testing.T) {
 		_, err = errorToRule(fmt.Errorf("unknown err"))
 		assert.Error(t, err)
 	})
+}
 
-	t.Run("RunRule address the misbehaviour of PN rule", func(t *testing.T) {
-		// ------------New Proposal------------
-		// PN:  (Mr′<r,P C|pi)∗ <--- (Mr,P|pi)
-		// PN1: [nil ∨ ⊥] <--- [V]
-		// If one send a maliciousProposal for a new V, then all preCommits for previous rounds from this sender are nil.
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+// Please refer to the rules in the rule engine for each step of tendermint to understand the test context.
+// TestNewProposalAccountabilityCheck, it tests the accountability events over a new proposal sent by a proposer.
+func TestNewProposalAccountabilityCheck(t *testing.T) {
+	height := uint64(0)
+	newProposal0 := newProposalMessage(height, 3, -1, signer, committee, nil).MustVerify(stubVerifier)
+	nonNilPrecommit0 := message.NewPrecommit(1, height, common.BytesToHash([]byte("test")), signer).MustVerify(stubVerifier)
+	nilPrecommit0 := message.NewPrecommit(1, height, common.Hash{}, signer).MustVerify(stubVerifier)
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
+	newProposal1 := newProposalMessage(height, 5, -1, signer, committee, nil).MustVerify(stubVerifier)
+	nilPrecommit1 := message.NewPrecommit(3, height, common.Hash{}, signer).MustVerify(stubVerifier)
 
-		// simulate there was a maliciousProposal at init round 0, and save to msg store.
-		initProposal := newProposalMessage(height, 0, -1, makeSigner(keys[1], committee[1]), committee, nil).MustVerify(stubVerifier(keys[1].PublicKey()))
-		fd.msgStore.Save(initProposal)
-		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
+	newProposal0E := newProposalMessage(height, 3, 1, signer, committee, nil).MustVerify(stubVerifier)
+
+	t.Run("misbehaviour when pi has sent a non-nil precommit in a previous round", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposal0)
+		fd.msgStore.Save(nonNilPrecommit0)
+
+		expectedProof := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PN,
+			Evidences: []message.Msg{nonNilPrecommit0},
+			Message:   message.NewLightProposal(newProposal0),
 		}
 
-		// Node preCommit for init Proposal at init round 0 since there were quorum preVotes for it, and save it.
-		preCommit := message.NewPrecommit(0, height, initProposal.Value(), signer).MustVerify(verifier)
-		fd.msgStore.Save(preCommit)
-
-		// While Node propose a new malicious Proposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
-		maliciousProposal := newProposalMessage(height, round, -1, signer, committee, nil).MustVerify(verifier)
-		fd.msgStore.Save(maliciousProposal)
-
-		// Run rule engine over msg store on height.
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PN, onChainProofs[0].Rule)
-		assert.Equal(t, message.NewLightProposal(maliciousProposal).Signature(), onChainProofs[0].Message.Signature())
-		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Evidences[0].Signature())
+		proofs := fd.newProposalsAccountabilityCheck(0)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedProof, actualProof)
 	})
 
-	t.Run("RunRule address the misbehaviour of PO rule, the old value proposed is not locked", func(t *testing.T) {
-		// ------------Old Proposal------------
-		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
-		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
+	t.Run("no proof is returned when proposal is equivocated", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposal0)
+		fd.msgStore.Save(nonNilPrecommit0)
+		fd.msgStore.Save(newProposal0E)
 
-		// to address below scenario:
-		// Is there a precommit for a value other than nil or the proposed value
-		// by the current proposer in the valid round? If there is the proposer
-		// has proposed a value for which it is not locked on, thus a Proof of
-		// misbehaviour can be generated.
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		proofs := fd.newProposalsAccountabilityCheck(0)
+		require.Equal(t, 0, len(proofs))
+	})
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
+	t.Run("no proof when pi proposes a new proposal and no precommit has been sent", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposal0)
+		fd.msgStore.Save(newProposal1)
 
-		// simulate an init proposal at r: 0, with v1.
-		initProposal := newProposalMessage(height, 0, -1, makeSigner(keys[1], committee[1]), committee, nil).MustVerify(stubVerifier(keys[1].PublicKey()))
-		fd.msgStore.Save(initProposal)
+		proofs := fd.newProposalsAccountabilityCheck(0)
+		require.Equal(t, 0, len(proofs))
+	})
 
-		// simulate quorum preVotes at r: 0 for v1.
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
+	t.Run("no proof when pi proposes a new proposal and has sent nil precommits in previous rounds", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposal0)
+		fd.msgStore.Save(nilPrecommit0)
+		fd.msgStore.Save(newProposal1)
+		fd.msgStore.Save(nilPrecommit1)
+
+		proofs := fd.newProposalsAccountabilityCheck(0)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("multiple proof of misbehaviours when pi has sent non-nil precommits in previous rounds for multiple proposals", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposal0)
+		fd.msgStore.Save(nonNilPrecommit0)
+		fd.msgStore.Save(newProposal1)
+
+		expectedProof0 := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PN,
+			Evidences: []message.Msg{nonNilPrecommit0},
+			Message:   newProposal0,
 		}
 
-		// simulate a preCommit at r: 0 for v1 for the node who is going to be addressed as
-		// malicious on rule PO for proposing an old value which was not locked at all.
-		preCommit := message.NewPrecommit(0, height, initProposal.Value(), signer).MustVerify(verifier)
-		fd.msgStore.Save(preCommit)
-
-		// simulate malicious proposal at r: 1, with v2 which was not locked at all.
-		// simulate an init proposal at r: 0, with v1.
-		maliciousProposal := newProposalMessage(height, 1, 0, signer, committee, nil).MustVerify(verifier)
-		fd.msgStore.Save(maliciousProposal)
-
-		// run rule engine.
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
-		assert.Equal(t, message.NewLightProposal(maliciousProposal).Signature(), onChainProofs[0].Message.Signature())
-		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Evidences[0].Signature())
-	})
-
-	t.Run("RunRule address the misbehaviour of PO rule, the valid round proposed is not correct", func(t *testing.T) {
-		// ------------Old Proposal------------
-		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
-		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
-
-		// To address below scenario:
-		// Is there a precommit for anything other than nil from the proposer
-		// between the valid round and the round of the proposal? If there is
-		// then that implies the proposer saw 2f+1 prevotes in that round and
-		// hence it should have set that round as the valid round.
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-		signerBis := makeSigner(keys[1], committee[1])
-		verifierBis := stubVerifier(keys[1].PublicKey())
-
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-
-		// simulate an init proposal at r: 0, with v.
-		initProposal := newProposalMessage(height, 0, -1, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(initProposal)
-
-		// simulate quorum preVotes for init proposal
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
+		expectedProof1 := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PN,
+			Evidences: []message.Msg{nonNilPrecommit0},
+			Message:   newProposal1,
 		}
 
-		// simulate a preCommit for init proposal of proposer1, now valid round == 0.
-		preCommit1 := message.NewPrecommit(0, height, initProposal.Value(), signerBis).MustVerify(verifierBis)
-		fd.msgStore.Save(preCommit1)
+		proofs := fd.newProposalsAccountabilityCheck(0)
+		require.Equal(t, 2, len(proofs))
 
-		// assume round changes happens, now proposer1 propose old value with vr: 0.
-		// simulate a new proposal at r: 3, with v.
-		proposal1 := newProposalMessage(height, 3, 0, signerBis, committee, block).MustVerify(verifierBis)
-		fd.msgStore.Save(proposal1)
-
-		// now quorum preVotes for proposal1, it makes valid round change to 3.
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(3, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
-		}
-
-		// the malicious proposer did preCommit on this round, make its valid round == 3
-		preCommit := message.NewPrecommit(3, height, initProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommit)
-
-		// malicious proposer propose at r: 5, with v and a vr: 0 which was not correct anymore.
-		maliciousProposal := newProposalMessage(height, 5, 0, maliciousSigner, committee, block).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(maliciousProposal)
-
-		// run rule engine.
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
-		assert.Equal(t, message.NewLightProposal(maliciousProposal).Signature(), onChainProofs[0].Message.Signature())
-		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Evidences[0].Signature())
-	})
-
-	t.Run("RunRule address the Accusation of PO rule, no quorum preVotes presented on the valid round and proposal not committed", func(t *testing.T) {
-		// ------------Old Proposal------------
-		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
-		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
-
-		// To address below accusation scenario:
-		// If proposer broadcasts an old proposal, then there must be a quorum preVotes at valid round.
-		// Do we see a quorum of preVotes at valid round? if not we can raise an accusation, since we cannot be sure
-		// that those preVotes do exist
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-		// block was not committed
-		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(nil)
-
-		// simulate an old proposal at r: 2, with v and vr: 0.
-		oldProposal := newProposalMessage(height, 2, 0, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(oldProposal)
-
-		// run rule engine.
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
-		assert.Equal(t, message.NewLightProposal(oldProposal).Signature(), onChainProofs[0].Message.Signature())
-	})
-
-	t.Run("RunRule address the Accusation of PO rule, no quorum preVotes presented on the valid round BUT proposal was committed", func(t *testing.T) {
-		// ------------Old Proposal------------
-		// PO: (Mr′<r,PV) ∧ (Mr′,PC|pi) ∧ (Mr′<r′′<r,P C|pi)∗ <--- (Mr,P|pi)
-		// PO1: [#(Mr′,PV|V) ≥ 2f+ 1] ∧ [nil ∨ V ∨ ⊥] ∧ [nil ∨ ⊥] <--- [V]
-
-		// To address below accusation scenario:
-		// If proposer broadcasts an old proposal, then there must be a quorum preVotes at valid round.
-		// Do we see a quorum of preVotes at valid round? if not we can raise an accusation, since we cannot be sure
-		// that those preVotes do exist
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		// block was committed --> no accusation should be raised
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(block)
-
-		// simulate an old proposal at r: 2, with v and vr: 0.
-		oldProposal := newProposalMessage(height, 2, 0, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(oldProposal)
-
-		// run rule engine.
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 0, len(onChainProofs))
-	})
-
-	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote and value not committed", func(t *testing.T) {
-		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
-		// To address below accusation scenario:
-		// If there exist a preVote for a non nil value, then there must be a corresponding proposal at the same round,
-		// otherwise an accusation of PVN should rise.
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		// simulate a preVote for v at round, let's make the corresponding proposal missing.
-		preVote := message.NewPrevote(round, height, noneNilValue, makeSigner(keys[1], committee[1])).MustVerify(stubVerifier(keys[1].PublicKey()))
-		fd.msgStore.Save(preVote)
-		chainMock.EXPECT().GetBlock(preVote.Value(), preVote.H()).Return(nil)
-
-		// run rule engine.
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PVN, onChainProofs[0].Rule)
-		assert.Equal(t, preVote.Signature(), onChainProofs[0].Message.Signature())
-	})
-	t.Run("RunRule address the accusation of PVN, no corresponding proposal of preVote BUT value committed", func(t *testing.T) {
-		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
-		// To address below accusation scenario:
-		// If there exist a preVote for a non nil value, then there must be a corresponding proposal at the same round,
-		// otherwise an accusation of PVN should rise.
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		// block was committed --> no accusation should be raised
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).Return(block)
-
-		// simulate a preVote for v at round, let's make the corresponding proposal missing.
-		preVote := message.NewPrevote(round, height, block.Hash(), makeSigner(keys[1], committee[1])).MustVerify(stubVerifier(keys[1].PublicKey()))
-		fd.msgStore.Save(preVote)
-
-		// run rule engine.
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 0, len(onChainProofs))
-	})
-
-	t.Run("RunRule address the misbehaviour of PVN, node prevotes for V with previous precommits={V1,nil,V}. No misbehaviour raised", func(t *testing.T) {
-		// node precommits for a value != V at round 0, but then precommits for V at a later r < prevote round.
-		// everything is good here since last precommit was for V --> no misbehaviour happening
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		newProposer := makeSigner(keys[2], committee[2])
-		newProposerVerifier := stubVerifier(keys[2].PublicKey())
-
-		header := newBlockHeader(height, committee)
-		v1 := types.NewBlockWithHeader(header)
-
-		// simulate an init proposal at r: 0 for value v1.
-		initProposal := newProposalMessage(height, 0, -1, signer, committee, v1).MustVerify(verifier)
-		fd.msgStore.Save(initProposal)
-
-		// simulate quorum preVotes for init proposal
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
-		}
-
-		// node did preCommit for v1 on round 0
-		preCommit := message.NewPrecommit(0, height, initProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommit)
-
-		// node did preCommit for nil at round 1
-		pc := message.NewPrecommit(1, height, nilValue, maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(pc)
-
-		// at round 2 someone proposes value v != v1, node precommits for it
-		header = newBlockHeader(height, committee)
-		v := types.NewBlockWithHeader(header)
-		newProposal := newProposalMessage(height, 2, -1, newProposer, committee, v).MustVerify(newProposerVerifier)
-		fd.msgStore.Save(newProposal)
-
-		// simulate quorum preVotes for newProposal
-		for i := 0; i < len(committee); i++ {
-			// our node doesn't prevote for v, since he is locked on v1
-			if i == 1 {
-				continue
+		// The order of proofs is non know apriori
+		for _, p := range proofs {
+			if p.Message == expectedProof0.Message {
+				require.Equal(t, expectedProof0, p)
 			}
-			preVote := message.NewPrevote(2, height, newProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
-		}
 
-		// node does preCommit for v at round 2 since he sees a quorum of prevotes for it (even if he did not prevoted for it)
-		pc = message.NewPrecommit(2, height, newProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(pc)
-
-		// at round 3 v is proposed again, and node prevotes for it
-		newProposal2 := newProposalMessage(height, 3, -1, newProposer, committee, v).MustVerify(newProposerVerifier)
-		fd.msgStore.Save(newProposal2)
-
-		// nodes prevotes for it
-		preVote := message.NewPrevote(3, height, newProposal2.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-
-		assert.Equal(t, 0, len(onChainProofs))
-	})
-
-	t.Run("RunRule address the misbehaviour of PVN, node preVote for value V1 while it preCommitted another value at previous round", func(t *testing.T) {
-		// To address below misbehaviour scenario:
-		// Node preCommitted at v1 at R_x, while it preVote for v2 at R_x + n.
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		newProposer := makeSigner(keys[2], committee[2])
-		newProposerVerifier := stubVerifier(keys[2].PublicKey())
-
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-
-		// simulate an init proposal at r: 0, with v.
-		initProposal := newProposalMessage(height, 0, -1, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(initProposal)
-
-		// simulate quorum preVotes for init proposal
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
-		}
-
-		// the malicious node did preCommit for v1 on round 0
-		preCommit := message.NewPrecommit(0, height, initProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommit)
-
-		// the malicious node did preCommit for nil at round 1, and round 2 to fill the round gaps.
-		for i := 1; i < 3; i++ {
-			pc := message.NewPrecommit(int64(i), height, nilValue, maliciousSigner).MustVerify(maliciousVerifier)
-			fd.msgStore.Save(pc)
-		}
-
-		// assume round changes, someone propose V2 at round 3, and malicious Node now it preVote for this V2.
-		newProposal := newProposalMessage(height, 3, -1, newProposer, committee, nil).MustVerify(newProposerVerifier)
-		fd.msgStore.Save(newProposal)
-
-		// now the malicious node preVote for a new value V2 at higher round 3.
-		preVote := message.NewPrevote(3, height, newProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Misbehaviour, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PVN, onChainProofs[0].Rule)
-		assert.Equal(t, 4, len(onChainProofs[0].Evidences))
-		assert.Equal(t, preVote.Signature(), onChainProofs[0].Message.Signature())
-		assert.Equal(t, message.NewLightProposal(newProposal).Signature(), onChainProofs[0].Evidences[0].Signature())
-		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Evidences[1].Signature())
-	})
-
-	t.Run("RunRule address the misbehaviour of PVN, with gaps of preCommits, the PVN is not provable", func(t *testing.T) {
-		// PVN: (Mr′<r,PC|pi)∧(Mr′<r′′<r,PC|pi)* ∧ (Mr,P|proposer(r)) <--- (Mr,PV|pi)
-		// PVN2: [nil ∨ ⊥] ∧ [nil ∨ ⊥] ∧ [V:Valid(V)] <--- [V]: r′= 0,∀r′′< r:Mr′′,PC|pi=nil
-		// PVN2, If there is a valid proposal V at round r, and pi never
-		// ever precommit(locked a value) before, then pi should prevote
-		// for V or a nil in case of timeout at this round.
-
-		// To address below misbehaviour scenario:
-		// Node preCommitted at v1 at R_x, while it preVote for v2 at R_x + n.
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		newProposer := makeSigner(keys[2], committee[2])
-		newProposerVerifier := stubVerifier(keys[2].PublicKey())
-
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-
-		// simulate an init proposal at r: 0, with v.
-		initProposal := newProposalMessage(height, 0, -1, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(initProposal)
-
-		// simulate quorum preVotes for init proposal
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, initProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
-		}
-
-		// the malicious node did preCommit for v1 on round 0
-		preCommit := message.NewPrecommit(0, height, initProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommit)
-
-		// the malicious node did preCommit for nil at round 1, let no preCommit at round 2 to form the gap.
-		preCommitR1 := message.NewPrecommit(int64(1), height, nilValue, maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommitR1)
-
-		// assume round changes, someone propose V2 at round 3, and malicious Node now it preVote for this V2.
-		newProposal := newProposalMessage(height, 3, -1, newProposer, committee, nil).MustVerify(newProposerVerifier)
-		fd.msgStore.Save(newProposal)
-
-		// now the malicious node preVote for a new value V2 at higher round 3.
-		preVote := message.NewPrevote(3, height, newProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-
-		assert.Equal(t, 0, len(onChainProofs))
-	})
-
-	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round and proposal not committed", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		header := newBlockHeader(height, committee)
-		// block was not committed --> accusation raised
-		block := types.NewBlockWithHeader(header)
-		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).MaxTimes(2).Return(nil)
-
-		// simulate a proposal at r: 3, and vr: 1, with v.
-		oldProposal := newProposalMessage(height, 3, 1, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(oldProposal)
-
-		// simulate a preVote at r: 3 for value v.
-		preVote := message.NewPrevote(3, height, oldProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-
-		assert.Equal(t, 2, len(onChainProofs))
-		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.PO, onChainProofs[0].Rule)
-		assert.Equal(t, message.NewLightProposal(oldProposal).Signature(), onChainProofs[0].Message.Signature())
-
-		assert.Equal(t, autonity.Accusation, onChainProofs[1].Type)
-		assert.Equal(t, autonity.PVO, onChainProofs[1].Rule)
-		assert.Equal(t, preVote.Signature(), onChainProofs[1].Message.Signature())
-	})
-
-	t.Run("RunRule to address Accusation of rule PVO, no quorum preVotes for valid round BUT proposal was committed", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		// block was committed --> no accusations
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-		chainMock.EXPECT().GetBlock(block.Hash(), block.NumberU64()).MaxTimes(2).Return(block)
-
-		// simulate a proposal at r: 3, and vr: 1, with v.
-		oldProposal := newProposalMessage(height, 3, 1, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(oldProposal)
-
-		// simulate a preVote at r: 3 for value v.
-		preVote := message.NewPrevote(3, height, oldProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-
-		assert.Equal(t, 0, len(onChainProofs))
-	})
-
-	t.Run("RunRule to address misbehaviour of rule PVO, there were quorum prevote for not V at valid round", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-
-		// simulate a proposal at r: 3, and vr: 0, with v.
-		oldProposal := newProposalMessage(height, 3, 0, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(oldProposal)
-
-		// simulate quorum prevotes for not v at vr.
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, noneNilValue, makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
-		}
-		// simulate a preVote at r: 3 for value v, thus it is a misbehaviour.
-		preVote := message.NewPrevote(3, height, oldProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		presentPVO := false
-		for _, p := range onChainProofs {
-			if p.Type == autonity.Misbehaviour && p.Rule == autonity.PVO {
-				presentPVO = true
-				assert.Equal(t, message.PrevoteCode, p.Message.Code())
-				assert.Equal(t, preVote.Signature(), p.Message.Signature())
+			if p.Message == expectedProof1.Message {
+				// The Evidences list elements can be returned in any order therefore when we have evidence which includes
+				// multiple messages we need to check that each message is present separately
+				require.Equal(t, expectedProof1.Type, p.Type)
+				require.Equal(t, expectedProof1.Rule, p.Rule)
+				require.Equal(t, expectedProof1.Message, p.Message)
+				require.Contains(t, p.Evidences, nonNilPrecommit0)
 			}
 		}
-		assert.Equal(t, true, presentPVO)
 	})
+}
 
-	t.Run("RunRule to address misbehaviour of rule PVO1, node last precommited at a value of not v", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+// TestOldProposalsAccountabilityCheck, it tests the accountability events over a proposal that was validated at previous round
+func TestOldProposalsAccountabilityCheck(t *testing.T) {
+	quorum := bft.Quorum(committee.TotalVotingPower())
+	height := uint64(0)
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
+	header := newBlockHeader(height, committee)
+	block := types.NewBlockWithHeader(header)
+	header1 := newBlockHeader(height, committee)
+	block1 := types.NewBlockWithHeader(header1)
 
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
+	oldProposal0 := newProposalMessage(height, 3, 0, signer, committee, block).MustVerify(stubVerifier)
+	oldProposal5 := newProposalMessage(height, 5, 2, signer, committee, block).MustVerify(stubVerifier)
+	oldProposal0E := newProposalMessage(height, 3, 2, signer, committee, block1).MustVerify(stubVerifier)
+	oldProposal0E2 := newProposalMessage(height, 3, 0, signer, committee, block1).MustVerify(stubVerifier)
 
-		// simulate a proposal at r: 3, and vr: 0, with v.
-		oldProposal := newProposalMessage(height, 3, 0, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(oldProposal)
+	nonNilPrecommit0V := message.NewPrecommit(0, height, block.Hash(), signer).MustVerify(stubVerifier)
+	nonNilPrecommit0VPrime := message.NewPrecommit(0, height, block1.Hash(), signer).MustVerify(stubVerifier)
+	nonNilPrecommit2VPrime := message.NewPrecommit(2, height, block1.Hash(), signer).MustVerify(stubVerifier)
+	nonNilPrecommit1 := message.NewPrecommit(1, height, block.Hash(), signer).MustVerify(stubVerifier)
 
-		// simulate quorum prevotes for v at vr.
-		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, oldProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
+	nilPrecommit0 := message.NewPrecommit(0, height, nilValue, signer).MustVerify(stubVerifier)
+
+	var quorumPrevotes0VPrime []message.Msg
+	for i := int64(0); i < quorum.Int64(); i++ {
+		prevote := message.NewPrevote(0, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+		quorumPrevotes0VPrime = append(quorumPrevotes0VPrime, prevote)
+	}
+
+	var quorumPrevotes0V []message.Msg
+	for i := int64(0); i < quorum.Int64(); i++ {
+		prevote := message.NewPrevote(0, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+		quorumPrevotes0V = append(quorumPrevotes0V, prevote)
+	}
+
+	var precommiteNilAfterVR []message.Msg
+	for i := 1; i < 3; i++ {
+		precommit := message.NewPrecommit(int64(i), height, nilValue, signer).MustVerify(stubVerifier)
+		precommiteNilAfterVR = append(precommiteNilAfterVR, precommit)
+	}
+
+	t.Run("misbehaviour when pi precommited for a different value in valid round than in the old proposal", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		fd.msgStore.Save(nonNilPrecommit0VPrime)
+
+		expectedProof := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PO,
+			Evidences: []message.Msg{nonNilPrecommit0VPrime},
+			Message:   message.NewLightProposal(oldProposal0),
 		}
 
-		// simulate a precommit at r: 0 with value v.
-		pcValidRound := message.NewPrecommit(0, height, oldProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(pcValidRound)
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedProof, actualProof)
+	})
 
-		// simulate a precommit at r: 1 with value v.
-		preCommitForV := message.NewPrecommit(1, height, oldProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommitForV)
+	t.Run("misbehaviour when pi incorrectly set the valid round with a different value than the proposal", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		fd.msgStore.Save(nonNilPrecommit2VPrime)
 
-		// simulate a precommit at r: 2 with value not v.
-		preCommitForNotV := message.NewPrecommit(2, height, noneNilValue, maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommitForNotV)
+		expectedProof := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PO,
+			Evidences: []message.Msg{nonNilPrecommit2VPrime},
+			Message:   message.NewLightProposal(oldProposal0),
+		}
 
-		// simulate a preVote at r: 3 for value v.
-		preVote := message.NewPrevote(3, height, oldProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedProof, actualProof)
+	})
 
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		presentPVO1 := false
-		for _, p := range onChainProofs {
-			if p.Type == autonity.Misbehaviour && p.Rule == autonity.PVO12 {
-				presentPVO1 = true
-				assert.Equal(t, message.PrevoteCode, p.Message.Code())
-				assert.Equal(t, preVote.Signature(), p.Message.Signature())
+	t.Run("misbehaviour when pi incorrectly set the valid round with the same value as the proposal", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		fd.msgStore.Save(nonNilPrecommit1)
+
+		expectedProof := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PO,
+			Evidences: []message.Msg{nonNilPrecommit1},
+			Message:   message.NewLightProposal(oldProposal0),
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedProof, actualProof)
+	})
+
+	t.Run("misbehaviour when in valid round there is a quorum of prevotes for a value different than old proposal", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		for _, m := range quorumPrevotes0VPrime {
+			fd.msgStore.Save(m)
+		}
+
+		expectedProof := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PO,
+			Evidences: quorumPrevotes0VPrime,
+			Message:   message.NewLightProposal(oldProposal0),
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedProof.Type, actualProof.Type)
+		require.Equal(t, expectedProof.Rule, actualProof.Rule)
+		require.Equal(t, expectedProof.Message, actualProof.Message)
+		// The order of the evidence is not known apriori
+		for _, m := range expectedProof.Evidences {
+			require.Contains(t, actualProof.Evidences, m)
+		}
+
+	})
+
+	t.Run("accusation when no prevotes for proposal value in valid round", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+
+		expectedProof := &Proof{
+			Type:    autonity.Accusation,
+			Rule:    autonity.PO,
+			Message: message.NewLightProposal(oldProposal0),
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedProof, actualProof)
+	})
+
+	t.Run("accusation when less than quorum prevotes for proposal value in valid round", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		lessThanQurorumPrevotes := quorumPrevotes0V[:len(quorumPrevotes0V)-2]
+		for _, m := range lessThanQurorumPrevotes {
+			fd.msgStore.Save(m)
+		}
+
+		expectedProof := &Proof{
+			Type:    autonity.Accusation,
+			Rule:    autonity.PO,
+			Message: message.NewLightProposal(oldProposal0),
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedProof, actualProof)
+	})
+
+	t.Run("no proof for equivocated proposal with different valid round", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		fd.msgStore.Save(oldProposal0E)
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof for equivocated proposal with same valid round however different block value", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		fd.msgStore.Save(oldProposal0E2)
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when quorum of prevotes for V in vr, precommit for V from pi in vr, and precommit nils from pi from vr+1 to r", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		for _, m := range quorumPrevotes0V {
+			fd.msgStore.Save(m)
+		}
+		fd.msgStore.Save(nonNilPrecommit0V)
+		for _, m := range precommiteNilAfterVR {
+			fd.msgStore.Save(m)
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when quorum of prevotes for V in vr, precommit for V from pi in vr, and some precommit nils from pi from vr+1 to r", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		for _, m := range quorumPrevotes0V {
+			fd.msgStore.Save(m)
+		}
+		fd.msgStore.Save(nonNilPrecommit0V)
+		somePrecommits := precommiteNilAfterVR[:len(precommiteNilAfterVR)-2]
+		for _, m := range somePrecommits {
+			fd.msgStore.Save(m)
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when quorum of prevotes for V in vr, precommit for V from pi in vr", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		for _, m := range quorumPrevotes0V {
+			fd.msgStore.Save(m)
+		}
+		fd.msgStore.Save(nonNilPrecommit0V)
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when quorum of prevotes for V in vr, precommit nil from pi in vr", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		for _, m := range quorumPrevotes0V {
+			fd.msgStore.Save(m)
+		}
+		fd.msgStore.Save(nilPrecommit0)
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when quorum of prevotes for V in vr", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		for _, m := range quorumPrevotes0V {
+			fd.msgStore.Save(m)
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("multiple proofs from different rounds", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposal0)
+		fd.msgStore.Save(nonNilPrecommit0VPrime)
+
+		expectedMisbehaviour := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PO,
+			Evidences: []message.Msg{nonNilPrecommit0VPrime},
+			Message:   message.NewLightProposal(oldProposal0),
+		}
+
+		fd.msgStore.Save(oldProposal5)
+		expectedAccusation := &Proof{
+			Type:    autonity.Accusation,
+			Rule:    autonity.PO,
+			Message: message.NewLightProposal(oldProposal5),
+		}
+
+		proofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		require.Equal(t, 2, len(proofs))
+		require.Contains(t, proofs, expectedMisbehaviour)
+		require.Contains(t, proofs, expectedAccusation)
+	})
+}
+
+// TestPrevotesAccountabilityCheck, it tests the accountability events over prevotes messages sent by pi.
+func TestPrevotesAccountabilityCheck(t *testing.T) {
+	quorum := bft.Quorum(committee.TotalVotingPower())
+	height := uint64(0)
+
+	header := newBlockHeader(height, committee)
+	block := types.NewBlockWithHeader(header)
+	header1 := newBlockHeader(height, committee)
+	block1 := types.NewBlockWithHeader(header1)
+
+	newProposalForB := newProposalMessage(height, 5, -1, signer, committee, block).MustVerify(stubVerifier)
+
+	prevoteForB := message.NewPrevote(5, height, block.Hash(), signer).MustVerify(stubVerifier)
+	prevoteForB1 := message.NewPrevote(5, height, block1.Hash(), signer).MustVerify(stubVerifier)
+
+	precommitForB := message.NewPrecommit(3, height, block.Hash(), signer).MustVerify(stubVerifier)
+	precommitForB1 := message.NewPrecommit(4, height, block1.Hash(), signer).MustVerify(stubVerifier)
+	precommitForB1In0 := message.NewPrecommit(0, height, block1.Hash(), signer).MustVerify(stubVerifier)
+	precommitForB1In1 := message.NewPrecommit(1, height, block1.Hash(), signer).MustVerify(stubVerifier)
+	precommitForBIn0 := message.NewPrecommit(0, height, block.Hash(), signer).MustVerify(stubVerifier)
+	precommitForBIn4 := message.NewPrecommit(4, height, block.Hash(), signer).MustVerify(stubVerifier)
+
+	signerBis := makeSigner(keys[1], committee[1])
+	oldProposalB10 := newProposalMessage(height, 10, 5, signerBis, committee, block).MustVerify(stubVerifier)
+	newProposalB1In5 := newProposalMessage(height, 5, -1, signerBis, committee, block1).MustVerify(stubVerifier)
+	newProposalBIn5 := newProposalMessage(height, 5, -1, signerBis, committee, block).MustVerify(stubVerifier)
+
+	prevoteForOldB10 := message.NewPrevote(10, height, block.Hash(), signer).MustVerify(stubVerifier)
+	precommitForB1In8 := message.NewPrecommit(8, height, block1.Hash(), signer).MustVerify(stubVerifier)
+	precommitForBIn7 := message.NewPrecommit(7, height, block.Hash(), signer).MustVerify(stubVerifier)
+
+	t.Run("accusation when there are no corresponding proposals", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(prevoteForB)
+
+		expectedAccusation := &Proof{
+			Type:    autonity.Accusation,
+			Rule:    autonity.PVN,
+			Message: prevoteForB,
+		}
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		require.Contains(t, proofs, expectedAccusation)
+	})
+
+	// Testcases for PVN
+	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForB1)
+
+		expectedMisbehaviour := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PVN,
+			Evidences: []message.Msg{message.NewLightProposal(newProposalForB), precommitForB1},
+			Message:   prevoteForB,
+		}
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		require.Equal(t, expectedMisbehaviour, proofs[0])
+	})
+
+	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value, after a flip flop", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForB1)
+		fd.msgStore.Save(precommitForB)
+
+		expectedMisbehaviour := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PVN,
+			Evidences: []message.Msg{message.NewLightProposal(newProposalForB), precommitForB1},
+			Message:   prevoteForB,
+		}
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		require.Equal(t, expectedMisbehaviour, proofs[0])
+	})
+
+	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value while precommit nils in middle rounds", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForB1In0)
+
+		var precommitNilsAfter0 []message.Msg
+		for i := 1; i < 5; i++ {
+			precommitNil := message.NewPrecommit(int64(i), height, nilValue, signer).MustVerify(stubVerifier)
+			precommitNilsAfter0 = append(precommitNilsAfter0, precommitNil)
+			fd.msgStore.Save(precommitNil)
+		}
+
+		expectedMisbehaviour := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PVN,
+			Evidences: []message.Msg{precommitForB1In0},
+			Message:   prevoteForB,
+		}
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitNilsAfter0...)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
+		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
+		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
+		for _, m := range expectedMisbehaviour.Evidences {
+			require.Contains(t, actualProof.Evidences, m)
+		}
+	})
+
+	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value, after a flip flop, while precommit nils in middle rounds", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForBIn0)
+		fd.msgStore.Save(precommitForB1In1)
+
+		var precommitNilsAfter1 []message.Msg
+		for i := 2; i < 5; i++ {
+			precommitNil := message.NewPrecommit(int64(i), height, nilValue, signer).MustVerify(stubVerifier)
+			precommitNilsAfter1 = append(precommitNilsAfter1, precommitNil)
+			fd.msgStore.Save(precommitNil)
+		}
+
+		expectedMisbehaviour := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.PVN,
+			Evidences: []message.Msg{precommitForB1In1},
+			Message:   prevoteForB,
+		}
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitNilsAfter1...)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
+		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
+		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
+		for _, m := range expectedMisbehaviour.Evidences {
+			require.Contains(t, actualProof.Evidences, m)
+		}
+	})
+
+	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForBIn4)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round with missing precommits in middle rounds", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForBIn0)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round with some missing precommits and precommit nils in middle rounds", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForBIn0)
+		fd.msgStore.Save(message.NewPrecommit(3, height, nilValue, signer).MustVerify(stubVerifier))
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round with no missing precommits in middle rounds", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForBIn0)
+		for i := 1; i < 5; i++ {
+			precommitNil := message.NewPrecommit(int64(i), height, nilValue, signer).MustVerify(stubVerifier)
+			fd.msgStore.Save(precommitNil)
+		}
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when pi precommited for {B1,nil*,B} and then prevoted B", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+
+		fd.msgStore.Save(precommitForB1In0)
+
+		// fill gaps with nil
+		for i := 1; i < 4; i++ {
+			precommitNil := message.NewPrecommit(int64(i), height, nilValue, signer).MustVerify(stubVerifier)
+			fd.msgStore.Save(precommitNil)
+		}
+
+		fd.msgStore.Save(precommitForBIn4)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	// Testcases for PVO
+	t.Run("accusation when there is no quorum for the prevote value in the valid round", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+
+		expectedAccusation := &Proof{
+			Type:      autonity.Accusation,
+			Rule:      autonity.PVO,
+			Message:   prevoteForOldB10,
+			Evidences: []message.Msg{message.NewLightProposal(oldProposalB10)},
+		}
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		acutalProof := proofs[0]
+		require.Equal(t, expectedAccusation, acutalProof)
+	})
+
+	t.Run("misbehaviour when pi prevotes for an old proposal while in the valid round there is quorum for different value", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		// Need to add this new proposal in valid round so that unwanted accusation are not returned by the prevotes
+		// accountability check method. Since we are adding a quorum of prevotes in round 6 we also need to add a new
+		// proposal in round 6 to allow for those prevotes to not return accusations.
+		fd.msgStore.Save(newProposalB1In5)
+		fd.msgStore.Save(prevoteForOldB10)
+		// quorum of prevotes for B1 in vr = 6
+		var vr5Prevotes []message.Msg
+		for i := uint64(0); i < quorum.Uint64(); i++ {
+			vr6Prevote := message.NewPrevote(5, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			vr5Prevotes = append(vr5Prevotes, vr6Prevote)
+			fd.msgStore.Save(vr6Prevote)
+		}
+
+		expectedMisbehaviour := &Proof{
+			Type:    autonity.Misbehaviour,
+			Rule:    autonity.PVO,
+			Message: prevoteForOldB10,
+		}
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, message.NewLightProposal(oldProposalB10))
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, vr5Prevotes...)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
+		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
+		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
+		for _, m := range expectedMisbehaviour.Evidences {
+			require.Contains(t, actualProof.Evidences, m)
+		}
+
+	})
+
+	t.Run("misbehaviour when pi has precommited for V in a previous round however the latest precommit from pi is not for V yet pi still prevoted for V in the current round", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+		fd.msgStore.Save(newProposalBIn5)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+		for i := newProposalBIn5.R(); i < precommitForBIn7.R(); i++ {
+			fd.msgStore.Save(message.NewPrecommit(i, height, nilValue, signer).MustVerify(stubVerifier))
+		}
+		var precommitsFromPiAfterLatestPrecommitForB []message.Msg
+		fd.msgStore.Save(precommitForBIn7)
+
+		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForBIn7)
+		fd.msgStore.Save(precommitForB1In8)
+		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForB1In8)
+		p := message.NewPrecommit(precommitForB1In8.R()+1, height, nilValue, signer).MustVerify(stubVerifier)
+		fd.msgStore.Save(p)
+		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, p)
+
+		expectedMisbehaviour := &Proof{
+			Type:    autonity.Misbehaviour,
+			Rule:    autonity.PVO12,
+			Message: prevoteForOldB10,
+		}
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, message.NewLightProposal(oldProposalB10))
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitsFromPiAfterLatestPrecommitForB...)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
+		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
+		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
+		for _, m := range expectedMisbehaviour.Evidences {
+			require.Contains(t, actualProof.Evidences, m)
+		}
+	})
+
+	t.Run("no proof when pi has precommited for V in a previous round and precommit nils afterwards", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+		fd.msgStore.Save(newProposalBIn5)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+		fd.msgStore.Save(precommitForBIn7)
+		for i := precommitForBIn7.R() + 1; i < oldProposalB10.R(); i++ {
+			fd.msgStore.Save(message.NewPrecommit(i, height, nilValue, signer).MustVerify(stubVerifier))
+		}
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+
+	})
+
+	t.Run("no proof when pi has precommited for V in a previous round however the latest precommit from pi is not for V yet pi still prevoted for V in the current round"+
+		" but there are missing message after latest precommit for V", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+		fd.msgStore.Save(newProposalBIn5)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+		fd.msgStore.Save(precommitForBIn7)
+		fd.msgStore.Save(precommitForB1In8)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+
+	})
+
+	t.Run("misbehaviour when pi has never precommited for V in a previous round however pi prevoted for V which is being reproposed", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+		fd.msgStore.Save(newProposalBIn5)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+
+		var precommitsFromPiAfterVR []message.Msg
+		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
+			p := message.NewPrecommit(i, height, nilValue, signer).MustVerify(stubVerifier)
+			fd.msgStore.Save(p)
+			precommitsFromPiAfterVR = append(precommitsFromPiAfterVR, p)
+		}
+		fd.msgStore.Save(precommitForB1In8)
+		precommitsFromPiAfterVR = append(precommitsFromPiAfterVR, precommitForB1In8)
+		p := message.NewPrecommit(precommitForB1In8.R()+1, height, nilValue, signer).MustVerify(stubVerifier)
+		fd.msgStore.Save(p)
+		precommitsFromPiAfterVR = append(precommitsFromPiAfterVR, p)
+
+		expectedMisbehaviour := &Proof{
+			Type:    autonity.Misbehaviour,
+			Rule:    autonity.PVO12,
+			Message: prevoteForOldB10,
+		}
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, message.NewLightProposal(oldProposalB10))
+		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitsFromPiAfterVR...)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
+		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
+		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
+		for _, m := range expectedMisbehaviour.Evidences {
+			require.Contains(t, actualProof.Evidences, m)
+		}
+	})
+
+	t.Run("no proof when pi has never precommited for V in a previous round however has precommitted nil after VR", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+		fd.msgStore.Save(newProposalBIn5)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+
+		for i := newProposalBIn5.R() + 1; i < oldProposalB10.R(); i++ {
+			fd.msgStore.Save(message.NewPrecommit(i, height, nilValue, signer).MustVerify(stubVerifier))
+		}
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when pi has never precommited for V in a previous round however pi prevoted for V while it has precommited for V' but there are missing precommit before precommit for V'", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+		fd.msgStore.Save(newProposalBIn5)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+
+		fd.msgStore.Save(precommitForB1In8)
+
+		p := message.NewPrecommit(precommitForB1In8.R()+1, height, nilValue, signer).MustVerify(stubVerifier)
+		fd.msgStore.Save(p)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("no proof when pi has never precommited for V in a previous round however pi prevoted for V while it has precommited for V' but there are missing precommit after precommit for V'", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(oldProposalB10)
+
+		fd.msgStore.Save(prevoteForOldB10)
+		fd.msgStore.Save(newProposalBIn5)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(5, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+
+		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
+			fd.msgStore.Save(message.NewPrecommit(i, height, nilValue, signer).MustVerify(stubVerifier))
+		}
+		fd.msgStore.Save(precommitForB1In8)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+
+	t.Run("prevotes accountability check can return multiple proofs", func(t *testing.T) {
+		fd := testFD()
+
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(precommitForB1)
+		fd.msgStore.Save(precommitForB)
+
+		fd.msgStore.Save(oldProposalB10)
+		fd.msgStore.Save(prevoteForOldB10)
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(6, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 2, len(proofs))
+	})
+
+	t.Run("no proof when prevote is equivocated with different values", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(prevoteForB)
+		fd.msgStore.Save(prevoteForB1)
+
+		proofs := fd.prevotesAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
+}
+
+// TestPrecommitsAccountabilityCheck, it tests the accountability events over precommit messages sent by pi.
+func TestPrecommitsAccountabilityCheck(t *testing.T) {
+	quorum := bft.Quorum(committee.TotalVotingPower())
+	height := uint64(0)
+
+	header := newBlockHeader(height, committee)
+	block := types.NewBlockWithHeader(header)
+	header1 := newBlockHeader(height, committee)
+	block1 := types.NewBlockWithHeader(header1)
+
+	newProposalForB := newProposalMessage(height, 2, -1, makeSigner(keys[1], committee[1]), committee, block).MustVerify(stubVerifier)
+
+	precommitForB := message.NewPrecommit(2, height, block.Hash(), signer).MustVerify(stubVerifier)
+	precommitForB1 := message.NewPrecommit(2, height, block1.Hash(), signer).MustVerify(stubVerifier)
+	precommitForB1In3 := message.NewPrecommit(3, height, block1.Hash(), signer).MustVerify(stubVerifier)
+
+	t.Run("accusation when prevotes is less than quorum", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(precommitForB)
+
+		for i := int64(0); i < quorum.Int64()-1; i++ {
+			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
+		}
+
+		expectedAccusation := &Proof{
+			Type:    autonity.Accusation,
+			Rule:    autonity.C1,
+			Message: precommitForB,
+		}
+		proofs := fd.precommitsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		require.Equal(t, expectedAccusation, proofs[0])
+	})
+
+	t.Run("misbehaviour when there is a quorum for V' than what pi precommitted for", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(precommitForB)
+
+		var prevotesForB1 []message.Msg
+		for i := int64(0); i < quorum.Int64(); i++ {
+			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			fd.msgStore.Save(p)
+			prevotesForB1 = append(prevotesForB1, p)
+		}
+
+		expectedMisbehaviour := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.C,
+			Evidences: prevotesForB1,
+			Message:   precommitForB,
+		}
+		proofs := fd.precommitsAccountabilityCheck(height, quorum)
+		require.Equal(t, 1, len(proofs))
+		actualProof := proofs[0]
+		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
+		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
+		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
+		for _, m := range expectedMisbehaviour.Evidences {
+			require.Contains(t, actualProof.Evidences, m)
+		}
+	})
+
+	t.Run("multiple proofs can be returned from precommits accountability check", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(precommitForB1In3)
+
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(precommitForB)
+
+		var prevotesForB1 []message.Msg
+		for i := int64(0); i < quorum.Int64(); i++ {
+			p := message.NewPrevote(2, height, block1.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier)
+			fd.msgStore.Save(p)
+			prevotesForB1 = append(prevotesForB1, p)
+		}
+
+		expectedProof0 := &Proof{
+			Type:      autonity.Misbehaviour,
+			Rule:      autonity.C,
+			Evidences: prevotesForB1,
+			Message:   precommitForB,
+		}
+
+		expectedProof1 := &Proof{
+			Type:    autonity.Accusation,
+			Rule:    autonity.C1,
+			Message: precommitForB1In3,
+		}
+		proofs := fd.precommitsAccountabilityCheck(height, quorum)
+		require.Equal(t, 2, len(proofs))
+
+		for _, p := range proofs {
+			if p.Message == expectedProof1.Message {
+				require.Equal(t, expectedProof1, p)
+			}
+
+			if p.Message == expectedProof0.Message {
+				// The Evidences list elements can be returned in any order therefore when we have evidence which includes
+				// multiple messages we need to check that each message is present separately
+				require.Equal(t, expectedProof0.Type, p.Type)
+				require.Equal(t, expectedProof0.Rule, p.Rule)
+				require.Equal(t, expectedProof0.Message, p.Message)
+
+				for _, m := range expectedProof0.Evidences {
+					require.Contains(t, p.Evidences, m)
+				}
 			}
 		}
-		assert.Equal(t, true, presentPVO1)
 	})
 
-	t.Run("RunRule to address misbehaviour of rule PVO2, node did precommited at a value of not v between valid "+
-		"round and current round", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+	t.Run("no proof when there is enough prevotes to form a quorum", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(precommitForB)
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-
-		// simulate a proposal at r: 3, and vr: 0, with v.
-		oldProposal := newProposalMessage(height, 3, 0, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(oldProposal)
-
-		// simulate quorum prevotes for v at vr.
 		for i := 0; i < len(committee); i++ {
-			preVote := message.NewPrevote(0, height, oldProposal.Value(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier(keys[i].PublicKey()))
-			fd.msgStore.Save(preVote)
+			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
 		}
 
-		// simulate a precommit at r: 0 with value not v.
-		pcValidRound := message.NewPrecommit(0, height, noneNilValue, maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(pcValidRound)
+		proofs := fd.precommitsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
+	})
 
-		// simulate a precommit at r: 1 with value not v.
-		preCommitForV := message.NewPrecommit(1, height, noneNilValue, maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommitForV)
+	t.Run("no proof when there is more than quorum prevotes ", func(t *testing.T) {
+		fd := testFD()
+		fd.msgStore.Save(newProposalForB)
+		fd.msgStore.Save(precommitForB)
 
-		// simulate a precommit at r: 2 with value not v.
-		preCommitForNotV := message.NewPrecommit(2, height, noneNilValue, maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preCommitForNotV)
-
-		// simulate a preVote at r: 3 for value v.
-		preVote := message.NewPrevote(3, height, oldProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		fd.msgStore.Save(preVote)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		presentPVO1 := false
-		for _, p := range onChainProofs {
-			if p.Type == autonity.Misbehaviour && p.Rule == autonity.PVO12 {
-				presentPVO1 = true
-				assert.Equal(t, message.PrevoteCode, p.Message.Code())
-				assert.Equal(t, preVote.Signature(), p.Message.Signature())
-			}
+		for i := 0; i < len(committee); i++ {
+			fd.msgStore.Save(message.NewPrevote(2, height, block.Hash(), makeSigner(keys[i], committee[i])).MustVerify(stubVerifier))
 		}
-		assert.Equal(t, true, presentPVO1)
+
+		proofs := fd.precommitsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
 	})
 
-	t.Run("RunRule address Accusation of rule C1, no corresponding quorum prevotes for a preCommit msg and proposal not committed", func(t *testing.T) {
-		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
-		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
+	t.Run("no proof when precommit is equivocated with different values", func(t *testing.T) {
+		//t.Skip("not stable in CI, but work in local.")
+		fd := testFD()
+		fd.msgStore.Save(precommitForB)
+		fd.msgStore.Save(precommitForB1)
 
-		// To address below accusation scenario:
-		// Node preCommit for a V at round R, but we cannot see the corresponding quorum preVotes that propose the value
-		// at the same round of that preCommit msg.
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-
-		preCommit := message.NewPrecommit(0, height, noneNilValue, signer).MustVerify(verifier)
-		chainMock.EXPECT().GetBlock(preCommit.Value(), preCommit.H()).Return(nil)
-		fd.msgStore.Save(preCommit)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 1, len(onChainProofs))
-		assert.Equal(t, autonity.Accusation, onChainProofs[0].Type)
-		assert.Equal(t, autonity.C1, onChainProofs[0].Rule)
-		assert.Equal(t, preCommit.Signature(), onChainProofs[0].Message.Signature())
+		proofs := fd.precommitsAccountabilityCheck(height, quorum)
+		require.Equal(t, 0, len(proofs))
 	})
+}
 
-	t.Run("RunRule address Accusation of rule C1, no corresponding quorum prevotes for a preCommit msg BUT proposal was committed", func(t *testing.T) {
-		// ------------precommits------------
-		// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
-		// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
+func testFD() *FaultDetector {
+	return &FaultDetector{
+		msgStore:   core.NewMsgStore(),
+		logger:     log.Root(),
+		blockchain: newTestBlockchain(),
+	}
+}
 
-		// To address below accusation scenario:
-		// Node preCommit for a value V, but observer haven't seen quorum preVotes for V at the round, an accusation shall
-		// rise.
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-		chainMock := NewMockChainContext(ctrl)
-		var blockSub event.Subscription
-		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
-		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+func newTestBlockchain() *ccore.BlockChain {
+	db := rawdb.NewMemoryDatabase()
+	ccore.GenesisBlockForTesting(db, common.Address{}, common.Big0)
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		quorum := bft.Quorum(totalPower)
-		header := newBlockHeader(height, committee)
-		block := types.NewBlockWithHeader(header)
-		round := int64(0)
-
-		// simulate an init proposal at r: 0, with v.
-		initProposal := newProposalMessage(height, round, -1, signer, committee, block).MustVerify(verifier)
-		fd.msgStore.Save(initProposal)
-
-		// malicious node preCommit to v even through there was no quorum preVotes for v.
-		preCommit := message.NewPrecommit(round, height, initProposal.Value(), maliciousSigner).MustVerify(maliciousVerifier)
-		chainMock.EXPECT().GetBlock(preCommit.Value(), preCommit.H()).Return(block)
-
-		fd.msgStore.Save(preCommit)
-
-		onChainProofs := fd.runRulesOverHeight(height, quorum)
-		assert.Equal(t, 0, len(onChainProofs))
-	})
+	chain, err := ccore.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &ccore.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
+	if err != nil {
+		panic(err)
+	}
+	return chain
 }

@@ -36,7 +36,7 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
-// TODO(lorenzo) refinements, this function has a mutex that can be taken by:
+// TODO: this function has a mutex that can be taken by:
 // 1. the core routine
 // 2. the routine that syncs other peers
 // can this be exploited by a malicious peer to slow Core down (by requesting ask sync lots of times)
@@ -123,7 +123,6 @@ func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
 
 func (s *RoundMessages) AddPrevote(prevote *Prevote) {
 	s.prevotes.Add(prevote)
-	//TODO(lorenzo) can be moved in the set Add if computationally expensive
 	// update round power cache
 	for index, power := range prevote.Signers().Powers() {
 		s.power.Set(index, power)
@@ -141,7 +140,6 @@ func (s *RoundMessages) AllPrecommits() []Msg {
 
 func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
 	s.precommits.Add(precommit)
-	//TODO(lorenzo) can be moved in the set Add if computationally expensive
 	// update round power cache
 	for index, power := range precommit.Signers().Powers() {
 		s.power.Set(index, power)

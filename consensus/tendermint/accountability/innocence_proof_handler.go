@@ -233,6 +233,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash,
 	committee types.Committee) error {
+
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
 	if !verifyAccusation(accusation, committee) {
 		return errInvalidAccusation

@@ -18,7 +18,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
-
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )

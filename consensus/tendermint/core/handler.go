@@ -130,7 +130,9 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	return quorum
 }
 
-// TODO(lorenzo) maybe I can substitute the existing votes with the aggregate one (instead of just adding it)
+// TODO(lorenzo) Can I just substitute all the msgs in the c.messages with the complex aggregate?
+//
+//	I think it might cause message loss if we have multiple complex aggregates (see logic of AggregateVotes). To double check.
 func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
 	switch code {
 	case message.PrevoteCode:
