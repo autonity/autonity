@@ -448,7 +448,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 		return m.Code() == message.PrevoteCode && m.Value() == preCommit.Value() && m.R() == preCommit.R()
 	})
 
-	overQuorumVotes := engineCore.OverQuorumVotes(prevotesForV, quorum)
+	overQuorumVotes := message.OverQuorumVotes(prevotesForV, quorum)
 	if overQuorumVotes == nil {
 		return nil, errNoEvidenceForC1
 	}
@@ -479,7 +479,7 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 		return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() == liteProposal.Value()
 	})
 
-	overQuorumPreVotes := engineCore.OverQuorumVotes(prevotes, quorum)
+	overQuorumPreVotes := message.OverQuorumVotes(prevotes, quorum)
 	if overQuorumPreVotes == nil {
 		// cannot onChainProof its innocent for PO, the on-chain contract will fine it latter once the
 		// time window for onChainProof ends.
@@ -538,7 +538,7 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 		return m.Code() == message.PrevoteCode && m.Value() == oldProposal.Value() && m.R() == validRound
 	})
 
-	overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
+	overQuorumVotes := message.OverQuorumVotes(preVotes, quorum)
 
 	if overQuorumVotes == nil {
 		return nil, errNoEvidenceForPVO
@@ -784,7 +784,7 @@ oldProposalLoop:
 		for _, preVotes := range prevotesMap {
 			// Here the assumption is that in a single round it is not possible to have 2 value which quorum votes,
 			// this would imply at least quorum nodes are malicious which is much higher than our assumption.
-			overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
+			overQuorumVotes := message.OverQuorumVotes(preVotes, quorum)
 			if overQuorumVotes != nil {
 				proof := &Proof{
 					Type:      autonity.Misbehaviour,
@@ -805,7 +805,7 @@ oldProposalLoop:
 			return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() == proposal.Value()
 		})
 
-		if engineCore.OverQuorumVotes(prevotes, quorum) == nil {
+		if message.OverQuorumVotes(prevotes, quorum) == nil {
 			/* We do not have a quorum of prevotes for valid round here.
 			* However if the propose was for a value that got committed, we do not send the accusation.
 			* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
@@ -865,7 +865,7 @@ prevotesLoop:
 				return m.Code() == message.PrevoteCode && m.R() == prevote.R() && m.Value() == prevote.Value()
 			})
 
-			if engineCore.OverQuorumVotes(preVts, quorum) == nil {
+			if message.OverQuorumVotes(preVts, quorum) == nil {
 				/* The rule for this accusation could be PVO as well since we don't have the corresponding proposal.
 				* If the prevote was for a value that got committed, we do not send the accusation.
 				* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
@@ -1041,7 +1041,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 	for _, preVotes := range prevotesMap {
 		// Here the assumption is that in a single round it is not possible to have 2 value which quorum votes,
 		// this would imply at least quorum nodes are malicious which is much higher than our assumption.
-		overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
+		overQuorumVotes := message.OverQuorumVotes(preVotes, quorum)
 		if overQuorumVotes != nil {
 			//fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", prevote.Signer()) //TODO(lorenzo)
 			proof := &Proof{
@@ -1059,7 +1059,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		return m.Code() == message.PrevoteCode && m.R() == validRound && m.Value() == correspondingProposal.Value()
 	})
 
-	overQuorumPrevotesForVFromValidRound := engineCore.OverQuorumVotes(prevotesForVFromValidRound, quorum)
+	overQuorumPrevotesForVFromValidRound := message.OverQuorumVotes(prevotesForVFromValidRound, quorum)
 
 	if overQuorumPrevotesForVFromValidRound != nil {
 		// PVO: (Mr′′′<r,PV) ∧ (Mr′′′≤r′<r,PC|pi) ∧ (Mr′<r′′<r,PC|pi)∗ ∧ (Mr, P|proposer(r)) ⇐= (Mr,PV|pi)
@@ -1200,7 +1200,7 @@ precommitLoop:
 		for _, preVotes := range prevotesMap {
 			// Here the assumption is that in a single round it is not possible to have 2 value which quorum votes,
 			// this would imply at least quorum nodes are malicious which is much higher than our assumption.
-			overQuorumVotes := engineCore.OverQuorumVotes(preVotes, quorum)
+			overQuorumVotes := message.OverQuorumVotes(preVotes, quorum)
 			if overQuorumVotes != nil {
 				proof := &Proof{
 					Type:      autonity.Misbehaviour,
@@ -1223,7 +1223,7 @@ precommitLoop:
 			return m.Code() == message.PrevoteCode && m.R() == precommit.R() && m.Value() == precommit.Value()
 		})
 
-		if engineCore.OverQuorumVotes(prevotes, quorum) == nil {
+		if message.OverQuorumVotes(prevotes, quorum) == nil {
 			/* We do not have a quorum of prevotes for this precommit to be justified.
 			* However if the precommit was for a value that got committed, we do not send the accusation.
 			* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,

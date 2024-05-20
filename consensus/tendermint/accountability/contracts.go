@@ -7,7 +7,6 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
-	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -311,7 +310,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof) bool {
 			return false
 		}
 		quorum := bft.Quorum(lastHeader.TotalVotingPower())
-		return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+		return message.OverQuorumVotes(p.Evidences, quorum) != nil
 
 	}
 	return false
@@ -416,7 +415,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof) bool {
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
 
-	return engineCore.OverQuorumVotes(p.Evidences[1:], quorum) != nil
+	return message.OverQuorumVotes(p.Evidences[1:], quorum) != nil
 }
 
 // check if the Proof of challenge of PVO12 is valid.
@@ -507,7 +506,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof) bool {
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
 
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return message.OverQuorumVotes(p.Evidences, quorum) != nil
 }
 
 // InnocenceVerifier implemented as a native contract to validate an innocence Proof.
@@ -585,7 +584,7 @@ func validInnocenceProofOfPO(p *Proof, chain ChainContext) bool {
 		return false
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return message.OverQuorumVotes(p.Evidences, quorum) != nil
 }
 
 // check if the Proof of innocent of PVN is valid.
@@ -647,7 +646,7 @@ func validInnocenceProofOfPVO(p *Proof, chain ChainContext) bool {
 		return false
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences[1:], quorum) != nil
+	return message.OverQuorumVotes(p.Evidences[1:], quorum) != nil
 }
 
 // check if the Proof of innocent of C1 is valid.
@@ -676,7 +675,7 @@ func validInnocenceProofOfC1(p *Proof, chain ChainContext) bool {
 		return false
 	}
 	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	return engineCore.OverQuorumVotes(p.Evidences, quorum) != nil
+	return message.OverQuorumVotes(p.Evidences, quorum) != nil
 }
 
 func hasEquivocatedVotes(votes []message.Msg) bool {

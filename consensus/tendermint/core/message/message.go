@@ -854,6 +854,28 @@ func Power(messages []Msg) *big.Int {
 	return powerInfo.Pow()
 }
 
+// OverQuorumVotes compute voting power out from a set of prevotes or precommits of a certain round and height, the caller
+// should make sure that the votes belong to a certain round and height, it returns a set of votes that the corresponding
+// voting power is over quorum, otherwise it returns nil.
+func OverQuorumVotes(msgs []Msg, quorum *big.Int) (overQuorumVotes []Msg) {
+	/* //TODO(lorenzo) refinements2, fix
+	votingPower := new(big.Int)
+	counted := make(map[common.Address]struct{})
+	for _, v := range msgs {
+	  if _, ok := counted[v.Signer()]; ok {
+	    continue
+	  }
+	  counted[v.Signer()] = struct{}{}
+	  votingPower = votingPower.Add(votingPower, v.Power())
+	  overQuorumVotes = append(overQuorumVotes, v)
+	  if votingPower.Cmp(quorum) >= 0 {
+	    return overQuorumVotes
+	  }
+	}
+	*/
+	return nil
+}
+
 // TODO(lorenzo) refinements, update fake msg
 
 /*
