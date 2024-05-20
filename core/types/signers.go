@@ -62,7 +62,6 @@ type Signers struct {
 	// auxiliary data structures flags
 	validated     bool `rlp:"-"` // if true --> Bits and Coefficients have correct length + committeeSize and length is assigned
 	powerAssigned bool `rlp:"-"` // if true --> powers and power assigned
-
 }
 
 func NewSigners(committeeSize int) *Signers {
@@ -174,6 +173,16 @@ func (s *Signers) Validate(committeeSize int) error {
 	s.length = countNonZero
 	s.validated = true
 	return nil
+}
+
+func (s *Signers) Contains(index int) bool {
+	if !s.validated {
+		panic("Trying to use not validated signer information")
+	}
+	if index >= s.committeeSize {
+		panic("trying to call contains on non-existant committee member")
+	}
+	return s.Bits.Get(index) > noSignature
 }
 
 func safetyCheck(first *Signers, second *Signers) error {

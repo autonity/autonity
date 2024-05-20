@@ -834,6 +834,26 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 	return crypto.Hash(buf)
 }
 
+// computes the power of a set of messages. Every sender's power is counted only once
+func Power(messages []Msg) *big.Int {
+	powerInfo := NewPowerInfo()
+
+	for _, msg := range messages {
+		switch m := msg.(type) {
+		case *Propose:
+			powerInfo.Set(m.SignerIndex(), m.Power())
+		case *Prevote, *Precommit:
+			vote := m.(Vote)
+			for index, power := range vote.Signers().Powers() {
+				powerInfo.Set(index, power)
+			}
+		default:
+			panic("unknown message type")
+		}
+	}
+	return powerInfo.Pow()
+}
+
 // TODO(lorenzo) refinements, update fake msg
 
 /*
