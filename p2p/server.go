@@ -230,7 +230,7 @@ type Server struct {
 	committeeSubset []*enode.Node
 	enodeMu         sync.RWMutex
 	trusted         sync.Map
-	currentBlock    uint64
+	currentBlock    atomic.Uint64
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -468,7 +468,7 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 }
 
 func (srv *Server) SetCurrentBlockNumber(num uint64) {
-	srv.currentBlock = num
+	srv.currentBlock.Store(num)
 }
 
 func (srv *Server) inCommitteeSubset(id enode.ID) bool {
@@ -934,7 +934,7 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 }
 
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
-	srv.suspended.expire(srv.currentBlock, nil)
+	srv.suspended.expire(srv.currentBlock.Load(), nil)
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
@@ -1070,7 +1070,7 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 func (srv *Server) needsSuspension(pd peerDrop) {
 	reason := discReasonForError(pd.err)
 	if errors.Is(reason, DiscProtocolError) || reason == DiscSubprotocolError {
-		srv.suspended.add(pd.ID().String(), srv.currentBlock+protoErrorSuspensionSpan)
+		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoErrorSuspensionSpan)
 	}
 }
 
