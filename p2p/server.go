@@ -223,13 +223,14 @@ type Server struct {
 	checkpointAddPeer       chan *conn
 
 	// State of run loop and listenLoop.
-	inboundHistory expHeap
-	suspended      safeExpHeap
+	inboundHistory expHeap[mclock.AbsTime]
+	suspended      safeExpHeap[uint64]
 
 	committee       []*enode.Node
 	committeeSubset []*enode.Node
 	enodeMu         sync.RWMutex
 	trusted         sync.Map
+	currentBlock    uint64
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -464,6 +465,10 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 		}
 	}
 	return false
+}
+
+func (srv *Server) UpdateBlock(num uint64) {
+	srv.currentBlock = num
 }
 
 func (srv *Server) inCommitteeSubset(id enode.ID) bool {
@@ -885,11 +890,7 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
-			reason := discReasonForError(pd.err)
-			if errors.Is(reason, DiscProtocolError) ||
-				reason == DiscSubprotocolError {
-				srv.SuspendPeer(pd.ID(), protoErrorSuspensionSpan)
-			}
+			srv.needsSuspension(pd)
 			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err, "server", srv.Net.String())
 			srv.dialsched.peerRemoved(pd.rw)
 			if pd.Inbound() {
@@ -933,7 +934,7 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 }
 
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
-	srv.suspended.expire(srv.clock.Now(), nil)
+	srv.suspended.expire(srv.currentBlock, nil)
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
@@ -1066,9 +1067,11 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	return nil
 }
 
-func (srv *Server) SuspendPeer(id enode.ID, suspensionSpan time.Duration) {
-	now := srv.clock.Now()
-	srv.suspended.add(id.String(), now.Add(suspensionSpan))
+func (srv *Server) needsSuspension(pd peerDrop) {
+	reason := discReasonForError(pd.err)
+	if errors.Is(reason, DiscProtocolError) || reason == DiscSubprotocolError {
+		srv.suspended.add(pd.ID().String(), srv.currentBlock+protoErrorSuspensionSpan)
+	}
 }
 
 // SetupConn runs the handshakes and attempts to add the connection

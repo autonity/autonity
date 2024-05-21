@@ -41,6 +41,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 		for {
 			select {
 			case ev := <-chainHeadCh:
+				acn.server.UpdateBlock(ev.Block.NumberU64())
 				header := ev.Block.Header()
 				// check if the local node belongs to the consensus committee.
 				if header.CommitteeMember(acn.address) == nil {

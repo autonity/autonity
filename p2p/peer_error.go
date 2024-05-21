@@ -19,7 +19,6 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	"time"
 )
 
 const (
@@ -27,7 +26,7 @@ const (
 	errInvalidMsg
 )
 
-const protoErrorSuspensionSpan = 60 * time.Second
+const protoErrorSuspensionSpan = 60 // num of blocks peer can't connect
 
 var errorToString = map[int]string{
 	errInvalidMsgCode: "invalid message code",
