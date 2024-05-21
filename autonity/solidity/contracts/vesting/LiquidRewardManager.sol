@@ -66,7 +66,7 @@ contract LiquidRewardManager {
         if (_account.initiated) {
             return;
         }
-        accounts[_id][_validator] = Account(OFFSET, OFFSET, OFFSET, OFFSET, OFFSET, OFFSET, true, false);
+        accounts[_id][_validator] = Account(OFFSET, OFFSET, OFFSET, OFFSET, OFFSET, OFFSET, true, true);
     }
 
     function _unlock(uint256 _id, address _validator, uint256 _amount) internal {

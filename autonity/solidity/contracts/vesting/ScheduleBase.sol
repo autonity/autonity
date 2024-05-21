@@ -57,8 +57,6 @@ contract ScheduleBase {
         uint256 _scheduleID, uint256 _amount
     ) internal returns (uint256 _remaining) {
         Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.cliff <= block.number, "cliff period not reached yet");
-        
         if (_amount > _schedule.currentNTNAmount) {
             _remaining = _amount - _schedule.currentNTNAmount;
             _updateAndTransferNTN(_scheduleID, msg.sender, _schedule.currentNTNAmount);
@@ -72,7 +70,7 @@ contract ScheduleBase {
         uint256 _scheduleID, uint256 _totalValue, uint256 _time
     ) internal view returns (uint256) {
         Schedule storage _schedule = schedules[_scheduleID];
-        if (_time < _schedule.cliff) return 0;
+        require(_time >= _schedule.cliff, "cliff period not reached yet");
 
         uint256 _unlocked = _calculateUnlockedFunds(_schedule.start, _schedule.end, _time, _totalValue);
         if (_unlocked > _schedule.withdrawnValue) {

@@ -143,15 +143,13 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         _cleanup(_scheduleID);
 
-        Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.cliff <= block.number, "cliff period not reached yet");
-
         uint256 _unlockedLiquid = _unlockedLiquidBalanceOf(_scheduleID, _validator);
         require(_unlockedLiquid >= _amount, "not enough unlocked LNTN");
 
         uint256 _value = _calculateLNTNValue(_validator, _amount);
         require(_value <= _unlockedFunds(_scheduleID), "not enough unlocked funds");
 
+        Schedule storage _schedule = schedules[_scheduleID];
         _schedule.withdrawnValue += _value;
         _updateAndTransferLNTN(_scheduleID, msg.sender, _amount, _validator);
     }
@@ -207,6 +205,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
         uint256 _scheduleID = _getUniqueScheduleID(msg.sender, _id);
         _cleanup(_scheduleID);
         Schedule storage _schedule = schedules[_scheduleID];
+        require(_schedule.start <= block.timestamp, "schedule not started yet");
         require(_schedule.currentNTNAmount >= _amount, "not enough tokens");
 
         uint256 _bondingID = autonity.bond{value: msg.value}(_validator, _amount);
@@ -360,8 +359,6 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
     function _releaseAllUnlockedLNTN(
         uint256 _scheduleID, uint256 _availableUnlockedFunds
     ) private returns (uint256 _remaining) {
-        Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.cliff <= block.number, "cliff period not reached yet");
         _remaining = _availableUnlockedFunds;
         address[] memory _validators = _bondedValidators(_scheduleID);
         for (uint256 i = 0; i < _validators.length && _remaining > 0; i++) {
@@ -381,6 +378,7 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
                 _updateAndTransferLNTN(_scheduleID, msg.sender, _liquid, _validators[i]);
             }
         }
+        Schedule storage _schedule = schedules[_scheduleID];
         _schedule.withdrawnValue += _availableUnlockedFunds - _remaining;
     }
 
@@ -639,6 +637,10 @@ contract StakableVesting is IStakeProxy, ScheduleBase, LiquidRewardManager {
      */
     function unlockedFunds(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
         return _unlockedFunds(_getUniqueScheduleID(_beneficiary, _id));
+    }
+
+    function scheduleTotalValue(address _beneficiary, uint256 _id) external view returns (uint256) {
+        return _calculateTotalValue(_getUniqueScheduleID(_beneficiary, _id));
     }
 
 }
