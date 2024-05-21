@@ -484,7 +484,7 @@ var (
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              InitialBaseFee,
 		InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
-		Operator:                common.Address{},
+		Operator:                common.HexToAddress("0x12321"),
 	}
 
 	TestChainConfig = &ChainConfig{

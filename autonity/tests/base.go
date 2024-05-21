@@ -180,6 +180,21 @@ func (r *runner) waitNextEpoch() { //nolint
 	r.waitNBlocks(int(diff.Uint64() + 1))
 }
 
+func (r *runner) waitSomeBlock(endTime int64) int64 {
+	// bcause we have 1 block/s
+	r.waitNBlocks(int(endTime) - int(r.evm.Context.Time.Int64()))
+	return r.evm.Context.Time.Int64()
+}
+
+func (r *runner) waitSomeEpoch(endTime int64) int64 {
+	currentTime := r.evm.Context.Time.Int64()
+	for currentTime < endTime {
+		r.waitNextEpoch()
+		currentTime = r.evm.Context.Time.Int64()
+	}
+	return currentTime
+}
+
 func (r *runner) sendAUT(sender, recipient common.Address, value *big.Int) { //nolint
 	//...
 }
@@ -347,6 +362,32 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	)
 	require.NoError(t, err)
 	require.Equal(t, r.nonStakableVesting.address, params.NonStakableVestingContractAddress)
+
+	// set protocol contracts
+	r.NoError(
+		r.autonity.SetAccountabilityContract(operator, r.accountability.address),
+	)
+	r.NoError(
+		r.autonity.SetAcuContract(operator, r.acu.address),
+	)
+	r.NoError(
+		r.autonity.SetInflationControllerContract(operator, r.inflationController.address),
+	)
+	r.NoError(
+		r.autonity.SetOracleContract(operator, r.oracle.address),
+	)
+	r.NoError(
+		r.autonity.SetStabilizationContract(operator, r.stabilization.address),
+	)
+	r.NoError(
+		r.autonity.SetSupplyControlContract(operator, r.supplyControl.address),
+	)
+	r.NoError(
+		r.autonity.SetUpgradeManagerContract(operator, r.upgradeManager.address),
+	)
+	r.NoError(
+		r.autonity.SetNonStakableVestingContract(operator, r.nonStakableVesting.address),
+	)
 
 	r.evm.Context.BlockNumber = common.Big1
 	r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
