@@ -467,7 +467,7 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 	return false
 }
 
-func (srv *Server) UpdateBlock(num uint64) {
+func (srv *Server) SetCurrentBlockNumber(num uint64) {
 	srv.currentBlock = num
 }
 

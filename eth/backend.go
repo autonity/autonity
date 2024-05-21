@@ -613,7 +613,7 @@ func (s *Ethereum) newCommitteeWatcher() {
 		select {
 		case ev := <-chainHeadCh:
 			// current block number is cached in server
-			s.p2pServer.UpdateBlock(ev.Block.NumberU64())
+			s.p2pServer.SetCurrentBlockNumber(ev.Block.NumberU64())
 			header := ev.Block.Header()
 			// check if the local node belongs to the consensus committee.
 			if header.CommitteeMember(s.address) == nil {
