@@ -96,6 +96,7 @@ function autonityConfig(operator, treasuryAccount) {
             "stabilizationContract" :ZERO_ADDRESS,
             "upgradeManagerContract" :ZERO_ADDRESS,
             "inflationControllerContract" :ZERO_ADDRESS,
+            "nonStakableVestingContract" :ZERO_ADDRESS,
         },
         "protocol": {
             "operatorAccount": operator,
