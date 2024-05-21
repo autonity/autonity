@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +14,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 )
@@ -33,6 +31,7 @@ func TestGetLockedValueAndValidValue(t *testing.T) {
 func TestGetProposal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	nodeAddr := common.BytesToAddress([]byte("node"))
 	backendMock := interfaces.NewMockBackend(ctrl)
 	core := New(backendMock, nil, nodeAddr, log.Root(), false)
@@ -82,6 +81,7 @@ func TestGetCoreState(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
+	backendMock.EXPECT().FutureMsgs().Return(nil)
 	c := New(backendMock, nil, sender, log.Root(), false)
 
 	var rounds = []int64{0, 1}
@@ -101,7 +101,10 @@ func TestGetCoreState(t *testing.T) {
 	blsKeys[1] = blsKey.PublicKey()
 
 	one := common.Big1
-	members := []types.CommitteeMember{{Address: proposers[0], VotingPower: one, ConsensusKey: blsKeys[1]}, {Address: proposers[1], VotingPower: one, ConsensusKey: blsKeys[0]}}
+	members := []types.CommitteeMember{
+		{Address: proposers[0], VotingPower: one, ConsensusKey: blsKeys[1], ConsensusKeyBytes: blsKeys[1].Marshal(), Index: 0},
+		{Address: proposers[1], VotingPower: one, ConsensusKey: blsKeys[0], ConsensusKeyBytes: blsKeys[0].Marshal(), Index: 1},
+	}
 	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
 	require.NoError(t, err)
 	setCoreState(c, height, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet,
@@ -144,17 +147,6 @@ func TestGetCoreState(t *testing.T) {
 	}
 }
 
-func randomProposal(t *testing.T) *message.Propose {
-	currentHeight := big.NewInt(int64(rand.Intn(100) + 1))
-	currentRound := int64(rand.Intn(100) + 1)
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	consensusKey, err := blst.RandKey()
-	require.NoError(t, err)
-	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(consensusKey, addr))
-}
-
 func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wantProposal *message.Propose, wantVerfied bool) {
 	require.Equal(t, wantProposal.Block().Hash(), s.Proposal)
 	require.Len(t, s.PrevoteState, 1)
@@ -169,14 +161,13 @@ func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wan
 }
 
 func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Address) {
-	verifier := stubVerifier(testConsensusKey.PublicKey())
-	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
-	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
-	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey, testAddr)).MustVerify(verifier)
+	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey), testCommitteeMember)
+	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
+	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
 	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)
-	return proposal, proposal.Sender()
+	return proposal, proposal.Signer()
 }
 
 func setCoreState(c *Core, h *big.Int, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee interfaces.Committee, header *types.Header) {

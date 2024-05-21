@@ -111,8 +111,8 @@ type AggregateSignature struct {
 	Signers   *Signers           `rlp:"nil"`
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, senders *Signers) AggregateSignature {
-	return AggregateSignature{Signature: signature, Signers: senders}
+func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) AggregateSignature {
+	return AggregateSignature{Signature: signature, Signers: signers}
 }
 
 func (a AggregateSignature) Copy() AggregateSignature {

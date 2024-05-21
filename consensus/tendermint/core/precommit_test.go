@@ -268,10 +268,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 func TestHandleCommit(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Satisfied()
-		ctrl.Finish()
-	}()
+	defer waitForExpects(ctrl)
 
 	logger := log.New("backend", "test", "id", 0)
 

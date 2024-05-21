@@ -128,3 +128,7 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	size, r, _ := rlp.EncodeToReader(data)
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
 }
+
+//TODO(lorenzo) add tests for:
+// - receiving msgs from jailed validators
+// - receiving and processing future height messages
