@@ -40,9 +40,12 @@ var (
 	signer                    = makeSigner(proposerKey)
 	verifier                  = stubVerifier(proposerKey.PublicKey())
 	self                      = &committee[proposerIdx]
-	remotePeer                = committee[1].Address
-	remoteSigner              = makeSigner(keys[1])
-	remoteVerifier            = stubVerifier(keys[1].PublicKey())
+
+	remotePeerIdx  = 1
+	remote         = &committee[remotePeerIdx]
+	remotePeer     = committee[remotePeerIdx].Address
+	remoteSigner   = makeSigner(keys[remotePeerIdx])
+	remoteVerifier = stubVerifier(keys[remotePeerIdx].PublicKey())
 )
 
 func generateCommittee() (types.Committee, []blst.SecretKey, []*ecdsa.PrivateKey) {
