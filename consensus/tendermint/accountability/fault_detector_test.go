@@ -33,13 +33,16 @@ import (
 
 var (
 	committee, keys, nodeKeys = generateCommittee()
-	proposer                  = committee[0].Address
-	proposerKey               = keys[0]
-	proposerNodeKey           = nodeKeys[0]
-	signer                    = makeSigner(proposerKey, committee[0])
+	cSize                     = len(committee)
+	proposerIdx               = 0
+	proposer                  = committee[proposerIdx].Address
+	proposerKey               = keys[proposerIdx]
+	proposerNodeKey           = nodeKeys[proposerIdx]
+	signer                    = makeSigner(proposerKey)
 	verifier                  = stubVerifier(proposerKey.PublicKey())
+	self                      = &committee[proposerIdx]
 	remotePeer                = committee[1].Address
-	remoteSigner              = makeSigner(keys[1], committee[1])
+	remoteSigner              = makeSigner(keys[1])
 	remoteVerifier            = stubVerifier(keys[1].PublicKey())
 )
 
@@ -84,7 +87,7 @@ func newProposalMessage(h uint64, r int64, vr int64, signer message.Signer, comm
 		header := newBlockHeader(h, committee)
 		block = types.NewBlockWithHeader(header)
 	}
-	return message.NewPropose(r, h, vr, block, signer)
+	return message.NewPropose(r, h, vr, block, signer, self)
 }
 
 func TestSameVote(t *testing.T) {
