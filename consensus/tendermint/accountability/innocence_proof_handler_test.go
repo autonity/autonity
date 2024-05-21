@@ -261,7 +261,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		msgRound := int64(1)
 		validRound := int64(0)
 		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
-		proposal := newProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil).MustVerify(verifier)
+		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil).MustVerify(verifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.PO,
@@ -301,7 +301,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		validRound := int64(0)
 		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
 
-		proposal := newProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil).MustVerify(verifier)
+		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil).MustVerify(verifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.PO,
@@ -358,7 +358,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, nil, ms, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		proposal := newProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
+		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.PO,
@@ -392,7 +392,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		accountability, _ := autonity.NewAccountability(sender, backends.NewSimulatedBackend(ccore.GenesisAlloc{sender: {Balance: big.NewInt(params.Ether)}}, 10000000))
 		fd := NewFaultDetector(chainMock, sender, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
-		proposal := newProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(verifier)
+		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(verifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.PO,
@@ -429,7 +429,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		p.Rule = autonity.PO
 		p.Type = autonity.Accusation
 		invalidCommittee, iKeys := generateCommittee()
-		invalidProposal := newProposalMessage(accusationHeight, 1, 0, makeSigner(iKeys[0], invalidCommittee[0]), invalidCommittee, nil).MustVerify(stubVerifier)
+		invalidProposal := newValidatedProposalMessage(accusationHeight, 1, 0, makeSigner(iKeys[0], invalidCommittee[0]), invalidCommittee, nil).MustVerify(stubVerifier)
 		p.Message = message.NewLightProposal(invalidProposal)
 		payload, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
@@ -440,7 +440,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 	})
 
 	t.Run("happy case with innocence proof collected from msg store", func(t *testing.T) {
-		proposal := newProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
+		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.PO,
@@ -494,7 +494,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		p.Rule = autonity.PO
 		p.Type = autonity.Innocence
 		invalidCommittee, iKeys, _ := generateCommittee()
-		invalidProposal := newProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee[0]), invalidCommittee, nil).MustVerify(stubVerifier(iKeys[0].PublicKey()))
+		invalidProposal := newValidatedProposalMessage(height, 1, 0, makeSigner(iKeys[0], invalidCommittee[0]), invalidCommittee, nil).MustVerify(stubVerifier(iKeys[0].PublicKey()))
 		p.Message = invalidProposal
 
 		err := fd.handleOffChainProofOfInnocence(&p, invalidCommittee[0].Address)
@@ -503,7 +503,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 
 	t.Run("happy case", func(t *testing.T) {
 		// save accusation request in fd first.
-		proposal := newProposalMessage(height, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
+		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
 			Rule:      autonity.PO,
