@@ -196,7 +196,7 @@ contract('Autonity', function (accounts) {
       }
     */
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
 
     it('test get token name', async function () {
@@ -276,7 +276,7 @@ contract('Autonity', function (accounts) {
       // the test contract exposes the applyNewCommissionRates function
       let config = JSON.parse(JSON.stringify(autonityConfig));
       config.policy.unbondingPeriod = 0;
-      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator, false);
     });
 
     it("should revert with bad input", async () => {
@@ -353,7 +353,7 @@ contract('Autonity', function (accounts) {
        }
        */
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
 
     it('test set min base fee by operator', async function () {
@@ -503,7 +503,7 @@ contract('Autonity', function (accounts) {
   });
   describe('Test onlyAccountability and onlyProtocol', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
     //TODO(tariq) low priority change, leave for last
     // add test to check that:
@@ -513,7 +513,7 @@ contract('Autonity', function (accounts) {
 
   describe('Test cases for ERC-20 token management', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
 
     it('test mint Newton by operator', async function () {
@@ -1315,7 +1315,7 @@ contract('Autonity', function (accounts) {
           let customizedEpochPeriod = 20;
           copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
-          token = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator);
+          token = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator, false);
           assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
       });
       it('test epochid and lastEpochBlock', async function () {

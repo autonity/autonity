@@ -222,7 +222,7 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
   return AutonityTest.new(validators, autonityConfig, deployer);
 }
 
-async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator) {
+async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch) {
   await autonity.finalizeInitialization({from: deployer});
 
   // accountability contract
@@ -256,11 +256,14 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await autonity.setNonStakableVestingContract(nonStakableVesting.address, {from: operator})
 
-  await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
+  if (shortenEpoch) {
+    await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
+  }
 }
 
 // deploys protocol contracts
-const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+// set shortenEpoch = false if no need to call utils.endEpoch
+const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
     // we deploy first the inflation controller contract because it requires a genesis timestamp
     // greater than the one of the autonity contract. This is obviously not going to happen for a real network but
     // we can't really simulate a proper genesis sequence with truffle. As consequence all calculations
@@ -269,17 +272,18 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // autonity contract
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
     await autonity.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
+    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch);
 
     return autonity;
 };
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
-const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator) => {
+// set shortenEpoch = false if no need to call utils.endEpoch
+const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
+    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch);
     return autonityTest;
 };
 
