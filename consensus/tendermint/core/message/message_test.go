@@ -22,7 +22,7 @@ import (
 )
 
 // locally created messages are considered as verified, we decode it to simulate a msgs arriving from the wire
-func newUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Prevote {
+func newUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Prevote { //nolint
 	prevote := NewPrevote(r, h, value, signer, self, csize)
 	unverifiedPrevote := &Prevote{}
 	reader := bytes.NewReader(prevote.Payload())

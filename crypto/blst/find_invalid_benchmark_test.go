@@ -294,21 +294,19 @@ func BenchmarkAggregateVerify15(b *testing.B) {
 }
 
 func BenchmarkAggregateVerifyInvalid(b *testing.B) {
-	/*
-		b.Run("1 in 500", func(b *testing.B) {
-			b.Run("simple", func(b *testing.B) {
-				runBenchmarkAggregateVerifyInvalid(b, 500, 21)
-			})
-			b.Run("fast", func(b *testing.B) {
-				runBenchmarkFastAggregateVerifyInvalid(b, 500, 21)
-			})
-		})*/
+	b.Run("1 in 500", func(b *testing.B) {
+		b.Run("simple", func(b *testing.B) {
+			runBenchmarkAggregateVerifyInvalid(b, 500, 21)
+		})
+		b.Run("fast", func(b *testing.B) {
+			runBenchmarkFastAggregateVerifyInvalid(b, 500, 21)
+		})
+	})
 
 	b.Run("1 in 1000", func(b *testing.B) {
-		/*
-			b.Run("simple", func(b *testing.B) {
-				runBenchmarkAggregateVerifyInvalid(b, 1000, 21)
-			})*/
+		b.Run("simple", func(b *testing.B) {
+			runBenchmarkAggregateVerifyInvalid(b, 1000, 21)
+		})
 		b.Run("fast", func(b *testing.B) {
 			runBenchmarkFastAggregateVerifyInvalid(b, 1000, 21)
 
@@ -316,20 +314,18 @@ func BenchmarkAggregateVerifyInvalid(b *testing.B) {
 	})
 
 	b.Run("5 in 1000", func(b *testing.B) {
-		/*
-			b.Run("simple", func(b *testing.B) {
-				runBenchmarkAggregateVerifyInvalid(b, 1000, 21, 37, 434, 795)
-			})*/
+		b.Run("simple", func(b *testing.B) {
+			runBenchmarkAggregateVerifyInvalid(b, 1000, 21, 37, 434, 795)
+		})
 		b.Run("fast", func(b *testing.B) {
 			runBenchmarkFastAggregateVerifyInvalid(b, 1000, 21, 37, 434, 795)
 		})
 	})
 
 	b.Run("10 in 1000", func(b *testing.B) {
-		/*
-			b.Run("simple", func(b *testing.B) {
-				runBenchmarkAggregateVerifyInvalid(b, 1000, 21, 37, 155, 245, 343, 664, 712, 713, 800, 911)
-			})*/
+		b.Run("simple", func(b *testing.B) {
+			runBenchmarkAggregateVerifyInvalid(b, 1000, 21, 37, 155, 245, 343, 664, 712, 713, 800, 911)
+		})
 		b.Run("fast", func(b *testing.B) {
 			runBenchmarkFastAggregateVerifyInvalid(b, 1000, 21, 37, 155, 245, 343, 664, 712, 713, 800, 911)
 		})

@@ -36,7 +36,7 @@ func (tc *testCase) String() string {
 	return fmt.Sprintf("%#v", tc)
 }
 
-func searchForFutureMsg(engine Core, msg message.Msg) bool {
+func searchForFutureMsg(engine *Core, msg message.Msg) bool {
 	messages := engine.futureRound[msg.R()]
 	for _, message := range messages {
 		if message.Hash() == msg.Hash() {
@@ -218,7 +218,7 @@ func TestHandleMessage(t *testing.T) {
 
 				if err == constants.ErrFutureRoundMessage {
 					// check backlog
-					found := searchForFutureMsg(engine, tc.message)
+					found := searchForFutureMsg(&engine, tc.message)
 					if !found {
 						t.Fatal("future round message not found in backlog")
 					}
@@ -268,7 +268,7 @@ func TestHandleFutureRound(t *testing.T) {
 	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
 
 	// check that vote was saved in the future messages and power was updated accordingly
-	found := searchForFutureMsg(engine, vote)
+	found := searchForFutureMsg(&engine, vote)
 	require.True(t, found)
 	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Pow())
 
@@ -277,7 +277,7 @@ func TestHandleFutureRound(t *testing.T) {
 	err = engine.handleMsg(context.Background(), propose)
 	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
 
-	found = searchForFutureMsg(engine, propose)
+	found = searchForFutureMsg(&engine, propose)
 	require.True(t, found)
 	require.Equal(t, common.Big2, engine.futurePower[propose.R()].Pow())
 }

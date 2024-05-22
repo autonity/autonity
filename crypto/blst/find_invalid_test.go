@@ -65,7 +65,7 @@ func TestFastFindInvalid(t *testing.T) {
 
 		// turns signatures at specified indexes into invalid signatures
 		makeInvalid := func(valid []Signature, n ...int) []Signature {
-			sigs := make([]Signature, len(valid))
+			sigs := make([]Signature, len(valid)) //nolint
 			copy(sigs, valid)
 
 			for _, i := range n {
@@ -75,7 +75,7 @@ func TestFastFindInvalid(t *testing.T) {
 		}
 
 		t.Run("single invalid", func(t *testing.T) {
-			sigs := makeInvalid(sigs, 5)
+			sigs := makeInvalid(sigs, 5) //nolint
 
 			invalid := FindInvalid(sigs, pks, msg)
 			require.Len(t, invalid, 1)
@@ -83,7 +83,7 @@ func TestFastFindInvalid(t *testing.T) {
 		})
 
 		t.Run("multiple invalid", func(t *testing.T) {
-			sigs := makeInvalid(sigs, 0, 3, 5, 7, n-1)
+			sigs := makeInvalid(sigs, 0, 3, 5, 7, n-1) //nolint
 
 			invalid := FindInvalid(sigs, pks, msg)
 			require.Len(t, invalid, 5)

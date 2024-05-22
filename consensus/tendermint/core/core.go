@@ -355,7 +355,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 func (c *Core) setInitialState(r int64) {
 	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Now().Sub(start).Nanoseconds())
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	// Start of new height where round is 0
@@ -525,7 +525,7 @@ func (c *Core) LastHeader() *types.Header {
 func (c *Core) Power(h uint64, r int64) *big.Int {
 	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Now().Sub(start).Nanoseconds())
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {
@@ -554,7 +554,7 @@ func (c *Core) Power(h uint64, r int64) *big.Int {
 func (c *Core) VotesPower(h uint64, r int64, code uint8) *big.Int {
 	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Now().Sub(start).Nanoseconds())
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {
@@ -581,7 +581,7 @@ func (c *Core) VotesPower(h uint64, r int64, code uint8) *big.Int {
 func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int {
 	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Now().Sub(start).Nanoseconds())
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {

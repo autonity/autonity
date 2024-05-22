@@ -29,7 +29,7 @@ func (ms *MsgStore) Save(m message.Msg) {
 	ms.Lock()
 	defer ms.Unlock()
 	//TODO(lorenzo) fix
-	return
+	return //nolint
 	/*
 	   	if ms.firstHeight == uint64(0) {
 	   		ms.firstHeight = m.H()

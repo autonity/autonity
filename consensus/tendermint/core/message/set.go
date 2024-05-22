@@ -7,7 +7,7 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
-//TODO(lorenzo) refinements2, analyze more duplicated msgs and equivocation scnearios
+//TODO(lorenzo) refinements2, analyze more duplicated msgs and equivocation scenarios
 
 //TODO(lorenzo) not sure this is the right place for this + add tests for it
 
@@ -124,9 +124,8 @@ func (s *Set) PowerFor(h common.Hash) *big.Int {
 	_, ok := s.powers[h]
 	if ok {
 		return new(big.Int).Set(s.powers[h].power)
-	} else {
-		return new(big.Int)
 	}
+	return new(big.Int)
 }
 
 func (s *Set) TotalPower() *big.Int {

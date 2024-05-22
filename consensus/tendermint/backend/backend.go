@@ -51,7 +51,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 	vmConfig *vm.Config,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
-	ms *tendermintCore.MsgStore,
+	_ *tendermintCore.MsgStore,
 	log log.Logger, noGossip bool) *Backend {
 
 	recentMessages, _ := lru.NewARC(inmemoryPeers)

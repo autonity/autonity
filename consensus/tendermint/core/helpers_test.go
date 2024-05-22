@@ -158,17 +158,6 @@ func generateBlock(height *big.Int) *types.Block {
 	return block
 }
 
-// locally created messages are considered as verified, we decode it to simulate a msgs arriving from the wire
-func newUnverifiedPrevote(r int64, h uint64, value common.Hash, signer message.Signer, self *types.CommitteeMember, csize int) *message.Prevote {
-	prevote := message.NewPrevote(r, h, value, signer, self, csize)
-	unverifiedPrevote := &message.Prevote{}
-	reader := bytes.NewReader(prevote.Payload())
-	if err := rlp.Decode(reader, unverifiedPrevote); err != nil {
-		panic("cannot decode prevote: " + err.Error())
-	}
-	return unverifiedPrevote
-}
-
 func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer message.Signer, self *types.CommitteeMember, csize int) *message.Precommit {
 	precommit := message.NewPrecommit(r, h, value, signer, self, csize)
 	unverifiedPrecommit := &message.Precommit{}

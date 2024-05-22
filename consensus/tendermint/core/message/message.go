@@ -590,7 +590,7 @@ func AggregateVotes[
 	aggregatedSignature := blst.Aggregate(signatures)
 	aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys)
 	if err != nil {
-		panic("Cannot generate aggregate public key from valid votes: " + err.Error())
+		panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
 	}
 
 	c := representative.Code()
@@ -653,9 +653,9 @@ func AggregateVotesSimple[
 	code := PE(new(E)).Code()
 
 	skip := make([]bool, len(votes))
-	var signersList []*types.Signers
-	var signaturesList [][]blst.Signature
-	var publicKeysList [][][]byte
+	var signersList []*types.Signers      //nolint
+	var signaturesList [][]blst.Signature //nolint
+	var publicKeysList [][][]byte         //nolint
 
 	// order votes by decreasing number of distinct signers.
 	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
@@ -713,7 +713,7 @@ func AggregateVotesSimple[
 			aggregatedSignature = blst.Aggregate(signaturesList[i])
 			aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeysList[i])
 			if err != nil {
-				panic("Cannot generate aggregate public key from valid votes: " + err.Error())
+				panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
 			}
 		}
 
@@ -857,7 +857,7 @@ func Power(messages []Msg) *big.Int {
 // OverQuorumVotes compute voting power out from a set of prevotes or precommits of a certain round and height, the caller
 // should make sure that the votes belong to a certain round and height, it returns a set of votes that the corresponding
 // voting power is over quorum, otherwise it returns nil.
-func OverQuorumVotes(msgs []Msg, quorum *big.Int) (overQuorumVotes []Msg) {
+func OverQuorumVotes(_ []Msg, _ *big.Int) (overQuorumVotes []Msg) {
 	/* //TODO(lorenzo) refinements2, fix
 	votingPower := new(big.Int)
 	counted := make(map[common.Address]struct{})

@@ -250,7 +250,8 @@ func TestHandlePrecommit(t *testing.T) {
 		backendMock.EXPECT().Post(gomock.Any()).Times(6)
 
 		for _, member := range committeeSet.Committee()[1:5] {
-			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address].consensus), &member, 7)
+			m := member
+			msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address].consensus), &m, 7)
 			if err := c.precommiter.HandlePrecommit(context.Background(), msg); err != nil {
 				t.Fatalf("Expected nil, got %v", err)
 			}

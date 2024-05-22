@@ -245,7 +245,7 @@ func (sb *Backend) verifyQuorumCertificate(header, parent *types.Header) error {
 	}
 
 	// verify signature
-	var keys [][]byte
+	var keys [][]byte //nolint
 	for _, index := range header.QuorumCertificate.Signers.Flatten() {
 		keys = append(keys, parent.Committee[index].ConsensusKeyBytes)
 	}

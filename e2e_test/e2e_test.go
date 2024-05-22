@@ -154,16 +154,13 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 
 	// get latest inserted block and generate proposal out of it
 	block := node.Eth.BlockChain().CurrentBlock()
-	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) (blst.Signature, common.Address) {
-		signature := node.ConsensusKey.Sign(hash.Bytes())
-		return signature, node.Address
-	}).MustVerify(func(address common.Address) *types.CommitteeMember {
-		return &types.CommitteeMember{
-			Address:           node.Address,
-			VotingPower:       common.Big1,
-			ConsensusKeyBytes: node.ConsensusKey.PublicKey().Marshal(),
-			ConsensusKey:      node.ConsensusKey.PublicKey(),
-		}
+	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) blst.Signature {
+		return node.ConsensusKey.Sign(hash.Bytes())
+	}, &types.CommitteeMember{
+		Address:           node.Address,
+		VotingPower:       common.Big1,
+		ConsensusKeyBytes: node.ConsensusKey.PublicKey().Marshal(),
+		ConsensusKey:      node.ConsensusKey.PublicKey(),
 	})
 
 	// handle the proposal

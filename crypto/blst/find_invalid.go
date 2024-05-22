@@ -83,6 +83,8 @@ func findInvalid(
 	return append(leftInvalid, rightInvalid...)
 }
 
+// NOTE: functions below currently not used, they use AggregateVerify instead of FastAggregateVerify. They are used in benchmarks
+
 func FindInvalidSignatures(signatures []Signature, pks []PublicKey, msgs [][32]byte) ([]uint, error) {
 	if len(signatures) != len(pks) && len(pks) != len(msgs) {
 		return nil, fmt.Errorf("invalid arguments, length mismatch")
@@ -92,8 +94,6 @@ func FindInvalidSignatures(signatures []Signature, pks []PublicKey, msgs [][32]b
 	}
 	return findInvalidSignaturesRecursive(signatures, pks, msgs, 0, uint(len(signatures)))
 }
-
-// NOTE: functions below currently not used
 
 func findInvalidSignaturesRecursive(
 	signatures []Signature,
