@@ -246,6 +246,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			StabilizationContract:       params.StabilizationContractAddress,
 			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
 			InflationControllerContract: params.InflationControllerContractAddress,
+			NonStakableVestingContract:  params.NonStakableVestingContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: genesisConfig.Operator,
