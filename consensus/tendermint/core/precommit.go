@@ -43,6 +43,10 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 }
 
 func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Precommit) error {
+	if !precommit.PreVerified() || !precommit.Verified() {
+		panic("Handling NON cryptographically verified precommit")
+	}
+
 	if precommit.R() > c.Round() {
 		return constants.ErrFutureRoundMessage
 	}

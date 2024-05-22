@@ -653,7 +653,7 @@ loop:
 				a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 				signatureInput := msg.SignatureInput()
 				a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
-				MessageBg.Add(time.Now().Sub(start).Nanoseconds())
+				MessageBg.Add(time.Since(start).Nanoseconds())
 				break
 			}
 			if msg.H() > coreHeight {
@@ -664,7 +664,7 @@ loop:
 			// if message already in Core, drop it
 			if a.alreadyProcessed(msg) {
 				a.logger.Debug("Discarding msg, already processed in Core")
-				MessageBg.Add(time.Now().Sub(start).Nanoseconds())
+				MessageBg.Add(time.Since(start).Nanoseconds())
 				break
 			}
 
@@ -685,7 +685,7 @@ loop:
 					a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
 					a.processRound(msg.H(), msg.R())
 				}
-				MessageBg.Add(time.Now().Sub(start).Nanoseconds())
+				MessageBg.Add(time.Since(start).Nanoseconds())
 				break
 			}
 
@@ -699,7 +699,7 @@ loop:
 			default:
 				a.logger.Crit("unknown message type arrived in aggregator")
 			}
-			MessageBg.Add(time.Now().Sub(start).Nanoseconds())
+			MessageBg.Add(time.Since(start).Nanoseconds())
 		case ev, ok := <-a.coreSub.Chan():
 			start := time.Now()
 			if !ok {
@@ -717,7 +717,7 @@ loop:
 				round := e.Round
 
 				if a.empty(height, round) {
-					RoundBg.Add(time.Now().Sub(start).Nanoseconds())
+					RoundBg.Add(time.Since(start).Nanoseconds())
 					break
 				}
 
@@ -754,7 +754,7 @@ loop:
 						a.handleVote(e, quorum, false)
 					}
 				}
-				RoundBg.Add(time.Now().Sub(start).Nanoseconds())
+				RoundBg.Add(time.Since(start).Nanoseconds())
 			case events.PowerChangeEvent:
 				// a power change happened in Core: re-do quorum checks on individual votes and simple aggregates
 				height := e.Height
@@ -762,7 +762,7 @@ loop:
 				code := e.Code
 				value := e.Value
 				if a.empty(height, round) {
-					PowerBg.Add(time.Now().Sub(start).Nanoseconds())
+					PowerBg.Add(time.Since(start).Nanoseconds())
 					break
 				}
 
@@ -785,13 +785,13 @@ loop:
 				}
 
 				if !ok || len(votesEvent) == 0 {
-					PowerBg.Add(time.Now().Sub(start).Nanoseconds())
+					PowerBg.Add(time.Since(start).Nanoseconds())
 					break
 				}
 
 				// processing one vote for the value for which power changed is enough to do all necessary checks
 				a.handleVote(votesEvent[0], quorum, false)
-				PowerBg.Add(time.Now().Sub(start).Nanoseconds())
+				PowerBg.Add(time.Since(start).Nanoseconds())
 			case events.FuturePowerChangeEvent:
 				height := e.Height
 				round := e.Round
@@ -807,12 +807,12 @@ loop:
 				if aggregatorPower.Add(aggregatorPower, corePower).Cmp(bft.F(header.TotalVotingPower())) > 0 {
 					a.processRound(height, round)
 				}
-				FuturePowerBg.Add(time.Now().Sub(start).Nanoseconds())
+				FuturePowerBg.Add(time.Since(start).Nanoseconds())
 			}
 		case <-ticker.C:
 			// process all messages in the aggregator
 			for h, roundMap := range a.messages {
-				for r, _ := range roundMap {
+				for r := range roundMap {
 					a.processRound(h, r)
 				}
 			}

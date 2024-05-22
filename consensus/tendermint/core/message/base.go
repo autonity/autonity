@@ -25,6 +25,14 @@ type base struct {
 	signerKey blst.PublicKey
 }
 
+func (b *base) Verified() bool {
+	return b.verified
+}
+
+func (b *base) PreVerified() bool {
+	return b.preverified
+}
+
 func (b *base) H() uint64 {
 	return b.height
 }

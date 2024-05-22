@@ -128,3 +128,98 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	size, r, _ := rlp.EncodeToReader(data)
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
 }
+
+//TODO(lorenzo) add tests for:
+// - receiving msgs from jailed validators
+// - receiving and processing future height messages
+// - receiving msg from non-committee member
+
+/* TODO(lorenzo) port this tests which were in Core before. Now future height messages are in the backend
+func TestStoreUncheckedBacklog(t *testing.T) {
+	t.Run("save messages in the untrusted backlog", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		backendMock := interfaces.NewMockBackend(ctrl)
+		c := &Core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]message.Msg),
+			backlogUntrusted: make(map[uint64][]message.Msg),
+			step:             Prevote,
+			round:            1,
+			height:           big.NewInt(4),
+		}
+		var messages []message.Msg
+		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
+			msg := message.NewPrevote(
+				i%10,
+				uint64(i/(1+i%10)),
+				common.Hash{},
+				defaultSigner)
+			c.storeFutureMessage(msg)
+			messages = append(messages, msg)
+		}
+		found := 0
+		for _, msg := range messages {
+			for _, umsg := range c.backlogUntrusted[msg.H()] {
+				if deep.Equal(msg, umsg) {
+					found++
+				}
+			}
+		}
+		if found != MaxSizeBacklogUnchecked {
+			t.Fatal("unchecked messages lost")
+		}
+	})
+
+	t.Run("excess messages are removed from the untrusted backlog", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		backendMock := interfaces.NewMockBackend(ctrl)
+
+		c := &Core{
+			logger:           log.New("backend", "test", "id", 0),
+			backend:          backendMock,
+			address:          common.HexToAddress("0x1234567890"),
+			backlogs:         make(map[common.Address][]message.Msg),
+			backlogUntrusted: make(map[uint64][]message.Msg),
+			step:             Prevote,
+			round:            1,
+			height:           big.NewInt(4),
+		}
+
+		var messages []message.Msg
+		uncheckedFounds := make(map[uint64]struct{})
+		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(msg message.Msg) {
+			if _, ok := uncheckedFounds[msg.H()]; ok {
+				t.Fatal("duplicate message received")
+			}
+			uncheckedFounds[msg.H()] = struct{}{}
+		})
+
+		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
+			prevote := message.NewPrevote(i%10, uint64(i), common.Hash{}, defaultSigner)
+			c.storeFutureMessage(prevote)
+			if i < MaxSizeBacklogUnchecked {
+				messages = append(messages, prevote)
+			}
+		}
+
+		found := 0
+		for _, msg := range messages {
+			for _, umsg := range c.backlogUntrusted[msg.H()] {
+				if deep.Equal(msg, umsg) {
+					found++
+				}
+			}
+		}
+		if found != MaxSizeBacklogUnchecked-1 {
+			t.Fatal("unchecked messages lost")
+		}
+		if len(uncheckedFounds) != MaxSizeBacklogUnchecked {
+			t.Fatal("unchecked messages lost")
+		}
+	})
+}*/

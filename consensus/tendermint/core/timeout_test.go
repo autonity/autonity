@@ -18,7 +18,6 @@ import (
 )
 
 func TestCore_measureMetricsOnStopTimer(t *testing.T) {
-
 	t.Run("measure metric on stop timer of propose", func(t *testing.T) {
 		tm := &Timeout{
 			Timer:   nil,
@@ -66,11 +65,13 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 	t.Run("on Timeout received, send precommit nil and switch step", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
+
 		mockBackend := interfaces.NewMockBackend(ctrl)
 		engine := Core{
 			logger:           logger,
@@ -85,6 +86,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
+			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 		engine.SetDefaultHandlers()
 		timeoutEvent := TimeoutEvent{
@@ -93,7 +95,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			Step:             Prevote,
 		}
 		// should send precommit nil
-		mockBackend.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[currentValidator.Address].consensus, currentValidator.Address))
+		mockBackend.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[currentValidator.Address].consensus))
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1).Do(
 			func(c types.Committee, msg message.Msg) {
 				if msg.Code() != message.PrecommitCode {
@@ -119,9 +121,11 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 	t.Run("on Timeout precommit received, start new round", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+
 		committeeSet, _ := NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
+
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
 		mockBackend := interfaces.NewMockBackend(ctrl)
@@ -163,6 +167,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 func TestOnTimeoutPrevote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	mockBackend := interfaces.NewMockBackend(ctrl)
 	messages := message.NewMap()
 	curRoundMessages := messages.GetOrCreate(2)
@@ -194,6 +199,7 @@ func TestOnTimeoutPrevote(t *testing.T) {
 func TestOnTimeoutPrecommit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	mockBackend := interfaces.NewMockBackend(ctrl)
 	messages := message.NewMap()
 	curRoundMessages := messages.GetOrCreate(2)

@@ -588,7 +588,7 @@ func AggregateVotes[
 	aggregatedSignature := blst.Aggregate(signatures)
 	aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys)
 	if err != nil {
-		panic("Cannot generate aggregate public key from valid votes: " + err.Error())
+		panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
 	}
 
 	c := representative.Code()
@@ -651,9 +651,9 @@ func AggregateVotesSimple[
 	code := PE(new(E)).Code()
 
 	skip := make([]bool, len(votes))
-	var signersList []*types.Signers
-	var signaturesList [][]blst.Signature
-	var publicKeysList [][][]byte
+	var signersList []*types.Signers      //nolint
+	var signaturesList [][]blst.Signature //nolint
+	var publicKeysList [][][]byte         //nolint
 
 	// order votes by decreasing number of distinct signers.
 	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
@@ -711,7 +711,7 @@ func AggregateVotesSimple[
 			aggregatedSignature = blst.Aggregate(signaturesList[i])
 			aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeysList[i])
 			if err != nil {
-				panic("Cannot generate aggregate public key from valid votes: " + err.Error())
+				panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
 			}
 		}
 
@@ -862,45 +862,36 @@ func OverQuorumVotes(msgs []Msg, quorum *big.Int) (overQuorumVotes []Msg) {
 	return nil
 }
 
-// TODO(lorenzo) refinements, update fake msg
-/*
-// Fake is a dummy object used for internal testing.
 type Fake struct {
-	FakeCode      uint8
-	FakeRound     uint64
-	FakeHeight    uint64
-	FakeValue     common.Hash
-	FakePayload   []byte
-	FakeHash      common.Hash
-	FakeSender    common.Address
-	FakeSignature blst.Signature
-	FakePower     *big.Int
+	FakeCode           uint8
+	FakeRound          uint64
+	FakeHeight         uint64
+	FakeValue          common.Hash
+	FakePayload        []byte
+	FakeHash           common.Hash
+	FakeSigners        *types.Signers
+	FakeSignature      blst.Signature
+	FakePower          *big.Int
+	FakeSignatureInput common.Hash
+	FakeSignerKey      blst.PublicKey
 }
-
-func (f Fake) R() int64                                                       { return int64(f.FakeRound) }
-func (f Fake) H() uint64                                                      { return f.FakeHeight }
-func (f Fake) Code() uint8                                                    { return f.FakeCode }
-func (f Fake) Signer() common.Address                                         { return f.FakeSender }
-func (f Fake) Power() *big.Int                                                { return f.FakePower }
-func (f Fake) String() string                                                 { return "{fake}" }
-func (f Fake) Hash() common.Hash                                              { return f.FakeHash }
-func (f Fake) Value() common.Hash                                             { return common.Hash{} }
-func (f Fake) Payload() []byte                                                { return f.FakePayload }
-func (f Fake) Signature() blst.Signature                                      { return f.FakeSignature }
-func (f Fake) Validate(_ func(_ common.Address) *types.CommitteeMember) error { return nil }
 
 func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{
 		value: f.FakeValue,
-		base: base{
-			round:     int64(f.FakeRound),
-			height:    f.FakeHeight,
-			signature: f.FakeSignature,
-			payload:   f.FakePayload,
-			power:     f.FakePower,
-			sender:    f.FakeSender,
-			hash:      f.FakeHash,
-			verified:  true,
+		vote: vote{
+			signers: f.FakeSigners,
+			base: base{
+				round:          int64(f.FakeRound),
+				height:         f.FakeHeight,
+				signatureInput: f.FakeSignatureInput,
+				signature:      f.FakeSignature,
+				payload:        f.FakePayload,
+				hash:           f.FakeHash,
+				signerKey:      f.FakeSignerKey,
+				preverified:    true,
+				verified:       true,
+			},
 		},
 	}
 }
@@ -908,15 +899,19 @@ func NewFakePrevote(f Fake) *Prevote {
 func NewFakePrecommit(f Fake) *Precommit {
 	return &Precommit{
 		value: f.FakeValue,
-		base: base{
-			round:     int64(f.FakeRound),
-			height:    f.FakeHeight,
-			signature: f.FakeSignature,
-			payload:   f.FakePayload,
-			power:     f.FakePower,
-			sender:    f.FakeSender,
-			hash:      f.FakeHash,
-			verified:  true,
+		vote: vote{
+			signers: f.FakeSigners,
+			base: base{
+				round:          int64(f.FakeRound),
+				height:         f.FakeHeight,
+				signatureInput: f.FakeSignatureInput,
+				signature:      f.FakeSignature,
+				payload:        f.FakePayload,
+				hash:           f.FakeHash,
+				signerKey:      f.FakeSignerKey,
+				preverified:    true,
+				verified:       true,
+			},
 		},
 	}
-}*/
+}
