@@ -1,23 +1,22 @@
 package core
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/blst"
 )
 
 func TestMsgStore(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
 
-	committee, keys := GenerateCommittee(5)
-	proposer := committee[0].Address
+	cSize := 5
+	proposerIdx := 0
+	committee, keys := GenerateCommittee(cSize)
+	proposer := committee[proposerIdx].Address
 	proposerKey := keys[proposer].consensus
 
 	addrAlice := committee[0].Address
@@ -27,55 +26,54 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := NewMsgStore()
-		proposals := ms.Get(height, func(m message.Msg) bool {
+		proposals := ms.Get(func(m message.Msg) bool {
 			return m.Code() == message.ProposalCode
-		})
+		}, height)
 		assert.Equal(t, 0, len(proposals))
 	})
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier(proposerKey.PublicKey()))
-		ms.Save(preVoteNil)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNil, committee)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier(proposerKey.PublicKey()))
-		ms.Save(preVoteNoneNil)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNoneNil, committee)
 		// check equivocated msg is also stored at msg store.
-		votes := ms.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Sender() == addrAlice
-		})
+		votes := ms.Get(func(m message.Msg) bool {
+			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round
+		}, height, addrAlice)
 		assert.Equal(t, 2, len(votes))
 	})
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier(proposerKey.PublicKey()))
-		ms.Save(preVote)
+		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVote, committee)
 
-		votes := ms.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Sender() == addrAlice &&
-				m.Value() == NilValue
-		})
+		votes := ms.Get(func(m message.Msg) bool {
+			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Value() == NilValue
+		}, height, addrAlice)
 
 		assert.Equal(t, 1, len(votes))
 		assert.Equal(t, message.PrevoteCode, votes[0].Code())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
-		assert.Equal(t, addrAlice, votes[0].Sender())
+		assert.Equal(t, true, votes[0].(message.Vote).Signers().Contains(proposerIdx))
 		assert.Equal(t, NilValue, votes[0].Value())
 	})
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier(proposerKey.PublicKey()))
-		ms.Save(preVoteNil)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNil, committee)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, addrBob)).MustVerify(stubVerifier(keyBob.PublicKey()))
-		ms.Save(preVoteNoneNil)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[1], cSize)
+		ms.Save(preVoteNoneNil, committee)
 
-		votes := ms.Get(height, func(m message.Msg) bool {
+		votes := ms.Get(func(m message.Msg) bool {
 			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round
-		})
+		}, height)
 
 		assert.Equal(t, 2, len(votes))
 		assert.Equal(t, message.PrevoteCode, votes[0].Code())
@@ -88,35 +86,35 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey, proposer)).MustVerify(stubVerifier(proposerKey.PublicKey()))
-		ms.Save(preVoteNil)
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob, addrBob)).MustVerify(stubVerifier(keyBob.PublicKey()))
-		ms.Save(preVoteNoneNil)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNil, committee)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[1], cSize)
+		ms.Save(preVoteNoneNil, committee)
 		ms.DeleteOlds(height)
-		votes := ms.Get(height, func(m message.Msg) bool {
+		votes := ms.Get(func(m message.Msg) bool {
 			return m.H() == height
-		})
+		}, height)
 		assert.Equal(t, 0, len(votes))
 	})
 
-}
+	t.Run("get equivocated votes", func(t *testing.T) {
+		ms := NewMsgStore()
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNil, committee)
 
-func stubVerifier(consensusKey blst.PublicKey) func(address common.Address) *types.CommitteeMember {
-	return func(address common.Address) *types.CommitteeMember {
-		return &types.CommitteeMember{
-			Address:      address,
-			VotingPower:  common.Big1,
-			ConsensusKey: consensusKey,
-		}
-	}
-}
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		ms.Save(preVoteNoneNil, committee)
 
-func stubVerifierWithPower(consensusKey blst.PublicKey, power int64) func(address common.Address) *types.CommitteeMember {
-	return func(address common.Address) *types.CommitteeMember {
-		return &types.CommitteeMember{
-			Address:      address,
-			VotingPower:  big.NewInt(power),
-			ConsensusKey: consensusKey,
-		}
-	}
+		v := common.Hash{0x23}
+		votes := ms.GetEquivocatedVotes(height, round, message.PrevoteCode, proposer, v)
+		assert.Equal(t, 2, len(votes))
+		assert.Equal(t, height, votes[0].H())
+		assert.Equal(t, height, votes[1].H())
+		assert.Equal(t, round, votes[0].R())
+		assert.Equal(t, round, votes[1].R())
+		assert.Equal(t, message.PrevoteCode, votes[0].Code())
+		assert.Equal(t, message.PrevoteCode, votes[1].Code())
+		assert.NotEqual(t, v, votes[0].Value())
+		assert.NotEqual(t, v, votes[1].Value())
+	})
 }

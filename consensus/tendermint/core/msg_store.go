@@ -103,6 +103,13 @@ func (ms *MsgStore) DeleteOlds(height uint64) {
 	}
 }
 
+// RemoveMsg only used for integration tests.
+func (ms *MsgStore) RemoveMsg(height uint64, round int64, step uint8, signer common.Address) {
+	ms.Lock()
+	defer ms.Unlock()
+	delete(ms.messages[height][round][step], signer)
+}
+
 // Get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
 func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signers ...common.Address) []message.Msg {
 	ms.RLock()
