@@ -41,6 +41,7 @@ var (
 		VotingPower:       common.Big1,
 		Index:             0,
 	}
+	testCommittee = types.Committee{*testCommitteeMember}
 )
 
 func makeSigner(key blst.SecretKey) message.Signer {

@@ -9,6 +9,8 @@ import (
 
 	"go.uber.org/mock/gomock"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -32,6 +34,16 @@ type testCase struct {
 
 func (tc *testCase) String() string {
 	return fmt.Sprintf("%#v", tc)
+}
+
+func searchForFutureMsg(engine Core, msg message.Msg) bool {
+	messages := engine.futureRound[msg.R()]
+	for _, message := range messages {
+		if message.Hash() == msg.Hash() {
+			return true
+		}
+	}
+	return false
 }
 
 func TestHandleMessage(t *testing.T) {
@@ -206,13 +218,7 @@ func TestHandleMessage(t *testing.T) {
 
 				if err == constants.ErrFutureRoundMessage {
 					// check backlog
-					messages := engine.futureRound[tc.message.R()]
-					found := false
-					for _, message := range messages {
-						if message.Hash() == tc.message.Hash() {
-							found = true
-						}
-					}
+					found := searchForFutureMsg(engine, tc.message)
 					if !found {
 						t.Fatal("future round message not found in backlog")
 					}
@@ -220,6 +226,60 @@ func TestHandleMessage(t *testing.T) {
 			}
 		}()
 	}
+}
+
+// this test differs from the previous one because we check that the future power gets updated correctly
+func TestHandleFutureRound(t *testing.T) {
+	// setup
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	committeeSet, keysMap := NewTestCommitteeSetWithKeys(10)
+	sender1, _ := committeeSet.GetByIndex(0)
+	sender2, _ := committeeSet.GetByIndex(1)
+
+	currentHeight := big.NewInt(1)
+	currentRound := int64(0)
+	logger := log.New("backend", "test", "id", 0)
+	messageMap := message.NewMap()
+	backendMock := interfaces.NewMockBackend(ctrl)
+	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
+	engine := Core{
+		logger:           logger,
+		address:          sender1.Address,
+		round:            currentRound,
+		height:           currentHeight,
+		step:             Propose,
+		futureRound:      make(map[int64][]message.Msg),
+		futurePower:      make(map[int64]*message.PowerInfo),
+		messages:         messageMap,
+		curRoundMessages: messageMap.GetOrCreate(0),
+		committee:        committeeSet,
+		proposeTimeout:   NewTimeout(Propose, logger),
+		prevoteTimeout:   NewTimeout(Prevote, logger),
+		precommitTimeout: NewTimeout(Precommit, logger),
+		backend:          backendMock,
+	}
+	engine.SetDefaultHandlers()
+
+	// handling vote
+	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), &sender2, 4)
+	err := engine.handleMsg(context.Background(), vote)
+	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
+
+	// check that vote was saved in the future messages and power was updated accordingly
+	found := searchForFutureMsg(engine, vote)
+	require.True(t, found)
+	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Pow())
+
+	// same thing for future round proposal
+	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight), makeSigner(keysMap[sender1.Address].consensus), &sender1)
+	err = engine.handleMsg(context.Background(), propose)
+	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
+
+	found = searchForFutureMsg(engine, propose)
+	require.True(t, found)
+	require.Equal(t, common.Big2, engine.futurePower[propose.R()].Pow())
 }
 
 func TestCoreStopDoesntPanic(t *testing.T) {
