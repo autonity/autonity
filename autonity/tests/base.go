@@ -180,7 +180,7 @@ func (r *runner) waitNextEpoch() { //nolint
 	r.waitNBlocks(int(diff.Uint64() + 1))
 }
 
-func (r *runner) waitSomeBlock(endTime int64) int64 {
+func (r *runner) waitSomeBlock(endTime int64) int64 { //nolint
 	// bcause we have 1 block/s
 	r.waitNBlocks(int(endTime) - int(r.evm.Context.Time.Int64()))
 	return r.evm.Context.Time.Int64()
