@@ -140,7 +140,7 @@ func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signers ...
 		for _, addressMap := range msgTypeMap {
 			messages, ok := addressMap[signer]
 			if !ok {
-				break
+				continue
 			}
 
 			for _, msg := range messages {

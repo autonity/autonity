@@ -74,7 +74,7 @@ type encodedProof struct {
 	Type          autonity.AccountabilityEventType
 	Rule          autonity.Rule
 	Offender      common.Address
-	OffenderIndex int
+	OffenderIndex uint
 	Message       typedMessage
 	Evidences     []typedMessage
 }
@@ -84,7 +84,7 @@ func (p *Proof) EncodeRLP(w io.Writer) error {
 		Type:          p.Type,
 		Rule:          p.Rule,
 		Offender:      p.Offender,
-		OffenderIndex: p.OffenderIndex,
+		OffenderIndex: uint(p.OffenderIndex),
 	}
 	encoded.Message = typedMessage{p.Message}
 	for _, m := range p.Evidences {
@@ -101,7 +101,7 @@ func (p *Proof) DecodeRLP(stream *rlp.Stream) error {
 	p.Type = encoded.Type
 	p.Rule = encoded.Rule
 	p.Offender = encoded.Offender
-	p.OffenderIndex = encoded.OffenderIndex
+	p.OffenderIndex = int(encoded.OffenderIndex)
 	p.Message = encoded.Message.Msg
 
 	p.Evidences = make([]message.Msg, len(encoded.Evidences))

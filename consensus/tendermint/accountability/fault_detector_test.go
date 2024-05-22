@@ -5,13 +5,12 @@ import (
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/vm"
-	"math/big"
-	"math/rand"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"math/big"
+	"math/rand"
+	"testing"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
@@ -38,14 +37,12 @@ var (
 	proposerKey               = keys[proposerIdx]
 	proposerNodeKey           = nodeKeys[proposerIdx]
 	signer                    = makeSigner(proposerKey)
-	verifier                  = stubVerifier(proposerKey.PublicKey())
 	self                      = &committee[proposerIdx]
 
-	remotePeerIdx  = 1
-	remote         = &committee[remotePeerIdx]
-	remotePeer     = committee[remotePeerIdx].Address
-	remoteSigner   = makeSigner(keys[remotePeerIdx])
-	remoteVerifier = stubVerifier(keys[remotePeerIdx].PublicKey())
+	remotePeerIdx = 1
+	remote        = &committee[remotePeerIdx]
+	remotePeer    = committee[remotePeerIdx].Address
+	remoteSigner  = makeSigner(keys[remotePeerIdx])
 )
 
 func generateCommittee() (types.Committee, []blst.SecretKey, []*ecdsa.PrivateKey) {
@@ -57,9 +54,11 @@ func generateCommittee() (types.Committee, []blst.SecretKey, []*ecdsa.PrivateKey
 		privateKey, _ := crypto.GenerateKey()
 		consensusKey, _ := blst.RandKey()
 		committeeMember := types.CommitteeMember{
-			Address:      crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower:  new(big.Int).SetUint64(1),
-			ConsensusKey: consensusKey.PublicKey(),
+			Address:           crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower:       new(big.Int).SetUint64(1),
+			ConsensusKey:      consensusKey.PublicKey(),
+			ConsensusKeyBytes: consensusKey.PublicKey().Marshal(),
+			Index:             uint64(i),
 		}
 		validators[i] = committeeMember
 		pkeys[i] = privateKey
@@ -83,13 +82,13 @@ func newBlockHeader(height uint64, committee types.Committee) *types.Header {
 
 // new proposal with metadata, if the withValue is not nil, it will use the value as proposal, otherwise a
 // random block will be used as the value for proposal.
-func newValidatedProposalMessage(h uint64, r int64, vr int64, signer message.Signer, committee types.Committee, withValue *types.Block) *message.Propose {
+func newValidatedProposalMessage(h uint64, r int64, vr int64, signer message.Signer, committee types.Committee, withValue *types.Block, idx int) *message.Propose {
 	block := withValue
 	if withValue == nil {
 		header := newBlockHeader(h, committee)
 		block = types.NewBlockWithHeader(header)
 	}
-	p := message.NewPropose(r, h, vr, block, signer, self)
+	p := message.NewPropose(r, h, vr, block, signer, &committee[idx])
 	lastHeader := newBlockHeader(h-1, committee)
 	if err := p.PreValidate(lastHeader); err != nil {
 		panic(err)
@@ -105,8 +104,8 @@ func TestSameVote(t *testing.T) {
 	r1 := int64(0)
 	r2 := int64(1)
 	validRound := int64(1)
-	proposal := newValidatedProposalMessage(height, r1, validRound, signer, committee, nil)
-	proposal2 := newValidatedProposalMessage(height, r2, validRound, signer, committee, nil)
+	proposal := newValidatedProposalMessage(height, r1, validRound, signer, committee, nil, proposerIdx)
+	proposal2 := newValidatedProposalMessage(height, r2, validRound, signer, committee, nil, proposerIdx)
 	require.Equal(t, false, proposal.Hash() == proposal2.Hash())
 }
 
@@ -115,8 +114,8 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	round := int64(0)
 	lastHeader := newBlockHeader(height-1, committee)
 	// submit a equivocation proofs.
-	proposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil)
-	proposal2 := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil)
+	proposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
+	proposal2 := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
 	var proofs []message.Msg
 	proofs = append(proofs, proposal2)
 
@@ -150,11 +149,11 @@ func TestRunRuleEngine(t *testing.T) {
 
 		fd := NewFaultDetector(chainMock, fdAddr, nil, core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		// store a msg before check point height in case of node is start from reset.
-		msgBeforeCheckPointHeight := newValidatedProposalMessage(checkPointHeight-1, 0, -1, makeSigner(keys[1]), committee, nil)
+		msgBeforeCheckPointHeight := newValidatedProposalMessage(checkPointHeight-1, 0, -1, makeSigner(keys[1]), committee, nil, 1)
 		fd.msgStore.Save(msgBeforeCheckPointHeight, committee)
 
 		// simulate there was a maliciousProposal at init round 0, and save to msg store.
-		initProposal := newValidatedProposalMessage(checkPointHeight, 0, -1, makeSigner(keys[1]), committee, nil)
+		initProposal := newValidatedProposalMessage(checkPointHeight, 0, -1, makeSigner(keys[1]), committee, nil, 1)
 		fd.msgStore.Save(initProposal, committee)
 		// simulate there were quorum preVotes for initProposal at init round 0, and save them.
 		for i := 0; i < len(committee); i++ {
@@ -167,7 +166,7 @@ func TestRunRuleEngine(t *testing.T) {
 		fd.msgStore.Save(preCommit, committee)
 
 		// While Node propose a new malicious Proposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
-		maliciousProposal := newValidatedProposalMessage(checkPointHeight, round, -1, signer, committee, nil)
+		maliciousProposal := newValidatedProposalMessage(checkPointHeight, round, -1, signer, committee, nil, proposerIdx)
 		fd.msgStore.Save(maliciousProposal, committee)
 
 		// Run rule engine over msg store on current height.
@@ -190,8 +189,8 @@ func TestGenerateOnChainProof(t *testing.T) {
 	round := int64(3)
 	lastHeader := newBlockHeader(height-1, committee)
 
-	proposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil)
-	equivocatedProposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil)
+	proposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
+	equivocatedProposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
 	var evidence []message.Msg
 	evidence = append(evidence, equivocatedProposal)
 
@@ -268,7 +267,7 @@ func TestAccusationProvers(t *testing.T) {
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: bindings}, log.Root())
 		// simulate a proposal message with an old value and a valid round.
-		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil, proposerIdx)
 		fd.msgStore.Save(proposal, committee)
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
@@ -306,7 +305,7 @@ func TestAccusationProvers(t *testing.T) {
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		// simulate a proposal message with an old value and a valid round.
-		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil, proposerIdx)
 		fd.msgStore.Save(proposal, committee)
 
 		// simulate less than quorum num of preVotes for a value at a validRound.
@@ -339,7 +338,7 @@ func TestAccusationProvers(t *testing.T) {
 			logger:     log.New("FaultDetector", nil),
 		}
 		// simulate a proposal message with an old value and a valid round.
-		proposal := newValidatedProposalMessage(height, round, -1, signer, committee, nil)
+		proposal := newValidatedProposalMessage(height, round, -1, signer, committee, nil, proposerIdx)
 		fd.msgStore.Save(proposal, committee)
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
@@ -403,7 +402,7 @@ func TestAccusationProvers(t *testing.T) {
 		p.Rule = autonity.PVO
 		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
-		oldProposal := newValidatedProposalMessage(height, 1, 0, signer, committee, nil)
+		oldProposal := newValidatedProposalMessage(height, 1, 0, signer, committee, nil, proposerIdx)
 		preVote := newValidatedPrevote(t, 1, height, oldProposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, oldProposal.ToLight())
@@ -428,7 +427,7 @@ func TestAccusationProvers(t *testing.T) {
 		p.OffenderIndex = proposerIdx
 		p.Offender = proposer
 		validRound := int64(0)
-		oldProposal := newValidatedProposalMessage(height, 1, validRound, signer, committee, nil)
+		oldProposal := newValidatedProposalMessage(height, 1, validRound, signer, committee, nil, proposerIdx)
 		preVote := newValidatedPrevote(t, 1, height, oldProposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, message.NewLightProposal(oldProposal))
@@ -526,14 +525,14 @@ func TestAccusationProvers(t *testing.T) {
 func TestNewProposalAccountabilityCheck(t *testing.T) {
 	height := uint64(0)
 	lastHeader := newBlockHeader(height-1, committee)
-	newProposal0 := newValidatedProposalMessage(height, 3, -1, signer, committee, nil)
+	newProposal0 := newValidatedProposalMessage(height, 3, -1, signer, committee, nil, proposerIdx)
 	nonNilPrecommit0 := newValidatedPrecommit(t, 1, height, common.BytesToHash([]byte("test")), signer, self, cSize, lastHeader)
 	nilPrecommit0 := newValidatedPrecommit(t, 1, height, common.Hash{}, signer, self, cSize, lastHeader)
 
-	newProposal1 := newValidatedProposalMessage(height, 5, -1, signer, committee, nil)
+	newProposal1 := newValidatedProposalMessage(height, 5, -1, signer, committee, nil, proposerIdx)
 	nilPrecommit1 := newValidatedPrecommit(t, 3, height, common.Hash{}, signer, self, cSize, lastHeader)
 
-	newProposal0E := newValidatedProposalMessage(height, 3, 1, signer, committee, nil)
+	newProposal0E := newValidatedProposalMessage(height, 3, 1, signer, committee, nil, proposerIdx)
 
 	t.Run("misbehaviour when pi has sent a non-nil precommit in a previous round", func(t *testing.T) {
 		fd := testFD()
@@ -641,10 +640,10 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	header1 := newBlockHeader(height, committee)
 	block1 := types.NewBlockWithHeader(header1)
 
-	oldProposal0 := newValidatedProposalMessage(height, 3, 0, signer, committee, block)
-	oldProposal5 := newValidatedProposalMessage(height, 5, 2, signer, committee, block)
-	oldProposal0E := newValidatedProposalMessage(height, 3, 2, signer, committee, block1)
-	oldProposal0E2 := newValidatedProposalMessage(height, 3, 0, signer, committee, block1)
+	oldProposal0 := newValidatedProposalMessage(height, 3, 0, signer, committee, block, proposerIdx)
+	oldProposal5 := newValidatedProposalMessage(height, 5, 2, signer, committee, block, proposerIdx)
+	oldProposal0E := newValidatedProposalMessage(height, 3, 2, signer, committee, block1, proposerIdx)
+	oldProposal0E2 := newValidatedProposalMessage(height, 3, 0, signer, committee, block1, proposerIdx)
 
 	nonNilPrecommit0V := newValidatedPrecommit(t, 0, height, block.Hash(), signer, self, cSize, lastHeader)
 	nonNilPrecommit0VPrime := newValidatedPrecommit(t, 0, height, block1.Hash(), signer, self, cSize, lastHeader)
@@ -924,7 +923,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	header1 := newBlockHeader(height, committee)
 	block1 := types.NewBlockWithHeader(header1)
 
-	newProposalForB := newValidatedProposalMessage(height, 5, -1, signer, committee, block)
+	newProposalForB := newValidatedProposalMessage(height, 5, -1, signer, committee, block, proposerIdx)
 
 	prevoteForB := newValidatedPrevote(t, 5, height, block.Hash(), signer, self, cSize, lastHeader)
 	prevoteForB1 := newValidatedPrevote(t, 5, height, block1.Hash(), signer, self, cSize, lastHeader)
@@ -937,9 +936,9 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	precommitForBIn4 := newValidatedPrecommit(t, 4, height, block.Hash(), signer, self, cSize, lastHeader)
 
 	signerBis := makeSigner(keys[1])
-	oldProposalB10 := newValidatedProposalMessage(height, 10, 5, signerBis, committee, block)
-	newProposalB1In5 := newValidatedProposalMessage(height, 5, -1, signerBis, committee, block1)
-	newProposalBIn5 := newValidatedProposalMessage(height, 5, -1, signerBis, committee, block)
+	oldProposalB10 := newValidatedProposalMessage(height, 10, 5, signerBis, committee, block, 1)
+	newProposalB1In5 := newValidatedProposalMessage(height, 5, -1, signerBis, committee, block1, 1)
+	newProposalBIn5 := newValidatedProposalMessage(height, 5, -1, signerBis, committee, block, 1)
 
 	prevoteForOldB10 := newValidatedPrevote(t, 10, height, block.Hash(), signer, self, cSize, lastHeader)
 	precommitForB1In8 := newValidatedPrecommit(t, 8, height, block1.Hash(), signer, self, cSize, lastHeader)
@@ -1408,7 +1407,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	header1 := newBlockHeader(height, committee)
 	block1 := types.NewBlockWithHeader(header1)
 
-	newProposalForB := newValidatedProposalMessage(height, 2, -1, makeSigner(keys[1]), committee, block)
+	newProposalForB := newValidatedProposalMessage(height, 2, -1, makeSigner(keys[1]), committee, block, 1)
 
 	precommitForB := newValidatedPrecommit(t, 2, height, block.Hash(), signer, self, cSize, header)
 	precommitForB1 := newValidatedPrecommit(t, 2, height, block1.Hash(), signer, self, cSize, header)

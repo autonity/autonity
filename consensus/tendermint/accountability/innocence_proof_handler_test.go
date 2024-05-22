@@ -167,7 +167,7 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	fd.SetBroadcaster(broadcasterMock)
 	header := newBlockHeader(1, committee)
 	block := types.NewBlockWithHeader(header)
-	var proposal = newValidatedProposalMessage(1, 1, -1, remoteSigner, committee, block)
+	var proposal = newValidatedProposalMessage(1, 1, -1, remoteSigner, committee, block, remotePeerIdx)
 	var accusation = Proof{
 		Offender:      remotePeer,
 		OffenderIndex: remotePeerIdx,
@@ -194,7 +194,7 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 func TestOffChainAccusationManagement(t *testing.T) {
 	t.Run("Add off chain accusation", func(t *testing.T) {
 		block := types.NewBlockWithHeader(newBlockHeader(1, committee))
-		var proposal = newValidatedProposalMessage(1, 1, -1, remoteSigner, committee, block)
+		var proposal = newValidatedProposalMessage(1, 1, -1, remoteSigner, committee, block, remotePeerIdx)
 		var accusation = Proof{
 			OffenderIndex: remotePeerIdx,
 			Offender:      remotePeer,
@@ -221,7 +221,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 
 	t.Run("remove off chain accusation", func(t *testing.T) {
 		block := types.NewBlockWithHeader(newBlockHeader(1, committee))
-		var proposal = newValidatedProposalMessage(1, 1, -1, remoteSigner, committee, block)
+		var proposal = newValidatedProposalMessage(1, 1, -1, remoteSigner, committee, block, remotePeerIdx)
 		accusationPO := Proof{
 			Offender:      remotePeer,
 			OffenderIndex: remotePeerIdx,
@@ -275,7 +275,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		validRound := int64(0)
 		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
 		lastHeader := newBlockHeader(msgHeight-1, committee)
-		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			Offender:      proposer,
 			OffenderIndex: proposerIdx,
@@ -319,7 +319,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		validRound := int64(0)
 		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
 		lastHeader := newBlockHeader(msgHeight-1, committee)
-		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			Offender:      proposer,
 			OffenderIndex: proposerIdx,
@@ -380,7 +380,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, nil, ms, nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
-		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			Offender:      proposer,
 			OffenderIndex: proposerIdx,
@@ -416,7 +416,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		accountability, _ := autonity.NewAccountability(sender, backends.NewSimulatedBackend(ccore.GenesisAlloc{sender: {Balance: big.NewInt(params.Ether)}}, 10000000))
 		fd := NewFaultDetector(chainMock, sender, nil, core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
-		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			Offender:      proposer,
 			OffenderIndex: proposerIdx,
@@ -457,7 +457,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		p.OffenderIndex = proposerIdx
 		p.Type = autonity.Accusation
 		invalidCommittee, iKeys, _ := generateCommittee()
-		invalidProposal := newValidatedProposalMessage(accusationHeight, 1, 0, makeSigner(iKeys[0]), invalidCommittee, nil)
+		invalidProposal := newValidatedProposalMessage(accusationHeight, 1, 0, makeSigner(iKeys[0]), invalidCommittee, nil, 0)
 		p.Message = message.NewLightProposal(invalidProposal)
 		payload, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
@@ -468,7 +468,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 	})
 
 	t.Run("happy case with innocence proof collected from msg store", func(t *testing.T) {
-		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			Offender:      proposer,
 			OffenderIndex: proposerIdx,
@@ -493,10 +493,6 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		}
 
 		chainMock.EXPECT().GetHeaderByNumber(accusationHeight - 1).Return(header)
-		currentHeader := newBlockHeader(height, committee)
-		chainMock.EXPECT().CurrentBlock().Return(types.NewBlockWithHeader(currentHeader))
-		chainMock.EXPECT().GetBlock(proposal.Value(), proposal.H()).Return(nil)
-
 		err = fd.handleOffChainAccusation(&accusationPO, remotePeer, hash, committee)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(fd.innocenceProofBuff.accusationList))
@@ -524,7 +520,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		p.Rule = autonity.PO
 		p.Type = autonity.Innocence
 		invalidCommittee, iKeys, _ := generateCommittee()
-		invalidProposal := newValidatedProposalMessage(height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, nil)
+		invalidProposal := newValidatedProposalMessage(height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, nil, 0)
 		p.Message = invalidProposal
 		p.Offender = invalidCommittee[0].Address
 		p.OffenderIndex = 0
@@ -535,7 +531,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 
 	t.Run("happy case", func(t *testing.T) {
 		// save accusation request in fd first.
-		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil)
+		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			Offender:      proposer,
 			OffenderIndex: proposerIdx,

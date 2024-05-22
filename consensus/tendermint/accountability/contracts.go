@@ -131,7 +131,10 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if p.Message.Code() != message.LightProposalCode {
 			return false
 		}
-		lightProposal := p.Message.(*message.LightProposal)
+		lightProposal, ok := p.Message.(*message.LightProposal)
+		if !ok {
+			return false
+		}
 		if lightProposal.ValidRound() == -1 || p.Offender != lightProposal.Signer() ||
 			p.OffenderIndex != lightProposal.SignerIndex() {
 			return false
@@ -141,7 +144,10 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
 			return false
 		}
-		prevote := p.Message.(*message.Prevote)
+		prevote, ok := p.Message.(*message.Prevote)
+		if !ok {
+			return false
+		}
 		present := prevote.Signers().Contains(p.OffenderIndex)
 		if !present || committee[p.OffenderIndex].Address != p.Offender {
 			return false
@@ -153,7 +159,10 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
 			return false
 		}
-		prevote := p.Message.(*message.Prevote)
+		prevote, ok := p.Message.(*message.Prevote)
+		if !ok {
+			return false
+		}
 		present := prevote.Signers().Contains(p.OffenderIndex)
 		if !present || committee[p.OffenderIndex].Address != p.Offender {
 			return false
@@ -164,7 +173,10 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 			return false
 		}
 
-		precommit := p.Message.(*message.Precommit)
+		precommit, ok := p.Message.(*message.Precommit)
+		if !ok {
+			return false
+		}
 		present := precommit.Signers().Contains(p.OffenderIndex)
 		if !present || committee[p.OffenderIndex].Address != p.Offender {
 			return false
@@ -179,11 +191,16 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if len(p.Evidences) != 1 {
 			return false
 		}
-		oldProposal := p.Evidences[0]
+
+		oldProposal, ok := p.Evidences[0].(*message.LightProposal)
+		if !ok {
+			return false
+		}
+
 		if oldProposal.Code() != message.LightProposalCode ||
 			oldProposal.R() != p.Message.R() ||
 			oldProposal.Value() != p.Message.Value() ||
-			oldProposal.(*message.LightProposal).ValidRound() == -1 {
+			oldProposal.ValidRound() == -1 {
 			return false
 		}
 	} else if len(p.Evidences) > 0 {
@@ -284,9 +301,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee types.C
 		return false
 	}
 
-	if committee[p.OffenderIndex].Address != p.Offender && p.Offender == proposal.Signer() &&
-		preCommit.R() < proposal.R() &&
-		preCommit.Value() != nilValue {
+	if committee[p.OffenderIndex].Address == p.Offender && p.Offender == proposal.Signer() &&
+		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
 		return true
 	}
 	return false
@@ -354,7 +370,12 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof, committee types.
 	if len(p.Evidences) == 0 {
 		return false
 	}
-	prevote := p.Message.(*message.Prevote)
+
+	prevote, ok := p.Message.(*message.Prevote)
+	if !ok {
+		return false
+	}
+
 	present := prevote.Signers().Contains(p.OffenderIndex)
 	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
@@ -362,12 +383,16 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof, committee types.
 	}
 
 	// check if the corresponding new proposal of preVote for new value is presented.
-	correspondingProposal := p.Evidences[0]
+	correspondingProposal, ok := p.Evidences[0].(*message.LightProposal)
+	if !ok {
+		return false
+	}
+
 	if correspondingProposal.Code() != message.LightProposalCode ||
 		correspondingProposal.H() != prevote.H() ||
 		correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.(*message.LightProposal).ValidRound() != -1 {
+		correspondingProposal.ValidRound() != -1 {
 		return false
 	}
 
@@ -378,7 +403,11 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof, committee types.
 	lastIndex := len(preCommits) - 1
 
 	for i, pc := range preCommits {
-		preC := pc.(*message.Precommit)
+		preC, ok := pc.(*message.Precommit)
+		if !ok {
+			return false
+		}
+
 		if pc.Code() != message.PrecommitCode || !preC.Signers().Contains(p.OffenderIndex) || pc.R() >= prevote.R() {
 			return false
 		}
@@ -414,23 +443,31 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 	if len(p.Evidences) < 2 {
 		return false
 	}
-	prevote := p.Message.(*message.Prevote)
+	prevote, ok := p.Message.(*message.Prevote)
+	if !ok {
+		return false
+	}
+
 	present := prevote.Signers().Contains(p.OffenderIndex)
 	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
 		return false
 	}
 	// check if the corresponding proposal of preVote is presented.
-	correspondingProposal := p.Evidences[0]
+	correspondingProposal, ok := p.Evidences[0].(*message.LightProposal)
+	if !ok {
+		return false
+	}
+
 	if correspondingProposal.Code() != message.LightProposalCode ||
 		correspondingProposal.H() != prevote.H() ||
 		correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.(*message.LightProposal).ValidRound() == -1 {
+		correspondingProposal.ValidRound() == -1 {
 		return false
 	}
 
-	validRound := correspondingProposal.(*message.LightProposal).ValidRound()
+	validRound := correspondingProposal.ValidRound()
 	votedVatVR := p.Evidences[1].Value()
 
 	// check preVotes at evidence.
@@ -455,7 +492,11 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof, committee type
 	if len(p.Evidences) < 2 {
 		return false
 	}
-	prevote := p.Message.(*message.Prevote)
+	prevote, ok := p.Message.(*message.Prevote)
+	if !ok {
+		return false
+	}
+
 	present := prevote.Signers().Contains(p.OffenderIndex)
 	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
@@ -463,24 +504,32 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof, committee type
 	}
 
 	// check if the corresponding proposal of preVote.
-	correspondingProposal := p.Evidences[0]
+	correspondingProposal, ok := p.Evidences[0].(*message.LightProposal)
+	if !ok {
+		return false
+	}
+
 	if correspondingProposal.Code() != message.LightProposalCode ||
 		correspondingProposal.H() != prevote.H() ||
 		correspondingProposal.R() != prevote.R() ||
 		correspondingProposal.Value() != prevote.Value() ||
-		correspondingProposal.(*message.LightProposal).ValidRound() == -1 {
+		correspondingProposal.ValidRound() == -1 {
 		return false
 	}
 
 	currentRound := correspondingProposal.R()
-	validRound := correspondingProposal.(*message.LightProposal).ValidRound()
+	validRound := correspondingProposal.ValidRound()
 	allPreCommits := p.Evidences[1:]
 	// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
 	// check if all precommits between range (validRound, currentRound) are presented.
 	// There might have multiple precommits per round due to overlapped aggregation.
 	presentedRounds := make(map[int64]struct{})
 	for _, pc := range allPreCommits {
-		preC := pc.(*message.Precommit)
+		preC, ok := pc.(*message.Precommit)
+		if !ok {
+			return false
+		}
+
 		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode ||
 			!preC.Signers().Contains(p.OffenderIndex) || pc.H() != prevote.H() {
 			return false
@@ -514,7 +563,10 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Co
 	if len(p.Evidences) == 0 {
 		return false
 	}
-	preCommit := p.Message.(*message.Precommit)
+	preCommit, ok := p.Message.(*message.Precommit)
+	if !ok {
+		return false
+	}
 	present := preCommit.Signers().Contains(p.OffenderIndex)
 	if !present || preCommit.Code() != message.PrecommitCode || preCommit.Value() == nilValue ||
 		committee[p.OffenderIndex].Address != p.Offender {
@@ -591,8 +643,12 @@ func verifyInnocenceProof(p *Proof, committee types.Committee) bool {
 // check if the Proof of innocent of PO is valid.
 func validInnocenceProofOfPO(p *Proof, committee types.Committee) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
-	proposal := p.Message
-	if proposal.Code() != message.LightProposalCode || proposal.(*message.LightProposal).ValidRound() == -1 {
+	proposal, ok := p.Message.(*message.LightProposal)
+	if !ok {
+		return false
+	}
+
+	if proposal.Code() != message.LightProposalCode || proposal.ValidRound() == -1 {
 		return false
 	}
 
@@ -600,7 +656,7 @@ func validInnocenceProofOfPO(p *Proof, committee types.Committee) bool {
 	for _, m := range p.Evidences {
 		if !(m.Code() == message.PrevoteCode &&
 			m.Value() == proposal.Value() &&
-			m.R() == proposal.(*message.LightProposal).ValidRound()) {
+			m.R() == proposal.ValidRound()) {
 			return false
 		}
 	}
@@ -626,11 +682,14 @@ func validInnocenceProofOfPVN(p *Proof) bool {
 		return false
 	}
 
-	proposal := p.Evidences[0]
+	proposal, ok := p.Evidences[0].(*message.LightProposal)
+	if !ok {
+		return false
+	}
 	return proposal.Code() == message.LightProposalCode &&
 		proposal.H() == preVote.H() &&
 		proposal.R() == preVote.R() &&
-		proposal.(*message.LightProposal).ValidRound() == -1 &&
+		proposal.ValidRound() == -1 &&
 		proposal.Value() == preVote.Value()
 }
 
@@ -646,15 +705,19 @@ func validInnocenceProofOfPVO(p *Proof, committee types.Committee) bool {
 		return false
 	}
 
-	proposal := p.Evidences[0]
-	if proposal.Code() != message.LightProposalCode ||
-		proposal.Value() != preVote.Value() ||
-		proposal.R() != preVote.R() ||
-		proposal.(*message.LightProposal).ValidRound() == -1 {
+	proposal, ok := p.Evidences[0].(*message.LightProposal)
+	if !ok {
 		return false
 	}
 
-	vr := proposal.(*message.LightProposal).ValidRound()
+	if proposal.Code() != message.LightProposalCode ||
+		proposal.Value() != preVote.Value() ||
+		proposal.R() != preVote.R() ||
+		proposal.ValidRound() == -1 {
+		return false
+	}
+
+	vr := proposal.ValidRound()
 	// check prevotes for V at the valid round, no vote for other value.
 	for _, m := range p.Evidences[1:] {
 		if !(m.Code() == message.PrevoteCode && m.Value() == proposal.Value() && m.R() == vr) {
@@ -730,6 +793,9 @@ func decodeRawProof(b []byte) (*Proof, error) {
 	if err := rlp.DecodeBytes(b, p); err != nil {
 		return p, err
 	}
+	if p.Message == nil {
+		return p, errors.New("invalid proof")
+	}
 	return p, nil
 }
 
@@ -777,6 +843,11 @@ func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bo
 		return false
 	}
 
+	// as the presents of proof.Message was checked, we can check if the equivocated message have the same msg code.
+	if proof.Message.Code() != proof.Evidences[0].Code() {
+		return false
+	}
+
 	switch msg1 := proof.Message.(type) {
 	case *message.LightProposal:
 		// check for equivocated proposal with light proposals
@@ -791,7 +862,7 @@ func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bo
 		}
 
 	case *message.Prevote, *message.Precommit:
-		// check for equivocated proposal with light proposals
+		// check for equivocated proposal with votes
 		vote1 := proof.Message.(message.Vote)
 		if !vote1.Signers().Contains(proof.OffenderIndex) || committee[proof.OffenderIndex].Address != proof.Offender {
 			return false
