@@ -287,11 +287,12 @@ loop:
 			}
 			// The signatures must be valid at this stage, however we have to recover the original
 			// senders, hence the following call.
-			if _, err := verifyProofSignatures(fd.blockchain, decodedProof); err != nil {
+			committee, err := verifyProofSignatures(fd.blockchain, decodedProof)
+			if err != nil {
 				fd.logger.Error("Can't verify proof signatures", "err", err)
 				break
 			}
-			innocenceProof, err := fd.innocenceProof(decodedProof)
+			innocenceProof, err := fd.innocenceProof(decodedProof, committee)
 			if err == nil && innocenceProof != nil {
 				// send on chain innocence proof ASAP since the client is on challenge that requires the proof to be
 				// provided before the client get slashed.
@@ -360,12 +361,12 @@ func (fd *FaultDetector) Stop() {
 }
 
 // convert the raw proofs into on-chain Proof which contains raw bytes of messages.
-func (fd *FaultDetector) eventFromProof(p *Proof) *autonity.AccountabilityEvent {
+func (fd *FaultDetector) eventFromProof(p *Proof, offender common.Address) *autonity.AccountabilityEvent {
 	var ev = &autonity.AccountabilityEvent{
 		EventType: uint8(p.Type),
 		Rule:      uint8(p.Rule),
 		Reporter:  fd.address,
-		Offender:  p.Offender,
+		Offender:  offender,
 
 		Id:             common.Big0,                           // assigned contract-side
 		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side
@@ -384,13 +385,13 @@ func (fd *FaultDetector) eventFromProof(p *Proof) *autonity.AccountabilityEvent 
 
 // getInnocentProof is called by client who is on a challenge with a certain accusation, to get innocent proof from msg
 // store.
-func (fd *FaultDetector) innocenceProof(p *Proof) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProof(p *Proof, committee types.Committee) (*autonity.AccountabilityEvent, error) {
 	// the protocol contains below provable accusations.
 	switch p.Rule {
 	case autonity.PO:
 		return fd.innocenceProofPO(p)
 	case autonity.PVN:
-		return fd.innocenceProofPVN(p)
+		return fd.innocenceProofPVN(p, committee)
 	case autonity.PVO:
 		return fd.innocenceProofPVO(p)
 	case autonity.C1:
@@ -425,12 +426,12 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 	}
 
 	p := fd.eventFromProof(&Proof{
-		Type:      autonity.Innocence,
-		Rule:      c.Rule,
-		Message:   preCommit,
-		Evidences: overQuorumVotes,
-		Offender:  c.Offender,
-	})
+		Type:          autonity.Innocence,
+		Rule:          c.Rule,
+		Message:       preCommit,
+		Evidences:     overQuorumVotes,
+		OffenderIndex: c.OffenderIndex,
+	}, lastHeader.Committee[c.OffenderIndex].Address)
 	return p, nil
 }
 
@@ -458,17 +459,17 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 		return nil, errNoEvidenceForPO
 	}
 	p := fd.eventFromProof(&Proof{
-		Type:      autonity.Innocence,
-		Rule:      c.Rule,
-		Message:   liteProposal,
-		Evidences: overQuorumPreVotes,
-		Offender:  c.Offender,
-	})
+		Type:          autonity.Innocence,
+		Rule:          c.Rule,
+		Message:       liteProposal,
+		Evidences:     overQuorumPreVotes,
+		OffenderIndex: c.OffenderIndex,
+	}, lastHeader.Committee[c.OffenderIndex].Address)
 	return p, nil
 }
 
 // get innocent proof of accusation of rule PVN from msg store.
-func (fd *FaultDetector) innocenceProofPVN(c *Proof) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee types.Committee) (*autonity.AccountabilityEvent, error) {
 	// get innocent proofs for PVN, for a prevote that vote for a new value,
 	// then there must be a proposal for this new value.
 	prevote := c.Message
@@ -489,8 +490,8 @@ func (fd *FaultDetector) innocenceProofPVN(c *Proof) (*autonity.AccountabilityEv
 			Evidences: []message.Msg{
 				message.NewLightProposal(proposals[0].(*message.Propose)),
 			},
-			Offender: c.Offender,
-		})
+			OffenderIndex: c.OffenderIndex,
+		}, committee[c.OffenderIndex].Address)
 		return p, nil
 	}
 	return nil, errNoEvidenceForPVN
@@ -519,12 +520,12 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 	}
 
 	p := fd.eventFromProof(&Proof{
-		Type:      autonity.Innocence,
-		Rule:      c.Rule,
-		Message:   c.Message,
-		Evidences: append(c.Evidences, overQuorumVotes...),
-		Offender:  c.Offender,
-	})
+		Type:          autonity.Innocence,
+		Rule:          c.Rule,
+		Message:       c.Message,
+		Evidences:     append(c.Evidences, overQuorumVotes...),
+		OffenderIndex: c.OffenderIndex,
+	}, lastHeader.Committee[c.OffenderIndex].Address)
 	return p, nil
 }
 
@@ -568,7 +569,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 	accused := make(map[common.Address]uint64)
 
 	for _, proof := range proofs {
-		offender := proof.Offender
+		offender := lastHeader.Committee[proof.OffenderIndex].Address
 
 		// skip misbehaviour or accusation against self
 		if fd.address == offender {
@@ -580,7 +581,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 		if proof.Type == autonity.Accusation {
 			if accused[offender] < maxAccusationPerHeight {
 				fd.addOffChainAccusation(proof)
-				fd.sendOffChainAccusationMsg(proof)
+				fd.sendOffChainAccusationMsg(proof, lastHeader.Committee)
 				accused[offender]++
 			} else {
 				fd.logger.Debug("Discarding accusation, maximum already reached for this height", "offender", offender)
@@ -588,7 +589,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 			continue
 		}
 
-		p := fd.eventFromProof(proof)
+		p := fd.eventFromProof(proof, lastHeader.Committee[proof.OffenderIndex].Address)
 		events = append(events, p)
 	}
 
@@ -656,7 +657,6 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 				Rule:          autonity.PN,
 				Evidences:     precommits[0:1],
 				Message:       message.NewLightProposal(propose),
-				Offender:      signer,
 				OffenderIndex: propose.SignerIndex(),
 			}
 			proofs = append(proofs, proof)
@@ -708,7 +708,6 @@ oldProposalLoop:
 				Rule:          autonity.PO,
 				Evidences:     precommitsFromPiInVR[0:1],
 				Message:       message.NewLightProposal(propose),
-				Offender:      signer,
 				OffenderIndex: propose.SignerIndex(),
 			}
 			proofs = append(proofs, proof)
@@ -731,7 +730,6 @@ oldProposalLoop:
 				Rule:          autonity.PO,
 				Evidences:     precommitsFromPiAfterVR[0:1],
 				Message:       message.NewLightProposal(propose),
-				Offender:      signer,
 				OffenderIndex: propose.SignerIndex(),
 			}
 			proofs = append(proofs, proof)
@@ -761,7 +759,6 @@ oldProposalLoop:
 					Rule:          autonity.PO,
 					Evidences:     overQuorumVotes,
 					Message:       message.NewLightProposal(propose),
-					Offender:      signer,
 					OffenderIndex: propose.SignerIndex(),
 				}
 				proofs = append(proofs, proof)
@@ -794,7 +791,6 @@ oldProposalLoop:
 					Type:          autonity.Accusation,
 					Rule:          autonity.PO,
 					Message:       message.NewLightProposal(propose),
-					Offender:      signer,
 					OffenderIndex: propose.SignerIndex(),
 				}
 				proofs = append(proofs, accusation)
@@ -855,7 +851,6 @@ prevotesLoop:
 							Type:          autonity.Accusation,
 							Rule:          autonity.PVN,
 							Message:       prevote,
-							Offender:      signer,
 							OffenderIndex: signerIndex,
 						}
 						proofs = append(proofs, accusation)
@@ -970,7 +965,6 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 					Type:          autonity.Misbehaviour,
 					Rule:          autonity.PVN,
 					Message:       prevote,
-					Offender:      signer,
 					OffenderIndex: signerIndex,
 				}
 				// to guarantee this prevote is for a new proposal that is the PVN rule account for, otherwise in
@@ -1028,7 +1022,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 				Type:          autonity.Misbehaviour,
 				Rule:          autonity.PVO,
 				Message:       prevote,
-				Offender:      signer,
 				OffenderIndex: signerIndex,
 			}
 			proof.Evidences = append(proof.Evidences, message.NewLightProposal(correspondingProposal))
@@ -1112,7 +1105,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 					Type:          autonity.Misbehaviour,
 					Rule:          autonity.PVO12,
 					Message:       prevote,
-					Offender:      signer,
 					OffenderIndex: signerIndex,
 				}
 				proof.Evidences = append(proof.Evidences, message.NewLightProposal(correspondingProposal))
@@ -1140,7 +1132,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 				Rule:          autonity.PVO,
 				Message:       prevote,
 				Evidences:     []message.Msg{message.NewLightProposal(correspondingProposal)},
-				Offender:      signer,
 				OffenderIndex: signerIndex,
 			}
 		}
@@ -1192,7 +1183,6 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 						Rule:          autonity.C,
 						Evidences:     overQuorumVotes,
 						Message:       precommit,
-						Offender:      signer,
 						OffenderIndex: signerIndex,
 					}
 					proofs = append(proofs, proof)
@@ -1225,7 +1215,6 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 						Type:          autonity.Accusation,
 						Rule:          autonity.C1,
 						Message:       precommit,
-						Offender:      signer,
 						OffenderIndex: signerIndex,
 					}
 					proofs = append(proofs, accusation)
@@ -1240,16 +1229,15 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 // submitMisbehavior takes proof of misbehavior, and error id to construct the on-chain accountability event, and
 // send the event of misbehavior to event channel that is listened by ethereum object to sign the reporting TX.
 func (fd *FaultDetector) submitMisbehavior(m message.Msg, evidence []message.Msg, err error,
-	offender common.Address, offenderIndex int) {
+	offenderIndex int, offender common.Address) {
 	rule := errorToRule(err)
 	proof := fd.eventFromProof(&Proof{
 		Type:          autonity.Misbehaviour,
 		Rule:          rule,
 		Message:       m,
 		Evidences:     evidence,
-		Offender:      offender,
 		OffenderIndex: offenderIndex,
-	})
+	}, offender)
 	// submit misbehavior proof to buffer, it will be sent once aggregated.
 	fd.misbehaviourProofCh <- proof
 }
@@ -1269,7 +1257,7 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 
 	// account for wrong proposer.
 	if !isProposerValid(fd.blockchain, proposal) {
-		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errProposer, proposal.Signer(), proposal.SignerIndex())
+		fd.submitMisbehavior(message.NewLightProposal(proposal), nil, errProposer, proposal.SignerIndex(), proposal.Signer())
 		return errProposer
 	}
 
@@ -1286,7 +1274,7 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 		var equivocatedMsgs = []message.Msg{
 			message.NewLightProposal(equivocated[0]),
 		}
-		fd.submitMisbehavior(message.NewLightProposal(proposal), equivocatedMsgs, errEquivocation, proposal.Signer(), proposal.SignerIndex())
+		fd.submitMisbehavior(message.NewLightProposal(proposal), equivocatedMsgs, errEquivocation, proposal.SignerIndex(), proposal.Signer())
 		// we allow the equivocated msg to be stored in msg store.
 		fd.msgStore.Save(proposal, nil)
 		return errEquivocation
@@ -1312,7 +1300,7 @@ func (fd *FaultDetector) checkSelfIncriminatingVote(m message.Msg) error {
 		signer := lastHeader.Committee[signerIndex].Address
 		equivocatedMessages := fd.msgStore.GetEquivocatedVotes(m.H(), m.R(), m.Code(), signer, m.Value())
 		if len(equivocatedMessages) > 0 {
-			fd.submitMisbehavior(m, equivocatedMessages[:1], errEquivocation, signer, signerIndex)
+			fd.submitMisbehavior(m, equivocatedMessages[:1], errEquivocation, signerIndex, signer)
 			err = errEquivocation
 		}
 	}

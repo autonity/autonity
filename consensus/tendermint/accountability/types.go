@@ -3,7 +3,6 @@ package accountability
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/common"
 	"io"
 
 	"github.com/autonity/autonity/autonity"
@@ -61,19 +60,16 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 }
 
 type Proof struct {
-	Type      autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
-	Rule      autonity.Rule                    // Rule ID defined in AFD rule engine.
-	Message   message.Msg                      // the consensus message which is accountable.
-	Evidences []message.Msg                    // the proofs of the accountability event.
-	// todo: double check if Offender could be removed.
-	Offender      common.Address // the offender who break the rule.
-	OffenderIndex int            // the offender index.
+	Type          autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
+	Rule          autonity.Rule                    // Rule ID defined in AFD rule engine.
+	Message       message.Msg                      // the consensus message which is accountable.
+	Evidences     []message.Msg                    // the proofs of the accountability event.
+	OffenderIndex int                              // the offender index.
 }
 
 type encodedProof struct {
 	Type          autonity.AccountabilityEventType
 	Rule          autonity.Rule
-	Offender      common.Address
 	OffenderIndex uint
 	Message       typedMessage
 	Evidences     []typedMessage
@@ -83,7 +79,6 @@ func (p *Proof) EncodeRLP(w io.Writer) error {
 	encoded := encodedProof{
 		Type:          p.Type,
 		Rule:          p.Rule,
-		Offender:      p.Offender,
 		OffenderIndex: uint(p.OffenderIndex),
 	}
 	encoded.Message = typedMessage{p.Message}
@@ -100,7 +95,6 @@ func (p *Proof) DecodeRLP(stream *rlp.Stream) error {
 	}
 	p.Type = encoded.Type
 	p.Rule = encoded.Rule
-	p.Offender = encoded.Offender
 	p.OffenderIndex = int(encoded.OffenderIndex)
 	p.Message = encoded.Message.Msg
 

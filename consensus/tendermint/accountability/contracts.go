@@ -117,7 +117,7 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 
 	if verifyAccusation(p, committee) {
 		// the proof carry valid info.
-		return validReturn(p.Message, p.Offender, p.Rule), nil
+		return validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), nil
 	}
 	return failureReturn, nil
 }
@@ -135,8 +135,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if !ok {
 			return false
 		}
-		if lightProposal.ValidRound() == -1 || p.Offender != lightProposal.Signer() ||
-			p.OffenderIndex != lightProposal.SignerIndex() {
+		if lightProposal.ValidRound() == -1 || committee[p.OffenderIndex].Address != lightProposal.Signer() {
 			return false
 		}
 
@@ -148,8 +147,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if !ok {
 			return false
 		}
-		present := prevote.Signers().Contains(p.OffenderIndex)
-		if !present || committee[p.OffenderIndex].Address != p.Offender {
+		if !prevote.Signers().Contains(p.OffenderIndex) {
 			return false
 		}
 
@@ -163,8 +161,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if !ok {
 			return false
 		}
-		present := prevote.Signers().Contains(p.OffenderIndex)
-		if !present || committee[p.OffenderIndex].Address != p.Offender {
+		if !prevote.Signers().Contains(p.OffenderIndex) {
 			return false
 		}
 
@@ -177,8 +174,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if !ok {
 			return false
 		}
-		present := precommit.Signers().Contains(p.OffenderIndex)
-		if !present || committee[p.OffenderIndex].Address != p.Offender {
+		if !precommit.Signers().Contains(p.OffenderIndex) {
 			return false
 		}
 
@@ -250,7 +246,7 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee
 	case autonity.PO:
 		valid = c.validMisbehaviourOfPO(p, committee)
 	case autonity.PVN:
-		valid = c.validMisbehaviourOfPVN(p, committee)
+		valid = c.validMisbehaviourOfPVN(p)
 	case autonity.PVO:
 		valid = c.validMisbehaviourOfPVO(p, committee)
 	case autonity.PVO12:
@@ -273,7 +269,7 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee
 	}
 
 	if valid {
-		return validReturn(p.Message, p.Offender, p.Rule)
+		return validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule)
 	}
 	return failureReturn
 }
@@ -301,7 +297,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee types.C
 		return false
 	}
 
-	if committee[p.OffenderIndex].Address == p.Offender && p.Offender == proposal.Signer() &&
+	if committee[p.OffenderIndex].Address == proposal.Signer() &&
 		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
 		return true
 	}
@@ -331,13 +327,12 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 	case *message.Precommit:
 		if vote.R() == proposal.ValidRound() &&
 			vote.Signers().Contains(p.OffenderIndex) && committee[p.OffenderIndex].Address == proposal.Signer() &&
-			p.Offender == proposal.Signer() && vote.Value() != nilValue && vote.Value() != proposal.Value() {
+			vote.Value() != nilValue && vote.Value() != proposal.Value() {
 			return true
 		}
 		if vote.R() > proposal.ValidRound() &&
 			vote.R() < proposal.R() &&
 			vote.Signers().Contains(p.OffenderIndex) && committee[p.OffenderIndex].Address == proposal.Signer() &&
-			p.Offender == proposal.Signer() &&
 			vote.Value() != nilValue {
 			return true
 		}
@@ -366,7 +361,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 }
 
 // check if the Proof of challenge of PVN is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof, committee types.Committee) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	if len(p.Evidences) == 0 {
 		return false
 	}
@@ -377,8 +372,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof, committee types.
 	}
 
 	present := prevote.Signers().Contains(p.OffenderIndex)
-	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
-		committee[p.OffenderIndex].Address != p.Offender {
+	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
 		return false
 	}
 
@@ -449,8 +443,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 	}
 
 	present := prevote.Signers().Contains(p.OffenderIndex)
-	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
-		committee[p.OffenderIndex].Address != p.Offender {
+	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
 		return false
 	}
 	// check if the corresponding proposal of preVote is presented.
@@ -498,8 +491,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof, committee type
 	}
 
 	present := prevote.Signers().Contains(p.OffenderIndex)
-	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue ||
-		committee[p.OffenderIndex].Address != p.Offender {
+	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
 		return false
 	}
 
@@ -568,8 +560,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Co
 		return false
 	}
 	present := preCommit.Signers().Contains(p.OffenderIndex)
-	if !present || preCommit.Code() != message.PrecommitCode || preCommit.Value() == nilValue ||
-		committee[p.OffenderIndex].Address != p.Offender {
+	if !present || preCommit.Code() != message.PrecommitCode || preCommit.Value() == nilValue {
 		return false
 	}
 
@@ -621,7 +612,7 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ c
 	if !verifyInnocenceProof(p, committee) {
 		return failureReturn, nil
 	}
-	return validReturn(p.Message, p.Offender, p.Rule), nil
+	return validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), nil
 }
 
 func verifyInnocenceProof(p *Proof, committee types.Committee) bool {
@@ -857,14 +848,14 @@ func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bo
 		}
 
 		if msg1.H() == msg2.H() && msg1.R() == msg2.R() && msg1.Signer() == msg2.Signer() &&
-			msg1.Signer() == proof.Offender && msg1.Hash() != msg2.Hash() {
+			msg1.Signer() == committee[proof.OffenderIndex].Address && msg1.Hash() != msg2.Hash() {
 			return true
 		}
 
 	case *message.Prevote, *message.Precommit:
 		// check for equivocated proposal with votes
 		vote1 := proof.Message.(message.Vote)
-		if !vote1.Signers().Contains(proof.OffenderIndex) || committee[proof.OffenderIndex].Address != proof.Offender {
+		if !vote1.Signers().Contains(proof.OffenderIndex) {
 			return false
 		}
 

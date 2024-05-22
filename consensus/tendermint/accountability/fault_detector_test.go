@@ -124,7 +124,7 @@ func TestSubmitMisbehaviour(t *testing.T) {
 		logger:              log.New("FaultDetector", nil),
 	}
 
-	fd.submitMisbehavior(proposal, proofs, errEquivocation, proposer, proposerIdx)
+	fd.submitMisbehavior(proposal, proofs, errEquivocation, proposerIdx, proposer)
 	p := <-fd.misbehaviourProofCh
 
 	require.Equal(t, uint8(autonity.Misbehaviour), p.EventType)
@@ -195,7 +195,6 @@ func TestGenerateOnChainProof(t *testing.T) {
 	evidence = append(evidence, equivocatedProposal)
 
 	p := Proof{
-		Offender:      proposer,
 		OffenderIndex: proposerIdx,
 		Type:          autonity.Misbehaviour,
 		Rule:          autonity.Equivocation,
@@ -208,7 +207,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 		logger:  log.New("FaultDetector", nil),
 	}
 
-	onChainEvent := fd.eventFromProof(&p)
+	onChainEvent := fd.eventFromProof(&p, proposer)
 
 	t.Run("on chain event generation", func(t *testing.T) {
 		require.Equal(t, uint8(autonity.Misbehaviour), onChainEvent.EventType)
@@ -248,7 +247,7 @@ func TestAccusationProvers(t *testing.T) {
 		var input = Proof{
 			Rule: autonity.PVO12,
 		}
-		_, err := fd.innocenceProof(&input)
+		_, err := fd.innocenceProof(&input, committee)
 		assert.NotNil(t, err)
 	})
 
@@ -277,7 +276,6 @@ func TestAccusationProvers(t *testing.T) {
 		}
 
 		var accusation = Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PO,
@@ -315,7 +313,6 @@ func TestAccusationProvers(t *testing.T) {
 		var accusation = Proof{
 			Type:          autonity.Accusation,
 			Rule:          autonity.PO,
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Message:       message.NewLightProposal(proposal),
 		}
@@ -351,13 +348,12 @@ func TestAccusationProvers(t *testing.T) {
 
 		var accusation = Proof{
 			OffenderIndex: proposerIdx,
-			Offender:      proposer,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PVN,
 			Message:       preVote,
 		}
 
-		proof, err := fd.innocenceProofPVN(&accusation)
+		proof, err := fd.innocenceProofPVN(&accusation, committee)
 		assert.NoError(t, err)
 		assert.Equal(t, uint8(autonity.Innocence), proof.EventType)
 		assert.Equal(t, proposer, proof.Reporter)
@@ -375,14 +371,13 @@ func TestAccusationProvers(t *testing.T) {
 		fd.msgStore.Save(preVote, committee)
 
 		var accusation = Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PVN,
 			Message:       preVote,
 		}
 
-		_, err := fd.innocenceProofPVN(&accusation)
+		_, err := fd.innocenceProofPVN(&accusation, committee)
 		assert.Equal(t, errNoEvidenceForPVN, err)
 	})
 
@@ -400,7 +395,6 @@ func TestAccusationProvers(t *testing.T) {
 
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		oldProposal := newValidatedProposalMessage(height, 1, 0, signer, committee, nil, proposerIdx)
 		preVote := newValidatedPrevote(t, 1, height, oldProposal.Value(), signer, self, cSize, lastHeader)
@@ -425,7 +419,6 @@ func TestAccusationProvers(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		validRound := int64(0)
 		oldProposal := newValidatedProposalMessage(height, 1, validRound, signer, committee, nil, proposerIdx)
 		preVote := newValidatedPrevote(t, 1, height, oldProposal.Value(), signer, self, cSize, lastHeader)
@@ -468,7 +461,6 @@ func TestAccusationProvers(t *testing.T) {
 		fd.msgStore.Save(preCommit, committee)
 
 		var accusation = Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.C1,
@@ -501,7 +493,6 @@ func TestAccusationProvers(t *testing.T) {
 
 		var accusation = Proof{
 			OffenderIndex: proposerIdx,
-			Offender:      proposer,
 			Type:          autonity.Accusation,
 			Rule:          autonity.C1,
 			Message:       preCommit,
@@ -540,7 +531,6 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(nonNilPrecommit0, committee)
 
 		expectedProof := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PN,
@@ -592,7 +582,6 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 
 		expectedProof0 := &Proof{
 			OffenderIndex: proposerIdx,
-			Offender:      proposer,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PN,
 			Evidences:     []message.Msg{nonNilPrecommit0},
@@ -600,7 +589,6 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedProof1 := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PN,
@@ -676,7 +664,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(nonNilPrecommit0VPrime, committee)
 
 		expectedProof := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PO,
@@ -696,7 +683,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(nonNilPrecommit2VPrime, committee)
 
 		expectedProof := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PO,
@@ -717,7 +703,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 
 		expectedProof := &Proof{
 			OffenderIndex: proposerIdx,
-			Offender:      proposer,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PO,
 			Evidences:     []message.Msg{nonNilPrecommit1},
@@ -738,7 +723,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedProof := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PO,
@@ -765,7 +749,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 
 		expectedProof := &Proof{
 			OffenderIndex: proposerIdx,
-			Offender:      proposer,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PO,
 			Message:       message.NewLightProposal(oldProposal0),
@@ -786,7 +769,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedProof := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PO,
@@ -889,7 +871,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(nonNilPrecommit0VPrime, committee)
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PO,
@@ -899,7 +880,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 
 		fd.msgStore.Save(oldProposal5, committee)
 		expectedAccusation := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PO,
@@ -949,7 +929,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForB, committee)
 
 		expectedAccusation := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PVN,
@@ -968,7 +947,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(precommitForB1, committee)
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PVN,
@@ -990,7 +968,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		expectedMisbehaviour := &Proof{
 			OffenderIndex: proposerIdx,
-			Offender:      proposer,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PVN,
 			Evidences:     []message.Msg{message.NewLightProposal(newProposalForB), precommitForB1},
@@ -1016,7 +993,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PVN,
@@ -1051,7 +1027,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PVN,
@@ -1142,7 +1117,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(prevoteForOldB10, committee)
 
 		expectedAccusation := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.PVO,
@@ -1173,7 +1147,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PVO,
@@ -1216,7 +1189,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, p)
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PVO12,
@@ -1295,7 +1267,6 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		precommitsFromPiAfterVR = append(precommitsFromPiAfterVR, p)
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.PVO12,
@@ -1423,7 +1394,6 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedAccusation := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.C1,
@@ -1447,7 +1417,6 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedMisbehaviour := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.C,
@@ -1480,7 +1449,6 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedProof0 := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.C,
@@ -1489,7 +1457,6 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		}
 
 		expectedProof1 := &Proof{
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
 			Rule:          autonity.C1,

@@ -156,7 +156,6 @@ func TestAccusationVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		liteP := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = liteP
 		ret := verifyAccusation(&p, committee)
@@ -171,7 +170,6 @@ func TestAccusationVerifier(t *testing.T) {
 
 		p.Message = message.NewPrevote(1, height, liteP.Value(), signer, self, cSize)
 		p.Evidences = append(p.Evidences, liteP)
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		ret := verifyAccusation(&p, committee)
 		assert.True(t, ret)
@@ -180,7 +178,6 @@ func TestAccusationVerifier(t *testing.T) {
 	t.Run("Test validate accusation, with invalid PVO accusation proof", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 
 		liteP := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
@@ -267,7 +264,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Message = liteP
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{}
@@ -279,7 +275,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// prepare a p that node propose for an old value.
 		var p Proof
 		p.Rule = autonity.PN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 
 		liteP := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
@@ -296,7 +291,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PN
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		p.Message = newValidatedLightProposal(t, height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
@@ -308,7 +302,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// the one he locked at previous round, the validation of this p should return true.
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
@@ -323,7 +316,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// the one he locked at previous round, the validation of this p should return true.
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 
 		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
@@ -341,7 +333,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		for i := range committee {
@@ -357,7 +348,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	t.Run("Test validate misbehaviour Proof of PO, with no evidence", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		mv := MisbehaviourVerifier{}
@@ -368,7 +358,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	t.Run("Test validate misbehaviour Proof of PO, with a proposal of new value", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = newValidatedLightProposal(t, height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
@@ -385,7 +374,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// return ture.
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		// node locked at V1 at round 0.
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
@@ -408,7 +396,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// return ture.
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		// node locked at V1 at round 0.
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
@@ -427,7 +414,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	t.Run("Test validate misbehaviour Proof of PVN rule, with no evidence", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 
 		// node preVote for V2 at round 3
@@ -441,7 +427,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	t.Run("Test validate misbehaviour Proof of PVN rule, with wrong msg", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		// set a wrong type of msg.
 		p.Message = newValidatedLightProposal(t, height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
@@ -477,7 +462,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// a prevote at round 3, with value v.
 		preVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
@@ -485,7 +469,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, correspondingProposal, pcForV, pcForNotV)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
-		assert.Equal(t, validReturn(p.Message, p.Offender, p.Rule), ret)
+		assert.Equal(t, validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), ret)
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO12 rule, with no evidence", func(t *testing.T) {
@@ -496,7 +480,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = preVote
 		mv := MisbehaviourVerifier{}
@@ -514,7 +497,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = correspondingProposal
 		p.Evidences = append(p.Evidences, correspondingProposal, pcForV, pcForNotV)
@@ -533,7 +515,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// a prevote at round 3, with value v.
 		preVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
@@ -559,7 +540,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, correspondingProposal, pcValidRound, pcForV, pcForNotV)
@@ -573,7 +553,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		maliciousPreVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		p.Rule = autonity.PVO
 		p.Message = maliciousPreVote
 		p.Evidences = append(p.Evidences, correspondingProposal)
@@ -585,14 +564,13 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
-		assert.Equal(t, validReturn(p.Message, p.Offender, p.Rule), ret)
+		assert.Equal(t, validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), ret)
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO rule, with less quorum preVote for not v", func(t *testing.T) {
 		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		maliciousPreVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PVO
 		p.Message = maliciousPreVote
@@ -611,7 +589,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		maliciousPreVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = maliciousPreVote
 		p.Evidences = append(p.Evidences, correspondingProposal)
@@ -642,7 +619,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Type = autonity.Misbehaviour
 		p.Message = preVote
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		p.Evidences = append(p.Evidences, correspondingProposal, pcVR, pcR1, pcR2)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
@@ -653,7 +629,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		// Node preCommit for a V at round R, but in that round, there were quorum PreVotes for notV at that round.
 		var p Proof
 		p.Rule = autonity.C
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		// Node preCommit for V at round R.
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
@@ -664,14 +639,13 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		}
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
-		assert.Equal(t, validReturn(p.Message, p.Offender, p.Rule), ret)
+		assert.Equal(t, validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), ret)
 	})
 
 	t.Run("Test validate misbehaviour Proof of C rule, with no Evidences", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		// Node preCommit for V at round R.
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
@@ -686,7 +660,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		preCommit := newValidatedPrecommit(t, 0, height, nilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		for i := range committee {
@@ -703,7 +676,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		wrongMsg := newValidatedPrevote(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 		for i := range committee {
@@ -721,7 +693,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		// quorum preVotes of same value, this shouldn't be a valid evidence.
@@ -740,7 +711,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		// duplicated preVotes msg in evidence, should be addressed.
@@ -758,7 +728,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		p.Offender = proposer
 		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 
@@ -799,7 +768,6 @@ func TestInnocenceVerifier(t *testing.T) {
 		lHeader := newBlockHeader(lastHeight, invalidCommittee)
 		p := &Proof{
 			Rule:          autonity.PO,
-			Offender:      proposer,
 			OffenderIndex: proposerIdx,
 			Message:       newValidatedLightProposal(t, height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, lHeader, nil, 0),
 		}
@@ -815,7 +783,6 @@ func TestInnocenceVerifier(t *testing.T) {
 
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		invalidCommittee, iKeys, _ := generateCommittee()
 		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
@@ -836,7 +803,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of PO rule, with wrong msg", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		wrongMsg := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
@@ -848,7 +814,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence AccountabilityProof of PO rule, with invalid evidence", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
@@ -861,7 +826,6 @@ func TestInnocenceVerifier(t *testing.T) {
 
 	t.Run("Test validate innocence AccountabilityProof of PO rule, with redundant vote msg", func(t *testing.T) {
 		var p Proof
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PO
 		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
@@ -879,7 +843,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence AccountabilityProof of PO rule, with not quorum vote msg", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
@@ -894,7 +857,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of PVN rule, with wrong msg", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		wrongMsg := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
@@ -905,7 +867,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of PVN rule, with a wrong preVote for nil", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		wrongMsg := newValidatedPrevote(t, 1, height, nilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
@@ -916,7 +877,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of PVN rule, with no evidence", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		wrongMsg := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
@@ -927,7 +887,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of PVN rule, with over quorum prevotes", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		proposal := newValidatedLightProposal(t, height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
 		p.Evidences = append(p.Evidences, proposal)
@@ -940,7 +899,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence proof of PVO rule, with correct Proof", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
 		proposal := newValidatedLightProposal(t, height, 1, vr, signer, committee, lastHeader, nil, proposerIdx)
@@ -960,7 +918,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence proof of PVO rule, with incorrect proposal", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
 		// with wrong round in proposal.
@@ -980,7 +937,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence proof of PVO rule, with incorrect preVotes", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
 		// with wrong round in proposal.
@@ -1000,7 +956,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence proof of PVO rule, with less than quorum preVotes", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
 		proposal := newValidatedLightProposal(t, height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
@@ -1018,7 +973,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence proof of PVO rule, with preVote for not V", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVO
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
 		proposal := newValidatedLightProposal(t, height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
@@ -1037,7 +991,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of C1 rule, with wrong msg", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		wrongMsg := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
@@ -1049,7 +1002,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of C1 rule, with a wrong preCommit for nil", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		wrongMsg := newValidatedPrecommit(t, 1, height, nilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
@@ -1061,7 +1013,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of C1 rule, with a wrong evidence", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
@@ -1076,7 +1027,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of C1 rule, with redundant msgs in evidence ", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
@@ -1092,7 +1042,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of C1 rule, with no quorum votes of evidence ", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
@@ -1107,7 +1056,6 @@ func TestInnocenceVerifier(t *testing.T) {
 	t.Run("Test validate innocence Proof of C1 rule, with correct evidence ", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
@@ -1168,7 +1116,6 @@ func TestCheckEquivocation(t *testing.T) {
 	t.Run("check equivocation with valid Proof of proposal equivocation", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.Equivocation
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		proposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
@@ -1182,7 +1129,6 @@ func TestCheckEquivocation(t *testing.T) {
 		vote2 := newValidatedPrevote(t, round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.Equivocation
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = vote1
 		p.Evidences = append(p.Evidences, vote2)
@@ -1194,7 +1140,6 @@ func TestCheckEquivocation(t *testing.T) {
 		vote2 := newValidatedPrecommit(t, round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.Equivocation
-		p.Offender = proposer
 		p.OffenderIndex = proposerIdx
 		p.Message = vote1
 		p.Evidences = append(p.Evidences, vote2)
