@@ -42,7 +42,7 @@ func NewBufferedGauge(capacity *int) BufferedGauge {
 		return NilBufferedGauge{}
 	}
 
-	if capacity == nil || *capacity < 0 {
+	if capacity == nil || *capacity < BufferedGaugeDefaultCapacity {
 		c := BufferedGaugeDefaultCapacity
 		capacity = &c
 	}
