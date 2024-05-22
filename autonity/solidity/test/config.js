@@ -6,7 +6,8 @@ const EPOCH_PERIOD = 30;
 const DELEGATION_RATE = 100;
 const UN_BONDING_PERIOD = 60;
 const TREASURY_FEE = "10000000000000000";
-const INITIAL_INFLATION_RESERVE = "40000000000000000000000000";
+// because we cannot test inflation in truffle properly, due to the fact that its time of deployment is not same as that of autonity contract
+const INITIAL_INFLATION_RESERVE = "0";
 const MIN_EPOCH_PERIOD = 30;
 const VERSION = 0;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
