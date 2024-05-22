@@ -17,8 +17,11 @@ func TestBondingGasConsumption(t *testing.T) {
 	r := setup(t, nil)
 	var scheduleTotalAmount int64 = 1000
 	scheduleCount := 10
+	start := r.evm.Context.Time.Int64()
+	cliff := start
+	end := 1000 + start
 	for i := 0; i < scheduleCount; i++ {
-		createSchedule(r, user, scheduleTotalAmount, 0, 0, 1000)
+		createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
 	}
 	committee, _, err := r.autonity.GetCommittee(nil)
 	require.NoError(r.t, err)
@@ -106,8 +109,11 @@ func TestUnbondingGasConsumption(t *testing.T) {
 	r := setup(t, nil)
 	var scheduleTotalAmount int64 = 1000
 	scheduleCount := 10
+	start := r.evm.Context.Time.Int64()
+	cliff := start
+	end := 1000 + start
 	for i := 0; i < scheduleCount; i++ {
-		createSchedule(r, user, scheduleTotalAmount, 0, 0, 1000)
+		createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
 	}
 	committee, _, err := r.autonity.GetCommittee(nil)
 	require.NoError(r.t, err)

@@ -40,6 +40,7 @@ contract ScheduleBase {
         uint256 _endTime,
         bool _canStake
     ) internal returns (uint256) {
+        require(_startTime >= block.timestamp, "schedule cannot start before creating it");
         require(_cliffTime >= _startTime, "cliff must be greater than or equal to start");
         require(_endTime > _cliffTime, "end must be greater than cliff");
 
