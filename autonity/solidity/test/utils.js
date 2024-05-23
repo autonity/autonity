@@ -51,15 +51,13 @@ async function endEpoch(contract,operator,deployer){
   assert.equal(epochPeriod,(await contract.getEpochPeriod()).toNumber())
 
   // close epoch
-  for (;;) {
-    let newEpoch = (await contract.epochID()).toNumber()
-    if (newEpoch > currentEpoch) {
-      break
-    }
+  for (let i=0;i<(lastEpochBlock + epochPeriod) - currentHeight;i++) {
     let height = await web3.eth.getBlockNumber()
-    await contract.finalize({from: deployer})
+    contract.finalize({from: deployer})
     await waitForNewBlock(height);
   }
+  let newEpoch = (await contract.epochID()).toNumber()
+  assert.equal(currentEpoch+1,newEpoch)
 }
 
 async function validatorState(autonity, validatorAddresses) {
