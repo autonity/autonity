@@ -111,7 +111,7 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, step uint8, signer com
 }
 
 // Get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signers ...common.Address) []message.Msg {
+func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signer *common.Address) []message.Msg {
 	ms.RLock()
 	defer ms.RUnlock()
 
@@ -122,7 +122,7 @@ func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signers ...
 	}
 
 	// querying without the signer address nominated, as it iterates all signers, we'd need to filter duplicated ones.
-	if len(signers) == 0 {
+	if signer == nil {
 		msgHashMap := make(map[common.Hash]struct{})
 		for _, msgTypeMap := range roundMap {
 			for _, addressMap := range msgTypeMap {
@@ -142,10 +142,9 @@ func (ms *MsgStore) Get(query func(message.Msg) bool, height uint64, signers ...
 	}
 
 	// querying with signer address
-	signer := signers[0]
 	for _, msgTypeMap := range roundMap {
 		for _, addressMap := range msgTypeMap {
-			messages, ok := addressMap[signer]
+			messages, ok := addressMap[*signer]
 			if !ok {
 				continue
 			}

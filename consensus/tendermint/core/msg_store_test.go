@@ -28,7 +28,7 @@ func TestMsgStore(t *testing.T) {
 		ms := NewMsgStore()
 		proposals := ms.Get(func(m message.Msg) bool {
 			return m.Code() == message.ProposalCode
-		}, height)
+		}, height, nil)
 		assert.Equal(t, 0, len(proposals))
 	})
 
@@ -42,8 +42,9 @@ func TestMsgStore(t *testing.T) {
 		// check equivocated msg is also stored at msg store.
 		votes := ms.Get(func(m message.Msg) bool {
 			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round
-		}, height, addrAlice)
+		}, height, &addrAlice)
 		assert.Equal(t, 2, len(votes))
+		assert.Equal(t, 1, votes[0].(*message.Prevote).Signers().Len())
 	})
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
@@ -53,12 +54,13 @@ func TestMsgStore(t *testing.T) {
 
 		votes := ms.Get(func(m message.Msg) bool {
 			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Value() == NilValue
-		}, height, addrAlice)
+		}, height, &addrAlice)
 
 		assert.Equal(t, 1, len(votes))
 		assert.Equal(t, message.PrevoteCode, votes[0].Code())
 		assert.Equal(t, height, votes[0].H())
 		assert.Equal(t, round, votes[0].R())
+		assert.Equal(t, 1, votes[0].(*message.Prevote).Signers().Len())
 		assert.Equal(t, true, votes[0].(message.Vote).Signers().Contains(proposerIdx))
 		assert.Equal(t, NilValue, votes[0].Value())
 	})
@@ -73,7 +75,7 @@ func TestMsgStore(t *testing.T) {
 
 		votes := ms.Get(func(m message.Msg) bool {
 			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round
-		}, height)
+		}, height, nil)
 
 		assert.Equal(t, 2, len(votes))
 		assert.Equal(t, message.PrevoteCode, votes[0].Code())
@@ -82,6 +84,8 @@ func TestMsgStore(t *testing.T) {
 		assert.Equal(t, round, votes[0].R())
 		assert.Equal(t, height, votes[1].H())
 		assert.Equal(t, round, votes[1].R())
+		assert.Equal(t, 1, votes[0].(*message.Prevote).Signers().Len())
+		assert.Equal(t, 1, votes[1].(*message.Prevote).Signers().Len())
 	})
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
@@ -93,7 +97,7 @@ func TestMsgStore(t *testing.T) {
 		ms.DeleteOlds(height)
 		votes := ms.Get(func(m message.Msg) bool {
 			return m.H() == height
-		}, height)
+		}, height, nil)
 		assert.Equal(t, 0, len(votes))
 	})
 
@@ -116,5 +120,7 @@ func TestMsgStore(t *testing.T) {
 		assert.Equal(t, message.PrevoteCode, votes[1].Code())
 		assert.NotEqual(t, v, votes[0].Value())
 		assert.NotEqual(t, v, votes[1].Value())
+		assert.Equal(t, 1, votes[0].(*message.Prevote).Signers().Len())
+		assert.Equal(t, 1, votes[1].(*message.Prevote).Signers().Len())
 	})
 }
