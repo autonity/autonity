@@ -73,6 +73,11 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, 
 	return res, consumed, nil
 }
 
+type Committee struct {
+	validators      []AutonityValidator
+	liquidContracts []*Liquid
+}
+
 type runner struct {
 	t      *testing.T
 	evm    *vm.EVM
@@ -91,12 +96,18 @@ type runner struct {
 	stakableVesting     *StakableVesting
 	nonStakableVesting  *NonStakableVesting
 
-	validators []AutonityValidator // genesis validators for easy access
+	committee Committee // genesis validators for easy access
 }
 
 func (r *runner) NoError(gasConsumed uint64, err error) uint64 {
 	require.NoError(r.t, err)
 	return gasConsumed
+}
+
+func (r *runner) liquidContract(v AutonityValidator) *Liquid {
+	abi, err := LiquidMetaData.GetAbi()
+	require.NoError(r.t, err)
+	return &Liquid{&contract{v.LiquidContract, abi, r}}
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -110,6 +121,8 @@ func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 	}
 	gas := uint64(math.MaxUint64)
 	ret, leftOver, err := r.evm.Call(vm.AccountRef(r.evm.Origin), addr, input, gas, value)
+	r.evm.StateDB.SubBalance(r.evm.Origin, value)
+	r.evm.StateDB.AddBalance(addr, value)
 	return ret, gas - leftOver, err
 }
 
@@ -136,6 +149,10 @@ func (r *runner) run(name string, f func(r *runner)) {
 	})
 }
 
+func (r *runner) giveMeSomeMoney(user common.Address, amount *big.Int) { //nolint
+	r.evm.StateDB.AddBalance(user, amount)
+}
+
 func (r *runner) getBalanceOf(account common.Address) *big.Int { //nolint
 	return r.evm.StateDB.GetBalance(account)
 }
@@ -159,6 +176,8 @@ func (r *runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte,
 
 func (r *runner) waitNBlocks(n int) { //nolint
 	start := r.evm.Context.BlockNumber
+	epochID, _, err := r.autonity.EpochID(nil)
+	require.NoError(r.t, err)
 	for i := 0; i < n; i++ {
 		// Finalize is not the only block closing operation - fee redistribution is missing and prob
 		// other stuff. Left as todo.
@@ -167,6 +186,11 @@ func (r *runner) waitNBlocks(n int) { //nolint
 		require.NoError(r.t, err, "finalize function error in waitNblocks", i)
 		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
 		r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
+	}
+	newEpochID, _, err := r.autonity.EpochID(nil)
+	require.NoError(r.t, err)
+	if newEpochID.Cmp(epochID) != 0 {
+		r.generateNewCommittee()
 	}
 }
 
@@ -178,6 +202,19 @@ func (r *runner) waitNextEpoch() { //nolint
 	nextEpochBlock := new(big.Int).Add(epochPeriod, lastEpochBlock)
 	diff := new(big.Int).Sub(nextEpochBlock, r.evm.Context.BlockNumber)
 	r.waitNBlocks(int(diff.Uint64() + 1))
+	r.generateNewCommittee()
+}
+
+func (r *runner) generateNewCommittee() {
+	committeeMembers, _, err := r.autonity.GetCommittee(nil)
+	require.NoError(r.t, err)
+	r.committee.validators = make([]AutonityValidator, len(committeeMembers))
+	for i, member := range committeeMembers {
+		validator, _, err := r.autonity.GetValidator(nil, member.Addr)
+		require.NoError(r.t, err)
+		r.committee.validators[i] = validator
+		r.committee.liquidContracts[i] = r.liquidContract(validator)
+	}
 }
 
 func (r *runner) waitSomeBlock(endTime int64) int64 { //nolint
@@ -196,7 +233,8 @@ func (r *runner) waitSomeEpoch(endTime int64) int64 {
 }
 
 func (r *runner) sendAUT(sender, recipient common.Address, value *big.Int) { //nolint
-	//...
+	r.evm.StateDB.SubBalance(sender, value)
+	r.evm.StateDB.AddBalance(recipient, value)
 }
 
 func initalizeEVM() (*vm.EVM, error) {
@@ -237,15 +275,22 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	//
 	// Step 1: Autonity Contract Deployment
 	//
-	r.validators = make([]AutonityValidator, 0, len(params.TestAutonityContractConfig.Validators))
+	r.committee.validators = make([]AutonityValidator, 0, len(params.TestAutonityContractConfig.Validators))
 	for _, v := range params.TestAutonityContractConfig.Validators {
-		r.validators = append(r.validators, genesisToAutonityVal(v))
+		validator := genesisToAutonityVal(v)
+		r.committee.validators = append(r.committee.validators, validator)
 	}
-	_, _, r.autonity, err = r.deployAutonity(nil, r.validators, defaultAutonityConfig)
+	_, _, r.autonity, err = r.deployAutonity(nil, r.committee.validators, defaultAutonityConfig)
 	require.NoError(t, err)
 	require.Equal(t, r.autonity.address, params.AutonityContractAddress)
 	_, err = r.autonity.FinalizeInitialization(nil)
 	require.NoError(t, err)
+	r.committee.liquidContracts = make([]*Liquid, 0, len(params.TestAutonityContractConfig.Validators))
+	for _, v := range params.TestAutonityContractConfig.Validators {
+		validator, _, err := r.autonity.GetValidator(nil, *v.NodeAddress)
+		require.NoError(r.t, err)
+		r.committee.liquidContracts = append(r.committee.liquidContracts, r.liquidContract(validator))
+	}
 	//
 	// Step 2: Accountability Contract Deployment
 	//

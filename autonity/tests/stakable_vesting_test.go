@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 
 var fromAutonity = &runOptions{origin: params.AutonityContractAddress}
 
-var reward = big.NewInt(1000000000)
+var reward = big.NewInt(1000_000_000_000_000_000)
 
 func TestBondingGasConsumption(t *testing.T) {
 	r := setup(t, nil)
@@ -23,11 +24,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	for i := 0; i < scheduleCount; i++ {
 		createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
 	}
-	committee, _, err := r.autonity.GetCommittee(nil)
-	require.NoError(r.t, err)
-	validator := committee[0].Addr
-	validators, _, err := r.autonity.GetValidators(nil)
-	require.NoError(r.t, err)
+	validator := r.committee.validators[0].NodeAddress
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
 	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
@@ -42,7 +39,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	r.waitNextEpoch()
 
 	r.run("single bond", func(r *runner) {
-		bondingID := len(validators) + 1
+		bondingID := len(r.committee.validators) + 1
 		var iteration int64 = 10
 		bondingAmount := big.NewInt(scheduleTotalAmount / iteration)
 		for ; iteration > 0; iteration-- {
@@ -58,14 +55,10 @@ func TestBondingGasConsumption(t *testing.T) {
 	})
 
 	r.run("multiple bonding", func(r *runner) {
-		validatorInfo, _, err := r.autonity.GetValidator(nil, validator)
-		require.NoError(r.t, err)
-		abi, err := LiquidMetaData.GetAbi()
-		require.NoError(r.t, err)
-		liquidContract := &Liquid{&contract{validatorInfo.LiquidContract, abi, r}}
+		liquidContract := r.committee.liquidContracts[0]
 		oldLiquidBalance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
-		bondingID := len(validators) + 1
+		bondingID := len(r.committee.validators) + 1
 		bondingAmount := big.NewInt(scheduleTotalAmount)
 		for i := 1; i < scheduleCount; i++ {
 			r.NoError(
@@ -93,7 +86,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	})
 
 	r.run("bonding rejected", func(r *runner) {
-		bondingID := len(validators) + 1
+		bondingID := len(r.committee.validators) + 1
 		bondingAmount := big.NewInt(scheduleTotalAmount)
 		gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, bondingID, common.Big0, bondingAmount, bondingGas, true)
 		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedBond)), stakingGas)
@@ -115,9 +108,7 @@ func TestUnbondingGasConsumption(t *testing.T) {
 	for i := 0; i < scheduleCount; i++ {
 		createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
 	}
-	committee, _, err := r.autonity.GetCommittee(nil)
-	require.NoError(r.t, err)
-	validator := committee[0].Addr
+	validator := r.committee.validators[0].NodeAddress
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
 	unbondingGas, _, err := r.stakableVesting.RequiredUnbondingGasCost(nil)
@@ -268,7 +259,7 @@ func TestBonding(t *testing.T) {
 	validator := validators[0]
 	liquidContract := liquidContracts[0]
 
-	r.run("can bond all funds before cliff", func(r *runner) {
+	r.run("can bond all funds before cliff but not before start", func(r *runner) {
 		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(start+1)) < 0, "schedule started already")
 		bondingAmount := big.NewInt(scheduleTotalAmount / 2)
 		_, err := r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), scheduleID, validator, bondingAmount)
@@ -531,16 +522,47 @@ func TestStakingRevert(t *testing.T) {
 	})
 }
 
-func TestRwardTracking(t *testing.T) {
+func TestBalanceTransfer(t *testing.T) {
 	r := setup(t, nil)
 	var scheduleTotalAmount int64 = 1000
 	start := 100 + r.evm.Context.Time.Int64()
 	cliff := 500 + start
 	// by making (end - start == scheduleTotalAmount) we have (totalUnlocked = currentTime - start)
 	end := scheduleTotalAmount + start
-	validatorCount := 2
+	createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
+	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
+	require.NoError(r.t, err)
+	scheduleID := common.Big0
+	money := new(big.Int).Mul(big.NewInt(10), bondingGas)
+	r.giveMeSomeMoney(user, money)
+
+	r.run("test", func(r *runner) {
+		bondingAmount := big.NewInt(scheduleTotalAmount)
+		balance := r.getBalanceOf(user)
+		fmt.Printf("user balance %v\n", balance)
+		balance = r.getBalanceOf(r.autonity.address)
+		fmt.Printf("autonity contract balance %v\n", balance)
+		balance = r.getBalanceOf(r.stakableVesting.address)
+		fmt.Printf("vesting contract balance %v\n", balance)
+		r.stakableVesting.Bond(fromSender(user, bondingGas), scheduleID, r.committee.validators[0].NodeAddress, bondingAmount)
+		balance = r.getBalanceOf(user)
+		fmt.Printf("user balance %v\n", balance)
+		balance = r.getBalanceOf(r.autonity.address)
+		fmt.Printf("autonity contract balance %v\n", balance)
+		balance = r.getBalanceOf(r.stakableVesting.address)
+		fmt.Printf("vesting contract balance %v\n", balance)
+	})
+}
+
+func TestRwardTracking(t *testing.T) {
+	r := setup(t, nil)
+	var scheduleTotalAmount int64 = 1000_000_000
+	start := 100 + r.evm.Context.Time.Int64()
+	cliff := 500 + start
+	// by making (end - start == scheduleTotalAmount) we have (totalUnlocked = currentTime - start)
+	end := scheduleTotalAmount + start
 	scheduleCount := 2
-	users, validators, liquidContracts := setupSchedules(r, scheduleCount, validatorCount, scheduleTotalAmount, start, cliff, end)
+	users, validdators, liquidContracts := setupSchedules(r, scheduleCount, 2, scheduleTotalAmount, start, cliff, end)
 
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
@@ -550,11 +572,16 @@ func TestRwardTracking(t *testing.T) {
 	// for testing single unbonding
 	beneficiary := users[0]
 	scheduleID := common.Big0
-	validator := validators[0]
+	validator := validdators[0]
 	liquidContract := liquidContracts[0]
 
 	// start schedule to bond
 	r.waitSomeBlock(start + 1)
+
+	initBalance := big.NewInt(1000_000_000_000_000_000)
+	for _, user := range users {
+		r.giveMeSomeMoney(user, initBalance)
+	}
 
 	r.run("bond and get reward", func(r *runner) {
 		bondingAmount := big.NewInt(scheduleTotalAmount)
@@ -563,30 +590,28 @@ func TestRwardTracking(t *testing.T) {
 		)
 		r.waitNextEpoch()
 
-		// TODO: send auto to autonity
+		r.autonity.ReceiveAut(fromSender(user, reward))
 		r.waitNextEpoch()
 		rewardOfContract, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
+		fmt.Printf("contract reward %v\n", rewardOfContract)
 		require.True(r.t, rewardOfContract.UnclaimedNTN.Cmp(common.Big0) > 0, "no NTN reward")
-		// TODO: resolve
-		// require.True(r.t, rewardOfContract.UnclaimedATN.Cmp(common.Big0) > 0, "no ATN reward")
+		require.True(r.t, rewardOfContract.UnclaimedATN.Cmp(common.Big0) > 0, "no ATN reward")
 		rewardOfUser, _, err := r.stakableVesting.UnclaimedRewards(nil, beneficiary)
 		require.NoError(r.t, err)
-		// TODO: resolve
-		// require.Equal(r.t, rewardOfContract.UnclaimedATN, rewardOfUser.AtnTotalFee, "ATN reward mismatch")
+		require.Equal(r.t, rewardOfContract.UnclaimedATN, rewardOfUser.AtnTotalFee, "ATN reward mismatch")
 		require.Equal(r.t, rewardOfContract.UnclaimedNTN, rewardOfUser.NtnTotalFee, "NTN reward mismatch")
 		balanceNTN, _, err := r.autonity.BalanceOf(nil, beneficiary)
 		require.NoError(r.t, err)
-		// balanceATN := r.getBalanceOf(beneficiary)
+		balanceATN := r.getBalanceOf(beneficiary)
 		r.NoError(
 			r.stakableVesting.ClaimRewards(fromSender(beneficiary, nil)),
 		)
 		newBalanceNTN, _, err := r.autonity.BalanceOf(nil, beneficiary)
 		require.NoError(r.t, err)
 		require.Equal(r.t, new(big.Int).Add(balanceNTN, rewardOfUser.NtnTotalFee), newBalanceNTN, "NTN reward not claimed")
-		// TODO: resolve
-		// newBalanceATN := r.getBalanceOf(beneficiary)
-		// require.Equal(r.t, new(big.Int).Add(balanceATN, rewardOfUser.AtnTotalFee), newBalanceATN, "ATN reward not claimed")
+		newBalanceATN := r.getBalanceOf(beneficiary)
+		require.Equal(r.t, new(big.Int).Add(balanceATN, rewardOfUser.AtnTotalFee), newBalanceATN, "ATN reward not claimed")
 	})
 
 	r.run("bond in differenet epoch and track reward", func(r *runner) {
@@ -661,7 +686,7 @@ func TestAccessRestriction(t *testing.T) {
 
 func setupSchedules(
 	r *runner, scheduleCount, validatorCount int, scheduleTotalAmount, start, cliff, end int64,
-) (users []common.Address, validators []common.Address, liquidContracts []*Liquid) {
+) (users, validators []common.Address, liquidContracts []*Liquid) {
 	users = make([]common.Address, 2)
 	users[0] = user
 	users[1] = common.HexToAddress("0x88")
@@ -673,17 +698,11 @@ func setupSchedules(
 	}
 
 	// use multiple validators
-	committee, _, err := r.autonity.GetCommittee(nil)
-	require.NoError(r.t, err)
 	validators = make([]common.Address, validatorCount)
 	liquidContracts = make([]*Liquid, validatorCount)
-	abi, err := LiquidMetaData.GetAbi()
-	require.NoError(r.t, err)
 	for i := 0; i < validatorCount; i++ {
-		validators[i] = committee[i].Addr
-		validatorInfo, _, err := r.autonity.GetValidator(nil, validators[i])
-		require.NoError(r.t, err)
-		liquidContracts[i] = &Liquid{&contract{validatorInfo.LiquidContract, abi, r}}
+		validators[i] = r.committee.validators[i].NodeAddress
+		liquidContracts[i] = r.committee.liquidContracts[i]
 	}
 	return
 }
