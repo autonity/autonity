@@ -83,6 +83,40 @@ func TestDecodeProof(t *testing.T) {
 		assert.Equal(t, proposal.Signature(), decodeProof.Message.Signature())
 		assert.Equal(t, preCommit.Signature(), decodeProof.Evidences[0].Signature())
 	})
+
+	t.Run("encode and decode with aggregated msgs", func(t *testing.T) {
+		var p Proof
+		p.Rule = autonity.PO
+		p.Message = proposal
+
+		var votes []message.Vote
+		for i, c := range committee {
+			pc := message.NewPrecommit(0, height, proposal.Value(), makeSigner(keys[i]), &c, cSize)
+			votes = append(votes, pc)
+		}
+		aggVote := message.AggregatePrecommits(votes)
+		p.Evidences = append(p.Evidences, aggVote)
+
+		rp, err := rlp.EncodeToBytes(&p)
+		assert.NoError(t, err)
+
+		decodeProof, err := decodeRawProof(rp)
+		assert.NoError(t, err)
+		assert.Equal(t, autonity.PO, decodeProof.Rule)
+		assert.Equal(t, proposal.Signature(), decodeProof.Message.Signature())
+
+		lastHeader := newBlockHeader(height-1, committee)
+		err = verifyProofSignatures(lastHeader, decodeProof)
+		require.NoError(t, err)
+
+		aVote := p.Evidences[0].(*message.Precommit)
+		for i, _ := range committee {
+			require.True(t, aVote.Signers().Contains(i))
+		}
+		require.Equal(t, height, aVote.H())
+		require.Equal(t, int64(0), aVote.R())
+		require.Equal(t, proposal.Value(), aVote.Value())
+	})
 }
 
 func TestAccusationVerifier(t *testing.T) {
