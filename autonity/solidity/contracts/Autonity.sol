@@ -290,6 +290,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
+     * @notice can be used to send AUT to the contract
+     */
+    function receiveAut() external payable {
+        // do nothing
+    }
+
+    /**
     * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
     *
     */
