@@ -202,21 +202,9 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		return err
 	}
 
-	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(fd.blockchain, proof.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
-		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
-		return nil
-	}
-
 	// verify proof signatures at last since it is more cost-full than other checkers.
 	if err = verifyProofSignatures(lastHeader, proof); err != nil {
 		return err
-	}
-
-	// offenderIndex range was checked, now if the suspected msg's sender is not current peer,
-	// then it would be a DoS attack, drop the peer with an error returned.
-	if lastHeader.Committee[proof.OffenderIndex].Address != fd.address {
-		return errInvalidAccusation
 	}
 
 	// handle accusation and provide innocence proof.
@@ -233,6 +221,17 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash,
 	committee types.Committee) error {
+	// offenderIndex range was checked, now if the suspected msg's sender is not current peer,
+	// then it would be a DoS attack, drop the peer with an error returned.
+	if committee[accusation.OffenderIndex].Address != fd.address {
+		return errInvalidAccusation
+	}
+
+	// last param represent the current height for which we are doing consensus (lastBlock + 1)
+	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
+		return nil
+	}
 
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
 	if !verifyAccusation(accusation, committee) {

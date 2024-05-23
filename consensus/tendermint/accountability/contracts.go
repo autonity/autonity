@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"math/big"
 
@@ -28,6 +29,9 @@ var (
 	errTooRecentAccusation = errors.New("accusation is too recent")
 	errTooOldAccusation    = errors.New("accusation is too old")
 	errValueCommitted      = errors.New("accusation is for a committed value")
+	errProofOffender       = errors.New("accountability proof contains invalid offender")
+	errProofMsgCode        = errors.New("accountability proof contains invalid msg code")
+	errMaxEvidences        = errors.New("above max evidence threshold")
 )
 
 const KB = 1024
@@ -824,6 +828,11 @@ func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 		return errNotCommitteeMsg
 	}
 
+	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
+	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
+		return errMaxEvidences
+	}
+
 	h := p.Message.H()
 	for _, msg := range p.Evidences {
 		if msg.H() != h {
@@ -838,11 +847,27 @@ func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 			return err
 		}
 	}
+
+	// check offender idx match with the p.Message.Signer() or Signers().Has(offenderIdx)
+	switch m := p.Message.(type) {
+	case *message.LightProposal:
+		if lastHeader.Committee[p.OffenderIndex].Address != m.Signer() {
+			return errProofOffender
+		}
+
+	case *message.Prevote, *message.Precommit:
+		vote1 := p.Message.(message.Vote)
+		if !vote1.Signers().Contains(p.OffenderIndex) {
+			return errProofOffender
+		}
+	default:
+		return errProofMsgCode
+	}
 	return nil
 }
 
 func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bool {
-	if len(proof.Evidences) == 0 {
+	if len(proof.Evidences) != 1 {
 		return false
 	}
 
@@ -860,7 +885,8 @@ func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bo
 		}
 
 		if msg1.H() == msg2.H() && msg1.R() == msg2.R() && msg1.Signer() == msg2.Signer() &&
-			msg1.Signer() == committee[proof.OffenderIndex].Address && msg1.Hash() != msg2.Hash() {
+			msg1.Signer() == committee[proof.OffenderIndex].Address &&
+			(msg1.Value() != msg2.Value() || msg1.ValidRound() != msg2.ValidRound()) {
 			return true
 		}
 
@@ -879,7 +905,7 @@ func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bo
 			return false
 		}
 
-		if vote1.H() == vote2.H() && vote1.R() == vote2.R() && msg1.Hash() != vote2.Hash() {
+		if vote1.H() == vote2.H() && vote1.R() == vote2.R() && msg1.Value() != vote2.Value() {
 			return true
 		}
 
@@ -902,4 +928,12 @@ func validReturn(m message.Msg, signer common.Address, rule autonity.Rule) []byt
 	copy(result[96:128], block)
 	copy(result[128:160], m.Hash().Bytes())
 	return result
+}
+
+func maxEvidenceMessages(header *types.Header) int {
+	committeeSize := len(header.Committee)
+	if committeeSize > constants.MaxRound {
+		return committeeSize + 1
+	}
+	return constants.MaxRound + 1
 }

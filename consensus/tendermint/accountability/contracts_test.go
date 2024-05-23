@@ -1079,7 +1079,7 @@ func TestVerifyProofSignatures(t *testing.T) {
 
 	t.Run("normal case, proposal msg is checked correctly", func(t *testing.T) {
 		proposal := newValidatedProposalMessage(height, round, -1, signer, committee, nil, proposerIdx)
-		err := verifyProofSignatures(currentHeader, &Proof{Message: proposal})
+		err := verifyProofSignatures(currentHeader, &Proof{Message: proposal.ToLight()})
 		require.Nil(t, err)
 	})
 

@@ -1274,8 +1274,7 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 		// todo(youssef) : again validValue missing here
 		return p.R() == proposal.R() &&
 			p.Signer() == proposal.Signer() &&
-			p.Value() != proposal.Value() &&
-			p.ValidRound() == proposal.ValidRound()
+			(p.Value() != proposal.Value() || p.ValidRound() != proposal.ValidRound())
 	})
 
 	if len(equivocated) > 0 {

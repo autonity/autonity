@@ -88,15 +88,7 @@ func newValidatedProposalMessage(h uint64, r int64, vr int64, signer message.Sig
 		header := newBlockHeader(h, committee)
 		block = types.NewBlockWithHeader(header)
 	}
-	p := message.NewPropose(r, h, vr, block, signer, &committee[idx])
-	lastHeader := newBlockHeader(h-1, committee)
-	if err := p.PreValidate(lastHeader); err != nil {
-		panic(err)
-	}
-	if err := p.Validate(); err != nil {
-		panic(err)
-	}
-	return p
+	return message.NewPropose(r, h, vr, block, signer, &committee[idx])
 }
 
 func TestSameVote(t *testing.T) {
