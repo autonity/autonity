@@ -4,11 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-
 	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ethcore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
@@ -88,4 +87,8 @@ type Core interface {
 	Proposer() Proposer
 	Prevoter() Prevoter
 	Precommiter() Precommiter
+}
+
+type EventDispatcher interface {
+	Post(ev any)
 }

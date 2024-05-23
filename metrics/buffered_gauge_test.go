@@ -28,6 +28,41 @@ func TestBufferedGauge(t *testing.T) {
 	require.Equal(t, 0, g.Len())
 }
 
+func TestLowCapacityBufferedGauge(t *testing.T) {
+	t.Run("0 capacity", func(t *testing.T) {
+		capacity := 0
+		g := NewBufferedGauge(&capacity)
+		g.Add(int64(47))
+		require.Equal(t, 1, g.Len())
+		values := g.Values()
+		require.Equal(t, int64(47), values[0].Value())
+		g.Clear()
+		require.Equal(t, 0, g.Len())
+	})
+
+	t.Run("-ve capacity", func(t *testing.T) {
+		capacity := -1
+		g := NewBufferedGauge(&capacity)
+		g.Add(int64(47))
+		require.Equal(t, 1, g.Len())
+		values := g.Values()
+		require.Equal(t, int64(47), values[0].Value())
+		g.Clear()
+		require.Equal(t, 0, g.Len())
+	})
+
+	t.Run("1 capacity", func(t *testing.T) {
+		capacity := 1
+		g := NewBufferedGauge(&capacity)
+		g.Add(int64(47))
+		require.Equal(t, 1, g.Len())
+		values := g.Values()
+		require.Equal(t, int64(47), values[0].Value())
+		g.Clear()
+		require.Equal(t, 0, g.Len())
+	})
+}
+
 func TestBufferedGaugeOversized(t *testing.T) {
 	capacity := 5
 	g := NewBufferedGauge(&capacity)

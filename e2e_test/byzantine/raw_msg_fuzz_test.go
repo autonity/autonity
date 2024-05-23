@@ -1,6 +1,12 @@
 package byzantine
 
 import (
+	"math/big"
+	"math/rand"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
@@ -8,10 +14,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"math/rand"
-	"testing"
 )
 
 /**
@@ -34,11 +36,11 @@ type rawMSGFuzzer struct {
 
 // Faulty node keeps broadcasting fuzz raw message to committee. Every input message of this interface will be fuzzed.
 func (fg *rawMSGFuzzer) Gossip(committee types.Committee, msg message.Msg) {
-	targets := make(map[common.Address]struct{})
+	targets := make([]common.Address, 0)
 	i := 0
 	for _, val := range committee {
 		if val.Address != fg.address {
-			targets[val.Address] = struct{}{}
+			targets = append(targets, val.Address)
 		}
 		i++
 	}

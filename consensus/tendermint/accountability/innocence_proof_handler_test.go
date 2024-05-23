@@ -8,15 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	ccore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -133,19 +132,18 @@ func TestFaultDetector_sendOffChainInnocenceProof(t *testing.T) {
 	chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 	accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-	fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+	messageCh := make(chan events.MessageEvent, 10)
+	fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 	broadcasterMock := consensus.NewMockBroadcaster(ctrl)
 	fd.SetBroadcaster(broadcasterMock)
 
 	payload := make([]byte, 128)
 
-	targets := make(map[common.Address]struct{})
-	targets[remotePeer] = struct{}{}
-	mockedPeer := tendermint.NewMockPeer(ctrl)
+	mockedPeer := consensus.NewMockPeer(ctrl)
 	mockedPeer.EXPECT().Send(backend.AccountabilityNetworkMsg, payload).MaxTimes(1)
-	peers := make(map[common.Address]ethereum.Peer)
+	peers := make(map[common.Address]consensus.Peer)
 	peers[remotePeer] = mockedPeer
-	broadcasterMock.EXPECT().FindPeers(targets).Return(peers)
+	broadcasterMock.EXPECT().FindPeer(remotePeer).Return(mockedPeer, true)
 	fd.sendOffChainInnocenceProof(remotePeer, payload)
 	// wait for msg send routine to be terminated.
 	<-time.NewTimer(2 * time.Second).C
@@ -161,7 +159,8 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 	accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-	fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+	messageCh := make(chan events.MessageEvent, 10)
+	fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 	broadcasterMock := consensus.NewMockBroadcaster(ctrl)
 	fd.SetBroadcaster(broadcasterMock)
@@ -176,13 +175,11 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	payload, err := rlp.EncodeToBytes(&accusation)
 	require.NoError(t, err)
 
-	targets := make(map[common.Address]struct{})
-	targets[remotePeer] = struct{}{}
-	mockedPeer := tendermint.NewMockPeer(ctrl)
+	mockedPeer := consensus.NewMockPeer(ctrl)
 	mockedPeer.EXPECT().Send(backend.AccountabilityNetworkMsg, payload).MaxTimes(1)
-	peers := make(map[common.Address]ethereum.Peer)
+	peers := make(map[common.Address]consensus.Peer)
 	peers[remotePeer] = mockedPeer
-	broadcasterMock.EXPECT().FindPeers(targets).Return(peers)
+	broadcasterMock.EXPECT().FindPeer(remotePeer).Return(mockedPeer, true)
 	fd.sendOffChainAccusationMsg(&accusation)
 	// wait for msg send routine to be terminated.
 	<-time.NewTimer(2 * time.Second).C
@@ -207,7 +204,8 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		fd.addOffChainAccusation(&accusation)
 		require.Equal(t, 1, len(fd.offChainAccusations))
@@ -240,7 +238,8 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		fd.addOffChainAccusation(&accusationPO)
 		fd.addOffChainAccusation(&accusationC1)
@@ -286,7 +285,8 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		fd.addOffChainAccusation(&accusationPO)
 		fd.addOffChainAccusation(&accusationC1)
@@ -326,7 +326,8 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		fd.addOffChainAccusation(&accusationPO)
 		fd.addOffChainAccusation(&accusationC1)
@@ -356,7 +357,8 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 	t.Run("malicious accusation with duplicated msg", func(t *testing.T) {
 		ms := core.NewMsgStore()
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-		fd := NewFaultDetector(chainMock, proposer, nil, ms, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, nil, ms, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 		proposal := newProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		var accusationPO = Proof{
 			Type:      autonity.Accusation,
@@ -389,7 +391,8 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 
 	t.Run("accusation is not from committee member", func(t *testing.T) {
 		accountability, _ := autonity.NewAccountability(sender, backends.NewSimulatedBackend(ccore.GenesisAlloc{sender: {Balance: big.NewInt(params.Ether)}}, 10000000))
-		fd := NewFaultDetector(chainMock, sender, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, sender, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		proposal := newProposalMessage(accusationHeight, round, validRound, signer, committee, nil).MustVerify(stubVerifier)
 		var accusationPO = Proof{
@@ -422,7 +425,8 @@ func TestHandleOffChainAccusation(t *testing.T) {
 	chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 	accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
-	fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+	messageCh := make(chan events.MessageEvent, 10)
+	fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 	t.Run("accusation with invalid proof of wrong signature", func(t *testing.T) {
 		var p Proof
@@ -453,7 +457,8 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		hash := crypto.Hash(payLoad)
 		mStore := core.NewMsgStore()
 
-		fd := NewFaultDetector(chainMock, proposer, nil, mStore, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+		messageCh := make(chan events.MessageEvent, 10)
+		fd := NewFaultDetector(chainMock, proposer, nil, mStore, nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 		// save corresponding prevotes in msg store.
 		for i := range committee {
@@ -487,7 +492,8 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 	chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 	chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 	accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
-	fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+	messageCh := make(chan events.MessageEvent, 10)
+	fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerKey, &autonity.ProtocolContracts{Accountability: accountability}, messageCh, log.Root())
 
 	t.Run("innocence proof is invalid without any evidence", func(t *testing.T) {
 		var p Proof

@@ -4,9 +4,8 @@ import (
 	"math/big"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
-
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -15,21 +14,21 @@ import (
 )
 
 type Gossiper struct {
-	recentMessages *lru.ARCCache  // the cache of peer's messages
-	knownMessages  *lru.ARCCache  // the cache of self messages
-	address        common.Address // address of the local peer
-	broadcaster    consensus.Broadcaster
-	logger         log.Logger
-	stopped        chan struct{}
+	knownMessages      *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	address            common.Address                         // address of the local peer
+	broadcaster        consensus.Broadcaster
+	logger             log.Logger
+	stopped            chan struct{}
+	concurrencyLimiter chan struct{}
 }
 
-func NewGossiper(recentMessages *lru.ARCCache, knownMessages *lru.ARCCache, address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
+func NewGossiper(knownMessages *fixsizecache.Cache[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
 	return &Gossiper{
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		address:        address,
-		logger:         logger,
-		stopped:        stopped,
+		knownMessages:      knownMessages,
+		address:            address,
+		logger:             logger,
+		stopped:            stopped,
+		concurrencyLimiter: make(chan struct{}, 64),
 	}
 }
 
@@ -41,11 +40,7 @@ func (g *Gossiper) Broadcaster() consensus.Broadcaster {
 	return g.broadcaster
 }
 
-func (g *Gossiper) RecentMessages() *lru.ARCCache {
-	return g.recentMessages
-}
-
-func (g *Gossiper) KnownMessages() *lru.ARCCache {
+func (g *Gossiper) KnownMessages() *fixsizecache.Cache[common.Hash, bool] {
 	return g.knownMessages
 }
 
@@ -59,42 +54,41 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 
 func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 	hash := message.Hash()
-	g.knownMessages.Add(hash, true)
-	targets := make(map[common.Address]struct{})
-	for _, val := range committee {
-		if val.Address != g.address {
-			targets[val.Address] = struct{}{}
-		}
+	if !g.knownMessages.Contains(hash) {
+		g.knownMessages.Add(hash, true)
 	}
-	if g.broadcaster != nil && len(targets) > 0 {
-		ps := g.broadcaster.FindPeers(targets)
-		for addr, p := range ps {
-			ms, ok := g.recentMessages.Get(addr)
-			var m *lru.ARCCache
-			if ok {
-				m, _ = ms.(*lru.ARCCache)
-				if _, k := m.Get(hash); k {
-					// This peer had this event, skip it
-					continue
-				}
-			} else {
-				m, _ = lru.NewARC(inmemoryMessages)
+	if g.broadcaster == nil {
+		return
+	}
+	code := NetworkCodes[message.Code()]
+	payload := message.Payload()
+	for _, val := range committee {
+		if val.Address == g.address {
+			continue
+		}
+		if p, ok := g.broadcaster.FindPeer(val.Address); ok {
+			if p.Cache().Contains(hash) {
+				// This peer had this event, skip it
+				continue
 			}
-
-			m.Add(hash, true)
-			g.recentMessages.Add(addr, m)
-
-			go p.SendRaw(NetworkCodes[message.Code()], message.Payload()) //nolint
+			p.Cache().Add(hash, true)
+			g.concurrencyLimiter <- struct{}{}
+			go func() {
+				defer func() {
+					<-g.concurrencyLimiter
+				}()
+				p.SendRaw(code, payload) //nolint
+			}()
 		}
 	}
 }
 
 func (g *Gossiper) AskSync(header *types.Header) {
 
-	targets := make(map[common.Address]struct{})
+	targets := make([]common.Address, 0, len(header.Committee))
 	for _, val := range header.Committee {
 		if val.Address != g.address {
-			targets[val.Address] = struct{}{}
+			targets = append(targets, val.Address)
 		}
 	}
 

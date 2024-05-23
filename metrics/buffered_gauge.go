@@ -41,9 +41,12 @@ func NewBufferedGauge(capacity *int) BufferedGauge {
 	if !Enabled {
 		return NilBufferedGauge{}
 	}
-
-	if capacity == nil || *capacity < 0 {
-		c := BufferedGaugeDefaultCapacity
+	var c int
+	if capacity == nil {
+		c = BufferedGaugeDefaultCapacity
+		capacity = &c
+	} else if capacity != nil && *capacity < 1 {
+		c = 1 // minimum capacity
 		capacity = &c
 	}
 

@@ -2,13 +2,18 @@ package backend
 
 import (
 	"bytes"
+	"context"
+	"io"
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
+	"github.com/autonity/autonity/common/fixsizecache"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-
-	"github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/event"
@@ -23,10 +28,27 @@ func TestTendermintMessage(t *testing.T) {
 	data := message.NewPrevote(1, 2, common.Hash{}, testSigner)
 	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
+	if err := backend.Close(); err != nil { // close engine to avoid race while updating the broadcaster
+		t.Fatalf("can't stop the engine")
+	}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockedPeer := consensus.NewMockPeer(ctrl)
+	broadcaster := consensus.NewMockBroadcaster(ctrl)
+	addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
+	mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
+	broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
+	backend.SetBroadcaster(broadcaster)
+
+	if err := backend.Start(context.Background()); err != nil {
+		t.Fatalf("could not restart core")
+	}
 	// 1. this message should not be in cache
 	// for peers
-	if _, ok := backend.recentMessages.Get(testAddress); ok {
-		t.Fatalf("the cache of messages for this peer should be nil")
+	if peer, ok := backend.Broadcaster.FindPeer(testAddress); ok {
+		if peer.Cache().Contains(data.Hash()) {
+			t.Fatalf("the cache of messages for this peer should be empty")
+		}
 	}
 
 	// for self
@@ -41,12 +63,11 @@ func TestTendermintMessage(t *testing.T) {
 		t.Fatalf("handle message failed: %v", err)
 	}
 	// for peers
-	if ms, ok := backend.recentMessages.Get(testAddress); ms == nil || !ok {
-		t.Fatalf("the cache of messages for this peer cannot be nil")
-	} else if m, ok := ms.(*lru.ARCCache); !ok {
-		t.Fatalf("the cache of messages for this peer cannot be casted")
-	} else if _, ok := m.Get(data.Hash()); !ok {
-		t.Fatalf("the cache of messages for this peer cannot be found")
+	if peer, ok := backend.Broadcaster.FindPeer(testAddress); ok {
+		cache := peer.Cache()
+		if !cache.Contains(data.Hash()) {
+			t.Fatalf("the cache of messages for this peer cannot be found")
+		}
 	}
 
 	// for self
@@ -54,7 +75,6 @@ func TestTendermintMessage(t *testing.T) {
 		t.Fatalf("the cache of messages cannot be found")
 	}
 }
-
 func TestSynchronisationMessage(t *testing.T) {
 	t.Run("engine not running, ignored", func(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
@@ -123,10 +143,24 @@ func TestNewChainHead(t *testing.T) {
 	})
 
 	t.Run("engine is running, no errors", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		ctx := context.Background()
+		tendermintC := interfaces.NewMockCore(ctrl)
+		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		evDispathcer := interfaces.NewMockEventDispatcher(ctrl)
+		evDispathcer.EXPECT().Post(gomock.Any()).MaxTimes(1)
+		chain, _ := newBlockChain(1)
+		g := interfaces.NewMockGossiper(ctrl)
+		g.EXPECT().UpdateStopChannel(gomock.Any())
+
 		b := &Backend{
-			eventMux: event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0)),
+			core:         tendermintC,
+			evDispatcher: evDispathcer,
+			gossiper:     g,
+			blockchain:   chain,
 		}
-		b.coreRunning.Store(true)
+		b.Start(ctx)
 
 		err := b.NewChainHead()
 		if err != nil {
@@ -134,8 +168,9 @@ func TestNewChainHead(t *testing.T) {
 		}
 	})
 }
-
 func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	size, r, _ := rlp.EncodeToReader(data)
-	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: r}
+	var buff bytes.Buffer
+	io.Copy(&buff, r)
+	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: bytes.NewReader(buff.Bytes())}
 }

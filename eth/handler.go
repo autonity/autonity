@@ -25,8 +25,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	autonity "github.com/autonity/autonity"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
@@ -446,10 +444,6 @@ func (h *handler) unregisterPeer(id string) {
 	h.downloader.UnregisterPeer(id)
 	h.txFetcher.Drop(id)
 
-	if syncer, ok := h.chain.Engine().(consensus.Syncer); ok {
-		syncer.ResetPeerCache(peer.Address())
-	}
-
 	if err := h.peers.unregisterPeer(id); err != nil {
 		logger.Error("Ethereum peer removal failed", "err", err)
 	}
@@ -596,8 +590,4 @@ func (h *handler) txBroadcastLoop() {
 			return
 		}
 	}
-}
-
-func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
-	return h.peers.findPeers(targets)
 }
