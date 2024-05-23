@@ -74,13 +74,14 @@ func (ms *MsgStore) Save(m message.Msg, committee types.Committee) {
 
 	// for vote, save vote for each signer.
 	signers := m.(message.Vote).Signers()
-	for _, valIndex := range signers.FlattenUniq() {
+	indexes := signers.FlattenUniq()
+	for _, valIndex := range indexes {
 		signer := committee[valIndex].Address
 		msgs, ok := addressMap[signer]
 		if !ok {
 			var msgList []message.Msg
 			addressMap[signer] = append(msgList, m)
-			return
+			continue
 		}
 		addressMap[signer] = append(msgs, m)
 	}

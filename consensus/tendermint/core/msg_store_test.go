@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -45,6 +46,34 @@ func TestMsgStore(t *testing.T) {
 		}, height, &addrAlice)
 		assert.Equal(t, 2, len(votes))
 		assert.Equal(t, 1, votes[0].(*message.Prevote).Signers().Len())
+	})
+
+	t.Run("Save aggregated votes in msg store", func(t *testing.T) {
+		ms := NewMsgStore()
+		var prevotes []message.Vote
+		for _, c := range committee {
+			preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(keys[c.Address].consensus), &c, cSize)
+			prevotes = append(prevotes, preVoteNil)
+		}
+
+		aggVote := message.AggregatePrevotes(prevotes)
+		ms.Save(aggVote, committee)
+
+		// for every account, they have the prevote saved.
+		for i, c := range committee {
+			votes := ms.Get(func(m message.Msg) bool {
+				return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Value() == NilValue
+			}, height, &c.Address)
+			require.Equal(t, 1, len(votes))
+			require.Equal(t, true, votes[0].(*message.Prevote).Signers().Contains(i))
+		}
+
+		// query for the target aggregated prevote, only 1 prevote is returned.
+		votes := ms.Get(func(m message.Msg) bool {
+			return m.Code() == message.PrevoteCode && m.H() == height && m.R() == round && m.Value() == NilValue
+		}, height, nil)
+
+		require.Equal(t, 1, len(votes))
 	})
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
