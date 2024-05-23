@@ -110,11 +110,16 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 		return failureReturn, nil
 	}
 
-	committee, err := verifyProofSignatures(a.chain, p)
-	if err != nil {
+	h := p.Message.H()
+	lastHeader := a.chain.GetHeaderByNumber(h - 1)
+	if lastHeader == nil {
 		return failureReturn, nil
 	}
 
+	if err = verifyProofSignatures(lastHeader, p); err != nil {
+		return failureReturn, nil
+	}
+	committee := lastHeader.Committee
 	if verifyAccusation(p, committee) {
 		// the proof carry valid info.
 		return validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), nil
@@ -230,11 +235,16 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.A
 		return failureReturn, nil
 	}
 
-	committee, err := verifyProofSignatures(c.chain, p)
-	if err != nil {
+	h := p.Message.H()
+	lastHeader := c.chain.GetHeaderByNumber(h - 1)
+	if lastHeader == nil {
 		return failureReturn, nil
 	}
-	return c.validateFault(p, committee), nil
+
+	if err = verifyProofSignatures(lastHeader, p); err != nil {
+		return failureReturn, nil
+	}
+	return c.validateFault(p, lastHeader.Committee), nil
 }
 
 // validate a misbehavior proof, doesn't check the proof signatures.
@@ -604,11 +614,18 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ c
 	if err != nil {
 		return failureReturn, nil
 	}
-	committee, err := verifyProofSignatures(c.chain, p)
-	if err != nil {
+
+	h := p.Message.H()
+	lastHeader := c.chain.GetHeaderByNumber(h - 1)
+	if lastHeader == nil {
 		return failureReturn, nil
 	}
 
+	if err = verifyProofSignatures(lastHeader, p); err != nil {
+		return failureReturn, nil
+	}
+
+	committee := lastHeader.Committee
 	if !verifyInnocenceProof(p, committee) {
 		return failureReturn, nil
 	}
@@ -791,42 +808,37 @@ func decodeRawProof(b []byte) (*Proof, error) {
 }
 
 // verifyProofSignatures checks if the consensus message is from valid member of the committee.
-func verifyProofSignatures(chain ChainContext, p *Proof) (types.Committee, error) {
-	h := p.Message.H()
-	lastHeader := chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return nil, errFutureMsg
-	}
-
+func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 	// before signature verification, check if the offender index is valid
 	if p.OffenderIndex >= len(lastHeader.Committee) || p.OffenderIndex < 0 {
-		return nil, errInvalidOffenderIdx
+		return errInvalidOffenderIdx
 	}
 
 	// assign power and bls signer key
 	if err := p.Message.PreValidate(lastHeader); err != nil {
-		return nil, err
+		return err
 	}
 
 	// verify signature
 	if err := p.Message.Validate(); err != nil {
-		return nil, errNotCommitteeMsg
+		return errNotCommitteeMsg
 	}
 
+	h := p.Message.H()
 	for _, msg := range p.Evidences {
 		if msg.H() != h {
-			return nil, errBadHeight
+			return errBadHeight
 		}
 
 		if err := msg.PreValidate(lastHeader); err != nil {
-			return nil, err
+			return err
 		}
 
 		if err := msg.Validate(); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return lastHeader.Committee, nil
+	return nil
 }
 
 func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bool {

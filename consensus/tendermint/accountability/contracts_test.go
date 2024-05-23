@@ -147,8 +147,7 @@ func TestAccusationVerifier(t *testing.T) {
 		p.Rule = autonity.PO
 		invalidCommittee, invalKeys, _ := generateCommittee()
 		p.Message = newValidatedProposalMessage(height, 1, 0, makeSigner(invalKeys[0]), invalidCommittee, nil, 0).ToLight()
-		c, err := verifyProofSignatures(chainMock, &p)
-		require.Nil(t, c)
+		err := verifyProofSignatures(lastHeader, &p)
 		require.NotNil(t, err)
 	})
 
@@ -229,8 +228,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		invalidProposal := newValidatedProposalMessage(height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, nil, 0)
 		p.Message = invalidProposal.ToLight()
 
-		c, err := verifyProofSignatures(chainMock, &p)
-		require.Nil(t, c)
+		err := verifyProofSignatures(lastHeader, &p)
 		require.NotNil(t, err)
 	})
 
@@ -249,8 +247,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		decodedProof, err := decodeRawProof(rawProof)
 		require.NoError(t, err)
 
-		c, err := verifyProofSignatures(chainMock, decodedProof)
-		require.Nil(t, c)
+		err = verifyProofSignatures(lastHeader, decodedProof)
 		require.Equal(t, "bad signature", err.Error())
 	})
 
@@ -1082,29 +1079,14 @@ func TestVerifyProofSignatures(t *testing.T) {
 
 	t.Run("normal case, proposal msg is checked correctly", func(t *testing.T) {
 		proposal := newValidatedProposalMessage(height, round, -1, signer, committee, nil, proposerIdx)
-		_, err := verifyProofSignatures(chainMock, &Proof{Message: proposal})
+		err := verifyProofSignatures(currentHeader, &Proof{Message: proposal})
 		require.Nil(t, err)
-	})
-
-	t.Run("a future msg is received, expect an error of errFutureMsg", func(t *testing.T) {
-		futureHeight := height + 1
-		proposal := newValidatedProposalMessage(futureHeight, round, -1, signer, committee, nil, proposerIdx)
-		chainMock.EXPECT().GetHeaderByNumber(height).Return(nil)
-		_, err := verifyProofSignatures(chainMock, &Proof{Message: proposal})
-		require.Equal(t, errFutureMsg, err)
-	})
-
-	t.Run("chain cannot provide the last header of the height that msg votes on, expect an error of errFutureMsg", func(t *testing.T) {
-		proposal := newValidatedProposalMessage(height-5, round, -1, signer, committee, nil, proposerIdx)
-		chainMock.EXPECT().GetHeaderByNumber(height - 6).Return(nil)
-		_, err := verifyProofSignatures(chainMock, &Proof{Message: proposal})
-		require.Equal(t, errFutureMsg, err)
 	})
 
 	t.Run("abnormal case, msg is not signed by committee", func(t *testing.T) {
 		wrongCommitte, ks, _ := generateCommittee()
 		proposal := newValidatedProposalMessage(height, round, -1, makeSigner(ks[0]), wrongCommitte, nil, proposerIdx)
-		_, err := verifyProofSignatures(chainMock, &Proof{Message: proposal})
+		err := verifyProofSignatures(currentHeader, &Proof{Message: proposal})
 		require.Equal(t, message.ErrUnauthorizedAddress, err)
 	})
 }
@@ -1151,16 +1133,6 @@ func makeSigner(key blst.SecretKey) message.Signer {
 	return func(hash common.Hash) blst.Signature {
 		signature := key.Sign(hash[:])
 		return signature
-	}
-}
-
-func stubVerifier(consensusKey blst.PublicKey) func(address common.Address) *types.CommitteeMember {
-	return func(address common.Address) *types.CommitteeMember {
-		return &types.CommitteeMember{
-			Address:      address,
-			VotingPower:  common.Big1,
-			ConsensusKey: consensusKey,
-		}
 	}
 }
 

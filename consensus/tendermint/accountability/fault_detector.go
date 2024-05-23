@@ -285,14 +285,22 @@ loop:
 				fd.logger.Error("Can't decode accusation", "err", err)
 				break
 			}
+
+			h := decodedProof.Message.H()
+			lastHeader := fd.blockchain.GetHeaderByNumber(h - 1)
+			if lastHeader == nil {
+				fd.logger.Error("Can't get header", "header", h-1)
+				break
+			}
+
 			// The signatures must be valid at this stage, however we have to recover the original
 			// senders, hence the following call.
-			committee, err := verifyProofSignatures(fd.blockchain, decodedProof)
-			if err != nil {
+			if err = verifyProofSignatures(lastHeader, decodedProof); err != nil {
 				fd.logger.Error("Can't verify proof signatures", "err", err)
 				break
 			}
-			innocenceProof, err := fd.innocenceProof(decodedProof, committee)
+
+			innocenceProof, err := fd.innocenceProof(decodedProof, lastHeader.Committee)
 			if err == nil && innocenceProof != nil {
 				// send on chain innocence proof ASAP since the client is on challenge that requires the proof to be
 				// provided before the client get slashed.

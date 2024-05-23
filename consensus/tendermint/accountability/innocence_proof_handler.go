@@ -209,8 +209,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	}
 
 	// verify proof signatures at last since it is more cost-full than other checkers.
-	committee, err := verifyProofSignatures(fd.blockchain, proof)
-	if err != nil {
+	if err = verifyProofSignatures(lastHeader, proof); err != nil {
 		return err
 	}
 
@@ -222,12 +221,12 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// handle accusation and provide innocence proof.
 	if proof.Type == autonity.Accusation {
-		return fd.handleOffChainAccusation(proof, sender, msgHash, committee)
+		return fd.handleOffChainAccusation(proof, sender, msgHash, lastHeader.Committee)
 	}
 
 	// handle innocence proof and to withdraw those pending accusation.
 	if proof.Type == autonity.Innocence {
-		return fd.handleOffChainProofOfInnocence(proof, sender, committee)
+		return fd.handleOffChainProofOfInnocence(proof, sender, lastHeader.Committee)
 	}
 	return fmt.Errorf("wrong proof type for off chain accusation events")
 }
