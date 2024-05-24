@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -14,7 +15,10 @@ import (
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
+
+	_ "github.com/autonity/autonity/eth/tracers/native"
 )
 
 var (
@@ -61,9 +65,20 @@ type contract struct {
 }
 
 func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+	var tracer tracers.Tracer
+	if c.r.tracing {
+		tracer, _ = tracers.New("callTracer", new(tracers.Context))
+		c.r.evm.Config = vm.Config{Debug: true, Tracer: tracer}
+	}
 	input, err := c.abi.Pack(method, params...)
 	require.NoError(c.r.t, err)
 	out, consumed, err := c.r.call(opts, c.address, input)
+	if c.r.tracing {
+		traceResult, err := tracer.GetResult()
+		require.NoError(c.r.t, err)
+		pretty, _ := json.MarshalIndent(traceResult, "", "    ")
+		fmt.Println(string(pretty))
+	}
 	if err != nil {
 		reason, _ := abi.UnpackRevert(out)
 		return nil, 0, fmt.Errorf("%w: %s", err, reason)
@@ -79,9 +94,10 @@ type Committee struct {
 }
 
 type runner struct {
-	t      *testing.T
-	evm    *vm.EVM
-	origin common.Address // session's sender, can be overridden via runOptions
+	t       *testing.T
+	evm     *vm.EVM
+	origin  common.Address // session's sender, can be overridden via runOptions
+	tracing bool
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
@@ -245,8 +261,13 @@ func initalizeEVM() (*vm.EVM, error) {
 		return nil, err
 	}
 	vmBlockContext := vm.BlockContext{
-		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
-		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
+		Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
+			db.SubBalance(sender, amount)
+			db.AddBalance(recipient, amount)
+		},
+		CanTransfer: func(db vm.StateDB, addr common.Address, amount *big.Int) bool {
+			return db.GetBalance(addr).Cmp(amount) >= 0
+		},
 		BlockNumber: common.Big0,
 		Time:        big.NewInt(time.Now().Unix()),
 	}
@@ -340,6 +361,7 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	//
 	// Step 5: Supply Control Deployment
 	//
+	r.evm.StateDB.AddBalance(common.Address{}, (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation))
 	_, _, r.supplyControl, err = r.deploySupplyControl(&runOptions{value: (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation)},
 		r.autonity.address,
 		defaultAutonityConfig.Protocol.OperatorAccount,

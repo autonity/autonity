@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
 )
 
 var fromAutonity = &runOptions{origin: params.AutonityContractAddress}
@@ -604,9 +605,11 @@ func TestRwardTracking(t *testing.T) {
 		balanceNTN, _, err := r.autonity.BalanceOf(nil, beneficiary)
 		require.NoError(r.t, err)
 		balanceATN := r.getBalanceOf(beneficiary)
+		r.tracing = true
 		r.NoError(
 			r.stakableVesting.ClaimRewards(fromSender(beneficiary, nil)),
 		)
+		r.tracing = false
 		newBalanceNTN, _, err := r.autonity.BalanceOf(nil, beneficiary)
 		require.NoError(r.t, err)
 		require.Equal(r.t, new(big.Int).Add(balanceNTN, rewardOfUser.NtnTotalFee), newBalanceNTN, "NTN reward not claimed")
