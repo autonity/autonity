@@ -19,3 +19,4 @@ compiler:
     - "*tsconfig.json"
     - "bindings.sol"
     - "./*.sol"
+    - "./vesting/*"
