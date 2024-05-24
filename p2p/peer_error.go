@@ -26,6 +26,8 @@ const (
 	errInvalidMsg
 )
 
+const protoErrorSuspensionSpan = 60 // num of blocks peer can't connect
+
 var errorToString = map[int]string{
 	errInvalidMsgCode: "invalid message code",
 	errInvalidMsg:     "invalid message",
@@ -69,7 +71,7 @@ const (
 	DiscUnexpectedIdentity
 	DiscSelf
 	DiscReadTimeout
-	DiscJailed
+	DiscSuspended
 	DiscPeerNotInCommittee
 	DiscPeerOutsideTopology
 	DiscSubprotocolError = 0x10
@@ -88,7 +90,7 @@ var discReasonToString = [...]string{
 	DiscUnexpectedIdentity:  "unexpected identity",
 	DiscSelf:                "connected to self",
 	DiscReadTimeout:         "read timeout",
-	DiscJailed:              "jailed node",
+	DiscSuspended:           "suspended node",
 	DiscPeerNotInCommittee:  "validator is not part of committee",
 	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSubprotocolError:    "subprotocol error",

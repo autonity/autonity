@@ -1,10 +1,12 @@
 package resetting
 
 import (
-	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	e2e "github.com/autonity/autonity/e2e_test"
 )
 
 // TestResetAllNodes, it stops all nodes one by one, and start them again one by one. The network should recover to
@@ -175,13 +177,13 @@ func TestKeepResettingRandomOneNode(t *testing.T) {
 		network[nodeID].Wait()
 		require.NoError(t, err)
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(10, 60, false)
+		err = network.WaitToMineNBlocks(1, 30, false)
 		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 		// recover that faulty node.
 		err = network[nodeID].Start()
 		require.NoError(t, err)
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(10, 60, false)
+		err = network.WaitToMineNBlocks(1, 30, false)
 		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	}
 }

@@ -3,7 +3,7 @@ package fixsizecache
 import (
 	"math"
 
-	farmhash "github.com/leemcloughlin/gofarmhash"
+	farmhash "github.com/dgryski/go-farm"
 
 	"github.com/autonity/autonity/common"
 )
