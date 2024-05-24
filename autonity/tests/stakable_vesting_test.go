@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 
 var fromAutonity = &runOptions{origin: params.AutonityContractAddress}
 
-var reward = big.NewInt(1000_000_000_000_000_000)
+var reward = big.NewInt(1000_000_000)
 
 func TestBondingGasConsumption(t *testing.T) {
 	r := setup(t, nil)
@@ -26,6 +25,7 @@ func TestBondingGasConsumption(t *testing.T) {
 		createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
 	}
 	validator := r.committee.validators[0].NodeAddress
+	liquidContract := r.committee.liquidContracts[0]
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
 	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
@@ -37,6 +37,8 @@ func TestBondingGasConsumption(t *testing.T) {
 	r.NoError(
 		r.autonity.Bond(fromSender(user, nil), validator, bondingAmount),
 	)
+	initBalance := new(big.Int).Mul(big.NewInt(1000_000), big.NewInt(1000_000_000_000_000_000))
+	r.giveMeSomeMoney(user, initBalance)
 	r.waitNextEpoch()
 
 	r.run("single bond", func(r *runner) {
@@ -44,7 +46,7 @@ func TestBondingGasConsumption(t *testing.T) {
 		var iteration int64 = 10
 		bondingAmount := big.NewInt(scheduleTotalAmount / iteration)
 		for ; iteration > 0; iteration-- {
-			gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, bondingID, common.Big0, bondingAmount, bondingGas, false)
+			gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, liquidContract, bondingID, common.Big0, bondingAmount, bondingGas, false)
 			totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedBond)), stakingGas)
 			require.True(
 				r.t,
@@ -77,7 +79,7 @@ func TestBondingGasConsumption(t *testing.T) {
 			require.NoError(r.t, err)
 			require.Equal(r.t, bondingAmount, liquidBalance)
 		}
-		gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, bondingID, common.Big0, bondingAmount, bondingGas, false)
+		gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, liquidContract, bondingID, common.Big0, bondingAmount, bondingGas, false)
 		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedBond)), stakingGas)
 		require.True(
 			r.t,
@@ -89,7 +91,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	r.run("bonding rejected", func(r *runner) {
 		bondingID := len(r.committee.validators) + 1
 		bondingAmount := big.NewInt(scheduleTotalAmount)
-		gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, bondingID, common.Big0, bondingAmount, bondingGas, true)
+		gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, liquidContract, bondingID, common.Big0, bondingAmount, bondingGas, true)
 		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedBond)), stakingGas)
 		require.True(
 			r.t,
@@ -110,12 +112,15 @@ func TestUnbondingGasConsumption(t *testing.T) {
 		createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
 	}
 	validator := r.committee.validators[0].NodeAddress
+	liquidContract := r.committee.liquidContracts[0]
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
 	unbondingGas, _, err := r.stakableVesting.RequiredUnbondingGasCost(nil)
 	require.NoError(r.t, err)
 	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
 	require.NoError(r.t, err)
+	initBalance := new(big.Int).Mul(big.NewInt(1000_000), big.NewInt(1000_000_000_000_000_000))
+	r.giveMeSomeMoney(user, initBalance)
 
 	bondingAmount := big.NewInt(scheduleTotalAmount)
 	for i := 0; i < scheduleCount; i++ {
@@ -130,7 +135,7 @@ func TestUnbondingGasConsumption(t *testing.T) {
 		unbondingAmount := big.NewInt(scheduleTotalAmount / iteration)
 		unbondingID := 0
 		for ; iteration > 0; iteration-- {
-			gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, unbondingID, common.Big0, unbondingAmount, unbondingGas, false)
+			gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, liquidContract, unbondingID, common.Big0, unbondingAmount, unbondingGas, false)
 			totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedUnbond+gasUsedRelease)), stakingGas)
 			require.True(
 				r.t,
@@ -144,7 +149,7 @@ func TestUnbondingGasConsumption(t *testing.T) {
 	r.run("unbond rejected", func(r *runner) {
 		unbondingID := 0
 		unbondingAmount := big.NewInt(scheduleTotalAmount)
-		gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, unbondingID, common.Big0, unbondingAmount, unbondingGas, true)
+		gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, liquidContract, unbondingID, common.Big0, unbondingAmount, unbondingGas, true)
 		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedUnbond+gasUsedRelease)), stakingGas)
 		require.True(
 			r.t,
@@ -261,12 +266,12 @@ func TestBonding(t *testing.T) {
 	liquidContract := liquidContracts[0]
 
 	r.run("can bond all funds before cliff but not before start", func(r *runner) {
-		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(start+1)) < 0, "schedule started already")
+		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(start+1)) < 0, "contract started already")
 		bondingAmount := big.NewInt(scheduleTotalAmount / 2)
 		_, err := r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), scheduleID, validator, bondingAmount)
-		require.Equal(r.t, "execution reverted: schedule not started yet", err.Error())
+		require.Equal(r.t, "execution reverted: contract not started yet", err.Error())
 		r.waitSomeBlock(start + 1)
-		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(cliff+1)) < 0, "schedule cliff finished already")
+		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(cliff+1)) < 0, "contract cliff finished already")
 		bondAndFinalize(r, beneficiary, validator, liquidContract, scheduleID, bondingAmount, bondingGas)
 	})
 
@@ -282,7 +287,7 @@ func TestBonding(t *testing.T) {
 		r.NoError(
 			r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), scheduleID, validator, bondingAmount),
 		)
-		schedule, _, err := r.stakableVesting.GetSchedule(nil, beneficiary, scheduleID)
+		schedule, _, err := r.stakableVesting.GetContract(nil, beneficiary, scheduleID)
 		require.NoError(r.t, err)
 		require.Equal(r.t, remaining, schedule.CurrentNTNAmount, "schedule not updated properly")
 		bondingAmount = new(big.Int).Add(big.NewInt(10), remaining)
@@ -523,41 +528,9 @@ func TestStakingRevert(t *testing.T) {
 	})
 }
 
-func TestBalanceTransfer(t *testing.T) {
-	r := setup(t, nil)
-	var scheduleTotalAmount int64 = 1000
-	start := 100 + r.evm.Context.Time.Int64()
-	cliff := 500 + start
-	// by making (end - start == scheduleTotalAmount) we have (totalUnlocked = currentTime - start)
-	end := scheduleTotalAmount + start
-	createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
-	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
-	require.NoError(r.t, err)
-	scheduleID := common.Big0
-	money := new(big.Int).Mul(big.NewInt(10), bondingGas)
-	r.giveMeSomeMoney(user, money)
-
-	r.run("test", func(r *runner) {
-		bondingAmount := big.NewInt(scheduleTotalAmount)
-		balance := r.getBalanceOf(user)
-		fmt.Printf("user balance %v\n", balance)
-		balance = r.getBalanceOf(r.autonity.address)
-		fmt.Printf("autonity contract balance %v\n", balance)
-		balance = r.getBalanceOf(r.stakableVesting.address)
-		fmt.Printf("vesting contract balance %v\n", balance)
-		r.stakableVesting.Bond(fromSender(user, bondingGas), scheduleID, r.committee.validators[0].NodeAddress, bondingAmount)
-		balance = r.getBalanceOf(user)
-		fmt.Printf("user balance %v\n", balance)
-		balance = r.getBalanceOf(r.autonity.address)
-		fmt.Printf("autonity contract balance %v\n", balance)
-		balance = r.getBalanceOf(r.stakableVesting.address)
-		fmt.Printf("vesting contract balance %v\n", balance)
-	})
-}
-
 func TestRwardTracking(t *testing.T) {
 	r := setup(t, nil)
-	var scheduleTotalAmount int64 = 1000_000_000
+	var scheduleTotalAmount int64 = 1000
 	start := 100 + r.evm.Context.Time.Int64()
 	cliff := 500 + start
 	// by making (end - start == scheduleTotalAmount) we have (totalUnlocked = currentTime - start)
@@ -579,11 +552,6 @@ func TestRwardTracking(t *testing.T) {
 	// start schedule to bond
 	r.waitSomeBlock(start + 1)
 
-	initBalance := big.NewInt(1000_000_000_000_000_000)
-	for _, user := range users {
-		r.giveMeSomeMoney(user, initBalance)
-	}
-
 	r.run("bond and get reward", func(r *runner) {
 		bondingAmount := big.NewInt(scheduleTotalAmount)
 		r.NoError(
@@ -595,7 +563,6 @@ func TestRwardTracking(t *testing.T) {
 		r.waitNextEpoch()
 		rewardOfContract, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
-		fmt.Printf("contract reward %v\n", rewardOfContract)
 		require.True(r.t, rewardOfContract.UnclaimedNTN.Cmp(common.Big0) > 0, "no NTN reward")
 		require.True(r.t, rewardOfContract.UnclaimedATN.Cmp(common.Big0) > 0, "no ATN reward")
 		rewardOfUser, _, err := r.stakableVesting.UnclaimedRewards(nil, beneficiary)
@@ -640,10 +607,25 @@ func TestRwardTracking(t *testing.T) {
 
 func TestScheduleUpdateWhenSlashed(t *testing.T) {
 	r := setup(t, nil)
-	// TODO: complete setup
+	var scheduleTotalAmount int64 = 1000
+	start := 100 + r.evm.Context.Time.Int64()
+	cliff := 500 + start
+	// by making (end - start == scheduleTotalAmount) we have (totalUnlocked = currentTime - start)
+	end := scheduleTotalAmount + start
+	createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
+	scheduleID := common.Big0
 
 	r.run("schedule total value update when bonded validator slashed", func(r *runner) {
-		// TODO: complete
+		newUser := common.HexToAddress("0x88")
+		_, _, err := r.stakableVesting.GetContract(nil, user, scheduleID)
+		require.NoError(r.t, err)
+		_, _, err = r.stakableVesting.GetContract(nil, newUser, scheduleID)
+		require.Equal(r.t, "execution reverted: invalid contract id", err.Error())
+		r.stakableVesting.CancelContract(operator, user, scheduleID, newUser)
+		_, _, err = r.stakableVesting.GetContract(nil, newUser, scheduleID)
+		require.NoError(r.t, err)
+		_, _, err = r.stakableVesting.GetContract(nil, user, scheduleID)
+		require.Equal(r.t, "execution reverted: invalid contract id", err.Error())
 	})
 }
 
@@ -695,6 +677,8 @@ func setupSchedules(
 	users[1] = common.HexToAddress("0x88")
 	require.NotEqual(r.t, users[0], users[1], "same user")
 	for _, user := range users {
+		initBalance := new(big.Int).Mul(big.NewInt(1000_000), big.NewInt(1000_000_000_000_000_000))
+		r.giveMeSomeMoney(user, initBalance)
 		for i := 0; i < scheduleCount; i++ {
 			createSchedule(r, user, scheduleTotalAmount, start, cliff, end)
 		}
@@ -716,7 +700,7 @@ func createSchedule(r *runner, beneficiary common.Address, amount, startTime, cl
 		r.autonity.Mint(operator, r.stakableVesting.address, amountBigInt),
 	)
 	r.NoError(
-		r.stakableVesting.NewSchedule(
+		r.stakableVesting.NewContract(
 			operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
 			big.NewInt(cliffTime), big.NewInt(endTime),
 		),
@@ -728,18 +712,14 @@ func fromSender(sender common.Address, value *big.Int) *runOptions {
 }
 
 func bondAndApply(
-	r *runner, validatorAddress, user common.Address, bondingID int, scheduleID, bondingAmount, bondingGas *big.Int, rejected bool,
+	r *runner, validatorAddress, user common.Address, liquidContract *Liquid, bondingID int, scheduleID, bondingAmount, bondingGas *big.Int, rejected bool,
 ) (uint64, uint64) {
-	validator, _, err := r.autonity.GetValidator(nil, validatorAddress)
-	require.NoError(r.t, err)
 	liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, scheduleID, validatorAddress)
 	require.NoError(r.t, err)
 	r.NoError(
 		r.stakableVesting.Bond(fromSender(user, bondingGas), scheduleID, validatorAddress, bondingAmount),
 	)
-	abi, err := LiquidMetaData.GetAbi()
-	require.NoError(r.t, err)
-	liquidContract := &Liquid{&contract{validator.LiquidContract, abi, r}}
+	r.giveMeSomeMoney(r.autonity.address, reward)
 	r.NoError(
 		liquidContract.Redistribute(fromSender(r.autonity.address, reward), common.Big0),
 	)
@@ -766,18 +746,14 @@ func bondAndApply(
 }
 
 func unbondAndApply(
-	r *runner, validatorAddress, user common.Address, unbondingID int, scheduleID, unbondingAmount, unbondingGas *big.Int, rejected bool,
+	r *runner, validatorAddress, user common.Address, liquidContract *Liquid, unbondingID int, scheduleID, unbondingAmount, unbondingGas *big.Int, rejected bool,
 ) (uint64, uint64, uint64) {
 	liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, scheduleID, validatorAddress)
 	require.NoError(r.t, err)
 	r.NoError(
 		r.stakableVesting.Unbond(fromSender(user, unbondingGas), scheduleID, validatorAddress, unbondingAmount),
 	)
-	abi, err := LiquidMetaData.GetAbi()
-	require.NoError(r.t, err)
-	validator, _, err := r.autonity.GetValidator(nil, validatorAddress)
-	require.NoError(r.t, err)
-	liquidContract := &Liquid{&contract{validator.LiquidContract, abi, r}}
+	r.giveMeSomeMoney(r.autonity.address, reward)
 	r.NoError(
 		liquidContract.Redistribute(fromSender(r.autonity.address, reward), common.Big0),
 	)
@@ -808,7 +784,7 @@ func unbondAndApply(
 }
 
 func checkReleaseAllNTN(r *runner, user common.Address, scheduleID, unlockAmount *big.Int) {
-	schedule, _, err := r.stakableVesting.GetSchedule(nil, user, scheduleID)
+	schedule, _, err := r.stakableVesting.GetContract(nil, user, scheduleID)
 	require.NoError(r.t, err)
 	scheduleNTN := schedule.CurrentNTNAmount
 	initBalance, _, err := r.autonity.BalanceOf(nil, user)
@@ -822,7 +798,7 @@ func checkReleaseAllNTN(r *runner, user common.Address, scheduleID, unlockAmount
 	newBalance, _, err := r.autonity.BalanceOf(nil, user)
 	require.NoError(r.t, err)
 	require.Equal(r.t, new(big.Int).Add(initBalance, totalUnlocked), newBalance, "balance mismatch")
-	schedule, _, err = r.stakableVesting.GetSchedule(nil, user, scheduleID)
+	schedule, _, err = r.stakableVesting.GetContract(nil, user, scheduleID)
 	require.NoError(r.t, err)
 	require.True(r.t, new(big.Int).Sub(scheduleNTN, unlockAmount).Cmp(schedule.CurrentNTNAmount) == 0, "schedule not updated properly")
 }
@@ -836,13 +812,13 @@ func bondAndFinalize(
 	require.NoError(r.t, err)
 	liquidOfUser, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, scheduleID, validator)
 	require.NoError(r.t, err)
-	schedule, _, err := r.stakableVesting.GetSchedule(nil, user, scheduleID)
+	schedule, _, err := r.stakableVesting.GetContract(nil, user, scheduleID)
 	require.NoError(r.t, err)
 	remaining := new(big.Int).Sub(schedule.CurrentNTNAmount, bondingAmount)
 	r.NoError(
 		r.stakableVesting.Bond(fromSender(user, bondingGas), scheduleID, validator, bondingAmount),
 	)
-	schedule, _, err = r.stakableVesting.GetSchedule(nil, user, scheduleID)
+	schedule, _, err = r.stakableVesting.GetContract(nil, user, scheduleID)
 	require.NoError(r.t, err)
 	require.Equal(r.t, remaining, schedule.CurrentNTNAmount, "schedule not updated properly")
 	// let bonding apply
@@ -870,7 +846,7 @@ func unbondAndRelease(
 	require.NoError(r.t, err)
 	liquidOfVestingContract, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
 	require.NoError(r.t, err)
-	schedule, _, err := r.stakableVesting.GetSchedule(nil, user, scheduleID)
+	schedule, _, err := r.stakableVesting.GetContract(nil, user, scheduleID)
 	require.NoError(r.t, err)
 	unbondingRequestBlock := r.evm.Context.BlockNumber
 	r.NoError(
@@ -894,7 +870,7 @@ func unbondAndRelease(
 		r.waitNextEpoch()
 	}
 	newNewtonAmount := new(big.Int).Add(schedule.CurrentNTNAmount, unbondingAmount)
-	schedule, _, err = r.stakableVesting.GetSchedule(nil, user, scheduleID)
+	schedule, _, err = r.stakableVesting.GetContract(nil, user, scheduleID)
 	require.NoError(r.t, err)
 	require.Equal(r.t, newNewtonAmount, schedule.CurrentNTNAmount, "schedule not updated")
 	newNewtonBalance := new(big.Int).Add(newtonBalance, unbondingAmount)

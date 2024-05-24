@@ -137,8 +137,6 @@ func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 	}
 	gas := uint64(math.MaxUint64)
 	ret, leftOver, err := r.evm.Call(vm.AccountRef(r.evm.Origin), addr, input, gas, value)
-	r.evm.StateDB.SubBalance(r.evm.Origin, value)
-	r.evm.StateDB.AddBalance(addr, value)
 	return ret, gas - leftOver, err
 }
 
@@ -249,6 +247,7 @@ func (r *runner) waitSomeEpoch(endTime int64) int64 {
 }
 
 func (r *runner) sendAUT(sender, recipient common.Address, value *big.Int) { //nolint
+	require.True(r.t, r.evm.StateDB.GetBalance(sender).Cmp(value) >= 0, "not enough balance to transfer")
 	r.evm.StateDB.SubBalance(sender, value)
 	r.evm.StateDB.AddBalance(recipient, value)
 }
@@ -407,6 +406,7 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	}
 	_, _, r.inflationController, err = r.deployInflationController(nil, *p)
 	require.NoError(r.t, err)
+	require.Equal(t, r.inflationController.address, params.InflationControllerContractAddress)
 
 	//
 	// Step 9: Stakable Vesting contract deployment
