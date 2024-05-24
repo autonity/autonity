@@ -890,7 +890,7 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
-			srv.needsSuspension(pd)
+			srv.processPeerSuspension(pd)
 			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err, "server", srv.Net.String())
 			srv.dialsched.peerRemoved(pd.rw)
 			if pd.Inbound() {
@@ -1067,7 +1067,7 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	return nil
 }
 
-func (srv *Server) needsSuspension(pd peerDrop) {
+func (srv *Server) processPeerSuspension(pd peerDrop) {
 	reason := discReasonForError(pd.err)
 	if errors.Is(reason, DiscProtocolError) || reason == DiscSubprotocolError {
 		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoErrorSuspensionSpan)
