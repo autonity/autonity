@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -18,7 +19,7 @@ import (
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
@@ -42,6 +43,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
+		noGossip:               noGossip,
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -68,9 +70,10 @@ type Core struct {
 	backend interfaces.Backend
 	cancel  context.CancelFunc
 
-	messageSub          *event.TypeMuxSubscription
-	candidateBlockSub   *event.TypeMuxSubscription
-	committedSub        *event.TypeMuxSubscription
+	backlogMessageSub   *event.TypeMuxSubscription
+	messageCh           chan events.MessageEvent
+	candidateBlockCh    chan events.NewCandidateBlockEvent
+	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
 	syncEventSub        *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
@@ -123,8 +126,10 @@ type Core struct {
 	proposer    interfaces.Proposer
 
 	// these timestamps are used to compute metrics for tendermint
-	newHeight time.Time
-	newRound  time.Time
+	newHeight          time.Time
+	newRound           time.Time
+	currBlockTimeStamp time.Time
+	noGossip           bool
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -145,6 +150,17 @@ func (c *Core) Address() common.Address {
 
 func (c *Core) Step() Step {
 	return c.step
+}
+
+func (c *Core) Post(ev any) {
+	switch ev := ev.(type) {
+	case events.CommitEvent:
+		c.committedCh <- ev
+	case events.NewCandidateBlockEvent:
+		c.candidateBlockCh <- ev
+	case events.MessageEvent:
+		c.messageCh <- ev
+	}
 }
 
 func (c *Core) CurRoundMessages() *message.RoundMessages {
@@ -519,7 +535,6 @@ type Broadcaster struct {
 }
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
-	logger := s.Logger().New("step", s.Step())
-	logger.Debug("Broadcasting", "message", msg.String())
+	s.logger.Debug("Broadcasting", "message", log.Lazy{Fn: msg.String})
 	s.BroadcastAll(msg)
 }

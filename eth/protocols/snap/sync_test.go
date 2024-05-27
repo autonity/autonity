@@ -334,8 +334,13 @@ func createStorageRequestResponse(t *testPeer, root common.Hash, accounts []comm
 				break
 			}
 		}
-		hashes = append(hashes, keys)
-		slots = append(slots, vals)
+
+		// to make the TestMultiSyncManyUselessWithLowTimeout stable, we need to make sure the generated leave proofs
+		// are always match to their corresponding hashes and slots.
+		if len(keys) > 0 {
+			hashes = append(hashes, keys)
+			slots = append(slots, vals)
+		}
 
 		// Generate the Merkle proofs for the first and last storage slot, but
 		// only if the response was capped. If the entire storage trie included
@@ -367,7 +372,7 @@ func createStorageRequestResponse(t *testPeer, root common.Hash, accounts []comm
 	return hashes, slots, proofs
 }
 
-//  the createStorageRequestResponseAlwaysProve tests a cornercase, where it always
+// the createStorageRequestResponseAlwaysProve tests a cornercase, where it always
 // supplies the proof for the last account, even if it is 'complete'.h
 func createStorageRequestResponseAlwaysProve(t *testPeer, root common.Hash, accounts []common.Hash, bOrigin, bLimit []byte, max uint64) (hashes [][]common.Hash, slots [][][]byte, proofs [][]byte) {
 	var size uint64

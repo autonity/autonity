@@ -86,7 +86,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		}
 	})
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	dedicatedNode := network[1].WsClient
 
@@ -226,7 +226,7 @@ func TestHistoryFactor(t *testing.T) {
 		chainID = genesis.Config.ChainID
 	})
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	dedicatedNode := network[1].WsClient
 

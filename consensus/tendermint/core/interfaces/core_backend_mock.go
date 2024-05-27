@@ -475,3 +475,38 @@ func (mr *MockCoreMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCore)(nil).Stop))
 }
+
+// MockEventDispatcher is a mock of EventDispatcher interface.
+type MockEventDispatcher struct {
+	ctrl     *gomock.Controller
+	recorder *MockEventDispatcherMockRecorder
+}
+
+// MockEventDispatcherMockRecorder is the mock recorder for MockEventDispatcher.
+type MockEventDispatcherMockRecorder struct {
+	mock *MockEventDispatcher
+}
+
+// NewMockEventDispatcher creates a new mock instance.
+func NewMockEventDispatcher(ctrl *gomock.Controller) *MockEventDispatcher {
+	mock := &MockEventDispatcher{ctrl: ctrl}
+	mock.recorder = &MockEventDispatcherMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockEventDispatcher) EXPECT() *MockEventDispatcherMockRecorder {
+	return m.recorder
+}
+
+// Post mocks base method.
+func (m *MockEventDispatcher) Post(ev any) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Post", ev)
+}
+
+// Post indicates an expected call of Post.
+func (mr *MockEventDispatcherMockRecorder) Post(ev any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockEventDispatcher)(nil).Post), ev)
+}

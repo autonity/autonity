@@ -261,6 +261,7 @@ func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender com
 	}
 	// the proof is valid, withdraw the off chain challenge.
 	fd.removeOffChainAccusation(proof)
+	fd.logger.Debug("Withdraw accusation", "rule", proof.Rule, "suspected validator", proof.Message.Sender())
 	return nil
 }
 
@@ -326,10 +327,8 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 		return
 	}
 
-	targets := make(map[common.Address]struct{})
-	targets[accusation.Message.Sender()] = struct{}{}
-	peers := fd.broadcaster.FindPeers(targets)
-	if len(peers) == 0 {
+	peer, ok := fd.broadcaster.FindPeer(accusation.Message.Sender())
+	if !ok {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.
 		fd.logger.Debug("No direct p2p connection with suspect")
 		return
@@ -342,7 +341,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof) {
 	}
 
 	fd.logger.Info("Attempting direct p2p resolution..", "suspect", accusation.Message.Sender())
-	go peers[accusation.Message.Sender()].Send(backend.AccountabilityNetworkMsg, rProof) //nolint
+	go peer.Send(backend.AccountabilityNetworkMsg, rProof) //nolint
 }
 
 // sendOffChainInnocenceProof, send an innocence proof to receiver peer.
@@ -351,15 +350,13 @@ func (fd *FaultDetector) sendOffChainInnocenceProof(receiver common.Address, pay
 		fd.logger.Warn("p2p protocol handler is not ready yet")
 		return
 	}
-	targets := make(map[common.Address]struct{})
-	targets[receiver] = struct{}{}
-	peers := fd.broadcaster.FindPeers(targets)
-	if len(peers) == 0 {
+	peer, ok := fd.broadcaster.FindPeer(receiver)
+	if !ok {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.
 		fd.logger.Debug("no peer connection for off chain innocence proof event")
 		return
 	}
 
 	fd.logger.Info("Sending requested innocence proof", "addr", receiver)
-	go peers[receiver].Send(backend.AccountabilityNetworkMsg, payload) //nolint
+	go peer.Send(backend.AccountabilityNetworkMsg, payload) //nolint
 }

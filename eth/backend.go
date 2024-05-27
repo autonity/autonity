@@ -176,10 +176,12 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// messages from p2p protocol manager layer.
 
 	evMux := new(event.TypeMux)
+	messageCh := make(chan events.MessageEvent, 1000)
+
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
-		config.Miner.Noverify, &vmConfig, evMux, msgStore)
+		config.Miner.Noverify, &vmConfig, evMux, msgStore, messageCh)
 
 	nodeKey, _ := stack.Config().AutonityKeys()
 	eth := &Ethereum{
@@ -286,9 +288,10 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,
-		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}),
+		evMux.Subscribe(events.AccountabilityEvent{}),
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
+		messageCh,
 		eth.log)
 
 	// Setup DNS discovery iterators.
@@ -609,6 +612,8 @@ func (s *Ethereum) newCommitteeWatcher() {
 	for {
 		select {
 		case ev := <-chainHeadCh:
+			// current block number is cached in server
+			s.p2pServer.SetCurrentBlockNumber(ev.Block.NumberU64())
 			header := ev.Block.Header()
 			// check if the local node belongs to the consensus committee.
 			if header.CommitteeMember(s.address) == nil {

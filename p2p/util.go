@@ -23,27 +23,31 @@ import (
 	"github.com/autonity/autonity/common/mclock"
 )
 
+type Expirable interface {
+	mclock.AbsTime | uint64
+}
+
 // expHeap tracks strings and their expiry time.
-type expHeap []expItem
+type expHeap[T Expirable] []expItem[T]
 
 // expItem is an entry in addrHistory.
-type expItem struct {
+type expItem[T Expirable] struct {
 	item string
-	exp  mclock.AbsTime
+	exp  T
 }
 
 // nextExpiry returns the next expiry time.
-func (h *expHeap) nextExpiry() mclock.AbsTime {
+func (h *expHeap[T]) nextExpiry() T {
 	return (*h)[0].exp
 }
 
 // add adds an item and sets its expiry time.
-func (h *expHeap) add(item string, exp mclock.AbsTime) {
-	heap.Push(h, expItem{item, exp})
+func (h *expHeap[T]) add(item string, exp T) {
+	heap.Push(h, expItem[T]{item, exp})
 }
 
 // contains checks whether an item is present.
-func (h expHeap) contains(item string) bool {
+func (h expHeap[T]) contains(item string) bool {
 	for _, v := range h {
 		if v.item == item {
 			return true
@@ -53,21 +57,21 @@ func (h expHeap) contains(item string) bool {
 }
 
 // expire removes items with expiry time before 'now'.
-func (h *expHeap) expire(now mclock.AbsTime, onExp func(string)) {
+func (h *expHeap[T]) expire(now T, onExp func(string)) {
 	for h.Len() > 0 && h.nextExpiry() < now {
-		item := heap.Pop(h)
+		item := heap.Pop(h).(expItem[T])
 		if onExp != nil {
-			onExp(item.(expItem).item)
+			onExp(item.item)
 		}
 	}
 }
 
 // heap.Interface boilerplate
-func (h expHeap) Len() int            { return len(h) }
-func (h expHeap) Less(i, j int) bool  { return h[i].exp < h[j].exp }
-func (h expHeap) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
-func (h *expHeap) Push(x interface{}) { *h = append(*h, x.(expItem)) }
-func (h *expHeap) Pop() interface{} {
+func (h expHeap[T]) Len() int            { return len(h) }
+func (h expHeap[T]) Less(i, j int) bool  { return h[i].exp < (h[j].exp) }
+func (h expHeap[T]) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
+func (h *expHeap[T]) Push(x interface{}) { *h = append(*h, x.(expItem[T])) }
+func (h *expHeap[T]) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
@@ -76,27 +80,27 @@ func (h *expHeap) Pop() interface{} {
 }
 
 // Thread-safe version of ExpHeap
-type safeExpHeap struct {
-	expHeap
+type safeExpHeap[T Expirable] struct {
+	expHeap[T]
 	sync.RWMutex
 }
 
 // add adds an item and sets its expiry time.
-func (h *safeExpHeap) add(item string, exp mclock.AbsTime) {
+func (h *safeExpHeap[T]) add(item string, exp T) {
 	h.Lock()
 	defer h.Unlock()
 	h.expHeap.add(item, exp)
 }
 
 // contains checks whether an item is present.
-func (h *safeExpHeap) contains(item string) bool {
+func (h *safeExpHeap[T]) contains(item string) bool {
 	h.RLock()
 	defer h.RUnlock()
 	return h.expHeap.contains(item)
 }
 
 // expire removes items with expiry time before 'now'.
-func (h *safeExpHeap) expire(now mclock.AbsTime, onExp func(string)) {
+func (h *safeExpHeap[T]) expire(now T, onExp func(string)) {
 	h.Lock()
 	defer h.Unlock()
 	h.expHeap.expire(now, onExp)

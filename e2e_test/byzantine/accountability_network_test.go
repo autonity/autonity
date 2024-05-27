@@ -1,13 +1,14 @@
 package byzantine
 
 import (
-	"context"
+	"math/rand"
 	"testing"
+
+	fuzz "github.com/google/gofuzz"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -116,16 +117,33 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 	s.Logger().Info("MsgStore manipulated to cause accusation of C1 rule to be raised later on", "accusationHeight", height)
 }
 
-func newGarbageOffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
-	return &GarbageOffChainAccusation{c.(*core.Core)}
+func newOffChainAccusationFuzzer(c interfaces.Core) interfaces.Broadcaster {
+	return &OffChainAccusationFuzzer{c.(*core.Core)}
 }
 
 // send accusation with garbage accusation msg, the sender of the msg should get disconnected from receiver end.
-type GarbageOffChainAccusation struct {
+type OffChainAccusationFuzzer struct {
 	*core.Core
 }
 
-func (s *GarbageOffChainAccusation) Broadcast(msg message.Msg) {
+func fuzzedMessages() []message.Msg {
+	num := rand.Intn(10) + 1
+	var msgs []message.Msg
+	f := fuzz.New()
+	for i := 0; i < num; i++ {
+		m := &message.Fake{}
+		f.Fuzz(m)
+		// todo: (Jason) add fuzz for the proposal contains in the accusation accountability message.
+		// since our RLP encoding of accusation msg does not allow a full proposal, thus we skip the proposal code.
+		if m.FakeCode == message.ProposalCode {
+			m.FakeCode++
+		}
+		msgs = append(msgs, m)
+	}
+	return msgs
+}
+
+func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 	s.BroadcastAll(msg)
 	// construct garbage off chain accusation msg and sent it.
 	if msg.H() <= uint64(1) {
@@ -142,16 +160,22 @@ func (s *GarbageOffChainAccusation) Broadcast(msg message.Msg) {
 		if c.Address == s.Address() {
 			continue
 		}
-		targets := make(map[common.Address]struct{})
-		targets[c.Address] = struct{}{}
-		peers := backEnd.Broadcaster.FindPeers(targets)
-		payload, err := e2e.GenerateRandomBytes(2048)
+		peer, ok := backEnd.Broadcaster.FindPeer(c.Address)
+
+		evidences := fuzzedMessages()
+		accusation := &accountability.Proof{
+			Type:      autonity.AccountabilityEventType(rand.Int()),
+			Rule:      autonity.Rule(rand.Int()),
+			Evidences: evidences,
+			Message:   evidences[0],
+		}
+		proof, err := rlp.EncodeToBytes(accusation)
 		if err != nil {
 			panic("Failed to generate random bytes ")
 		}
-		if len(peers) > 0 {
-			// send garbage accusation msg.
-			go peers[c.Address].Send(bk.AccountabilityNetworkMsg, payload) // nolint
+		if ok {
+			// send fuzzed accusation msg.
+			go peer.Send(bk.AccountabilityNetworkMsg, proof) // nolint
 			s.Logger().Info("Off chain Accusation garbage accusation is simulated")
 		}
 	}
@@ -176,16 +200,13 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 	if !ok {
 		panic("cannot simulate duplicated off chain accusation")
 	}
-
 	preVotes := backEnd.MsgStore.Get(msg.H()-1, func(m message.Msg) bool {
-		return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
+		return m.Code() == message.PrevoteCode && m.Sender() != s.Address()
 	})
 
 	for _, pv := range preVotes {
-		targets := make(map[common.Address]struct{})
-		targets[pv.Sender()] = struct{}{}
-		peers := backEnd.Broadcaster.FindPeers(targets)
-		if len(peers) > 0 {
+		peer, ok := backEnd.Broadcaster.FindPeer(pv.Sender())
+		if ok {
 			accusation := &accountability.Proof{
 				Type:    autonity.Accusation,
 				Rule:    autonity.PVN,
@@ -196,8 +217,8 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 				panic("cannot encode accusation at e2e test for off chain accusation protocol")
 			}
 			// send duplicated msg.
-			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+			go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+			go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 			s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 		}
 	}
@@ -225,13 +246,11 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 	// collect some out of updated consensus msg
 	for h := uint64(2); h <= msg.H(); h++ {
 		preVotes := backEnd.MsgStore.Get(h, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
+			return m.Code() == message.PrevoteCode && m.Sender() != s.Address()
 		})
 		for _, pv := range preVotes {
-			targets := make(map[common.Address]struct{})
-			targets[pv.Sender()] = struct{}{}
-			peers := backEnd.Broadcaster.FindPeers(targets)
-			if len(peers) > 0 {
+			peer, ok := backEnd.Broadcaster.FindPeer(pv.Sender())
+			if ok {
 				accusation := &accountability.Proof{
 					Type:    autonity.Accusation,
 					Rule:    autonity.PVN,
@@ -242,7 +261,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 					panic("cannot encode accusation at e2e test for off chain accusation protocol")
 				}
 				// send msg.
-				go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
 				s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 			}
 		}
@@ -267,54 +286,45 @@ func TestOffChainAccusation(t *testing.T) {
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
-	// TODO(lorenzo) attempt to restore
-	// Following in belows, there are 3 testcases to observe if those malicious off-chain challenger's peer is dropped
-	// due to the DoS protection of off chain accusation protocol. Due to the re-dail scheduler in P2P layer, those
-	// dropped peer are reconnected after a short while which making the tests unstable from e2e point of view. So skip
-	// them from CI job.
-	t.Run("Test off chain accusation with garbage msg", func(t *testing.T) {
-		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &interfaces.Services{Broadcaster: newGarbageOffChainAccusation}
-		runDropPeerConnectionTest(t, handler, 10)
+	t.Run("Test off chain accusation with fuzzed msg", func(t *testing.T) {
+		handler := &interfaces.Services{Broadcaster: newOffChainAccusationFuzzer}
+		runDropPeerConnectionTest(t, handler, 30, 60)
 	})
 
 	t.Run("Test duplicated accusation msg from same peer", func(t *testing.T) {
-		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
 		handler := &interfaces.Services{Broadcaster: newOffChainDuplicatedAccusationBroadcaster}
-		runDropPeerConnectionTest(t, handler, 15)
+		runDropPeerConnectionTest(t, handler, 30, 60)
 	})
 
 	t.Run("Test over rated off chain accusation", func(t *testing.T) {
-		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
 		handler := &interfaces.Services{Broadcaster: newOverRatedOffChainAccusation}
-		runDropPeerConnectionTest(t, handler, 20)
+		runDropPeerConnectionTest(t, handler, 30, 60)
 	})
 }
 
-func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testPeriod uint64) { // nolint
-	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
+func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testPeriod uint64, numSec int) { // nolint
 	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	// set malicious challenger
-	challenger := 0
-	validators[challenger].TendermintServices = handler
+	// set malicious
+	spammer := 0
+	validators[spammer].TendermintServices = handler
+
 	// creates a network of 4 validators and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, validators, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
+	n := network[spammer]
+	count := n.ConsensusServer().PeerCount()
+	require.Equal(t, 3, count)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(testPeriod, 20, false)
+	err = network.WaitToMineNBlocks(testPeriod, numSec, false)
 	require.NoError(t, err)
 
 	// the challenger should get no peer connection left.
-	n := network[1]
-	client := n.WsClient
-	count, err := client.PeerCount(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, uint(2), count)
+	count = n.ConsensusServer().PeerCount()
+	require.Equal(t, 0, count)
 }
 
 func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Services, tp autonity.AccountabilityEventType,
@@ -331,7 +341,7 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 	// creates a network of 4 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(testPeriod, 500, false)

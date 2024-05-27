@@ -590,7 +590,7 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 // Fake is a dummy object used for internal testing.
 type Fake struct {
 	FakeCode      uint8
-	FakeRound     int64
+	FakeRound     uint64
 	FakeHeight    uint64
 	FakeValue     common.Hash
 	FakePayload   []byte
@@ -600,7 +600,7 @@ type Fake struct {
 	FakePower     *big.Int
 }
 
-func (f Fake) R() int64                                                       { return f.FakeRound }
+func (f Fake) R() int64                                                       { return int64(f.FakeRound) }
 func (f Fake) H() uint64                                                      { return f.FakeHeight }
 func (f Fake) Code() uint8                                                    { return f.FakeCode }
 func (f Fake) Sender() common.Address                                         { return f.FakeSender }
@@ -616,7 +616,7 @@ func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{
 		value: f.FakeValue,
 		base: base{
-			round:     f.FakeRound,
+			round:     int64(f.FakeRound),
 			height:    f.FakeHeight,
 			signature: f.FakeSignature,
 			payload:   f.FakePayload,
@@ -632,7 +632,7 @@ func NewFakePrecommit(f Fake) *Precommit {
 	return &Precommit{
 		value: f.FakeValue,
 		base: base{
-			round:     f.FakeRound,
+			round:     int64(f.FakeRound),
 			height:    f.FakeHeight,
 			signature: f.FakeSignature,
 			payload:   f.FakePayload,

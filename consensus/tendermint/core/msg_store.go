@@ -1,9 +1,10 @@
 package core
 
 import (
+	"sync"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"sync"
 )
 
 var NilValue = common.Hash{}

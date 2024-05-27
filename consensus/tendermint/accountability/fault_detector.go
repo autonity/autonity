@@ -82,6 +82,7 @@ type FaultDetector struct {
 
 	txPool     *core.TxPool
 	ethBackend ethapi.Backend
+	messageCh  <-chan events.MessageEvent
 	txOpts     *bind.TransactOpts // transactor options for accountability events
 
 	eventReporterCh chan *autonity.AccountabilityEvent
@@ -123,6 +124,7 @@ func NewFaultDetector(
 	ethBackend ethapi.Backend,
 	nodeKey *ecdsa.PrivateKey,
 	protocolContracts *autonity.ProtocolContracts,
+	messageCh <-chan events.MessageEvent,
 	logger log.Logger) *FaultDetector {
 
 	txOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chain.Config().ChainID)
@@ -138,6 +140,7 @@ func NewFaultDetector(
 		rateLimiter:           NewAccusationRateLimiter(),
 		txPool:                txPool,
 		ethBackend:            ethBackend,
+		messageCh:             messageCh,
 		txOpts:                txOpts,
 		tendermintMsgSub:      sub,
 		ruleEngineBlockCh:     make(chan core.ChainEvent, 300),
@@ -223,22 +226,25 @@ func (fd *FaultDetector) consensusMsgHandlerLoop() {
 tendermintMsgLoop:
 	for {
 		select {
-		case ev, ok := <-fd.tendermintMsgSub.Chan():
+		case ev, ok := <-fd.messageCh:
 			if !ok {
 				break tendermintMsgLoop
 			}
 			currentHeight := fd.blockchain.CurrentBlock().NumberU64()
+			if fd.isHeightExpired(currentHeight, ev.Message.H()) {
+				fd.logger.Debug("Fault detector: discarding old message")
+				continue tendermintMsgLoop
+			}
+			if err := fd.processMsg(ev.Message); err != nil && !errors.Is(err, errFutureMsg) {
+				fd.logger.Warn("Fault detector: Detected faulty message", "return", err)
+				continue tendermintMsgLoop
+			}
+		case ev, ok := <-fd.tendermintMsgSub.Chan():
+			if !ok {
+				break tendermintMsgLoop
+			}
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
-			case events.MessageEvent:
-				if fd.isHeightExpired(currentHeight, e.Message.H()) {
-					fd.logger.Debug("Fault detector: discarding old message")
-					continue tendermintMsgLoop
-				}
-				if err := fd.processMsg(e.Message); err != nil && !errors.Is(err, errFutureMsg) {
-					fd.logger.Warn("Detected faulty message", "return", err)
-					continue tendermintMsgLoop
-				}
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {
@@ -663,6 +669,7 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum *big.Int) (pro
 	// old value where in each prior round we can see a quorum of precommits for a distinct value.)
 
 	// We should be here at time t = timestamp(h+1) + delta
+	// In this rule engine context, the symbol `pi` stands for a consensus participant with unique identity `i`.
 
 	proofs = append(proofs, fd.newProposalsAccountabilityCheck(height)...)
 	proofs = append(proofs, fd.oldProposalsAccountabilityCheck(height, quorum)...)

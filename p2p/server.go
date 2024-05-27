@@ -223,13 +223,14 @@ type Server struct {
 	checkpointAddPeer       chan *conn
 
 	// State of run loop and listenLoop.
-	inboundHistory expHeap
-	jailed         safeExpHeap
+	inboundHistory expHeap[mclock.AbsTime]
+	suspended      safeExpHeap[uint64]
 
 	committee       []*enode.Node
 	committeeSubset []*enode.Node
 	enodeMu         sync.RWMutex
 	trusted         sync.Map
+	currentBlock    atomic.Uint64
 }
 
 type peerOpFunc func(map[enode.ID]*Peer)
@@ -464,6 +465,10 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 		}
 	}
 	return false
+}
+
+func (srv *Server) SetCurrentBlockNumber(num uint64) {
+	srv.currentBlock.Store(num)
 }
 
 func (srv *Server) inCommitteeSubset(id enode.ID) bool {
@@ -885,6 +890,7 @@ running:
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
+			srv.processPeerSuspension(pd)
 			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err, "server", srv.Net.String())
 			srv.dialsched.peerRemoved(pd.rw)
 			if pd.Inbound() {
@@ -928,7 +934,7 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 }
 
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
-	srv.jailed.expire(srv.clock.Now(), nil)
+	srv.suspended.expire(srv.currentBlock.Load(), nil)
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
@@ -938,8 +944,8 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscAlreadyConnected
 	case c.node.ID() == srv.localnode.ID():
 		return DiscSelf
-	case srv.jailed.contains(c.node.ID().String()):
-		return DiscJailed
+	case srv.suspended.contains(c.node.ID().String()):
+		return DiscSuspended
 	case srv.Net == Consensus && !srv.inCommittee(c.node.ID()):
 		return DiscPeerNotInCommittee
 	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
@@ -1061,9 +1067,11 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	return nil
 }
 
-func (srv *Server) AddJail(id enode.ID, jailTime time.Duration) {
-	now := srv.clock.Now()
-	srv.jailed.add(id.String(), now.Add(jailTime))
+func (srv *Server) processPeerSuspension(pd peerDrop) {
+	reason := discReasonForError(pd.err)
+	if errors.Is(reason, DiscProtocolError) || reason == DiscSubprotocolError {
+		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoErrorSuspensionSpan)
+	}
 }
 
 // SetupConn runs the handshakes and attempts to add the connection

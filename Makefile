@@ -145,7 +145,6 @@ test-race-all: all
 
 test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
-	go test -race -v ./consensus/test/... -timeout 30m
 
 test-contracts: test-contracts-asm test-contracts-truffle
 
@@ -191,6 +190,7 @@ test-contracts-asm-pre:
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
+	@echo "dependencies installed"
 
 # start an autonity network for contract tests
 start-autonity:

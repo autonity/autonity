@@ -4,13 +4,14 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 
-	lru "github.com/hashicorp/golang-lru"
 	ring "github.com/zfjagann/golang-ring"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -34,6 +35,10 @@ const (
 	ringCapacity = 10 * 20 * 3
 	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
 	retryPeriod = 10
+	// number of buckets to allocate in the fixed cache
+	numBuckets = 499
+	// max number of entries in each packet
+	numEntries = 10
 )
 
 var (
@@ -42,37 +47,33 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey,
-	vmConfig *vm.Config,
-	services *interfaces.Services,
-	evMux *event.TypeMux,
-	ms *tendermintCore.MsgStore,
-	log log.Logger) *Backend {
+func New(privateKey *ecdsa.PrivateKey, vmConfig *vm.Config,
+	services *interfaces.Services, evMux *event.TypeMux,
+	ms *tendermintCore.MsgStore, log log.Logger,
+	noGossip bool, messageCh chan<- events.MessageEvent) *Backend {
 
-	recentMessages, _ := lru.NewARC(inmemoryPeers)
-	knownMessages, _ := lru.NewARC(inmemoryMessages)
-
+	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 	backend := &Backend{
-		eventMux:       event.NewTypeMuxSilent(evMux, log),
-		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log,
-		coreStarted:    false,
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		vmConfig:       vmConfig,
-		MsgStore:       ms,
-		jailed:         make(map[common.Address]uint64),
+		eventMux:      event.NewTypeMuxSilent(evMux, log),
+		messageCh:     messageCh,
+		privateKey:    privateKey,
+		address:       crypto.PubkeyToAddress(privateKey.PublicKey),
+		logger:        log,
+		knownMessages: knownMessages,
+		vmConfig:      vmConfig,
+		MsgStore:      ms,
+		jailed:        make(map[common.Address]uint64),
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend, services, backend.address, log)
+	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
 
-	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
+	backend.gossiper = NewGossiper(backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
 	backend.core = core
+	backend.evDispatcher = core
 	return backend
 }
 
@@ -89,12 +90,14 @@ type Backend struct {
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
+	messageCh         chan<- events.MessageEvent // to send message event to fault detector
 	proposedBlockHash common.Hash
-	coreStarted       bool
+	coreStarting      atomic.Bool
+	coreRunning       atomic.Bool
 	core              interfaces.Core
+	evDispatcher      interfaces.EventDispatcher
 	stopped           chan struct{}
 	wg                sync.WaitGroup
-	coreMu            sync.RWMutex
 
 	// we save the last received p2p.messages in the ring buffer
 	pendingMessages ring.Ring
@@ -106,9 +109,7 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	//ARCCache is patented by IBM but it has expired https://patents.google.com/patent/US7167953B2/en
-	recentMessages *lru.ARCCache // the cache of peer's messages
-	knownMessages  *lru.ARCCache // the cache of self messages
+	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
 	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
@@ -153,11 +154,7 @@ func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
 
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
-	m := make([]common.Hash, 0, sb.knownMessages.Len())
-	for _, v := range sb.knownMessages.Keys() {
-		m = append(m, v.(common.Hash))
-	}
-	return m
+	return sb.knownMessages.Keys()
 }
 
 func (sb *Backend) Logger() log.Logger {
@@ -199,7 +196,18 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 }
 
 func (sb *Backend) Post(ev any) {
-	sb.eventMux.Post(ev)
+	switch ev := ev.(type) {
+	case events.CommitEvent:
+		sb.evDispatcher.Post(ev)
+	case events.NewCandidateBlockEvent:
+		sb.evDispatcher.Post(ev)
+	case events.MessageEvent:
+		sb.evDispatcher.Post(ev)
+		// pass the message event to fault detector as well
+		sb.messageCh <- ev
+	default:
+		sb.eventMux.Post(ev)
+	}
 }
 
 func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {
@@ -378,25 +386,14 @@ func (sb *Backend) SyncPeer(address common.Address) {
 		return
 	}
 	sb.logger.Debug("Syncing", "peer", address)
-	targets := map[common.Address]struct{}{address: {}}
-	ps := sb.Broadcaster.FindPeers(targets)
-	p, connected := ps[address]
-	if !connected {
+	peer, ok := sb.Broadcaster.FindPeer(address)
+	if !ok {
 		return
 	}
 	messages := sb.core.CurrentHeightMessages()
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
-	}
-}
-
-func (sb *Backend) ResetPeerCache(address common.Address) {
-	ms, ok := sb.recentMessages.Get(address)
-	var m *lru.ARCCache
-	if ok {
-		m, _ = ms.(*lru.ARCCache)
-		m.Purge()
+		go peer.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
 

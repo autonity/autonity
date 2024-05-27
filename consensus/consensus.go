@@ -21,7 +21,7 @@ import (
 	"context"
 	"math/big"
 
-	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/common/fixsizecache"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/state"
@@ -129,6 +129,9 @@ type Engine interface {
 
 	// Close terminates any background threads maintained by the consensus engine.
 	Close() error
+
+	// SetResultChan sets the result channel to handle sealing result
+	SetResultChan(results chan<- *types.Block)
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message
@@ -167,8 +170,6 @@ type BFT interface {
 
 type Syncer interface {
 	SyncPeer(address common.Address)
-
-	ResetPeerCache(address common.Address)
 }
 
 // Enqueuer defines the interface to enqueue blocks to fetcher
@@ -179,5 +180,17 @@ type Enqueuer interface {
 // Broadcaster defines the interface to find peer
 type Broadcaster interface {
 	// FindPeers retrieves connected peers by addresses
-	FindPeers(map[common.Address]struct{}) map[common.Address]ethereum.Peer
+	FindPeers([]common.Address) map[common.Address]Peer
+
+	FindPeer(common.Address) (Peer, bool)
+}
+
+// Peer defines the interface to communicate with peer
+type Peer interface {
+	// Send sends the message to this peer
+	Send(msgcode uint64, data interface{}) error
+
+	SendRaw(msgcode uint64, data []byte) error
+
+	Cache() *fixsizecache.Cache[common.Hash, bool]
 }
