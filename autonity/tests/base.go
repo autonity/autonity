@@ -18,7 +18,7 @@ import (
 	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
 
-	_ "github.com/autonity/autonity/eth/tracers/native"
+	_ "github.com/autonity/autonity/eth/tracers/native" //nolint
 )
 
 var (
@@ -156,9 +156,11 @@ func (r *runner) run(name string, f func(r *runner)) {
 		// in the future avoid mutating for supporting parallel testing
 		context := r.evm.Context
 		snap := r.snapshot()
+		committee := r.committee
 		f(r)
 		r.revertSnapshot(snap)
 		r.evm.Context = context
+		r.committee = committee
 		r.t = t
 	})
 }
@@ -223,6 +225,7 @@ func (r *runner) generateNewCommittee() {
 	committeeMembers, _, err := r.autonity.GetCommittee(nil)
 	require.NoError(r.t, err)
 	r.committee.validators = make([]AutonityValidator, len(committeeMembers))
+	r.committee.liquidContracts = make([]*Liquid, len(committeeMembers))
 	for i, member := range committeeMembers {
 		validator, _, err := r.autonity.GetValidator(nil, member.Addr)
 		require.NoError(r.t, err)
