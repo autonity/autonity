@@ -338,8 +338,8 @@ jobs:
   # run during normal development.
   docker-e2e-tests:
     needs: prepare-cache
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-20.04
+    #if: github.ref == 'refs/heads/develop'
     steps:
       - uses: actions/setup-go@v4
         with:
