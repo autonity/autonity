@@ -1,6 +1,7 @@
 package accountability
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,6 +34,41 @@ t.Run("a future msg is received, expect an error of errFutureMsg", func(t *testi
 		_, err := verifyProofSignatures(chainMock, &Proof{Message: proposal})
 		require.Equal(t, errFutureMsg, err)
 	})*/
+var (
+	height              = uint64(100)
+	lastHeight          = height - 1
+	defRound            = int64(0)
+	defValidRound       = int64(-1)
+	newRound            = int64(4)
+	validRound          = int64(2)
+	defNewProposal      = newValidatedProposalMessage(height, defRound, defValidRound, signer, committee, nil, proposerIdx)
+	defLightNewProposal = defNewProposal.ToLight()
+	defOldProposal      = newValidatedProposalMessage(height, newRound, validRound, signer, committee, nil, proposerIdx)
+	defLightOldProposal = defOldProposal.ToLight()
+	oldProposal2        = newValidatedProposalMessage(height, newRound-1, validRound, signer, committee, nil, proposerIdx)
+	oldLightProposal2   = oldProposal2.ToLight()
+
+	prevoteForOldProposal1 = newValidatedPrevote(newRound, height, defOldProposal.Value(), signer, self, cSize, lastHeader)
+	prevoteForOldProposal2 = newValidatedPrevote(newRound, height, defOldProposal.Value(), makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	aggPrevoteForOld       = message.AggregatePrevotes([]message.Vote{prevoteForOldProposal1, prevoteForOldProposal2})
+
+	nilPrevote1     = newValidatedPrevote(defRound, height, nilValue, signer, self, cSize, lastHeader)
+	nilPrevote2     = newValidatedPrevote(defRound, height, nilValue, makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	aggNilPrevote   = message.AggregatePrevotes([]message.Vote{nilPrevote1, nilPrevote2})
+	nilPrecommit1   = newValidatedPrecommit(defRound, height, nilValue, signer, self, cSize, lastHeader)
+	nilPrecommit2   = newValidatedPrecommit(defRound, height, nilValue, makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	aggNilPrecommit = message.AggregatePrecommits([]message.Vote{nilPrecommit1, nilPrecommit2})
+
+	lastHeader                  = newBlockHeader(lastHeight, committee)
+	prevote1                    = newValidatedPrevote(defRound, height, defNewProposal.Value(), signer, self, cSize, lastHeader)
+	prevote2                    = newValidatedPrevote(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	aggPrevote                  = message.AggregatePrevotes([]message.Vote{prevote1, prevote2})
+	precommit1                  = newValidatedPrecommit(defRound, height, defNewProposal.Value(), signer, self, cSize, lastHeader)
+	precommit2                  = newValidatedPrecommit(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	aggPrecommit                = message.AggregatePrecommits([]message.Vote{precommit1, precommit2})
+	wrongCommitte, wrongKeys, _ = generateCommittee()
+	wrongProposal               = newValidatedProposalMessage(height, defRound, defValidRound, makeSigner(wrongKeys[0]), wrongCommitte, nil, proposerIdx)
+)
 
 func TestContractsManagement(t *testing.T) {
 	// register contracts into evm package.
@@ -59,94 +95,69 @@ func TestContractsManagement(t *testing.T) {
 
 }
 
-func TestDecodeProof(t *testing.T) {
-	height := uint64(100)
-	header := newBlockHeader(height-1, committee)
-	rawProposal := newValidatedProposalMessage(height, 3, 0, signer, committee, nil, proposerIdx)
-	err := rawProposal.PreValidate(header)
-	require.NoError(t, err)
-	err = rawProposal.Validate()
-	require.NoError(t, err)
-	proposal := rawProposal.ToLight()
-	preCommit := message.NewPrecommit(3, height, proposal.Value(), signer, self, cSize)
+func TestDecodeAndVerifyProofs(t *testing.T) {
+	type testCase struct {
+		Proof
+		outCome error
+	}
+	var validProof Proof
+	validProof.Type = autonity.AccountabilityEventType(rand.Intn(3))
+	validProof.Rule = autonity.Rule(rand.Intn(10))
+	validProof.Message = defNewProposal.ToLight()
+	validProof.OffenderIndex = proposerIdx
+	validProof.Evidences = append(validProof.Evidences, aggPrevote, aggPrecommit)
 
-	t.Run("decode with accusation", func(t *testing.T) {
-		var p Proof
-		p.Type = autonity.Accusation
-		p.Rule = autonity.PO
-		p.Message = proposal
+	p2 := validProof
+	p2.OffenderIndex = len(committee)
 
-		rp, err := rlp.EncodeToBytes(&p)
+	p3 := validProof
+	p3.OffenderIndex = len(committee) - 1
+
+	p4 := validProof
+	p4.Message = wrongProposal.ToLight()
+
+	cases := []testCase{
+		{
+			validProof,
+			nil,
+		},
+		{
+			p2,
+			errInvalidOffenderIdx,
+		},
+		{
+			p3,
+			errProofOffender,
+		},
+		{
+			p4,
+			message.ErrUnauthorizedAddress,
+		},
+	}
+
+	for i, tc := range cases {
+		rp, err := rlp.EncodeToBytes(&tc.Proof)
 		assert.NoError(t, err)
-
 		decodeProof, err := decodeRawProof(rp)
 		assert.NoError(t, err)
-		assert.Equal(t, autonity.PO, decodeProof.Rule)
-		assert.Equal(t, proposal.Signature(), decodeProof.Message.Signature())
-	})
-
-	t.Run("decode with evidence", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-		p.Message = proposal
-		p.Evidences = append(p.Evidences, preCommit)
-
-		rp, err := rlp.EncodeToBytes(&p)
-		assert.NoError(t, err)
-
-		decodeProof, err := decodeRawProof(rp)
-		assert.NoError(t, err)
-		assert.Equal(t, autonity.PO, decodeProof.Rule)
-		assert.Equal(t, proposal.Signature(), decodeProof.Message.Signature())
-		assert.Equal(t, preCommit.Signature(), decodeProof.Evidences[0].Signature())
-	})
-
-	t.Run("encode and decode with aggregated msgs", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-		p.Message = proposal
-
-		var votes []message.Vote
-		for i, member := range committee {
-			m := member
-			pc := message.NewPrecommit(0, height, proposal.Value(), makeSigner(keys[i]), &m, cSize)
-			votes = append(votes, pc)
-		}
-		aggVote := message.AggregatePrecommits(votes)
-		p.Evidences = append(p.Evidences, aggVote)
-
-		rp, err := rlp.EncodeToBytes(&p)
-		assert.NoError(t, err)
-
-		decodeProof, err := decodeRawProof(rp)
-		assert.NoError(t, err)
-		assert.Equal(t, autonity.PO, decodeProof.Rule)
-		assert.Equal(t, proposal.Signature(), decodeProof.Message.Signature())
-
-		lastHeader := newBlockHeader(height-1, committee)
 		err = verifyProofSignatures(lastHeader, decodeProof)
-		require.NoError(t, err)
-
-		aVote := p.Evidences[0].(*message.Precommit)
-		for i := range committee {
-			require.True(t, aVote.Signers().Contains(i))
+		t.Log("Running TestDecodeAndVerifyProofs case", "case id", i, "actual err", err, "expected", tc.outCome)
+		require.Equal(t, tc.outCome, err)
+		if tc.outCome == nil {
+			assert.Equal(t, tc.Proof.Rule, decodeProof.Rule)
+			assert.Equal(t, tc.Proof.Message.Signature(), decodeProof.Message.Signature())
+			assert.Equal(t, tc.Proof.Evidences, decodeProof.Evidences)
 		}
-		require.Equal(t, height, aVote.H())
-		require.Equal(t, int64(0), aVote.R())
-		require.Equal(t, proposal.Value(), aVote.Value())
-	})
+	}
 }
 
 func TestAccusationVerifier(t *testing.T) {
 	// Todo(youssef): add integration tests for the precompile Run function
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	height := uint64(100)
-	lastHeight := height - 1
-	lastHeader := newBlockHeader(lastHeight, committee)
-	proposal := newValidatedProposalMessage(height, 3, 0, signer, committee, nil, proposerIdx).ToLight()
-	chainMock := NewMockChainContext(ctrl)
-	chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
+
+	type testCase struct {
+		proof   Proof
+		outCome bool
+	}
 
 	t.Run("Test accusation verifier required gas", func(t *testing.T) {
 		av := AccusationVerifier{}
@@ -168,77 +179,209 @@ func TestAccusationVerifier(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	t.Run("Test validate accusation, with wrong rule ID", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.Equivocation + 100
-		assert.False(t, verifyAccusation(&p, committee))
-	})
+	cases := []testCase{
+		{
+			proof: Proof{
+				Rule: autonity.Equivocation + 100,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.PO,
+				Message: aggPrevote,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.PVN,
+				Message: defLightNewProposal,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.PVO,
+				Message: defLightNewProposal,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.C1,
+				Message: defLightNewProposal,
+			},
+			outCome: false,
+		},
+		// PO tests comes here:
+		{
+			proof: Proof{
+				Rule:    autonity.PO,
+				Message: defNewProposal,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.PO,
+				Message: defLightNewProposal,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PO,
+				Message:       defLightOldProposal,
+				OffenderIndex: proposerIdx + 1,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PO,
+				Message:       defLightOldProposal,
+				OffenderIndex: proposerIdx,
+			},
+			outCome: true,
+		},
+		// PVN tests comes here:
+		{
+			proof: Proof{
+				Rule:    autonity.PVN,
+				Message: defLightOldProposal,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.PVN,
+				Message: aggNilPrevote,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVN,
+				Message:       aggPrevote,
+				OffenderIndex: 3,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVN,
+				Message:       aggPrevote,
+				OffenderIndex: 0,
+			},
+			outCome: true,
+		},
+		// PVO tests comes here:
+		{
+			proof: Proof{
+				Rule:    autonity.PVO,
+				Message: defLightOldProposal,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.PVO,
+				Message: aggNilPrevote,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVO,
+				Message:       aggPrevote,
+				OffenderIndex: 3,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVO,
+				Message:       aggPrevote,
+				OffenderIndex: 1,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVO,
+				Message:       aggPrevote,
+				OffenderIndex: 1,
+				Evidences:     []message.Msg{defLightNewProposal},
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVO,
+				Message:       aggPrevote,
+				OffenderIndex: 1,
+				Evidences:     []message.Msg{defLightNewProposal},
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVO,
+				Message:       aggPrevoteForOld,
+				OffenderIndex: 1,
+				Evidences:     []message.Msg{oldLightProposal2},
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.PVO,
+				Message:       aggPrevoteForOld,
+				OffenderIndex: 1,
+				Evidences:     []message.Msg{defLightOldProposal},
+			},
+			outCome: true,
+		},
 
-	t.Run("Test validate accusation, with wrong accusation msg", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-		preVote := message.NewPrevote(0, height, proposal.Value(), signer, self, cSize)
-		p.Message = preVote
-		assert.Equal(t, false, verifyAccusation(&p, committee))
+		// C1 tests comes here:
+		{
+			proof: Proof{
+				Rule:    autonity.C1,
+				Message: aggPrevote,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:    autonity.C1,
+				Message: aggNilPrecommit,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.C1,
+				Message:       aggPrecommit,
+				OffenderIndex: 3,
+			},
+			outCome: false,
+		},
+		{
+			proof: Proof{
+				Rule:          autonity.C1,
+				Message:       aggPrecommit,
+				OffenderIndex: 1,
+			},
+			outCome: true,
+		},
+	}
 
-		p.Rule = autonity.PVN
-		p.Message = proposal
-		assert.Equal(t, false, verifyAccusation(&p, committee))
-
-		p.Rule = autonity.C
-		p.Message = proposal
-		assert.Equal(t, false, verifyAccusation(&p, committee))
-
-		p.Rule = autonity.C1
-		p.Message = proposal
-		assert.Equal(t, false, verifyAccusation(&p, committee))
-	})
-
-	t.Run("Test validate accusation, with invalid Signature() of msg", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-		invalidCommittee, invalKeys, _ := generateCommittee()
-		p.Message = newValidatedProposalMessage(height, 1, 0, makeSigner(invalKeys[0]), invalidCommittee, nil, 0).ToLight()
-		err := verifyProofSignatures(lastHeader, &p)
-		require.NotNil(t, err)
-	})
-
-	t.Run("Test validate accusation, with correct accusation msg", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PO
-		p.OffenderIndex = proposerIdx
-		liteP := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
-		p.Message = liteP
-		ret := verifyAccusation(&p, committee)
-		assert.True(t, ret)
-	})
-
-	t.Run("Test validate accusation, with PVO accusation msgs", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PVO
-
-		liteP := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
-
-		p.Message = message.NewPrevote(1, height, liteP.Value(), signer, self, cSize)
-		p.Evidences = append(p.Evidences, liteP)
-		p.OffenderIndex = proposerIdx
-		ret := verifyAccusation(&p, committee)
-		assert.True(t, ret)
-	})
-
-	t.Run("Test validate accusation, with invalid PVO accusation proof", func(t *testing.T) {
-		var p Proof
-		p.Rule = autonity.PVO
-		p.OffenderIndex = proposerIdx
-
-		liteP := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
-
-		preVote := message.NewPrevote(2, height, liteP.Value(), signer, self, cSize)
-		p.Message = preVote
-		p.Evidences = append(p.Evidences, liteP)
-		ret := verifyAccusation(&p, committee)
-		assert.False(t, ret)
-	})
+	for i, tc := range cases {
+		actual := verifyAccusation(&tc.proof, committee)
+		t.Log("running TestAccusationVerifier", "case", i, "expected", tc.outCome, "actual", actual)
+		assert.Equal(t, tc.outCome, actual)
+	}
 }
 
 func TestMisbehaviourVerifier(t *testing.T) {
@@ -309,9 +452,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PN
 
-		liteP := newValidatedLightProposal(t, height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
+		liteP := newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = liteP
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.OffenderIndex = proposerIdx
 
 		p.Evidences = append(p.Evidences, preCommit)
@@ -326,9 +469,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.PN
 		p.OffenderIndex = proposerIdx
 
-		liteP := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
+		liteP := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = liteP
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preCommit)
 
 		mv := MisbehaviourVerifier{}
@@ -340,7 +483,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PN
 		p.OffenderIndex = proposerIdx
-		p.Message = newValidatedLightProposal(t, height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
+		p.Message = newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
 		assert.Equal(t, failureReturn, ret)
@@ -352,8 +495,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
-		p.Message = newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
+		p.Message = newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
@@ -367,8 +510,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
 
-		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
-		p.Message = newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		preCommit := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
+		p.Message = newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
@@ -383,9 +526,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		p.Message = newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		p.Message = newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		for i := range committee {
-			prevote := newValidatedPrevote(t, 0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			prevote := newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, prevote)
 		}
 
@@ -398,7 +541,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		p.Message = newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		p.Message = newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
 		assert.Equal(t, failureReturn, ret)
@@ -408,8 +551,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		p.Message = newValidatedLightProposal(t, height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		p.Message = newValidatedLightProposal(height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{}
@@ -425,13 +568,13 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.PVN
 		p.OffenderIndex = proposerIdx
 		// node locked at V1 at round 0.
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
-		preCommitR1 := newValidatedPrecommit(t, 1, height, nilValue, signer, self, cSize, lastHeader)
-		preCommitR2 := newValidatedPrecommit(t, 2, height, nilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommitR1 := newValidatedPrecommit(1, height, nilValue, signer, self, cSize, lastHeader)
+		preCommitR2 := newValidatedPrecommit(2, height, nilValue, signer, self, cSize, lastHeader)
 
-		proposal := newValidatedLightProposal(t, height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
 		// node preVote for V2 at round 3
-		p.Message = newValidatedPrevote(t, 3, height, proposal.Value(), signer, self, cSize, lastHeader)
+		p.Message = newValidatedPrevote(3, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, proposal, preCommit, preCommitR1, preCommitR2)
 
 		mv := MisbehaviourVerifier{}
@@ -447,11 +590,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.PVN
 		p.OffenderIndex = proposerIdx
 		// node locked at V1 at round 0.
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
-		preCommitR1 := newValidatedPrecommit(t, 1, height, nilValue, signer, self, cSize, lastHeader)
-		proposal := newValidatedLightProposal(t, height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommitR1 := newValidatedPrecommit(1, height, nilValue, signer, self, cSize, lastHeader)
+		proposal := newValidatedLightProposal(height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
 		// node preVote for V2 at round 3
-		preVote := newValidatedPrevote(t, 3, height, proposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(3, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, preCommit, preCommitR1)
 
@@ -466,7 +609,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.OffenderIndex = proposerIdx
 
 		// node preVote for V2 at round 3
-		p.Message = newValidatedPrevote(t, 3, height, noneNilValue, signer, self, cSize, lastHeader)
+		p.Message = newValidatedPrevote(3, height, noneNilValue, signer, self, cSize, lastHeader)
 
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
@@ -478,8 +621,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.PVN
 		p.OffenderIndex = proposerIdx
 		// set a wrong type of msg.
-		p.Message = newValidatedLightProposal(t, height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		p.Message = newValidatedLightProposal(height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preCommit)
 		mv := MisbehaviourVerifier{}
 		ret := mv.validateFault(&p, committee)
@@ -490,9 +633,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
 		// node locked at V1 at round 0.
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		// node preVote for V2 at round 3, with nil value, not provable.
-		preVote := newValidatedPrevote(t, 3, height, nilValue, signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(3, height, nilValue, signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, preCommit)
 
@@ -502,14 +645,14 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO1 rule, with correct proof", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		// a precommit at round 1, with value v.
-		pcForV := newValidatedPrecommit(t, 1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		pcForV := newValidatedPrecommit(1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		// a precommit at round 2, with value not v.
-		pcForNotV := newValidatedPrecommit(t, 2, height, noneNilValue, signer, self, cSize, lastHeader)
+		pcForNotV := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize, lastHeader)
 
 		// a prevote at round 3, with value v.
-		preVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PVO12
@@ -523,9 +666,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	t.Run("Test validate misbehaviour proof of PVO12 rule, with no evidence", func(t *testing.T) {
 
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		// a prevote at round 3, with value v.
-		preVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
@@ -537,11 +680,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO12 rule, with wrong msg", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		// a precommit at round 1, with value v.
-		pcForV := newValidatedPrecommit(t, 1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		pcForV := newValidatedPrecommit(1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		// a precommit at round 2, with value not v.
-		pcForNotV := newValidatedPrecommit(t, 2, height, noneNilValue, signer, self, cSize, lastHeader)
+		pcForNotV := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize, lastHeader)
 
 		var p Proof
 		p.Rule = autonity.PVO12
@@ -555,14 +698,14 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO12 rule, with in-corresponding proposal", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 2, 0, signer, committee, lastHeader, nil, proposerIdx)
+		correspondingProposal := newValidatedLightProposal(height, 2, 0, signer, committee, lastHeader, nil, proposerIdx)
 		// a precommit at round 1, with value v.
-		pcForV := newValidatedPrecommit(t, 1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		pcForV := newValidatedPrecommit(1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		// a precommit at round 2, with value not v.
-		pcForNotV := newValidatedPrecommit(t, 2, height, noneNilValue, signer, self, cSize, lastHeader)
+		pcForNotV := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize, lastHeader)
 
 		// a prevote at round 3, with value v.
-		preVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PVO12
@@ -575,17 +718,17 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO1 rule, with precommits out of round range", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		// a precommit at round 0, with value v.
-		pcValidRound := newValidatedPrecommit(t, 0, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		pcValidRound := newValidatedPrecommit(0, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		// a precommit at round 1, with value v.
-		pcForV := newValidatedPrecommit(t, 1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		pcForV := newValidatedPrecommit(1, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 
 		// a precommit at round 4, with value not v.
-		pcForNotV := newValidatedPrecommit(t, 4, height, noneNilValue, signer, self, cSize, lastHeader)
+		pcForNotV := newValidatedPrecommit(4, height, noneNilValue, signer, self, cSize, lastHeader)
 
 		// a prevote at round 3, with value v.
-		preVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
@@ -598,8 +741,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO rule, with correct proof", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
-		maliciousPreVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		maliciousPreVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PVO
@@ -607,7 +750,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, correspondingProposal)
 		// simulate quorum prevote for not v at valid round.
 		for i := range committee {
-			preVote := newValidatedPrevote(t, 0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -617,15 +760,15 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO rule, with less quorum preVote for not v", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
-		maliciousPreVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		maliciousPreVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PVO
 		p.Message = maliciousPreVote
 		p.Evidences = append(p.Evidences, correspondingProposal)
 		// simulate only one prevote for not v at valid round.
-		preVote := newValidatedPrevote(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preVote)
 
 		mv := MisbehaviourVerifier{}
@@ -634,8 +777,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO rule, with preVotes at wrong valid round", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
-		maliciousPreVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		maliciousPreVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.PVO
 		p.OffenderIndex = proposerIdx
@@ -643,7 +786,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Evidences = append(p.Evidences, correspondingProposal)
 		// simulate quorum prevote for not v at a round rather than valid round
 		for i := range committee {
-			preVote := newValidatedPrevote(t, 1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -653,16 +796,16 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	t.Run("Test validate misbehaviour proof of PVO2 rule, with precommits of V", func(t *testing.T) {
-		correspondingProposal := newValidatedLightProposal(t, height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+		correspondingProposal := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 		// a precommit at round 0, with value not v.
-		pcVR := newValidatedPrecommit(t, 0, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		pcVR := newValidatedPrecommit(0, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		// a precommit at round 1, with value not v.
-		pcR1 := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		pcR1 := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		// a precommit at round 2, with value not v.
-		pcR2 := newValidatedPrecommit(t, 2, height, noneNilValue, signer, self, cSize, lastHeader)
+		pcR2 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize, lastHeader)
 
 		// a prevote at round 3, with value v.
-		preVote := newValidatedPrevote(t, 3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(3, height, correspondingProposal.Value(), signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.PVO12
 		p.Type = autonity.Misbehaviour
@@ -680,10 +823,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
 		// Node preCommit for V at round R.
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		for i := range committee {
-			preVote := newValidatedPrevote(t, 0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 		mv := MisbehaviourVerifier{}
@@ -696,7 +839,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
 		// Node preCommit for V at round R.
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 
 		mv := MisbehaviourVerifier{}
@@ -709,10 +852,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 0, height, nilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, nilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		for i := range committee {
-			preVote := newValidatedPrevote(t, 0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -725,10 +868,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		wrongMsg := newValidatedPrevote(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		wrongMsg := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 		for i := range committee {
-			preVote := newValidatedPrevote(t, 0, height, nilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(0, height, nilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -742,11 +885,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		// quorum preVotes of same value, this shouldn't be a valid evidence.
 		for i := range committee {
-			preVote := newValidatedPrevote(t, 0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -760,11 +903,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		// duplicated preVotes msg in evidence, should be addressed.
 		for i := 0; i < len(committee); i++ {
-			preVote := newValidatedPrevote(t, 0, height, nilValue, signer, self, cSize, lastHeader)
+			preVote := newValidatedPrevote(0, height, nilValue, signer, self, cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
@@ -777,11 +920,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 
 		// no quorum preVotes msg in evidence, should be addressed.
-		preVote := newValidatedPrevote(t, 0, height, common.Hash{0x2}, signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(0, height, common.Hash{0x2}, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preVote)
 
 		mv := MisbehaviourVerifier{}
@@ -818,7 +961,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		p := &Proof{
 			Rule:          autonity.PO,
 			OffenderIndex: proposerIdx,
-			Message:       newValidatedLightProposal(t, height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, lHeader, nil, 0),
+			Message:       newValidatedLightProposal(height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, lHeader, nil, 0),
 		}
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
@@ -834,10 +977,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
 		invalidCommittee, iKeys, _ := generateCommittee()
-		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
 		iHeader := newBlockHeader(height, invalidCommittee)
-		invalidPreVote := newValidatedPrevote(t, 1, height, proposal.Value(), makeSigner(iKeys[0]),
+		invalidPreVote := newValidatedPrevote(1, height, proposal.Value(), makeSigner(iKeys[0]),
 			&invalidCommittee[0], len(invalidCommittee), iHeader)
 		p.Evidences = append(p.Evidences, invalidPreVote)
 
@@ -853,7 +996,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		wrongMsg := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		wrongMsg := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 
 		ret := validInnocenceProofOfPO(&p, committee)
@@ -864,10 +1007,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
 		// have preVote at different value than proposal
-		invalidPrevote := newValidatedPrevote(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		invalidPrevote := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, invalidPrevote)
 		ret := validInnocenceProofOfPO(&p, committee)
 		assert.Equal(t, false, ret)
@@ -877,10 +1020,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.OffenderIndex = proposerIdx
 		p.Rule = autonity.PO
-		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
 
-		preVote := newValidatedPrevote(t, 0, height, proposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(0, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preVote)
 		// make redundant msg hack.
 		p.Evidences = append(p.Evidences, p.Evidences...)
@@ -893,10 +1036,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
-		proposal := newValidatedLightProposal(t, height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
 
-		preVote := newValidatedPrevote(t, 0, height, proposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(0, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preVote)
 
 		ret := validInnocenceProofOfPO(&p, committee)
@@ -907,7 +1050,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
 		p.OffenderIndex = proposerIdx
-		wrongMsg := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		wrongMsg := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 		ret := validInnocenceProofOfPVN(&p)
 		assert.Equal(t, false, ret)
@@ -917,7 +1060,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
 		p.OffenderIndex = proposerIdx
-		wrongMsg := newValidatedPrevote(t, 1, height, nilValue, signer, self, cSize, lastHeader)
+		wrongMsg := newValidatedPrevote(1, height, nilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 		ret := validInnocenceProofOfPVN(&p)
 		assert.Equal(t, false, ret)
@@ -927,7 +1070,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
 		p.OffenderIndex = proposerIdx
-		wrongMsg := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		wrongMsg := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 		ret := validInnocenceProofOfPVN(&p)
 		assert.Equal(t, false, ret)
@@ -937,9 +1080,9 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.PVN
 		p.OffenderIndex = proposerIdx
-		proposal := newValidatedLightProposal(t, height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
 		p.Evidences = append(p.Evidences, proposal)
-		preVote := newValidatedPrevote(t, 1, height, proposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(1, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		ret := validInnocenceProofOfPVN(&p)
 		assert.Equal(t, true, ret)
@@ -950,13 +1093,13 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Rule = autonity.PVO
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
-		proposal := newValidatedLightProposal(t, height, 1, vr, signer, committee, lastHeader, nil, proposerIdx)
-		preVote := newValidatedPrevote(t, 1, height, proposal.Value(), signer, self, cSize, lastHeader)
+		proposal := newValidatedLightProposal(height, 1, vr, signer, committee, lastHeader, nil, proposerIdx)
+		preVote := newValidatedPrevote(1, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare quorum prevotes at valid round.
 		for i := range committee {
-			prevote := newValidatedPrevote(t, vr, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			prevote := newValidatedPrevote(vr, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, prevote)
 		}
 
@@ -970,13 +1113,13 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
 		// with wrong round in proposal.
-		proposal := newValidatedLightProposal(t, height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
-		preVote := newValidatedPrevote(t, 1, height, proposal.Value(), signer, self, cSize, lastHeader)
+		proposal := newValidatedLightProposal(height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
+		preVote := newValidatedPrevote(1, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare quorum prevotes at valid round.
 		for i := range committee {
-			v := newValidatedPrevote(t, vr, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			v := newValidatedPrevote(vr, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, v)
 		}
 		ret := validInnocenceProofOfPVO(&p, committee)
@@ -989,13 +1132,13 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
 		// with wrong round in proposal.
-		proposal := newValidatedLightProposal(t, height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
-		preVote := newValidatedPrevote(t, 1, height, proposal.Value(), signer, self, cSize, lastHeader)
+		proposal := newValidatedLightProposal(height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
+		preVote := newValidatedPrevote(1, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare quorum prevotes at wrong round.
 		for i := range committee {
-			v := newValidatedPrevote(t, 1, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			v := newValidatedPrevote(1, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, v)
 		}
 		ret := validInnocenceProofOfPVO(&p, committee)
@@ -1007,12 +1150,12 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Rule = autonity.PVO
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
-		proposal := newValidatedLightProposal(t, height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
-		preVote := newValidatedPrevote(t, 2, height, proposal.Value(), signer, self, cSize, lastHeader)
+		proposal := newValidatedLightProposal(height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
+		preVote := newValidatedPrevote(2, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare only one prevotes at valid round.
-		v := newValidatedPrevote(t, vr, height, proposal.Value(), signer, self, cSize, lastHeader)
+		v := newValidatedPrevote(vr, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, v)
 
 		ret := validInnocenceProofOfPVO(&p, committee)
@@ -1024,13 +1167,13 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Rule = autonity.PVO
 		p.OffenderIndex = proposerIdx
 		vr := int64(0)
-		proposal := newValidatedLightProposal(t, height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
-		preVote := newValidatedPrevote(t, 2, height, proposal.Value(), signer, self, cSize, lastHeader)
+		proposal := newValidatedLightProposal(height, 2, vr, signer, committee, lastHeader, nil, proposerIdx)
+		preVote := newValidatedPrevote(2, height, proposal.Value(), signer, self, cSize, lastHeader)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, proposal)
 		// prepare only one prevotes at valid round.
 		for i := range committee {
-			v := newValidatedPrevote(t, vr, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			v := newValidatedPrevote(vr, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, v)
 		}
 		ret := validInnocenceProofOfPVO(&p, committee)
@@ -1041,7 +1184,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
 		p.OffenderIndex = proposerIdx
-		wrongMsg := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		wrongMsg := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 
 		ret := validInnocenceProofOfC1(&p, committee)
@@ -1052,7 +1195,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
 		p.OffenderIndex = proposerIdx
-		wrongMsg := newValidatedPrecommit(t, 1, height, nilValue, signer, self, cSize, lastHeader)
+		wrongMsg := newValidatedPrecommit(1, height, nilValue, signer, self, cSize, lastHeader)
 		p.Message = wrongMsg
 
 		ret := validInnocenceProofOfC1(&p, committee)
@@ -1063,10 +1206,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		// evidence contains a preVote of a different round
-		preVote := newValidatedPrevote(t, 0, height, noneNilValue, signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preVote)
 
 		ret := validInnocenceProofOfC1(&p, committee)
@@ -1077,10 +1220,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 
-		preVote := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preVote)
 		p.Evidences = append(p.Evidences, p.Evidences...)
 
@@ -1092,10 +1235,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 
-		preVote := newValidatedPrevote(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Evidences = append(p.Evidences, preVote)
 
 		ret := validInnocenceProofOfC1(&p, committee)
@@ -1106,40 +1249,15 @@ func TestInnocenceVerifier(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.C1
 		p.OffenderIndex = proposerIdx
-		preCommit := newValidatedPrecommit(t, 1, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
 		p.Message = preCommit
 		for i := range committee {
-			preVote := newValidatedPrevote(t, 1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			p.Evidences = append(p.Evidences, preVote)
 		}
 
 		ret := validInnocenceProofOfC1(&p, committee)
 		assert.Equal(t, true, ret)
-	})
-}
-
-// More tests are required here
-func TestVerifyProofSignatures(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	height := uint64(100)
-	lastHeight := height - 1
-	round := int64(0)
-	chainMock := NewMockChainContext(ctrl)
-	currentHeader := newBlockHeader(lastHeight, committee)
-	chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(currentHeader).AnyTimes()
-
-	t.Run("normal case, proposal msg is checked correctly", func(t *testing.T) {
-		proposal := newValidatedProposalMessage(height, round, -1, signer, committee, nil, proposerIdx)
-		err := verifyProofSignatures(currentHeader, &Proof{Message: proposal.ToLight()})
-		require.Nil(t, err)
-	})
-
-	t.Run("abnormal case, msg is not signed by committee", func(t *testing.T) {
-		wrongCommitte, ks, _ := generateCommittee()
-		proposal := newValidatedProposalMessage(height, round, -1, makeSigner(ks[0]), wrongCommitte, nil, proposerIdx)
-		err := verifyProofSignatures(currentHeader, &Proof{Message: proposal})
-		require.Equal(t, message.ErrUnauthorizedAddress, err)
 	})
 }
 
@@ -1151,16 +1269,16 @@ func TestCheckEquivocation(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.Equivocation
 		p.OffenderIndex = proposerIdx
-		proposal := newValidatedLightProposal(t, height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
 		p.Message = proposal
-		p2 := newValidatedLightProposal(t, height, round, 1, signer, committee, lastHeader, nil, proposerIdx)
+		p2 := newValidatedLightProposal(height, round, 1, signer, committee, lastHeader, nil, proposerIdx)
 		p.Evidences = append(p.Evidences, p2)
 		require.Equal(t, true, validMisbehaviourOfEquivocation(&p, committee))
 	})
 
 	t.Run("check equivocation with valid Proof of prevote equivocation", func(t *testing.T) {
-		vote1 := newValidatedPrevote(t, round, height, nilValue, signer, self, cSize, lastHeader)
-		vote2 := newValidatedPrevote(t, round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
+		vote1 := newValidatedPrevote(round, height, nilValue, signer, self, cSize, lastHeader)
+		vote2 := newValidatedPrevote(round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.Equivocation
 		p.OffenderIndex = proposerIdx
@@ -1170,8 +1288,8 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 
 	t.Run("check equivocation with valid Proof of precomit equivocation", func(t *testing.T) {
-		vote1 := newValidatedPrecommit(t, round, height, nilValue, signer, self, cSize, lastHeader)
-		vote2 := newValidatedPrecommit(t, round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
+		vote1 := newValidatedPrecommit(round, height, nilValue, signer, self, cSize, lastHeader)
+		vote2 := newValidatedPrecommit(round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
 		var p Proof
 		p.Rule = autonity.Equivocation
 		p.OffenderIndex = proposerIdx
@@ -1188,32 +1306,38 @@ func makeSigner(key blst.SecretKey) message.Signer {
 	}
 }
 
-func newValidatedLightProposal(t *testing.T, height uint64, r int64, vr int64, signer message.Signer, committee types.Committee,
+func newValidatedLightProposal(height uint64, r int64, vr int64, signer message.Signer, committee types.Committee,
 	lastHeader *types.Header, block *types.Block, idx int) *message.LightProposal { //nolint
 	rawProposal := newValidatedProposalMessage(height, r, vr, signer, committee, block, idx)
-	err := rawProposal.PreValidate(lastHeader)
-	require.NoError(t, err)
-	err = rawProposal.Validate()
-	require.NoError(t, err)
+	if err := rawProposal.PreValidate(lastHeader); err != nil {
+		panic(err)
+	}
+	if err := rawProposal.Validate(); err != nil {
+		panic(err)
+	}
 	return rawProposal.ToLight()
 }
 
-func newValidatedPrecommit(t *testing.T, r int64, height uint64, v common.Hash, signer message.Signer,
+func newValidatedPrecommit(r int64, height uint64, v common.Hash, signer message.Signer,
 	s *types.CommitteeMember, cSize int, lastHeader *types.Header) *message.Precommit {
 	preCommit := message.NewPrecommit(r, height, v, signer, s, cSize)
-	err := preCommit.PreValidate(lastHeader)
-	require.NoError(t, err)
-	err = preCommit.Validate()
-	require.NoError(t, err)
+	if err := preCommit.PreValidate(lastHeader); err != nil {
+		panic(err)
+	}
+	if err := preCommit.Validate(); err != nil {
+		panic(err)
+	}
 	return preCommit
 }
 
-func newValidatedPrevote(t *testing.T, r int64, height uint64, v common.Hash, signer message.Signer,
+func newValidatedPrevote(r int64, height uint64, v common.Hash, signer message.Signer,
 	s *types.CommitteeMember, cSize int, lastHeader *types.Header) *message.Prevote {
 	prevote := message.NewPrevote(r, height, v, signer, s, cSize)
-	err := prevote.PreValidate(lastHeader)
-	require.NoError(t, err)
-	err = prevote.Validate()
-	require.NoError(t, err)
+	if err := prevote.PreValidate(lastHeader); err != nil {
+		panic(err)
+	}
+	if err := prevote.Validate(); err != nil {
+		panic(err)
+	}
 	return prevote
 }

@@ -222,7 +222,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences:     nil,
 		}
 		lastHeader := newBlockHeader(0, committee)
-		preCommit := newValidatedPrecommit(t, 1, 1, common.Hash{}, remoteSigner, remote, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(1, 1, common.Hash{}, remoteSigner, remote, cSize, lastHeader)
 
 		var accusationC1 = Proof{
 			OffenderIndex: remotePeerIdx,
@@ -273,7 +273,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences:     nil,
 		}
 
-		preCommit := newValidatedPrecommit(t, msgRound, msgHeight, nilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(msgRound, msgHeight, nilValue, signer, self, cSize, lastHeader)
 		var accusationC1 = Proof{
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
@@ -315,7 +315,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences:     nil,
 		}
 
-		preCommit := newValidatedPrecommit(t, msgRound, msgHeight, nilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(msgRound, msgHeight, nilValue, signer, self, cSize, lastHeader)
 		var accusationC1 = Proof{
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
@@ -383,7 +383,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 		chainMock.EXPECT().GetBlock(proposal.Value(), proposal.H()).Return(nil)
 
 		for i := range committee {
-			preVote := newValidatedPrevote(t, validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, header)
+			preVote := newValidatedPrevote(validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, header)
 			ms.Save(preVote)
 		}
 
@@ -481,7 +481,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		header := newBlockHeader(accusationHeight-1, committee)
 		// save corresponding prevotes in msg store.
 		for i := range committee {
-			preVote := newValidatedPrevote(t, validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, header)
+			preVote := newValidatedPrevote(validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, header)
 			mStore.Save(preVote)
 		}
 		chainMock.EXPECT().GetBlock(proposal.Value(), proposal.H()).Return(nil)
@@ -542,7 +542,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		}
 		lastHeader := newBlockHeader(lastHeight, committee)
 		for i := range committee {
-			preVote := newValidatedPrevote(t, validRound, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			preVote := newValidatedPrevote(validRound, height, proposal.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 			proofPO.Evidences = append(proofPO.Evidences, preVote)
 		}
 
