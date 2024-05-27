@@ -162,9 +162,9 @@ func (c *Core) roundSkipCheck(ctx context.Context, r int64) {
 	futurePower := new(big.Int)
 
 	c.futureRoundLock.RLock()
-	futurePowerInfo, ok := c.futurePower[r]
+	futureAggregatedPower, ok := c.futurePower[r]
 	if ok {
-		futurePower.Set(futurePowerInfo.Pow())
+		futurePower.Set(futureAggregatedPower.Power())
 	}
 	c.futureRoundLock.RUnlock()
 

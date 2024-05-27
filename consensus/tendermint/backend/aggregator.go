@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	aggregationPeriod            = 100 * time.Millisecond
+	aggregationPeriod            = 150 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
 )
 
@@ -52,6 +53,22 @@ func oldHeightEventBuilder(msg message.Msg, errCh chan<- error) interface{} {
 	}
 }
 
+// computes how much new voting power will the messages in the aggregator apport to core
+func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committee types.Committee) *big.Int {
+	contribution := message.Contribution(aggregatorSigners, coreSigners)
+	if contribution.Cmp(common.Big0) == 0 {
+		return new(big.Int) // no power contribution
+	}
+	// there is a contribution, compute how much
+	contributionPower := new(big.Int)
+	for i, member := range committee {
+		if contribution.Bit(i) == 1 {
+			contributionPower.Add(contributionPower, member.VotingPower)
+		}
+	}
+	return contributionPower
+}
+
 func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger) *aggregator {
 	return &aggregator{
 		backend:       backend,
@@ -68,26 +85,26 @@ type RoundInfo struct {
 	proposals []events.UnverifiedMessageEvent
 
 	prevotes         map[common.Hash][]events.UnverifiedMessageEvent
-	prevotesPower    *message.PowerInfo
-	prevotesPowerFor map[common.Hash]*message.PowerInfo
+	prevotesPower    *message.AggregatedPower
+	prevotesPowerFor map[common.Hash]*message.AggregatedPower
 
 	precommits         map[common.Hash][]events.UnverifiedMessageEvent
-	precommitsPower    *message.PowerInfo
-	precommitsPowerFor map[common.Hash]*message.PowerInfo
+	precommitsPower    *message.AggregatedPower
+	precommitsPowerFor map[common.Hash]*message.AggregatedPower
 
-	power *message.PowerInfo // entire round power
+	power *message.AggregatedPower // entire round power
 }
 
 func NewRoundInfo() *RoundInfo {
 	return &RoundInfo{
 		proposals:          make([]events.UnverifiedMessageEvent, 0),
 		prevotes:           make(map[common.Hash][]events.UnverifiedMessageEvent),
-		prevotesPower:      message.NewPowerInfo(),
-		prevotesPowerFor:   make(map[common.Hash]*message.PowerInfo),
+		prevotesPower:      message.NewAggregatedPower(),
+		prevotesPowerFor:   make(map[common.Hash]*message.AggregatedPower),
 		precommits:         make(map[common.Hash][]events.UnverifiedMessageEvent),
-		precommitsPower:    message.NewPowerInfo(),
-		precommitsPowerFor: make(map[common.Hash]*message.PowerInfo),
-		power:              message.NewPowerInfo(),
+		precommitsPower:    message.NewAggregatedPower(),
+		precommitsPowerFor: make(map[common.Hash]*message.AggregatedPower),
+		power:              message.NewAggregatedPower(),
 	}
 }
 
@@ -157,7 +174,7 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 		_, ok := roundInfo.prevotesPowerFor[v]
 		if !ok {
-			roundInfo.prevotesPowerFor[v] = message.NewPowerInfo()
+			roundInfo.prevotesPowerFor[v] = message.NewAggregatedPower()
 		}
 
 		// update power caches
@@ -172,7 +189,7 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 		_, ok := roundInfo.precommitsPowerFor[v]
 		if !ok {
-			roundInfo.precommitsPowerFor[v] = message.NewPowerInfo()
+			roundInfo.precommitsPowerFor[v] = message.NewAggregatedPower()
 		}
 
 		// update power caches
@@ -197,52 +214,52 @@ func (a *aggregator) empty(h uint64, r int64) bool {
 	return false
 }
 
-func (a *aggregator) power(h uint64, r int64) *big.Int {
+func (a *aggregator) power(h uint64, r int64) *message.AggregatedPower {
 	if a.empty(h, r) {
-		return new(big.Int)
+		return message.NewAggregatedPower()
 	}
-	return new(big.Int).Set(a.messages[h][r].power.Pow()) // return a copy as the aggregator is going to modify this value
+	return a.messages[h][r].power.Copy() // return a copy as the aggregator is going to modify this value
 }
 
-func (a *aggregator) votesPower(h uint64, r int64, c uint8) *big.Int {
+func (a *aggregator) votesPower(h uint64, r int64, c uint8) *message.AggregatedPower {
 	if a.empty(h, r) {
-		return new(big.Int)
+		return message.NewAggregatedPower()
 	}
 
 	roundInfo := a.messages[h][r]
-	var power *big.Int
+	var power *message.AggregatedPower
 	switch c {
 	case message.PrevoteCode:
-		power = roundInfo.prevotesPower.Pow()
+		power = roundInfo.prevotesPower.Copy()
 	case message.PrecommitCode:
-		power = roundInfo.precommitsPower.Pow()
+		power = roundInfo.precommitsPower.Copy()
 	default:
 		a.logger.Crit("Unexpected code", "c", c)
 	}
-	return new(big.Int).Set(power) // return a copy as the aggregator is going to modify this value
+	return power // return a copy as the aggregator is going to modify this value
 }
 
-func (a *aggregator) votesPowerFor(h uint64, r int64, c uint8, v common.Hash) *big.Int {
+func (a *aggregator) votesPowerFor(h uint64, r int64, c uint8, v common.Hash) *message.AggregatedPower {
 	if a.empty(h, r) {
-		return new(big.Int)
+		return message.NewAggregatedPower()
 	}
 
 	roundInfo := a.messages[h][r]
-	var powerInfo *message.PowerInfo
+	var power *message.AggregatedPower
 	var ok bool // necessary to not override power declaration inside the switch
 	switch c {
 	case message.PrevoteCode:
-		powerInfo, ok = roundInfo.prevotesPowerFor[v]
+		power, ok = roundInfo.prevotesPowerFor[v]
 	case message.PrecommitCode:
-		powerInfo, ok = roundInfo.precommitsPowerFor[v]
+		power, ok = roundInfo.precommitsPowerFor[v]
 	default:
 		a.logger.Crit("Unexpected code", "c", c)
 	}
 
 	if !ok {
-		return new(big.Int)
+		return message.NewAggregatedPower()
 	}
-	return new(big.Int).Set(powerInfo.Pow()) // return a copy as the aggregator is going to modify this value
+	return power.Copy() // return a copy as the aggregator is going to modify this value
 }
 
 func (a *aggregator) processRound(h uint64, r int64) {
@@ -305,8 +322,8 @@ func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
 
 		// clean up
 		roundInfo.prevotes = make(map[common.Hash][]events.UnverifiedMessageEvent)
-		roundInfo.prevotesPower = message.NewPowerInfo()
-		roundInfo.prevotesPowerFor = make(map[common.Hash]*message.PowerInfo)
+		roundInfo.prevotesPower = message.NewAggregatedPower()
+		roundInfo.prevotesPowerFor = make(map[common.Hash]*message.AggregatedPower)
 
 		// recompute total power for the round (precommits power + proposals)
 		roundInfo.power = roundInfo.precommitsPower.Copy()
@@ -328,8 +345,8 @@ func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
 
 		// clean up
 		roundInfo.precommits = make(map[common.Hash][]events.UnverifiedMessageEvent)
-		roundInfo.precommitsPower = message.NewPowerInfo()
-		roundInfo.precommitsPowerFor = make(map[common.Hash]*message.PowerInfo)
+		roundInfo.precommitsPower = message.NewAggregatedPower()
+		roundInfo.precommitsPowerFor = make(map[common.Hash]*message.AggregatedPower)
 
 		// recompute total power for the round (prevotes power + proposals)
 		roundInfo.power = roundInfo.prevotesPower.Copy()
@@ -367,8 +384,8 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		//TODO(lorenzo) this might be too computation heavy
 
 		// re-compute round power and prevote power
-		roundInfo.prevotesPower = message.NewPowerInfo()
-		roundInfo.power = message.NewPowerInfo()
+		roundInfo.prevotesPower = message.NewAggregatedPower()
+		roundInfo.power = message.NewAggregatedPower()
 
 		// prevotes
 		for _, prevotesEvent := range roundInfo.prevotes {
@@ -411,8 +428,8 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		//TODO(lorenzo) this might be too computation heavy
 
 		// re-compute round power and prevote power
-		roundInfo.precommitsPower = message.NewPowerInfo()
-		roundInfo.power = message.NewPowerInfo()
+		roundInfo.precommitsPower = message.NewAggregatedPower()
+		roundInfo.power = message.NewAggregatedPower()
 
 		// prevotes
 		for _, prevotesEvent := range roundInfo.prevotes {
@@ -555,7 +572,7 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 // assumes current or old round vote
 // if add == true, the msg is saved in the aggregator.
 // if add == false, the msg is not saved and only the power checks are done.
-func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, quorum *big.Int, add bool) {
+func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committee types.Committee, quorum *big.Int, add bool) {
 	vote := voteEvent.Message.(message.Vote)
 	errCh := voteEvent.ErrCh
 	sender := voteEvent.Sender
@@ -569,7 +586,7 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, quorum 
 	// if we do not already have quorum in Core, process right away
 	coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
 	coreVotesPower := a.core.VotesPower(height, round, code)
-	if vote.Signers().IsComplex() && (coreVotesForPower.Cmp(quorum) < 0 || coreVotesPower.Cmp(quorum) < 0) {
+	if vote.Signers().IsComplex() && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
 		if err := vote.Validate(); err != nil {
 			a.handleInvalidMessage(errCh, err, sender)
 			return
@@ -586,7 +603,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, quorum 
 	// check if we reached quorum voting power on a specific value
 	corePower := a.core.VotesPowerFor(height, round, code, value)
 	aggregatorPower := a.votesPowerFor(height, round, code, value)
-	if corePower.Cmp(quorum) < 0 && aggregatorPower.Add(aggregatorPower, corePower).Cmp(quorum) >= 0 {
+	contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
+	if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
 		a.processVotesFor(height, round, code, value)
 		return
 	}
@@ -594,7 +612,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, quorum 
 	// check if we reached quorum voting power in general
 	corePower = a.core.VotesPower(height, round, code)
 	aggregatorPower = a.votesPower(height, round, code)
-	if corePower.Cmp(quorum) < 0 && aggregatorPower.Add(aggregatorPower, corePower).Cmp(quorum) >= 0 {
+	contribution = powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
+	if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
 		a.processVotes(height, round, code)
 	}
 }
@@ -671,6 +690,7 @@ loop:
 			if header == nil {
 				a.logger.Crit("cannot fetch header for non-future message", "headerHeight", msg.H()-1, "coreHeight", coreHeight)
 			}
+			committee := header.Committee
 			quorum := bft.Quorum(header.TotalVotingPower())
 
 			coreRound := a.core.Round()
@@ -680,7 +700,8 @@ loop:
 				// check if power is enough for a round skip
 				aggregatorPower := a.power(msg.H(), msg.R())
 				corePower := a.core.Power(msg.H(), msg.R())
-				if aggregatorPower.Add(aggregatorPower, corePower).Cmp(bft.F(header.TotalVotingPower())) > 0 {
+				contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), header.Committee)
+				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(header.TotalVotingPower())) > 0 {
 					a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
 					a.processRound(msg.H(), msg.R())
 				}
@@ -694,7 +715,7 @@ loop:
 			case *message.Propose:
 				a.processProposal(event, currentHeightEventBuilder)
 			case *message.Prevote, *message.Precommit:
-				a.handleVote(event, quorum, true)
+				a.handleVote(event, committee, quorum, true)
 			default:
 				a.logger.Crit("unknown message type arrived in aggregator")
 			}
@@ -737,13 +758,14 @@ loop:
 					a.logger.Crit("cannot fetch header for non-future height", "height", height-1)
 				}
 				quorum := bft.Quorum(header.TotalVotingPower())
+				committee := header.Committee
 
 				for _, evs := range roundInfo.precommits {
 					for _, e := range evs {
 						//TODO(lorenzo) possible problem here, handleVote might call `process*` which is going to delete stuff in the map
 						// generally is fine but double check if it causes issue in this case
 						// also, can I just process one event for value to re-do the checks?
-						a.handleVote(e, quorum, false)
+						a.handleVote(e, committee, quorum, false)
 					}
 				}
 
@@ -752,7 +774,7 @@ loop:
 						//TODO(lorenzo) possible problem here, processVote might call `process` which is going to delete stuff in the map
 						// generally is fine but double check if it causes issue in this case
 						// also, can I just process one event for value to re-do the checks?
-						a.handleVote(e, quorum, false)
+						a.handleVote(e, committee, quorum, false)
 					}
 				}
 				RoundBg.Add(time.Since(start).Nanoseconds())
@@ -773,6 +795,7 @@ loop:
 					panic("cannot fetch header for non-future message")
 				}
 				quorum := bft.Quorum(header.TotalVotingPower())
+				committee := header.Committee
 
 				var votesEvent []events.UnverifiedMessageEvent
 				var ok bool
@@ -791,7 +814,7 @@ loop:
 				}
 
 				// processing one vote for the value for which power changed is enough to do all necessary checks
-				a.handleVote(votesEvent[0], quorum, false)
+				a.handleVote(votesEvent[0], committee, quorum, false)
 				PowerBg.Add(time.Since(start).Nanoseconds())
 			case events.FuturePowerChangeEvent:
 				height := e.Height
@@ -805,7 +828,8 @@ loop:
 				// check in future round messages power, check again for round skip
 				aggregatorPower := a.power(height, round)
 				corePower := a.core.Power(height, round)
-				if aggregatorPower.Add(aggregatorPower, corePower).Cmp(bft.F(header.TotalVotingPower())) > 0 {
+				contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), header.Committee)
+				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(header.TotalVotingPower())) > 0 {
 					a.processRound(height, round)
 				}
 				FuturePowerBg.Add(time.Since(start).Nanoseconds())

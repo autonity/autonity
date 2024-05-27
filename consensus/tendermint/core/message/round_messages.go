@@ -78,7 +78,7 @@ type RoundMessages struct {
 	proposal         *Propose
 	prevotes         *Set
 	precommits       *Set
-	power            *PowerInfo // power for all messages
+	power            *AggregatedPower // power for all messages
 	sync.RWMutex
 }
 
@@ -87,7 +87,7 @@ func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
 		prevotes:         NewSet(),
 		precommits:       NewSet(),
-		power:            NewPowerInfo(),
+		power:            NewAggregatedPower(),
 		verifiedProposal: false,
 	}
 }
@@ -101,25 +101,41 @@ func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 }
 
 // total power for round (each signer counted only once, regardless of msg type)
-func (s *RoundMessages) Power() *big.Int {
+func (s *RoundMessages) Power() *AggregatedPower {
 	s.RLock()
 	defer s.RUnlock()
-	return new(big.Int).Set(s.power.Pow())
+	return s.power.Copy()
 }
 
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
+	return s.prevotes.PowerFor(hash).Power()
+}
+
+func (s *RoundMessages) PrevotesAggregatedPower(hash common.Hash) *AggregatedPower {
 	return s.prevotes.PowerFor(hash)
 }
 
 func (s *RoundMessages) PrevotesTotalPower() *big.Int {
+	return s.prevotes.TotalPower().Power()
+}
+
+func (s *RoundMessages) PrevotesTotalAggregatedPower() *AggregatedPower {
 	return s.prevotes.TotalPower()
 }
 
 func (s *RoundMessages) PrecommitsPower(hash common.Hash) *big.Int {
+	return s.precommits.PowerFor(hash).Power()
+}
+
+func (s *RoundMessages) PrecommitsAggregatedPower(hash common.Hash) *AggregatedPower {
 	return s.precommits.PowerFor(hash)
 }
 
 func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
+	return s.precommits.TotalPower().Power()
+}
+
+func (s *RoundMessages) PrecommitsTotalAggregatedPower() *AggregatedPower {
 	return s.precommits.TotalPower()
 }
 

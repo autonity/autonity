@@ -63,6 +63,12 @@ func newUnverifiedLightPropose(r int64, h uint64, vr int64, block *types.Block, 
 	return unverifiedPropose
 }
 
+func makeSigner(key blst.SecretKey) func(common.Hash) blst.Signature {
+	return func(h common.Hash) blst.Signature {
+		return key.Sign(h[:])
+	}
+}
+
 func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
 		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1)
@@ -258,6 +264,39 @@ func TestMessageEncodeDecode(t *testing.T) {
 			t.Error("does not match", i)
 		}
 	}
+}
+
+// verify that aggregating same votes in different orders doesn't change the hash
+func TestMessageHash(t *testing.T) {
+	h := uint64(1)
+	r := int64(0)
+	v := common.HexToHash("0a5843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
+	csize := len(testCommittee)
+	err := testCommittee.Enrich()
+	require.NoError(t, err)
+
+	key1, err := blst.RandKey()
+	require.NoError(t, err)
+	key2, err := blst.RandKey()
+	require.NoError(t, err)
+	key3, err := blst.RandKey()
+	require.NoError(t, err)
+
+	vote1 := NewPrevote(r, h, v, makeSigner(key1), &testCommittee[0], csize)
+	vote2 := NewPrevote(r, h, v, makeSigner(key2), &testCommittee[1], csize)
+	vote3 := NewPrevote(r, h, v, makeSigner(key3), &testCommittee[2], csize)
+
+	aggregates1 := AggregatePrevotesSimple([]Vote{vote1, vote2, vote3})
+	aggregates2 := AggregatePrevotesSimple([]Vote{vote2, vote1, vote3})
+	aggregates3 := AggregatePrevotesSimple([]Vote{vote3, vote1, vote2})
+
+	require.Equal(t, 1, len(aggregates1))
+	require.Equal(t, 1, len(aggregates2))
+	require.Equal(t, 1, len(aggregates3))
+
+	hash := aggregates1[0].Hash()
+	require.Equal(t, hash, aggregates2[0].Hash())
+	require.Equal(t, hash, aggregates3[0].Hash())
 }
 
 func FuzzFromPayload(f *testing.F) {

@@ -364,7 +364,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		// update future power
 		_, ok := c.futurePower[r]
 		if !ok {
-			c.futurePower[r] = message.NewPowerInfo()
+			c.futurePower[r] = message.NewAggregatedPower()
 		}
 		switch m := msg.(type) {
 		case *message.Propose:

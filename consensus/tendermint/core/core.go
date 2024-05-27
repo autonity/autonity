@@ -29,7 +29,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		logger:                 logger,
 		backend:                backend,
 		futureRound:            make(map[int64][]message.Msg),
-		futurePower:            make(map[int64]*message.PowerInfo),
+		futurePower:            make(map[int64]*message.AggregatedPower),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
@@ -103,7 +103,7 @@ type Core struct {
 	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
 	// they need a lock.
 	futureRound     map[int64][]message.Msg
-	futurePower     map[int64]*message.PowerInfo // power cache for future value msgs (per round)
+	futurePower     map[int64]*message.AggregatedPower // power cache for future value msgs (per round)
 	futureRoundLock sync.RWMutex
 
 	sentProposal          bool
@@ -381,7 +381,7 @@ func (c *Core) setInitialState(r int64) {
 		c.messages.Reset()
 		c.futureRoundLock.Lock()
 		c.futureRound = make(map[int64][]message.Msg)
-		c.futurePower = make(map[int64]*message.PowerInfo)
+		c.futurePower = make(map[int64]*message.AggregatedPower)
 		c.futureRoundLock.Unlock()
 		// update height duration timer
 		if metrics.Enabled {
@@ -531,23 +531,23 @@ func (c *Core) LastHeader() *types.Header {
 	return c.lastHeader
 }
 
-func (c *Core) Power(h uint64, r int64) *big.Int {
+func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {
 	start := time.Now()
 	c.roundChangeMu.Lock()
 	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {
-		return new(big.Int)
+		return message.NewAggregatedPower()
 	}
 
-	power := new(big.Int)
+	power := message.NewAggregatedPower()
 	if r > c.Round() {
 		// future round
 		c.futureRoundLock.RLock()
-		powerInfo, ok := c.futurePower[r]
+		futurePower, ok := c.futurePower[r]
 		if ok {
-			power.Set(powerInfo.Pow())
+			power = futurePower.Copy()
 		}
 		c.futureRoundLock.RUnlock()
 	} else {
@@ -560,25 +560,25 @@ func (c *Core) Power(h uint64, r int64) *big.Int {
 
 // NOTE: this assumes that r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
 // This methods should not be used to compute power for future rounds
-func (c *Core) VotesPower(h uint64, r int64, code uint8) *big.Int {
+func (c *Core) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower {
 	start := time.Now()
 	c.roundChangeMu.Lock()
 	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {
-		return new(big.Int)
+		return message.NewAggregatedPower()
 	}
 	roundMessages := c.messages.GetOrCreate(r)
-	var power *big.Int
+	var power *message.AggregatedPower
 
 	switch code {
 	case message.ProposalCode:
 		c.logger.Crit("Proposal code passed into VotesPower")
 	case message.PrevoteCode:
-		power = roundMessages.PrevotesTotalPower()
+		power = roundMessages.PrevotesTotalAggregatedPower()
 	case message.PrecommitCode:
-		power = roundMessages.PrecommitsTotalPower()
+		power = roundMessages.PrecommitsTotalAggregatedPower()
 	default:
 		c.logger.Crit("unknown message code", "code", code)
 	}
@@ -587,25 +587,25 @@ func (c *Core) VotesPower(h uint64, r int64, code uint8) *big.Int {
 
 // NOTE: assume r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
 // This methods should not be used to compute power for future rounds
-func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int {
+func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower {
 	start := time.Now()
 	c.roundChangeMu.Lock()
 	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {
-		return new(big.Int)
+		return message.NewAggregatedPower()
 	}
 	roundMessages := c.messages.GetOrCreate(r)
-	var power *big.Int
+	var power *message.AggregatedPower
 
 	switch code {
 	case message.ProposalCode:
 		c.logger.Crit("Proposal code passed into VotesPower")
 	case message.PrevoteCode:
-		power = roundMessages.PrevotesPower(v)
+		power = roundMessages.PrevotesAggregatedPower(v)
 	case message.PrecommitCode:
-		power = roundMessages.PrecommitsPower(v)
+		power = roundMessages.PrecommitsAggregatedPower(v)
 	default:
 		c.logger.Crit("unknown message code", "code", code)
 	}

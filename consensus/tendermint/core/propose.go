@@ -194,6 +194,6 @@ func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Pro
 		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", log.Lazy{Fn: func() bool { return proposal.Block().Hash() == common.Hash{} }},
 		"value", log.Lazy{Fn: func() common.Hash { return proposal.Block().Hash() }},
-		"proposal", proposal.String(),
+		"proposal", log.Lazy{Fn: func() string { return proposal.String() }},
 	)
 }

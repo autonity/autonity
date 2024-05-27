@@ -106,6 +106,6 @@ func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *messag
 		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrecommitsTotalPower},
 		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(common.Hash{}) }},
 		"proposedBlockVote", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(c.curRoundMessages.ProposalHash()) }},
-		"precommit", precommit.String(),
+		"precommit", log.Lazy{Fn: func() string { return precommit.String() }},
 	)
 }

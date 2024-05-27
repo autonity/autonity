@@ -454,10 +454,10 @@ func (mr *MockCoreMockRecorder) Height() *gomock.Call {
 }
 
 // Power mocks base method.
-func (m *MockCore) Power(h uint64, r int64) *big.Int {
+func (m *MockCore) Power(h uint64, r int64) *message.AggregatedPower {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Power", h, r)
-	ret0, _ := ret[0].(*big.Int)
+	ret0, _ := ret[0].(*message.AggregatedPower)
 	return ret0
 }
 
@@ -548,10 +548,10 @@ func (mr *MockCoreMockRecorder) Stop() *gomock.Call {
 }
 
 // VotesPower mocks base method.
-func (m *MockCore) VotesPower(h uint64, r int64, code uint8) *big.Int {
+func (m *MockCore) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VotesPower", h, r, code)
-	ret0, _ := ret[0].(*big.Int)
+	ret0, _ := ret[0].(*message.AggregatedPower)
 	return ret0
 }
 
@@ -562,10 +562,10 @@ func (mr *MockCoreMockRecorder) VotesPower(h, r, code any) *gomock.Call {
 }
 
 // VotesPowerFor mocks base method.
-func (m *MockCore) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *big.Int {
+func (m *MockCore) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VotesPowerFor", h, r, code, v)
-	ret0, _ := ret[0].(*big.Int)
+	ret0, _ := ret[0].(*message.AggregatedPower)
 	return ret0
 }
 

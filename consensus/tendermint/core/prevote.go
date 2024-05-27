@@ -94,6 +94,6 @@ func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevo
 		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(common.Hash{}) }},
 		"quorum", log.Lazy{Fn: c.committee.Quorum},
 		"VoteProposedBlock", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(c.curRoundMessages.ProposalHash()) }},
-		"prevote", prevote.String(),
+		"prevote", log.Lazy{Fn: func() string { return prevote.String() }},
 	)
 }

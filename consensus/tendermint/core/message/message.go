@@ -835,22 +835,22 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 
 // computes the power of a set of messages. Every sender's power is counted only once
 func Power(messages []Msg) *big.Int {
-	powerInfo := NewPowerInfo()
+	power := NewAggregatedPower()
 
 	for _, msg := range messages {
 		switch m := msg.(type) {
 		case *Propose:
-			powerInfo.Set(m.SignerIndex(), m.Power())
+			power.Set(m.SignerIndex(), m.Power())
 		case *Prevote, *Precommit:
 			vote := m.(Vote)
-			for index, power := range vote.Signers().Powers() {
-				powerInfo.Set(index, power)
+			for index, signerPower := range vote.Signers().Powers() {
+				power.Set(index, signerPower)
 			}
 		default:
 			panic("unknown message type")
 		}
 	}
-	return powerInfo.Pow()
+	return power.Power()
 }
 
 // OverQuorumVotes compute voting power out from a set of prevotes or precommits of a certain round and height, the caller

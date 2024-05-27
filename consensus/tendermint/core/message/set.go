@@ -12,12 +12,19 @@ import (
 //TODO(lorenzo) not sure this is the right place for this + add tests for it
 
 // auxiliary data structure to take into account aggregated power of a set of signers
-type PowerInfo struct {
+type AggregatedPower struct {
 	power   *big.Int
 	signers *big.Int // used as bitmap, we do not care about coefficients here, only if a validator is present or not
 }
 
-func (p *PowerInfo) Set(index int, power *big.Int) {
+// computes the contribution that a vote/aggregate would bring to Core
+func Contribution(aggregatorSigners *big.Int, coreSigners *big.Int) *big.Int {
+	notCoreSigners := new(big.Int).Not(coreSigners)
+	contribution := notCoreSigners.And(notCoreSigners, aggregatorSigners)
+	return contribution
+}
+
+func (p *AggregatedPower) Set(index int, power *big.Int) {
 	if p.signers.Bit(index) == 1 {
 		return
 	}
@@ -26,16 +33,20 @@ func (p *PowerInfo) Set(index int, power *big.Int) {
 	p.power.Add(p.power, power)
 }
 
-func (p *PowerInfo) Pow() *big.Int {
+func (p *AggregatedPower) Power() *big.Int {
 	return p.power
+
+}
+func (p *AggregatedPower) Signers() *big.Int {
+	return p.signers
 }
 
-func (p *PowerInfo) Copy() *PowerInfo {
-	return &PowerInfo{power: new(big.Int).Set(p.power), signers: new(big.Int).Set(p.signers)}
+func (p *AggregatedPower) Copy() *AggregatedPower {
+	return &AggregatedPower{power: new(big.Int).Set(p.power), signers: new(big.Int).Set(p.signers)}
 }
 
-func NewPowerInfo() *PowerInfo {
-	return &PowerInfo{power: new(big.Int), signers: new(big.Int)}
+func NewAggregatedPower() *AggregatedPower {
+	return &AggregatedPower{power: new(big.Int), signers: new(big.Int)}
 }
 
 type Set struct {
@@ -43,12 +54,12 @@ type Set struct {
 	// receiving a proposal, so we must save received message with different proposed block hash.
 	votes map[common.Hash][]Vote // map[proposedBlockHash][]vote
 
-	/* we use PowerInfo because we cannot simply sum the voting power of the votes. This is because we might have:
+	/* we use AggregatedPower because we cannot simply sum the voting power of the votes. This is because we might have:
 	* 1. duplicated votes between different overlapping aggregates for the same value
 	* 2. equivocated votes from the same validator across different values
 	 */
-	powers     map[common.Hash]*PowerInfo // cumulative voting power for each value
-	totalPower *PowerInfo                 // total voting power of votes
+	powers     map[common.Hash]*AggregatedPower // cumulative voting power for each value
+	totalPower *AggregatedPower                 // total voting power of votes
 
 	sync.RWMutex //TODO(lorenzo) refinements, do we need this lock since there is already one is round_messages?
 }
@@ -56,8 +67,8 @@ type Set struct {
 func NewSet() *Set {
 	return &Set{
 		votes:      make(map[common.Hash][]Vote),
-		powers:     make(map[common.Hash]*PowerInfo),
-		totalPower: NewPowerInfo(),
+		powers:     make(map[common.Hash]*AggregatedPower),
+		totalPower: NewAggregatedPower(),
 	}
 }
 
@@ -69,7 +80,7 @@ func (s *Set) Add(vote Vote) {
 	previousVotes, ok := s.votes[value]
 	if !ok {
 		s.votes[value] = make([]Vote, 1)
-		s.powers[value] = NewPowerInfo()
+		s.powers[value] = NewAggregatedPower()
 	}
 
 	// update total power and power for value
@@ -117,23 +128,23 @@ func (s *Set) Messages() []Msg {
 	return messages
 }
 
-func (s *Set) PowerFor(h common.Hash) *big.Int {
+func (s *Set) PowerFor(h common.Hash) *AggregatedPower {
 	s.RLock()
 	defer s.RUnlock()
 	_, ok := s.powers[h]
 	if ok {
-		return new(big.Int).Set(s.powers[h].power) // return copy to avoid data race
+		return s.powers[h].Copy() // return copy to avoid data race
 	}
-	return new(big.Int)
+	return NewAggregatedPower()
 }
 
-func (s *Set) TotalPower() *big.Int {
+func (s *Set) TotalPower() *AggregatedPower {
 	s.RLock()
 	defer s.RUnlock()
 
 	// NOTE: in case of equivocated messages, we count power only once
 	// TODO(lorenzo) refinements, write a test for it
-	return new(big.Int).Set(s.totalPower.power) // return copy to avoid data race
+	return s.totalPower.Copy() // return copy to avoid data race
 }
 
 func (s *Set) VotesFor(blockHash common.Hash) []Vote {

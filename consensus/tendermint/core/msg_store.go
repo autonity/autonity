@@ -19,7 +19,7 @@ type MsgStore struct {
 	precommits  map[uint64][]*message.Precommit
 
 	// in the fault detector we only do power computation on prevotes, therefore cache only prevote power
-	prevotesPower map[uint64]map[int64]map[common.Hash]*message.PowerInfo
+	prevotesPower map[uint64]map[int64]map[common.Hash]*message.AggregatedPower
 }
 
 func NewMsgStore() *MsgStore {
@@ -29,7 +29,7 @@ func NewMsgStore() *MsgStore {
 		proposals:     make(map[uint64][]*message.Propose),
 		prevotes:      make(map[uint64][]*message.Prevote),
 		precommits:    make(map[uint64][]*message.Precommit),
-		prevotesPower: make(map[uint64]map[int64]map[common.Hash]*message.PowerInfo),
+		prevotesPower: make(map[uint64]map[int64]map[common.Hash]*message.AggregatedPower),
 	}
 }
 
@@ -63,15 +63,15 @@ func (ms *MsgStore) Save(m message.Msg) {
 		value := msg.Value()
 		_, ok = ms.prevotesPower[height]
 		if !ok {
-			ms.prevotesPower[height] = make(map[int64]map[common.Hash]*message.PowerInfo)
+			ms.prevotesPower[height] = make(map[int64]map[common.Hash]*message.AggregatedPower)
 		}
 		_, ok = ms.prevotesPower[height][round]
 		if !ok {
-			ms.prevotesPower[height][round] = make(map[common.Hash]*message.PowerInfo)
+			ms.prevotesPower[height][round] = make(map[common.Hash]*message.AggregatedPower)
 		}
 		_, ok = ms.prevotesPower[height][round][value]
 		if !ok {
-			ms.prevotesPower[height][round][value] = message.NewPowerInfo()
+			ms.prevotesPower[height][round][value] = message.NewAggregatedPower()
 		}
 		for index, power := range msg.Signers().Powers() {
 			ms.prevotesPower[height][round][value].Set(index, power)
@@ -148,21 +148,21 @@ func (ms *MsgStore) RemoveMsg(height uint64, code uint8, hash common.Hash) {
 		ms.prevotes[height] = filteredPrevotes
 
 		// update power cache
-		ms.prevotesPower = make(map[uint64]map[int64]map[common.Hash]*message.PowerInfo)
+		ms.prevotesPower = make(map[uint64]map[int64]map[common.Hash]*message.AggregatedPower)
 		for _, msg := range ms.prevotes[height] {
 			round := msg.R()
 			value := msg.Value()
 			_, ok = ms.prevotesPower[height]
 			if !ok {
-				ms.prevotesPower[height] = make(map[int64]map[common.Hash]*message.PowerInfo)
+				ms.prevotesPower[height] = make(map[int64]map[common.Hash]*message.AggregatedPower)
 			}
 			_, ok = ms.prevotesPower[height][round]
 			if !ok {
-				ms.prevotesPower[height][round] = make(map[common.Hash]*message.PowerInfo)
+				ms.prevotesPower[height][round] = make(map[common.Hash]*message.AggregatedPower)
 			}
 			_, ok = ms.prevotesPower[height][round][value]
 			if !ok {
-				ms.prevotesPower[height][round][value] = message.NewPowerInfo()
+				ms.prevotesPower[height][round][value] = message.NewAggregatedPower()
 			}
 			for index, power := range msg.Signers().Powers() {
 				ms.prevotesPower[height][round][value].Set(index, power)
@@ -255,7 +255,7 @@ func (ms *MsgStore) PrevotesPowerFor(height uint64, round int64, value common.Ha
 	if !ok {
 		return new(big.Int)
 	}
-	return new(big.Int).Set(ms.prevotesPower[height][round][value].Pow()) // return a copy to avoid data races
+	return new(big.Int).Set(ms.prevotesPower[height][round][value].Power()) // return a copy to avoid data races
 }
 
 // this function checks if we have a quorum for a value in (h,r). It excludes the `excludedValue` from the search.
@@ -276,11 +276,11 @@ func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue commo
 		return result
 	}
 
-	for value, powerInfo := range ms.prevotesPower[height][round] {
+	for value, aggregatedPower := range ms.prevotesPower[height][round] {
 		if value == excludedValue {
 			continue
 		}
-		if powerInfo.Pow().Cmp(quorum) >= 0 {
+		if aggregatedPower.Power().Cmp(quorum) >= 0 {
 			_, ok := ms.prevotes[height]
 			if !ok {
 				panic("Have quorum in power cache, but cannot find related messages in msgStore")
