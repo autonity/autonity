@@ -94,12 +94,13 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
     function releaseFunds(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _cleanup(_contractID);
+        _updateFunds(_contractID);
         uint256 _unlocked = _unlockedFunds(_contractID);
         // first NTN is released
         _unlocked = _releaseNTN(_contractID, _unlocked);
         // if there still remains some unlocked funds, i.e. not enough NTN, then LNTN is released
         _releaseAllUnlockedLNTN(_contractID, _unlocked);
+        _clearValidators(_contractID);
     }
 
     /**
@@ -116,8 +117,9 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
     function releaseAllLNTN(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _cleanup(_contractID);
+        _updateFunds(_contractID);
         _releaseAllUnlockedLNTN(_contractID, _unlockedFunds(_contractID));
+        _clearValidators(_contractID);
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
@@ -141,7 +143,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     function releaseLNTN(uint256 _id, address _validator, uint256 _amount) virtual external {
         require(_amount > 0, "require positive amount to transfer");
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _cleanup(_contractID);
+        _updateFunds(_contractID);
 
         uint256 _unlockedLiquid = _unlockedLiquidBalanceOf(_contractID, _validator);
         require(_unlockedLiquid >= _amount, "not enough unlocked LNTN");
@@ -152,6 +154,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         Contract storage _contract = contracts[_contractID];
         _contract.withdrawnValue += _value;
         _updateAndTransferLNTN(_contractID, msg.sender, _amount, _validator);
+        _clearValidators(_contractID);
     }
 
     /**
@@ -179,9 +182,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * this function updates the funds of some contract _id entitled to _beneficiary by reverting the failed requests
      */
     function updateFunds(address _beneficiary, uint256 _id) virtual external {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        _revertPendingBondingRequest(_contractID);
-        _revertPendingUnbondingRequest(_contractID);
+        _updateFunds(_getUniqueContractID(_beneficiary, _id));
     }
 
     function setRequiredGasBond(uint256 _gas) external onlyOperator {
@@ -203,7 +204,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         // TODO: do we need to wait till _contract.start before bonding??
         require(msg.value >= requiredBondingGasCost(), "not enough gas given for notification on bonding");
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _cleanup(_contractID);
+        _updateFunds(_contractID);
         Contract storage _contract = contracts[_contractID];
         require(_contract.start <= block.timestamp, "contract not started yet");
         require(_contract.currentNTNAmount >= _amount, "not enough tokens");
@@ -215,6 +216,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         bondingToContract[_bondingID] = _contractID+1;
         pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _epochID(), _validator, false);
         _initiate(_contractID, _validator);
+        _clearValidators(_contractID);
         return _bondingID;
     }
 
@@ -239,6 +241,18 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         return _unbondingID;
     }
 
+    function claimRewards(uint256 _id, address _validator) virtual external {
+        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID, _validator);
+        _sendRewards(_atnReward, _ntnReward);
+    }
+
+    function claimRewards(uint256 _id) virtual external {
+        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
+        _sendRewards(_atnReward, _ntnReward);
+    }
+
     /**
      * @notice used by beneficiary to claim all rewards which is entitled due to bonding
      * @dev Rewards from some cancelled contracts are stored in rewards mapping. All rewards from
@@ -252,18 +266,13 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         ntnRewards[msg.sender] = 0;
         
         for (uint256 i = 0; i < _contractIDs.length; i++) {
-            _cleanup(_contractIDs[i]);
+            _updateFunds(_contractIDs[i]);
             (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractIDs[i]);
             _atnTotalFees += _atnReward;
             _ntnTotalFees += _ntnReward;
+            _clearValidators(_contractIDs[i]);
         }
-        // Send the AUT
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool _sent, ) = msg.sender.call{value: _atnTotalFees}("");
-        require(_sent, "Failed to send AUT");
-
-        _sent = autonity.transfer(msg.sender, _ntnTotalFees);
-        require(_sent, "Failed to send NTN");
+        _sendRewards(_atnTotalFees, _ntnTotalFees);
     }
 
     /**
@@ -460,6 +469,21 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         _contract.currentNTNAmount += _amount;
     }
 
+    function _sendRewards(uint256 _atnReward, uint256 _ntnReward) private {
+        // Send the AUT
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool _sent, ) = msg.sender.call{value: _atnReward}("");
+        require(_sent, "Failed to send AUT");
+
+        _sent = autonity.transfer(msg.sender, _ntnReward);
+        require(_sent, "Failed to send NTN");
+    }
+
+    function _updateFunds(uint256 _contractID) private {
+        _revertPendingBondingRequest(_contractID);
+        _revertPendingUnbondingRequest(_contractID);
+    }
+
     /**
      * @dev The contract needs to be cleaned before bonding, unbonding or claiming rewards.
      * _cleanup removes any unnecessary validator from the list, removes pending bonding or unbonding requests
@@ -599,6 +623,16 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
             _atnTotalFee += _atnFee;
             _ntnTotalFee += _ntnFee;
         }
+    }
+
+    function unclaimedRewards(address _beneficiary, uint256 _id) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID);
+    }
+
+    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID, _validator);
     }
 
     /**

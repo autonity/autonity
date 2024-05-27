@@ -18,4 +18,3 @@ compiler:
     - "*package-lock.json"
     - "*tsconfig.json"
     - "bindings.sol"
-    - "./*.sol"

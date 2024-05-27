@@ -157,13 +157,21 @@ contract LiquidRewardManager {
     function _claimRewards(uint256 _id) internal returns (uint256 _atnTotalFees, uint256 _ntnTotalFees) {
         address[] memory _validators = bondedValidators[_id];
         for (uint256 i = 0; i < _validators.length; i++) {
-            _claimRewards(_validators[i]);
-            (uint256 _atnFee, uint256 _ntnFee) = _realiseFees(_id, _validators[i]);
+            (uint256 _atnFee, uint256 _ntnFee) = _claimRewards(_id, _validators[i]);
             _atnTotalFees += _atnFee;
             _ntnTotalFees += _ntnFee;
-            accounts[_id][_validators[i]].atnRealisedFee = OFFSET;
-            accounts[_id][_validators[i]].ntnRealisedFee = OFFSET;
         }
+    }
+
+    function _claimRewards(uint256 _id, address _validator) internal returns (uint256 _atnFee, uint256 _ntnFee) {
+        Account storage _account = accounts[_id][_validator];
+        if (_account.initiated == false) {
+            return (0,0);
+        }
+        _claimRewards(_validator);
+        (_atnFee, _ntnFee) = _realiseFees(_id, _validator);
+        _account.atnRealisedFee = OFFSET;
+        _account.ntnRealisedFee = OFFSET;
     }
 
     function _initiateValidator(address _validator) private {
@@ -273,29 +281,41 @@ contract LiquidRewardManager {
     }
 
     /**
+     * @dev calculates the rewards yet to claim for _id from _validator 
+     */
+    function _unclaimedRewards(uint256 _id, address _validator) internal view returns (uint256 _atnReward, uint256 _ntnReward) {
+        Account storage _account = accounts[_id][_validator];
+        if (_account.initiated == false) {
+            // account does not exist
+            return (0,0);
+        }
+        (uint256 _atnLastUnrealisedFeeFactor, uint256 _ntnLastUnrealisedFeeFactor) = _unfetchedFeeFactor(_validator);
+        LiquidInfo storage _liquidInfo = liquidInfo[_validator];
+        _atnLastUnrealisedFeeFactor += _liquidInfo.atnLastUnrealisedFeeFactor;
+        _ntnLastUnrealisedFeeFactor += _liquidInfo.ntnLastUnrealisedFeeFactor;
+
+        uint256 _balance = _account.liquidBalance-OFFSET;
+        // remove offset from realisedFee
+        _atnReward = _account.atnRealisedFee - OFFSET
+                    + _computeUnrealisedFees(
+                        _balance, _account.atnUnrealisedFeeFactor, _atnLastUnrealisedFeeFactor
+                    );
+
+        _ntnReward = _account.ntnRealisedFee - OFFSET
+                    + _computeUnrealisedFees(
+                        _balance, _account.ntnUnrealisedFeeFactor, _ntnLastUnrealisedFeeFactor
+                    );
+    }
+
+    /**
      * @dev calculates the rewards yet to claim for _id
      */
     function _unclaimedRewards(uint256 _id) internal view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
         address[] memory _validators = bondedValidators[_id];
         for (uint256 i = 0; i < _validators.length; i++) {
-            (uint256 _atnLastUnrealisedFeeFactor, uint256 _ntnLastUnrealisedFeeFactor) = _unfetchedFeeFactor(_validators[i]);
-            LiquidInfo storage _liquidInfo = liquidInfo[_validators[i]];
-            _atnLastUnrealisedFeeFactor += _liquidInfo.atnLastUnrealisedFeeFactor;
-            _ntnLastUnrealisedFeeFactor += _liquidInfo.ntnLastUnrealisedFeeFactor;
-
-            Account storage _account = accounts[_id][_validators[i]];
-            uint256 _balance = _account.liquidBalance-OFFSET;
-            // remove offset from realisedFee
-            _atnTotalFee += _account.atnRealisedFee - OFFSET
-                        + _computeUnrealisedFees(
-                            _balance, _account.atnUnrealisedFeeFactor, _atnLastUnrealisedFeeFactor
-                        );
-
-            _ntnTotalFee += _account.ntnRealisedFee - OFFSET
-                        + _computeUnrealisedFees(
-                            _balance, _account.ntnUnrealisedFeeFactor, _ntnLastUnrealisedFeeFactor
-                        );
-        
+            (uint256 _atnReward, uint256 _ntnReward) = _unclaimedRewards(_id, _validators[i]);
+            _atnTotalFee += _atnReward;
+            _ntnTotalFee += _ntnReward;
         }
     }
 
