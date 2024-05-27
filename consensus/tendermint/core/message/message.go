@@ -94,8 +94,8 @@ func (p *Propose) Value() common.Hash {
 }
 
 func (p *Propose) String() string {
-	return fmt.Sprintf("{%s, ValidRound: %v, ProposedBlockHash: %v}",
-		p.base.String(), p.validRound, p.block.Hash().String())
+	return fmt.Sprintf("{code: %v, %s, ValidRound: %v, ProposedBlockHash: %v, signer: %v, power: %v}",
+		p.Code(), p.base.String(), p.validRound, p.block.Hash().String(), p.signer, p.power)
 }
 
 func (p *Propose) ToLight() *LightProposal {
@@ -265,10 +265,8 @@ func (p *LightProposal) Power() *big.Int {
 	return p.power
 }
 
-// TODO(lorenzo) refinements, would be useful to print also signer and power, but we need to make sure they are trsuted (verified)
-// same goes for the other message types
 func (p *LightProposal) String() string {
-	return fmt.Sprintf("{%s, Code: %v, value: %v}", p.base.String(), p.Code(), p.blockHash)
+	return fmt.Sprintf("{code: %v, %s, ValidRound: %v, BlockHash: %v, signer: %v, power: %v}", p.Code(), p.base.String(), p.validRound, p.blockHash, p.signer, p.power)
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
@@ -447,6 +445,11 @@ func (v *vote) PreValidate(header *types.Header) error {
 	return nil
 }
 
+func (v *vote) String() string {
+	return fmt.Sprintf("%s, signers: {%s}",
+		v.base.String(), v.signers.String())
+}
+
 type Prevote struct {
 	value common.Hash
 	vote
@@ -461,8 +464,8 @@ func (p *Prevote) Value() common.Hash {
 }
 
 func (p *Prevote) String() string {
-	return fmt.Sprintf("{r:  %v, h: %v , Code: %v, value: %v}",
-		p.round, p.height, p.Code(), p.value)
+	return fmt.Sprintf("{code: %v, %s, value: %v}",
+		p.Code(), p.vote.String(), p.value)
 }
 
 type Precommit struct {
@@ -479,8 +482,8 @@ func (p *Precommit) Value() common.Hash {
 }
 
 func (p *Precommit) String() string {
-	return fmt.Sprintf("{r:  %v, h: %v , Code: %v, value: %v}",
-		p.round, p.height, p.Code(), p.value)
+	return fmt.Sprintf("{code: %v, %s, value: %v}",
+		p.Code(), p.vote.String(), p.value)
 }
 
 func newVote[

@@ -88,6 +88,6 @@ func (b *base) Validate() error {
 }
 
 func (b *base) String() string {
-	return fmt.Sprintf("h: %v, r: %v, verified: %v",
-		b.height, b.round, b.verified)
+	return fmt.Sprintf("h: %v, r: %v, hash: %v, preverified: %v, verified: %v",
+		b.height, b.round, b.hash, b.preverified, b.verified)
 }

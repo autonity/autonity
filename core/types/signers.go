@@ -460,7 +460,7 @@ func (s *Signers) IsComplex() bool {
 }
 
 func (s *Signers) String() string {
-	return fmt.Sprintf("Bits: %08b, Coefficients: %v", s.Bits, s.Coefficients)
+	return fmt.Sprintf("Bits: %08b, Coefficients: %v, power: %v, validated: %v, powerAssigned: %v", s.Bits, s.Coefficients, s.power, s.validated, s.powerAssigned)
 }
 
 func (s *Signers) Powers() map[int]*big.Int {

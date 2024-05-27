@@ -71,7 +71,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	c.curRoundMessages.AddPrevote(prevote)
 	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrevoteCode, Value: prevote.Value()})
 
-	//c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Signer().String(), c.address.String()) //TODO(lorenzo) refinements, fix
+	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote, prevote.Signers().String(), c.address.String())
 	// check upon conditions for current round proposal
 	c.currentPrevoteChecks(ctx)
 	return nil
