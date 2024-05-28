@@ -150,7 +150,8 @@ func TestDecodeAndVerifyProofs(t *testing.T) {
 	}
 
 	for i, tc := range cases {
-		rp, err := rlp.EncodeToBytes(&tc.Proof)
+		proof := tc.Proof
+		rp, err := rlp.EncodeToBytes(&proof)
 		assert.NoError(t, err)
 		decodeProof, err := decodeRawProof(rp)
 		assert.NoError(t, err)
@@ -392,7 +393,8 @@ func TestAccusationVerifier(t *testing.T) {
 	}
 
 	for i, tc := range cases {
-		actual := verifyAccusation(&tc.proof, committee)
+		proof := tc.proof
+		actual := verifyAccusation(&proof, committee)
 		t.Log("running TestAccusationVerifier", "case", i, "expected", tc.outCome, "actual", actual)
 		assert.Equal(t, tc.outCome, actual)
 	}
@@ -407,10 +409,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	liteNewP := newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
 	liteOldP := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 
-	var prevotes []message.Vote
+	prevotes := make([]message.Vote, len(committee))
 	for i := range committee {
-		prevote := newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
-		prevotes = append(prevotes, prevote)
+		prevotes[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 	}
 	aggVote := message.AggregatePrevotes(prevotes)
 	aggVoteNoQuorum := message.AggregatePrevotes(prevotes[1:2])
@@ -439,10 +440,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	correspondingProposalPVO := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
 	maliciousPreVotePVO := newValidatedPrevote(3, height, correspondingProposalPVO.Value(), signer, self, cSize, lastHeader)
 	// simulate quorum prevote for not v at valid round.
-	var votesPVO []message.Vote
+	votesPVO := make([]message.Vote, len(committee))
 	for i := range committee {
-		preVote := newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
-		votesPVO = append(votesPVO, preVote)
+		votesPVO[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 	}
 	aggVotePVO := message.AggregatePrevotes(votesPVO)
 	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3])
@@ -458,10 +458,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	// Rule C settings.
 	preCommitC := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
 	preCommitNilC := newValidatedPrecommit(0, height, nilValue, signer, self, cSize, lastHeader)
-	var votesC []message.Vote
+	votesC := make([]message.Vote, len(committee))
 	for i := range committee {
-		preVote := newValidatedPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
-		votesC = append(votesC, preVote)
+		votesC[i] = newValidatedPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 	}
 	aggVoteC := message.AggregatePrevotes(votesC)
 	aggVoteCNoQuorum := message.AggregatePrevotes(votesC[2:3])
@@ -1031,7 +1030,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	}
 	mv := MisbehaviourVerifier{}
 	for i, tc := range tests {
-		ret := mv.validateFault(&tc.proof, committee)
+		proof := tc.proof
+		ret := mv.validateFault(&proof, committee)
 		if !bytes.Equal(tc.outCome, ret) {
 			t.Log("TestMisbehaviourVerifier", "case", i, "config", tc, "expected", tc.outCome, "actual", ret)
 		}
@@ -1046,10 +1046,9 @@ func TestInnocenceVerifier(t *testing.T) {
 	chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
 
 	proposalPO := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
-	var votesPO []message.Vote
+	votesPO := make([]message.Vote, len(committee))
 	for i := range committee {
-		preVote := newValidatedPrevote(0, height, proposalPO.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
-		votesPO = append(votesPO, preVote)
+		votesPO[i] = newValidatedPrevote(0, height, proposalPO.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 	}
 	aggVotesPO := message.AggregatePrevotes(votesPO)
 	aggVotesPONoQuorum := message.AggregatePrevotes(votesPO[2:3])
@@ -1065,10 +1064,9 @@ func TestInnocenceVerifier(t *testing.T) {
 	preVotePVO := newValidatedPrevote(1, height, proposalPVO.Value(), signer, self, cSize, lastHeader)
 	preVoteNilPVO := newValidatedPrevote(1, height, nilValue, signer, self, cSize, lastHeader)
 	// prepare quorum prevotes at valid round.
-	var votesPVO []message.Vote
+	votesPVO := make([]message.Vote, len(committee))
 	for i := range committee {
-		prevote := newValidatedPrevote(0, height, proposalPVO.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
-		votesPVO = append(votesPVO, prevote)
+		votesPVO[i] = newValidatedPrevote(0, height, proposalPVO.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 	}
 	aggVotePVO := message.AggregatePrevotes(votesPVO)
 	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3])
@@ -1076,10 +1074,9 @@ func TestInnocenceVerifier(t *testing.T) {
 	// C1 settings
 	preCommitC1 := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
 	preCommitC1Nil := newValidatedPrecommit(1, height, nilValue, signer, self, cSize, lastHeader)
-	var votesC1 []message.Vote
+	votesC1 := make([]message.Vote, len(committee))
 	for i := range committee {
-		preVote := newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
-		votesC1 = append(votesC1, preVote)
+		votesC1[i] = newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
 	}
 	aggVoteC1 := message.AggregatePrevotes(votesC1)
 	preVoteC1ForOtherV := newValidatedPrevote(1, height, proposalPO.Value(), signer, self, cSize, lastHeader)
@@ -1370,7 +1367,8 @@ func TestInnocenceVerifier(t *testing.T) {
 	}
 
 	for i, tc := range tests {
-		ret := verifyInnocenceProof(&tc.proof, committee)
+		proof := tc.proof
+		ret := verifyInnocenceProof(&proof, committee)
 		if ret != tc.outCome {
 			t.Log("TestInnocenceVerifier", "case", i, "config", tc, "expected", tc.outCome, "actual", ret)
 		}
