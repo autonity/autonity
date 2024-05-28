@@ -713,6 +713,20 @@ func (fd *FaultDetector) oldProposalsAccountabilityCheck(height uint64, quorum *
 
 oldProposalLoop:
 	for _, proposal := range proposalsOld {
+
+		// if the proposal contains an invalid valid round, then it is a valid proof.
+		if proposal.ValidRound() >= proposal.R() {
+			proof := &Proof{
+				Type:          autonity.Misbehaviour,
+				Rule:          autonity.PO,
+				Message:       message.NewLightProposal(proposal),
+				OffenderIndex: proposal.SignerIndex(),
+			}
+			proofs = append(proofs, proof)
+			fd.logger.Info("Misbehaviour detected", "rule", "PO", "incriminated", proposal.Signer())
+			continue oldProposalLoop
+		}
+
 		// Check that in the valid round we see a quorum of prevotes and that there is no precommit at all or a
 		// precommit for v or nil.
 
