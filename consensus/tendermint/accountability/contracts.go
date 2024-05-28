@@ -329,10 +329,6 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 	if proposal.ValidRound() == -1 {
 		return false
 	}
-	// if the proposal contains an invalid valid round, then it is a valid proof.
-	if proposal.ValidRound() >= proposal.R() {
-		return true
-	}
 
 	if len(p.Evidences) == 0 {
 		return false
