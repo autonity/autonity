@@ -1317,7 +1317,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		var precommitsFromPiAfterVR2 []message.Msg
 		for i := newProposalBIn5.R() + 1; i < aggregatedPrecommitForB1In8.R(); i++ {
-			p := newValidatedPrecommit(i, height, nilValue, makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
+			p = newValidatedPrecommit(i, height, nilValue, makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
 			fd.msgStore.Save(p)
 			precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, p)
 		}
