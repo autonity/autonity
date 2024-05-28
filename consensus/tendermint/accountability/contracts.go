@@ -683,7 +683,10 @@ func validInnocenceProofOfPO(p *Proof, committee types.Committee) bool {
 
 // check if the Proof of innocent of PVN is valid.
 func validInnocenceProofOfPVN(p *Proof) bool {
-	preVote := p.Message
+	preVote, ok := p.Message.(*message.Prevote)
+	if !ok {
+		return false
+	}
 	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != nilValue) {
 		return false
 	}
@@ -706,7 +709,10 @@ func validInnocenceProofOfPVN(p *Proof) bool {
 // check if the Proof of innocent of PVO is valid.
 func validInnocenceProofOfPVO(p *Proof, committee types.Committee) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
-	preVote := p.Message
+	preVote, ok := p.Message.(*message.Prevote)
+	if !ok {
+		return false
+	}
 	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != nilValue) {
 		return false
 	}
