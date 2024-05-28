@@ -540,6 +540,7 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
@@ -549,7 +550,7 @@ func TestStart(t *testing.T) {
 			blockchain: chain,
 			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -573,6 +574,7 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		chain, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
@@ -583,7 +585,7 @@ func TestStart(t *testing.T) {
 			blockchain: chain,
 			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
@@ -602,6 +604,7 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
+		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
@@ -611,7 +614,7 @@ func TestStart(t *testing.T) {
 			blockchain: chain,
 			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
 
 		var wg sync.WaitGroup
@@ -658,6 +661,7 @@ func TestMultipleRestart(t *testing.T) {
 	tendermintC := interfaces.NewMockCore(ctrl)
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
+	tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 	chain, _ := newBlockChain(1)
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
@@ -668,7 +672,7 @@ func TestMultipleRestart(t *testing.T) {
 		blockchain: chain,
 		eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 	}
-	b.aggregator = &aggregator{logger: log.Root(), backend: b}
+	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 	b.coreStarting.Store(false)
 
 	for i := 0; i < times; i++ {

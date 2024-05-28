@@ -65,6 +65,7 @@ func defaultSigner(h common.Hash) blst.Signature {
 //TODO(lorenzo) need more tests here:
 // - aggregation logic on Add()
 // - power caching logic
+// - AggregatedPower object tests and contribution computing
 
 func TestMessageSetAddVote(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
@@ -73,14 +74,14 @@ func TestMessageSetAddVote(t *testing.T) {
 	ms.Add(msg)
 	ms.Add(msg)
 
-	require.Equal(t, common.Big1, ms.PowerFor(blockHash))
+	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
 }
 
 func TestMessageSetVotesSize(t *testing.T) {
 	blockHash := common.BytesToHash([]byte("123456789"))
 	ms := NewSet()
 
-	require.Equal(t, common.Big0, ms.PowerFor(blockHash))
+	require.Equal(t, common.Big0, ms.PowerFor(blockHash).Power())
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
@@ -88,7 +89,7 @@ func TestMessageSetAddNilVote(t *testing.T) {
 	ms := NewSet()
 	ms.Add(msg)
 	ms.Add(msg)
-	require.Equal(t, common.Big1, ms.PowerFor(common.Hash{}))
+	require.Equal(t, common.Big1, ms.PowerFor(common.Hash{}).Power())
 }
 
 func TestMessageSetTotalSize(t *testing.T) {
@@ -145,7 +146,7 @@ func TestMessageSetTotalSize(t *testing.T) {
 		for _, msg := range test.voteList {
 			ms.Add(msg)
 		}
-		if got := ms.TotalPower(); got.Cmp(test.expectedPower) != 0 {
+		if got := ms.TotalPower().Power(); got.Cmp(test.expectedPower) != 0 {
 			t.Fatalf("Expected %v total voting power, got %v", test.expectedPower, got)
 		}
 	}

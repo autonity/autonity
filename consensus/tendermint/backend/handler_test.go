@@ -136,6 +136,7 @@ func TestNewChainHead(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		evDispathcer := interfaces.NewMockEventDispatcher(ctrl)
 		evDispathcer.EXPECT().Post(gomock.Any()).MaxTimes(1)
 		chain, _ := newBlockChain(1)
@@ -149,7 +150,7 @@ func TestNewChainHead(t *testing.T) {
 			blockchain:   chain,
 			eventMux:     event.NewTypeMuxSilent(nil, log.Root()),
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.Start(ctx)
 
 		err := b.NewChainHead()

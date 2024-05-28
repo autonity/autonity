@@ -270,7 +270,7 @@ func TestHandleFutureRound(t *testing.T) {
 	// check that vote was saved in the future messages and power was updated accordingly
 	found := searchForFutureMsg(&engine, vote)
 	require.True(t, found)
-	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Pow())
+	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Power())
 
 	// same thing for future round proposal
 	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight), makeSigner(keysMap[sender1.Address].consensus), &sender1)
@@ -279,7 +279,7 @@ func TestHandleFutureRound(t *testing.T) {
 
 	found = searchForFutureMsg(&engine, propose)
 	require.True(t, found)
-	require.Equal(t, common.Big2, engine.futurePower[propose.R()].Pow())
+	require.Equal(t, common.Big2, engine.futurePower[propose.R()].Power())
 }
 
 func TestCoreStopDoesntPanic(t *testing.T) {
