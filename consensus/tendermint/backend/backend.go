@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"math"
@@ -334,7 +335,10 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 		for i := range committee {
 			if header.Committee[i].Address != committee[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committee[i].VotingPower) != 0 {
+				header.Committee[i].VotingPower.Cmp(committee[i].VotingPower) != 0 ||
+				!bytes.Equal(header.Committee[i].ConsensusKeyBytes, committee[i].ConsensusKeyBytes) ||
+				!bytes.Equal(header.Committee[i].ConsensusKey.Marshal(), committee[i].ConsensusKey.Marshal()) ||
+				header.Committee[i].Index != committee[i].Index {
 				sb.logger.Error("wrong committee member in the set",
 					"index", i,
 					"currentVerifier", sb.address.String(),
