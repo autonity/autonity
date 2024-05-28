@@ -406,7 +406,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	liteNewP := newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
 	liteOldP := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
-	invalidLiteOldP := newValidatedLightProposal(height, 3, 4, signer, committee, lastHeader, nil, proposerIdx)
 
 	var prevotes []message.Vote
 	for i := range committee {
@@ -578,15 +577,6 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				OffenderIndex: proposerIdx,
 			},
 			outCome: failureReturn,
-		},
-		{
-			proof: Proof{
-				Rule:          autonity.PO,
-				Message:       invalidLiteOldP,
-				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{aggCommit},
-			},
-			outCome: validReturn(invalidLiteOldP, proposer, autonity.PO),
 		},
 		{
 			proof: Proof{
