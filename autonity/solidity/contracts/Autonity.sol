@@ -173,7 +173,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     address[] internal contractAddresses;
     mapping(address => uint256) internal stakingReverted;
 
-    // TODO: review stakingGasPrice value
+    // TODO (tariq): review stakingGasPrice value
     /**
      * @notice the gas price to notify the delegator (only if contract) about the staking operation at epoch end
      */

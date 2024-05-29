@@ -89,16 +89,9 @@ contract ContractBase {
         return _totalAmount * (_time - _start) / (_end - _start);
     }
 
-    function _cancelContract(
-        address _beneficiary, uint256 _id, address _recipient
-    ) internal {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        _changeContractBeneficiary(_contractID, _beneficiary, _recipient);
-    }
-
     function _changeContractBeneficiary(
         uint256 _contractID, address _oldBeneficiary, address _newBeneficiary
-    ) private {
+    ) internal {
         uint256[] storage _contractIDs = beneficiaryContracts[_oldBeneficiary];
         uint256[] memory _newContractIDs = new uint256[] (_contractIDs.length - 1);
         uint256 j = 0;

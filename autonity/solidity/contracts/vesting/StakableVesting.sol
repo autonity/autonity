@@ -10,9 +10,16 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     // LOCKED are tokens that can't be withdrawn yet, need to wait for the release contract
     // UNLOCKED are tokens that can be withdrawn
     uint256 public contractVersion = 1;
-    // TODO: review: a way to measure requiredGasBond and requiredGasUnbond realtime?
     uint256 private requiredGasBond = 50_000;
     uint256 private requiredGasUnbond = 50_000;
+
+    /**
+     * @notice stake reserved to create new contracts
+     * each time a new contract is creasted, reservedStake is decreased
+     * address(this) should have reservedStake amount of NTN availabe,
+     * otherwise withdrawing or bonding from a contract is not possible
+     */
+    uint256 public reservedStake;
 
 
     struct PendingBondingRequest {
@@ -82,6 +89,8 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         uint256 _cliffTime,
         uint256 _endTime
     ) virtual onlyOperator public {
+        require(reservedStake >= _amount, "not enough stake reserved to create a new contract");
+        reservedStake -= _amount;
         _createContract(_beneficiary, _amount, _startTime, _cliffTime, _endTime, true);
     }
 
@@ -167,14 +176,14 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
      * @param _recipient whome the contract is transferred to
      */
-    function cancelContract(
+    function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
         atnRewards[_beneficiary] += _atnReward;
         ntnRewards[_beneficiary] += _ntnReward;
-        _cancelContract(_beneficiary, _id, _recipient);
+        _changeContractBeneficiary(_contractID, _beneficiary, _recipient);
     }
 
     /**
@@ -183,6 +192,16 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
     function updateFunds(address _beneficiary, uint256 _id) virtual external {
         _updateFunds(_getUniqueContractID(_beneficiary, _id));
+    }
+
+    /**
+     * @notice Set the value of reservedStake. Restricted to operator account
+     * In case reservedStake is increased, the increased amount should be minted
+     * and transferred to the address of this contract, otherwise newly created vesting
+     * contracts will not have funds to withdraw or bond. See newContract()
+     */
+    function setReservedStake(uint256 _newReservedStake) virtual external onlyOperator {
+        reservedStake = _newReservedStake;
     }
 
     function setRequiredGasBond(uint256 _gas) external onlyOperator {
@@ -201,7 +220,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * @param _amount amount of NTN to bond
      */
     function bond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
-        // TODO: do we need to wait till _contract.start before bonding??
+        // TODO (tariq): do we need to wait till _contract.start before bonding??
         require(msg.value >= requiredBondingGasCost(), "not enough gas given for notification on bonding");
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _updateFunds(_contractID);

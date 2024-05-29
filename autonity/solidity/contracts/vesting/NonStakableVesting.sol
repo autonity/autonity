@@ -6,6 +6,15 @@ import "./ContractBase.sol";
 
 contract NonStakableVesting is INonStakableVestingVault, ContractBase {
 
+    /**
+     * @notice The balance of the vault to create new locked non-stakable contracts.
+     * The balance is not immediately available at the vault.
+     * Rather the unlocked amount of schedules is minted at epoch end.
+     * The balance tells us the max size of a newly created contract.
+     * See newContract()
+     */
+    uint256 public vaultBalance;
+
     struct Schedule {
         uint256 start;
         uint256 cliff;
@@ -54,6 +63,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         uint256 _amount,
         uint256 _scheduleID
     ) virtual onlyOperator public {
+        require(vaultBalance >= _amount, "not enough vault balance to create a new contract");
         require(_scheduleID < schedules.length, "invalid schedule ID");
         Schedule storage _schedule = schedules[_scheduleID];
         uint256 _contractID = _createContract(
@@ -61,6 +71,14 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         );
         _schedule.totalAmount += _amount;
         subscribedTo[_contractID] = _scheduleID;
+        vaultBalance -= _amount;
+    }
+
+    /**
+     * @notice Sets the vault balance to create new contract
+     */
+    function setVaultBalance(uint256 _newBalance) virtual external onlyOperator {
+        vaultBalance = _newBalance;
     }
 
     /**
@@ -93,10 +111,14 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
      * @param _recipient whome the contract is transferred to
      */
-    function cancelContract(
+    function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
-        _cancelContract(_beneficiary, _id, _recipient);
+        _changeContractBeneficiary(
+            _getUniqueContractID(_beneficiary, _id),
+            _beneficiary,
+            _recipient
+        );
     }
 
     /**
