@@ -14,7 +14,7 @@ playbook:
             action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
       input:
-        duration: 120 # num of seconds the transaction sending duration.
+        duration: 300 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
