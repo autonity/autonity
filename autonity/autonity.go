@@ -360,6 +360,14 @@ func (c *AutonityContract) CallContractFuncAs(statedb vm.StateDB, header *types.
 	return c.EVMContract.CallContractFuncAs(statedb, header, params.AutonityContractAddress, origin, packedArgs)
 }
 
+func (c *NonStakableVestingContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {
+	return c.EVMContract.CallContractFuncAs(statedb, header, params.NonStakableVestingContractAddress, origin, packedArgs)
+}
+
+func (c *StakableVestingContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {
+	return c.EVMContract.CallContractFuncAs(statedb, header, params.StakableVestingContractAddress, origin, packedArgs)
+}
+
 func (c *EVMContract) upgradeAbiCache(newAbi string) error {
 	c.Lock()
 	defer c.Unlock()
@@ -619,6 +627,26 @@ func (c *GenesisEVMContracts) DeployStakableVestingContract(bytecode []byte, aut
 	return c.StakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
 }
 
+func (c *GenesisEVMContracts) SetReservedStake(reservedStake *big.Int) error {
+	return c.StakableVestingContract.SetReservedStake(nil, c.statedb, reservedStake)
+}
+
+func (c *GenesisEVMContracts) NewStakableContract(contract params.StakableVestingData) error {
+	return c.StakableVestingContract.NewContract(nil, c.statedb, contract)
+}
+
 func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
 	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
+}
+
+func (c *GenesisEVMContracts) SetVaultBalance(vaultBalance *big.Int) error {
+	return c.NonStakableVestingContract.SetVaultBalance(nil, c.statedb, vaultBalance)
+}
+
+func (c *GenesisEVMContracts) CreateNonStakableSchedule(schedule params.NonStakableSchedule) error {
+	return c.NonStakableVestingContract.CreateSchedule(nil, c.statedb, schedule)
+}
+
+func (c *GenesisEVMContracts) NewNonStakableContract(contract params.NonStakableVestingData) error {
+	return c.NonStakableVestingContract.NewContract(nil, c.statedb, contract)
 }

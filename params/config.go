@@ -455,7 +455,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, false}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, false}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -516,6 +516,8 @@ var (
 			StabilizationContractConfig: DefaultStabilizationGenesis,
 			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
+		DefaultNonStakableVestingGenesis,
+		DefaultStakableVestingGenesis,
 		false,
 	}
 )
@@ -622,12 +624,14 @@ type ChainConfig struct {
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
 
 	// Various consensus engines
-	Ethash                  *EthashConfig               `json:"ethash,omitempty"`
-	AutonityContractConfig  *AutonityContractGenesis    `json:"autonity,omitempty"`
-	AccountabilityConfig    *AccountabilityGenesis      `json:"accountability,omitempty"`
-	OracleContractConfig    *OracleContractGenesis      `json:"oracle,omitempty"`
-	InflationContractConfig *InflationControllerGenesis `json:"inflation,omitempty"`
-	ASM                     AsmConfig                   `json:"asm,omitempty"`
+	Ethash                   *EthashConfig               `json:"ethash,omitempty"`
+	AutonityContractConfig   *AutonityContractGenesis    `json:"autonity,omitempty"`
+	AccountabilityConfig     *AccountabilityGenesis      `json:"accountability,omitempty"`
+	OracleContractConfig     *OracleContractGenesis      `json:"oracle,omitempty"`
+	InflationContractConfig  *InflationControllerGenesis `json:"inflation,omitempty"`
+	ASM                      AsmConfig                   `json:"asm,omitempty"`
+	NonStakableVestingConfig *NonStakableVestingGenesis  `json:"nonStakableVesting,omitempty"`
+	StakableVestingConfig    *StakableVestingGenesis     `json:"stakableVesting,omitempty"`
 
 	// true if run in testmode, false by default
 	TestMode bool `json:"testMode,omitempty"`

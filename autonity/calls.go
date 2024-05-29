@@ -50,10 +50,10 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployInflationControllerContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the inflation controller contract: %w", err)
 	}
-	if err := DeployStakableVestingContract(genesisConfig.AutonityContractConfig.Operator, evmContracts); err != nil {
+	if err := DeployStakableVestingContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the stakable vesting contract: %w", err)
 	}
-	if err := DeployNonStakableVestingContract(genesisConfig.AutonityContractConfig.Operator, evmContracts); err != nil {
+	if err := DeployNonStakableVestingContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
 	}
 	return nil
@@ -156,21 +156,57 @@ func DeployInflationControllerContract(config *params.ChainConfig, evmContracts 
 	return nil
 }
 
-func DeployStakableVestingContract(operator common.Address, evmContracts *GenesisEVMContracts) error {
-	if err := evmContracts.DeployStakableVestingContract(generated.StakableVestingBytecode, params.AutonityContractAddress, operator); err != nil {
+func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	if config.StakableVestingConfig == nil {
+		log.Info("Config missing, using default parameters for the Stakable Vesting contract")
+		config.StakableVestingConfig = params.DefaultStakableVestingGenesis
+	}
+	if err := evmContracts.DeployStakableVestingContract(
+		generated.StakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
+	); err != nil {
 		log.Error("DeployStakableVestingContract failed", "err", err)
 		return fmt.Errorf("failed to deploy stakable vesting contract: %w", err)
 	}
 	log.Info("Deployed stakable vesting contract", "address", params.StakableVestingContractAddress)
+	if err := evmContracts.Mint(params.StakableVestingContractAddress, config.StakableVestingConfig.ReservedStake); err != nil {
+		return fmt.Errorf("error while minting reserved stake to stakable vesting contract: %w", err)
+	}
+	if err := evmContracts.SetReservedStake(config.StakableVestingConfig.ReservedStake); err != nil {
+		return fmt.Errorf("error while setting reserved stake in stakable vesting contract: %w", err)
+	}
+	for _, vesting := range config.StakableVestingConfig.StakableContracts {
+		if err := evmContracts.NewStakableContract(vesting); err != nil {
+			return fmt.Errorf("failed to create new stakable vesting contract: %w", err)
+		}
+	}
 	return nil
 }
 
-func DeployNonStakableVestingContract(operator common.Address, evmContracts *GenesisEVMContracts) error {
-	if err := evmContracts.DeployNonStakableVestingContract(generated.NonStakableVestingBytecode, params.AutonityContractAddress, operator); err != nil {
+func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	if config.NonStakableVestingConfig == nil {
+		log.Info("Config missing, using default parameters for the Non-Stakable Vesting contract")
+		config.NonStakableVestingConfig = params.DefaultNonStakableVestingGenesis
+	}
+	if err := evmContracts.DeployNonStakableVestingContract(
+		generated.NonStakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
+	); err != nil {
 		log.Error("DeployNonStakableVestingContract failed", "err", err)
 		return fmt.Errorf("failed to deploy non-stakable vesting contract: %w", err)
 	}
 	log.Info("Deployed non-stakable vesting contract", "address", params.NonStakableVestingContractAddress)
+	if err := evmContracts.SetVaultBalance(config.NonStakableVestingConfig.NonStakableVaultBalance); err != nil {
+		return fmt.Errorf("error while seting vault balance in non-stakable vesting contract: %w", err)
+	}
+	for _, schedule := range config.NonStakableVestingConfig.NonStakableSchedules {
+		if err := evmContracts.CreateNonStakableSchedule(schedule); err != nil {
+			return fmt.Errorf("error while creating new non-stakable schedule: %w", err)
+		}
+	}
+	for _, vesting := range config.NonStakableVestingConfig.NonStakableContracts {
+		if err := evmContracts.NewNonStakableContract(vesting); err != nil {
+			return fmt.Errorf("failed to create new non-stakable vesting contract: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -408,6 +444,76 @@ func (c *AutonityContract) FinalizeInitialization(header *types.Header, statedb 
 	_, err = c.CallContractFunc(statedb, header, packedArgs)
 	if err != nil {
 		return fmt.Errorf("error while calling finalizeInitialization: %w", err)
+	}
+
+	return nil
+}
+
+func (c *NonStakableVestingContract) SetVaultBalance(header *types.Header, statedb vm.StateDB, vaultBalance *big.Int) error {
+	packedArgs, err := c.contractABI.Pack("setVaultBalance", vaultBalance)
+	if err != nil {
+		return fmt.Errorf("error while generating call data for setVaultBalance: %w", err)
+	}
+
+	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	if err != nil {
+		return fmt.Errorf("error while calling setVaultBalance: %w", err)
+	}
+
+	return nil
+}
+
+func (c *NonStakableVestingContract) CreateSchedule(header *types.Header, statedb vm.StateDB, schedule params.NonStakableSchedule) error {
+	packedArgs, err := c.contractABI.Pack("createSchedule", schedule.Start, schedule.Cliff, schedule.End)
+	if err != nil {
+		return fmt.Errorf("error while generating call data for createSchedule: %w", err)
+	}
+
+	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	if err != nil {
+		return fmt.Errorf("error while calling createSchedule: %w", err)
+	}
+
+	return nil
+}
+
+func (c *NonStakableVestingContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.NonStakableVestingData) error {
+	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.ScheduleID)
+	if err != nil {
+		return fmt.Errorf("error while generating call data for newContract: %w", err)
+	}
+
+	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	if err != nil {
+		return fmt.Errorf("error while calling newContract: %w", err)
+	}
+
+	return nil
+}
+
+func (c *StakableVestingContract) SetReservedStake(header *types.Header, statedb vm.StateDB, reservedStake *big.Int) error {
+	packedArgs, err := c.contractABI.Pack("setReservedStake", reservedStake)
+	if err != nil {
+		return fmt.Errorf("error while generating call data for setReservedStake: %w", err)
+	}
+
+	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	if err != nil {
+		return fmt.Errorf("error while calling setReservedStake: %w", err)
+	}
+
+	return nil
+}
+
+func (c *StakableVestingContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.StakableVestingData) error {
+	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.Start, contract.Cliff, contract.End)
+	if err != nil {
+		return fmt.Errorf("error while generating call data for newContract: %w", err)
+	}
+
+	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	if err != nil {
+		return fmt.Errorf("error while calling newContract: %w", err)
 	}
 
 	return nil

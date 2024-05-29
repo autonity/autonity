@@ -70,6 +70,14 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
+	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
+		NonStakableVaultBalance: new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
+	}
+
+	DefaultStakableVestingGenesis = &StakableVestingGenesis{
+		ReservedStake: new(big.Int).Mul(big.NewInt(40_000_000), DecimalFactor), // 40 million NTN
+	}
+
 	DeployerAddress                    = common.Address{}
 	AutonityContractAddress            = crypto.CreateAddress(DeployerAddress, 0)
 	AccountabilityContractAddress      = crypto.CreateAddress(DeployerAddress, 1)
@@ -443,5 +451,48 @@ func (s *InflationControllerGenesis) SetDefaults() {
 	}
 	if s.Ae == nil {
 		s.IInit = DefaultInflationControllerGenesis.Ae
+	}
+}
+
+type NonStakableVestingGenesis struct {
+	NonStakableVaultBalance *big.Int                 `json:"nonStakableVaultBalance"`
+	NonStakableSchedules    []NonStakableSchedule    `json:"nonStakableSchedules"`
+	NonStakableContracts    []NonStakableVestingData `json:"nonStakableVestingContracts"`
+}
+
+type NonStakableSchedule struct {
+	Start *big.Int `json:"startTime"`
+	Cliff *big.Int `json:"cliffTime"`
+	End   *big.Int `json:"endTime"`
+}
+
+type NonStakableVestingData struct {
+	Beneficiary common.Address `json:"beneficiary"`
+	Amount      *big.Int       `json:"amount"`
+	ScheduleID  *big.Int       `json:"scheduleID"`
+}
+
+func (s *NonStakableVestingGenesis) SetDefaults() {
+	if s.NonStakableVaultBalance == nil {
+		s.NonStakableVaultBalance = DefaultNonStakableVestingGenesis.NonStakableVaultBalance
+	}
+}
+
+type StakableVestingGenesis struct {
+	ReservedStake     *big.Int              `json:"reservedStake"`
+	StakableContracts []StakableVestingData `json:"stakableVestingContracts"`
+}
+
+type StakableVestingData struct {
+	Beneficiary common.Address `json:"beneficiary"`
+	Amount      *big.Int       `json:"amount"`
+	Start       *big.Int       `json:"startTime"`
+	Cliff       *big.Int       `json:"cliffTime"`
+	End         *big.Int       `json:"endTime"`
+}
+
+func (s *StakableVestingGenesis) SetDefaults() {
+	if s.ReservedStake == nil {
+		s.ReservedStake = DefaultStakableVestingGenesis.ReservedStake
 	}
 }
