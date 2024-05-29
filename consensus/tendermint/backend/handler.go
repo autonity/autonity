@@ -219,6 +219,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		Message: msg,
 		ErrCh:   errCh,
 		Sender:  sender,
+		Posted:  time.Now(),
 	})
 	return true, nil
 }

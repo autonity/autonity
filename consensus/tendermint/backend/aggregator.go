@@ -26,14 +26,39 @@ const (
 
 // aggregator metrics
 var (
-	// metrics for different aggregator flows
-	MessageBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/message", nil, nil)     // time it takes to process a single message as received by backend
-	RoundBg       = metrics.NewRegisteredBufferedGauge("aggregator/bg/round", nil, nil)       // time it takes to process a round change event
-	PowerBg       = metrics.NewRegisteredBufferedGauge("aggregator/bg/power", nil, nil)       // time it takes to process a power change event
-	FuturePowerBg = metrics.NewRegisteredBufferedGauge("aggregator/bg/futurepower", nil, nil) // time it takes to process a future power change event
-	BatchesBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/batches", nil, nil)     // size of batches (aggregated together with a single fastAggregateVerify)
-	InvalidBg     = metrics.NewRegisteredBufferedGauge("aggregator/bg/invalid", nil, nil)     // number of invalid sigs
+	ProposalBg  = metrics.NewRegisteredBufferedGauge("aggregator/proposal", nil, nil)                         // time it takes to process a proposal as received by backend
+	PrevoteBg   = metrics.NewRegisteredBufferedGauge("aggregator/prevote", nil, metrics.GetIntPointer(200))   // time it takes to process a prevote as received by backend
+	PrecommitBg = metrics.NewRegisteredBufferedGauge("aggregator/precommit", nil, metrics.GetIntPointer(200)) // time it takes to process a precommit as received by backend
+
+	// packet meters
+	ProposalPackets  = metrics.NewRegisteredMeter("aggregator/proposal/packets", nil)  //nolint:goconst
+	PrevotePackets   = metrics.NewRegisteredMeter("aggregator/prevote/packets", nil)   //nolint:goconst
+	PrecommitPackets = metrics.NewRegisteredMeter("aggregator/precommit/packets", nil) //nolint:goconst
+
+	RoundBg                    = metrics.NewRegisteredBufferedGauge("aggregator/round", nil, nil)                                   // time it takes to process a round change event
+	PowerBg                    = metrics.NewRegisteredBufferedGauge("aggregator/power", nil, nil)                                   // time it takes to process a power change event
+	FuturePowerBg              = metrics.NewRegisteredBufferedGauge("aggregator/futurepower", nil, nil)                             // time it takes to process a future power change event
+	BatchesBg                  = metrics.NewRegisteredBufferedGauge("aggregator/batches", nil, metrics.GetIntPointer(100))          // size of batches (aggregated together with a single fastAggregateVerify)
+	InvalidBg                  = metrics.NewRegisteredBufferedGauge("aggregator/invalid", nil, metrics.GetIntPointer(100))          // number of invalid sigs
+	BackendAggregatorTransitBg = metrics.NewRegisteredBufferedGauge("aggregator/backend/transit", nil, metrics.GetIntPointer(1000)) // measures time for message passing from backend to aggregator
 )
+
+func recordMessageProcessingTime(code uint8, start time.Time) {
+	if !metrics.Enabled {
+		return
+	}
+	switch code {
+	case message.ProposalCode:
+		ProposalBg.Add(time.Since(start).Nanoseconds())
+		ProposalPackets.Mark(1)
+	case message.PrevoteCode:
+		PrevoteBg.Add(time.Since(start).Nanoseconds())
+		PrevotePackets.Mark(1)
+	case message.PrecommitCode:
+		PrecommitBg.Add(time.Since(start).Nanoseconds())
+		PrecommitPackets.Mark(1)
+	}
+}
 
 type eventBuilder func(msg message.Msg, errCh chan<- error) interface{}
 
@@ -42,6 +67,7 @@ func currentHeightEventBuilder(msg message.Msg, errCh chan<- error) interface{} 
 	return events.MessageEvent{
 		Message: msg,
 		ErrCh:   errCh,
+		Posted:  time.Now(),
 	}
 }
 
@@ -475,7 +501,9 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 		if len(batch) == 0 {
 			continue
 		}
-		BatchesBg.Add(int64(len(batch)))
+		if metrics.Enabled {
+			BatchesBg.Add(int64(len(batch)))
+		}
 		processed += len(batch)
 
 		var publicKeys []blst.PublicKey
@@ -551,7 +579,9 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 		}
 
 		// disconnect validators who sent us invalid votes at p2p layer and ignore the msgs coming from them
-		InvalidBg.Add(int64(len(invalids)))
+		if metrics.Enabled {
+			InvalidBg.Add(int64(len(invalids)))
+		}
 		for _, index := range invalids {
 			a.logger.Info("Received invalid bls signature from", "peer", senders[index])
 			a.handleInvalidMessage(errChs[index], message.ErrBadSignature, senders[index])
@@ -659,6 +689,9 @@ loop:
 			if !ok {
 				break loop
 			}
+			if metrics.Enabled {
+				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
+			}
 			msg := event.Message
 			sender := event.Sender
 
@@ -671,7 +704,6 @@ loop:
 				a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 				signatureInput := msg.SignatureInput()
 				a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
-				MessageBg.Add(time.Since(start).Nanoseconds())
 				break
 			}
 			if msg.H() > coreHeight {
@@ -682,7 +714,6 @@ loop:
 			// if message already in Core, drop it
 			if a.alreadyProcessed(msg) {
 				a.logger.Debug("Discarding msg, already processed in Core")
-				MessageBg.Add(time.Since(start).Nanoseconds())
 				break
 			}
 
@@ -705,7 +736,7 @@ loop:
 					a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
 					a.processRound(msg.H(), msg.R())
 				}
-				MessageBg.Add(time.Since(start).Nanoseconds())
+				recordMessageProcessingTime(msg.Code(), start)
 				break
 			}
 
@@ -719,7 +750,7 @@ loop:
 			default:
 				a.logger.Crit("unknown message type arrived in aggregator")
 			}
-			MessageBg.Add(time.Since(start).Nanoseconds())
+			recordMessageProcessingTime(msg.Code(), start)
 		case ev, ok := <-a.coreSub.Chan():
 			start := time.Now()
 			if !ok {
@@ -737,7 +768,6 @@ loop:
 				round := e.Round
 
 				if a.empty(height, round) {
-					RoundBg.Add(time.Since(start).Nanoseconds())
 					break
 				}
 
@@ -777,7 +807,9 @@ loop:
 						a.handleVote(e, committee, quorum, false)
 					}
 				}
-				RoundBg.Add(time.Since(start).Nanoseconds())
+				if metrics.Enabled {
+					RoundBg.Add(time.Since(start).Nanoseconds())
+				}
 			case events.PowerChangeEvent:
 				// a power change happened in Core: re-do quorum checks on individual votes and simple aggregates
 				height := e.Height
@@ -785,7 +817,6 @@ loop:
 				code := e.Code
 				value := e.Value
 				if a.empty(height, round) {
-					PowerBg.Add(time.Since(start).Nanoseconds())
 					break
 				}
 
@@ -809,13 +840,14 @@ loop:
 				}
 
 				if !ok || len(votesEvent) == 0 {
-					PowerBg.Add(time.Since(start).Nanoseconds())
 					break
 				}
 
 				// processing one vote for the value for which power changed is enough to do all necessary checks
 				a.handleVote(votesEvent[0], committee, quorum, false)
-				PowerBg.Add(time.Since(start).Nanoseconds())
+				if metrics.Enabled {
+					PowerBg.Add(time.Since(start).Nanoseconds())
+				}
 			case events.FuturePowerChangeEvent:
 				height := e.Height
 				round := e.Round
@@ -833,7 +865,9 @@ loop:
 				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(header.TotalVotingPower())) > 0 {
 					a.processRound(height, round)
 				}
-				FuturePowerBg.Add(time.Since(start).Nanoseconds())
+				if metrics.Enabled {
+					FuturePowerBg.Add(time.Since(start).Nanoseconds())
+				}
 			}
 		case <-ticker.C:
 			coreHeight := a.core.Height().Uint64()

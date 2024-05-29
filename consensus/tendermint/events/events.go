@@ -35,12 +35,14 @@ type UnverifiedMessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error
 	Sender  common.Address
+	Posted  time.Time
 }
 
 // MessageEvent is posted from the aggregator to core and the fault detector
 type MessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error
+	Posted  time.Time
 }
 
 // old messages are posted only to the fault detector

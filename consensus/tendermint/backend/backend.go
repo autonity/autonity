@@ -166,6 +166,7 @@ func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	go sb.Post(events.MessageEvent{
 		Message: message,
 		ErrCh:   nil,
+		Posted:  time.Now(),
 	})
 }
 

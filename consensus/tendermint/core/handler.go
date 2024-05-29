@@ -99,6 +99,9 @@ func shouldDisconnectSender(err error) bool {
 }
 
 func recordMessageProcessingTime(code uint8, start time.Time) {
+	if !metrics.Enabled {
+		return
+	}
 	switch code {
 	case message.ProposalCode:
 		MsgProposalBg.Add(time.Since(start).Nanoseconds())
@@ -165,6 +168,9 @@ eventLoop:
 			// An event arrived, process content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
+				if metrics.Enabled {
+					AggregatorCoreTransitBg.Add(time.Since(e.Posted).Nanoseconds())
+				}
 				msg := e.Message
 
 				var hadQuorum bool
