@@ -151,5 +151,9 @@
   "edbe0026": "receiveAut()",
   "d18736ab": "rewardsDistributed(address[])",
   "a8920241": "unbondingApplied(uint256,address,bool)",
-  "3c54c290": "unbondingReleased(uint256,uint256,bool)"
+  "3c54c290": "unbondingReleased(uint256,uint256,bool)",
+  "161605e3": "receiveATN()",
+  "da61f883": "getContractsToNotify()",
+  "6cb2d309": "getValidtorsBonded(address)",
+  "43931c75": "getAndUpdateValidatorsBonded(address)"
 }

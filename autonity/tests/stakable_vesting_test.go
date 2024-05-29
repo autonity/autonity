@@ -15,6 +15,19 @@ var fromAutonity = &runOptions{origin: params.AutonityContractAddress}
 
 var reward = big.NewInt(1000_000_000)
 
+type StakingRequest struct {
+	amount      *big.Int
+	contractID  *big.Int
+	validator   common.Address
+	expectedErr string
+	bond        bool
+}
+
+type Reward struct {
+	rewardATN *big.Int
+	rewardNTN *big.Int
+}
+
 func TestBondingGasConsumption(t *testing.T) {
 	r := setup(t, nil)
 	var contractTotalAmount int64 = 1000
@@ -137,6 +150,8 @@ func TestUnbondingGasConsumption(t *testing.T) {
 		for ; iteration > 0; iteration-- {
 			gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, liquidContract, unbondingID, common.Big0, unbondingAmount, unbondingGas, false)
 			totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedUnbond+gasUsedRelease)), stakingGas)
+			fmt.Printf("total gas used %v\n", totalGasUsed)
+			fmt.Printf("total gas set %v\n", unbondingGas)
 			require.True(
 				r.t,
 				unbondingGas.Cmp(totalGasUsed) >= 0,
@@ -151,6 +166,8 @@ func TestUnbondingGasConsumption(t *testing.T) {
 		unbondingAmount := big.NewInt(contractTotalAmount)
 		gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, liquidContract, unbondingID, common.Big0, unbondingAmount, unbondingGas, true)
 		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedUnbond+gasUsedRelease)), stakingGas)
+		fmt.Printf("total gas used %v\n", totalGasUsed)
+		fmt.Printf("total gas set %v\n", unbondingGas)
 		require.True(
 			r.t,
 			unbondingGas.Cmp(totalGasUsed) >= 0,
@@ -272,7 +289,7 @@ func TestBonding(t *testing.T) {
 		require.Equal(r.t, "execution reverted: contract not started yet", err.Error())
 		r.waitSomeBlock(start + 1)
 		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(cliff+1)) < 0, "contract cliff finished already")
-		bondAndFinalize(r, beneficiary, validator, liquidContract, contractID, bondingAmount, bondingGas)
+		bondAndFinalize(r, beneficiary, []StakingRequest{StakingRequest{bondingAmount, contractID, validator, "", true}}, bondingGas)
 	})
 
 	// start contract for bonding for all the tests remaining
@@ -280,33 +297,28 @@ func TestBonding(t *testing.T) {
 
 	r.run("cannot bond more than total", func(r *runner) {
 		bondingAmount := big.NewInt(contractTotalAmount + 10)
-		_, err := r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), contractID, validator, bondingAmount)
-		require.Equal(r.t, "execution reverted: not enough tokens", err.Error())
+		requests := make([]StakingRequest, 3)
+		requests[0] = StakingRequest{bondingAmount, contractID, validator, "execution reverted: not enough tokens", true}
+
 		bondingAmount = big.NewInt(contractTotalAmount / 2)
+		requests[1] = StakingRequest{bondingAmount, contractID, validator, "", true}
+
 		remaining := new(big.Int).Sub(big.NewInt(contractTotalAmount), bondingAmount)
-		r.NoError(
-			r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), contractID, validator, bondingAmount),
-		)
-		contract, _, err := r.stakableVesting.GetContract(nil, beneficiary, contractID)
-		require.NoError(r.t, err)
-		require.Equal(r.t, remaining, contract.CurrentNTNAmount, "contract not updated properly")
 		bondingAmount = new(big.Int).Add(big.NewInt(10), remaining)
-		_, err = r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), contractID, validator, bondingAmount)
-		require.Equal(r.t, "execution reverted: not enough tokens", err.Error())
-		// let bonding apply
-		r.waitNextEpoch()
-		_, err = r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), contractID, validator, bondingAmount)
-		require.Equal(r.t, "execution reverted: not enough tokens", err.Error())
-		bondAndFinalize(r, beneficiary, validator, liquidContract, contractID, remaining, bondingGas)
+		requests[2] = StakingRequest{bondingAmount, contractID, validator, "execution reverted: not enough tokens", true}
+
+		bondAndFinalize(r, beneficiary, requests, bondingGas)
+
+		requests = make([]StakingRequest, 2)
+		requests[0] = StakingRequest{bondingAmount, contractID, validator, "execution reverted: not enough tokens", true}
+		requests[1] = StakingRequest{remaining, contractID, validator, "", true}
+
+		bondAndFinalize(r, beneficiary, requests, bondingGas)
 	})
 
 	r.run("can release liquid tokens", func(r *runner) {
 		bondingAmount := big.NewInt(contractTotalAmount)
-		r.NoError(
-			r.stakableVesting.Bond(fromSender(beneficiary, bondingGas), contractID, validator, bondingAmount),
-		)
-		// let bonding apply
-		r.waitNextEpoch()
+		bondAndFinalize(r, user, []StakingRequest{StakingRequest{bondingAmount, contractID, validator, "", true}}, bondingGas)
 		currentTime := r.waitSomeEpoch(cliff + 1)
 		// contract has context of last block
 		unlocked := currentTime - 1 - start
@@ -353,7 +365,7 @@ func TestBonding(t *testing.T) {
 		require.NoError(r.t, err)
 		require.True(r.t, contractTotalAmount > 10, "cannot test")
 		bondingAmount := big.NewInt(contractTotalAmount / 10)
-		bondAndFinalize(r, beneficiary, validator, liquidContract, contractID, bondingAmount, bondingGas)
+		bondAndFinalize(r, user, []StakingRequest{StakingRequest{bondingAmount, contractID, validator, "", true}}, bondingGas)
 		remaining := new(big.Int).Sub(big.NewInt(contractTotalAmount), bondingAmount)
 		require.True(r.t, remaining.Cmp(common.Big0) > 0, "no NTN remains")
 		r.waitSomeEpoch(cliff + 1)
@@ -387,7 +399,7 @@ func TestUnbonding(t *testing.T) {
 	end := contractTotalAmount + start
 	validatorCount := 2
 	contractCount := 2
-	users, validators, liquidContracts := setupContracts(r, contractCount, validatorCount, contractTotalAmount, start, cliff, end)
+	users, validators, _ := setupContracts(r, contractCount, validatorCount, contractTotalAmount, start, cliff, end)
 
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
@@ -426,64 +438,69 @@ func TestUnbonding(t *testing.T) {
 	beneficiary := users[0]
 	contractID := common.Big0
 	validator := validators[0]
-	liquidContract := liquidContracts[0]
 
 	r.run("can unbond", func(r *runner) {
 		liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator)
 		require.NoError(r.t, err)
 		require.Equal(r.t, bondingAmount, liquid, "liquid not minted properly")
-		unbondAndRelease(r, beneficiary, validator, liquidContract, contractID, liquid, unbondingGas)
+		unbondAndRelease(r, beneficiary, []StakingRequest{StakingRequest{liquid, contractID, validator, "", false}}, unbondingGas)
 	})
 
 	r.run("cannot unbond more than total liquid", func(r *runner) {
 		unbondingAmount := new(big.Int).Add(bondingAmount, big.NewInt(10))
-		_, err = r.stakableVesting.Unbond(fromSender(beneficiary, unbondingGas), contractID, validator, unbondingAmount)
-		require.Equal(r.t, "execution reverted: not enough unlocked liquid tokens", err.Error())
+		requests := make([]StakingRequest, 3)
+		requests[0] = StakingRequest{unbondingAmount, contractID, validator, "execution reverted: not enough unlocked liquid tokens", false}
+
 		unbondingAmount = big.NewInt(10)
+		requests[1] = StakingRequest{unbondingAmount, contractID, validator, "", false}
+
 		remaining := new(big.Int).Sub(bondingAmount, unbondingAmount)
 		require.True(r.t, remaining.Cmp(common.Big0) > 0, "cannot test if no liquid remains")
-		r.NoError(
-			r.stakableVesting.Unbond(fromSender(beneficiary, unbondingGas), contractID, validator, unbondingAmount),
-		)
-		lockedLiquid, _, err := r.stakableVesting.LockedLiquidBalanceOf(nil, beneficiary, contractID, validator)
-		require.NoError(r.t, err)
-		require.Equal(r.t, unbondingAmount, lockedLiquid)
+
 		unbondingAmount = new(big.Int).Add(remaining, big.NewInt(10))
-		_, err = r.stakableVesting.Unbond(fromSender(beneficiary, unbondingGas), contractID, validator, unbondingAmount)
-		require.Equal(r.t, "execution reverted: not enough unlocked liquid tokens", err.Error())
-		r.waitNextEpoch()
-		_, err = r.stakableVesting.Unbond(fromSender(beneficiary, unbondingGas), contractID, validator, unbondingAmount)
-		require.Equal(r.t, "execution reverted: not enough unlocked liquid tokens", err.Error())
-		r.NoError(
-			r.stakableVesting.Unbond(fromSender(beneficiary, unbondingGas), contractID, validator, remaining),
-		)
+		requests[2] = StakingRequest{unbondingAmount, contractID, validator, "execution reverted: not enough unlocked liquid tokens", false}
+		unbondAndRelease(r, user, requests, unbondingGas)
+
+		requests = make([]StakingRequest, 2)
+		requests[0] = StakingRequest{unbondingAmount, contractID, validator, "execution reverted: not enough unlocked liquid tokens", false}
+		requests[1] = StakingRequest{remaining, contractID, validator, "", false}
+		unbondAndRelease(r, user, requests, unbondingGas)
 	})
 
-	r.run("cannot unbond if released", func(r *runner) {
+	r.run("cannot unbond if LNTN withdrawn", func(r *runner) {
 		liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator)
 		require.NoError(r.t, err)
+		validator1 := validators[1]
+		liquid1, _, err := r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator1)
+		require.NoError(r.t, err)
+		require.True(r.t, liquid1.Cmp(big.NewInt(10)) > 0, "cannot test")
+
 		totalToRelease := liquid.Int64() + 10
 		currentTime := r.waitSomeEpoch(totalToRelease + start + 1)
 		totalToRelease = currentTime - 1 - start
 		r.NoError(
 			r.stakableVesting.ReleaseAllLNTN(fromSender(beneficiary, nil), contractID),
 		)
-		_, err = r.stakableVesting.Unbond(fromSender(beneficiary, unbondingGas), contractID, validator, liquid)
-		require.Equal(r.t, "execution reverted: not enough unlocked liquid tokens", err.Error())
-		// LNTN will be released from then first validator in the list
+
+		// LNTN will be released from the first validator in the list
 		newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator)
 		require.NoError(r.t, err)
-		require.True(r.t, newLiquid.Cmp(common.Big0) == 0, "liquid remains after unbonding")
+		require.True(r.t, newLiquid.Cmp(common.Big0) == 0, "liquid remains after releasing")
+
+		requests := make([]StakingRequest, 3)
+		requests[0] = StakingRequest{liquid, contractID, validator, "execution reverted: not enough unlocked liquid tokens", false}
+
 		// if more unlocked funds remain, then LNTN will be released from 2nd validator
-		validator1 := validators[1]
-		_, err = r.stakableVesting.Unbond(fromSender(beneficiary, unbondingGas), contractID, validator1, liquid)
-		require.Equal(r.t, "execution reverted: not enough unlocked liquid tokens", err.Error())
-		releasedFromAnotherValidator1 := totalToRelease - liquid.Int64()
-		remainingLiquid := new(big.Int).Sub(liquid, big.NewInt(releasedFromAnotherValidator1))
-		liquid, _, err = r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator1)
+		releasedFromValidator1 := totalToRelease - liquid.Int64()
+		remainingLiquid := new(big.Int).Sub(liquid1, big.NewInt(releasedFromValidator1))
+		requests[1] = StakingRequest{liquid1, contractID, validator1, "execution reverted: not enough unlocked liquid tokens", false}
+
+		liquid1, _, err = r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator1)
 		require.NoError(r.t, err)
-		require.Equal(r.t, remainingLiquid, liquid, "liquid balance mismatch")
-		unbondAndRelease(r, beneficiary, validator1, liquidContracts[1], contractID, remainingLiquid, unbondingGas)
+		require.Equal(r.t, remainingLiquid, liquid1, "liquid balance mismatch")
+
+		requests[2] = StakingRequest{liquid1, contractID, validator1, "", false}
+		unbondAndRelease(r, beneficiary, requests, unbondingGas)
 	})
 
 	r.run("track liquid when unbonding from multiple contracts to multiple validators", func(r *runner) {
@@ -562,7 +579,7 @@ func TestRwardTracking(t *testing.T) {
 		r.waitNextEpoch()
 
 		r.NoError(
-			r.autonity.ReceiveAut(
+			r.autonity.ReceiveATN(
 				fromSender(user, reward),
 			),
 		)
@@ -611,6 +628,16 @@ func TestRwardTracking(t *testing.T) {
 		)
 	}
 
+	// epochID, _, err := r.autonity.EpochID(nil)
+	// require.NoError(r.t, err)
+	// fmt.Printf("current epoch id %v\n", epochID)
+	// fmt.Printf("before bonding\n")
+	// for _, validator := range validators {
+	// 	lastUpdate, _, err := r.stakableVesting.GetValidatorLastUpdateEpoch(nil, validator)
+	// 	require.NoError(r.t, err)
+	// 	fmt.Printf("validator %v last update %v\n", validator, lastUpdate)
+	// }
+
 	// bond from contracts
 	bondingAmount := big.NewInt(100)
 	totalBonded := new(big.Int)
@@ -626,7 +653,37 @@ func TestRwardTracking(t *testing.T) {
 			}
 		}
 	}
+	// fmt.Printf("total bonded %v\n", totalBonded)
+	// fmt.Printf("after bonding\n")
+	// for _, validator := range validators {
+	// 	lastUpdate, _, err := r.stakableVesting.GetValidatorLastUpdateEpoch(nil, validator)
+	// 	require.NoError(r.t, err)
+	// 	fmt.Printf("validator %v last update %v\n", validator, lastUpdate)
+	// }
+	// contractsToNotify, _, err := r.autonity.GetContractsToNotify(nil)
+	// require.NoError(r.t, err)
+	// fmt.Printf("contracts to notify : %v\n", contractsToNotify)
+	// validatorsBonded, _, err := r.autonity.GetValidtorsBonded(nil, r.stakableVesting.address)
+	// require.NoError(r.t, err)
+	// fmt.Printf("validatorsBonded : %v\n", validatorsBonded)
+
 	r.waitNextEpoch()
+
+	// fmt.Printf("epoch ended\n")
+	// contractsToNotify, _, err = r.autonity.GetContractsToNotify(nil)
+	// require.NoError(r.t, err)
+	// fmt.Printf("contracts to notify : %v\n", contractsToNotify)
+	// validatorsBonded, _, err = r.autonity.GetValidtorsBonded(nil, r.stakableVesting.address)
+	// require.NoError(r.t, err)
+	// fmt.Printf("validatorsBonded : %v\n", validatorsBonded)
+	// epochID, _, err = r.autonity.EpochID(nil)
+	// require.NoError(r.t, err)
+	// fmt.Printf("current epoch id %v\n", epochID)
+	// for _, validator := range validators {
+	// 	lastUpdate, _, err := r.stakableVesting.GetValidatorLastUpdateEpoch(nil, validator)
+	// 	require.NoError(r.t, err)
+	// 	fmt.Printf("validator %v last update %v\n", validator, lastUpdate)
+	// }
 	require.Equal(r.t, len(validators), len(r.committee.validators), "committee not updated properly")
 	eachValidatorDelegation := big.NewInt(int64(len(users) * contractCount))
 	eachValidatorStake := new(big.Int).Mul(bondingAmount, eachValidatorDelegation)
@@ -641,85 +698,154 @@ func TestRwardTracking(t *testing.T) {
 		r.waitNextEpoch()
 	}
 
-	r.run("bond in differenet epoch and track reward", func(r *runner) {
-		extraBond1 := bondingAmount
-		r.NoError(
-			r.stakableVesting.Bond(
-				fromSender(beneficiary, bondingGas), contractID, validator, extraBond1,
-			),
-		)
+	// r.run("bond in differenet epoch and track reward", func(r *runner) {
+	// 	extraBonds := make([]StakingRequest, 5)
+	// 	extraBonds[0] = StakingRequest{bondingAmount, common.Big0, validators[0], "", true}
+	// 	extraBonds[1] = StakingRequest{bondingAmount, common.Big1, validators[0], "", true}
+	// 	extraBonds[2] = StakingRequest{bondingAmount, common.Big0, validators[1], "", true}
+	// 	extraBonds[3] = StakingRequest{bondingAmount, common.Big0, validators[0], "", true}
+	// 	extraBonds[4] = StakingRequest{common.Big0, common.Big0, validators[0], "", true}
 
-		// check reward ratio, extraBond1 not applied yet
-		r.giveMeSomeMoney(r.autonity.address, reward)
-		totalReward := r.getBalanceOf(r.autonity.address)
+	// 	validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
 
-		// every contract gets same reward
-		validatorStakes := make(map[common.Address]*big.Int)
-		userStakes := make(map[common.Address]map[common.Address]*big.Int)
-		for _, user := range users {
-			userStakes[user] = make(map[common.Address]*big.Int)
-		}
-		for _, validator := range validators {
-			validatorStakes[validator] = new(big.Int).Add(common.Big0, eachValidatorStake)
-			for _, user := range users {
-				userStakes[user][validator] = new(big.Int).Mul(bondingAmount, big.NewInt(int64(contractCount)))
+	// 	for _, request := range extraBonds {
+
+	// 		if request.amount.Cmp(common.Big0) > 0 {
+	// 			r.NoError(
+	// 				r.stakableVesting.Bond(
+	// 					fromSender(beneficiary, bondingGas), request.contractID, request.validator, request.amount,
+	// 				),
+	// 			)
+	// 		}
+
+	// 		r.giveMeSomeMoney(r.autonity.address, reward)
+	// 		totalReward, oldRewardsFromValidator, oldUserRewards := getRewards(r, contractCount, liquidContracts, users, validators)
+	// 		r.waitNextEpoch()
+	// 		// request is not applied yet
+	// 		checkRewards(
+	// 			r, contractCount, totalStake, totalReward,
+	// 			liquidContracts, validators, users, validatorStakes,
+	// 			userStakes, oldRewardsFromValidator, oldUserRewards,
+	// 		)
+
+	// 		// request is applied, because checkRewards progress 1 epoch
+	// 		amount := request.amount
+	// 		validator := request.validator
+	// 		id := int(request.contractID.Int64())
+	// 		validatorStakes[validator].Add(validatorStakes[validator], amount)
+	// 		userStakes[beneficiary][id][validator].Add(userStakes[beneficiary][id][validator], amount)
+	// 		totalStake.Add(totalStake, amount)
+
+	// 	}
+	// })
+
+	// bond everything
+	oldBondingAmount := bondingAmount
+	bondingPerContract := new(big.Int).Mul(oldBondingAmount, big.NewInt(int64(len(validators))))
+	remainingNTN := new(big.Int).Sub(big.NewInt(contractTotalAmount), bondingPerContract)
+	bondingAmount = new(big.Int).Div(remainingNTN, big.NewInt(int64(len(validators))))
+	for _, user := range users {
+		for i := 0; i < contractCount; i++ {
+			for _, validator := range validators {
+				r.NoError(
+					r.stakableVesting.Bond(
+						fromSender(user, bondingGas), big.NewInt(int64(i)), validator, bondingAmount,
+					),
+				)
+				totalBonded.Add(totalBonded, bondingAmount)
 			}
 		}
-		totalStake := totalBonded
-		checkRewards(r, totalStake, totalReward, validatorStakes, userStakes, liquidContracts, validators, users)
-		for validator, stake := range validatorStakes {
-			fmt.Printf("\nvalidator %v total stake %v\n", validator, stake)
-		}
-		for user, stake := range validatorStakes {
-			fmt.Printf("\nuser %v total stake %v\n", user, stake)
-		}
+	}
+	bondingAmount.Add(bondingAmount, oldBondingAmount)
+	// fmt.Printf("total bonded %v\n", totalBonded)
 
-		extraBond2 := bondingAmount
-		anotherContractID := common.Big1
-		require.True(r.t, contractID.Cmp(anotherContractID) != 0, "cannot test with same contract")
-		r.NoError(
-			r.stakableVesting.Bond(
-				fromSender(beneficiary, bondingGas), anotherContractID, validator, extraBond2,
-			),
-		)
-		// check reward ratio after extraBond1 applied
-		r.giveMeSomeMoney(r.autonity.address, reward)
-		totalReward = r.getBalanceOf(r.autonity.address)
-
-		// add extraBond1
-		for validator, stake := range validatorStakes {
-			fmt.Printf("\nvalidator %v total stake %v\n", validator, stake)
-		}
-		for user, stake := range validatorStakes {
-			fmt.Printf("\nuser %v total stake %v\n", user, stake)
-		}
-		validatorStakes[validator].Add(validatorStakes[validator], extraBond1)
-		userStakes[beneficiary][validator].Add(userStakes[beneficiary][validator], extraBond1)
-		totalStake.Add(totalStake, extraBond1)
-		for validator, stake := range validatorStakes {
-			fmt.Printf("\nvalidator %v total stake %v\n", validator, stake)
-		}
-		for user, stake := range validatorStakes {
-			fmt.Printf("\nuser %v total stake %v\n", user, stake)
-		}
-		checkRewards(r, totalStake, totalReward, validatorStakes, userStakes, liquidContracts, validators, users)
-	})
+	r.waitNextEpoch()
 
 	r.run("release liquid and track reward", func(r *runner) {
-		// TODO: complete
+		r.waitSomeEpoch(end + 1)
+		releaseAmount := big.NewInt(100)
+		// unbonding request can be treated as release request
+		releaseRequests := make([]StakingRequest, 5)
+		releaseRequests[0] = StakingRequest{releaseAmount, common.Big0, validators[0], "", false}
+		releaseRequests[1] = StakingRequest{releaseAmount, common.Big1, validators[0], "", false}
+		releaseRequests[2] = StakingRequest{releaseAmount, common.Big0, validators[1], "", false}
+		releaseRequests[3] = StakingRequest{releaseAmount, common.Big0, validators[0], "", false}
+		releaseRequests[4] = StakingRequest{common.Big0, common.Big0, validators[0], "", false}
+
+		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
+
+		for _, request := range releaseRequests {
+
+			// some epoch is passed and we are entitled to some reward,
+			// but we don't know about it because we did not get notified
+			// or we did not claim them or call unclaimedRewards
+			r.giveMeSomeMoney(r.autonity.address, reward)
+			totalReward, oldRewardsFromValidator, oldUserRewards := getRewards(r, contractCount, liquidContracts, users, validators)
+			r.waitNextEpoch()
+
+			// we release some LNTN and it is applied immediately
+			// if unlocked, it is transferred immediately
+			// but for reward calculation, it will be applied later
+			if request.amount.Cmp(common.Big0) > 0 {
+				r.NoError(
+					r.stakableVesting.ReleaseLNTN(
+						fromSender(beneficiary, nil),
+						request.contractID,
+						request.validator,
+						request.amount,
+					),
+				)
+			}
+
+			checkRewards(
+				r, contractCount, totalStake, totalReward,
+				liquidContracts, validators, users, validatorStakes,
+				userStakes, oldRewardsFromValidator, oldUserRewards,
+			)
+		}
 	})
 
-	r.run("unbond and track reward", func(r *runner) {
-		// TODO: complete
-	})
+	// r.run("unbond in different epoch and track reward", func(r *runner) {
+	// 	unbondingAmount := big.NewInt(100)
+	// 	extraUnbonds := make([]StakingRequest, 5)
+	// 	extraUnbonds[0] = StakingRequest{unbondingAmount, common.Big0, validators[0], "", false}
+	// 	extraUnbonds[1] = StakingRequest{unbondingAmount, common.Big1, validators[0], "", false}
+	// 	extraUnbonds[2] = StakingRequest{unbondingAmount, common.Big0, validators[1], "", false}
+	// 	extraUnbonds[3] = StakingRequest{unbondingAmount, common.Big0, validators[0], "", false}
+	// 	extraUnbonds[4] = StakingRequest{common.Big0, common.Big0, validators[0], "", false}
 
-	r.run("unbond in different epoch and track reward", func(r *runner) {
-		// TODO: complete
-	})
+	// 	validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
 
-	r.run("bond from multiple contracts to multiple validators and track reward", func(r *runner) {
-		// TODO: complete
-	})
+	// 	for _, request := range extraUnbonds {
+
+	// 		if request.amount.Cmp(common.Big0) > 0 {
+	// 			r.NoError(
+	// 				r.stakableVesting.Unbond(
+	// 					fromSender(beneficiary, unbondingGas), request.contractID, request.validator, request.amount,
+	// 				),
+	// 			)
+	// 		}
+
+	// 		r.giveMeSomeMoney(r.autonity.address, reward)
+	// 		totalReward, oldRewardsFromValidator, oldUserRewards := getRewards(r, contractCount, liquidContracts, users, validators)
+	// 		r.waitNextEpoch()
+	// 		// request is not applied yet
+	// 		checkRewards(
+	// 			r, contractCount, totalStake, totalReward,
+	// 			liquidContracts, validators, users, validatorStakes,
+	// 			userStakes, oldRewardsFromValidator, oldUserRewards,
+	// 		)
+
+	// 		// request is applied, because checkRewards progress 1 epoch
+	// 		amount := request.amount
+	// 		validator := request.validator
+	// 		id := int(request.contractID.Int64())
+	// 		validatorStakes[validator].Sub(validatorStakes[validator], amount)
+	// 		userStakes[beneficiary][id][validator].Sub(userStakes[beneficiary][id][validator], amount)
+	// 		totalStake.Sub(totalStake, amount)
+
+	// 	}
+	// })
 }
 
 func TestContractCancel(t *testing.T) {
@@ -786,74 +912,264 @@ func TestAccessRestriction(t *testing.T) {
 	})
 }
 
-func checkRewards(
+func initialStakes(
 	r *runner,
-	totalStake, totalReward *big.Int,
-	validatorStakes map[common.Address]*big.Int,
-	userStakes map[common.Address]map[common.Address]*big.Int,
+	contractCount int,
 	liquidContracts []*Liquid,
-	validators, users []common.Address,
+	users, validators []common.Address,
+) (
+	validatorStakes map[common.Address]*big.Int,
+	userStakes map[common.Address]map[int]map[common.Address]*big.Int,
+	totalStake *big.Int,
 ) {
 
-	fmt.Printf("\n\ntotal reward %v\ntotal stake %v\n", totalReward, totalStake)
-	oldRewardsFromValidator := make(map[common.Address]*big.Int)
+	totalStake = new(big.Int)
+
+	validatorStakes = make(map[common.Address]*big.Int)
 	for i, validator := range validators {
 		liquidContract := liquidContracts[i]
-		unclaimedReward, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
+		balance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
-		oldRewardsFromValidator[validator] = unclaimedReward.UnclaimedATN
-		fmt.Printf("validator %v old reward %v\n", validator, oldRewardsFromValidator[validator])
+		validatorStakes[validator] = balance
 	}
 
-	oldUserRewards := make(map[common.Address]*big.Int)
+	userStakes = make(map[common.Address]map[int]map[common.Address]*big.Int)
 	for _, user := range users {
-		unclaimedReward, _, err := r.stakableVesting.UnclaimedRewards0(nil, user)
-		require.NoError(r.t, err)
-		oldUserRewards[user] = unclaimedReward.AtnTotalFee
-		fmt.Printf("user %v old reward %v\n", user, oldUserRewards[user])
+		userStakes[user] = make(map[int]map[common.Address]*big.Int)
+		for i := 0; i < contractCount; i++ {
+			userStakes[user][i] = make(map[common.Address]*big.Int)
+			for _, validator := range validators {
+				balance, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, big.NewInt(int64(i)), validator)
+				require.NoError(r.t, err)
+				userStakes[user][i][validator] = balance
+				totalStake.Add(totalStake, balance)
+			}
+		}
 	}
+	return
+}
 
-	r.waitNextEpoch()
-	validatorCurrentReward := make(map[common.Address]*big.Int)
+func getRewards(
+	r *runner,
+	contractCount int,
+	liquidContracts []*Liquid,
+	users, validators []common.Address,
+) (
+	currentReward Reward,
+	oldRewardsFromValidator map[common.Address]Reward,
+	oldUserRewards map[common.Address]map[int]map[common.Address]Reward,
+) {
+	oldRewardsFromValidator = make(map[common.Address]Reward)
 	for i, validator := range validators {
 		liquidContract := liquidContracts[i]
 		unclaimedReward, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
-		validatorTotalReward := new(big.Int).Mul(validatorStakes[validator], totalReward)
-		validatorTotalReward = validatorTotalReward.Div(validatorTotalReward, totalStake)
+		oldRewardsFromValidator[validator] = Reward{unclaimedReward.UnclaimedATN, unclaimedReward.UnclaimedNTN}
+		fmt.Printf("validator %v old reward atn %v\n", validator, oldRewardsFromValidator[validator].rewardATN)
+		fmt.Printf("validator %v old reward ntn %v\n", validator, oldRewardsFromValidator[validator].rewardNTN)
+	}
+
+	oldUserRewards = make(map[common.Address]map[int]map[common.Address]Reward)
+	for _, user := range users {
+		oldUserRewards[user] = make(map[int]map[common.Address]Reward)
+		for i := 0; i < contractCount; i++ {
+			oldUserRewards[user][i] = make(map[common.Address]Reward)
+			for _, validator := range validators {
+				unclaimedReward, _, err := r.stakableVesting.UnclaimedRewards(nil, user, big.NewInt(int64(i)), validator)
+				require.NoError(r.t, err)
+				oldUserRewards[user][i][validator] = Reward{unclaimedReward.AtnFee, unclaimedReward.NtnFee}
+				fmt.Printf("user %v old reward atn for contract %v from validator %v : %v\n", user, i, validator, unclaimedReward.AtnFee)
+				fmt.Printf("user %v old reward ntn for contract %v from validator %v : %v\n", user, i, validator, unclaimedReward.NtnFee)
+			}
+		}
+	}
+
+	// get atn reward
+	currentReward.rewardATN = r.getBalanceOf(r.autonity.address)
+
+	// get supply and inflationReserve to calculate inflation reward
+	supply, _, err := r.autonity.TotalSupply(nil)
+	require.NoError(r.t, err)
+	inflationReserve, _, err := r.autonity.InflationReserve(nil)
+	require.NoError(r.t, err)
+	epochPeriod, _, err := r.autonity.GetEpochPeriod(nil)
+	require.NoError(r.t, err)
+	// get inflation reward
+	lastEpochTime, _, err := r.autonity.LastEpochTime(nil)
+	require.NoError(r.t, err)
+	currentEpochTime := new(big.Int).Add(lastEpochTime, epochPeriod)
+	currentReward.rewardNTN, _, err = r.inflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
+	require.NoError(r.t, err)
+	fmt.Printf("atn reward %v\nntn reward %v\n", currentReward.rewardATN, currentReward.rewardNTN)
+	return
+}
+
+func checkRewards(
+	r *runner,
+	contractCount int,
+	totalStake *big.Int,
+	totalReward Reward,
+	liquidContracts []*Liquid,
+	validators, users []common.Address,
+	validatorStakes map[common.Address]*big.Int,
+	userStakes map[common.Address]map[int]map[common.Address]*big.Int,
+	oldRewardsFromValidator map[common.Address]Reward,
+	oldUserRewards map[common.Address]map[int]map[common.Address]Reward,
+) {
+	fmt.Printf("\n\n\ntotal stake %v\n", totalStake)
+	// // just to be sure that we have correct stakes
+	// for i, liquidContract := range liquidContracts {
+	// 	liquidBalance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+	// 	require.NoError(r.t, err)
+	// 	require.Equal(r.t, validatorStakes[validators[i]], liquidBalance)
+	// }
+
+	// for _, user := range users {
+	// 	for i := 0; i < contractCount; i++ {
+	// 		for _, validator := range validators {
+	// 			liquidBalance, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, big.NewInt(int64(i)), validator)
+	// 			require.NoError(r.t, err)
+	// 			require.Equal(r.t, userStakes[user][i][validator], liquidBalance)
+	// 		}
+	// 	}
+	// }
+
+	// // get inflation reward
+	// currentEpochTime := new(big.Int).Sub(r.evm.Context.Time, common.Big1)
+	// lastEpochTime := new(big.Int).Sub(currentEpochTime, epochPeriod)
+	// totalRewardNTN, _, err := r.inflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
+	// require.NoError(r.t, err)
+	// fmt.Printf("atn reward %v\nntn reward %v\n", totalRewardATN, totalRewardNTN)
+	currentRewards := make(map[common.Address]Reward)
+	for i, validator := range validators {
+		validatorTotalRewardATN := new(big.Int).Mul(validatorStakes[validator], totalReward.rewardATN)
+		validatorTotalRewardATN = validatorTotalRewardATN.Div(validatorTotalRewardATN, totalStake)
+
+		validatorTotalRewardNTN := new(big.Int).Mul(validatorStakes[validator], totalReward.rewardNTN)
+		validatorTotalRewardNTN = validatorTotalRewardNTN.Div(validatorTotalRewardNTN, totalStake)
+
+		liquidContract := liquidContracts[i]
+		unclaimedReward, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
+		require.NoError(r.t, err)
 		fmt.Printf("validator %v total stake %v\n", validator, validatorStakes[validator])
-		fmt.Printf("validator %v current reward %v\n", validator, validatorTotalReward)
-		fmt.Printf("validator %v total reward %v\n", validator, unclaimedReward.UnclaimedATN)
-		require.Equal(
-			r.t,
-			new(big.Int).Add(validatorTotalReward, oldRewardsFromValidator[validator]),
+		fmt.Printf("validator %v current reward atn %v\n", validator, validatorTotalRewardATN)
+		fmt.Printf("validator %v total reward atn %v\n", validator, unclaimedReward.UnclaimedATN)
+		fmt.Printf("validator %v current reward ntn %v\n", validator, validatorTotalRewardNTN)
+		fmt.Printf("validator %v total reward ntn %v\n", validator, unclaimedReward.UnclaimedNTN)
+
+		diff := new(big.Int).Sub(
+			new(big.Int).Add(validatorTotalRewardATN, oldRewardsFromValidator[validator].rewardATN),
 			unclaimedReward.UnclaimedATN,
+		)
+		diff.Abs(diff)
+		// difference should be less than or equal to 1 wei
+		require.True(
+			r.t,
+			diff.Cmp(common.Big1) <= 0,
 			"unclaimed atn reward not updated in liquid contract",
 		)
-		validatorCurrentReward[validator] = validatorTotalReward
+
+		diff = new(big.Int).Sub(
+			new(big.Int).Add(validatorTotalRewardNTN, oldRewardsFromValidator[validator].rewardNTN),
+			unclaimedReward.UnclaimedNTN,
+		)
+		diff.Abs(diff)
+		// difference should be less than or equal to 1 wei
+		require.True(
+			r.t,
+			diff.Cmp(common.Big1) <= 0,
+			"unclaimed ntn reward not updated in liquid contract",
+		)
+		currentRewards[validator] = Reward{
+			new(big.Int).Sub(unclaimedReward.UnclaimedATN, oldRewardsFromValidator[validator].rewardATN),
+			new(big.Int).Sub(unclaimedReward.UnclaimedNTN, oldRewardsFromValidator[validator].rewardNTN),
+		}
 	}
 
 	for _, user := range users {
-		userReward := new(big.Int)
-		// The following loop is equivalent to: (userStakes[user][V0] + .. + userStakes[user][Vn]) * totalReward / totalStake
+		userRewardATN := new(big.Int)
+		userRewardNTN := new(big.Int)
+		// totalDiff := new(big.Int)
+		// The following loop is equivalent to: (user_all_stake_to_all_validator) * totalReward / totalStake
 		// But StakableVesting contract handles reward for each validator separately, so there can be some funds lost due to
 		// integer division in solidity. So we simulate the calculation with the for loop instead
-		for _, validator := range validators {
-			rewardFromValidator := new(big.Int).Mul(userStakes[user][validator], validatorCurrentReward[validator])
-			rewardFromValidator.Div(rewardFromValidator, validatorStakes[validator])
-			userReward.Add(userReward, rewardFromValidator)
+		for i := 0; i < contractCount; i++ {
+			unclaimedRewardForContractATN := new(big.Int)
+			unclaimedRewardForContractNTN := new(big.Int)
+			for _, validator := range validators {
+				calculatedRewardATN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].rewardATN)
+				calculatedRewardATN.Div(calculatedRewardATN, validatorStakes[validator])
+				fmt.Printf("validator %v total stake %v\n", validator, validatorStakes[validator])
+				fmt.Printf("current validator atn reward %v\n", currentRewards[validator].rewardATN)
+				fmt.Printf("current validator ntn reward %v\n", currentRewards[validator].rewardNTN)
+				fmt.Printf("user %v stake for contract %v : %v\n", user, i, userStakes[user][i][validator])
+				fmt.Printf("user %v atn reward : %v\n", user, calculatedRewardATN)
+				calculatedRewardATN.Add(calculatedRewardATN, oldUserRewards[user][i][validator].rewardATN)
+
+				calculatedRewardNTN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].rewardNTN)
+				calculatedRewardNTN.Div(calculatedRewardNTN, validatorStakes[validator])
+				fmt.Printf("user %v ntn reward : %v\n", user, calculatedRewardNTN)
+				calculatedRewardNTN.Add(calculatedRewardNTN, oldUserRewards[user][i][validator].rewardNTN)
+
+				unclaimedReward, _, err := r.stakableVesting.UnclaimedRewards(nil, user, big.NewInt(int64(i)), validator)
+				require.NoError(r.t, err)
+				fmt.Printf("user %v atn unclaimed reward : %v\n", user, unclaimedReward.AtnFee)
+				fmt.Printf("user %v ntn unclaimed reward : %v\n", user, unclaimedReward.NtnFee)
+
+				diff := new(big.Int).Sub(calculatedRewardATN, unclaimedReward.AtnFee)
+				fmt.Printf("diff %v\n", diff)
+				diff.Abs(diff)
+				// difference should be less than or equal to 1 wei
+				require.True(
+					r.t,
+					diff.Cmp(common.Big1) <= 0,
+					"atn reward calculation mismatch",
+				)
+
+				diff = new(big.Int).Sub(calculatedRewardNTN, unclaimedReward.NtnFee)
+				fmt.Printf("diff %v\n", diff)
+				diff.Abs(diff)
+				// difference should be less than or equal to 1 wei
+				require.True(
+					r.t,
+					diff.Cmp(common.Big1) <= 0,
+					"ntn reward calculation mismatch",
+				)
+				unclaimedRewardForContractATN.Add(unclaimedRewardForContractATN, unclaimedReward.AtnFee)
+				unclaimedRewardForContractNTN.Add(unclaimedRewardForContractNTN, unclaimedReward.NtnFee)
+			}
+
+			unclaimedReward, _, err := r.stakableVesting.UnclaimedRewards1(nil, user, big.NewInt(int64(i)))
+			require.NoError(r.t, err)
+			require.Equal(r.t, unclaimedRewardForContractATN, unclaimedReward.AtnFee)
+			require.Equal(r.t, unclaimedRewardForContractNTN, unclaimedReward.NtnFee)
+
+			userRewardATN.Add(userRewardATN, unclaimedReward.AtnFee)
+			userRewardNTN.Add(userRewardNTN, unclaimedReward.NtnFee)
 		}
+
 		unclaimedReward, _, err := r.stakableVesting.UnclaimedRewards0(nil, user)
 		require.NoError(r.t, err)
-		// fmt.Printf("user %v total stake %v\n", user, userStakes[user])
-		fmt.Printf("user %v current reward %v\n", user, userReward)
-		fmt.Printf("user %v total reward %v\n", user, unclaimedReward.AtnTotalFee)
+		fmt.Printf("user %v current atn reward %v\n", user, userRewardATN)
+		fmt.Printf("user %v current ntn reward %v\n", user, userRewardNTN)
+
 		require.Equal(
 			r.t,
-			new(big.Int).Add(userReward, oldUserRewards[user]),
+			userRewardATN,
 			unclaimedReward.AtnTotalFee,
 			"unclaimed atn reward mismatch",
 		)
+
+		require.Equal(
+			r.t,
+			userRewardNTN,
+			unclaimedReward.NtnTotalFee,
+			"unclaimed ntn reward mismatch",
+		)
+
+		// r.NoError(
+		// 	r.stakableVesting.ClaimRewards0(fromSender(user, nil)),
+		// )
 	}
 }
 
@@ -902,6 +1218,7 @@ func fromSender(sender common.Address, value *big.Int) *runOptions {
 func bondAndApply(
 	r *runner, validatorAddress, user common.Address, liquidContract *Liquid, bondingID int, contractID, bondingAmount, bondingGas *big.Int, rejected bool,
 ) (uint64, uint64) {
+	// r.waitNextEpoch()
 	liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
 	require.NoError(r.t, err)
 	r.NoError(
@@ -913,9 +1230,24 @@ func bondAndApply(
 	)
 	bondedValidators := make([]common.Address, 1)
 	bondedValidators[0] = validatorAddress
+	// epochID, _, err := r.autonity.EpochID(nil)
+	// require.NoError(r.t, err)
+	// require.True(r.t, epochID.Cmp(common.Big0) > 0, "cannot test")
+	// fmt.Printf("epoch id %v\n", epochID)
+	// for _, validator := range bondedValidators {
+	// 	lastUpdate, _, err := r.stakableVesting.GetValidatorLastUpdateEpoch(nil, validator)
+	// 	require.NoError(r.t, err)
+	// 	fmt.Printf("validator %v last update %v\n", validator, lastUpdate)
+	// 	require.True(r.t, lastUpdate.Cmp(epochID) < 0, "cannot test")
+	// }
 	gasUsedDistribute := r.NoError(
 		r.stakableVesting.RewardsDistributed(fromAutonity, bondedValidators),
 	)
+	// for _, validator := range bondedValidators {
+	// 	lastUpdate, _, err := r.stakableVesting.GetValidatorLastUpdateEpoch(nil, validator)
+	// 	require.NoError(r.t, err)
+	// 	require.True(r.t, lastUpdate.Cmp(epochID) == 0, "validator not updated")
+	// }
 	if rejected == false {
 		r.NoError(
 			liquidContract.Mint(fromAutonity, r.stakableVesting.address, bondingAmount),
@@ -936,6 +1268,7 @@ func bondAndApply(
 func unbondAndApply(
 	r *runner, validatorAddress, user common.Address, liquidContract *Liquid, unbondingID int, contractID, unbondingAmount, unbondingGas *big.Int, rejected bool,
 ) (uint64, uint64, uint64) {
+	// r.waitNextEpoch()
 	liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
 	require.NoError(r.t, err)
 	r.NoError(
@@ -947,9 +1280,24 @@ func unbondAndApply(
 	)
 	bondedValidators := make([]common.Address, 1)
 	bondedValidators[0] = validatorAddress
+	// epochID, _, err := r.autonity.EpochID(nil)
+	// require.NoError(r.t, err)
+	// require.True(r.t, epochID.Cmp(common.Big0) > 0, "cannot test")
+	// fmt.Printf("epoch id %v\n", epochID)
+	// for _, validator := range bondedValidators {
+	// 	lastUpdate, _, err := r.stakableVesting.GetValidatorLastUpdateEpoch(nil, validator)
+	// 	require.NoError(r.t, err)
+	// 	fmt.Printf("validator %v last update %v\n", validator, lastUpdate)
+	// 	require.True(r.t, lastUpdate.Cmp(epochID) < 0, "cannot test")
+	// }
 	gasUsedDistribute := r.NoError(
 		r.stakableVesting.RewardsDistributed(fromAutonity, bondedValidators),
 	)
+	// for _, validator := range bondedValidators {
+	// 	lastUpdate, _, err := r.stakableVesting.GetValidatorLastUpdateEpoch(nil, validator)
+	// 	require.NoError(r.t, err)
+	// 	require.True(r.t, lastUpdate.Cmp(epochID) == 0, "validator not updated")
+	// }
 	if rejected == false {
 		r.NoError(
 			liquidContract.Unlock(fromAutonity, r.stakableVesting.address, unbondingAmount),
@@ -992,63 +1340,217 @@ func checkReleaseAllNTN(r *runner, user common.Address, contractID, unlockAmount
 }
 
 func bondAndFinalize(
-	r *runner, user, validator common.Address, liquidContract *Liquid, contractID, bondingAmount, bondingGas *big.Int,
+	r *runner, user common.Address, bondingRequests []StakingRequest, bondingGas *big.Int,
 ) {
+	liquidContracts := make(map[common.Address]*Liquid)
+	liquidOfVestingContract := make(map[common.Address]*big.Int)
+	liquidOfUser := make(map[common.Address]map[int64]*big.Int)
+
+	for i, validator := range r.committee.validators {
+		for _, request := range bondingRequests {
+			if request.validator == validator.NodeAddress {
+				liquidContract := r.committee.liquidContracts[i]
+				liquidContracts[request.validator] = liquidContract
+
+				balance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+				require.NoError(r.t, err)
+				liquidOfVestingContract[request.validator] = balance
+
+				liquidOfUser[request.validator] = make(map[int64]*big.Int)
+				break
+			}
+		}
+	}
+
+	for _, request := range bondingRequests {
+		userLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, request.validator)
+		require.NoError(r.t, err)
+		liquidOfUser[request.validator][request.contractID.Int64()] = userLiquid
+	}
+
 	newtonBalance, _, err := r.autonity.BalanceOf(nil, r.stakableVesting.address)
 	require.NoError(r.t, err)
-	liquidOfVestingContract, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
-	require.NoError(r.t, err)
-	liquidOfUser, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
-	require.NoError(r.t, err)
-	contract, _, err := r.stakableVesting.GetContract(nil, user, contractID)
-	require.NoError(r.t, err)
-	remaining := new(big.Int).Sub(contract.CurrentNTNAmount, bondingAmount)
-	r.NoError(
-		r.stakableVesting.Bond(fromSender(user, bondingGas), contractID, validator, bondingAmount),
-	)
-	contract, _, err = r.stakableVesting.GetContract(nil, user, contractID)
-	require.NoError(r.t, err)
-	require.Equal(r.t, remaining, contract.CurrentNTNAmount, "contract not updated properly")
+
+	for _, request := range bondingRequests {
+		contract, _, err := r.stakableVesting.GetContract(nil, user, request.contractID)
+		require.NoError(r.t, err)
+		contractNTN := contract.CurrentNTNAmount
+
+		_, err = r.stakableVesting.Bond(
+			fromSender(user, bondingGas),
+			request.contractID,
+			request.validator,
+			request.amount,
+		)
+
+		if request.expectedErr == "" {
+			require.NoError(r.t, err)
+			validator := request.validator
+			id := request.contractID.Int64()
+			liquidOfVestingContract[validator].Add(liquidOfVestingContract[validator], request.amount)
+			liquidOfUser[validator][id].Add(liquidOfUser[validator][id], request.amount)
+
+			contract, _, err = r.stakableVesting.GetContract(nil, user, request.contractID)
+			require.NoError(r.t, err)
+			remaining := new(big.Int).Sub(contractNTN, request.amount)
+			require.True(r.t, remaining.Cmp(contract.CurrentNTNAmount) == 0, "contract not updated properly")
+
+			newtonBalance.Sub(newtonBalance, request.amount)
+		} else {
+			require.Equal(r.t, request.expectedErr, err.Error())
+		}
+	}
+
 	// let bonding apply
 	r.waitNextEpoch()
-	liquidOfVestingContract = new(big.Int).Add(bondingAmount, liquidOfVestingContract)
-	liquidOfUser = new(big.Int).Add(bondingAmount, liquidOfUser)
-	liquid, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
-	require.NoError(r.t, err)
-	require.Equal(r.t, liquidOfVestingContract, liquid, "liquid not minted")
-	liquid, _, err = r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
-	require.NoError(r.t, err)
-	require.Equal(r.t, liquidOfUser, liquid, "vesting contract cannot track liquid balance")
-	newNewtonBalance := new(big.Int).Sub(newtonBalance, bondingAmount)
-	newtonBalance, _, err = r.autonity.BalanceOf(nil, r.stakableVesting.address)
+
+	for _, request := range bondingRequests {
+		validator := request.validator
+		id := request.contractID.Int64()
+
+		liquidContract := liquidContracts[validator]
+		totalLiquid, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		require.NoError(r.t, err)
+		require.True(
+			r.t,
+			liquidOfVestingContract[validator].Cmp(totalLiquid) == 0,
+			"bonding not applied", // it could happen if Autonity fails to call bondingApplied. Need immediate attention if happens
+		)
+
+		userLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		require.True(
+			r.t,
+			liquidOfUser[validator][id].Cmp(userLiquid) == 0,
+			"vesting contract cannot track liquid balance",
+		)
+
+	}
+
+	newNewtonBalance, _, err := r.autonity.BalanceOf(nil, r.stakableVesting.address)
 	require.NoError(r.t, err)
 	require.True(r.t, newNewtonBalance.Cmp(newtonBalance) == 0, "newton balance not updated")
 }
 
 func unbondAndRelease(
-	r *runner, user, validator common.Address, liquidContract *Liquid, contractID, unbondingAmount, unbondingGas *big.Int,
+	r *runner, user common.Address, unbondingRequests []StakingRequest, unbondingGas *big.Int,
 ) {
+	liquidContracts := make(map[common.Address]*Liquid)
+	liquidOfUser := make(map[common.Address]map[int64]*big.Int)
+	liquidOfVestingContract := make(map[common.Address]*big.Int)
+
+	for i, validator := range r.committee.validators {
+		for _, request := range unbondingRequests {
+			if request.validator == validator.NodeAddress {
+				liquidContract := r.committee.liquidContracts[i]
+				liquidContracts[request.validator] = liquidContract
+
+				balance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+				require.NoError(r.t, err)
+				liquidOfVestingContract[request.validator] = balance
+
+				liquidOfUser[request.validator] = make(map[int64]*big.Int)
+				break
+			}
+		}
+	}
+
+	contractNTN := make(map[int64]*big.Int)
+	for _, request := range unbondingRequests {
+		userLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, request.validator)
+		require.NoError(r.t, err)
+		liquidOfUser[request.validator][request.contractID.Int64()] = userLiquid
+
+		contract, _, err := r.stakableVesting.GetContract(nil, user, request.contractID)
+		require.NoError(r.t, err)
+		contractNTN[request.contractID.Int64()] = contract.CurrentNTNAmount
+	}
+
+	unbondingRequestBlock := r.evm.Context.BlockNumber
 	newtonBalance, _, err := r.autonity.BalanceOf(nil, r.stakableVesting.address)
 	require.NoError(r.t, err)
-	liquidOfUser, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
-	require.NoError(r.t, err)
-	liquidOfVestingContract, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
-	require.NoError(r.t, err)
-	contract, _, err := r.stakableVesting.GetContract(nil, user, contractID)
-	require.NoError(r.t, err)
-	unbondingRequestBlock := r.evm.Context.BlockNumber
-	r.NoError(
-		r.stakableVesting.Unbond(fromSender(user, unbondingGas), contractID, validator, unbondingAmount),
-	)
+
+	for _, request := range unbondingRequests {
+		lockedLiquid, _, err := r.stakableVesting.LockedLiquidBalanceOf(nil, user, request.contractID, request.validator)
+		require.NoError(r.t, err)
+		unlockedLiquid, _, err := r.stakableVesting.UnlockedLiquidBalanceOf(nil, user, request.contractID, request.validator)
+		require.NoError(r.t, err)
+		_, err = r.stakableVesting.Unbond(
+			fromSender(user, unbondingGas),
+			request.contractID,
+			request.validator,
+			request.amount,
+		)
+
+		if request.expectedErr == "" {
+			require.NoError(r.t, err)
+			validator := request.validator
+			id := request.contractID.Int64()
+			liquidOfVestingContract[validator].Sub(liquidOfVestingContract[validator], request.amount)
+			liquidOfUser[validator][id].Sub(liquidOfUser[validator][id], request.amount)
+			contractNTN[id].Add(contractNTN[id], request.amount)
+
+			newLockedLiquid, _, err := r.stakableVesting.LockedLiquidBalanceOf(nil, user, request.contractID, request.validator)
+			require.NoError(r.t, err)
+			require.True(
+				r.t,
+				new(big.Int).Add(lockedLiquid, request.amount).Cmp(newLockedLiquid) == 0,
+				"vesting contract cannot track locked liquid",
+			)
+
+			newUnlockedLiquid, _, err := r.stakableVesting.UnlockedLiquidBalanceOf(nil, user, request.contractID, request.validator)
+			require.NoError(r.t, err)
+			require.True(
+				r.t,
+				new(big.Int).Sub(unlockedLiquid, request.amount).Cmp(newUnlockedLiquid) == 0,
+				"vesting contract cannot track unlocked liquid",
+			)
+
+			newtonBalance.Add(newtonBalance, request.amount)
+		} else {
+			require.Equal(r.t, request.expectedErr, err.Error())
+		}
+	}
+
 	r.waitNextEpoch()
-	liquidOfUser = new(big.Int).Sub(liquidOfUser, unbondingAmount)
-	liquidOfVestingContract = new(big.Int).Sub(liquidOfVestingContract, unbondingAmount)
-	liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
-	require.NoError(r.t, err)
-	require.True(r.t, liquid.Cmp(liquidOfUser) == 0, "liquid balance mismatch after unbonding")
-	liquid, _, err = liquidContract.BalanceOf(nil, r.stakableVesting.address)
-	require.NoError(r.t, err)
-	require.True(r.t, liquid.Cmp(liquidOfVestingContract) == 0, "liquid balance mismatch after unbonding")
+
+	for _, request := range unbondingRequests {
+		validator := request.validator
+		id := request.contractID.Int64()
+		liquidContract := liquidContracts[validator]
+
+		totalLiquid, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		require.NoError(r.t, err)
+		require.True(
+			r.t,
+			totalLiquid.Cmp(liquidOfVestingContract[validator]) == 0,
+			"unbonding not applied",
+		)
+
+		userLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		require.True(
+			r.t,
+			userLiquid.Cmp(liquidOfUser[validator][id]) == 0,
+			"vesting contract cannot track liquid",
+		)
+
+		lockedLiquid, _, err := r.stakableVesting.LockedLiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		require.True(
+			r.t,
+			lockedLiquid.Cmp(common.Big0) == 0,
+			"vesting contract cannot track locked liquid",
+		)
+
+		unlockedLiquid, _, err := r.stakableVesting.UnlockedLiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		require.True(
+			r.t,
+			unlockedLiquid.Cmp(userLiquid) == 0,
+			"vesting contract cannot track unlocked liquid",
+		)
+	}
 
 	// release unbonding
 	unbondingPeriod, _, err := r.autonity.GetUnbondingPeriod(nil)
@@ -1057,12 +1559,20 @@ func unbondAndRelease(
 	for unbondingReleaseBlock.Cmp(r.evm.Context.BlockNumber) >= 0 {
 		r.waitNextEpoch()
 	}
-	newNewtonAmount := new(big.Int).Add(contract.CurrentNTNAmount, unbondingAmount)
-	contract, _, err = r.stakableVesting.GetContract(nil, user, contractID)
+
+	for _, request := range unbondingRequests {
+		contract, _, err := r.stakableVesting.GetContract(nil, user, request.contractID)
+		require.NoError(r.t, err)
+
+		id := request.contractID.Int64()
+		require.True(
+			r.t,
+			contract.CurrentNTNAmount.Cmp(contractNTN[id]) == 0,
+			"contract not updated",
+		)
+	}
+
+	newNewtonBalance, _, err := r.autonity.BalanceOf(nil, r.stakableVesting.address)
 	require.NoError(r.t, err)
-	require.Equal(r.t, newNewtonAmount, contract.CurrentNTNAmount, "contract not updated")
-	newNewtonBalance := new(big.Int).Add(newtonBalance, unbondingAmount)
-	newtonBalance, _, err = r.autonity.BalanceOf(nil, r.stakableVesting.address)
-	require.NoError(r.t, err)
-	require.Equal(r.t, newNewtonBalance, newtonBalance, "vesting contract balance mismatch")
+	require.True(r.t, newNewtonBalance.Cmp(newtonBalance) == 0, "vesting contract balance mismatch")
 }
