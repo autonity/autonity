@@ -1068,6 +1068,7 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 }
 
 func (srv *Server) processPeerSuspension(pd peerDrop) {
+	// We cannot suspend peer with network infra errors.
 	reason := discReasonForError(pd.err)
 	if errors.Is(reason, DiscProtocolError) || reason == DiscSubprotocolError {
 		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoErrorSuspensionSpan)
