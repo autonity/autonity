@@ -176,7 +176,7 @@ contract Liquid is IERC20
 
         // Send the AUT
         if (_isContract(msg.sender)) {
-            IStakeProxy(msg.sender).receiveAut{value: _atnRealisedFees}();
+            IStakeProxy(msg.sender).receiveATN{value: _atnRealisedFees}();
             return;
         }
         //   solhint-disable-next-line avoid-low-level-calls

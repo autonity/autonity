@@ -292,7 +292,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
      * @notice can be used to send AUT to the contract
      */
-    function receiveAut() external payable {
+    function receiveATN() external payable {
         // do nothing
     }
 
@@ -1616,11 +1616,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     function _notifyRewardsDistribution() private {
         uint256 _length = contractAddresses.length;
-        for (uint256 i = 0; i < _length; i++) {
-            address _contract = contractAddresses[i];
+        for (uint256 _contractIdx = 0; _contractIdx < _length; _contractIdx++) {
+            address _contract = contractAddresses[_contractIdx];
             address[] memory _validators = validatorsStaked[_contract];
-            for (uint256 j = 0; j < _validators.length; j++) {
-                delete isValidatorStaked[_contract][_validators[i]];
+            for (uint256 _validatorIdx = 0; _validatorIdx < _validators.length; _validatorIdx++) {
+                delete isValidatorStaked[_contract][_validators[_validatorIdx]];
             }
             delete validatorsStaked[_contract];
             uint256 _gasLeft = gasLeft[_contract];

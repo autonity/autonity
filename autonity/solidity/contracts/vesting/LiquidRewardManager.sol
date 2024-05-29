@@ -204,8 +204,8 @@ contract LiquidRewardManager {
         // otherwise _validators will not be updated when _removeValidator is called
         address[] storage _validators = bondedValidators[_id];
         Account storage _account;
-        for (uint256 i = 0; i < _validators.length ; i++) {
-            _account = accounts[_id][_validators[i]];
+        for (uint256 _idx = 0; _idx < _validators.length ; _idx++) {
+            _account = accounts[_id][_validators[_idx]];
             // actual balance is (balance - OFFSET)
             // if liquidBalance is 0, then unrealisedFee is 0
             // if both liquidBalance and realisedFee are 0 and no new bonding is requested then the validator is not needed anymore
@@ -213,11 +213,11 @@ contract LiquidRewardManager {
                 _account.newBondingRequested == false && _account.liquidBalance == OFFSET
                 && _account.atnRealisedFee == OFFSET && _account.ntnRealisedFee == OFFSET
             ) {
-                _removeValidator(_id, _validators[i]);
-                if (i >= _validators.length) {
+                _removeValidator(_id, _validators[_idx]);
+                if (_idx >= _validators.length) {
                     break;
                 }
-                _account = accounts[_id][_validators[i]];
+                _account = accounts[_id][_validators[_idx]];
             }
         }
     }

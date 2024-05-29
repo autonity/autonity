@@ -241,12 +241,20 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         return _unbondingID;
     }
 
+    /**
+     * @notice used by beneficiary to claim rewards from contract _id from bonding to _validator
+     * @param _id contract ID
+     * @param _validator validator address
+     */
     function claimRewards(uint256 _id, address _validator) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID, _validator);
         _sendRewards(_atnReward, _ntnReward);
     }
 
+    /**
+     * @notice used by beneficiary to claim rewards from contract _id from bonding
+     */
     function claimRewards(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
@@ -254,8 +262,8 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice used by beneficiary to claim all rewards which is entitled due to bonding
-     * @dev Rewards from some cancelled contracts are stored in rewards mapping. All rewards from
+     * @notice used by beneficiary to claim all rewards which is entitled from bonding
+     * @dev Rewards from some cancelled contracts are stored in atnRewards and ntnRewards mapping. All rewards from
      * contracts that are still entitled to the beneficiary need to be calculated via _claimRewards
      */
     function claimRewards() virtual external {
@@ -276,9 +284,9 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice can be used to send AUT to the contract
+     * @notice can be used to send ATN to the contract
      */
-    function receiveAut() external payable {
+    function receiveATN() external payable {
         // do nothing
     }
 
@@ -506,6 +514,10 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     function _revertPendingBondingRequest(uint256 _contractID) private {
         uint256[] storage _bondingIDs = contractToBonding[_contractID];
         uint256 _length = _bondingIDs.length;
+        if (_length == 0) {
+            return;
+        }
+
         uint256 _oldBondingID;
         PendingBondingRequest storage _oldBondingRequest;
         uint256 _totalAmount = 0;
@@ -526,6 +538,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
             delete pendingBondingRequest[_oldBondingID];
             delete bondingToContract[_oldBondingID];
         }
+
         delete contractToBonding[_contractID];
         if (_totalAmount == 0) {
             return;
@@ -547,7 +560,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         mapping(uint256 => uint256) storage _unbondingIDs = contractToUnbonding[_contractID];
         uint256 _lastID = headPendingUnbondingID[_contractID];
         uint256 _processingID = tailPendingUnbondingID[_contractID];
-        for(; _processingID < _lastID; _processingID++) {
+        for (; _processingID < _lastID; _processingID++) {
             _unbondingID = _unbondingIDs[_processingID];
             Autonity.UnbondingReleaseState _releaseState = autonity.getUnbondingReleaseState(_unbondingID);
             if (_releaseState == Autonity.UnbondingReleaseState.notReleased) {
@@ -580,6 +593,9 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
                     _unlock(_contractID, _validator, _unbondingRequest.liquidAmount);
                 }
             }
+            else {
+                require(false, "unknown UnbondingReleaseState, need to implement");
+            }
             
             delete pendingUnbondingRequest[_unbondingID];
         }
@@ -611,8 +627,26 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to beneficiary
+     * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding to _validator
      * @param _beneficiary beneficiary address
+     * @param _id contract ID
+     * @param _validator validator address
+     */
+    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID, _validator);
+    }
+
+    /**
+     * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding
+     */
+    function unclaimedRewards(address _beneficiary, uint256 _id) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID);
+    }
+
+    /**
+     * @notice returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to _beneficiary
      */
     function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
         _atnTotalFee = atnRewards[_beneficiary];
@@ -623,16 +657,6 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
             _atnTotalFee += _atnFee;
             _ntnTotalFee += _ntnFee;
         }
-    }
-
-    function unclaimedRewards(address _beneficiary, uint256 _id) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID);
-    }
-
-    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID, _validator);
     }
 
     /**
