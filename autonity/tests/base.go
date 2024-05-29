@@ -421,6 +421,12 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	)
 	require.NoError(t, err)
 	require.Equal(t, r.stakableVesting.address, params.StakableVestingContractAddress)
+	r.NoError(
+		r.autonity.Mint(operator, r.stakableVesting.address, params.DefaultStakableVestingGenesis.ReservedStake),
+	)
+	r.NoError(
+		r.stakableVesting.SetReservedStake(operator, params.DefaultStakableVestingGenesis.ReservedStake),
+	)
 
 	//
 	// Step 10: Non-Stakable Vesting contract deployment
@@ -432,6 +438,9 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	)
 	require.NoError(t, err)
 	require.Equal(t, r.nonStakableVesting.address, params.NonStakableVestingContractAddress)
+	r.NoError(
+		r.nonStakableVesting.SetVaultBalance(operator, params.DefaultNonStakableVestingGenesis.NonStakableVaultBalance),
+	)
 
 	// set protocol contracts
 	r.NoError(
