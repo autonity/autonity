@@ -268,6 +268,8 @@ class TestCase:
             self.collect_test_case_context_log()
             self.collect_system_log()
             return False
+        self.collect_test_case_context_log()
+        self.collect_system_log()
         return True
 
     def run(self):

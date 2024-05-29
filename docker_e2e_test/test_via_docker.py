@@ -308,6 +308,8 @@ if __name__ == "__main__":
                 print(line.decode())
                 if line == b"INFO - [TEST PASSED]\n":
                     exit_code = 0
+                    thd = threading.Thread(target=thread_func_copy_system_logs, args=(job_id, SYSTEM_LOG_PATH))
+                    thd.start()
                 if line == b"INFO - [TEST FAILED]\n":
                     exit_code = 1
                     thd = threading.Thread(target=thread_func_copy_system_logs, args=(job_id, SYSTEM_LOG_PATH))
