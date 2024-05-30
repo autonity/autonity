@@ -15,11 +15,17 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      */
     uint256 public vaultBalance;
 
+    /**
+     * @notice The maximum duration of any schedule or contract
+     */
+    uint256 public maxAllowedDuration;
+
     struct Schedule {
         uint256 start;
-        uint256 cliff;
-        uint256 end;
-        uint256 totalAmount;
+        uint256 cliffDuration;
+        uint256 totalDuration;
+        uint256 amount;
+        uint256 remaining;
         uint256 totalUnlocked;
         uint256 lastUnlockTime;
     }
@@ -40,16 +46,22 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * the schedule has totalAmount = 0 initially. As new contracts are subscribed to the schedule, its totalAmount increases
      * At any point, totalAmount of schedule is the sum of totalValue all the contracts that are subscribed to the schedule.
      * totalValue of a contract can be calculated via _calculateTotalValue function
+     * @param _amount total amount of the schedule
      * @param _startTime start time
-     * @param _cliffTime cliff time. cliff period = _cliffTime - _startTime
-     * @param _endTime end time, total duration of the schedule = _endTime - _startTime
+     * @param _cliffDuration cliff period, after _cliffDuration + _startTime, the schedule will have claimables
+     * @param _totalDuration total duration of the schedule
      */
     function createSchedule(
+        uint256 _amount,
         uint256 _startTime,
-        uint256 _cliffTime,
-        uint256 _endTime
+        uint256 _cliffDuration,
+        uint256 _totalDuration
     ) virtual public onlyOperator {
-        schedules.push(Schedule(_startTime, _cliffTime, _endTime, 0, 0, 0));
+        require(vaultBalance >= _amount, "not enough vault balance to create a new schedule");
+        require(maxAllowedDuration >= _totalDuration, "schedule total duration exceeds max allowed duration");
+
+        schedules.push(Schedule(_startTime, _cliffDuration, _totalDuration, _amount, _amount, 0, 0));
+        vaultBalance -= _amount;
     }
 
     /**
@@ -63,15 +75,24 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         uint256 _amount,
         uint256 _scheduleID
     ) virtual onlyOperator public {
-        require(vaultBalance >= _amount, "not enough vault balance to create a new contract");
         require(_scheduleID < schedules.length, "invalid schedule ID");
+
         Schedule storage _schedule = schedules[_scheduleID];
+        require(_schedule.remaining >= _amount, "not enough balance remains to create a new contract under schedule");
+
         uint256 _contractID = _createContract(
-            _beneficiary, _amount, _schedule.start, _schedule.cliff, _schedule.end, false
+            _beneficiary, _amount, _schedule.start, _schedule.cliffDuration, _schedule.totalDuration, false
         );
-        _schedule.totalAmount += _amount;
+
+        _schedule.remaining -= _amount;
         subscribedTo[_contractID] = _scheduleID;
-        vaultBalance -= _amount;
+
+        if (_schedule.lastUnlockTime >= _schedule.start + _schedule.cliffDuration) {
+            // we have created the contract, but it already have some funds uncloked and claimable
+            // we will keep those already unlocked funds to the vault instead, and beneficiary
+            // will get the funds that will be unlocked in future
+            _reduceFunds(_contractID, _unlockedFunds(_contractID));
+        }
     }
 
     /**
@@ -79,6 +100,13 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      */
     function setVaultBalance(uint256 _newBalance) virtual external onlyOperator {
         vaultBalance = _newBalance;
+    }
+
+    /**
+     * @notice Sets the max allowed duration of any schedule or contract
+     */
+    function setMaxAllowedDuration(uint256 _newMaxDuration) virtual external onlyOperator {
+        maxAllowedDuration = _newMaxDuration;
     }
 
     /**
@@ -132,11 +160,18 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         uint256 _currentTime = block.timestamp;
         for (uint256 i = 0; i < schedules.length; i++) {
             Schedule storage _schedule = schedules[i];
-            if (_schedule.cliff > _currentTime || _schedule.totalAmount == _schedule.totalUnlocked) {
+            if (_schedule.cliffDuration + _schedule.start > _currentTime || _schedule.amount == _schedule.totalUnlocked) {
+                // we did not reach cliff, or we have unlocked everything
                 continue;
             }
+
             _schedule.lastUnlockTime = _currentTime;
-            uint256 _unlocked = _calculateUnlockedFunds(_schedule.start, _schedule.end, _currentTime, _schedule.totalAmount);
+            uint256 _unlocked = _calculateUnlockedFunds(_schedule.start, _schedule.totalDuration, _currentTime, _schedule.amount);
+            
+            if (_unlocked < _schedule.totalUnlocked) {
+                // if this happens, then there is something wrong and it needs immediate attention
+                _unlocked = _schedule.totalUnlocked;
+            }
             _totalNewUnlocked += _unlocked - _schedule.totalUnlocked;
             _schedule.totalUnlocked = _unlocked;
         }

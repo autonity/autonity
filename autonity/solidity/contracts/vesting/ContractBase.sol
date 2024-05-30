@@ -9,8 +9,8 @@ contract ContractBase {
         uint256 currentNTNAmount;
         uint256 withdrawnValue;
         uint256 start;
-        uint256 cliff;
-        uint256 end;
+        uint256 cliffDuration;
+        uint256 totalDuration;
         bool canStake;
     }
 
@@ -27,6 +27,8 @@ contract ContractBase {
     Autonity internal autonity;
     address private operator;
 
+    uint256 private freeFunds;
+
     constructor(address payable _autonity, address _operator) {
         autonity = Autonity(_autonity);
         operator = _operator;
@@ -36,18 +38,16 @@ contract ContractBase {
         address _beneficiary,
         uint256 _amount,
         uint256 _startTime,
-        uint256 _cliffTime,
-        uint256 _endTime,
+        uint256 _cliffDuration,
+        uint256 _totalDuration,
         bool _canStake
     ) internal returns (uint256) {
-        require(_startTime >= block.timestamp, "contract cannot start before creating it");
-        require(_cliffTime >= _startTime, "cliff must be greater than or equal to start");
-        require(_endTime > _cliffTime, "end must be greater than cliff");
+        require(_totalDuration > _cliffDuration, "end must be greater than cliff");
 
         uint256 _contractID = contracts.length;
         contracts.push(
             Contract(
-                _amount, 0, _startTime, _cliffTime, _endTime, _canStake
+                _amount, 0, _startTime, _cliffDuration, _totalDuration, _canStake
             )
         );
         beneficiaryContracts[_beneficiary].push(_contractID);
@@ -71,9 +71,9 @@ contract ContractBase {
         uint256 _contractID, uint256 _totalValue, uint256 _time
     ) internal view returns (uint256) {
         Contract storage _contract = contracts[_contractID];
-        require(_time >= _contract.cliff, "cliff period not reached yet");
+        require(_time >= _contract.start + _contract.cliffDuration, "cliff period not reached yet");
 
-        uint256 _unlocked = _calculateUnlockedFunds(_contract.start, _contract.end, _time, _totalValue);
+        uint256 _unlocked = _calculateUnlockedFunds(_contract.start, _contract.totalDuration, _time, _totalValue);
         if (_unlocked > _contract.withdrawnValue) {
             return _unlocked - _contract.withdrawnValue;
         }
@@ -81,12 +81,12 @@ contract ContractBase {
     }
 
     function _calculateUnlockedFunds(
-        uint256 _start, uint256 _end, uint256 _time, uint256 _totalAmount
+        uint256 _start, uint256 _totalDuration, uint256 _time, uint256 _totalAmount
     ) internal pure returns (uint256) {
-        if (_time >= _end) {
+        if (_time >= _totalDuration + _start) {
             return _totalAmount;
         }
-        return _totalAmount * (_time - _start) / (_end - _start);
+        return _totalAmount * (_time - _start) / _totalDuration;
     }
 
     function _changeContractBeneficiary(
@@ -113,6 +113,13 @@ contract ContractBase {
     function _getUniqueContractID(address _beneficiary, uint256 _id) internal view returns (uint256) {
         require(beneficiaryContracts[_beneficiary].length > _id, "invalid contract id");
         return beneficiaryContracts[_beneficiary][_id];
+    }
+
+    function _reduceFunds(uint256 _contractID, uint256 _unlockedFunds) internal {
+        Contract storage _contract = contracts[_contractID];
+        _contract.currentNTNAmount -= _unlockedFunds;
+        _contract.withdrawnValue += _unlockedFunds;
+        freeFunds += _unlockedFunds;
     }
 
     function _updateAndTransferNTN(uint256 _contractID, address _to, uint256 _amount) internal {

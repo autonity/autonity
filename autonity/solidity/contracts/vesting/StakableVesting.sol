@@ -79,19 +79,27 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
      * @param _startTime start time of the vesting
-     * @param _cliffTime cliff time of the vesting, cliff period = _cliffTime - _startTime
-     * @param _endTime end time of the vesting, total duration of the contract = _endTime - _startTime
+     * @param _cliffDuration cliff period
+     * @param _totalDuration total duration of the contract
      */
     function newContract(
         address _beneficiary,
         uint256 _amount,
         uint256 _startTime,
-        uint256 _cliffTime,
-        uint256 _endTime
+        uint256 _cliffDuration,
+        uint256 _totalDuration
     ) virtual onlyOperator public {
         require(reservedStake >= _amount, "not enough stake reserved to create a new contract");
+
+        uint256 _contractID = _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
         reservedStake -= _amount;
-        _createContract(_beneficiary, _amount, _startTime, _cliffTime, _endTime, true);
+
+        if (autonity.lastEpochTime() >= _startTime + _cliffDuration) {
+            // we have created the contract, but it already have some funds uncloked and claimable
+            // we will keep those already unlocked funds to the vault instead, and beneficiary
+            // will get the funds that will be unlocked in future
+            _reduceFunds(_contractID, _unlockedFunds(_contractID));
+        }
     }
 
 
