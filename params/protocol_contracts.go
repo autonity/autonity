@@ -75,7 +75,7 @@ var (
 	}
 
 	DefaultStakableVestingGenesis = &StakableVestingGenesis{
-		ReservedStake: new(big.Int).Mul(big.NewInt(40_000_000), DecimalFactor), // 40 million NTN
+		ReservedStake: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
 	}
 
 	DeployerAddress                    = common.Address{}
