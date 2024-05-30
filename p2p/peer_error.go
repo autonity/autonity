@@ -19,8 +19,6 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	"io"
-	"strings"
 )
 
 const (
@@ -118,10 +116,6 @@ func discReasonForError(err error) DiscReason {
 	}
 	if err == errProtocolReturned {
 		return DiscQuitting
-	}
-
-	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || strings.Contains(err.Error(), "i/o timeout") {
-		return DiscNetworkError
 	}
 
 	peerError, ok := err.(*peerError)
