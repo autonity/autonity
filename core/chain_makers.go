@@ -26,6 +26,7 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/params"
 )
@@ -227,10 +228,13 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		validators := config.AutonityContractConfig.Validators
 		committee = make(types.Committee, len(validators))
 		for i, val := range validators {
+			consensusKey, _ := blst.PublicKeyFromBytes(val.ConsensusKey)
 			committee[i] = types.CommitteeMember{
 				Address:           *val.NodeAddress,
 				VotingPower:       val.BondedStake,
 				ConsensusKeyBytes: val.ConsensusKey,
+				ConsensusKey:      consensusKey,
+				Index:             uint64(i),
 			}
 		}
 	}

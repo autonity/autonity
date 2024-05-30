@@ -3,14 +3,17 @@
 // In addition to that, we have a special type, the "Light Proposal" which is being used for
 // accountability purposes. Light proposals are never directly brodcasted
 // over the network but always part of a proof object, defined in the accountability package.
-// Messages can exist in two states: unverified and verified depending on their signature verification.
-// When verified, calling `Validate` the voting power information becomes available, and the signer can be relied upon.
 // There are three ways that a consensus message can be instantiated:
 //   - using a "New" constructor, e.g. NewPrevote :
-//     The object is fully created, with signature and final payload already
-//     pre-computed. Internal state is unverified as voting power information is not available.
-//   - decoding a RLP-encoded message from the wire. State unverified.
-//   - using a Fake constructor.
+//     The object is fully created, with signature and final payload already pre-computed. Ready for use.
+//   - decoding a RLP-encoded message from the wire. Needs to pass a two step verification process.
+//   - using a Fake constructor. Used in tests.
+//
+// Messages received from the wire needs to pass two verification steps before they can be trusted:
+// - Preverification, which attaches some auxiliary data to the message, such as bls keys and power information.
+// - Verification, which validates the actual BLS signature.
+//
+// The two flags `preverified` and `verified` provide information on the status of the message.
 package message
 
 import (
@@ -215,6 +218,10 @@ func (p *Propose) SignerIndex() int {
 }
 
 func (p *Propose) PreValidate(header *types.Header) error {
+	if p.preverified {
+		return nil
+	}
+
 	validator := header.CommitteeMember(p.signer)
 	if validator == nil {
 		return ErrUnauthorizedAddress
@@ -370,6 +377,10 @@ func (p *LightProposal) SignerIndex() int {
 }
 
 func (p *LightProposal) PreValidate(header *types.Header) error {
+	if p.preverified {
+		return nil
+	}
+
 	validator := header.CommitteeMember(p.signer)
 	if validator == nil {
 		return ErrUnauthorizedAddress
@@ -410,6 +421,10 @@ func (v *vote) Power() *big.Int {
 }
 
 func (v *vote) PreValidate(header *types.Header) error {
+	if v.preverified {
+		return nil
+	}
+
 	if err := v.signers.Validate(len(header.Committee)); err != nil {
 		return fmt.Errorf("Invalid signers information: %w", err)
 	}
@@ -430,18 +445,19 @@ func (v *vote) PreValidate(header *types.Header) error {
 			power.Add(power, member.VotingPower)
 		}
 	}
+
+	// if the aggregate is a complex aggregate, it needs to carry quorum
+	if v.signers.IsComplex() && power.Cmp(bft.Quorum(header.TotalVotingPower())) < 0 {
+		return ErrInvalidComplexAggregate
+	}
+
+	v.signers.AssignPower(powers, power)
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
 		panic("Error while aggregating keys from committee: " + err.Error())
 	}
-	v.signers.AssignPower(powers, power)
 	v.signerKey = aggregatedKey
 	v.preverified = true
-
-	// if the aggregate is a complex aggregate, it needs to carry quorum
-	if v.signers.IsComplex() && v.Power().Cmp(bft.Quorum(header.TotalVotingPower())) < 0 {
-		return ErrInvalidComplexAggregate
-	}
 	return nil
 }
 
@@ -661,7 +677,7 @@ func AggregateVotesSimple[
 		return votes[i].Signers().Len() > votes[j].Signers().Len()
 	})
 
-	// TODO(lorenzo) this is not the most optimized version I believe. At least add an early termination
+	//TODO: I think we can have a more optimized version
 	for i, vote := range votes {
 		if skip[i] {
 			continue
@@ -676,7 +692,9 @@ func AggregateVotesSimple[
 			}
 			other := votes[j]
 			if !signers.AddsInformation(other.Signers()) {
-				skip[j] = true // TODO(lorenzo) consider keeping it, it might aggregate with other votes
+				// this vote could potentially still aggregate with other votes.
+				// however we don't care much since its signers are a subset of another vote.
+				skip[j] = true
 				continue
 			}
 			if !signers.CanMergeSimple(other.Signers()) {

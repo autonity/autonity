@@ -87,7 +87,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 	backend.core = core
 	backend.evDispatcher = core
 
-	backend.aggregator = newAggregator(backend, core, log)
+	backend.aggregator = newAggregator(backend, core, log, backend.knownMessages)
 
 	return backend
 }

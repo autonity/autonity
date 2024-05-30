@@ -271,32 +271,85 @@ func TestMessageHash(t *testing.T) {
 	h := uint64(1)
 	r := int64(0)
 	v := common.HexToHash("0a5843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
+	vr := int64(-1)
 	csize := len(testCommittee)
 	err := testCommittee.Enrich()
 	require.NoError(t, err)
+	header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: testCommittee}
+	block := types.NewBlockWithHeader(header)
 
-	key1, err := blst.RandKey()
-	require.NoError(t, err)
-	key2, err := blst.RandKey()
-	require.NoError(t, err)
-	key3, err := blst.RandKey()
-	require.NoError(t, err)
+	t.Run("Aggregating same votes in different orders yields same hash", func(t *testing.T) {
+		key1, err := blst.RandKey()
+		require.NoError(t, err)
+		key2, err := blst.RandKey()
+		require.NoError(t, err)
+		key3, err := blst.RandKey()
+		require.NoError(t, err)
 
-	vote1 := NewPrevote(r, h, v, makeSigner(key1), &testCommittee[0], csize)
-	vote2 := NewPrevote(r, h, v, makeSigner(key2), &testCommittee[1], csize)
-	vote3 := NewPrevote(r, h, v, makeSigner(key3), &testCommittee[2], csize)
+		vote1 := NewPrevote(r, h, v, makeSigner(key1), &testCommittee[0], csize)
+		vote2 := NewPrevote(r, h, v, makeSigner(key2), &testCommittee[1], csize)
+		vote3 := NewPrevote(r, h, v, makeSigner(key3), &testCommittee[2], csize)
 
-	aggregates1 := AggregatePrevotesSimple([]Vote{vote1, vote2, vote3})
-	aggregates2 := AggregatePrevotesSimple([]Vote{vote2, vote1, vote3})
-	aggregates3 := AggregatePrevotesSimple([]Vote{vote3, vote1, vote2})
+		aggregates1 := AggregatePrevotesSimple([]Vote{vote1, vote2, vote3})
+		aggregates2 := AggregatePrevotesSimple([]Vote{vote2, vote1, vote3})
+		aggregates3 := AggregatePrevotesSimple([]Vote{vote3, vote1, vote2})
 
-	require.Equal(t, 1, len(aggregates1))
-	require.Equal(t, 1, len(aggregates2))
-	require.Equal(t, 1, len(aggregates3))
+		require.Equal(t, 1, len(aggregates1))
+		require.Equal(t, 1, len(aggregates2))
+		require.Equal(t, 1, len(aggregates3))
 
-	hash := aggregates1[0].Hash()
-	require.Equal(t, hash, aggregates2[0].Hash())
-	require.Equal(t, hash, aggregates3[0].Hash())
+		hash := aggregates1[0].Hash()
+		require.Equal(t, hash, aggregates2[0].Hash())
+		require.Equal(t, hash, aggregates3[0].Hash())
+	})
+	t.Run("Change in the signature causes change in hash", func(t *testing.T) {
+		key1, err := blst.RandKey()
+		require.NoError(t, err)
+		proposal := NewPropose(r, h, vr, block, defaultSigner, &testCommittee[0])
+		proposal2 := NewPropose(r, h, vr, block, makeSigner(key1), &testCommittee[0])
+
+		require.NotEqual(t, proposal.Hash(), proposal2.Hash())
+
+		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 := NewPrecommit(r, h, v, makeSigner(key1), &testCommittee[0], csize)
+
+		require.NotEqual(t, vote.Hash(), vote2.Hash())
+	})
+	t.Run("Change in the signers Bits and Coefficients should cause change in hash", func(t *testing.T) {
+		// change signer
+		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee[1], csize)
+		require.NotEqual(t, vote.Hash(), vote2.Hash())
+
+		// change committee size
+		vote = NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 = NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize+10)
+		require.NotEqual(t, vote.Hash(), vote2.Hash())
+	})
+	t.Run("Change in the signers auxiliary data structures should NOT cause change in hash", func(t *testing.T) {
+		// change signer
+		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee[0], csize)
+
+		// tamper with internal signers data structures of vote2 and recompute hash
+		signers := types.NewSigners(csize)
+		signers.Increment(&testCommittee[0])
+		tamperedPower := make(map[int]*big.Int)
+		tamperedPower[123] = big.NewInt(1234)
+		signers.AssignPower(tamperedPower, big.NewInt(223423))
+
+		payload, _ := rlp.EncodeToBytes(extVote{
+			Code:      PrecommitCode,
+			Round:     uint64(r),
+			Height:    h,
+			Value:     v,
+			Signers:   signers,
+			Signature: vote2.Signature().(*blst.BlsSignature),
+		})
+		vote2.hash = crypto.Hash(payload)
+
+		require.Equal(t, vote.Hash(), vote2.Hash())
+	})
 }
 
 func FuzzFromPayload(f *testing.F) {

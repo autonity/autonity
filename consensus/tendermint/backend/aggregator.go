@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -95,7 +96,7 @@ func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committ
 	return contributionPower
 }
 
-func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger) *aggregator {
+func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, knownMessages *fixsizecache.Cache[common.Hash, bool]) *aggregator {
 	return &aggregator{
 		backend:       backend,
 		core:          core,
@@ -104,6 +105,7 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		logger:        logger,
 		messagesFrom:  make(map[common.Address][]common.Hash),
 		toIgnore:      make(map[common.Hash]struct{}),
+		knownMessages: knownMessages,
 	}
 }
 
@@ -143,6 +145,8 @@ type aggregator struct {
 
 	messagesFrom map[common.Address][]common.Hash
 	toIgnore     map[common.Hash]struct{}
+
+	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
 	coreSub *event.TypeMuxSubscription // core events
 	cancel  context.CancelFunc
@@ -295,7 +299,6 @@ func (a *aggregator) processRound(h uint64, r int64) {
 
 	roundInfo := a.messages[h][r]
 
-	// TODO(lorenzo) can processing proposal before votes cause performance issues? (in case of a lot of proposals)
 	for _, proposalEvent := range roundInfo.proposals {
 		if a.toSkip(proposalEvent.Message) {
 			continue
@@ -346,10 +349,10 @@ func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
 
 		a.processBatches(batches, currentHeightEventBuilder)
 
-		// clean up
-		roundInfo.prevotes = make(map[common.Hash][]events.UnverifiedMessageEvent)
+		// clean up. Use `clear` instead of `make` so that we stop iterating over the map if we end up here from RoundChangeEvent
+		clear(roundInfo.prevotes)
 		roundInfo.prevotesPower = message.NewAggregatedPower()
-		roundInfo.prevotesPowerFor = make(map[common.Hash]*message.AggregatedPower)
+		clear(roundInfo.prevotesPowerFor)
 
 		// recompute total power for the round (precommits power + proposals)
 		roundInfo.power = roundInfo.precommitsPower.Copy()
@@ -370,9 +373,9 @@ func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
 		a.processBatches(batches, currentHeightEventBuilder)
 
 		// clean up
-		roundInfo.precommits = make(map[common.Hash][]events.UnverifiedMessageEvent)
+		clear(roundInfo.precommits)
 		roundInfo.precommitsPower = message.NewAggregatedPower()
-		roundInfo.precommitsPowerFor = make(map[common.Hash]*message.AggregatedPower)
+		clear(roundInfo.precommitsPowerFor)
 
 		// recompute total power for the round (prevotes power + proposals)
 		roundInfo.power = roundInfo.prevotesPower.Copy()
@@ -406,8 +409,6 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		// clean up
 		delete(roundInfo.prevotes, v)
 		delete(roundInfo.prevotesPowerFor, v)
-
-		//TODO(lorenzo) this might be too computation heavy
 
 		// re-compute round power and prevote power
 		roundInfo.prevotesPower = message.NewAggregatedPower()
@@ -450,8 +451,6 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		// clean up
 		delete(roundInfo.precommits, v)
 		delete(roundInfo.precommitsPowerFor, v)
-
-		//TODO(lorenzo) this might be too computation heavy
 
 		// re-compute round power and prevote power
 		roundInfo.precommitsPower = message.NewAggregatedPower()
@@ -566,12 +565,14 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					go a.backend.Post(eventer(aggregateVote, nil)) //TODO(lorenzo) refinements, do we add an errCh here?
+					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
+					go a.backend.Post(eventer(aggregateVote, nil))  //TODO(lorenzo) refinements, do we add an errCh here?
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					go a.backend.Post(eventer(aggregateVote, nil)) //TODO(lorenzo) refinements, do we add an errCh here?
+					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
+					go a.backend.Post(eventer(aggregateVote, nil))  //TODO(lorenzo) refinements, do we add an errCh here?
 				}
 			default:
 				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
@@ -668,8 +669,6 @@ func (a *aggregator) toSkip(msg message.Msg) bool {
 	return false
 }
 
-//TODO(lorenzo) analyze proposal flow. Can we avoid having equivocated (or at least duplicated) proposals buffered in the aggregator?
-
 func (a *aggregator) loop(ctx context.Context) {
 	defer a.wg.Done()
 
@@ -760,8 +759,11 @@ loop:
 			case events.RoundChangeEvent:
 				/* a round change happened in Core
 				* messages that we had buffered as future round might now be current round, therefore:
-				* 1. process right away proposals and complex aggregates
+				* 1. process right away proposals
 				* 2. re-do quorum checks on individual votes and simple aggregates
+				*
+				* Note: we cannot have complex aggregates, as if we receive a complex aggregate for a future round,
+				* we would instantly process it and move to that future round
 				 */
 				//TODO(lorenzo) possibly I can also move messages that became old to the oldMessages map. However not really sure if worth it.
 				height := e.Height
@@ -791,21 +793,19 @@ loop:
 				committee := header.Committee //nolint
 
 				for _, evs := range roundInfo.precommits {
-					for _, e := range evs {
-						//TODO(lorenzo) possible problem here, handleVote might call `process*` which is going to delete stuff in the map
-						// generally is fine but double check if it causes issue in this case
-						// also, can I just process one event for value to re-do the checks?
-						a.handleVote(e, committee, quorum, false)
+					if len(evs) == 0 {
+						continue
 					}
+					// re-handling 1 message for each value is enough to cover all needed power checks
+					a.handleVote(evs[0], committee, quorum, false)
 				}
 
 				for _, evs := range roundInfo.prevotes {
-					for _, e := range evs {
-						//TODO(lorenzo) possible problem here, processVote might call `process` which is going to delete stuff in the map
-						// generally is fine but double check if it causes issue in this case
-						// also, can I just process one event for value to re-do the checks?
-						a.handleVote(e, committee, quorum, false)
+					if len(evs) == 0 {
+						continue
 					}
+					// re-handling 1 message for each value is enough to cover all needed power checks
+					a.handleVote(evs[0], committee, quorum, false)
 				}
 				if metrics.Enabled {
 					RoundBg.Add(time.Since(start).Nanoseconds())

@@ -195,12 +195,13 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 				if err := fd.processMsg(e.Message); err != nil {
-					// TODO(lorenzo) this sometimes happens, need to investigate why.
-					// I think it is because some msgs remain in the aggregator even if they have already been sent out.
-					// i.e. the cleanup is not done properly somewhere
-					// For now let's just not print the warning to not spook the user
 					if !errors.Is(err, errDuplicatedMsg) {
-						fd.logger.Warn("Detected faulty message", "return", err)
+						fd.logger.Warn("Detected faulty message", "err", err)
+					} else {
+						// duplicated messages can arrive here if we receive an aggregate from a remote peer
+						// and at the same time we computed the same aggregate locally.
+						// No need to raise a warning level log.
+						fd.logger.Debug("Detected faulty message", "err", err)
 					}
 					continue tendermintMsgLoop
 				}
@@ -210,18 +211,16 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 				if err := fd.processMsg(e.Message); err != nil {
-					// TODO(lorenzo) this sometimes happens, need to investigate why.
-					// I think it is because some msgs remain in the aggregator even if they have already been sent out.
-					// i.e. the cleanup is not done properly somewhere
-					// For now let's just not print the warning to not spook the user
 					if !errors.Is(err, errDuplicatedMsg) {
-						fd.logger.Warn("Detected faulty message", "return", err)
+						fd.logger.Warn("Detected faulty message", "err", err)
+					} else {
+						// duplicated messages can arrive here if we receive an aggregate from a remote peer
+						// and at the same time we computed the same aggregate locally.
+						// No need to raise a warning level log.
+						fd.logger.Debug("Detected faulty message", "err", err)
 					}
 					continue tendermintMsgLoop
 				}
-				//TODO(lorenzo) should we gossip old height messages?
-				// might be useful for accountability, but might be exploitable for DoS
-				// (Jason): No, gossiping does not happens here, it requires the underlying layer to do so.
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {
@@ -424,7 +423,7 @@ func (fd *FaultDetector) innocenceProof(p *Proof, committee types.Committee) (*a
 	case autonity.C1:
 		return fd.innocenceProofC1(p)
 	default:
-		// TODO(lorenzo) apply
+		// TODO(lorenzo) apply if still valid
 		// whether the accusation comes from off-chain or on-chain
 		// it always gets verified before we try to fetch the innocence proof
 		//panic("Trying to fetch innocence proof for invalid accusation")
@@ -1227,8 +1226,12 @@ func (fd *FaultDetector) submitMisbehavior(m message.Msg, evidence []message.Msg
 }
 
 func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propose) error {
-	//TODO(lorenzo) can I use the hash also here?
 	// skip processing duplicated msg.
+	// Cannot use .Hash() here because some fields of the block are not taken into account by block.Hash()
+	// i.e. we can have two proposals from the same signer with:
+	// - same height and round
+	// - same value and validRound
+	// BUT different payload hash
 	duplicated := fd.msgStore.GetProposals(proposal.H(), func(p *message.Propose) bool {
 		return p.R() == proposal.R() &&
 			p.Signer() == proposal.Signer() &&

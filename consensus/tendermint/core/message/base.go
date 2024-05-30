@@ -8,8 +8,6 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 )
 
-// TODO(lorenzo) refinements, removed the lock, check that after the aggregator no-one modifies fields
-
 type base struct {
 	// populated at decoding phase
 	height         uint64
