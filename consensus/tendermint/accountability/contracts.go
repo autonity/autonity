@@ -111,7 +111,7 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 	// Do preliminary checks that do not rely on signature correctness
 	// NOTE: We do not have guarantees that: a.chain.CurrentBlock().NumberU64() == blockNumber - 1
 	// This is because the chain head can change while we are executing this tx, therefore the blockNumber might become obsolete.
-	if err := preVerifyAccusation(a.chain, p.Message, blockNumber); err != nil {
+	if err = preVerifyAccusation(a.chain, p.Message, blockNumber); err != nil {
 		return failureReturn, nil
 	}
 
@@ -476,6 +476,10 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 
 	// check preVotes at evidence.
 	for _, pv := range p.Evidences[1:] {
+		if _, ok := pv.(*message.Prevote); !ok {
+			return false
+		}
+
 		if pv.Code() != message.PrevoteCode || pv.R() != validRound || pv.Value() == nilValue ||
 			pv.Value() == correspondingProposal.Value() || pv.Value() != votedVatVR {
 			return false
@@ -578,6 +582,9 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Co
 
 	// check preVotes for not the same V compares to preCommit.
 	for _, m := range p.Evidences {
+		if _, ok := m.(*message.Prevote); !ok {
+			return false
+		}
 		if m.Code() != message.PrevoteCode || m.Value() == preCommit.Value() || m.R() != preCommit.R() {
 			return false
 		}
@@ -664,6 +671,10 @@ func validInnocenceProofOfPO(p *Proof, committee types.Committee) bool {
 
 	// check the votes match for the corresponding proposal, and there is no vote for other value in the proof.
 	for _, m := range p.Evidences {
+		if _, ok := m.(*message.Prevote); !ok {
+			return false
+		}
+
 		if !(m.Code() == message.PrevoteCode &&
 			m.Value() == proposal.Value() &&
 			m.R() == proposal.ValidRound()) {
@@ -762,6 +773,9 @@ func validInnocenceProofOfC1(p *Proof, committee types.Committee) bool {
 	}
 	// check quorum prevotes for V at the same round, there is no vote for other value.
 	for _, m := range p.Evidences {
+		if _, ok := m.(*message.Prevote); !ok {
+			return false
+		}
 		if !(m.Code() == message.PrevoteCode && m.Value() == preCommit.Value() &&
 			m.R() == preCommit.R()) {
 			return false
