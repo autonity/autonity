@@ -289,7 +289,7 @@ func TestBonding(t *testing.T) {
 		require.Equal(r.t, "execution reverted: contract not started yet", err.Error())
 		r.waitSomeBlock(start + 1)
 		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(cliff+1)) < 0, "contract cliff finished already")
-		bondAndFinalize(r, beneficiary, []StakingRequest{StakingRequest{bondingAmount, contractID, validator, "", true}}, bondingGas)
+		bondAndFinalize(r, beneficiary, []StakingRequest{{bondingAmount, contractID, validator, "", true}}, bondingGas)
 	})
 
 	// start contract for bonding for all the tests remaining
@@ -318,7 +318,7 @@ func TestBonding(t *testing.T) {
 
 	r.run("can release liquid tokens", func(r *runner) {
 		bondingAmount := big.NewInt(contractTotalAmount)
-		bondAndFinalize(r, user, []StakingRequest{StakingRequest{bondingAmount, contractID, validator, "", true}}, bondingGas)
+		bondAndFinalize(r, user, []StakingRequest{{bondingAmount, contractID, validator, "", true}}, bondingGas)
 		currentTime := r.waitSomeEpoch(cliff + 1)
 		// contract has context of last block
 		unlocked := currentTime - 1 - start
@@ -365,7 +365,7 @@ func TestBonding(t *testing.T) {
 		require.NoError(r.t, err)
 		require.True(r.t, contractTotalAmount > 10, "cannot test")
 		bondingAmount := big.NewInt(contractTotalAmount / 10)
-		bondAndFinalize(r, user, []StakingRequest{StakingRequest{bondingAmount, contractID, validator, "", true}}, bondingGas)
+		bondAndFinalize(r, user, []StakingRequest{{bondingAmount, contractID, validator, "", true}}, bondingGas)
 		remaining := new(big.Int).Sub(big.NewInt(contractTotalAmount), bondingAmount)
 		require.True(r.t, remaining.Cmp(common.Big0) > 0, "no NTN remains")
 		r.waitSomeEpoch(cliff + 1)
@@ -443,7 +443,7 @@ func TestUnbonding(t *testing.T) {
 		liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator)
 		require.NoError(r.t, err)
 		require.Equal(r.t, bondingAmount, liquid, "liquid not minted properly")
-		unbondAndRelease(r, beneficiary, []StakingRequest{StakingRequest{liquid, contractID, validator, "", false}}, unbondingGas)
+		unbondAndRelease(r, beneficiary, []StakingRequest{{liquid, contractID, validator, "", false}}, unbondingGas)
 	})
 
 	r.run("cannot unbond more than total liquid", func(r *runner) {
@@ -874,32 +874,145 @@ func TestContractUpdateWhenSlashed(t *testing.T) {
 
 func TestAccessRestriction(t *testing.T) {
 	r := setup(t, nil)
-	// TODO (tariq): complete setup
 
 	r.run("only operator can create contract", func(r *runner) {
-		// TODO (tariq): complete
-	})
-
-	r.run("only operator can cancel contract", func(r *runner) {
-		// TODO (tariq): complete
-	})
-
-	r.run("only autonity can notify staking operations", func(r *runner) {
-		// TODO (tariq): complete
-		/*
-			1. rewards distribution
-			2. bonding applied
-			3. unbonding applied
-			4. unbonding released
-		*/
+		amount := big.NewInt(1000)
+		start := new(big.Int).Add(big.NewInt(100), r.evm.Context.Time)
+		cliff := new(big.Int).Add(start, big.NewInt(100))
+		end := new(big.Int).Add(start, amount)
+		_, err := r.stakableVesting.NewContract(
+			fromSender(user, nil),
+			user,
+			amount,
+			start,
+			cliff,
+			end,
+		)
+		require.Equal(r.t, "execution reverted: caller is not the operator", err.Error())
 	})
 
 	r.run("only operator can set gas cost", func(r *runner) {
-		// TODO (tariq): complete
+		_, err := r.stakableVesting.SetRequiredGasBond(
+			fromSender(user, nil),
+			big.NewInt(100),
+		)
+		require.Equal(r.t, "execution reverted: caller is not the operator", err.Error())
+
+		_, err = r.stakableVesting.SetRequiredGasUnbond(
+			fromSender(user, nil),
+			big.NewInt(100),
+		)
+		require.Equal(r.t, "execution reverted: caller is not the operator", err.Error())
 	})
 
+	var contractTotalAmount int64 = 1000
+	start := r.evm.Context.Time.Int64()
+	cliff := 500 + start
+	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
+	end := contractTotalAmount + start
+	createContract(r, user, contractTotalAmount, start, cliff, end)
+	contractID := common.Big0
+	validator := r.committee.validators[0].NodeAddress
+
 	r.run("cannot request bonding or unbonding without enough gas", func(r *runner) {
-		// TODO (tariq): complete
+		bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
+		require.NoError(r.t, err)
+		balance := big.NewInt(1000_000_000_000_000_000)
+		r.giveMeSomeMoney(user, balance)
+		bondingAmount := big.NewInt(100)
+		_, err = r.stakableVesting.Bond(
+			fromSender(user, new(big.Int).Sub(bondingGas, common.Big1)),
+			contractID,
+			validator,
+			bondingAmount,
+		)
+		require.Equal(r.t, "execution reverted: not enough gas given for notification on bonding", err.Error())
+
+		r.NoError(
+			r.stakableVesting.Bond(
+				fromSender(user, bondingGas),
+				contractID,
+				validator,
+				bondingAmount,
+			),
+		)
+		r.waitNextEpoch()
+
+		unbondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
+		require.NoError(r.t, err)
+		_, err = r.stakableVesting.Unbond(
+			fromSender(user, new(big.Int).Sub(unbondingGas, common.Big1)),
+			contractID,
+			validator,
+			bondingAmount,
+		)
+
+		require.Equal(r.t, "execution reverted: not enough gas given for notification on unbonding", err.Error())
+
+		r.NoError(
+			r.stakableVesting.Unbond(
+				fromSender(user, unbondingGas),
+				contractID,
+				validator,
+				bondingAmount,
+			),
+		)
+
+	})
+
+	r.run("only operator can change contract beneficiary", func(r *runner) {
+		newUser := common.HexToAddress("0x88")
+		require.NotEqual(r.t, user, newUser)
+		_, err := r.stakableVesting.ChangeContractBeneficiary(
+			fromSender(user, nil),
+			user,
+			contractID,
+			newUser,
+		)
+		require.Equal(r.t, "execution reverted: caller is not the operator", err.Error())
+
+		_, err = r.stakableVesting.ChangeContractBeneficiary(
+			fromSender(newUser, nil),
+			user,
+			contractID,
+			newUser,
+		)
+		require.Equal(r.t, "execution reverted: caller is not the operator", err.Error())
+	})
+
+	r.run("only autonity can notify staking operations", func(r *runner) {
+
+		_, err := r.stakableVesting.RewardsDistributed(
+			fromSender(user, nil),
+			[]common.Address{},
+		)
+		require.Equal(r.t, "execution reverted: function restricted to Autonity contract", err.Error())
+
+		_, err = r.stakableVesting.BondingApplied(
+			fromSender(user, nil),
+			common.Big0,
+			validator,
+			common.Big1,
+			true,
+			true,
+		)
+		require.Equal(r.t, "execution reverted: function restricted to Autonity contract", err.Error())
+
+		_, err = r.stakableVesting.UnbondingApplied(
+			fromSender(user, nil),
+			common.Big0,
+			validator,
+			true,
+		)
+		require.Equal(r.t, "execution reverted: function restricted to Autonity contract", err.Error())
+
+		_, err = r.stakableVesting.UnbondingReleased(
+			fromSender(user, nil),
+			common.Big0,
+			common.Big1,
+			true,
+		)
+		require.Equal(r.t, "execution reverted: function restricted to Autonity contract", err.Error())
 	})
 }
 
@@ -937,7 +1050,7 @@ func initialStakes(
 			}
 		}
 	}
-	return
+	return validatorStakes, userStakes, totalStake
 }
 
 func getRewardsAfterOneEpoch(
@@ -988,7 +1101,7 @@ func getRewardsAfterOneEpoch(
 
 	// get atn reward
 	currentReward.rewardATN = r.getBalanceOf(r.autonity.address)
-	return
+	return currentReward, oldRewardsFromValidator, oldUserRewards
 }
 
 func checkRewards(
@@ -1146,14 +1259,13 @@ func setupContracts(
 }
 
 func createContract(r *runner, beneficiary common.Address, amount, startTime, cliffTime, endTime int64) {
-	// amountBigInt := big.NewInt(amount)
-	// r.NoError(
-	// 	r.autonity.Mint(operator, r.stakableVesting.address, amountBigInt),
-	// )
+	startBig := big.NewInt(startTime)
+	cliffBig := big.NewInt(cliffTime)
+	endBig := big.NewInt(endTime)
 	r.NoError(
 		r.stakableVesting.NewContract(
 			operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
-			big.NewInt(cliffTime), big.NewInt(endTime),
+			new(big.Int).Sub(cliffBig, startBig), new(big.Int).Sub(endBig, startBig),
 		),
 	)
 }
@@ -1251,6 +1363,7 @@ func checkReleaseAllNTN(r *runner, user common.Address, contractID, unlockAmount
 	contract, _, err := r.stakableVesting.GetContract(nil, user, contractID)
 	require.NoError(r.t, err)
 	contractNTN := contract.CurrentNTNAmount
+	withdrawn := contract.WithdrawnValue
 	initBalance, _, err := r.autonity.BalanceOf(nil, user)
 	require.NoError(r.t, err)
 	totalUnlocked, _, err := r.stakableVesting.UnlockedFunds(nil, user, contractID)
@@ -1264,7 +1377,16 @@ func checkReleaseAllNTN(r *runner, user common.Address, contractID, unlockAmount
 	require.Equal(r.t, new(big.Int).Add(initBalance, totalUnlocked), newBalance, "balance mismatch")
 	contract, _, err = r.stakableVesting.GetContract(nil, user, contractID)
 	require.NoError(r.t, err)
-	require.True(r.t, new(big.Int).Sub(contractNTN, unlockAmount).Cmp(contract.CurrentNTNAmount) == 0, "contract not updated properly")
+	require.True(
+		r.t,
+		new(big.Int).Sub(contractNTN, unlockAmount).Cmp(contract.CurrentNTNAmount) == 0,
+		"contract NTN not updated properly",
+	)
+	require.True(
+		r.t,
+		new(big.Int).Add(withdrawn, unlockAmount).Cmp(contract.WithdrawnValue) == 0,
+		"contract WithdrawnValue not updated properly",
+	)
 }
 
 func bondAndFinalize(
