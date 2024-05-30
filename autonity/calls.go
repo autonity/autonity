@@ -170,10 +170,10 @@ func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *Gen
 		return fmt.Errorf("failed to deploy stakable vesting contract: %w", err)
 	}
 	log.Info("Deployed stakable vesting contract", "address", params.StakableVestingContractAddress)
-	if err := evmContracts.Mint(params.StakableVestingContractAddress, config.StakableVestingConfig.ReservedStake); err != nil {
+	if err := evmContracts.Mint(params.StakableVestingContractAddress, config.StakableVestingConfig.TotalNominal); err != nil {
 		return fmt.Errorf("error while minting reserved stake to stakable vesting contract: %w", err)
 	}
-	if err := evmContracts.SetReservedStake(config.StakableVestingConfig.ReservedStake); err != nil {
+	if err := evmContracts.SetStakableTotalNominal(config.StakableVestingConfig.TotalNominal); err != nil {
 		return fmt.Errorf("error while setting reserved stake in stakable vesting contract: %w", err)
 	}
 	for _, vesting := range config.StakableVestingConfig.StakableContracts {
@@ -198,7 +198,7 @@ func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *
 		return fmt.Errorf("failed to deploy non-stakable vesting contract: %w", err)
 	}
 	log.Info("Deployed non-stakable vesting contract", "address", params.NonStakableVestingContractAddress)
-	if err := evmContracts.SetVaultBalance(config.NonStakableVestingConfig.NonStakableVaultBalance); err != nil {
+	if err := evmContracts.SetNonStakableTotalNominal(config.NonStakableVestingConfig.TotalNominal); err != nil {
 		return fmt.Errorf("error while seting vault balance in non-stakable vesting contract: %w", err)
 	}
 	if err := evmContracts.SetMaxAllowedDuration(config.NonStakableVestingConfig.MaxAllowedDuration); err != nil {
@@ -456,15 +456,15 @@ func (c *AutonityContract) FinalizeInitialization(header *types.Header, statedb 
 	return nil
 }
 
-func (c *NonStakableVestingContract) SetVaultBalance(header *types.Header, statedb vm.StateDB, vaultBalance *big.Int) error {
-	packedArgs, err := c.contractABI.Pack("setVaultBalance", vaultBalance)
+func (c *NonStakableVestingContract) SetTotalNominal(header *types.Header, statedb vm.StateDB, totalNominal *big.Int) error {
+	packedArgs, err := c.contractABI.Pack("setTotalNominal", totalNominal)
 	if err != nil {
-		return fmt.Errorf("error while generating call data for setVaultBalance: %w", err)
+		return fmt.Errorf("error while generating call data for setTotalNominal: %w", err)
 	}
 
 	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
 	if err != nil {
-		return fmt.Errorf("error while calling setVaultBalance: %w", err)
+		return fmt.Errorf("error while calling setTotalNominal: %w", err)
 	}
 
 	return nil
@@ -512,15 +512,15 @@ func (c *NonStakableVestingContract) NewContract(header *types.Header, statedb v
 	return nil
 }
 
-func (c *StakableVestingContract) SetReservedStake(header *types.Header, statedb vm.StateDB, reservedStake *big.Int) error {
-	packedArgs, err := c.contractABI.Pack("setReservedStake", reservedStake)
+func (c *StakableVestingContract) SetTotalNominal(header *types.Header, statedb vm.StateDB, totalNominal *big.Int) error {
+	packedArgs, err := c.contractABI.Pack("setTotalNominal", totalNominal)
 	if err != nil {
-		return fmt.Errorf("error while generating call data for setReservedStake: %w", err)
+		return fmt.Errorf("error while generating call data for setTotalNominal: %w", err)
 	}
 
 	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
 	if err != nil {
-		return fmt.Errorf("error while calling setReservedStake: %w", err)
+		return fmt.Errorf("error while calling setTotalNominal: %w", err)
 	}
 
 	return nil

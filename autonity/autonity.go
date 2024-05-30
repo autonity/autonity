@@ -627,8 +627,8 @@ func (c *GenesisEVMContracts) DeployStakableVestingContract(bytecode []byte, aut
 	return c.StakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
 }
 
-func (c *GenesisEVMContracts) SetReservedStake(reservedStake *big.Int) error {
-	return c.StakableVestingContract.SetReservedStake(nil, c.statedb, reservedStake)
+func (c *GenesisEVMContracts) SetStakableTotalNominal(totalNominal *big.Int) error {
+	return c.StakableVestingContract.SetTotalNominal(nil, c.statedb, totalNominal)
 }
 
 func (c *GenesisEVMContracts) NewStakableContract(contract params.StakableVestingData) error {
@@ -639,8 +639,8 @@ func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, 
 	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
 }
 
-func (c *GenesisEVMContracts) SetVaultBalance(vaultBalance *big.Int) error {
-	return c.NonStakableVestingContract.SetVaultBalance(nil, c.statedb, vaultBalance)
+func (c *GenesisEVMContracts) SetNonStakableTotalNominal(totalNominal *big.Int) error {
+	return c.NonStakableVestingContract.SetTotalNominal(nil, c.statedb, totalNominal)
 }
 
 func (c *GenesisEVMContracts) SetMaxAllowedDuration(maxAllowedDuration *big.Int) error {

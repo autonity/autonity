@@ -71,12 +71,12 @@ var (
 	}
 
 	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
-		NonStakableVaultBalance: new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
-		MaxAllowedDuration:      big.NewInt(3 * SecondsInYear),                           // 3 years
+		TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
+		MaxAllowedDuration: big.NewInt(3 * SecondsInYear),                           // 3 years
 	}
 
 	DefaultStakableVestingGenesis = &StakableVestingGenesis{
-		ReservedStake: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
+		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
 	}
 
 	DeployerAddress                    = common.Address{}
@@ -456,15 +456,15 @@ func (s *InflationControllerGenesis) SetDefaults() {
 }
 
 type NonStakableVestingGenesis struct {
-	NonStakableVaultBalance *big.Int                 `json:"nonStakableVaultBalance"`
-	MaxAllowedDuration      *big.Int                 `json:"maxAllowedDuration"`
-	NonStakableSchedules    []NonStakableSchedule    `json:"nonStakableSchedules"`
-	NonStakableContracts    []NonStakableVestingData `json:"nonStakableVestingContracts"`
+	TotalNominal         *big.Int                 `json:"totalNominal"`
+	MaxAllowedDuration   *big.Int                 `json:"maxAllowedDuration"`
+	NonStakableSchedules []NonStakableSchedule    `json:"nonStakableSchedules"`
+	NonStakableContracts []NonStakableVestingData `json:"nonStakableVestingContracts"`
 }
 
 type NonStakableSchedule struct {
 	Start         *big.Int `json:"startTime"`
-	CliffDuration *big.Int `json:"cliffTime"`
+	CliffDuration *big.Int `json:"cliffDuration"`
 	TotalDuration *big.Int `json:"totalDuration"`
 	Amount        *big.Int `json:"amount"`
 }
@@ -476,13 +476,16 @@ type NonStakableVestingData struct {
 }
 
 func (s *NonStakableVestingGenesis) SetDefaults() {
-	if s.NonStakableVaultBalance == nil {
-		s.NonStakableVaultBalance = DefaultNonStakableVestingGenesis.NonStakableVaultBalance
+	if s.TotalNominal == nil {
+		s.TotalNominal = DefaultNonStakableVestingGenesis.TotalNominal
+	}
+	if s.MaxAllowedDuration == nil {
+		s.MaxAllowedDuration = DefaultNonStakableVestingGenesis.MaxAllowedDuration
 	}
 }
 
 type StakableVestingGenesis struct {
-	ReservedStake     *big.Int              `json:"reservedStake"`
+	TotalNominal      *big.Int              `json:"totalNominal"`
 	StakableContracts []StakableVestingData `json:"stakableVestingContracts"`
 }
 
@@ -495,7 +498,7 @@ type StakableVestingData struct {
 }
 
 func (s *StakableVestingGenesis) SetDefaults() {
-	if s.ReservedStake == nil {
-		s.ReservedStake = DefaultStakableVestingGenesis.ReservedStake
+	if s.TotalNominal == nil {
+		s.TotalNominal = DefaultStakableVestingGenesis.TotalNominal
 	}
 }
