@@ -1074,7 +1074,6 @@ func (srv *Server) AddSuspension(id string, epochPeriod uint64) {
 }
 
 func (srv *Server) processPeerSuspension(pd peerDrop) {
-	// We cannot suspend peer with network infra errors.
 	reason := discReasonForError(pd.err)
 	if errors.Is(reason, DiscProtocolError) || reason == DiscSubprotocolError {
 		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoErrorSuspensionSpan)

@@ -105,10 +105,9 @@ func TestSameVote(t *testing.T) {
 func TestSubmitMisbehaviour(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)
-	lastHeader := newBlockHeader(height-1, committee)
 	// submit a equivocation proofs.
-	proposal := newValidatedLightProposal(height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
-	proposal2 := newValidatedLightProposal(height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
+	proposal := newValidatedLightProposal(height, round, -1, signer, committee, nil, proposerIdx)
+	proposal2 := newValidatedLightProposal(height, round, -1, signer, committee, nil, proposerIdx)
 	var proofs []message.Msg
 	proofs = append(proofs, proposal2)
 
@@ -149,11 +148,11 @@ func TestRunRuleEngine(t *testing.T) {
 		initProposal := newValidatedProposalMessage(checkPointHeight, 0, -1, makeSigner(keys[1]), committee, nil, 1)
 		fd.msgStore.Save(initProposal)
 
-		aggregatedVotes := aggregatedPreVote(len(committee), checkPointHeight, 0, initProposal.Value(), keys, committee, lastHeader)
+		aggregatedVotes := aggregatedPreVote(len(committee), checkPointHeight, 0, initProposal.Value(), keys, committee)
 		fd.msgStore.Save(aggregatedVotes)
 
 		// Node preCommit for init Proposal at init round 0 since there were quorum preVotes for it, and save it.
-		preCommit := newValidatedPrecommit(0, checkPointHeight, initProposal.Value(), signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(0, checkPointHeight, initProposal.Value(), signer, self, cSize)
 		fd.msgStore.Save(preCommit)
 
 		// While Node propose a new malicious Proposal at new round with VR as -1 which is malicious, should be addressed by rule PN.
@@ -178,10 +177,9 @@ func TestRunRuleEngine(t *testing.T) {
 func TestGenerateOnChainProof(t *testing.T) {
 	height := uint64(100)
 	round := int64(3)
-	lastHeader := newBlockHeader(height-1, committee)
 
-	proposal := newValidatedLightProposal(height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
-	equivocatedProposal := newValidatedLightProposal(height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
+	proposal := newValidatedLightProposal(height, round, -1, signer, committee, nil, proposerIdx)
+	equivocatedProposal := newValidatedLightProposal(height, round, -1, signer, committee, nil, proposerIdx)
 	var evidence []message.Msg
 	evidence = append(evidence, equivocatedProposal)
 
@@ -261,7 +259,7 @@ func TestAccusationProvers(t *testing.T) {
 		fd.msgStore.Save(proposal)
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
-		aggregatedVote := aggregatedPreVote(len(committee), height, validRound, proposal.Value(), keys, committee, lastHeader)
+		aggregatedVote := aggregatedPreVote(len(committee), height, validRound, proposal.Value(), keys, committee)
 		fd.msgStore.Save(aggregatedVote)
 
 		var accusation = Proof{
@@ -296,7 +294,7 @@ func TestAccusationProvers(t *testing.T) {
 		fd.msgStore.Save(proposal)
 
 		// simulate less than quorum num of preVotes for a value at a validRound.
-		preVote := newValidatedPrevote(validRound, height, proposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(validRound, height, proposal.Value(), signer, self, cSize)
 		fd.msgStore.Save(preVote)
 
 		var accusation = Proof{
@@ -328,10 +326,10 @@ func TestAccusationProvers(t *testing.T) {
 		fd.msgStore.Save(proposal)
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
-		aggregatedVote := aggregatedPreVote(len(committee), height, round, proposal.Value(), keys, committee, lastHeader)
+		aggregatedVote := aggregatedPreVote(len(committee), height, round, proposal.Value(), keys, committee)
 		fd.msgStore.Save(aggregatedVote)
 
-		preVote := newValidatedPrevote(round, height, proposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(round, height, proposal.Value(), signer, self, cSize)
 
 		var accusation = Proof{
 			OffenderIndex: proposerIdx,
@@ -354,7 +352,7 @@ func TestAccusationProvers(t *testing.T) {
 		// PVN: node prevote for a none nil value, then there must be a corresponding proposal.
 		fd := FaultDetector{blockchain: chainMock, address: proposer, msgStore: core.NewMsgStore()}
 
-		preVote := newValidatedPrevote(round, height, noneNilValue, signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(round, height, noneNilValue, signer, self, cSize)
 		fd.msgStore.Save(preVote)
 
 		var accusation = Proof{
@@ -384,7 +382,7 @@ func TestAccusationProvers(t *testing.T) {
 		p.Rule = autonity.PVO
 		p.OffenderIndex = proposerIdx
 		oldProposal := newValidatedProposalMessage(height, 1, 0, signer, committee, nil, proposerIdx)
-		preVote := newValidatedPrevote(1, height, oldProposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(1, height, oldProposal.Value(), signer, self, cSize)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, oldProposal.ToLight())
 
@@ -408,12 +406,12 @@ func TestAccusationProvers(t *testing.T) {
 		p.OffenderIndex = proposerIdx
 		validRound := int64(0)
 		oldProposal := newValidatedProposalMessage(height, 1, validRound, signer, committee, nil, proposerIdx)
-		preVote := newValidatedPrevote(1, height, oldProposal.Value(), signer, self, cSize, lastHeader)
+		preVote := newValidatedPrevote(1, height, oldProposal.Value(), signer, self, cSize)
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, message.NewLightProposal(oldProposal))
 
 		// prepare quorum preVotes at msg store.
-		aggregatedVote := aggregatedPreVote(len(committee), height, validRound, oldProposal.Value(), keys, committee, lastHeader)
+		aggregatedVote := aggregatedPreVote(len(committee), height, validRound, oldProposal.Value(), keys, committee)
 		fd.msgStore.Save(aggregatedVote)
 
 		onChainProof, err := fd.innocenceProofPVO(&p)
@@ -437,10 +435,10 @@ func TestAccusationProvers(t *testing.T) {
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
 		// simulate at least quorum num of preVotes for a value at a validRound.
-		aggregatedVote := aggregatedPreVote(len(committee), height, round, noneNilValue, keys, committee, lastHeader)
+		aggregatedVote := aggregatedPreVote(len(committee), height, round, noneNilValue, keys, committee)
 		fd.msgStore.Save(aggregatedVote)
 
-		preCommit := newValidatedPrecommit(round, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(round, height, noneNilValue, signer, self, cSize)
 		fd.msgStore.Save(preCommit)
 
 		var accusation = Proof{
@@ -471,7 +469,7 @@ func TestAccusationProvers(t *testing.T) {
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
-		preCommit := newValidatedPrecommit(round, height, noneNilValue, signer, self, cSize, lastHeader)
+		preCommit := newValidatedPrecommit(round, height, noneNilValue, signer, self, cSize)
 		fd.msgStore.Save(preCommit)
 
 		var accusation = Proof{
@@ -498,13 +496,12 @@ func TestAccusationProvers(t *testing.T) {
 // TestNewProposalAccountabilityCheck, it tests the accountability events over a new proposal sent by a proposer.
 func TestNewProposalAccountabilityCheck(t *testing.T) {
 	height := uint64(0)
-	lastHeader := newBlockHeader(height-1, committee)
 	newProposal0 := newValidatedProposalMessage(height, 3, -1, signer, committee, nil, proposerIdx)
-	nonNilPrecommit0 := newValidatedPrecommit(1, height, common.BytesToHash([]byte("test")), signer, self, cSize, lastHeader)
-	nilPrecommit0 := newValidatedPrecommit(1, height, common.Hash{}, signer, self, cSize, lastHeader)
+	nonNilPrecommit0 := newValidatedPrecommit(1, height, common.BytesToHash([]byte("test")), signer, self, cSize)
+	nilPrecommit0 := newValidatedPrecommit(1, height, common.Hash{}, signer, self, cSize)
 
 	newProposal1 := newValidatedProposalMessage(height, 5, -1, signer, committee, nil, proposerIdx)
-	nilPrecommit1 := newValidatedPrecommit(3, height, common.Hash{}, signer, self, cSize, lastHeader)
+	nilPrecommit1 := newValidatedPrecommit(3, height, common.Hash{}, signer, self, cSize)
 
 	newProposal0E := newValidatedProposalMessage(height, 3, 1, signer, committee, nil, proposerIdx)
 
@@ -605,7 +602,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	height := uint64(0)
 
-	lastHeader := newBlockHeader(height-1, committee)
 	header := newBlockHeader(height, committee)
 	block := types.NewBlockWithHeader(header)
 	header1 := newBlockHeader(height, committee)
@@ -616,19 +612,19 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	oldProposal0E := newValidatedProposalMessage(height, 3, 2, signer, committee, block1, proposerIdx)
 	oldProposal0E2 := newValidatedProposalMessage(height, 3, 0, signer, committee, block1, proposerIdx)
 
-	nonNilPrecommit0V := newValidatedPrecommit(0, height, block.Hash(), signer, self, cSize, lastHeader)
-	nonNilPrecommit0VPrime := newValidatedPrecommit(0, height, block1.Hash(), signer, self, cSize, lastHeader)
-	nonNilPrecommit2VPrime := newValidatedPrecommit(2, height, block1.Hash(), signer, self, cSize, lastHeader)
-	nonNilPrecommit1 := newValidatedPrecommit(1, height, block.Hash(), signer, self, cSize, lastHeader)
+	nonNilPrecommit0V := newValidatedPrecommit(0, height, block.Hash(), signer, self, cSize)
+	nonNilPrecommit0VPrime := newValidatedPrecommit(0, height, block1.Hash(), signer, self, cSize)
+	nonNilPrecommit2VPrime := newValidatedPrecommit(2, height, block1.Hash(), signer, self, cSize)
+	nonNilPrecommit1 := newValidatedPrecommit(1, height, block.Hash(), signer, self, cSize)
 
-	nilPrecommit0 := newValidatedPrecommit(0, height, nilValue, signer, self, cSize, lastHeader)
-	quorumPrevotes0VPrime := aggregatedPreVote(int(quorum.Int64()), height, 0, block1.Hash(), keys, committee, lastHeader)
-	quorumPrevotes0V := aggregatedPreVote(int(quorum.Int64()), height, 0, block.Hash(), keys, committee, lastHeader)
-	lessThanQurorumPrevotes := aggregatedPreVote(int(quorum.Int64())-1, height, 0, block.Hash(), keys, committee, lastHeader)
+	nilPrecommit0 := newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
+	quorumPrevotes0VPrime := aggregatedPreVote(int(quorum.Int64()), height, 0, block1.Hash(), keys, committee)
+	quorumPrevotes0V := aggregatedPreVote(int(quorum.Int64()), height, 0, block.Hash(), keys, committee)
+	lessThanQurorumPrevotes := aggregatedPreVote(int(quorum.Int64())-1, height, 0, block.Hash(), keys, committee)
 
 	var precommiteNilAfterVR []message.Msg
 	for i := 1; i < 3; i++ {
-		precommit := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize, lastHeader)
+		precommit := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
 		precommiteNilAfterVR = append(precommiteNilAfterVR, precommit)
 	}
 
@@ -852,7 +848,6 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 func TestPrevotesAccountabilityCheck(t *testing.T) {
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	height := uint64(0)
-	lastHeader := newBlockHeader(height-1, committee)
 	header := newBlockHeader(height, committee)
 	block := types.NewBlockWithHeader(header)
 	header1 := newBlockHeader(height, committee)
@@ -860,48 +855,48 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 	newProposalForB := newValidatedProposalMessage(height, 5, -1, signer, committee, block, proposerIdx)
 
-	prevoteForB := newValidatedPrevote(5, height, block.Hash(), signer, self, cSize, lastHeader)
-	prevoteForB1 := newValidatedPrevote(5, height, block1.Hash(), signer, self, cSize, lastHeader)
+	prevoteForB := newValidatedPrevote(5, height, block.Hash(), signer, self, cSize)
+	prevoteForB1 := newValidatedPrevote(5, height, block1.Hash(), signer, self, cSize)
 
 	otherPrevoteForB := newValidatedPrevote(prevoteForB.R(), prevoteForB.H(), prevoteForB.Value(),
-		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
+		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize)
 	otherPrevoteForB1 := newValidatedPrevote(prevoteForB1.R(), prevoteForB1.H(), prevoteForB1.Value(),
-		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
+		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize)
 
 	aggregatedPrevoteForB := message.AggregatePrevotes([]message.Vote{prevoteForB, otherPrevoteForB})
 	aggregatedPrevoteForB1 := message.AggregatePrevotes([]message.Vote{prevoteForB1, otherPrevoteForB1})
 
-	precommitForB := newValidatedPrecommit(3, height, block.Hash(), signer, self, cSize, lastHeader)
+	precommitForB := newValidatedPrecommit(3, height, block.Hash(), signer, self, cSize)
 	otherPrecommitForB := newValidatedPrecommit(precommitForB.R(), precommitForB.H(), precommitForB.Value(),
-		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
+		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize)
 	aggregatedPrecommitForB := message.AggregatePrecommits([]message.Vote{precommitForB, otherPrecommitForB})
 
-	precommitForB1 := newValidatedPrecommit(4, height, block1.Hash(), signer, self, cSize, lastHeader)
+	precommitForB1 := newValidatedPrecommit(4, height, block1.Hash(), signer, self, cSize)
 	otherPrecommitForB1 := newValidatedPrecommit(precommitForB1.R(), precommitForB1.H(), precommitForB1.Hash(),
-		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
+		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize)
 	aggregatedPrecommitForB1 := message.AggregatePrecommits([]message.Vote{precommitForB1, otherPrecommitForB1})
 
-	precommitForB1In0 := newValidatedPrecommit(0, height, block1.Hash(), signer, self, cSize, lastHeader)
-	precommitForB1In1 := newValidatedPrecommit(1, height, block1.Hash(), signer, self, cSize, lastHeader)
-	precommitForBIn0 := newValidatedPrecommit(0, height, block.Hash(), signer, self, cSize, lastHeader)
-	precommitForBIn4 := newValidatedPrecommit(4, height, block.Hash(), signer, self, cSize, lastHeader)
+	precommitForB1In0 := newValidatedPrecommit(0, height, block1.Hash(), signer, self, cSize)
+	precommitForB1In1 := newValidatedPrecommit(1, height, block1.Hash(), signer, self, cSize)
+	precommitForBIn0 := newValidatedPrecommit(0, height, block.Hash(), signer, self, cSize)
+	precommitForBIn4 := newValidatedPrecommit(4, height, block.Hash(), signer, self, cSize)
 
 	signerBis := makeSigner(keys[1])
 	oldProposalB10 := newValidatedProposalMessage(height, 10, 5, signerBis, committee, block, 1)
 	newProposalB1In5 := newValidatedProposalMessage(height, 5, -1, signerBis, committee, block1, 1)
 	newProposalBIn5 := newValidatedProposalMessage(height, 5, -1, signerBis, committee, block, 1)
 
-	prevoteForOldB10 := newValidatedPrevote(10, height, block.Hash(), signer, self, cSize, lastHeader)
+	prevoteForOldB10 := newValidatedPrevote(10, height, block.Hash(), signer, self, cSize)
 	otherPrevoteForOldB10 := newValidatedPrevote(prevoteForOldB10.R(), prevoteForOldB10.H(), prevoteForOldB10.Value(),
-		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
+		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize)
 	aggregatedPrevoteForOldB10 := message.AggregatePrevotes([]message.Vote{prevoteForOldB10, otherPrevoteForOldB10})
 
-	precommitForB1In8 := newValidatedPrecommit(8, height, block1.Hash(), signer, self, cSize, lastHeader)
+	precommitForB1In8 := newValidatedPrecommit(8, height, block1.Hash(), signer, self, cSize)
 	otherPrecommitForB1In8 := newValidatedPrecommit(8, height, block1.Hash(), makeSigner(keys[prevoterIdx]),
-		&committee[prevoterIdx], cSize, lastHeader)
+		&committee[prevoterIdx], cSize)
 	aggregatedPrecommitForB1In8 := message.AggregatePrecommits([]message.Vote{precommitForB1In8, otherPrecommitForB1In8})
 
-	precommitForBIn7 := newValidatedPrecommit(7, height, block.Hash(), signer, self, cSize, lastHeader)
+	precommitForBIn7 := newValidatedPrecommit(7, height, block.Hash(), signer, self, cSize)
 
 	t.Run("accusation when there are no corresponding proposals", func(t *testing.T) {
 		fd := testFD()
@@ -1004,7 +999,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		var precommitNilsAfter0 []message.Msg
 		for i := 1; i < 5; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize, lastHeader)
+			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
 			precommitNilsAfter0 = append(precommitNilsAfter0, precommitNil)
 			fd.msgStore.Save(precommitNil)
 		}
@@ -1038,7 +1033,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		var precommitNilsAfter1 []message.Msg
 		for i := 2; i < 5; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize, lastHeader)
+			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
 			precommitNilsAfter1 = append(precommitNilsAfter1, precommitNil)
 			fd.msgStore.Save(precommitNil)
 		}
@@ -1088,7 +1083,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
-		fd.msgStore.Save(newValidatedPrecommit(3, height, nilValue, signer, self, cSize, lastHeader))
+		fd.msgStore.Save(newValidatedPrecommit(3, height, nilValue, signer, self, cSize))
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 0, len(proofs))
@@ -1100,7 +1095,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
 		for i := 1; i < 5; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize, lastHeader)
+			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
 			fd.msgStore.Save(precommitNil)
 		}
 
@@ -1117,7 +1112,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		// fill gaps with nil
 		for i := 1; i < 4; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize, lastHeader)
+			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
 			fd.msgStore.Save(precommitNil)
 		}
 
@@ -1165,7 +1160,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		// quorum of prevotes for B1 in vr = 6
 		var vr5Prevotes []message.Msg
 		for i := uint64(0); i < quorum.Uint64(); i++ {
-			vr6Prevote := newValidatedPrevote(5, height, block1.Hash(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+			vr6Prevote := newValidatedPrevote(5, height, block1.Hash(), makeSigner(keys[i]), &committee[i], cSize)
 			vr5Prevotes = append(vr5Prevotes, vr6Prevote)
 			fd.msgStore.Save(vr6Prevote)
 		}
@@ -1215,13 +1210,13 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 
-		aggVotes := aggregatedPreVote(len(committee), height, 5, oldProposalB10.Value(), keys, committee, lastHeader)
+		aggVotes := aggregatedPreVote(len(committee), height, 5, oldProposalB10.Value(), keys, committee)
 		fd.msgStore.Save(aggVotes)
 
 		// create precomits in between the valid round and the current only for proposer node, thus this event is only
 		// accountable for propser node. Missing precomits for the other voter, making the event is not accountable for it.
 		for i := newProposalBIn5.R(); i < precommitForBIn7.R(); i++ {
-			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize, lastHeader))
+			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize))
 		}
 
 		var precommitsFromPiAfterLatestPrecommitForB []message.Msg
@@ -1229,7 +1224,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForBIn7)
 		fd.msgStore.Save(precommitForB1In8)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForB1In8)
-		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, nilValue, signer, self, cSize, lastHeader)
+		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, nilValue, signer, self, cSize)
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, p)
 
@@ -1261,11 +1256,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 
-		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee, lastHeader)
+		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee)
 		fd.msgStore.Save(aggVotes)
 		fd.msgStore.Save(precommitForBIn7)
 		for i := precommitForBIn7.R() + 1; i < oldProposalB10.R(); i++ {
-			v := newValidatedPrecommit(i, height, nilValue, signer, self, cSize, lastHeader)
+			v := newValidatedPrecommit(i, height, nilValue, signer, self, cSize)
 			fd.msgStore.Save(v)
 		}
 
@@ -1281,7 +1276,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 
-		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee, lastHeader)
+		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee)
 		fd.msgStore.Save(aggVotes)
 
 		fd.msgStore.Save(precommitForBIn7)
@@ -1298,12 +1293,12 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newValidatedPrevote(5, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize, lastHeader))
+			fd.msgStore.Save(newValidatedPrevote(5, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize))
 		}
 
 		var precommitsFromPiAfterVR1 []message.Msg
 		for i := newProposalBIn5.R() + 1; i < aggregatedPrecommitForB1In8.R(); i++ {
-			p := newValidatedPrecommit(i, height, nilValue, signer, self, cSize, lastHeader)
+			p := newValidatedPrecommit(i, height, nilValue, signer, self, cSize)
 			fd.msgStore.Save(p)
 			precommitsFromPiAfterVR1 = append(precommitsFromPiAfterVR1, p)
 		}
@@ -1311,13 +1306,13 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrecommitForB1In8)
 		precommitsFromPiAfterVR1 = append(precommitsFromPiAfterVR1, aggregatedPrecommitForB1In8)
 
-		p := newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, nilValue, signer, self, cSize, lastHeader)
+		p := newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, nilValue, signer, self, cSize)
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterVR1 = append(precommitsFromPiAfterVR1, p)
 
 		var precommitsFromPiAfterVR2 []message.Msg
 		for i := newProposalBIn5.R() + 1; i < aggregatedPrecommitForB1In8.R(); i++ {
-			p = newValidatedPrecommit(i, height, nilValue, makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, lastHeader)
+			p = newValidatedPrecommit(i, height, nilValue, makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize)
 			fd.msgStore.Save(p)
 			precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, p)
 		}
@@ -1325,7 +1320,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, aggregatedPrecommitForB1In8)
 
 		p = newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, nilValue, makeSigner(keys[prevoterIdx]),
-			&committee[prevoterIdx], cSize, lastHeader)
+			&committee[prevoterIdx], cSize)
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, p)
 
@@ -1373,11 +1368,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 
-		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee, lastHeader)
+		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee)
 		fd.msgStore.Save(aggVotes)
 
 		for i := newProposalBIn5.R() + 1; i < oldProposalB10.R(); i++ {
-			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize, lastHeader))
+			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize))
 		}
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
@@ -1390,12 +1385,12 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
 
-		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee, lastHeader)
+		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee)
 		fd.msgStore.Save(aggVotes)
 
 		fd.msgStore.Save(precommitForB1In8)
 
-		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, nilValue, signer, self, cSize, lastHeader)
+		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, nilValue, signer, self, cSize)
 		fd.msgStore.Save(p)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
@@ -1408,11 +1403,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
-		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee, lastHeader)
+		aggVotes := aggregatedPreVote(len(committee), height, 5, block.Hash(), keys, committee)
 		fd.msgStore.Save(aggVotes)
 
 		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
-			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize, lastHeader))
+			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize))
 		}
 		fd.msgStore.Save(precommitForB1In8)
 
@@ -1432,7 +1427,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newValidatedPrevote(6, height, block1.Hash(), makeSigner(keys[i]), &committee[i], cSize, lastHeader))
+			fd.msgStore.Save(newValidatedPrevote(6, height, block1.Hash(), makeSigner(keys[i]), &committee[i], cSize))
 		}
 
 		// Misbehaviour of PVN and Accusation of PVO shall rise to both two nodes, thus we will expect 4 proofs.
@@ -1462,17 +1457,17 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 	newProposalForB := newValidatedProposalMessage(height, 2, -1, makeSigner(keys[1]), committee, block, 1)
 
-	precommitForB := newValidatedPrecommit(2, height, block.Hash(), signer, self, cSize, header)
+	precommitForB := newValidatedPrecommit(2, height, block.Hash(), signer, self, cSize)
 	otherPrecommitForB := newValidatedPrecommit(precommitForB.R(), precommitForB.H(), precommitForB.Value(),
-		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize, header)
+		makeSigner(keys[prevoterIdx]), &committee[prevoterIdx], cSize)
 	aggregatedPrecommitForB := message.AggregatePrecommits([]message.Vote{precommitForB, otherPrecommitForB})
 
-	precommitForB1 := newValidatedPrecommit(2, height, block1.Hash(), signer, self, cSize, header)
+	precommitForB1 := newValidatedPrecommit(2, height, block1.Hash(), signer, self, cSize)
 	otherPrecommitForB1 := newValidatedPrecommit(2, height, block1.Hash(), makeSigner(keys[prevoterIdx]),
-		&committee[prevoterIdx], cSize, header)
+		&committee[prevoterIdx], cSize)
 	aggregatedPrecommitForB1 := message.AggregatePrecommits([]message.Vote{precommitForB1, otherPrecommitForB1})
 
-	precommitForB1In3 := newValidatedPrecommit(3, height, block1.Hash(), signer, self, cSize, header)
+	precommitForB1In3 := newValidatedPrecommit(3, height, block1.Hash(), signer, self, cSize)
 
 	t.Run("accusation when prevotes is less than quorum", func(t *testing.T) {
 		fd := testFD()
@@ -1480,7 +1475,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
 		for i := int64(0); i < quorum.Int64()-1; i++ {
-			fd.msgStore.Save(newValidatedPrevote(2, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize, header))
+			fd.msgStore.Save(newValidatedPrevote(2, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize))
 		}
 
 		expectedAccusation1 := &Proof{
@@ -1508,7 +1503,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
-		preVotesForB1 := aggregatedPreVote(int(quorum.Int64()), height, 2, block1.Hash(), keys, committee, header)
+		preVotesForB1 := aggregatedPreVote(int(quorum.Int64()), height, 2, block1.Hash(), keys, committee)
 		fd.msgStore.Save(preVotesForB1)
 
 		expectedMisbehaviour1 := &Proof{
@@ -1542,7 +1537,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 
 		var prevotesForB1 []message.Msg
 		for i := int64(0); i < quorum.Int64(); i++ {
-			p := newValidatedPrevote(2, height, block1.Hash(), makeSigner(keys[i]), &committee[i], cSize, header)
+			p := newValidatedPrevote(2, height, block1.Hash(), makeSigner(keys[i]), &committee[i], cSize)
 			fd.msgStore.Save(p)
 			prevotesForB1 = append(prevotesForB1, p)
 		}
@@ -1589,7 +1584,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newValidatedPrevote(2, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize, header))
+			fd.msgStore.Save(newValidatedPrevote(2, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize))
 		}
 
 		proofs := fd.precommitsAccountabilityCheck(height, quorum, committee)
@@ -1602,7 +1597,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
 		for i := 0; i < len(committee); i++ {
-			fd.msgStore.Save(newValidatedPrevote(2, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize, header))
+			fd.msgStore.Save(newValidatedPrevote(2, height, block.Hash(), makeSigner(keys[i]), &committee[i], cSize))
 		}
 
 		proofs := fd.precommitsAccountabilityCheck(height, quorum, committee)
@@ -1639,10 +1634,10 @@ func newTestBlockchain() *ccore.BlockChain {
 }
 
 func aggregatedPreVote(numOfSigners int, h uint64, r int64, v common.Hash, keys []blst.SecretKey,
-	committee types.Committee, header *types.Header) *message.Prevote {
+	committee types.Committee) *message.Prevote {
 	var votes []message.Vote
 	for i := 0; i < numOfSigners && i < len(committee); i++ {
-		preVote := newValidatedPrevote(r, h, v, makeSigner(keys[i]), &committee[i], len(committee), header)
+		preVote := newValidatedPrevote(r, h, v, makeSigner(keys[i]), &committee[i], len(committee))
 		votes = append(votes, preVote)
 	}
 	aggregatedVote := message.AggregatePrevotes(votes)

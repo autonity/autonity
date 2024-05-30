@@ -50,29 +50,28 @@ var (
 	oldProposal2        = newValidatedProposalMessage(height, newRound-1, validRound, signer, committee, nil, proposerIdx)
 	oldLightProposal2   = oldProposal2.ToLight()
 
-	prevoteForOldProposal1 = newValidatedPrevote(newRound, height, defOldProposal.Value(), signer, self, cSize, lastHeader)
-	prevoteForOldProposal2 = newValidatedPrevote(newRound, height, defOldProposal.Value(), makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	prevoteForOldProposal1 = newValidatedPrevote(newRound, height, defOldProposal.Value(), signer, self, cSize)
+	prevoteForOldProposal2 = newValidatedPrevote(newRound, height, defOldProposal.Value(), makeSigner(keys[1]), &committee[1], cSize)
 	aggPrevoteForOld       = message.AggregatePrevotes([]message.Vote{prevoteForOldProposal1, prevoteForOldProposal2})
 
-	nilPrevote1     = newValidatedPrevote(defRound, height, nilValue, signer, self, cSize, lastHeader)
-	nilPrevote2     = newValidatedPrevote(defRound, height, nilValue, makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	nilPrevote1     = newValidatedPrevote(defRound, height, nilValue, signer, self, cSize)
+	nilPrevote2     = newValidatedPrevote(defRound, height, nilValue, makeSigner(keys[1]), &committee[1], cSize)
 	aggNilPrevote   = message.AggregatePrevotes([]message.Vote{nilPrevote1, nilPrevote2})
-	nilPrecommit1   = newValidatedPrecommit(defRound, height, nilValue, signer, self, cSize, lastHeader)
-	nilPrecommit2   = newValidatedPrecommit(defRound, height, nilValue, makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	nilPrecommit1   = newValidatedPrecommit(defRound, height, nilValue, signer, self, cSize)
+	nilPrecommit2   = newValidatedPrecommit(defRound, height, nilValue, makeSigner(keys[1]), &committee[1], cSize)
 	aggNilPrecommit = message.AggregatePrecommits([]message.Vote{nilPrecommit1, nilPrecommit2})
 
 	lastHeader   = newBlockHeader(lastHeight, committee)
-	prevote1     = newValidatedPrevote(defRound, height, defNewProposal.Value(), signer, self, cSize, lastHeader)
-	prevote2     = newValidatedPrevote(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	prevote1     = newValidatedPrevote(defRound, height, defNewProposal.Value(), signer, self, cSize)
+	prevote2     = newValidatedPrevote(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee[1], cSize)
 	aggPrevote   = message.AggregatePrevotes([]message.Vote{prevote1, prevote2})
-	precommit1   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), signer, self, cSize, lastHeader)
-	precommit2   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	precommit1   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), signer, self, cSize)
+	precommit2   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee[1], cSize)
 	aggPrecommit = message.AggregatePrecommits([]message.Vote{precommit1, precommit2})
 
 	committee2, keys2, _ = generateCommittee()
-	fakeHeader           = newBlockHeader(lastHeight, committee2)
 	proposal2            = newValidatedProposalMessage(height, defRound, defValidRound, makeSigner(keys2[0]), committee2, nil, proposerIdx)
-	invalidPrecommit     = newValidatedPrecommit(defRound, height, proposal2.Value(), makeSigner(keys2[0]), &committee2[0], len(committee2), fakeHeader)
+	invalidPrecommit     = newValidatedPrecommit(defRound, height, proposal2.Value(), makeSigner(keys2[0]), &committee2[0], len(committee2))
 )
 
 func TestContractsManagement(t *testing.T) {
@@ -406,61 +405,61 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		outCome []byte
 	}
 
-	liteNewP := newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
-	liteOldP := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
+	liteNewP := newValidatedLightProposal(height, 1, -1, signer, committee, nil, proposerIdx)
+	liteOldP := newValidatedLightProposal(height, 3, 0, signer, committee, nil, proposerIdx)
 
 	prevotes := make([]message.Vote, len(committee))
 	for i := range committee {
-		prevotes[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+		prevotes[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize)
 	}
 	aggVote := message.AggregatePrevotes(prevotes)
 	aggVoteNoQuorum := message.AggregatePrevotes(prevotes[1:2])
-	fakedVote1 := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize, lastHeader)
-	fakedVote2 := newValidatedPrevote(0, height, liteOldP.Value(), signer, self, cSize, lastHeader)
-	fakedVote3 := newValidatedPrevote(0, height, nilValue, signer, self, cSize, lastHeader)
-	commit1 := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
-	commit2 := newValidatedPrecommit(0, height, noneNilValue, makeSigner(keys[1]), &committee[1], cSize, lastHeader)
-	commit3 := newValidatedPrecommit(0, height, noneNilValue, makeSigner(keys[2]), &committee[2], cSize, lastHeader)
-	commit4 := newValidatedPrecommit(0, height, nilValue, signer, self, cSize, lastHeader)
-	commit5 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize, lastHeader)
+	fakedVote1 := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize)
+	fakedVote2 := newValidatedPrevote(0, height, liteOldP.Value(), signer, self, cSize)
+	fakedVote3 := newValidatedPrevote(0, height, nilValue, signer, self, cSize)
+	commit1 := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
+	commit2 := newValidatedPrecommit(0, height, noneNilValue, makeSigner(keys[1]), &committee[1], cSize)
+	commit3 := newValidatedPrecommit(0, height, noneNilValue, makeSigner(keys[2]), &committee[2], cSize)
+	commit4 := newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
+	commit5 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize)
 	aggCommit := message.AggregatePrecommits([]message.Vote{commit1, commit2})
 
 	// node locked at V1 at round 0.
-	preCommitPVN := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
-	preCommitR1PVN := newValidatedPrecommit(1, height, nilValue, signer, self, cSize, lastHeader)
-	preCommitR1PVN2 := newValidatedPrecommit(1, height, nilValue, makeSigner(keys[1]), &committee[1], cSize, lastHeader)
+	preCommitPVN := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
+	preCommitR1PVN := newValidatedPrecommit(1, height, nilValue, signer, self, cSize)
+	preCommitR1PVN2 := newValidatedPrecommit(1, height, nilValue, makeSigner(keys[1]), &committee[1], cSize)
 	aggPrecomitR1PVN := message.AggregatePrecommits([]message.Vote{preCommitR1PVN, preCommitR1PVN2})
 
-	preCommitR2PVN := newValidatedPrecommit(2, height, nilValue, signer, self, cSize, lastHeader)
-	proposalPVN := newValidatedLightProposal(height, 3, -1, signer, committee, lastHeader, nil, proposerIdx)
+	preCommitR2PVN := newValidatedPrecommit(2, height, nilValue, signer, self, cSize)
+	proposalPVN := newValidatedLightProposal(height, 3, -1, signer, committee, nil, proposerIdx)
 	// node preVote for V2 at round 3
-	prevotePVN := newValidatedPrevote(3, height, proposalPVN.Value(), signer, self, cSize, lastHeader)
+	prevotePVN := newValidatedPrevote(3, height, proposalPVN.Value(), signer, self, cSize)
 
 	// PVO settings
-	correspondingProposalPVO := newValidatedLightProposal(height, 3, 0, signer, committee, lastHeader, nil, proposerIdx)
-	maliciousPreVotePVO := newValidatedPrevote(3, height, correspondingProposalPVO.Value(), signer, self, cSize, lastHeader)
+	correspondingProposalPVO := newValidatedLightProposal(height, 3, 0, signer, committee, nil, proposerIdx)
+	maliciousPreVotePVO := newValidatedPrevote(3, height, correspondingProposalPVO.Value(), signer, self, cSize)
 	// simulate quorum prevote for not v at valid round.
 	votesPVO := make([]message.Vote, len(committee))
 	for i := range committee {
-		votesPVO[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+		votesPVO[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize)
 	}
 	aggVotePVO := message.AggregatePrevotes(votesPVO)
 	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3])
 
 	// PVO12 settings.
 	// a precommit at round 1, with value v.
-	pcForVPVO12 := newValidatedPrecommit(1, height, correspondingProposalPVO.Value(), signer, self, cSize, lastHeader)
+	pcForVPVO12 := newValidatedPrecommit(1, height, correspondingProposalPVO.Value(), signer, self, cSize)
 	// a precommit at round 2, with value not v.
-	pcForNotVPVO12 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize, lastHeader)
+	pcForNotVPVO12 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize)
 	// a prevote at round 3, with value v.
-	preVotePVO12 := newValidatedPrevote(3, height, correspondingProposalPVO.Value(), signer, self, cSize, lastHeader)
+	preVotePVO12 := newValidatedPrevote(3, height, correspondingProposalPVO.Value(), signer, self, cSize)
 
 	// Rule C settings.
-	preCommitC := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)
-	preCommitNilC := newValidatedPrecommit(0, height, nilValue, signer, self, cSize, lastHeader)
+	preCommitC := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
+	preCommitNilC := newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
 	votesC := make([]message.Vote, len(committee))
 	for i := range committee {
-		votesC[i] = newValidatedPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+		votesC[i] = newValidatedPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee[i], cSize)
 	}
 	aggVoteC := message.AggregatePrevotes(votesC)
 	aggVoteCNoQuorum := message.AggregatePrevotes(votesC[2:3])
@@ -490,9 +489,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		{
 			proof: Proof{
 				Rule:          autonity.PN,
-				Message:       newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx),
+				Message:       newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx),
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize, lastHeader)},
+				Evidences:     []message.Msg{newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)},
 			},
 			outCome: failureReturn,
 		},
@@ -501,7 +500,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PN,
 				Message:       liteNewP,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{newValidatedPrevote(0, height, noneNilValue, signer, self, cSize, lastHeader)},
+				Evidences:     []message.Msg{newValidatedPrevote(0, height, noneNilValue, signer, self, cSize)},
 			},
 			outCome: failureReturn,
 		},
@@ -1045,41 +1044,41 @@ func TestInnocenceVerifier(t *testing.T) {
 	chainMock := NewMockChainContext(ctrl)
 	chainMock.EXPECT().GetHeaderByNumber(lastHeight).AnyTimes().Return(lastHeader)
 
-	proposalPO := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
+	proposalPO := newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx)
 	votesPO := make([]message.Vote, len(committee))
 	for i := range committee {
-		votesPO[i] = newValidatedPrevote(0, height, proposalPO.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+		votesPO[i] = newValidatedPrevote(0, height, proposalPO.Value(), makeSigner(keys[i]), &committee[i], cSize)
 	}
 	aggVotesPO := message.AggregatePrevotes(votesPO)
 	aggVotesPONoQuorum := message.AggregatePrevotes(votesPO[2:3])
-	votesForOtherValue := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize, lastHeader)
+	votesForOtherValue := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize)
 
-	nilPrevote := newValidatedPrevote(1, height, nilValue, signer, self, cSize, lastHeader)
+	nilPrevote := newValidatedPrevote(1, height, nilValue, signer, self, cSize)
 
 	// PVN settings
-	lightProposalPVN := newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx)
+	lightProposalPVN := newValidatedLightProposal(height, 1, -1, signer, committee, nil, proposerIdx)
 
 	// PVO settings
-	proposalPVO := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
-	preVotePVO := newValidatedPrevote(1, height, proposalPVO.Value(), signer, self, cSize, lastHeader)
-	preVoteNilPVO := newValidatedPrevote(1, height, nilValue, signer, self, cSize, lastHeader)
+	proposalPVO := newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx)
+	preVotePVO := newValidatedPrevote(1, height, proposalPVO.Value(), signer, self, cSize)
+	preVoteNilPVO := newValidatedPrevote(1, height, nilValue, signer, self, cSize)
 	// prepare quorum prevotes at valid round.
 	votesPVO := make([]message.Vote, len(committee))
 	for i := range committee {
-		votesPVO[i] = newValidatedPrevote(0, height, proposalPVO.Value(), makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+		votesPVO[i] = newValidatedPrevote(0, height, proposalPVO.Value(), makeSigner(keys[i]), &committee[i], cSize)
 	}
 	aggVotePVO := message.AggregatePrevotes(votesPVO)
 	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3])
 
 	// C1 settings
-	preCommitC1 := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize, lastHeader)
-	preCommitC1Nil := newValidatedPrecommit(1, height, nilValue, signer, self, cSize, lastHeader)
+	preCommitC1 := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize)
+	preCommitC1Nil := newValidatedPrecommit(1, height, nilValue, signer, self, cSize)
 	votesC1 := make([]message.Vote, len(committee))
 	for i := range committee {
-		votesC1[i] = newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize, lastHeader)
+		votesC1[i] = newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee[i], cSize)
 	}
 	aggVoteC1 := message.AggregatePrevotes(votesC1)
-	preVoteC1ForOtherV := newValidatedPrevote(1, height, proposalPO.Value(), signer, self, cSize, lastHeader)
+	preVoteC1ForOtherV := newValidatedPrevote(1, height, proposalPO.Value(), signer, self, cSize)
 	aggVoteC1NoQuorum := message.AggregatePrevotes(votesC1[2:3])
 
 	t.Run("Test innocence verifier required gas", func(t *testing.T) {
@@ -1096,11 +1095,10 @@ func TestInnocenceVerifier(t *testing.T) {
 
 	t.Run("Test validate innocence Proof with invalid Signature() of message", func(t *testing.T) {
 		invalidCommittee, iKeys, _ := generateCommittee()
-		lHeader := newBlockHeader(lastHeight, invalidCommittee)
 		p := &Proof{
 			Rule:          autonity.PO,
 			OffenderIndex: proposerIdx,
-			Message:       newValidatedLightProposal(height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, lHeader, nil, 0),
+			Message:       newValidatedLightProposal(height, 1, 0, makeSigner(iKeys[0]), invalidCommittee, nil, 0),
 		}
 		iv := InnocenceVerifier{chain: chainMock}
 		raw, err := rlp.EncodeToBytes(&p)
@@ -1116,11 +1114,10 @@ func TestInnocenceVerifier(t *testing.T) {
 		p.Rule = autonity.PO
 		p.OffenderIndex = proposerIdx
 		invalidCommittee, iKeys, _ := generateCommittee()
-		proposal := newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx)
 		p.Message = proposal
-		iHeader := newBlockHeader(height, invalidCommittee)
 		invalidPreVote := newValidatedPrevote(1, height, proposal.Value(), makeSigner(iKeys[0]),
-			&invalidCommittee[0], len(invalidCommittee), iHeader)
+			&invalidCommittee[0], len(invalidCommittee))
 		p.Evidences = append(p.Evidences, invalidPreVote)
 
 		iv := InnocenceVerifier{chain: chainMock}
@@ -1137,7 +1134,7 @@ func TestInnocenceVerifier(t *testing.T) {
 			// wrong msg provided in the proof.
 			proof: Proof{
 				Rule:          autonity.PO,
-				Message:       newValidatedPrevote(1, height, noneNilValue, signer, self, cSize, lastHeader),
+				Message:       newValidatedPrevote(1, height, noneNilValue, signer, self, cSize),
 				OffenderIndex: proposerIdx,
 			},
 			outCome: false,
@@ -1146,7 +1143,7 @@ func TestInnocenceVerifier(t *testing.T) {
 			// wrong proposal provided in the proof.
 			proof: Proof{
 				Rule:          autonity.PO,
-				Message:       newValidatedLightProposal(height, 1, -1, signer, committee, lastHeader, nil, proposerIdx),
+				Message:       newValidatedLightProposal(height, 1, -1, signer, committee, nil, proposerIdx),
 				OffenderIndex: proposerIdx,
 			},
 			outCome: false,
@@ -1155,9 +1152,9 @@ func TestInnocenceVerifier(t *testing.T) {
 			// have preVote of different value than proposal
 			proof: Proof{
 				Rule:          autonity.PO,
-				Message:       newValidatedLightProposal(height, 1, 0, signer, committee, lastHeader, nil, proposerIdx),
+				Message:       newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx),
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{newValidatedPrevote(0, height, noneNilValue, signer, self, cSize, lastHeader)},
+				Evidences:     []message.Msg{newValidatedPrevote(0, height, noneNilValue, signer, self, cSize)},
 			},
 			outCome: false,
 		},
@@ -1231,7 +1228,7 @@ func TestInnocenceVerifier(t *testing.T) {
 			proof: Proof{
 				Rule:          autonity.PVN,
 				OffenderIndex: proposerIdx,
-				Message:       newValidatedPrevote(1, height, lightProposalPVN.Value(), signer, self, cSize, lastHeader),
+				Message:       newValidatedPrevote(1, height, lightProposalPVN.Value(), signer, self, cSize),
 				Evidences:     []message.Msg{lightProposalPVN},
 			},
 			outCome: true,
@@ -1377,23 +1374,21 @@ func TestInnocenceVerifier(t *testing.T) {
 }
 
 func TestCheckEquivocation(t *testing.T) {
-	height := uint64(100)
 	round := int64(0)
-	lastHeader := newBlockHeader(height-1, committee)
 	t.Run("check equivocation with valid Proof of proposal equivocation", func(t *testing.T) {
 		var p Proof
 		p.Rule = autonity.Equivocation
 		p.OffenderIndex = proposerIdx
-		proposal := newValidatedLightProposal(height, round, -1, signer, committee, lastHeader, nil, proposerIdx)
+		proposal := newValidatedLightProposal(height, round, -1, signer, committee, nil, proposerIdx)
 		p.Message = proposal
-		p2 := newValidatedLightProposal(height, round, 1, signer, committee, lastHeader, nil, proposerIdx)
+		p2 := newValidatedLightProposal(height, round, 1, signer, committee, nil, proposerIdx)
 		p.Evidences = append(p.Evidences, p2)
 		require.Equal(t, true, validMisbehaviourOfEquivocation(&p, committee))
 	})
 
 	t.Run("check equivocation with valid Proof of prevote equivocation", func(t *testing.T) {
-		vote1 := newValidatedPrevote(round, height, nilValue, signer, self, cSize, lastHeader)
-		vote2 := newValidatedPrevote(round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
+		vote1 := newValidatedPrevote(round, height, nilValue, signer, self, cSize)
+		vote2 := newValidatedPrevote(round, height, common.Hash{0x1}, signer, self, cSize)
 		var p Proof
 		p.Rule = autonity.Equivocation
 		p.OffenderIndex = proposerIdx
@@ -1403,8 +1398,8 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 
 	t.Run("check equivocation with valid Proof of precomit equivocation", func(t *testing.T) {
-		vote1 := newValidatedPrecommit(round, height, nilValue, signer, self, cSize, lastHeader)
-		vote2 := newValidatedPrecommit(round, height, common.Hash{0x1}, signer, self, cSize, lastHeader)
+		vote1 := newValidatedPrecommit(round, height, nilValue, signer, self, cSize)
+		vote2 := newValidatedPrecommit(round, height, common.Hash{0x1}, signer, self, cSize)
 		var p Proof
 		p.Rule = autonity.Equivocation
 		p.OffenderIndex = proposerIdx
@@ -1422,37 +1417,19 @@ func makeSigner(key blst.SecretKey) message.Signer {
 }
 
 func newValidatedLightProposal(height uint64, r int64, vr int64, signer message.Signer, committee types.Committee,
-	lastHeader *types.Header, block *types.Block, idx int) *message.LightProposal { //nolint
+	block *types.Block, idx int) *message.LightProposal { //nolint
 	rawProposal := newValidatedProposalMessage(height, r, vr, signer, committee, block, idx)
-	if err := rawProposal.PreValidate(lastHeader); err != nil {
-		panic(err)
-	}
-	if err := rawProposal.Validate(); err != nil {
-		panic(err)
-	}
 	return rawProposal.ToLight()
 }
 
 func newValidatedPrecommit(r int64, height uint64, v common.Hash, signer message.Signer,
-	s *types.CommitteeMember, cSize int, lastHeader *types.Header) *message.Precommit {
+	s *types.CommitteeMember, cSize int) *message.Precommit {
 	preCommit := message.NewPrecommit(r, height, v, signer, s, cSize)
-	if err := preCommit.PreValidate(lastHeader); err != nil {
-		panic(err)
-	}
-	if err := preCommit.Validate(); err != nil {
-		panic(err)
-	}
 	return preCommit
 }
 
 func newValidatedPrevote(r int64, height uint64, v common.Hash, signer message.Signer,
-	s *types.CommitteeMember, cSize int, lastHeader *types.Header) *message.Prevote {
+	s *types.CommitteeMember, cSize int) *message.Prevote {
 	prevote := message.NewPrevote(r, height, v, signer, s, cSize)
-	if err := prevote.PreValidate(lastHeader); err != nil {
-		panic(err)
-	}
-	if err := prevote.Validate(); err != nil {
-		panic(err)
-	}
 	return prevote
 }
