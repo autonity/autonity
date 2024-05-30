@@ -107,6 +107,9 @@ func (d DiscReason) Error() string {
 	return d.String()
 }
 
+// Todo: (Jason) evaluate the size of this input error set, it might contains some none protocol errors, thus we
+//
+//	cannot suspend peer with such kind of errors.
 func discReasonForError(err error) DiscReason {
 	if reason, ok := err.(DiscReason); ok {
 		return reason
@@ -114,6 +117,7 @@ func discReasonForError(err error) DiscReason {
 	if err == errProtocolReturned {
 		return DiscQuitting
 	}
+
 	peerError, ok := err.(*peerError)
 	if ok {
 		switch peerError.code {

@@ -4,12 +4,17 @@ pragma solidity >=0.8.2 < 0.9.0;
  * @dev Interface of the Oracle Contract
  */
 interface IOracle {
-
+    /**
+    * @notice RoundData.success Indicates the success of the round data retrieval. If `true`, the round data for the
+    * requested symbol and round was successfully aggregated by the protocol. The caller should check the success code
+    * before using the returned round data. If `false`, the protocol could not provide data for the requested symbol
+    * and round, either because the symbol is invalid or because no data was collected for that round.
+    */
     struct RoundData {
         uint256 round;
         int256 price;
         uint timestamp;
-        uint status;
+        bool success;
     }
 
     /**

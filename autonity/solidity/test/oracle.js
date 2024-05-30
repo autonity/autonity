@@ -383,9 +383,9 @@ contract("Oracle", accounts => {
       // since we skipped round 3 - did not send commit and report both,
       // price will not be calculated in round 3 and 4 both
       let roundData = await oracle.getRoundData(3, "NTN-GBP");
-      assert(roundData.status != 0, "status should not be success");
+      assert(roundData.success===false, "price should not be valid");
       roundData = await oracle.getRoundData(4, "NTN-GBP");
-      assert(roundData.status != 0, "status should not be success");
+      assert(roundData.success===false, "price should not be valid");
     });
 
     it('Test vote - commit mismatch', async function () {
@@ -412,7 +412,7 @@ contract("Oracle", accounts => {
       let roundData = await oracle.latestRoundData("NTN-GBP");
       const roundID = roundData[0];
       const symIndex = getSymbolIndex("NTN-GBP");
-      assert(roundData.status != 0, "status should not be success");
+      assert(roundData.success===false, "price should not be valid");
       assert(+roundData[1] != +rounds[roundID-1].expPrice[symIndex], "price should not be as expected");
     });
 
