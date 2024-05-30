@@ -44,6 +44,10 @@ func TestBondingGasConsumption(t *testing.T) {
 	require.NoError(r.t, err)
 	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
 	require.NoError(r.t, err)
+	maxBondGas, _, err := r.autonity.MaxBondAppliedGas(nil)
+	require.NoError(r.t, err)
+	maxRewardsDistributionGas, _, err := r.autonity.MaxRewardsDistributionGas(nil)
+	require.NoError(r.t, err)
 	bondingAmount := big.NewInt(contractTotalAmount)
 	r.NoError(
 		r.autonity.Mint(operator, user, bondingAmount),
@@ -58,24 +62,18 @@ func TestBondingGasConsumption(t *testing.T) {
 	r.run("single bond", func(r *runner) {
 		bondingID := len(r.committee.validators) + 1
 		var iteration int64 = 10
-		bondingAmount := big.NewInt(contractTotalAmount / iteration)
+		bondingAmount = big.NewInt(contractTotalAmount / iteration)
 		for ; iteration > 0; iteration-- {
-			gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, liquidContract, bondingID, common.Big0, bondingAmount, bondingGas, false)
-			totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedBond)), stakingGas)
-			require.True(
-				r.t,
-				bondingGas.Cmp(totalGasUsed) >= 0,
-				"need more gas to notify bonding operations",
-			)
+			checkGasForBonding(r, []StakingRequest{{bondingAmount, common.Big0, validator, "", true}}, bondingID)
 			bondingID++
 		}
 	})
 
-	r.run("multiple bonding", func(r *runner) {
+	r.run("single bond after a successful bonding", func(r *runner) {
 		oldLiquidBalance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		bondingID := len(r.committee.validators) + 1
-		bondingAmount := big.NewInt(contractTotalAmount)
+		bondingAmount = big.NewInt(contractTotalAmount)
 		for i := 1; i < contractCount; i++ {
 			r.NoError(
 				r.stakableVesting.Bond(fromSender(user, bondingGas), big.NewInt(int64(i)), validator, bondingAmount),
@@ -92,25 +90,74 @@ func TestBondingGasConsumption(t *testing.T) {
 			require.NoError(r.t, err)
 			require.Equal(r.t, bondingAmount, liquidBalance)
 		}
-		gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, liquidContract, bondingID, common.Big0, bondingAmount, bondingGas, false)
-		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedBond)), stakingGas)
-		require.True(
-			r.t,
-			bondingGas.Cmp(totalGasUsed) >= 0,
-			"need more gas to notify bonding operations",
-		)
+		checkGasForBonding(r, []StakingRequest{{bondingAmount, common.Big0, validator, "", true}}, bondingID)
 	})
 
 	r.run("bonding rejected", func(r *runner) {
 		bondingID := len(r.committee.validators) + 1
-		bondingAmount := big.NewInt(contractTotalAmount)
-		gasUsedDistribute, gasUsedBond := bondAndApply(r, validator, user, liquidContract, bondingID, common.Big0, bondingAmount, bondingGas, true)
-		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedBond)), stakingGas)
+		bondingAmount = big.NewInt(contractTotalAmount)
+		gasUsedDistribute, gasUsedBond := bondAndApply(
+			r, user, []StakingRequest{{bondingAmount, common.Big0, validator, "", true}}, bondingID, bondingGas, true,
+		)
+		totalGasUsed := big.NewInt(int64(gasUsedDistribute + gasUsedBond[0]))
+		fmt.Printf("total gas used %v\n", totalGasUsed)
+		fmt.Printf("gas to notify bond %v\n", gasUsedBond[0])
+		fmt.Printf("gas to notify rewards distribution %v\n", gasUsedDistribute)
 		require.True(
 			r.t,
-			bondingGas.Cmp(totalGasUsed) >= 0,
+			bondingGas.Cmp(new(big.Int).Mul(totalGasUsed, stakingGas)) >= 0,
 			"need more gas to notify bonding operations",
 		)
+		require.True(
+			r.t,
+			maxBondGas.Cmp(big.NewInt(int64(gasUsedBond[0]))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		require.True(
+			r.t,
+			maxRewardsDistributionGas.Cmp(big.NewInt(int64(gasUsedDistribute))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+	})
+
+	for _, validator := range r.committee.validators {
+		r.NoError(
+			r.autonity.Mint(operator, user, bondingAmount),
+		)
+		r.NoError(
+			r.autonity.Bond(fromSender(user, nil), validator.NodeAddress, bondingAmount),
+		)
+	}
+	r.waitNextEpoch()
+
+	r.run("bond to multiple validators from single contract", func(r *runner) {
+		contractID := common.Big0
+		bondingAmount = new(big.Int).Div(big.NewInt(contractTotalAmount), big.NewInt(int64(len(r.committee.validators))))
+		require.Equal(r.t, new(big.Int).Mul(bondingAmount, big.NewInt(int64(len(r.committee.validators)))), big.NewInt(contractTotalAmount))
+		bondingID := len(r.committee.validators)*2 + 1
+		requests := make([]StakingRequest, 0)
+
+		for _, validator := range r.committee.validators {
+			requests = append(requests, StakingRequest{bondingAmount, contractID, validator.NodeAddress, "", true})
+		}
+
+		checkGasForBonding(r, requests, bondingID)
+
+	})
+
+	r.run("bond to multiple validators from multiple contract", func(r *runner) {
+		bondingAmount = new(big.Int).Div(big.NewInt(contractTotalAmount), big.NewInt(int64(len(r.committee.validators))))
+		require.Equal(r.t, new(big.Int).Mul(bondingAmount, big.NewInt(int64(len(r.committee.validators)))), big.NewInt(contractTotalAmount))
+		bondingID := len(r.committee.validators)*2 + 1
+		requests := make([]StakingRequest, 0)
+
+		for i := 0; i < contractCount; i++ {
+			for _, validator := range r.committee.validators {
+				requests = append(requests, StakingRequest{bondingAmount, big.NewInt(int64(i)), validator.NodeAddress, "", true})
+			}
+		}
+
+		checkGasForBonding(r, requests, bondingID)
 	})
 }
 
@@ -125,12 +172,7 @@ func TestUnbondingGasConsumption(t *testing.T) {
 		createContract(r, user, contractTotalAmount, start, cliff, end)
 	}
 	validator := r.committee.validators[0].NodeAddress
-	liquidContract := r.committee.liquidContracts[0]
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
-	require.NoError(r.t, err)
-	unbondingGas, _, err := r.stakableVesting.RequiredUnbondingGasCost(nil)
-	require.NoError(r.t, err)
-	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
 	require.NoError(r.t, err)
 	initBalance := new(big.Int).Mul(big.NewInt(1000_000), big.NewInt(1000_000_000_000_000_000))
 	r.giveMeSomeMoney(user, initBalance)
@@ -148,31 +190,11 @@ func TestUnbondingGasConsumption(t *testing.T) {
 		unbondingAmount := big.NewInt(contractTotalAmount / iteration)
 		unbondingID := 0
 		for ; iteration > 0; iteration-- {
-			gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, liquidContract, unbondingID, common.Big0, unbondingAmount, unbondingGas, false)
-			totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedUnbond+gasUsedRelease)), stakingGas)
-			fmt.Printf("total gas used %v\n", totalGasUsed)
-			fmt.Printf("total gas set %v\n", unbondingGas)
-			require.True(
-				r.t,
-				unbondingGas.Cmp(totalGasUsed) >= 0,
-				"need more gas to notify unbonding operations",
+			checkGasForUnbonding(
+				r, []StakingRequest{{unbondingAmount, common.Big0, validator, "", false}}, unbondingID,
 			)
 			unbondingID++
 		}
-	})
-
-	r.run("unbond rejected", func(r *runner) {
-		unbondingID := 0
-		unbondingAmount := big.NewInt(contractTotalAmount)
-		gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(r, validator, user, liquidContract, unbondingID, common.Big0, unbondingAmount, unbondingGas, true)
-		totalGasUsed := new(big.Int).Mul(big.NewInt(int64(gasUsedDistribute+gasUsedUnbond+gasUsedRelease)), stakingGas)
-		fmt.Printf("total gas used %v\n", totalGasUsed)
-		fmt.Printf("total gas set %v\n", unbondingGas)
-		require.True(
-			r.t,
-			unbondingGas.Cmp(totalGasUsed) >= 0,
-			"need more gas to notify unbonding operations",
-		)
 	})
 }
 
@@ -385,7 +407,11 @@ func TestBonding(t *testing.T) {
 		require.Equal(r.t, new(big.Int).Add(balance, unlocked), newBalance, "balance not updated")
 	})
 
-	r.run("test release when bonding to multiple validator", func(r *runner) {
+	r.run("can release LNTN", func(r *runner) {
+		// TODO (tariq): complete
+	})
+
+	r.run("can release LNTN from any validator", func(r *runner) {
 		// TODO (tariq): complete
 	})
 }
@@ -1274,88 +1300,404 @@ func fromSender(sender common.Address, value *big.Int) *runOptions {
 	return &runOptions{origin: sender, value: value}
 }
 
-func bondAndApply(
-	r *runner, validatorAddress, user common.Address, liquidContract *Liquid, bondingID int, contractID, bondingAmount, bondingGas *big.Int, rejected bool,
-) (uint64, uint64) {
-
-	liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
+func checkGasForUnbonding(r *runner, requests []StakingRequest, unbondingID int) {
+	unbondingGas, _, err := r.stakableVesting.RequiredUnbondingGasCost(nil)
 	require.NoError(r.t, err)
-	r.NoError(
-		r.stakableVesting.Bond(fromSender(user, bondingGas), contractID, validatorAddress, bondingAmount),
+	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
+	require.NoError(r.t, err)
+	maxUnbondGas, _, err := r.autonity.MaxUnbondAppliedGas(nil)
+	require.NoError(r.t, err)
+	maxUnbondReleaseGas, _, err := r.autonity.MaxUnbondReleasedGas(nil)
+	require.NoError(r.t, err)
+	maxRewardsDistributionGas, _, err := r.autonity.MaxRewardsDistributionGas(nil)
+	require.NoError(r.t, err)
+	gasUsedDistribute, gasUsedUnbond, gasUsedRelease := unbondAndApply(
+		r, user, requests, unbondingID, unbondingGas, true,
 	)
 
-	r.giveMeSomeMoney(r.autonity.address, reward)
-	r.NoError(
-		liquidContract.Redistribute(fromSender(r.autonity.address, reward), common.Big0),
+	require.Equal(r.t, len(requests), len(gasUsedUnbond))
+	require.Equal(r.t, len(requests), len(gasUsedRelease))
+
+	totalGasUsed := big.NewInt(int64(gasUsedDistribute))
+	avgGasUsedDistribute := gasUsedDistribute / uint64(len(requests))
+	for i, gasUsed := range gasUsedUnbond {
+		gasUsedForRelease := gasUsedRelease[i]
+		fmt.Printf("gas to notify unbond %v\n", gasUsed)
+		fmt.Printf("gas to notify unbond release %v\n", gasUsedForRelease)
+		fmt.Printf("gas to notify rewards distribution %v\n", avgGasUsedDistribute)
+		avgGasUsed := big.NewInt(int64(gasUsed + gasUsedForRelease + avgGasUsedDistribute))
+		require.True(
+			r.t,
+			unbondingGas.Cmp(new(big.Int).Mul(avgGasUsed, stakingGas)) >= 0,
+			"need more avg gas to notify unbonding",
+		)
+		require.True(
+			r.t,
+			maxUnbondGas.Cmp(big.NewInt(int64(gasUsed))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		require.True(
+			r.t,
+			maxUnbondReleaseGas.Cmp(big.NewInt(int64(gasUsedForRelease))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		require.True(
+			r.t,
+			maxRewardsDistributionGas.Cmp(big.NewInt(int64(avgGasUsedDistribute))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		totalGasUsed.Add(totalGasUsed, big.NewInt(int64(gasUsed)))
+		totalGasUsed.Add(totalGasUsed, big.NewInt(int64(gasUsedForRelease)))
+	}
+	fmt.Printf("total gas used %v\n", totalGasUsed)
+	require.True(
+		r.t,
+		new(big.Int).Mul(unbondingGas, big.NewInt(int64(len(requests)))).Cmp(new(big.Int).Mul(totalGasUsed, stakingGas)) >= 0,
+		"need more gas to notify bonding operations",
+	)
+	require.True(
+		r.t,
+		new(big.Int).Mul(maxRewardsDistributionGas, big.NewInt(int64(len(requests)))).Cmp(big.NewInt(int64(gasUsedDistribute))) >= 0,
+		"gas usage exceeds autonity allowed gas",
 	)
 
-	bondedValidators := make([]common.Address, 1)
-	bondedValidators[0] = validatorAddress
+	gasUsedDistribute, gasUsedUnbond, gasUsedRelease = unbondAndApply(
+		r, user, requests, unbondingID, unbondingGas, false,
+	)
+
+	require.Equal(r.t, len(requests), len(gasUsedUnbond))
+	require.Equal(r.t, len(requests), len(gasUsedRelease))
+
+	totalGasUsed = big.NewInt(int64(gasUsedDistribute))
+	avgGasUsedDistribute = gasUsedDistribute / uint64(len(requests))
+	for i, gasUsed := range gasUsedUnbond {
+		gasUsedForRelease := gasUsedRelease[i]
+		fmt.Printf("gas to notify unbond %v\n", gasUsed)
+		fmt.Printf("gas to notify unbond release %v\n", gasUsedForRelease)
+		fmt.Printf("gas to notify rewards distribution %v\n", avgGasUsedDistribute)
+		avgGasUsed := big.NewInt(int64(gasUsed + gasUsedForRelease + avgGasUsedDistribute))
+		require.True(
+			r.t,
+			unbondingGas.Cmp(new(big.Int).Mul(avgGasUsed, stakingGas)) >= 0,
+			"need more avg gas to notify unbonding",
+		)
+		require.True(
+			r.t,
+			maxUnbondGas.Cmp(big.NewInt(int64(gasUsed))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		require.True(
+			r.t,
+			maxUnbondReleaseGas.Cmp(big.NewInt(int64(gasUsedForRelease))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		require.True(
+			r.t,
+			maxRewardsDistributionGas.Cmp(big.NewInt(int64(avgGasUsedDistribute))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		totalGasUsed.Add(totalGasUsed, big.NewInt(int64(gasUsed)))
+		totalGasUsed.Add(totalGasUsed, big.NewInt(int64(gasUsedForRelease)))
+	}
+	fmt.Printf("total gas used %v\n", totalGasUsed)
+	require.True(
+		r.t,
+		new(big.Int).Mul(unbondingGas, big.NewInt(int64(len(requests)))).Cmp(new(big.Int).Mul(totalGasUsed, stakingGas)) >= 0,
+		"need more gas to notify bonding operations",
+	)
+	require.True(
+		r.t,
+		new(big.Int).Mul(maxRewardsDistributionGas, big.NewInt(int64(len(requests)))).Cmp(big.NewInt(int64(gasUsedDistribute))) >= 0,
+		"gas usage exceeds autonity allowed gas",
+	)
+}
+
+func checkGasForBonding(r *runner, requests []StakingRequest, bondingID int) {
+	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
+	require.NoError(r.t, err)
+	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
+	require.NoError(r.t, err)
+	maxBondGas, _, err := r.autonity.MaxBondAppliedGas(nil)
+	require.NoError(r.t, err)
+	maxRewardsDistributionGas, _, err := r.autonity.MaxRewardsDistributionGas(nil)
+	require.NoError(r.t, err)
+	gasUsedDistribute, gasUsedBond := bondAndApply(
+		r, user, requests, bondingID, bondingGas, true,
+	)
+	require.Equal(r.t, len(requests), len(gasUsedBond))
+
+	totalGasUsed := big.NewInt(int64(gasUsedDistribute))
+	avgGasUsedDistribute := gasUsedDistribute / uint64(len(requests))
+	for _, gasUsed := range gasUsedBond {
+		fmt.Printf("gas to notify bond %v\n", gasUsed)
+		fmt.Printf("gas to notify rewards distribution %v\n", avgGasUsedDistribute)
+		avgGasUsed := big.NewInt(int64(gasUsed + avgGasUsedDistribute))
+		require.True(
+			r.t,
+			bondingGas.Cmp(new(big.Int).Mul(avgGasUsed, stakingGas)) >= 0,
+			"need more avg gas to notify bonding",
+		)
+		require.True(
+			r.t,
+			maxBondGas.Cmp(big.NewInt(int64(gasUsed))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		require.True(
+			r.t,
+			maxRewardsDistributionGas.Cmp(big.NewInt(int64(avgGasUsedDistribute))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		totalGasUsed.Add(totalGasUsed, big.NewInt(int64(gasUsed)))
+	}
+	fmt.Printf("total gas used %v\n", totalGasUsed)
+	require.True(
+		r.t,
+		new(big.Int).Mul(bondingGas, big.NewInt(int64(len(requests)))).Cmp(new(big.Int).Mul(totalGasUsed, stakingGas)) >= 0,
+		"need more gas to notify bonding operations",
+	)
+	require.True(
+		r.t,
+		new(big.Int).Mul(maxRewardsDistributionGas, big.NewInt(int64(len(requests)))).Cmp(big.NewInt(int64(gasUsedDistribute))) >= 0,
+		"gas usage exceeds autonity allowed gas",
+	)
+
+	gasUsedDistribute, gasUsedBond = bondAndApply(
+		r, user, requests, bondingID, bondingGas, false,
+	)
+	require.Equal(r.t, len(requests), len(gasUsedBond))
+
+	totalGasUsed = big.NewInt(int64(gasUsedDistribute))
+	avgGasUsedDistribute = gasUsedDistribute / uint64(len(requests))
+	for _, gasUsed := range gasUsedBond {
+		fmt.Printf("gas to notify bond %v\n", gasUsed)
+		fmt.Printf("gas to notify rewards distribution %v\n", avgGasUsedDistribute)
+		avgGasUsed := big.NewInt(int64(gasUsed + avgGasUsedDistribute))
+		require.True(
+			r.t,
+			bondingGas.Cmp(new(big.Int).Mul(avgGasUsed, stakingGas)) >= 0,
+			"need more avg gas to notify bonding",
+		)
+		require.True(
+			r.t,
+			maxBondGas.Cmp(big.NewInt(int64(gasUsed))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		require.True(
+			r.t,
+			maxRewardsDistributionGas.Cmp(big.NewInt(int64(avgGasUsedDistribute))) >= 0,
+			"gas usage exceeds autonity allowed gas",
+		)
+		totalGasUsed.Add(totalGasUsed, big.NewInt(int64(gasUsed)))
+	}
+	fmt.Printf("total gas used %v\n", totalGasUsed)
+	require.True(
+		r.t,
+		new(big.Int).Mul(bondingGas, big.NewInt(int64(len(requests)))).Cmp(new(big.Int).Mul(totalGasUsed, stakingGas)) >= 0,
+		"need more gas to notify bonding operations",
+	)
+	require.True(
+		r.t,
+		new(big.Int).Mul(maxRewardsDistributionGas, big.NewInt(int64(len(requests)))).Cmp(big.NewInt(int64(gasUsedDistribute))) >= 0,
+		"gas usage exceeds autonity allowed gas",
+	)
+}
+
+func bondAndApply(
+	r *runner, user common.Address, bondingRequests []StakingRequest, bondingID int, bondingGas *big.Int, rejected bool,
+) (uint64, []uint64) {
+
+	liquidContracts := make(map[common.Address]*Liquid)
+
+	for i, validator := range r.committee.validators {
+		for _, request := range bondingRequests {
+			if request.validator == validator.NodeAddress {
+				liquidContracts[request.validator] = r.committee.liquidContracts[i]
+				break
+			}
+		}
+	}
+
+	liquid := make(map[int64]map[common.Address]*big.Int)
+	for _, request := range bondingRequests {
+		liquid[request.contractID.Int64()] = make(map[common.Address]*big.Int)
+	}
+	validatorExist := make(map[common.Address]bool)
+
+	for _, request := range bondingRequests {
+		validator := request.validator
+		id := request.contractID.Int64()
+		balance, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		liquid[id][validator] = balance
+		r.NoError(
+			r.stakableVesting.Bond(fromSender(user, bondingGas), request.contractID, validator, request.amount),
+		)
+		validatorExist[validator] = true
+	}
+
+	bondedValidators := make([]common.Address, 0)
+	for key := range validatorExist {
+		liquidContract := liquidContracts[key]
+		bondedValidators = append(bondedValidators, key)
+		r.giveMeSomeMoney(r.autonity.address, reward)
+		r.autonity.Mint(operator, liquidContract.address, reward)
+		r.NoError(
+			liquidContract.Redistribute(fromSender(r.autonity.address, reward), reward),
+		)
+	}
+
 	gasUsedDistribute := r.NoError(
 		r.stakableVesting.RewardsDistributed(fromAutonity, bondedValidators),
 	)
 
 	if rejected == false {
-		r.NoError(
-			liquidContract.Mint(fromAutonity, r.stakableVesting.address, bondingAmount),
-		)
-		liquid = liquid.Add(liquid, bondingAmount)
+		for _, request := range bondingRequests {
+			validator := request.validator
+			id := request.contractID.Int64()
+			liquidContract := liquidContracts[validator]
+			r.NoError(
+				liquidContract.Mint(fromAutonity, r.stakableVesting.address, request.amount),
+			)
+			liquid[id][validator].Add(liquid[id][validator], request.amount)
+		}
 	}
 
-	gasUsedBond := r.NoError(
-		r.stakableVesting.BondingApplied(
-			fromAutonity, big.NewInt(int64(bondingID)), validatorAddress, bondingAmount, false, rejected,
-		),
-	)
+	gasUsedBond := make([]uint64, 0)
+	for i, request := range bondingRequests {
+		validator := request.validator
+		id := request.contractID.Int64()
+		curBondingID := new(big.Int).Add(big.NewInt(int64(bondingID)), big.NewInt(int64(i)))
+		gasUsed := r.NoError(
+			r.stakableVesting.BondingApplied(
+				fromAutonity, curBondingID, validator, request.amount, false, rejected,
+			),
+		)
+		newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		require.Equal(r.t, liquid[id][validator], newLiquid)
+		gasUsedBond = append(gasUsedBond, gasUsed)
+	}
 
-	newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
-	require.NoError(r.t, err)
-	require.Equal(r.t, liquid, newLiquid)
+	// for _, request := range bondingRequests {
+	// 	validator := request.validator
+	// 	id := request.contractID.Int64()
+	// 	newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+	// 	require.NoError(r.t, err)
+	// 	require.Equal(r.t, liquid[id][validator], newLiquid)
+	// }
 	return gasUsedDistribute, gasUsedBond
 }
 
 func unbondAndApply(
-	r *runner, validatorAddress, user common.Address, liquidContract *Liquid, unbondingID int, contractID, unbondingAmount, unbondingGas *big.Int, rejected bool,
-) (uint64, uint64, uint64) {
+	r *runner, user common.Address, unbondingRequests []StakingRequest, unbondingID int, unbondingGas *big.Int, rejected bool,
+) (uint64, []uint64, []uint64) {
 
-	liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
-	require.NoError(r.t, err)
-	r.NoError(
-		r.stakableVesting.Unbond(fromSender(user, unbondingGas), contractID, validatorAddress, unbondingAmount),
-	)
+	liquidContracts := make(map[common.Address]*Liquid)
 
-	r.giveMeSomeMoney(r.autonity.address, reward)
-	r.NoError(
-		liquidContract.Redistribute(fromSender(r.autonity.address, reward), common.Big0),
-	)
+	for i, validator := range r.committee.validators {
+		for _, request := range unbondingRequests {
+			if request.validator == validator.NodeAddress {
+				liquidContracts[request.validator] = r.committee.liquidContracts[i]
+				break
+			}
+		}
+	}
 
-	bondedValidators := make([]common.Address, 1)
-	bondedValidators[0] = validatorAddress
+	liquid := make(map[int64]map[common.Address]*big.Int)
+
+	for _, request := range unbondingRequests {
+		liquid[request.contractID.Int64()] = make(map[common.Address]*big.Int)
+	}
+
+	validatorExist := make(map[common.Address]bool)
+	for _, request := range unbondingRequests {
+		id := request.contractID.Int64()
+		validator := request.validator
+		balance, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		liquid[id][validator] = balance
+		r.NoError(
+			r.stakableVesting.Unbond(fromSender(user, unbondingGas), request.contractID, validator, request.amount),
+		)
+		validatorExist[validator] = true
+	}
+	// liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
+	// require.NoError(r.t, err)
+	// r.NoError(
+	// 	r.stakableVesting.Unbond(fromSender(user, unbondingGas), contractID, validatorAddress, unbondingAmount),
+	// )
+
+	bondedValidators := make([]common.Address, 0)
+	for key := range validatorExist {
+		liquidContract := liquidContracts[key]
+		r.giveMeSomeMoney(r.autonity.address, reward)
+		r.NoError(
+			r.autonity.Mint(operator, liquidContract.address, reward),
+		)
+		r.NoError(
+			liquidContract.Redistribute(fromSender(r.autonity.address, reward), reward),
+		)
+		bondedValidators = append(bondedValidators, key)
+	}
+
+	// bondedValidators[0] = validatorAddress
 	gasUsedDistribute := r.NoError(
 		r.stakableVesting.RewardsDistributed(fromAutonity, bondedValidators),
 	)
 
 	if rejected == false {
-		r.NoError(
-			liquidContract.Unlock(fromAutonity, r.stakableVesting.address, unbondingAmount),
-		)
-		r.NoError(
-			liquidContract.Burn(fromAutonity, r.stakableVesting.address, unbondingAmount),
-		)
-		liquid = liquid.Sub(liquid, unbondingAmount)
+		// r.NoError(
+		// 	liquidContract.Unlock(fromAutonity, r.stakableVesting.address, unbondingAmount),
+		// )
+		// r.NoError(
+		// 	liquidContract.Burn(fromAutonity, r.stakableVesting.address, unbondingAmount),
+		// )
+		// liquid = liquid.Sub(liquid, unbondingAmount)
+
+		for _, request := range unbondingRequests {
+			id := request.contractID.Int64()
+			validator := request.validator
+			liquidContract := liquidContracts[validator]
+			r.NoError(
+				liquidContract.Unlock(fromAutonity, r.stakableVesting.address, request.amount),
+			)
+			r.NoError(
+				liquidContract.Burn(fromAutonity, r.stakableVesting.address, request.amount),
+			)
+			liquid[id][validator].Sub(liquid[id][validator], request.amount)
+		}
 	}
 
-	gasUsedUnbond := r.NoError(
-		r.stakableVesting.UnbondingApplied(fromAutonity, big.NewInt(int64(unbondingID)), validatorAddress, rejected),
-	)
+	gasUsedUnbond := make([]uint64, 0)
+	for i, request := range unbondingRequests {
+		// gasUsedUnbond := r.NoError(
+		// 	r.stakableVesting.UnbondingApplied(fromAutonity, big.NewInt(int64(unbondingID)), validatorAddress, rejected),
+		// )
+		validator := request.validator
+		id := request.contractID.Int64()
+		curBondingID := new(big.Int).Add(big.NewInt(int64(unbondingID)), big.NewInt(int64(i)))
+		gasUsed := r.NoError(
+			r.stakableVesting.UnbondingApplied(fromAutonity, curBondingID, validator, rejected),
+		)
 
-	newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
-	require.NoError(r.t, err)
-	require.Equal(r.t, liquid, newLiquid)
+		newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		require.Equal(r.t, liquid[id][validator], newLiquid)
+		gasUsedUnbond = append(gasUsedUnbond, gasUsed)
+	}
 
-	gasUsedRelease := r.NoError(
-		r.stakableVesting.UnbondingReleased(fromAutonity, big.NewInt(int64(unbondingID)), unbondingAmount, rejected),
-	)
+	// newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
+	// require.NoError(r.t, err)
+	// require.Equal(r.t, liquid, newLiquid)
+
+	gasUsedRelease := make([]uint64, 0)
+	for i, request := range unbondingRequests {
+		curBondingID := new(big.Int).Add(big.NewInt(int64(unbondingID)), big.NewInt(int64(i)))
+		gasUsed := r.NoError(
+			r.stakableVesting.UnbondingReleased(fromAutonity, curBondingID, request.amount, rejected),
+		)
+		gasUsedRelease = append(gasUsedRelease, gasUsed)
+	}
 	return gasUsedDistribute, gasUsedUnbond, gasUsedRelease
 }
 

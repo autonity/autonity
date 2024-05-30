@@ -422,10 +422,10 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	require.NoError(t, err)
 	require.Equal(t, r.stakableVesting.address, params.StakableVestingContractAddress)
 	r.NoError(
-		r.autonity.Mint(operator, r.stakableVesting.address, params.DefaultStakableVestingGenesis.ReservedStake),
+		r.autonity.Mint(operator, r.stakableVesting.address, params.DefaultStakableVestingGenesis.TotalNominal),
 	)
 	r.NoError(
-		r.stakableVesting.SetReservedStake(operator, params.DefaultStakableVestingGenesis.ReservedStake),
+		r.stakableVesting.SetTotalNominal(operator, params.DefaultStakableVestingGenesis.TotalNominal),
 	)
 
 	//
@@ -439,7 +439,10 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	require.NoError(t, err)
 	require.Equal(t, r.nonStakableVesting.address, params.NonStakableVestingContractAddress)
 	r.NoError(
-		r.nonStakableVesting.SetVaultBalance(operator, params.DefaultNonStakableVestingGenesis.NonStakableVaultBalance),
+		r.nonStakableVesting.SetTotalNominal(operator, params.DefaultNonStakableVestingGenesis.TotalNominal),
+	)
+	r.NoError(
+		r.nonStakableVesting.SetMaxAllowedDuration(operator, params.DefaultNonStakableVestingGenesis.MaxAllowedDuration),
 	)
 
 	// set protocol contracts
