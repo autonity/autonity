@@ -27,8 +27,6 @@ contract ContractBase {
     Autonity internal autonity;
     address private operator;
 
-    uint256 private freeFunds;
-
     constructor(address payable _autonity, address _operator) {
         autonity = Autonity(_autonity);
         operator = _operator;
@@ -73,14 +71,14 @@ contract ContractBase {
         Contract storage _contract = contracts[_contractID];
         require(_time >= _contract.start + _contract.cliffDuration, "cliff period not reached yet");
 
-        uint256 _unlocked = _calculateUnlockedFunds(_contract.start, _contract.totalDuration, _time, _totalValue);
+        uint256 _unlocked = _calculateTotalUnlockedFunds(_contract.start, _contract.totalDuration, _time, _totalValue);
         if (_unlocked > _contract.withdrawnValue) {
             return _unlocked - _contract.withdrawnValue;
         }
         return 0;
     }
 
-    function _calculateUnlockedFunds(
+    function _calculateTotalUnlockedFunds(
         uint256 _start, uint256 _totalDuration, uint256 _time, uint256 _totalAmount
     ) internal pure returns (uint256) {
         if (_time >= _totalDuration + _start) {
@@ -113,13 +111,6 @@ contract ContractBase {
     function _getUniqueContractID(address _beneficiary, uint256 _id) internal view returns (uint256) {
         require(beneficiaryContracts[_beneficiary].length > _id, "invalid contract id");
         return beneficiaryContracts[_beneficiary][_id];
-    }
-
-    function _reduceFunds(uint256 _contractID, uint256 _unlockedFunds) internal {
-        Contract storage _contract = contracts[_contractID];
-        _contract.currentNTNAmount -= _unlockedFunds;
-        _contract.withdrawnValue += _unlockedFunds;
-        freeFunds += _unlockedFunds;
     }
 
     function _updateAndTransferNTN(uint256 _contractID, address _to, uint256 _amount) internal {

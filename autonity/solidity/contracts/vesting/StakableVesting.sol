@@ -15,11 +15,11 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
 
     /**
      * @notice stake reserved to create new contracts
-     * each time a new contract is creasted, reservedStake is decreased
-     * address(this) should have reservedStake amount of NTN availabe,
+     * each time a new contract is creasted, totalNominal is decreased
+     * address(this) should have totalNominal amount of NTN availabe,
      * otherwise withdrawing or bonding from a contract is not possible
      */
-    uint256 public reservedStake;
+    uint256 public totalNominal;
 
 
     struct PendingBondingRequest {
@@ -89,17 +89,11 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         uint256 _cliffDuration,
         uint256 _totalDuration
     ) virtual onlyOperator public {
-        require(reservedStake >= _amount, "not enough stake reserved to create a new contract");
+        require(_startTime + _cliffDuration > autonity.lastEpochTime(), "contract cliff duration is past");
+        require(totalNominal >= _amount, "not enough stake reserved to create a new contract");
 
-        uint256 _contractID = _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
-        reservedStake -= _amount;
-
-        if (autonity.lastEpochTime() >= _startTime + _cliffDuration) {
-            // we have created the contract, but it already have some funds uncloked and claimable
-            // we will keep those already unlocked funds to the vault instead, and beneficiary
-            // will get the funds that will be unlocked in future
-            _reduceFunds(_contractID, _unlockedFunds(_contractID));
-        }
+        _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
+        totalNominal -= _amount;
     }
 
 
@@ -203,13 +197,13 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice Set the value of reservedStake. Restricted to operator account
-     * In case reservedStake is increased, the increased amount should be minted
+     * @notice Set the value of totalNominal. Restricted to operator account
+     * In case totalNominal is increased, the increased amount should be minted
      * and transferred to the address of this contract, otherwise newly created vesting
      * contracts will not have funds to withdraw or bond. See newContract()
      */
-    function setReservedStake(uint256 _newReservedStake) virtual external onlyOperator {
-        reservedStake = _newReservedStake;
+    function setTotalNominal(uint256 _newTotalNominal) virtual external onlyOperator {
+        totalNominal = _newTotalNominal;
     }
 
     function setRequiredGasBond(uint256 _gas) external onlyOperator {

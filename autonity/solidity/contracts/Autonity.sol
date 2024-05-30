@@ -33,6 +33,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
+    // TODO (tariq): review the values [already tested from stakable-vesting-contract]
+    /**
+     * @notice max allowed gas for notifying delegator (contract) about staking operations
+     */
+    uint256 public maxBondAppliedGas = 50_000;
+    uint256 public maxUnbondAppliedGas = 50_000;
+    uint256 public maxUnbondReleasedGas = 50_000;
+    uint256 public maxRewardsDistributionGas = 10_000;
+
 
     struct Validator {
         // any change in Validator struct must be synced with offset constants in core/evm/contracts.go
@@ -477,6 +486,25 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
+     * @notice sets the value of max allowed gas for notifying delegator about staking operations
+     */
+    function setMaxBondAppliedGas(uint256 _gas) public onlyOperator {
+        maxBondAppliedGas = _gas;
+    }
+
+    function setMaxUnbondAppliedGas(uint256 _gas) public onlyOperator {
+        maxUnbondAppliedGas = _gas;
+    }
+
+    function setMaxUnbondReleasedGas(uint256 _gas) public onlyOperator {
+        maxUnbondReleasedGas = _gas;
+    }
+
+    function setMaxRewardsDistributionGas(uint256 _gas) public onlyOperator {
+        maxRewardsDistributionGas = _gas;
+    }
+
+    /**
      * @notice Set gas price for notification on staking operation
      */
     function setStakingGasPrice(uint256 _price) public virtual onlyOperator {
@@ -737,9 +765,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // all rewards belong to the Autonity Contract before redistribution.
             _mint(address(this), _inflationReward);
             inflationReserve -= _inflationReward;
-            // mint newly unlocked NTN from non-stakable vesting contract
-            uint256 _newUnlockedTokens = config.contracts.nonStakableVestingContract.unlockTokens();
-            _mint(address(config.contracts.nonStakableVestingContract), _newUnlockedTokens);
+            (uint256 _newUnlockedTokens, uint256 _newUnlockedUnsubscribed) = config.contracts.nonStakableVestingContract.unlockTokens();
+            // mint unsubsribed tokens to treasury account
+            _mint(config.policy.treasuryAccount, _newUnlockedUnsubscribed);
+            // and the rest to the vault of non-stakable vesting contract
+            _mint(address(config.contracts.nonStakableVestingContract), _newUnlockedTokens - _newUnlockedUnsubscribed);
             // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
             // end of epoch here
@@ -1248,9 +1278,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         if (!_isContract(_delegator)) {
             return;
         }
-        uint256 _gasLeft = gasLeft[_delegator];
+        uint256 _gasAllowed = gasLeft[_delegator];
+        if (_gasAllowed > maxBondAppliedGas) {
+            _gasAllowed = maxBondAppliedGas;
+        }
         uint256 _gasUsed = gasleft();
-        try IStakeProxy(_delegator).bondingApplied{gas: _gasLeft}(_id, _bonding.delegatee, _liquid, _selfDelegation, _rejected) {
+        try IStakeProxy(_delegator).bondingApplied{gas: _gasAllowed}(_id, _bonding.delegatee, _liquid, _selfDelegation, _rejected) {
             _gasUsed -= gasleft();
         } catch {
             _gasUsed -= gasleft();
@@ -1258,8 +1291,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 _revertBonding(_id);
             }
         }
-        if (_gasLeft > _gasUsed) {
-            gasLeft[_delegator] = _gasLeft - _gasUsed;
+        if (gasLeft[_delegator] > _gasUsed) {
+            gasLeft[_delegator] -= _gasUsed;
         }
         else {
             delete gasLeft[_delegator];
@@ -1360,9 +1393,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         if (!_isContract(_delegator)) {
             return;
         }
-        uint256 _gasLeft = gasLeft[_delegator];
+        uint256 _gasAllowed = gasLeft[_delegator];
+        if (_gasAllowed > maxUnbondReleasedGas) {
+            _gasAllowed = maxUnbondReleasedGas;
+        }
         uint256 _gasUsed = gasleft();
-        try IStakeProxy(_delegator).unbondingReleased{gas: _gasLeft}(_id, _amount, _rejected) {
+        try IStakeProxy(_delegator).unbondingReleased{gas: _gasAllowed}(_id, _amount, _rejected) {
             _gasUsed -= gasleft();
         } catch {
             // failed to notify
@@ -1372,8 +1408,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 _revertReleasedUnbonding(_id, _amount);
             }
         }
-        if (_gasLeft > _gasUsed) {
-            gasLeft[_delegator] = _gasLeft - _gasUsed;
+        if (gasLeft[_delegator] > _gasUsed) {
+            gasLeft[_delegator] -= _gasUsed;
         }
         else {
             delete gasLeft[_delegator];
@@ -1449,9 +1485,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         if (!_isContract(_delegator)) {
             return;
         }
-        uint256 _gasLeft = gasLeft[_delegator];
+        uint256 _gasAllowed = gasLeft[_delegator];
+        if (_gasAllowed > maxUnbondAppliedGas) {
+            _gasAllowed = maxUnbondAppliedGas;
+        }
         uint256 _gasUsed = gasleft();
-        try IStakeProxy(_delegator).unbondingApplied{gas: _gasLeft}(_id, _unbonding.delegatee, _rejected) {
+        try IStakeProxy(_delegator).unbondingApplied{gas: _gasAllowed}(_id, _unbonding.delegatee, _rejected) {
             _gasUsed -= gasleft();
         } catch {
             // failed to notify
@@ -1461,8 +1500,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 _revertAppliedUnbonding(_id);
             }
         }
-        if (_gasLeft > _gasUsed) {
-            gasLeft[_delegator] = _gasLeft - _gasUsed;
+        if (gasLeft[_delegator] > _gasUsed) {
+            gasLeft[_delegator] -= _gasUsed;
         }
         else {
             delete gasLeft[_delegator];
@@ -1623,16 +1662,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 delete isValidatorStaked[_contract][_validators[_validatorIdx]];
             }
             delete validatorsStaked[_contract];
-            uint256 _gasLeft = gasLeft[_contract];
+            uint256 _gasAllowed = gasLeft[_contract];
+            if (_gasAllowed > maxRewardsDistributionGas*_validators.length) {
+                _gasAllowed = maxRewardsDistributionGas*_validators.length;
+            }
             uint256 _gasUsed = gasleft();
-            try IStakeProxy(_contract).rewardsDistributed{gas: _gasLeft}(_validators) {
+            try IStakeProxy(_contract).rewardsDistributed{gas: _gasAllowed}(_validators) {
                 _gasUsed -= gasleft();
             } catch {
                 _gasUsed -= gasleft();
                 stakingReverted[_contract] = 1;
             }
-            if (_gasLeft > _gasUsed) {
-                gasLeft[_contract] = _gasLeft - _gasUsed;
+            if (gasLeft[_contract] > _gasUsed) {
+                gasLeft[_contract] -= _gasUsed;
             }
             else {
                 delete gasLeft[_contract];

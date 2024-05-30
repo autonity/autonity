@@ -7,13 +7,13 @@ import "./ContractBase.sol";
 contract NonStakableVesting is INonStakableVestingVault, ContractBase {
 
     /**
-     * @notice The balance of the vault to create new locked non-stakable contracts.
+     * @notice The total amount of funds to create new locked non-stakable schedules.
      * The balance is not immediately available at the vault.
      * Rather the unlocked amount of schedules is minted at epoch end.
-     * The balance tells us the max size of a newly created contract.
-     * See newContract()
+     * The balance tells us the max size of a newly created schedule.
+     * See createSchedule()
      */
-    uint256 public vaultBalance;
+    uint256 public totalNominal;
 
     /**
      * @notice The maximum duration of any schedule or contract
@@ -25,8 +25,9 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         uint256 cliffDuration;
         uint256 totalDuration;
         uint256 amount;
-        uint256 remaining;
+        uint256 unsubscribedAmount;
         uint256 totalUnlocked;
+        uint256 totalUnlockedUnsubscribed;
         uint256 lastUnlockTime;
     }
 
@@ -57,11 +58,11 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         uint256 _cliffDuration,
         uint256 _totalDuration
     ) virtual public onlyOperator {
-        require(vaultBalance >= _amount, "not enough vault balance to create a new schedule");
+        require(totalNominal >= _amount, "not enough funds to create a new schedule");
         require(maxAllowedDuration >= _totalDuration, "schedule total duration exceeds max allowed duration");
 
-        schedules.push(Schedule(_startTime, _cliffDuration, _totalDuration, _amount, _amount, 0, 0));
-        vaultBalance -= _amount;
+        schedules.push(Schedule(_startTime, _cliffDuration, _totalDuration, _amount, _amount, 0, 0, 0));
+        totalNominal -= _amount;
     }
 
     /**
@@ -78,28 +79,33 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         require(_scheduleID < schedules.length, "invalid schedule ID");
 
         Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.remaining >= _amount, "not enough balance remains to create a new contract under schedule");
+        require(_schedule.unsubscribedAmount >= _amount, "not enough funds to create a new contract under schedule");
 
         uint256 _contractID = _createContract(
             _beneficiary, _amount, _schedule.start, _schedule.cliffDuration, _schedule.totalDuration, false
         );
 
-        _schedule.remaining -= _amount;
+        _schedule.unsubscribedAmount -= _amount;
         subscribedTo[_contractID] = _scheduleID;
 
         if (_schedule.lastUnlockTime >= _schedule.start + _schedule.cliffDuration) {
-            // we have created the contract, but it already have some funds uncloked and claimable
-            // we will keep those already unlocked funds to the vault instead, and beneficiary
-            // will get the funds that will be unlocked in future
-            _reduceFunds(_contractID, _unlockedFunds(_contractID));
+            // We have created the contract, but it already have some funds uncloked and claimable
+            // those unlocked funds are unlocked from unsubscribed funds of the schedule total funds
+            // which have already been transferred to treasuryAccount.
+            // So the beneficiary will get the funds that will be unlocked in future
+            uint256 _unlockedFromUnsubscribed = _unlockedFunds(_contractID);
+            _schedule.totalUnlockedUnsubscribed -= _unlockedFromUnsubscribed;
+            Contract storage _contract = contracts[_contractID];
+            _contract.currentNTNAmount -= _unlockedFromUnsubscribed;
+            _contract.withdrawnValue += _unlockedFromUnsubscribed;
         }
     }
 
     /**
-     * @notice Sets the vault balance to create new contract
+     * @notice Sets the totalNominal to create new contract
      */
-    function setVaultBalance(uint256 _newBalance) virtual external onlyOperator {
-        vaultBalance = _newBalance;
+    function setTotalNominal(uint256 _totalNominal) virtual external onlyOperator {
+        totalNominal = _totalNominal;
     }
 
     /**
@@ -156,7 +162,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * Autonity must mint _totalNewUnlocked tokens, because this contract knows that for each _schedule,
      * _schedule.totalUnlocked tokens are now unlocked and available to release
      */
-    function unlockTokens() external onlyAutonity returns (uint256 _totalNewUnlocked) {
+    function unlockTokens() external onlyAutonity returns (uint256 _totalNewUnlocked, uint256 _newUnlockedUnsubscribed) {
         uint256 _currentTime = block.timestamp;
         for (uint256 i = 0; i < schedules.length; i++) {
             Schedule storage _schedule = schedules[i];
@@ -166,7 +172,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
             }
 
             _schedule.lastUnlockTime = _currentTime;
-            uint256 _unlocked = _calculateUnlockedFunds(_schedule.start, _schedule.totalDuration, _currentTime, _schedule.amount);
+            uint256 _unlocked = _calculateTotalUnlockedFunds(_schedule.start, _schedule.totalDuration, _currentTime, _schedule.amount);
             
             if (_unlocked < _schedule.totalUnlocked) {
                 // if this happens, then there is something wrong and it needs immediate attention
@@ -174,8 +180,16 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
             }
             _totalNewUnlocked += _unlocked - _schedule.totalUnlocked;
             _schedule.totalUnlocked = _unlocked;
+
+            _unlocked = _calculateTotalUnlockedFunds(_schedule.start, _schedule.totalDuration, _currentTime, _schedule.unsubscribedAmount);
+
+            if (_unlocked < _schedule.totalUnlockedUnsubscribed) {
+                // if this happens, then there is something wrong and it needs immediate attention
+                _unlocked = _schedule.totalUnlockedUnsubscribed;
+            }
+            _newUnlockedUnsubscribed += _unlocked - _schedule.totalUnlockedUnsubscribed;
+            _schedule.totalUnlockedUnsubscribed = _unlocked;
         }
-        return _totalNewUnlocked;
     }
 
     /**
