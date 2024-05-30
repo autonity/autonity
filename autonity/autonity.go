@@ -643,6 +643,10 @@ func (c *GenesisEVMContracts) SetVaultBalance(vaultBalance *big.Int) error {
 	return c.NonStakableVestingContract.SetVaultBalance(nil, c.statedb, vaultBalance)
 }
 
+func (c *GenesisEVMContracts) SetMaxAllowedDuration(maxAllowedDuration *big.Int) error {
+	return c.NonStakableVestingContract.SetMaxAllowedDuration(nil, c.statedb, maxAllowedDuration)
+}
+
 func (c *GenesisEVMContracts) CreateNonStakableSchedule(schedule params.NonStakableSchedule) error {
 	return c.NonStakableVestingContract.CreateSchedule(nil, c.statedb, schedule)
 }

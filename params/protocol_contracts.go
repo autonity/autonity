@@ -72,6 +72,7 @@ var (
 
 	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
 		NonStakableVaultBalance: new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
+		MaxAllowedDuration:      big.NewInt(3 * SecondsInYear),                           // 3 years
 	}
 
 	DefaultStakableVestingGenesis = &StakableVestingGenesis{
@@ -456,14 +457,16 @@ func (s *InflationControllerGenesis) SetDefaults() {
 
 type NonStakableVestingGenesis struct {
 	NonStakableVaultBalance *big.Int                 `json:"nonStakableVaultBalance"`
+	MaxAllowedDuration      *big.Int                 `json:"maxAllowedDuration"`
 	NonStakableSchedules    []NonStakableSchedule    `json:"nonStakableSchedules"`
 	NonStakableContracts    []NonStakableVestingData `json:"nonStakableVestingContracts"`
 }
 
 type NonStakableSchedule struct {
-	Start *big.Int `json:"startTime"`
-	Cliff *big.Int `json:"cliffTime"`
-	End   *big.Int `json:"endTime"`
+	Start         *big.Int `json:"startTime"`
+	CliffDuration *big.Int `json:"cliffTime"`
+	TotalDuration *big.Int `json:"totalDuration"`
+	Amount        *big.Int `json:"amount"`
 }
 
 type NonStakableVestingData struct {
@@ -484,11 +487,11 @@ type StakableVestingGenesis struct {
 }
 
 type StakableVestingData struct {
-	Beneficiary common.Address `json:"beneficiary"`
-	Amount      *big.Int       `json:"amount"`
-	Start       *big.Int       `json:"startTime"`
-	Cliff       *big.Int       `json:"cliffTime"`
-	End         *big.Int       `json:"endTime"`
+	Beneficiary   common.Address `json:"beneficiary"`
+	Amount        *big.Int       `json:"amount"`
+	Start         *big.Int       `json:"startTime"`
+	CliffDuration *big.Int       `json:"cliffDuration"`
+	TotalDuration *big.Int       `json:"totalDuration"`
 }
 
 func (s *StakableVestingGenesis) SetDefaults() {

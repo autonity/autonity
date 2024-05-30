@@ -160,6 +160,8 @@ func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *Gen
 	if config.StakableVestingConfig == nil {
 		log.Info("Config missing, using default parameters for the Stakable Vesting contract")
 		config.StakableVestingConfig = params.DefaultStakableVestingGenesis
+	} else {
+		config.StakableVestingConfig.SetDefaults()
 	}
 	if err := evmContracts.DeployStakableVestingContract(
 		generated.StakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
@@ -186,6 +188,8 @@ func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *
 	if config.NonStakableVestingConfig == nil {
 		log.Info("Config missing, using default parameters for the Non-Stakable Vesting contract")
 		config.NonStakableVestingConfig = params.DefaultNonStakableVestingGenesis
+	} else {
+		config.NonStakableVestingConfig.SetDefaults()
 	}
 	if err := evmContracts.DeployNonStakableVestingContract(
 		generated.NonStakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
@@ -196,6 +200,9 @@ func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *
 	log.Info("Deployed non-stakable vesting contract", "address", params.NonStakableVestingContractAddress)
 	if err := evmContracts.SetVaultBalance(config.NonStakableVestingConfig.NonStakableVaultBalance); err != nil {
 		return fmt.Errorf("error while seting vault balance in non-stakable vesting contract: %w", err)
+	}
+	if err := evmContracts.SetMaxAllowedDuration(config.NonStakableVestingConfig.MaxAllowedDuration); err != nil {
+		return fmt.Errorf("error while seting max allowed duration in non-stakable vesting contract: %w", err)
 	}
 	for _, schedule := range config.NonStakableVestingConfig.NonStakableSchedules {
 		if err := evmContracts.CreateNonStakableSchedule(schedule); err != nil {
@@ -463,8 +470,22 @@ func (c *NonStakableVestingContract) SetVaultBalance(header *types.Header, state
 	return nil
 }
 
+func (c *NonStakableVestingContract) SetMaxAllowedDuration(header *types.Header, statedb vm.StateDB, maxAllowedDuration *big.Int) error {
+	packedArgs, err := c.contractABI.Pack("setMaxAllowedDuration", maxAllowedDuration)
+	if err != nil {
+		return fmt.Errorf("error while generating call data for setMaxAllowedDuration: %w", err)
+	}
+
+	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	if err != nil {
+		return fmt.Errorf("error while calling setMaxAllowedDuration: %w", err)
+	}
+
+	return nil
+}
+
 func (c *NonStakableVestingContract) CreateSchedule(header *types.Header, statedb vm.StateDB, schedule params.NonStakableSchedule) error {
-	packedArgs, err := c.contractABI.Pack("createSchedule", schedule.Start, schedule.Cliff, schedule.End)
+	packedArgs, err := c.contractABI.Pack("createSchedule", schedule.Amount, schedule.Start, schedule.CliffDuration, schedule.TotalDuration)
 	if err != nil {
 		return fmt.Errorf("error while generating call data for createSchedule: %w", err)
 	}
@@ -506,7 +527,7 @@ func (c *StakableVestingContract) SetReservedStake(header *types.Header, statedb
 }
 
 func (c *StakableVestingContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.StakableVestingData) error {
-	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.Start, contract.Cliff, contract.End)
+	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.Start, contract.CliffDuration, contract.TotalDuration)
 	if err != nil {
 		return fmt.Errorf("error while generating call data for newContract: %w", err)
 	}
