@@ -241,4 +241,9 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     ) virtual external view returns (uint256) {
         return _unlockedFunds(_getUniqueContractID(_beneficiary, _id));
     }
+
+    function getSchedule(uint256 _id) external view returns (Schedule memory) {
+        require(schedules.length > _id, "schedule does not exist");
+        return schedules[_id];
+    }
 }
