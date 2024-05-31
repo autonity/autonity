@@ -171,10 +171,10 @@ func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *Gen
 	}
 	log.Info("Deployed stakable vesting contract", "address", params.StakableVestingContractAddress)
 	if err := evmContracts.Mint(params.StakableVestingContractAddress, config.StakableVestingConfig.TotalNominal); err != nil {
-		return fmt.Errorf("error while minting reserved stake to stakable vesting contract: %w", err)
+		return fmt.Errorf("error while minting total nominal to stakable vesting contract: %w", err)
 	}
 	if err := evmContracts.SetStakableTotalNominal(config.StakableVestingConfig.TotalNominal); err != nil {
-		return fmt.Errorf("error while setting reserved stake in stakable vesting contract: %w", err)
+		return fmt.Errorf("error while setting total nominal in stakable vesting contract: %w", err)
 	}
 	for _, vesting := range config.StakableVestingConfig.StakableContracts {
 		if err := evmContracts.NewStakableContract(vesting); err != nil {
@@ -199,7 +199,7 @@ func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *
 	}
 	log.Info("Deployed non-stakable vesting contract", "address", params.NonStakableVestingContractAddress)
 	if err := evmContracts.SetNonStakableTotalNominal(config.NonStakableVestingConfig.TotalNominal); err != nil {
-		return fmt.Errorf("error while seting vault balance in non-stakable vesting contract: %w", err)
+		return fmt.Errorf("error while seting total nominal in non-stakable vesting contract: %w", err)
 	}
 	if err := evmContracts.SetMaxAllowedDuration(config.NonStakableVestingConfig.MaxAllowedDuration); err != nil {
 		return fmt.Errorf("error while seting max allowed duration in non-stakable vesting contract: %w", err)
