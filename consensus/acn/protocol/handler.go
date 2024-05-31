@@ -92,10 +92,12 @@ func Handle(backend Backend, peer *Peer) error {
 	for {
 		if err := handleMessage(backend, peer, errCh); err != nil {
 			peer.Log().Debug("Message handling failed in `acn`", "err", err)
+			err = newACNError(backend, err)
 			return err
 		}
 		select {
 		case err := <-errCh:
+			err = newACNError(backend, err)
 			peer.Log().Error("Message handling failed in aggregator or consensus core", "err", err)
 			return err
 		default:
