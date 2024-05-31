@@ -178,6 +178,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	for i := range liquidContracts {
 		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
 		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedATN.Bytes())
+		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedNTN.Bytes())
 	}
 
 	// wait for epoch
