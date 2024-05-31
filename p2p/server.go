@@ -1067,16 +1067,16 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	return nil
 }
 
-// TODO(lorenzo) can be removed once we implement it more cleanly in `processPeerSuspension`
-// right now the p2p server doesn't know about the epoch period, that is why this work around
-func (srv *Server) AddSuspension(id string, epochPeriod uint64) {
-	srv.suspended.add(id, srv.currentBlock.Load()+epochPeriod)
-}
-
 func (srv *Server) processPeerSuspension(pd peerDrop) {
-	reason := discReasonForError(pd.err)
-	if errors.Is(reason, DiscProtocolError) || reason == DiscSubprotocolError {
-		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoErrorSuspensionSpan)
+	var p2pError *peerError
+	var protoError *ProtocolError
+	if errors.As(pd.err, &protoError) {
+		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoError.Suspension())
+	} else if errors.As(pd.err, &p2pError) {
+		switch p2pError.code {
+		case errInvalidMsgCode, errInvalidMsg:
+			srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+p2pErrorSuspensionSpan)
+		}
 	}
 }
 
