@@ -26,7 +26,7 @@ const (
 	errInvalidMsg
 )
 
-const protoErrorSuspensionSpan = 60 // num of blocks peer can't connect
+const p2pErrorSuspensionSpan = 60 // num of blocks peer can't connect
 
 var errorToString = map[int]string{
 	errInvalidMsgCode: "invalid message code",
@@ -128,4 +128,15 @@ func discReasonForError(err error) DiscReason {
 		}
 	}
 	return DiscSubprotocolError
+}
+
+// ProtocolError defines the error occurred due to violation of protocol rules, namely ACN or ETH
+type ProtocolError struct {
+	Suspension func() uint64 // number of blocks for which peer is barred from making successful connection
+	Code       int
+	Message    string
+}
+
+func (pe *ProtocolError) Error() string {
+	return pe.Message
 }

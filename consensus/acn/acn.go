@@ -18,12 +18,10 @@ package acn
 
 import (
 	"context"
-	"errors"
 	"math"
 	"sync"
 
 	"github.com/autonity/autonity/consensus/acn/protocol"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/eth"
 
 	"github.com/autonity/autonity/common"
@@ -111,19 +109,7 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 	defer acn.peers.unregister(peer)
 
 	// read consensus msgs from wire and process them
-	err := handler(peer)
-
-	// TODO(lorenzo) implement more harsh exponential approach disconnection?
-	// Also we want to do it in a cleaner way  at p2p server level.
-	// However for now the p2p server is only aware of blocks, not epochs
-
-	// if the session terminated because the remote peer sent an invalid signature, suspend him for 1 epoch
-	if errors.Is(err, message.ErrBadSignature) {
-		epochPeriod := acn.chain.ProtocolContracts().Cache.EpochPeriod().Uint64()
-		acn.server.AddSuspension(peer.ID().String(), epochPeriod)
-	}
-
-	return err
+	return handler(peer)
 }
 
 func (acn *ACN) Stop() error {
