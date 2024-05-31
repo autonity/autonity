@@ -85,7 +85,6 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
             _beneficiary, _amount, _schedule.start, _schedule.cliffDuration, _schedule.totalDuration, false
         );
 
-        _schedule.unsubscribedAmount -= _amount;
         subscribedTo[_contractID] = _scheduleID;
 
         if (_schedule.lastUnlockTime >= _schedule.start + _schedule.cliffDuration) {
@@ -93,12 +92,22 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
             // those unlocked funds are unlocked from unsubscribed funds of the schedule total funds
             // which have already been transferred to treasuryAccount.
             // So the beneficiary will get the funds that will be unlocked in future
-            uint256 _unlockedFromUnsubscribed = _unlockedFunds(_contractID);
-            _schedule.totalUnlockedUnsubscribed -= _unlockedFromUnsubscribed;
+            
+            // calculate unlocked portion of the unsubscribeds funds from this contract
+            // it is the same as calling _unlockedFunds, but we calculate it this way
+            // to account for all the _schedule.totalUnlockedUnsubscribed funds
+            // otherwise there could be some _schedule.totalUnlockedUnsubscribed funds remaining
+            // due to integer division and precision loss
             Contract storage _contract = contracts[_contractID];
+            uint256 _unlockedFromUnsubscribed = (_contract.currentNTNAmount * _schedule.totalUnlockedUnsubscribed) / _schedule.unsubscribedAmount;
+            _schedule.totalUnlockedUnsubscribed -= _unlockedFromUnsubscribed;
+
+            // the following will prevent the beneficiary to claim _unlockedFromUnsubscribed amount
+            // but the contract will follow the same linear vesting function
             _contract.currentNTNAmount -= _unlockedFromUnsubscribed;
             _contract.withdrawnValue += _unlockedFromUnsubscribed;
         }
+        _schedule.unsubscribedAmount -= _amount;
     }
 
     /**
@@ -162,8 +171,9 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * Autonity must mint _totalNewUnlocked tokens, because this contract knows that for each _schedule,
      * _schedule.totalUnlocked tokens are now unlocked and available to release
      */
-    function unlockTokens() external onlyAutonity returns (uint256 _totalNewUnlocked, uint256 _newUnlockedUnsubscribed) {
+    function unlockTokens() external onlyAutonity returns (uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed) {
         uint256 _currentTime = block.timestamp;
+        uint256 _totalNewUnlocked;
         for (uint256 i = 0; i < schedules.length; i++) {
             Schedule storage _schedule = schedules[i];
             if (_schedule.cliffDuration + _schedule.start > _currentTime || _schedule.amount == _schedule.totalUnlocked) {
@@ -190,6 +200,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
             _newUnlockedUnsubscribed += _unlocked - _schedule.totalUnlockedUnsubscribed;
             _schedule.totalUnlockedUnsubscribed = _unlocked;
         }
+        _newUnlockedSubscribed = _totalNewUnlocked - _newUnlockedUnsubscribed;
     }
 
     /**

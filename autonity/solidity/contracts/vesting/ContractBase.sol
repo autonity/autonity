@@ -84,7 +84,7 @@ contract ContractBase {
         if (_time >= _totalDuration + _start) {
             return _totalAmount;
         }
-        return _totalAmount * (_time - _start) / _totalDuration;
+        return (_totalAmount * (_time - _start)) / _totalDuration;
     }
 
     function _changeContractBeneficiary(

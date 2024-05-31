@@ -206,6 +206,12 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         totalNominal = _newTotalNominal;
     }
 
+    /**
+     * @notice Update the required gas to get notified about staking operation
+     * NOTE: before updating, please check if the updated value works. It can be checked by updatting
+     * the hardcoded value of requiredGasBond and then compiling the contracts and running the tests
+     * in stakable_vesting_test.go
+     */
     function setRequiredGasBond(uint256 _gas) external onlyOperator {
         requiredGasBond = _gas;
     }

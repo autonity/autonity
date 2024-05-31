@@ -247,6 +247,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     event NewEpoch(uint256 epoch);
 
     /**
+     * @dev event to notify the failure in unlocking mechanism of the non-stakable schedules
+     */
+    event UnlockingScheduleFailed(uint256 epochTime);
+
+    /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
      * Note that `gasPrice` may be zero.
      */
@@ -487,6 +492,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     /**
      * @notice sets the value of max allowed gas for notifying delegator about staking operations
+     * NOTE: before updating, please check if the updated value works. It can be checked by updatting
+     * the hardcoded value of requiredGasBond and then compiling the contracts and running the tests
+     * in stakable_vesting_test.go
      */
     function setMaxBondAppliedGas(uint256 _gas) public onlyOperator {
         maxBondAppliedGas = _gas;
@@ -765,11 +773,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // all rewards belong to the Autonity Contract before redistribution.
             _mint(address(this), _inflationReward);
             inflationReserve -= _inflationReward;
-            (uint256 _newUnlockedTokens, uint256 _newUnlockedUnsubscribed) = config.contracts.nonStakableVestingContract.unlockTokens();
-            // mint unsubsribed tokens to treasury account
-            _mint(config.policy.treasuryAccount, _newUnlockedUnsubscribed);
-            // and the rest to the vault of non-stakable vesting contract
-            _mint(address(config.contracts.nonStakableVestingContract), _newUnlockedTokens - _newUnlockedUnsubscribed);
+            try config.contracts.nonStakableVestingContract.unlockTokens() returns (uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed) {
+                // mint unsubsribed tokens to treasury account
+                _mint(config.policy.treasuryAccount, _newUnlockedUnsubscribed);
+                // and the subsribed tokens to the vault of non-stakable vesting contract
+                _mint(address(config.contracts.nonStakableVestingContract), _newUnlockedSubscribed);
+            } catch {
+                // need immediate attention
+                emit UnlockingScheduleFailed(block.timestamp);
+            }
             // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
             // end of epoch here
