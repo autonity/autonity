@@ -198,7 +198,7 @@ func TestUnbondingGasConsumption(t *testing.T) {
 	})
 }
 
-func TestRelease(t *testing.T) {
+func TestReleaseFromStakableContract(t *testing.T) {
 	r := setup(t, nil)
 	var contractTotalAmount int64 = 1000
 	start := 100 + r.evm.Context.Time.Int64()
