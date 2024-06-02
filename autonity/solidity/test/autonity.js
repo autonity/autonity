@@ -196,7 +196,7 @@ contract('Autonity', function (accounts) {
       }
     */
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
 
     it('test get token name', async function () {
@@ -276,7 +276,7 @@ contract('Autonity', function (accounts) {
       // the test contract exposes the applyNewCommissionRates function
       let config = JSON.parse(JSON.stringify(autonityConfig));
       config.policy.unbondingPeriod = 0;
-      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, deployer, operator, false);
     });
 
     it("should revert with bad input", async () => {
@@ -353,7 +353,7 @@ contract('Autonity', function (accounts) {
        }
        */
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
 
     it('test set min base fee by operator', async function () {
@@ -503,7 +503,7 @@ contract('Autonity', function (accounts) {
   });
   describe('Test onlyAccountability and onlyProtocol', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
     //TODO(tariq) low priority change, leave for last
     // add test to check that:
@@ -513,7 +513,7 @@ contract('Autonity', function (accounts) {
 
   describe('Test cases for ERC-20 token management', function () {
     beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
     });
 
     it('test mint Newton by operator', async function () {
@@ -1251,7 +1251,8 @@ contract('Autonity', function (accounts) {
           const fee_factor_unit_recip = toBN(1000000000)
 
           let val0Liquid = await liquidContract.at(val0.liquidContract)
-          let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards(alice)
+          let data = await val0Liquid.unclaimedRewards(alice)
+          let unclaimedRewardsV0 = data._unclaimedATN
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
           assert.equal(unclaimedRewardsV0.toString(),delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toString())
           // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
@@ -1264,7 +1265,8 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV0.toString(),_unclaimedRewardsV0.toString())
           
           let val1Liquid = await liquidContract.at(val1.liquidContract)
-          let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards(bob)
+          data = await val1Liquid.unclaimedRewards(bob)
+          let unclaimedRewardsV1 = data._unclaimedATN
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
           assert.equal(unclaimedRewardsV1.toString(),delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toString())
           // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
@@ -1277,7 +1279,8 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV1.toString(),_unclaimedRewardsV1.toString())
 
           let val2Liquid = await liquidContract.at(val2.liquidContract)
-          let unclaimedRewardsV2 = await val2Liquid.unclaimedRewards(alice)
+          data = await val2Liquid.unclaimedRewards(alice)
+          let unclaimedRewardsV2 = data._unclaimedATN
           assert.equal(unclaimedRewardsV2.toString(),delegatorRewardV2.sub(commissionIncomeV2).toString())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV2)
           
@@ -1288,7 +1291,8 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV2.toString(),_unclaimedRewardsV2.toString())
           
           let val3Liquid = await liquidContract.at(val3.liquidContract)
-          let unclaimedRewardsV3 = await val3Liquid.unclaimedRewards(bob)
+          data = await val3Liquid.unclaimedRewards(bob)
+          let unclaimedRewardsV3 = data._unclaimedATN
           assert.equal(unclaimedRewardsV3.toString(),delegatorRewardV3.sub(commissionIncomeV3).toString())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV3)
           
@@ -1311,7 +1315,7 @@ contract('Autonity', function (accounts) {
           let customizedEpochPeriod = 20;
           copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
-          token = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator);
+          token = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator, false);
           assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
       });
       it('test epochid and lastEpochBlock', async function () {

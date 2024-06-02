@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -14,7 +15,10 @@ import (
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
+
+	_ "github.com/autonity/autonity/eth/tracers/native" //nolint
 )
 
 var (
@@ -61,9 +65,20 @@ type contract struct {
 }
 
 func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+	var tracer tracers.Tracer
+	if c.r.tracing {
+		tracer, _ = tracers.New("callTracer", new(tracers.Context))
+		c.r.evm.Config = vm.Config{Debug: true, Tracer: tracer}
+	}
 	input, err := c.abi.Pack(method, params...)
 	require.NoError(c.r.t, err)
 	out, consumed, err := c.r.call(opts, c.address, input)
+	if c.r.tracing {
+		traceResult, err := tracer.GetResult()
+		require.NoError(c.r.t, err)
+		pretty, _ := json.MarshalIndent(traceResult, "", "    ")
+		fmt.Println(string(pretty))
+	}
 	if err != nil {
 		reason, _ := abi.UnpackRevert(out)
 		return nil, 0, fmt.Errorf("%w: %s", err, reason)
@@ -73,10 +88,16 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, 
 	return res, consumed, nil
 }
 
+type Committee struct {
+	validators      []AutonityValidator
+	liquidContracts []*Liquid
+}
+
 type runner struct {
-	t      *testing.T
-	evm    *vm.EVM
-	origin common.Address // session's sender, can be overridden via runOptions
+	t       *testing.T
+	evm     *vm.EVM
+	origin  common.Address // session's sender, can be overridden via runOptions
+	tracing bool
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
@@ -88,8 +109,21 @@ type runner struct {
 	stabilization       *Stabilization
 	upgradeManager      *UpgradeManager
 	inflationController *InflationController
+	stakableVesting     *StakableVesting
+	nonStakableVesting  *NonStakableVesting
 
-	validators []AutonityValidator // genesis validators for easy access
+	committee Committee // genesis validators for easy access
+}
+
+func (r *runner) NoError(gasConsumed uint64, err error) uint64 {
+	require.NoError(r.t, err)
+	return gasConsumed
+}
+
+func (r *runner) liquidContract(v AutonityValidator) *Liquid {
+	abi, err := LiquidMetaData.GetAbi()
+	require.NoError(r.t, err)
+	return &Liquid{&contract{v.LiquidContract, abi, r}}
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -120,11 +154,19 @@ func (r *runner) run(name string, f func(r *runner)) {
 		t := r.t
 		r.t = t2
 		// in the future avoid mutating for supporting parallel testing
+		context := r.evm.Context
 		snap := r.snapshot()
+		committee := r.committee
 		f(r)
 		r.revertSnapshot(snap)
+		r.evm.Context = context
+		r.committee = committee
 		r.t = t
 	})
+}
+
+func (r *runner) giveMeSomeMoney(user common.Address, amount *big.Int) { //nolint
+	r.evm.StateDB.AddBalance(user, amount)
 }
 
 func (r *runner) getBalanceOf(account common.Address) *big.Int { //nolint
@@ -150,6 +192,8 @@ func (r *runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte,
 
 func (r *runner) waitNBlocks(n int) { //nolint
 	start := r.evm.Context.BlockNumber
+	epochID, _, err := r.autonity.EpochID(nil)
+	require.NoError(r.t, err)
 	for i := 0; i < n; i++ {
 		// Finalize is not the only block closing operation - fee redistribution is missing and prob
 		// other stuff. Left as todo.
@@ -158,6 +202,11 @@ func (r *runner) waitNBlocks(n int) { //nolint
 		require.NoError(r.t, err, "finalize function error in waitNblocks", i)
 		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
 		r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
+	}
+	newEpochID, _, err := r.autonity.EpochID(nil)
+	require.NoError(r.t, err)
+	if newEpochID.Cmp(epochID) != 0 {
+		r.generateNewCommittee()
 	}
 }
 
@@ -169,10 +218,41 @@ func (r *runner) waitNextEpoch() { //nolint
 	nextEpochBlock := new(big.Int).Add(epochPeriod, lastEpochBlock)
 	diff := new(big.Int).Sub(nextEpochBlock, r.evm.Context.BlockNumber)
 	r.waitNBlocks(int(diff.Uint64() + 1))
+	r.generateNewCommittee()
+}
+
+func (r *runner) generateNewCommittee() {
+	committeeMembers, _, err := r.autonity.GetCommittee(nil)
+	require.NoError(r.t, err)
+	r.committee.validators = make([]AutonityValidator, len(committeeMembers))
+	r.committee.liquidContracts = make([]*Liquid, len(committeeMembers))
+	for i, member := range committeeMembers {
+		validator, _, err := r.autonity.GetValidator(nil, member.Addr)
+		require.NoError(r.t, err)
+		r.committee.validators[i] = validator
+		r.committee.liquidContracts[i] = r.liquidContract(validator)
+	}
+}
+
+func (r *runner) waitSomeBlock(endTime int64) int64 { //nolint
+	// bcause we have 1 block/s
+	r.waitNBlocks(int(endTime) - int(r.evm.Context.Time.Int64()))
+	return r.evm.Context.Time.Int64()
+}
+
+func (r *runner) waitSomeEpoch(endTime int64) int64 {
+	currentTime := r.evm.Context.Time.Int64()
+	for currentTime < endTime {
+		r.waitNextEpoch()
+		currentTime = r.evm.Context.Time.Int64()
+	}
+	return currentTime
 }
 
 func (r *runner) sendAUT(sender, recipient common.Address, value *big.Int) { //nolint
-	//...
+	require.True(r.t, r.evm.StateDB.GetBalance(sender).Cmp(value) >= 0, "not enough balance to transfer")
+	r.evm.StateDB.SubBalance(sender, value)
+	r.evm.StateDB.AddBalance(recipient, value)
 }
 
 func initalizeEVM() (*vm.EVM, error) {
@@ -183,8 +263,13 @@ func initalizeEVM() (*vm.EVM, error) {
 		return nil, err
 	}
 	vmBlockContext := vm.BlockContext{
-		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
-		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
+		Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
+			db.SubBalance(sender, amount)
+			db.AddBalance(recipient, amount)
+		},
+		CanTransfer: func(db vm.StateDB, addr common.Address, amount *big.Int) bool {
+			return db.GetBalance(addr).Cmp(amount) >= 0
+		},
 		BlockNumber: common.Big0,
 		Time:        big.NewInt(time.Now().Unix()),
 	}
@@ -213,15 +298,22 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	//
 	// Step 1: Autonity Contract Deployment
 	//
-	r.validators = make([]AutonityValidator, 0, len(params.TestAutonityContractConfig.Validators))
+	r.committee.validators = make([]AutonityValidator, 0, len(params.TestAutonityContractConfig.Validators))
 	for _, v := range params.TestAutonityContractConfig.Validators {
-		r.validators = append(r.validators, genesisToAutonityVal(v))
+		validator := genesisToAutonityVal(v)
+		r.committee.validators = append(r.committee.validators, validator)
 	}
-	_, _, r.autonity, err = r.deployAutonity(nil, r.validators, defaultAutonityConfig)
+	_, _, r.autonity, err = r.deployAutonity(nil, r.committee.validators, defaultAutonityConfig)
 	require.NoError(t, err)
 	require.Equal(t, r.autonity.address, params.AutonityContractAddress)
 	_, err = r.autonity.FinalizeInitialization(nil)
 	require.NoError(t, err)
+	r.committee.liquidContracts = make([]*Liquid, 0, len(params.TestAutonityContractConfig.Validators))
+	for _, v := range params.TestAutonityContractConfig.Validators {
+		validator, _, err := r.autonity.GetValidator(nil, *v.NodeAddress)
+		require.NoError(r.t, err)
+		r.committee.liquidContracts = append(r.committee.liquidContracts, r.liquidContract(validator))
+	}
 	//
 	// Step 2: Accountability Contract Deployment
 	//
@@ -271,6 +363,7 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	//
 	// Step 5: Supply Control Deployment
 	//
+	r.evm.StateDB.AddBalance(common.Address{}, (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation))
 	_, _, r.supplyControl, err = r.deploySupplyControl(&runOptions{value: (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation)},
 		r.autonity.address,
 		defaultAutonityConfig.Protocol.OperatorAccount,
@@ -316,6 +409,67 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	}
 	_, _, r.inflationController, err = r.deployInflationController(nil, *p)
 	require.NoError(r.t, err)
+	require.Equal(t, r.inflationController.address, params.InflationControllerContractAddress)
+
+	//
+	// Step 9: Stakable Vesting contract deployment
+	//
+	_, _, r.stakableVesting, err = r.deployStakableVesting(
+		nil,
+		r.autonity.address,
+		defaultAutonityConfig.Protocol.OperatorAccount,
+	)
+	require.NoError(t, err)
+	require.Equal(t, r.stakableVesting.address, params.StakableVestingContractAddress)
+	r.NoError(
+		r.autonity.Mint(operator, r.stakableVesting.address, params.DefaultStakableVestingGenesis.TotalNominal),
+	)
+	r.NoError(
+		r.stakableVesting.SetTotalNominal(operator, params.DefaultStakableVestingGenesis.TotalNominal),
+	)
+
+	//
+	// Step 10: Non-Stakable Vesting contract deployment
+	//
+	_, _, r.nonStakableVesting, err = r.deployNonStakableVesting(
+		nil,
+		r.autonity.address,
+		defaultAutonityConfig.Protocol.OperatorAccount,
+	)
+	require.NoError(t, err)
+	require.Equal(t, r.nonStakableVesting.address, params.NonStakableVestingContractAddress)
+	r.NoError(
+		r.nonStakableVesting.SetTotalNominal(operator, params.DefaultNonStakableVestingGenesis.TotalNominal),
+	)
+	r.NoError(
+		r.nonStakableVesting.SetMaxAllowedDuration(operator, params.DefaultNonStakableVestingGenesis.MaxAllowedDuration),
+	)
+
+	// set protocol contracts
+	r.NoError(
+		r.autonity.SetAccountabilityContract(operator, r.accountability.address),
+	)
+	r.NoError(
+		r.autonity.SetAcuContract(operator, r.acu.address),
+	)
+	r.NoError(
+		r.autonity.SetInflationControllerContract(operator, r.inflationController.address),
+	)
+	r.NoError(
+		r.autonity.SetOracleContract(operator, r.oracle.address),
+	)
+	r.NoError(
+		r.autonity.SetStabilizationContract(operator, r.stabilization.address),
+	)
+	r.NoError(
+		r.autonity.SetSupplyControlContract(operator, r.supplyControl.address),
+	)
+	r.NoError(
+		r.autonity.SetUpgradeManagerContract(operator, r.upgradeManager.address),
+	)
+	r.NoError(
+		r.autonity.SetNonStakableVestingContract(operator, r.nonStakableVesting.address),
+	)
 
 	r.evm.Context.BlockNumber = common.Big1
 	r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
@@ -343,6 +497,6 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 		TotalSlashed:             v.TotalSlashed,
 		JailReleaseBlock:         v.JailReleaseBlock,
 		ProvableFaultCount:       v.ProvableFaultCount,
-		State:                    0,
+		State:                    *v.State,
 	}
 }
