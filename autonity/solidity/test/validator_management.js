@@ -36,7 +36,7 @@ contract('Autonity', function (accounts) {
         let consensusKey;
         let pop;
         beforeEach(async function () {
-            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator);
+            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
 
             const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test0.key`)
             const oracleKey = utils.randomPrivateKey();

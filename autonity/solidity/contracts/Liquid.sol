@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
+import "./interfaces/IStakeProxy.sol";
 import {DECIMALS} from "./Autonity.sol";
 
 // References:
@@ -107,7 +108,9 @@ contract Liquid is IERC20
         uint256 _ntnValidatorReward = (_ntnReward * commissionRate) / COMMISSION_RATE_PRECISION;
         require(_ntnValidatorReward <= _ntnReward, "invalid ntn validator reward");
         _ntnReward -= _ntnValidatorReward;
-        autonityContract.transfer(treasury,_ntnValidatorReward);
+        if (_ntnValidatorReward > 0) {
+            autonityContract.transfer(treasury, _ntnValidatorReward);
+        }
 
         // Step 2 : perform redistribution amongst liquid stake token
         // holders for this validator.
@@ -164,14 +167,21 @@ contract Liquid is IERC20
         delete atnRealisedFees[msg.sender];
         delete ntnRealisedFees[msg.sender];
 
-        // Send the AUT
-        //   solhint-disable-next-line avoid-low-level-calls
-        (bool sent, ) = msg.sender.call{value: _atnRealisedFees}("");
-        require(sent, "Failed to send ATN");
-
         // Send the NTN
-        sent = autonityContract.transfer(msg.sender,_ntnRealisedFees);
-        require(sent, "Failed to send NTN");
+        bool sent;
+        if (_ntnRealisedFees > 0) {
+            sent = autonityContract.transfer(msg.sender, _ntnRealisedFees);
+            require(sent, "Failed to send NTN");
+        }
+
+        // Send the AUT
+        if (_isContract(msg.sender)) {
+            IStakeProxy(msg.sender).receiveATN{value: _atnRealisedFees}();
+            return;
+        }
+        //   solhint-disable-next-line avoid-low-level-calls
+        (sent, ) = msg.sender.call{value: _atnRealisedFees}("");
+        require(sent, "Failed to send ATN");
     }
 
     /**
@@ -434,6 +444,14 @@ contract Liquid is IERC20
 
         allowances[_owner][_spender] = _amount;
         emit Approval(_owner, _spender, _amount);
+    }
+
+    function _isContract(address _to) private view returns (bool) {
+        uint size;
+        assembly {
+            size := extcodesize(_to)
+        }
+        return size > 0;
     }
 
 
