@@ -401,11 +401,11 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	// Step 8: Deploy Inflation Controller
 	//
 	p := &InflationControllerParams{
-		IInit:  (*big.Int)(params.DefaultInflationControllerGenesis.IInit),
-		ITrans: (*big.Int)(params.DefaultInflationControllerGenesis.ITrans),
-		AE:     (*big.Int)(params.DefaultInflationControllerGenesis.Ae),
-		T:      (*big.Int)(params.DefaultInflationControllerGenesis.T),
-		IPerm:  (*big.Int)(params.DefaultInflationControllerGenesis.IPerm),
+		InflationRateInitial:      (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateInitial),
+		InflationRateTransition:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateTransition),
+		InflationCurveConvexity:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationCurveConvexity),
+		InflationTransitionPeriod: (*big.Int)(params.DefaultInflationControllerGenesis.InflationTransitionPeriod),
+		InflationReserveDecayRate: (*big.Int)(params.DefaultInflationControllerGenesis.InflationReserveDecayRate),
 	}
 	_, _, r.inflationController, err = r.deployInflationController(nil, *p)
 	require.NoError(r.t, err)

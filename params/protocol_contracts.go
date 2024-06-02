@@ -53,11 +53,11 @@ var (
 	}
 
 	DefaultInflationControllerGenesis = &InflationControllerGenesis{
-		IInit:  (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(75), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 7.5% AR
-		ITrans: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 5.5% AR
-		IPerm:  (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.328% AR
-		T:      (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear), DecimalFactor)),
-		Ae:     (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_429), DecimalFactor), big.NewInt(1_000))), // -1.429
+		InflationRateInitial:      (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(75), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 7.5% AR
+		InflationRateTransition:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 5.5% AR
+		InflationReserveDecayRate: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.328% AR
+		InflationTransitionPeriod: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear), DecimalFactor)),
+		InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_429), DecimalFactor), big.NewInt(1_000))), // -1.429
 	}
 
 	DefaultAccountabilityConfig = &AccountabilityGenesis{
@@ -430,28 +430,28 @@ func (s *SupplyControlGenesis) SetDefaults() {
 
 type InflationControllerGenesis struct {
 	// Those parameters need to be compatible with the solidity SD59x18 format
-	IInit  *math.HexOrDecimal256 `json:"iInit"`
-	ITrans *math.HexOrDecimal256 `json:"iTrans"`
-	IPerm  *math.HexOrDecimal256 `json:"iPerm"`
-	T      *math.HexOrDecimal256 `json:"T"`
-	Ae     *math.HexOrDecimal256 `json:"ae"`
+	InflationRateInitial      *math.HexOrDecimal256 `json:"inflationRateInitial"`
+	InflationRateTransition   *math.HexOrDecimal256 `json:"inflationRateTransition"`
+	InflationReserveDecayRate *math.HexOrDecimal256 `json:"inflationReserveDecayRate"`
+	InflationTransitionPeriod *math.HexOrDecimal256 `json:"inflationTransitionPeriod"`
+	InflationCurveConvexity   *math.HexOrDecimal256 `json:"inflationCurveConvexity"`
 }
 
 func (s *InflationControllerGenesis) SetDefaults() {
-	if s.IInit == nil {
-		s.IInit = DefaultInflationControllerGenesis.IInit
+	if s.InflationRateInitial == nil {
+		s.InflationRateInitial = DefaultInflationControllerGenesis.InflationRateInitial
 	}
-	if s.ITrans == nil {
-		s.IInit = DefaultInflationControllerGenesis.ITrans
+	if s.InflationRateTransition == nil {
+		s.InflationRateTransition = DefaultInflationControllerGenesis.InflationRateTransition
 	}
-	if s.IPerm == nil {
-		s.IInit = DefaultInflationControllerGenesis.IPerm
+	if s.InflationReserveDecayRate == nil {
+		s.InflationReserveDecayRate = DefaultInflationControllerGenesis.InflationReserveDecayRate
 	}
-	if s.T == nil {
-		s.IInit = DefaultInflationControllerGenesis.T
+	if s.InflationTransitionPeriod == nil {
+		s.InflationTransitionPeriod = DefaultInflationControllerGenesis.InflationTransitionPeriod
 	}
-	if s.Ae == nil {
-		s.IInit = DefaultInflationControllerGenesis.Ae
+	if s.InflationCurveConvexity == nil {
+		s.InflationCurveConvexity = DefaultInflationControllerGenesis.InflationCurveConvexity
 	}
 }
 

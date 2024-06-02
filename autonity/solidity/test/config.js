@@ -64,11 +64,11 @@ const GENESIS_PRIVATE_KEYS = [
 ];
 
 const INFLATION_CONTROLLER_CONFIG = {
-    "iInit": "0x8dc0fa1e",
-    "iTrans": "0x67f3ea9f",
-    "aE": "0x13d4d3edc8088000",
-    "T": "0x685807f13a9c4278000000",
-    "iPerm": "0x147820d72",
+    "inflationRateInitial": "0x8dc0fa1e",
+    "inflationRateTransition": "0x67f3ea9f",
+    "inflationCurveConvexity": "0x13d4d3edc8088000",
+    "inflationTransitionPeriod": "0x685807f13a9c4278000000",
+    "inflationReserveDecayRate": "0x147820d72",
 }
 
 const STABILIZATION_CONFIG = {
