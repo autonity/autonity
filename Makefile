@@ -99,7 +99,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,vesting/,NonStakableVesting)
 	@$(call gen-contract,vesting/,StakableVesting)
 	# update 4byte selector for clef
-	build/generate_4bytedb.sh $(SOLC_BINARY)
+	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
 	# Generate go bindings
 	@echo Generating protocol contracts bindings

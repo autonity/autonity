@@ -142,11 +142,11 @@ func DeployInflationControllerContract(config *params.ChainConfig, evmContracts 
 		config.InflationContractConfig.SetDefaults()
 	}
 	param := InflationControllerParams{
-		IInit:  (*big.Int)(config.InflationContractConfig.IInit),
-		ITrans: (*big.Int)(config.InflationContractConfig.ITrans),
-		AE:     (*big.Int)(config.InflationContractConfig.Ae),
-		T:      (*big.Int)(config.InflationContractConfig.T),
-		IPerm:  (*big.Int)(config.InflationContractConfig.IPerm),
+		InflationRateInitial:      (*big.Int)(config.InflationContractConfig.InflationRateInitial),
+		InflationRateTransition:   (*big.Int)(config.InflationContractConfig.InflationRateTransition),
+		InflationCurveConvexity:   (*big.Int)(config.InflationContractConfig.InflationCurveConvexity),
+		InflationTransitionPeriod: (*big.Int)(config.InflationContractConfig.InflationTransitionPeriod),
+		InflationReserveDecayRate: (*big.Int)(config.InflationContractConfig.InflationReserveDecayRate),
 	}
 	if err := evmContracts.DeployInflationControllerContract(generated.InflationControllerBytecode, param); err != nil {
 		log.Error("DeployInflationControllerContract failed", "err", err)

@@ -19,23 +19,23 @@ var (
 
 // goParams mimics the Params struct in the Inflation Controller contract using go's big.Float
 type goParams struct {
-	iInit       *big.Float
-	iTrans      *big.Float
-	aE          *big.Float
-	t           *big.Float
-	iPerm       *big.Float
-	genesisTime *big.Int
+	rateInitial      *big.Float
+	rateTransition   *big.Float
+	curveComplexity  *big.Float
+	transitionPeriod *big.Float
+	decayRate        *big.Float
+	genesisTime      *big.Int
 }
 
 func newGoParams(p *InflationControllerParams, genesisTime *big.Int) goParams {
 	denomination := new(big.Float).SetPrec(GoFloatPrecision).SetInt(params.DecimalFactor)
 	return goParams{
-		iInit:       new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.IInit), denomination),
-		iTrans:      new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.ITrans), denomination),
-		aE:          new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.AE), denomination),
-		t:           new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.T), denomination),
-		iPerm:       new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.IPerm), denomination),
-		genesisTime: genesisTime,
+		rateInitial:      new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.InflationRateInitial), denomination),
+		rateTransition:   new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.InflationRateTransition), denomination),
+		curveComplexity:  new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.InflationCurveConvexity), denomination),
+		transitionPeriod: new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.InflationTransitionPeriod), denomination),
+		decayRate:        new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.InflationReserveDecayRate), denomination),
+		genesisTime:      genesisTime,
 	}
 }
 
@@ -44,13 +44,13 @@ func (p goParams) calculateSupplyDelta(currentSupply, inflationReserve, lastEpoc
 	t0 := new(big.Int).Sub(lastEpochTime, p.genesisTime)
 	t1 := new(big.Int).Sub(currentTime, p.genesisTime)
 
-	if new(big.Float).SetInt(t1).Cmp(p.t) <= 0 {
+	if new(big.Float).SetInt(t1).Cmp(p.transitionPeriod) <= 0 {
 		return p.calculateSupplyDeltaTrans(currentSupply, t0, t1)
 	}
 
 	// t1 > p.t from here
-	if new(big.Float).SetInt(t0).Cmp(p.t) < 0 {
-		pT, _ := p.t.Int(nil)
+	if new(big.Float).SetInt(t0).Cmp(p.transitionPeriod) < 0 {
+		pT, _ := p.transitionPeriod.Int(nil)
 		untilT := p.calculateSupplyDeltaTrans(currentSupply, t0, pT)
 		afterT := p.calculateSupplyDeltaPerm(inflationReserve, pT, t1)
 		return new(big.Int).Add(untilT, afterT)
@@ -100,18 +100,18 @@ func (p goParams) calculateSupplyDeltaTrans(currentSupply, lastEpochTime, curren
 	t0 := new(big.Float).SetPrec(GoFloatPrecision).SetInt(lastEpochTime)
 	t1 := new(big.Float).SetPrec(GoFloatPrecision).SetInt(currentTime)
 
-	lExp0 := new(big.Float).SetPrec(GoFloatPrecision).Mul(p.aE, t0)
-	lExp0.Quo(lExp0, p.t)
+	lExp0 := new(big.Float).SetPrec(GoFloatPrecision).Mul(p.curveComplexity, t0)
+	lExp0.Quo(lExp0, p.transitionPeriod)
 
-	lExp1 := new(big.Float).SetPrec(GoFloatPrecision).Mul(p.aE, t1)
-	lExp1.Quo(lExp1, p.t)
+	lExp1 := new(big.Float).SetPrec(GoFloatPrecision).Mul(p.curveComplexity, t1)
+	lExp1.Quo(lExp1, p.transitionPeriod)
 
 	deltaT := new(big.Float).SetPrec(GoFloatPrecision).Sub(t1, t0)
-	expTerm1 := new(big.Float).SetPrec(GoFloatPrecision).Mul(p.iInit, deltaT)
+	expTerm1 := new(big.Float).SetPrec(GoFloatPrecision).Mul(p.rateInitial, deltaT)
 
-	expTerm2 := new(big.Float).SetPrec(GoFloatPrecision).Sub(p.iInit, p.iTrans)
+	expTerm2 := new(big.Float).SetPrec(GoFloatPrecision).Sub(p.rateInitial, p.rateTransition)
 	expTerm2.Mul(expTerm2, deltaT)
-	aEExp := bigfloat.Exp(p.aE)
+	aEExp := bigfloat.Exp(p.curveComplexity)
 	temp3 := new(big.Float).SetPrec(GoFloatPrecision).Sub(aEExp, one)
 	expTerm2.Quo(expTerm2, temp3)
 
@@ -120,10 +120,10 @@ func (p goParams) calculateSupplyDeltaTrans(currentSupply, lastEpochTime, curren
 	temp4 := bigfloat.Exp(lExp1)
 	temp5 := bigfloat.Exp(lExp0)
 	temp4.Sub(temp4, temp5)
-	temp4.Mul(temp4, p.t)
-	temp6 := new(big.Float).SetPrec(GoFloatPrecision).Sub(p.iTrans, p.iInit)
+	temp4.Mul(temp4, p.transitionPeriod)
+	temp6 := new(big.Float).SetPrec(GoFloatPrecision).Sub(p.rateTransition, p.rateInitial)
 	temp4.Mul(temp4, temp6)
-	temp3.Mul(temp3, p.aE)
+	temp3.Mul(temp3, p.curveComplexity)
 	temp4.Quo(temp4, temp3)
 
 	expTerm1.Add(expTerm1, temp4)
@@ -141,7 +141,7 @@ func (p goParams) calculateSupplyDeltaPerm(inflationReserve, lastEpochTime, curr
 	deltaT := new(big.Float).SetPrec(GoFloatPrecision).SetInt(new(big.Int).Sub(currentTime, lastEpochTime))
 	factor := new(big.Float).SetPrec(GoFloatPrecision).SetInt(inflationReserve)
 	factor.Mul(factor, deltaT)
-	factor.Mul(factor, p.iPerm)
+	factor.Mul(factor, p.decayRate)
 	res, _ := factor.Int(nil)
 	return res
 }
@@ -155,11 +155,11 @@ func TestInflationContract(t *testing.T) {
 	r := setup(t, nil)
 	T := big.NewInt(10 * params.SecondsInYear)
 	p := &InflationControllerParams{
-		IInit:  (*big.Int)(params.DefaultInflationControllerGenesis.IInit),
-		ITrans: (*big.Int)(params.DefaultInflationControllerGenesis.ITrans),
-		AE:     (*big.Int)(params.DefaultInflationControllerGenesis.Ae),
-		T:      (*big.Int)(params.DefaultInflationControllerGenesis.T),
-		IPerm:  (*big.Int)(params.DefaultInflationControllerGenesis.IPerm),
+		InflationRateInitial:      (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateInitial),
+		InflationRateTransition:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateTransition),
+		InflationCurveConvexity:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationCurveConvexity),
+		InflationTransitionPeriod: (*big.Int)(params.DefaultInflationControllerGenesis.InflationTransitionPeriod),
+		InflationReserveDecayRate: (*big.Int)(params.DefaultInflationControllerGenesis.InflationReserveDecayRate),
 	}
 	inflationReserve := (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve)
 	genesisTime := r.evm.Context.Time

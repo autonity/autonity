@@ -4,16 +4,17 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
 )
 
-func TestReleaseFromNonStakableContract(t *testing.T) {
+func TestReleaseFromNonStakableContract(_ *testing.T) {
 	// TODO (tariq): complete
 }
 
-func TestNonStakableAccessRestriction(t *testing.T) {
+func TestNonStakableAccessRestriction(_ *testing.T) {
 	// TODO (tariq): complete
 }
 
