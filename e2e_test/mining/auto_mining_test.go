@@ -2,13 +2,39 @@ package mining
 
 import (
 	"context"
-	"github.com/autonity/autonity/common"
-	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	e2e "github.com/autonity/autonity/e2e_test"
 )
+
+func TestMiningStartAfterGenesisTime(t *testing.T) {
+	delay := 2 * 60
+	genesisStart := uint64(time.Now().Unix()) + uint64(delay)
+	validators, _ := e2e.Validators(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *core.Genesis) {
+		genesis.Timestamp = genesisStart
+	})
+	require.NoError(t, err)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	for range ticker.C {
+		if uint64(time.Now().Unix()) < genesisStart {
+			continue
+		}
+		if uint64(time.Now().Unix()) > genesisStart+1 {
+			if network[0].Eth.BlockChain().CurrentHeader().Number.Uint64() == 0 {
+				t.Error("Genesis launch failure")
+			}
+			break
+		}
+	}
+	ticker.Stop()
+}
 
 // TestMiningManagementOfValidators, shrink and extend the committee size, and check the mining state for validator and
 // non validator nodes.
