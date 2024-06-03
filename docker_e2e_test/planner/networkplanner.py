@@ -149,7 +149,7 @@ class NetworkPlanner(object):
                 },
             },
             "nonce": "0x0",
-            "timestamp": "0x0",
+            "timestamp": "0x66428631",
             "baseFee": "15000000000",
             "gasLimit": "10000000000",
             "difficulty": "0x0",
