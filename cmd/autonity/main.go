@@ -252,7 +252,33 @@ func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
 	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
-		log.Info("Starting Autonity on Piccadilly testnet")
+		log.Info(`Starting Autonity on Piccadilly Testnet
+
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα		
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+
+                        888                     d8b 888             
+                        888                     Y8P 888             
+                        888                         888             
+       8888b.  888  888 888888 .d88b.  88888b.  888 888888 888  888 
+          "88b 888  888 888   d88""88b 888 "88b 888 888    888  888 
+      .d888888 888  888 888   888  888 888  888 888 888    888  888 
+      888  888 Y88b 888 Y88b. Y88..88P 888  888 888 Y88b.  Y88b 888 
+      "Y888888  "Y88888  "Y888 "Y88P"  888  888 888  "Y888  "Y88888 
+                                                                888 
+                         autonity.org                      Y8b d88P 
+                                                            "Y88P"  
+
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+
+Take part in Piccadilly Circus Games Round 6! More infos @ https://game.autonity.org
+Discord:  https://discord.com/invite/autonity 
+Telegram: https://t.me/autonity
+X:        https://twitter.com/autonity_
+
+
+`)
 	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
 		log.Info("Starting Autonity on Bakerloo testnet")
 	case ctx.IsSet(utils.DeveloperFlag.Name):
