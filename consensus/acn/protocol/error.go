@@ -25,7 +25,7 @@ func newACNError(backend Backend, err error) *p2p.ProtocolError {
 	pError := &p2p.ProtocolError{Suspension: func() uint64 {
 		var suspension = uint64(acnErrorSuspensionSpan)
 		if errors.Is(err, message.ErrBadSignature) {
-			// TODO(lorenzo) implement more harsh exponential approach disconnection?
+			// TODO: implement more harsh exponential approach disconnection?
 			suspension = backend.Chain().ProtocolContracts().Cache.EpochPeriod().Uint64()
 		}
 		//Note: Can add more errors here for different suspension span
