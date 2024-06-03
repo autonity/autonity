@@ -17,12 +17,18 @@
 package core
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -30,7 +36,6 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/params"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestInvalidCliqueConfig(t *testing.T) {
@@ -252,4 +257,12 @@ func TestGenesis_InitialNewton_Bindings(t *testing.T) {
 		t.Fatal(err)
 	}
 
+}
+
+func TestDefaultPiccadillyGenesisBlock(t *testing.T) {
+	params.PiccadillyChainConfig.AutonityContractConfig.Prepare()
+	genesis := DefaultPiccadillyGenesisBlock()
+	b, err := json.MarshalIndent(genesis, "", "\t")
+	require.NoError(t, err)
+	fmt.Println(string(b))
 }
