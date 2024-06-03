@@ -135,6 +135,7 @@ class NetworkPlanner(object):
                     "unbondingPeriod": 120,
                     "epochPeriod": 30,
                     "treasuryFee": 150000000,
+                    "initialInflationReserve": "0x2116545850052128000000",
                     "validators": [],
                 },
                 "oracle": {"votePeriod": 10},
