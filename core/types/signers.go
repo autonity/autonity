@@ -295,7 +295,6 @@ func (s *Signers) increment(index int) {
 			}
 		}
 		// max allowed coefficient for a single validator is committeeSize
-		//TODO(lorenzo) write test that ends up here, to verify that this actually never happens when aggregating votes
 		if int(s.Coefficients[count]) >= s.committeeSize {
 			panic("Aggregate signature coefficients exceeds allowed boundaries")
 		}
