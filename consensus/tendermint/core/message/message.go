@@ -558,7 +558,6 @@ func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *typ
 func AggregatePrevotes(votes []Vote) *Prevote {
 	return AggregateVotes[Prevote](votes)
 }
-
 func AggregatePrecommits(votes []Vote) *Precommit {
 	return AggregateVotes[Precommit](votes)
 }
@@ -578,10 +577,9 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 	// signers of the aggregate
 	signers := types.NewSigners(representative.Signers().CommitteeSize())
 
-	// order votes by decreasing number of distinct signers.
-	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
+	// we want to privilege vote with higher voting power, since we are creating a complex aggregate carrying quorum
 	sort.Slice(votes, func(i, j int) bool {
-		return votes[i].Signers().Len() > votes[j].Signers().Len()
+		return votes[i].Signers().Power().Cmp(votes[j].Signers().Power()) > 0
 	})
 
 	// compute new aggregated signature and related signers information
