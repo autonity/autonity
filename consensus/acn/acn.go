@@ -24,7 +24,6 @@ import (
 	"github.com/autonity/autonity/consensus/acn/protocol"
 	"github.com/autonity/autonity/eth"
 
-	autonity "github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
@@ -82,8 +81,12 @@ func (acn *ACN) Protocols() []p2p.Protocol {
 	return protos
 }
 
-func (acn *ACN) FindPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
+func (acn *ACN) FindPeers(targets []common.Address) map[common.Address]consensus.Peer {
 	return acn.peers.find(targets)
+}
+
+func (acn *ACN) FindPeer(target common.Address) (consensus.Peer, bool) {
+	return acn.peers.peer(target)
 }
 
 // runConsensusPeer registers a `consensus` peer into the consensus peerset and
@@ -103,7 +106,9 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		peer.Log().Error("peer registration failed", "err", err)
 		return err
 	}
-	defer acn.peers.unregister(peer.ID())
+	defer acn.peers.unregister(peer)
+
+	// read consensus msgs from wire and process them
 	return handler(peer)
 }
 
@@ -128,7 +133,7 @@ func (acn *ACN) RunPeer(peer *protocol.Peer, hand protocol.HandlerFunc) error {
 
 // PeerInfo retrieves all known `acn` information about a peer.
 func (acn *ACN) PeerInfo(id enode.ID) interface{} {
-	if p := acn.peers.peer(id.String()); p != nil {
+	if p, ok := acn.peers.peerByID(id); ok {
 		return p.ConsensusPeerInfo()
 	}
 	return nil

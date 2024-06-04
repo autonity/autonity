@@ -19,6 +19,12 @@ import (
 )
 
 var (
+	DecimalPrecision = int64(18)
+	SecondsInYear    = int64(365 * 24 * 60 * 60)
+	SecondsInDay     = int64(24 * 60 * 60)
+	DecimalFactor    = new(big.Int).Exp(big.NewInt(10), big.NewInt(DecimalPrecision), nil)
+	NTNDecimalFactor = new(big.Int).SetUint64(Ether)
+
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
 	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USD", "NTN-USD", "NTN-ATN"}
@@ -47,6 +53,14 @@ var (
 		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), common.Big1)),
 	}
 
+	DefaultInflationControllerGenesis = &InflationControllerGenesis{
+		InflationRateInitial:      (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(75), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 7.5% AR
+		InflationRateTransition:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 5.5% AR
+		InflationReserveDecayRate: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.328% AR
+		InflationTransitionPeriod: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear), DecimalFactor)),
+		InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_900), DecimalFactor), big.NewInt(1_000))), // -1.429
+	}
+
 	DefaultAccountabilityConfig = &AccountabilityGenesis{
 		InnocenceProofSubmissionWindow: 100,
 		BaseSlashingRateLow:            1000, // 10%
@@ -57,29 +71,42 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
-	DeployerAddress               = common.Address{}
-	AutonityContractAddress       = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress         = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress            = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress  = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress  = crypto.CreateAddress(DeployerAddress, 5)
-	UpgradeManagerContractAddress = crypto.CreateAddress(DeployerAddress, 6)
+	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
+		TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
+		MaxAllowedDuration: big.NewInt(3 * SecondsInYear),                           // 3 years
+	}
+
+	DefaultStakableVestingGenesis = &StakableVestingGenesis{
+		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
+	}
+
+	DeployerAddress                    = common.Address{}
+	AutonityContractAddress            = crypto.CreateAddress(DeployerAddress, 0)
+	AccountabilityContractAddress      = crypto.CreateAddress(DeployerAddress, 1)
+	OracleContractAddress              = crypto.CreateAddress(DeployerAddress, 2)
+	ACUContractAddress                 = crypto.CreateAddress(DeployerAddress, 3)
+	SupplyControlContractAddress       = crypto.CreateAddress(DeployerAddress, 4)
+	StabilizationContractAddress       = crypto.CreateAddress(DeployerAddress, 5)
+	UpgradeManagerContractAddress      = crypto.CreateAddress(DeployerAddress, 6)
+	InflationControllerContractAddress = crypto.CreateAddress(DeployerAddress, 7)
+	StakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 8)
+	NonStakableVestingContractAddress  = crypto.CreateAddress(DeployerAddress, 9)
 )
 
 type AutonityContractGenesis struct {
-	Bytecode         hexutil.Bytes  `json:"bytecode,omitempty" toml:",omitempty"`
-	ABI              *abi.ABI       `json:"abi,omitempty" toml:",omitempty"`
-	MinBaseFee       uint64         `json:"minBaseFee"`
-	EpochPeriod      uint64         `json:"epochPeriod"`
-	UnbondingPeriod  uint64         `json:"unbondingPeriod"`
-	BlockPeriod      uint64         `json:"blockPeriod"`
-	MaxCommitteeSize uint64         `json:"maxCommitteeSize"`
-	Operator         common.Address `json:"operator"`
-	Treasury         common.Address `json:"treasury"`
-	TreasuryFee      uint64         `json:"treasuryFee"`
-	DelegationRate   uint64         `json:"delegationRate"`
-	Validators       []*Validator   `json:"validators"` // todo: Can we change that to []Validator
+	Bytecode                hexutil.Bytes         `json:"bytecode,omitempty" toml:",omitempty"`
+	ABI                     *abi.ABI              `json:"abi,omitempty" toml:",omitempty"`
+	MinBaseFee              uint64                `json:"minBaseFee"`
+	EpochPeriod             uint64                `json:"epochPeriod"`
+	UnbondingPeriod         uint64                `json:"unbondingPeriod"`
+	BlockPeriod             uint64                `json:"blockPeriod"`
+	MaxCommitteeSize        uint64                `json:"maxCommitteeSize"`
+	Operator                common.Address        `json:"operator"`
+	Treasury                common.Address        `json:"treasury"`
+	TreasuryFee             uint64                `json:"treasuryFee"`
+	DelegationRate          uint64                `json:"delegationRate"`
+	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
+	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 }
 
 type AccountabilityGenesis struct {
@@ -399,5 +426,80 @@ type SupplyControlGenesis struct {
 func (s *SupplyControlGenesis) SetDefaults() {
 	if s.InitialAllocation == nil {
 		s.InitialAllocation = DefaultSupplyControlGenesis.InitialAllocation
+	}
+}
+
+type InflationControllerGenesis struct {
+	// Those parameters need to be compatible with the solidity SD59x18 format
+	InflationRateInitial      *math.HexOrDecimal256 `json:"inflationRateInitial"`
+	InflationRateTransition   *math.HexOrDecimal256 `json:"inflationRateTransition"`
+	InflationReserveDecayRate *math.HexOrDecimal256 `json:"inflationReserveDecayRate"`
+	InflationTransitionPeriod *math.HexOrDecimal256 `json:"inflationTransitionPeriod"`
+	InflationCurveConvexity   *math.HexOrDecimal256 `json:"inflationCurveConvexity"`
+}
+
+func (s *InflationControllerGenesis) SetDefaults() {
+	if s.InflationRateInitial == nil {
+		s.InflationRateInitial = DefaultInflationControllerGenesis.InflationRateInitial
+	}
+	if s.InflationRateTransition == nil {
+		s.InflationRateTransition = DefaultInflationControllerGenesis.InflationRateTransition
+	}
+	if s.InflationReserveDecayRate == nil {
+		s.InflationReserveDecayRate = DefaultInflationControllerGenesis.InflationReserveDecayRate
+	}
+	if s.InflationTransitionPeriod == nil {
+		s.InflationTransitionPeriod = DefaultInflationControllerGenesis.InflationTransitionPeriod
+	}
+	if s.InflationCurveConvexity == nil {
+		s.InflationCurveConvexity = DefaultInflationControllerGenesis.InflationCurveConvexity
+	}
+}
+
+type NonStakableVestingGenesis struct {
+	TotalNominal         *big.Int                 `json:"totalNominal"`
+	MaxAllowedDuration   *big.Int                 `json:"maxAllowedDuration"`
+	NonStakableSchedules []NonStakableSchedule    `json:"nonStakableSchedules"`
+	NonStakableContracts []NonStakableVestingData `json:"nonStakableVestingContracts"`
+}
+
+type NonStakableSchedule struct {
+	Start         *big.Int `json:"startTime"`
+	CliffDuration *big.Int `json:"cliffDuration"`
+	TotalDuration *big.Int `json:"totalDuration"`
+	Amount        *big.Int `json:"amount"`
+}
+
+type NonStakableVestingData struct {
+	Beneficiary common.Address `json:"beneficiary"`
+	Amount      *big.Int       `json:"amount"`
+	ScheduleID  *big.Int       `json:"scheduleID"`
+}
+
+func (s *NonStakableVestingGenesis) SetDefaults() {
+	if s.TotalNominal == nil {
+		s.TotalNominal = DefaultNonStakableVestingGenesis.TotalNominal
+	}
+	if s.MaxAllowedDuration == nil {
+		s.MaxAllowedDuration = DefaultNonStakableVestingGenesis.MaxAllowedDuration
+	}
+}
+
+type StakableVestingGenesis struct {
+	TotalNominal      *big.Int              `json:"totalNominal"`
+	StakableContracts []StakableVestingData `json:"stakableVestingContracts"`
+}
+
+type StakableVestingData struct {
+	Beneficiary   common.Address `json:"beneficiary"`
+	Amount        *big.Int       `json:"amount"`
+	Start         *big.Int       `json:"startTime"`
+	CliffDuration *big.Int       `json:"cliffDuration"`
+	TotalDuration *big.Int       `json:"totalDuration"`
+}
+
+func (s *StakableVestingGenesis) SetDefaults() {
+	if s.TotalNominal == nil {
+		s.TotalNominal = DefaultStakableVestingGenesis.TotalNominal
 	}
 }

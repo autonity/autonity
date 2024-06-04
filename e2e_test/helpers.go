@@ -3,8 +3,12 @@ package e2e
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
+	fuzz "github.com/google/gofuzz"
+	"math/big"
 	"reflect"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -111,4 +115,25 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 		}
 	}
 	return nil
+}
+
+func FuzBlock(p *types.Block, height *big.Int) {
+	fakeTransactions := make([]*types.Transaction, 0)
+	f := fuzz.New()
+	for i := 0; i < 5; i++ {
+		var fakeTransaction types.Transaction
+		f.Fuzz(&fakeTransaction)
+		var tx types.LegacyTx
+		f.Fuzz(&tx)
+		fakeTransaction.SetInner(&tx)
+		fakeTransactions = append(fakeTransactions, &fakeTransaction)
+	}
+	p.SetTransactions(fakeTransactions)
+	var hash common.Hash
+	f.Fuzz(&hash)
+	var atmHash atomic.Value
+	atmHash.Store(hash)
+	// nil hash
+	p.SetHash(atmHash)
+	p.SetHeaderNumber(height)
 }

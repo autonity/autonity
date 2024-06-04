@@ -116,11 +116,22 @@ contract Accountability is IAccountability {
         }
     }
 
-    function distributeRewards(address _validator) payable external onlyAutonity {
+   /**
+    * @notice called by the Autonity Contract at block finalization, to reward the reporter of
+    * a valid proof.
+    * @param _validator validator account which got slashed.
+    * @param _ntnReward total amount of ntn to be transferred to the repoter. MUST BE AVAILABLE
+    * in the accountability contract balance.
+    */
+    function distributeRewards(address _validator, uint256 _ntnReward) payable external onlyAutonity {
         // There is an edge-case scenario where slashing events for the
         // same accused validator are created during the same epoch.
         // In this case we only reward the last reporter.
         address _reporterTreasury = autonity.getValidator(beneficiaries[_validator]).treasury;
+
+        try autonity.transfer(_reporterTreasury, _ntnReward) {}
+        catch {}
+
         // if for some reasons, funds can't be transferred to the reporter treasury (sneaky contract)
         (bool ok, ) = _reporterTreasury.call{value:msg.value, gas: 2300}("");
         // well, too bad, it goes to the autonity global treasury.

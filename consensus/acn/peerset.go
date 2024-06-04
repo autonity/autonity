@@ -20,8 +20,9 @@ import (
 	"errors"
 	"sync"
 
-	autonity "github.com/autonity/autonity"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/acn/protocol"
+	"github.com/autonity/autonity/p2p/enode"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/p2p"
@@ -43,7 +44,8 @@ var (
 
 // PeerSet represents the collection of active peers currently participating in consensus
 type peerSet struct {
-	peers map[string]*protocol.Peer // Peers connected on the `acn` protocol
+	peers     map[common.Address]*protocol.Peer // Peers connected on the `acn` protocol by address
+	peersByID map[enode.ID]*protocol.Peer       // Peers connected on the `acn` protocol by ID
 	sync.RWMutex
 	closed bool
 }
@@ -51,7 +53,8 @@ type peerSet struct {
 // Voters creates a new peer set to track the active participants.
 func newPeerSet() *peerSet {
 	return &peerSet{
-		peers: make(map[string]*protocol.Peer),
+		peers:     make(map[common.Address]*protocol.Peer),
+		peersByID: make(map[enode.ID]*protocol.Peer),
 	}
 }
 
@@ -65,36 +68,36 @@ func (ps *peerSet) register(peer *protocol.Peer) error {
 	if ps.closed {
 		return errPeerSetClosed
 	}
-	id := peer.ID()
-	if _, ok := ps.peers[id]; ok {
+	if _, ok := ps.peers[peer.Address()]; ok {
 		return errPeerAlreadyRegistered
 	}
-	ps.peers[id] = peer
+	ps.peers[peer.Address()] = peer
+	ps.peersByID[peer.ID()] = peer
 	return nil
 }
 
 // unregister removes a remote peer from the active set, disabling any further
 // actions to/from that particular entity.
-func (ps *peerSet) unregister(id string) error {
+func (ps *peerSet) unregister(peer *protocol.Peer) error {
 	ps.Lock()
 	defer ps.Unlock()
 
-	_, ok := ps.peers[id]
+	_, ok := ps.peers[peer.Address()]
 	if !ok {
 		return errPeerNotRegistered
 	}
-	delete(ps.peers, id)
+	delete(ps.peers, peer.Address())
+	delete(ps.peersByID, peer.ID())
 	return nil
 }
 
 // find retrieves the map of registered peer with the given map of ids.
-func (ps *peerSet) find(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
+func (ps *peerSet) find(targets []common.Address) map[common.Address]consensus.Peer {
 	ps.RLock()
 	defer ps.RUnlock()
-	m := make(map[common.Address]autonity.Peer)
-	for _, p := range ps.peers {
-		addr := p.Address()
-		if _, ok := targets[addr]; ok {
+	m := make(map[common.Address]consensus.Peer)
+	for _, addr := range targets {
+		if p, ok := ps.peers[addr]; ok {
 			m[addr] = p
 		}
 	}
@@ -102,11 +105,20 @@ func (ps *peerSet) find(targets map[common.Address]struct{}) map[common.Address]
 }
 
 // peer retrieves the registered peer with the given id.
-func (ps *peerSet) peer(id string) *protocol.Peer {
+func (ps *peerSet) peer(address common.Address) (*protocol.Peer, bool) {
 	ps.RLock()
 	defer ps.RUnlock()
 
-	return ps.peers[id]
+	p, ok := ps.peers[address]
+	return p, ok
+}
+
+// peer retrieves the registered peer with the given id.
+func (ps *peerSet) peerByID(id enode.ID) (*protocol.Peer, bool) {
+	ps.RLock()
+	defer ps.RUnlock()
+	p, ok := ps.peersByID[id]
+	return p, ok
 }
 
 // close disconnects all peers.

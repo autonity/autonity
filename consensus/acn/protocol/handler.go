@@ -3,12 +3,10 @@ package protocol
 import (
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
@@ -94,11 +92,13 @@ func Handle(backend Backend, peer *Peer) error {
 	for {
 		if err := handleMessage(backend, peer, errCh); err != nil {
 			peer.Log().Debug("Message handling failed in `acn`", "err", err)
+			err = newACNError(backend, err)
 			return err
 		}
 		select {
 		case err := <-errCh:
-			peer.Log().Error("Message handling failed in consensus core", "err", err)
+			err = newACNError(backend, err)
+			peer.Log().Error("Message handling failed in aggregator or consensus core", "err", err)
 			return err
 		default:
 			// do nothing
@@ -117,20 +117,7 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 	if msg.Size > MaxMessageSize {
 		return fmt.Errorf("%w: %v > %v", errMsgTooLarge, msg.Size, MaxMessageSize)
 	}
-	defer msg.Discard()
 
-	// Track the amount of time it takes to serve the request and run the ACN
-	if metrics.Enabled {
-		h := fmt.Sprintf("%s/%s/%d/%#02x", p2p.HandleHistName, ProtocolName, peer.Version(), msg.Code)
-		defer func(start time.Time) {
-			sampler := func() metrics.Sample {
-				return metrics.ResettingSample(
-					metrics.NewExpDecaySample(1028, 0.015),
-				)
-			}
-			metrics.GetOrRegisterHistogramLazy(h, nil, sampler).Update(time.Since(start).Microseconds())
-		}(time.Now())
-	}
 	if handler, ok := backend.Chain().Engine().(consensus.Handler); ok {
 		if handled, err := handler.HandleMsg(peer.address, msg, errCh); handled {
 			return err

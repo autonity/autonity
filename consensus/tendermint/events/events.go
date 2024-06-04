@@ -17,6 +17,8 @@
 package events
 
 import (
+	"time"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -25,12 +27,28 @@ import (
 // NewCandidateBlockEvent is posted to propose a proposal
 type NewCandidateBlockEvent struct {
 	NewCandidateBlock types.Block
+	CreatedAt         time.Time
 }
 
-// MessageEvent is posted for Istanbul engine communication
+// UnverifiedMessageEvent is posted from the peer handlers to the aggregator
+type UnverifiedMessageEvent struct {
+	Message message.Msg
+	ErrCh   chan<- error
+	Sender  common.Address
+	Posted  time.Time
+}
+
+// MessageEvent is posted from the aggregator to core and the fault detector
 type MessageEvent struct {
 	Message message.Msg
-	ErrCh   chan<- error //error channel
+	ErrCh   chan<- error
+	Posted  time.Time
+}
+
+// old messages are posted only to the fault detector
+type OldMessageEvent struct {
+	Message message.Msg
+	ErrCh   chan<- error
 }
 
 type Poster interface {
@@ -39,6 +57,25 @@ type Poster interface {
 
 // CommitEvent is posted when a proposal is committed
 type CommitEvent struct{}
+
+type RoundChangeEvent struct {
+	Height uint64
+	Round  int64
+}
+
+// change in voting power
+type PowerChangeEvent struct {
+	Height uint64
+	Round  int64
+	Code   uint8
+	Value  common.Hash
+}
+
+// change in future round voting power
+type FuturePowerChangeEvent struct {
+	Height uint64
+	Round  int64
+}
 
 type SyncEvent struct {
 	Addr common.Address

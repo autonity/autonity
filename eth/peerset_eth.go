@@ -21,8 +21,6 @@ import (
 	"math/big"
 	"sync"
 
-	autonity "github.com/autonity/autonity"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/eth/protocols/snap"
@@ -181,20 +179,6 @@ func (ps *ethPeerSet) peer(id string) *ethPeer {
 	defer ps.lock.RUnlock()
 
 	return ps.peers[id]
-}
-
-// findPeers retrieves the map of registered peers with matching id map
-func (ps *ethPeerSet) findPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-	m := make(map[common.Address]autonity.Peer)
-	for _, p := range ps.peers {
-		addr := p.Address()
-		if _, ok := targets[addr]; ok {
-			m[addr] = p
-		}
-	}
-	return m
 }
 
 // peersWithoutBlock retrieves a list of peers that do not have a given block in

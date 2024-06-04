@@ -26,6 +26,8 @@ const (
 	errInvalidMsg
 )
 
+const p2pErrorSuspensionSpan = 60 // num of blocks peer can't connect
+
 var errorToString = map[int]string{
 	errInvalidMsgCode: "invalid message code",
 	errInvalidMsg:     "invalid message",
@@ -69,7 +71,7 @@ const (
 	DiscUnexpectedIdentity
 	DiscSelf
 	DiscReadTimeout
-	DiscJailed
+	DiscSuspended
 	DiscPeerNotInCommittee
 	DiscPeerOutsideTopology
 	DiscSubprotocolError = 0x10
@@ -88,7 +90,7 @@ var discReasonToString = [...]string{
 	DiscUnexpectedIdentity:  "unexpected identity",
 	DiscSelf:                "connected to self",
 	DiscReadTimeout:         "read timeout",
-	DiscJailed:              "jailed node",
+	DiscSuspended:           "suspended node",
 	DiscPeerNotInCommittee:  "validator is not part of committee",
 	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSubprotocolError:    "subprotocol error",
@@ -105,6 +107,9 @@ func (d DiscReason) Error() string {
 	return d.String()
 }
 
+// Todo: (Jason) evaluate the size of this input error set, it might contains some none protocol errors, thus we
+//
+//	cannot suspend peer with such kind of errors.
 func discReasonForError(err error) DiscReason {
 	if reason, ok := err.(DiscReason); ok {
 		return reason
@@ -112,6 +117,7 @@ func discReasonForError(err error) DiscReason {
 	if err == errProtocolReturned {
 		return DiscQuitting
 	}
+
 	peerError, ok := err.(*peerError)
 	if ok {
 		switch peerError.code {
@@ -122,4 +128,15 @@ func discReasonForError(err error) DiscReason {
 		}
 	}
 	return DiscSubprotocolError
+}
+
+// ProtocolError defines the error occurred due to violation of protocol rules, namely ACN or ETH
+type ProtocolError struct {
+	Suspension func() uint64 // number of blocks for which peer is barred from making successful connection
+	Code       int
+	Message    string
+}
+
+func (pe *ProtocolError) Error() string {
+	return pe.Message
 }

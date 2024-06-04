@@ -117,7 +117,7 @@ type dialScheduler struct {
 	staticPool []*dialTask
 
 	// The dial history keeps recently dialed nodes. Members of history are not dialed.
-	history          expHeap
+	history          expHeap[mclock.AbsTime]
 	historyTimer     mclock.Timer
 	historyTimerTime mclock.AbsTime
 

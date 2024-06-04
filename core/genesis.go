@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"sort"
 	"strings"
 	"time"
 
@@ -420,29 +419,6 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-// extractCommittee takes a slice of autonity users and extracts the validators
-// into a new type 'types.Committee' which is returned. It returns an error if
-// the provided users contained no validators.
-func extractCommittee(validators []*params.Validator) (types.Committee, error) {
-	var committee types.Committee
-	for _, v := range validators {
-		member := types.CommitteeMember{
-			Address:      *v.NodeAddress,
-			VotingPower:  v.BondedStake,
-			ConsensusKey: v.ConsensusKey,
-		}
-		committee = append(committee, member)
-	}
-
-	if len(committee) == 0 {
-		return nil, fmt.Errorf("no validators specified in the initial autonity validators")
-	}
-
-	sort.Sort(committee)
-
-	return committee, nil
-}
-
 func (g *Genesis) setDefaultHardforks() {
 	if g.Config.ByzantiumBlock == nil {
 		g.Config.ByzantiumBlock = new(big.Int)
@@ -517,19 +493,49 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultPiccadillyGenesisBlock returns the Piccadilly network genesis block.
 func DefaultPiccadillyGenesisBlock() *Genesis {
+	var (
+		sdpAccount  = common.HexToAddress("0x8b914020A7099E4723f45561E897fa2740885A55")
+		agfTreasury = common.HexToAddress("0x05C2ee5d563E75E431649CaECE1a598f862e5B02")
+		ctlTreasury = common.HexToAddress("0xaeD49e2A958F08338079294B2bC1E512eeB87914")
+		ctlReserve  = common.HexToAddress("0xD3C5aC14d9815e1867a05b1A8B8269aDB0FA46C6")
+	)
 	g := &Genesis{
 		Config:     params.PiccadillyChainConfig,
+		Timestamp:  uint64(params.PiccadillyGenesisUnixTimestamp),
 		Nonce:      0,
-		GasLimit:   30_000_000,
+		GasLimit:   20_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.PiccadillyChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
+			sdpAccount: { // SDP Simulator Account
+				Balance:       new(big.Int).Mul(big.NewInt(100), big.NewInt(params.Ether)),
+				NewtonBalance: new(big.Int).Mul(big.NewInt(5_528_000), params.NTNDecimalFactor), // Initial Unbonded Newton Amount
+				Bonds:         make(map[common.Address]*big.Int),
+			},
+			params.PiccadillyChainConfig.AutonityContractConfig.Operator: {
+				Balance: new(big.Int).Mul(big.NewInt(50), big.NewInt(params.Ether)),
+			},
+			agfTreasury: {
+				Balance:       new(big.Int).Mul(big.NewInt(350), big.NewInt(params.Ether)),
+				NewtonBalance: new(big.Int).Mul(big.NewInt(1_899_950), params.NTNDecimalFactor),
+			},
+			ctlTreasury: {
+				Balance:       new(big.Int).Mul(big.NewInt(444), big.NewInt(params.Ether)),
+				NewtonBalance: new(big.Int).Mul(big.NewInt(20_880_000), params.NTNDecimalFactor),
+			},
+			ctlReserve: {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(17_500_050), params.NTNDecimalFactor),
+			},
 		},
 	}
 	for _, v := range g.Config.AutonityContractConfig.Validators {
-		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
-		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		if *v.NodeAddress != v.OracleAddress {
+			g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+			g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		} else {
+			g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: new(big.Int).Mul(common.Big2, big.NewInt(params.Ether))}
+		}
+		g.Alloc[sdpAccount].Bonds[*v.NodeAddress] = new(big.Int).Mul(big.NewInt(74_000), params.NTNDecimalFactor)
 	}
 	return g
 }
@@ -592,15 +598,16 @@ func DefaultGoerliGenesisBlock() *Genesis {
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	testAutonityContractConfig := params.AutonityContractGenesis{
-		MaxCommitteeSize: 1,
-		BlockPeriod:      1,
-		UnbondingPeriod:  120,
-		EpochPeriod:      30,               //seconds
-		DelegationRate:   1200,             // 12%
-		TreasuryFee:      1500000000000000, // 0.15%,
-		MinBaseFee:       10000000000,
-		Operator:         faucet.Address,
-		Treasury:         faucet.Address,
+		MaxCommitteeSize:        1,
+		BlockPeriod:             1,
+		UnbondingPeriod:         120,
+		EpochPeriod:             30,               //seconds
+		DelegationRate:          1200,             // 12%
+		TreasuryFee:             1500000000000000, // 0.15%,
+		MinBaseFee:              10000000000,
+		Operator:                faucet.Address,
+		Treasury:                faucet.Address,
+		InitialInflationReserve: params.TestAutonityContractConfig.InitialInflationReserve,
 		Validators: []*params.Validator{
 			{
 				Treasury:      faucet.Address,

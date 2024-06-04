@@ -25,8 +25,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	autonity "github.com/autonity/autonity"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
@@ -446,10 +444,6 @@ func (h *handler) unregisterPeer(id string) {
 	h.downloader.UnregisterPeer(id)
 	h.txFetcher.Drop(id)
 
-	if syncer, ok := h.chain.Engine().(consensus.Syncer); ok {
-		syncer.ResetPeerCache(peer.Address())
-	}
-
 	if err := h.peers.unregisterPeer(id); err != nil {
 		logger.Error("Ethereum peer removal failed", "err", err)
 	}
@@ -522,6 +516,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		return
 	}
 	// Otherwise if the block is indeed in our own chain, announce it
+	// note: sometimes blocks get gossiped to other peers before getting inserted in the local chain, thus this check
 	if h.chain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
 			peer.AsyncSendNewBlockHash(block)
@@ -596,8 +591,4 @@ func (h *handler) txBroadcastLoop() {
 			return
 		}
 	}
-}
-
-func (h *handler) FindPeers(targets map[common.Address]struct{}) map[common.Address]autonity.Peer {
-	return h.peers.findPeers(targets)
 }

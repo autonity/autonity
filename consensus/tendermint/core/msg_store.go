@@ -1,9 +1,11 @@
 package core
 
 import (
+	"math/big"
+	"sync"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"sync"
 )
 
 var NilValue = common.Hash{}
@@ -12,52 +14,75 @@ type MsgStore struct {
 	sync.RWMutex
 	// the first height that msg are buffered from after node is start.
 	firstHeight uint64
-	// map[Height]map[Round]map[MsgType]map[common.address][]*Message
-	messages map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg
+	proposals   map[uint64][]*message.Propose
+	prevotes    map[uint64][]*message.Prevote
+	precommits  map[uint64][]*message.Precommit
+
+	// in the fault detector we only do power computation on prevotes, therefore cache only prevote power
+	prevotesPower map[uint64]map[int64]map[common.Hash]*message.AggregatedPower
 }
 
 func NewMsgStore() *MsgStore {
 	return &MsgStore{
-		RWMutex:     sync.RWMutex{},
-		firstHeight: uint64(0),
-		messages:    make(map[uint64]map[int64]map[uint8]map[common.Address][]message.Msg)}
+		RWMutex:       sync.RWMutex{},
+		firstHeight:   uint64(0),
+		proposals:     make(map[uint64][]*message.Propose),
+		prevotes:      make(map[uint64][]*message.Prevote),
+		precommits:    make(map[uint64][]*message.Precommit),
+		prevotesPower: make(map[uint64]map[int64]map[common.Hash]*message.AggregatedPower),
+	}
 }
 
-// Save store msg into msg store
+// Save store msg into msg store, it assumes the msg signature was verified, and there is no duplicated msg in the store.
 func (ms *MsgStore) Save(m message.Msg) {
 	ms.Lock()
 	defer ms.Unlock()
 
-	if ms.firstHeight == uint64(0) {
-		ms.firstHeight = m.H()
-	}
 	height := m.H()
-	roundMap, ok := ms.messages[height]
-	if !ok {
-		roundMap = make(map[int64]map[uint8]map[common.Address][]message.Msg)
-		ms.messages[height] = roundMap
+
+	if ms.firstHeight == uint64(0) {
+		ms.firstHeight = height
 	}
 
-	round := m.R()
-	msgTypeMap, ok := roundMap[round]
-	if !ok {
-		msgTypeMap = make(map[uint8]map[common.Address][]message.Msg)
-		roundMap[round] = msgTypeMap
-	}
+	switch msg := m.(type) {
+	case *message.Propose:
+		_, ok := ms.proposals[height]
+		if !ok {
+			ms.proposals[height] = make([]*message.Propose, 0)
+		}
+		ms.proposals[height] = append(ms.proposals[height], msg)
+	case *message.Prevote:
+		_, ok := ms.prevotes[height]
+		if !ok {
+			ms.prevotes[height] = make([]*message.Prevote, 0)
+		}
+		ms.prevotes[height] = append(ms.prevotes[height], msg)
 
-	addressMap, ok := msgTypeMap[m.Code()]
-	if !ok {
-		addressMap = make(map[common.Address][]message.Msg)
-		msgTypeMap[m.Code()] = addressMap
+		// update prevotes power cache
+		round := msg.R()
+		value := msg.Value()
+		_, ok = ms.prevotesPower[height]
+		if !ok {
+			ms.prevotesPower[height] = make(map[int64]map[common.Hash]*message.AggregatedPower)
+		}
+		_, ok = ms.prevotesPower[height][round]
+		if !ok {
+			ms.prevotesPower[height][round] = make(map[common.Hash]*message.AggregatedPower)
+		}
+		_, ok = ms.prevotesPower[height][round][value]
+		if !ok {
+			ms.prevotesPower[height][round][value] = message.NewAggregatedPower()
+		}
+		for index, power := range msg.Signers().Powers() {
+			ms.prevotesPower[height][round][value].Set(index, power)
+		}
+	case *message.Precommit:
+		_, ok := ms.precommits[height]
+		if !ok {
+			ms.precommits[height] = make([]*message.Precommit, 0)
+		}
+		ms.precommits[height] = append(ms.precommits[height], msg)
 	}
-
-	msgs, ok := addressMap[m.Sender()]
-	if !ok {
-		var msgList []message.Msg
-		addressMap[m.Sender()] = append(msgList, m)
-		return
-	}
-	addressMap[m.Sender()] = append(msgs, m)
 }
 
 func (ms *MsgStore) FirstHeightBuffered() uint64 {
@@ -69,68 +94,205 @@ func (ms *MsgStore) FirstHeightBuffered() uint64 {
 func (ms *MsgStore) DeleteOlds(height uint64) {
 	ms.Lock()
 	defer ms.Unlock()
-	for h := range ms.messages {
+	for h := range ms.proposals {
 		if h <= height {
-			// Delete map entry for this height
-			delete(ms.messages, h)
+			delete(ms.proposals, h)
+		}
+	}
+	for h := range ms.prevotes {
+		if h <= height {
+			delete(ms.prevotes, h)
+		}
+	}
+	for h := range ms.precommits {
+		if h <= height {
+			delete(ms.precommits, h)
+		}
+	}
+	for h := range ms.prevotesPower {
+		if h <= height {
+			delete(ms.prevotesPower, h)
 		}
 	}
 }
 
 // RemoveMsg only used for integration tests.
-func (ms *MsgStore) RemoveMsg(height uint64, round int64, step uint8, sender common.Address) {
+func (ms *MsgStore) RemoveMsg(height uint64, code uint8, hash common.Hash) {
 	ms.Lock()
 	defer ms.Unlock()
-	delete(ms.messages[height][round][step], sender)
+
+	switch code {
+	case message.ProposalCode:
+		_, ok := ms.proposals[height]
+		if !ok {
+			return
+		}
+		var filteredProposals []*message.Propose
+		for _, proposal := range ms.proposals[height] {
+			if proposal.Hash() != hash {
+				filteredProposals = append(filteredProposals, proposal)
+			}
+		}
+		ms.proposals[height] = filteredProposals
+	case message.PrevoteCode:
+		_, ok := ms.prevotes[height]
+		if !ok {
+			return
+		}
+		var filteredPrevotes []*message.Prevote
+		for _, prevote := range ms.prevotes[height] {
+			if prevote.Hash() != hash {
+				filteredPrevotes = append(filteredPrevotes, prevote)
+			}
+		}
+		ms.prevotes[height] = filteredPrevotes
+
+		// update power cache
+		ms.prevotesPower = make(map[uint64]map[int64]map[common.Hash]*message.AggregatedPower)
+		for _, msg := range ms.prevotes[height] {
+			round := msg.R()
+			value := msg.Value()
+			_, ok = ms.prevotesPower[height]
+			if !ok {
+				ms.prevotesPower[height] = make(map[int64]map[common.Hash]*message.AggregatedPower)
+			}
+			_, ok = ms.prevotesPower[height][round]
+			if !ok {
+				ms.prevotesPower[height][round] = make(map[common.Hash]*message.AggregatedPower)
+			}
+			_, ok = ms.prevotesPower[height][round][value]
+			if !ok {
+				ms.prevotesPower[height][round][value] = message.NewAggregatedPower()
+			}
+			for index, power := range msg.Signers().Powers() {
+				ms.prevotesPower[height][round][value].Set(index, power)
+			}
+		}
+	case message.PrecommitCode:
+		_, ok := ms.precommits[height]
+		if !ok {
+			return
+		}
+		var filteredPrecommits []*message.Precommit
+		for _, precommit := range ms.precommits[height] {
+			if precommit.Hash() != hash {
+				filteredPrecommits = append(filteredPrecommits, precommit)
+			}
+		}
+		ms.precommits[height] = filteredPrecommits
+	default:
+		panic("non-existent code")
+	}
 }
 
-// Get take height and query conditions to query those msgs from msg store, it returns those msgs satisfied the condition.
-func (ms *MsgStore) Get(height uint64, query func(message.Msg) bool) []message.Msg {
+func (ms *MsgStore) GetProposals(height uint64, query func(*message.Propose) bool) []*message.Propose {
 	ms.RLock()
 	defer ms.RUnlock()
 
-	var result []message.Msg
-	roundMap, ok := ms.messages[height]
+	var result []*message.Propose
+	_, ok := ms.proposals[height]
 	if !ok {
 		return result
 	}
 
-	for _, msgTypeMap := range roundMap {
-		for _, addressMap := range msgTypeMap {
-			for _, msgs := range addressMap {
-				for _, msg := range msgs {
-					if query(msg) {
-						result = append(result, msg)
-					}
-				}
-			}
+	for _, proposal := range ms.proposals[height] {
+		if query(proposal) {
+			result = append(result, proposal)
 		}
 	}
 	return result
 }
 
-func GetStore[T any, PT interface {
-	*T
-	message.Msg
-}](ms *MsgStore, height uint64, query func(*T) bool) []*T {
+func (ms *MsgStore) GetPrevotes(height uint64, query func(*message.Prevote) bool) []*message.Prevote {
 	ms.RLock()
 	defer ms.RUnlock()
-	var result []*T
-	roundMap, ok := ms.messages[height]
+
+	var result []*message.Prevote
+	_, ok := ms.prevotes[height]
 	if !ok {
 		return result
 	}
-	code := PT(new(T)).Code()
-	for _, msgTypeMap := range roundMap {
-		for _, msgs := range msgTypeMap[code] {
-			for _, msg := range msgs {
-				if m, ok := msg.(PT); ok {
-					if query((*T)(m)) {
-						result = append(result, (*T)(m))
-					}
-				}
-			}
+
+	for _, prevote := range ms.prevotes[height] {
+		if query(prevote) {
+			result = append(result, prevote)
 		}
 	}
+	return result
+}
+
+func (ms *MsgStore) GetPrecommits(height uint64, query func(*message.Precommit) bool) []*message.Precommit {
+	ms.RLock()
+	defer ms.RUnlock()
+
+	var result []*message.Precommit
+	_, ok := ms.precommits[height]
+	if !ok {
+		return result
+	}
+
+	for _, precommit := range ms.precommits[height] {
+		if query(precommit) {
+			result = append(result, precommit)
+		}
+	}
+	return result
+}
+
+func (ms *MsgStore) PrevotesPowerFor(height uint64, round int64, value common.Hash) *big.Int {
+	ms.RLock()
+	defer ms.RUnlock()
+
+	_, ok := ms.prevotesPower[height]
+	if !ok {
+		return new(big.Int)
+	}
+	_, ok = ms.prevotesPower[height][round]
+	if !ok {
+		return new(big.Int)
+	}
+	_, ok = ms.prevotesPower[height][round][value]
+	if !ok {
+		return new(big.Int)
+	}
+	return new(big.Int).Set(ms.prevotesPower[height][round][value].Power()) // return a copy to avoid data races
+}
+
+// this function checks if we have a quorum for a value in (h,r). It excludes the `excludedValue` from the search.
+// it is used by the fault detector to verify if we have quorums of prevotes for values != `excludedValue`.
+// returns the slice of messages constituting the quorum
+func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue common.Hash, quorum *big.Int) []message.Msg {
+	ms.Lock()
+	defer ms.Unlock()
+
+	var result []message.Msg
+
+	_, ok := ms.prevotesPower[height]
+	if !ok {
+		return result
+	}
+	_, ok = ms.prevotesPower[height][round]
+	if !ok {
+		return result
+	}
+
+	for value, aggregatedPower := range ms.prevotesPower[height][round] {
+		if value == excludedValue {
+			continue
+		}
+		if aggregatedPower.Power().Cmp(quorum) >= 0 {
+			_, ok := ms.prevotes[height]
+			if !ok {
+				panic("Have quorum in power cache, but cannot find related messages in msgStore")
+			}
+			for _, prevote := range ms.prevotes[height] {
+				if prevote.R() == round && prevote.Value() == value {
+					result = append(result, prevote)
+				}
+			}
+			return result
+		}
+	}
+
 	return result
 }

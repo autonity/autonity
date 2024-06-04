@@ -36,6 +36,10 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
+// TODO: this function has a mutex that can be taken by:
+// 1. the core routine
+// 2. the routine that syncs other peers
+// can this be exploited by a malicious peer to slow Core down (by requesting ask sync lots of times)
 func (s *Map) All() []Msg {
 	s.RLock()
 	defer s.RUnlock()
@@ -72,16 +76,18 @@ func (s *Map) GetRounds() []int64 {
 type RoundMessages struct {
 	verifiedProposal bool
 	proposal         *Propose
-	prevotes         *Set[*Prevote]
-	precommits       *Set[*Precommit]
+	prevotes         *Set
+	precommits       *Set
+	power            *AggregatedPower // power for all messages
 	sync.RWMutex
 }
 
 // we need a reference to proposal also for proposing a proposal with vr!=0 if needed
 func NewRoundMessages() *RoundMessages {
 	return &RoundMessages{
-		prevotes:         NewSet[*Prevote](),
-		precommits:       NewSet[*Precommit](),
+		prevotes:         NewSet(),
+		precommits:       NewSet(),
+		power:            NewAggregatedPower(),
 		verifiedProposal: false,
 	}
 }
@@ -91,26 +97,57 @@ func (s *RoundMessages) SetProposal(proposal *Propose, verified bool) {
 	defer s.Unlock()
 	s.proposal = proposal
 	s.verifiedProposal = verified
+	s.power.Set(proposal.SignerIndex(), proposal.Power())
+}
+
+// total power for round (each signer counted only once, regardless of msg type)
+func (s *RoundMessages) Power() *AggregatedPower {
+	s.RLock()
+	defer s.RUnlock()
+	return s.power.Copy()
 }
 
 func (s *RoundMessages) PrevotesPower(hash common.Hash) *big.Int {
+	return s.prevotes.PowerFor(hash).Power()
+}
+
+func (s *RoundMessages) PrevotesAggregatedPower(hash common.Hash) *AggregatedPower {
 	return s.prevotes.PowerFor(hash)
 }
 
 func (s *RoundMessages) PrevotesTotalPower() *big.Int {
+	return s.prevotes.TotalPower().Power()
+}
+
+func (s *RoundMessages) PrevotesTotalAggregatedPower() *AggregatedPower {
 	return s.prevotes.TotalPower()
 }
 
 func (s *RoundMessages) PrecommitsPower(hash common.Hash) *big.Int {
+	return s.precommits.PowerFor(hash).Power()
+}
+
+func (s *RoundMessages) PrecommitsAggregatedPower(hash common.Hash) *AggregatedPower {
 	return s.precommits.PowerFor(hash)
 }
 
 func (s *RoundMessages) PrecommitsTotalPower() *big.Int {
+	return s.precommits.TotalPower().Power()
+}
+
+func (s *RoundMessages) PrecommitsTotalAggregatedPower() *AggregatedPower {
 	return s.precommits.TotalPower()
 }
 
 func (s *RoundMessages) AddPrevote(prevote *Prevote) {
+	s.Lock()
+	defer s.Unlock()
 	s.prevotes.Add(prevote)
+	// update round power cache
+	for index, power := range prevote.Signers().Powers() {
+		s.power.Set(index, power)
+	}
+
 }
 
 func (s *RoundMessages) AllPrevotes() []Msg {
@@ -122,11 +159,25 @@ func (s *RoundMessages) AllPrecommits() []Msg {
 }
 
 func (s *RoundMessages) AddPrecommit(precommit *Precommit) {
+	s.Lock()
+	defer s.Unlock()
 	s.precommits.Add(precommit)
+	// update round power cache
+	for index, power := range precommit.Signers().Powers() {
+		s.power.Set(index, power)
+	}
 }
 
-func (s *RoundMessages) PrecommitsFor(hash common.Hash) []*Precommit {
-	return s.precommits.VotesFor(hash)
+// used to gossip quorum of prevotes
+func (s *RoundMessages) PrevoteFor(hash common.Hash) *Prevote {
+	prevotes := s.prevotes.VotesFor(hash)
+	return AggregatePrevotes(prevotes) // we allow complex aggregate here
+}
+
+// used to create the quorum certificate when we managed to finalize a block and to gossip quorum of precommits
+func (s *RoundMessages) PrecommitFor(hash common.Hash) *Precommit {
+	precommits := s.precommits.VotesFor(hash)
+	return AggregatePrecommits(precommits) // we allow complex aggregate here
 }
 
 func (s *RoundMessages) Proposal() *Propose {

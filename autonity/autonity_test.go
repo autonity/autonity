@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/big"
 	"math/rand"
+	"net"
 	"sort"
 	"testing"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 )
@@ -59,6 +61,121 @@ func TestComputeCommittee(t *testing.T) {
 		committeeSize := 100
 		validatorCount := 1000
 		testComputeCommittee(committeeSize, validatorCount, t)
+	})
+}
+
+func TestUpdateEnode(t *testing.T) {
+
+	contractAbi := &generated.AutonityTestAbi
+	deployer := params.DeployerAddress
+	validators, err := randomValidators(10, 100)
+	require.NoError(t, err)
+
+	t.Run("Success: update node ip of enode", func(t *testing.T) {
+		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		var header *types.Header
+		val := validators[0]
+		node, _ := enode.ParseV4(val.Enode)
+		tempNode := enode.NewV4(node.Pubkey(), net.IP{127, 0, 0, 1}, 1234, 0)
+		_, err = callContractFunctionAs(evmContract, contractAddress,
+			stateDB, header, contractAbi, val.Treasury,
+			"updateEnode", val.NodeAddress, tempNode.String())
+		require.NoError(t, err)
+
+		// make sure validator enode has taken new value
+		res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getValidator", val.NodeAddress)
+		require.NoError(t, err)
+		av, err := contractAbi.Unpack("getValidator", res)
+		require.NoError(t, err)
+		out := abi.ConvertType(av[0], new(AutonityValidator)).(*AutonityValidator)
+		require.Equal(t, tempNode.String(), out.Enode)
+	})
+
+	t.Run("Failure: update to invalid enode format", func(t *testing.T) {
+		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		var header *types.Header
+		val := validators[0]
+		testKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
+		tempNode := enode.NewV4(&testKey.PublicKey, net.IP{127, 0, 0, 1}, 1234, 0)
+		res, err := callContractFunctionAs(evmContract, contractAddress,
+			stateDB, header, contractAbi, val.Treasury,
+			"updateEnode", val.NodeAddress, tempNode.String()+"junk")
+		require.Error(t, err)
+
+		revertReason, _ := abi.UnpackRevert(res)
+		require.Equal(t, "enode error", revertReason)
+	})
+
+	t.Run("Failure: update node address of enode", func(t *testing.T) {
+		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		var header *types.Header
+		val := validators[0]
+		testKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
+		tempNode := enode.NewV4(&testKey.PublicKey, net.IP{127, 0, 0, 1}, 1234, 0)
+		res, err := callContractFunctionAs(evmContract, contractAddress,
+			stateDB, header, contractAbi, val.Treasury,
+			"updateEnode", val.NodeAddress, tempNode.String())
+		require.Error(t, err)
+
+		revertReason, _ := abi.UnpackRevert(res)
+		require.Equal(t, "validator node address can't be updated", revertReason)
+	})
+
+	t.Run("Failure: update ip of enode, unknown msg.sender", func(t *testing.T) {
+		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		var header *types.Header
+		val := validators[0]
+		node, _ := enode.ParseV4(val.Enode)
+		res, err := callContractFunctionAs(evmContract, contractAddress,
+			stateDB, header, contractAbi, validators[1].Treasury,
+			"updateEnode", val.NodeAddress, node.String())
+		require.Error(t, err)
+
+		revertReason, _ := abi.UnpackRevert(res)
+		require.Equal(t, "require caller to be validator treasury account", revertReason)
+	})
+
+	t.Run("Failure: update ip of enode, validator not registered", func(t *testing.T) {
+		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		var header *types.Header
+		randVals, _ := randomValidators(1, 100)
+		val := randVals[0]
+		node, _ := enode.ParseV4(val.Enode)
+		res, err := callContractFunctionAs(evmContract, contractAddress,
+			stateDB, header, contractAbi, val.Treasury,
+			"updateEnode", val.NodeAddress, node.String())
+		require.Error(t, err)
+
+		revertReason, _ := abi.UnpackRevert(res)
+		require.Equal(t, "validator not registered", revertReason)
+	})
+
+	t.Run("Failure: update ip of enode, validator In Committee", func(t *testing.T) {
+		// update committee size to 10, so all the validators will be in committeee
+		stateDB, evmContract, contractAddress, _ := deployAutonity(10, validators, deployer)
+		var header *types.Header
+		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
+		require.NoError(t, err)
+		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
+		require.NoError(t, err)
+
+		val := validators[0]
+		node, _ := enode.ParseV4(val.Enode)
+		tempNode := enode.NewV4(node.Pubkey(), net.IP{127, 0, 0, 1}, 1234, 0)
+		res, err := callContractFunctionAs(evmContract, contractAddress,
+			stateDB, header, contractAbi, val.Treasury,
+			"updateEnode", val.NodeAddress, tempNode.String())
+		require.Error(t, err)
+		revertReason, _ := abi.UnpackRevert(res)
+		require.Equal(t, "validator must not be in committee", revertReason)
+
+		// make sure validator enode remains unchanged
+		res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getValidator", val.NodeAddress)
+		require.NoError(t, err)
+		av, err := contractAbi.Unpack("getValidator", res)
+		require.NoError(t, err)
+		out := abi.ConvertType(av[0], new(AutonityValidator)).(*AutonityValidator)
+		require.Equal(t, node.String(), out.Enode)
 	})
 }
 
@@ -242,6 +359,18 @@ func callContractFunction(
 	return res, err
 }
 
+// Packs the args and then calls the function and returns result
+func callContractFunctionAs(
+	evmContract *EVMContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
+	origin common.Address, methodName string, args ...interface{}, //nolint:unparam
+) ([]byte, error) {
+	argsPacked, err := abi.Pack(methodName, args...)
+	if err != nil {
+		return make([]byte, 0), err
+	}
+	return evmContract.CallContractFuncAs(stateDB, header, contractAddress, origin, argsPacked)
+}
+
 func randomValidators(count int, randomPercentage int) ([]params.Validator, error) {
 	if count == 0 {
 		return []params.Validator{}, nil
@@ -325,19 +454,21 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, erro
 func autonityTestConfig() AutonityConfig {
 	config := AutonityConfig{
 		Policy: AutonityPolicy{
-			TreasuryFee:     new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
-			MinBaseFee:      new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
-			DelegationRate:  new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
-			UnbondingPeriod: new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
-			TreasuryAccount: params.TestAutonityContractConfig.Operator,
+			TreasuryFee:             new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
+			MinBaseFee:              new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
+			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
+			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
+			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
+			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract: params.AccountabilityContractAddress,
-			OracleContract:         params.OracleContractAddress,
-			AcuContract:            params.ACUContractAddress,
-			SupplyControlContract:  params.SupplyControlContractAddress,
-			StabilizationContract:  params.StabilizationContractAddress,
-			UpgradeManagerContract: params.UpgradeManagerContractAddress,
+			AccountabilityContract:      params.AccountabilityContractAddress,
+			OracleContract:              params.OracleContractAddress,
+			AcuContract:                 params.ACUContractAddress,
+			SupplyControlContract:       params.SupplyControlContractAddress,
+			StabilizationContract:       params.StabilizationContractAddress,
+			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
+			InflationControllerContract: params.InflationControllerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: params.TestAutonityContractConfig.Operator,
@@ -433,7 +564,7 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		if member.VotingPower.Cmp(validators[idx].BondedStake) != 0 {
 			return fmt.Errorf("Committee member stake mismatch")
 		}
-		if !bytes.Equal(member.ConsensusKey, validators[idx].ConsensusKey) {
+		if !bytes.Equal(member.ConsensusKeyBytes, validators[idx].ConsensusKey) {
 			return fmt.Errorf("Committee member consensus key mismatch")
 		}
 		if enodes[i] != validators[idx].Enode {

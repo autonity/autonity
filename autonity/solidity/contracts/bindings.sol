@@ -17,3 +17,6 @@ import "./asm/SupplyControl.sol";
 import "./AutonityUpgradeTest.sol";
 import "./Tests.sol";
 import "./UpgradeManager.sol";
+import "./InflationController.sol";
+import "./vesting/NonStakableVesting.sol";
+import "./vesting/StakableVesting.sol";

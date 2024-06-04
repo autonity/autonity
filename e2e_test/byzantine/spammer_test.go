@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
+	e2e "github.com/autonity/autonity/e2e_test"
 )
 
 func newPreVoteSpammer(c interfaces.Core) interfaces.Prevoter {
@@ -24,15 +25,16 @@ type preVoteSpammer struct {
 
 func (c *preVoteSpammer) SendPrevote(_ context.Context, isNil bool) {
 	var prevote *message.Prevote
+	self, csize := selfAndCsize(c.Core, c.Height().Uint64())
 	if isNil {
-		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
+		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
 		h := c.CurRoundMessages().ProposalHash()
 		if h == (common.Hash{}) {
 			c.Logger().Error("sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
+		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	}
 
 	for i := 0; i < 1000; i++ {
@@ -52,7 +54,7 @@ func TestPrevoteSpammer(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120, false)
@@ -70,15 +72,16 @@ func newPrecommitSpammer(c interfaces.Core) interfaces.Precommiter {
 
 func (c *precommitSpammer) SendPrecommit(_ context.Context, isNil bool) {
 	var precommit *message.Precommit
+	self, csize := selfAndCsize(c.Core, c.Height().Uint64())
 	if isNil {
-		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
 		h := c.CurRoundMessages().ProposalHash()
 		if h == (common.Hash{}) {
 			c.Logger().Error("core.sendPrecommit Proposal is empty! It should not be empty!")
 			return
 		}
-		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), h, c.Backend().Sign)
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), h, c.Backend().Sign, self, csize)
 	}
 	for i := 0; i < 1000; i++ {
 		c.BroadcastAll(precommit)
@@ -96,7 +99,7 @@ func TestPrecommitSpammer(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120, false)
@@ -113,7 +116,8 @@ func newProposalSpammer(c interfaces.Core) interfaces.Proposer {
 }
 
 func (c *proposalSpammer) SendProposal(_ context.Context, p *types.Block) {
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
+	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 	for i := 0; i < 1000; i++ {
@@ -131,7 +135,7 @@ func TestProposalSpammer(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)

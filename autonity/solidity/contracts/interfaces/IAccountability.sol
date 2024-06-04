@@ -13,7 +13,7 @@ interface IAccountability {
     * @notice distribute slashing rewards to reporters.
     * @param _validator the address of the validator node being slashed.
     */
-    function distributeRewards(address _validator) external payable;
+    function distributeRewards(address _validator, uint256 _ntnReward) external payable;
 
     /**
     * @notice called by the Autonity Contract when the epoch period is updated.

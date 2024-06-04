@@ -12,19 +12,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/p2p"
-
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/events"
+	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/p2p"
 )
 
 func TestUnhandledMsgs(t *testing.T) {
 	t.Run("core not running, unhandled messages are saved", func(t *testing.T) {
 		blockchain, backend := newBlockChain(1)
 		engine := blockchain.Engine().(consensus.BFT)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
+		backend.SetBroadcaster(broadcaster)
 		// we close the engine for enabling cache storing
 		if err := engine.Close(); err != nil {
 			t.Fatalf("can't stop the engine")
@@ -37,7 +43,6 @@ func TestUnhandledMsgs(t *testing.T) {
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
-			msg.Discard() // simulate discarding of payload from acn handler
 		}
 
 		for i := int64(0); i < ringCapacity; i++ {
@@ -56,7 +61,7 @@ func TestUnhandledMsgs(t *testing.T) {
 				t.Fatalf("couldnt decode payload")
 			}
 			expectedPayload := append(counter, []byte("data")...)
-			if !reflect.DeepEqual(addr, expectedAddr) || !reflect.DeepEqual(payload, expectedPayload) {
+			if !reflect.DeepEqual(addr, expectedAddr) || !bytes.Equal(payload, expectedPayload) {
 				t.Fatalf("message lost or not expected")
 			}
 		}
@@ -71,7 +76,16 @@ func TestUnhandledMsgs(t *testing.T) {
 	})
 
 	t.Run("core running, unhandled messages are processed", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockedPeer := consensus.NewMockPeer(ctrl)
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
+		addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
+		mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
+		broadcaster.EXPECT().FindPeer(gomock.Any()).Return(mockedPeer, true).AnyTimes()
+
 		blockchain, backend := newBlockChain(1)
+		backend.SetBroadcaster(broadcaster)
 		engine := blockchain.Engine().(consensus.BFT)
 		// we close the engine for enabling cache storing
 		if err := engine.Close(); err != nil {
@@ -80,20 +94,19 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			vote := message.NewPrevote(1, 2, common.BigToHash(big.NewInt(i)), dummySigner)
+			vote := message.NewPrevote(1, 1, common.BigToHash(big.NewInt(i)), backend.Sign, &blockchain.Genesis().Header().Committee[0], 1)
 			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())}
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")
 			}
-			msg.Discard() // simulate discarding of payload from acn handler
 		}
 		sub := backend.eventMux.Subscribe(events.MessageEvent{})
 		if err := backend.Start(context.Background()); err != nil {
 			t.Fatalf("could not restart core")
 		}
 		backend.HandleUnhandledMsgs(context.Background())
-		timer := time.NewTimer(time.Second)
+		timer := time.NewTimer(10 * time.Second)
 		i := 0
 		var received [ringCapacity]bool
 		// events can come out of order so we track them using an array.
@@ -102,7 +115,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			select {
 			case eve := <-sub.Chan():
 				message := eve.Data.(events.MessageEvent).Message
-				if message.R() != 1 || message.H() != 2 {
+				if message.R() != 1 || message.H() != 1 {
 					t.Fatalf("message not expected")
 				}
 				i++

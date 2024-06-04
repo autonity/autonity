@@ -199,6 +199,7 @@ type Config struct {
 
 	// AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
 	AllowUnprotectedTxs bool `toml:",omitempty"`
+	NoGossip            bool `toml:",omitempty"`
 	tendermintServices  *interfaces.Services
 }
 
@@ -431,15 +432,15 @@ func (c *Config) AutonityKeys() (*ecdsa.PrivateKey, blst.SecretKey) {
 	if err != nil {
 		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
 	}
+	consensusKey, err := blst.RandKey()
+	if err != nil {
+		log.Crit(fmt.Sprintf("Failed to generate consensus key: %v", err))
+	}
+
 	instanceDir := filepath.Join(c.DataDir, c.name())
 	if err := os.MkdirAll(instanceDir, 0700); err != nil {
 		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
 		return key, nil
-	}
-
-	consensusKey, err := blst.RandKey()
-	if err != nil {
-		log.Error(fmt.Sprintf("Failed to derive validator key: %v", err))
 	}
 
 	keyfile = filepath.Join(instanceDir, datadirPrivateKey)

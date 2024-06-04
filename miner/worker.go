@@ -28,6 +28,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/metrics"
 
+	mapset "github.com/deckarep/golang-set"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
@@ -38,7 +40,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
-	mapset "github.com/deckarep/golang-set"
 )
 
 const (
@@ -279,6 +280,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.engine.SetResultChan(worker.resultCh)
 
 	// Sanitize recommit interval if the user-specified one is too short.
 	recommit := worker.config.Recommit
@@ -657,7 +659,7 @@ func (w *worker) taskLoop() {
 			if w.skipSealHook != nil && w.skipSealHook(task) {
 				continue
 			}
-			w.eth.Logger().Debug("New block Seal request", "hash", w.engine.SealHash(task.block.Header()))
+			w.eth.Logger().Debug("New block Seal request", "hash", sealHash)
 			w.pendingMu.Lock()
 			w.pendingTasks[sealHash] = task
 			w.pendingMu.Unlock()
@@ -752,6 +754,7 @@ func (w *worker) resultLoop() {
 				now := time.Now()
 				PersistWorkTimer.Update(now.Sub(persistStart))
 				PersistWorkBg.Add(now.Sub(persistStart).Nanoseconds())
+				TotalTaskProcessBg.Add(now.Sub(task.createdAt).Nanoseconds())
 			}
 			w.eth.Logger().Info("🔨 Proposed block validated with success", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
@@ -1199,6 +1202,9 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 
 		select {
 		case w.taskCh <- &task{receipts: env.receipts, state: env.state, block: block, createdAt: time.Now()}:
+			if metrics.Enabled {
+				TotalTaskPrepareBg.Add(time.Since(start).Nanoseconds())
+			}
 			w.eth.Logger().Info("Preparing new block proposal", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
 				"uncles", len(env.uncles), "txs", env.tcount,
 				"gas", block.GasUsed(), "fees", totalFees(block, env.receipts),
@@ -1207,7 +1213,6 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		case <-w.exitCh:
 			w.eth.Logger().Info("Worker has exited")
 		}
-
 	}
 	if update {
 		w.updateSnapshot(env)

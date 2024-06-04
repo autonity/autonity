@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
 )
 
 func newMalPrecommitService(c interfaces.Core) interfaces.Precommiter {
@@ -23,10 +24,11 @@ type malPrecommitService struct {
 
 func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	var precommit *message.Precommit
+	self, csize := selfAndCsize(c.Core, c.Height().Uint64())
 	if isNil {
-		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign)
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
-		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.HexToHash("0xCAFE"), c.Backend().Sign)
+		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.HexToHash("0xCAFE"), c.Backend().Sign, self, csize)
 	}
 	c.SetSentPrecommit(true)
 	c.BroadcastAll(precommit)
@@ -41,7 +43,7 @@ func TestMaliciousPrecommitSender(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120, false)
@@ -58,7 +60,7 @@ func TestMaliciousSenderDisc(t *testing.T) {
 	// creates a network of users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should not be able to mine blocks
 	err = network.WaitToMineNBlocks(1, 120, false)

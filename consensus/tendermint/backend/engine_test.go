@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"math/big"
@@ -18,6 +17,9 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
 )
 
 func TestPrepare(t *testing.T) {
@@ -34,6 +36,7 @@ func TestPrepare(t *testing.T) {
 	}
 }
 
+// TODO(lorenzo) I don't understand what this test is doing + it is not working because the eventLoop part never executes
 func TestSealCommittedOtherHash(t *testing.T) {
 	chain, engine := newBlockChain(4)
 
@@ -52,7 +55,9 @@ func TestSealCommittedOtherHash(t *testing.T) {
 		if !ok {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
-		err = engine.Commit(otherBlock, 0, [][]byte{})
+		signers := types.NewSigners(4)
+		signers.Increment(&otherBlock.Header().Committee[0])
+		err = engine.Commit(otherBlock, 0, types.AggregateSignature{Signature: new(blst.BlsSignature), Signers: signers})
 		if err != nil {
 			t.Error("commit should not return error", err.Error())
 		}
@@ -62,6 +67,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	go eventLoop()
 	seal := func() {
 		resultCh := make(chan *types.Block)
+		engine.SetResultChan(resultCh)
 		err = engine.Seal(chain, block, resultCh, nil)
 		if err != nil {
 			t.Error("seal should not return error", err.Error())
@@ -75,7 +81,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 	const timeoutDura = 2 * time.Second
 	timeout := time.NewTimer(timeoutDura)
 	<-timeout.C
-	// wait 2 seconds to ensure we cannot get any blocks from Istanbul
+	// wait 2 seconds to ensure we cannot get any blocks from Tendermint
 }
 
 func TestSealCommitted(t *testing.T) {
@@ -87,6 +93,7 @@ func TestSealCommitted(t *testing.T) {
 	expectedBlock, _ := engine.AddSeal(block)
 
 	resultCh := make(chan *types.Block)
+	engine.SetResultChan(resultCh)
 	err = engine.Seal(chain, block, resultCh, nil)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
@@ -100,15 +107,15 @@ func TestSealCommitted(t *testing.T) {
 func TestVerifyHeader(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
-	// errEmptyCommittedSeals case
+	// errEmptyQuorumCertificate case
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
 	}
 	block, _ = engine.AddSeal(block)
 	err = engine.VerifyHeader(chain, block.Header(), false)
-	if err != types.ErrEmptyCommittedSeals {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyCommittedSeals)
+	if err != types.ErrEmptyQuorumCertificate {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyQuorumCertificate)
 	}
 
 	header := block.Header()
@@ -186,7 +193,7 @@ func TestVerifyHeader(t *testing.T) {
 	}
 }
 
-/* The logic of this needs to change with respect of Autonity contact */
+// The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
@@ -227,9 +234,9 @@ OUT1:
 		select {
 		case err := <-results:
 			if err != nil {
-				/*  The two following errors mean that the processing has gone right */
-				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
-					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+				//  The two following errors mean that the processing has gone right
+				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
+					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
 					break OUT1
 				}
 			}
@@ -243,7 +250,7 @@ OUT1:
 	}
 }
 
-/* The logic of this needs to change with respect of Autonity contact */
+// The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeadersAbortValidation(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
@@ -285,8 +292,8 @@ OUT2:
 		select {
 		case err := <-results:
 			if err != nil {
-				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
-					t.Errorf("error mismatch: have %v, want errEmptyCommittedSeals|errInvalidCommittedSeals", err)
+				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
+					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
 					break OUT2
 				}
 			}
@@ -304,7 +311,7 @@ OUT2:
 	}
 }
 
-/* The logic of this needs to change with respect of Autonity contact */
+// The logic of this needs to change with respect of Autonity contact
 func TestVerifyErrorHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
@@ -350,7 +357,7 @@ OUT3:
 		select {
 		case err := <-results:
 			if err != nil {
-				if !errors.Is(err, types.ErrEmptyCommittedSeals) && !errors.Is(err, types.ErrInvalidCommittedSeals) {
+				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
 					errorCount++
 				}
 			}
@@ -367,28 +374,25 @@ OUT3:
 	}
 }
 
-func TestWriteCommittedSeals(t *testing.T) {
-
-	expectedCommittedSeal := append([]byte{1, 2, 3}, bytes.Repeat([]byte{0x00}, types.BFTExtraSeal-3)...)
-	var expectedErr error
-
+func TestWriteQuorumCertificate(t *testing.T) {
+	expectedQuorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
+	expectedQuorumCertificate.Signers.Increment(testCommitteeMember)
 	h := &types.Header{}
 
 	// normal case
-	err := types.WriteCommittedSeals(h, [][]byte{expectedCommittedSeal})
-	if err != expectedErr {
-		t.Errorf("error mismatch: have %v, want %v", err, expectedErr)
+	err := types.WriteQuorumCertificate(h, expectedQuorumCertificate)
+	if err != nil {
+		t.Errorf("error mismatch: have %v, want %v", err, nil)
 	}
 
-	if !reflect.DeepEqual(h.CommittedSeals, [][]byte{expectedCommittedSeal}) {
-		t.Errorf("extra data mismatch: have %v, want %v", h.CommittedSeals, expectedCommittedSeal)
+	if !reflect.DeepEqual(h.QuorumCertificate, expectedQuorumCertificate) {
+		t.Errorf("extra data mismatch: have %v, want %v", h.QuorumCertificate, expectedQuorumCertificate)
 	}
 
 	// invalid seal
-	unexpectedCommittedSeal := append(expectedCommittedSeal, make([]byte, 1)...)
-	err = types.WriteCommittedSeals(h, [][]byte{unexpectedCommittedSeal})
-	if err != types.ErrInvalidCommittedSeals {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidCommittedSeals)
+	err = types.WriteQuorumCertificate(h, types.AggregateSignature{})
+	if err != types.ErrInvalidQuorumCertificate {
+		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidQuorumCertificate)
 	}
 }
 
@@ -405,6 +409,26 @@ func TestAPIs(t *testing.T) {
 	}
 }
 
+// needed because backend.Close() also stops the aggregator. It checks that Stop() is called at maximum once
+func fakeAggregator() *aggregator {
+	mux := new(event.TypeMux)
+	stopped := false
+	fakeAggregator := &aggregator{
+		logger: log.Root(),
+		cancel: func() {
+			if !stopped {
+				stopped = true
+			} else {
+				// already stopped once
+				panic("aggregator stopped two times")
+			}
+		},
+		coreSub: mux.Subscribe(),
+	}
+	return fakeAggregator
+}
+
+// TODO(lorenzo) maybe we need to integrate checks on whether aggregator is running or not in these tests and in the next ones about starting
 func TestClose(t *testing.T) {
 	t.Run("engine is not running, error returned", func(t *testing.T) {
 		b := &Backend{}
@@ -422,10 +446,12 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:       tendermintC,
+			aggregator: fakeAggregator(),
+			stopped:    make(chan struct{}),
 		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -440,10 +466,12 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:       tendermintC,
+			aggregator: fakeAggregator(),
+			stopped:    make(chan struct{}),
 		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Close()
 		assertNilError(t, err)
@@ -462,10 +490,12 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
-			core:        tendermintC,
-			coreStarted: true,
-			stopped:     make(chan struct{}),
+			core:       tendermintC,
+			aggregator: fakeAggregator(),
+			stopped:    make(chan struct{}),
 		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -510,15 +540,17 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
+			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 		}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -526,9 +558,9 @@ func TestStart(t *testing.T) {
 	})
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
-		b := &Backend{
-			coreStarted: true,
-		}
+		b := &Backend{}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 
 		err := b.Start(context.Background())
 		assertError(t, ErrStartedEngine, err)
@@ -542,16 +574,19 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
+		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		chain, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
+			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 		}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -569,15 +604,18 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
+		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			core:        tendermintC,
-			gossiper:    g,
-			coreStarted: false,
-			blockchain:  chain,
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
+			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 		}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.coreStarting.Store(false)
 
 		var wg sync.WaitGroup
 		stop := 10
@@ -623,16 +661,19 @@ func TestMultipleRestart(t *testing.T) {
 	tendermintC := interfaces.NewMockCore(ctrl)
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
+	tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 	chain, _ := newBlockChain(1)
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 
 	b := &Backend{
-		core:        tendermintC,
-		gossiper:    g,
-		coreStarted: false,
-		blockchain:  chain,
+		core:       tendermintC,
+		gossiper:   g,
+		blockchain: chain,
+		eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 	}
+	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+	b.coreStarting.Store(false)
 
 	for i := 0; i < times; i++ {
 		err := b.Start(ctx)
@@ -661,14 +702,14 @@ func assertNilError(t *testing.T, err error) {
 
 func assertCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if !b.coreStarted {
+	if !b.coreRunning.Load() {
 		t.Fatal("expected core to have started")
 	}
 }
 
 func assertNotCoreStarted(t *testing.T, b *Backend) {
 	t.Helper()
-	if b.coreStarted {
+	if b.coreRunning.Load() {
 		t.Fatal("expected core to have stopped")
 	}
 }

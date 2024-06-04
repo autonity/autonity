@@ -176,6 +176,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// messages from p2p protocol manager layer.
 
 	evMux := new(event.TypeMux)
+
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
@@ -281,12 +282,12 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
 	accountability.LoadPrecompiles(eth.blockchain)
-	// Create Fault Detector for each full node for the time being,
-
+	// Create Fault Detector for each full node for the time being.
+	//TODO: I think it would make more sense to move this into the tendermint backend if possible
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,
-		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}),
+		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}, events.OldMessageEvent{}),
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
 		eth.log)
@@ -554,7 +555,14 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
 	go s.accountability.Start()
-	go s.newCommitteeWatcher()
+
+	go func() {
+		header := s.blockchain.CurrentHeader()
+		if header.Number.BitLen() == 0 && header.Time > uint64(time.Now().Unix()) {
+			s.genesisCountdown()
+		}
+		s.validatorController()
+	}()
 
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
 	// Start the bloom bits servicing goroutines
@@ -577,9 +585,9 @@ func (s *Ethereum) Start() error {
 }
 
 // This routine is responsible to communicate to devp2p who are the other consensus members
-// if the local node is part of the consensus committee or not.
+// if the local node is part of the consensus committee or not. It also control the miner start/stop functions.
 // todo(youssef): listen to new epoch events instead
-func (s *Ethereum) newCommitteeWatcher() {
+func (s *Ethereum) validatorController() {
 	chainHeadCh := make(chan core.ChainHeadEvent)
 	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 
@@ -609,6 +617,8 @@ func (s *Ethereum) newCommitteeWatcher() {
 	for {
 		select {
 		case ev := <-chainHeadCh:
+			// current block number is cached in server
+			s.p2pServer.SetCurrentBlockNumber(ev.Block.NumberU64())
 			header := ev.Block.Header()
 			// check if the local node belongs to the consensus committee.
 			if header.CommitteeMember(s.address) == nil {
@@ -661,6 +671,65 @@ func (s *Ethereum) Stop() error {
 	s.eventMux.Stop()
 
 	return nil
+}
+
+func (s *Ethereum) genesisCountdown() {
+	genesisTime := time.Unix(int64(s.blockchain.Genesis().Time()), 0)
+	s.log.Info(fmt.Sprintf("Chain genesis time: %v", genesisTime))
+	if s.blockchain.Genesis().Header().CommitteeMember(s.address) != nil {
+		s.log.Warn("**************************************************************")
+		s.log.Warn("Local node is detected GENESIS VALIDATOR")
+		s.log.Warn("Please remain tuned to our Telegram channel for announcements")
+		s.log.Warn("**************************************************************")
+	}
+	var (
+		lastDays   = 0
+		lastHours  = 0
+		lastMinute = 0
+		lastSecond = 0
+	)
+	for {
+		now := time.Now()
+		duration := genesisTime.Sub(now)
+
+		if duration <= 0 {
+			s.log.Warn("Launch!")
+			go func() {
+				time.Sleep(3 * time.Second)
+				if s.blockchain.Genesis().Number().Cmp(common.Big0) > 0 {
+					s.log.Warn("🚀🚀🚀 LAUNCH SUCCESS 🚀🚀🚀")
+				}
+			}()
+			break
+		}
+		days := int(duration.Hours() / 24)
+		hours := int(duration.Hours()) % 24
+		minutes := int(duration.Minutes()) % 60
+		seconds := int(duration.Seconds()) % 60
+
+		if days > 0 {
+			if days != lastDays {
+				lastDays = days
+				s.log.Info(fmt.Sprintf("%d day(s) remaining before genesis", days))
+			}
+		} else if hours == 1 || hours == 2 || hours == 6 || hours == 12 {
+			if hours != lastHours {
+				lastHours = hours
+				s.log.Info(fmt.Sprintf("%d hour(s) remaining before genesis", hours))
+			}
+		} else if (minutes == 1 || minutes == 5 || minutes == 15 || minutes == 30 || minutes == 45) && seconds == 0 {
+			if minutes != lastMinute {
+				lastMinute = minutes
+				s.log.Info(fmt.Sprintf("%d minute(s) remaining before genesis", minutes))
+			}
+		} else if seconds < 10 || seconds == 30 || seconds == 45 {
+			if seconds != lastSecond {
+				lastSecond = seconds
+				s.log.Info(fmt.Sprintf("%d second(s) before genesis", seconds))
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func (s *Ethereum) Logger() log.Logger {

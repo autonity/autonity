@@ -1,18 +1,20 @@
 package byzantine
 
 import (
-	"context"
+	"encoding/hex"
+	"math/rand"
 	"testing"
 
+	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/autonity"
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	bk "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto/blst"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/rlp"
 )
@@ -42,21 +44,21 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 		panic("cannot simulate off chain accusation PVN")
 	}
 
-	proposals := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-		return m.Code() == message.ProposalCode
+	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
+		return true
 	})
 
-	for _, p := range proposals {
-		preVotes := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.R() == p.R() && m.Value() == p.Value()
+	for _, proposal := range proposals {
+		preVotes := backEnd.MsgStore.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == proposal.R() && m.Value() == proposal.Value()
 		})
 		// remove proposal.
-		backEnd.MsgStore.RemoveMsg(p.H(), p.R(), p.Code(), p.Sender())
+		backEnd.MsgStore.RemoveMsg(proposal.H(), proposal.Code(), proposal.Hash())
 		// remove over quorum corresponding prevotes.
 		counter := 0
-		for _, pv := range preVotes {
+		for _, prevote := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code(), pv.Sender())
+				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.Code(), prevote.Hash())
 				counter++
 			} else {
 				break
@@ -93,20 +95,20 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 		panic("cannot simulate off chain accusation C1")
 	}
 
-	proposals := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-		return m.Code() == message.ProposalCode
+	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
+		return true
 	})
 
-	for _, p := range proposals {
-		preVotes := backEnd.MsgStore.Get(height, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.R() == p.R() && m.Value() == p.Value()
+	for _, proposal := range proposals {
+		preVotes := backEnd.MsgStore.GetPrevotes(height, func(m *message.Prevote) bool {
+			return m.R() == proposal.R() && m.Value() == proposal.Value()
 		})
 
 		// remove over quorum corresponding prevotes.
 		counter := 0
-		for _, pv := range preVotes {
+		for _, prevote := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(pv.H(), pv.R(), pv.Code(), pv.Sender())
+				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.Code(), prevote.Hash())
 				counter++
 			} else {
 				break
@@ -116,16 +118,47 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 	s.Logger().Info("MsgStore manipulated to cause accusation of C1 rule to be raised later on", "accusationHeight", height)
 }
 
-func newGarbageOffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
-	return &GarbageOffChainAccusation{c.(*core.Core)}
+func newOffChainAccusationFuzzer(c interfaces.Core) interfaces.Broadcaster {
+	return &OffChainAccusationFuzzer{c.(*core.Core)}
 }
 
 // send accusation with garbage accusation msg, the sender of the msg should get disconnected from receiver end.
-type GarbageOffChainAccusation struct {
+type OffChainAccusationFuzzer struct {
 	*core.Core
 }
 
-func (s *GarbageOffChainAccusation) Broadcast(msg message.Msg) {
+// TODO(lorenzo) not sure this manages to fuzz also the `Signers` object in message.Vote
+func fuzzedMessages() []message.Msg {
+	num := rand.Intn(10) + 1
+	var msgs []message.Msg
+	//TODO(lorenzo) properly define custom fuzzing functions for signature and signerkey
+	f := fuzz.New().Funcs(
+		func(sig *blst.Signature, c fuzz.Continue) {
+			sigHex := "0x98759b81f6595ac857dbf0a51df26c6b9bb05ada93be66a4dfff5cb7aa5b0a43cd5cf37eb7f5cdfa67df9080a4e406921484edc9596f71eb55323ec79c62a73128524db2ad3eac9d2bb2db74676a21c1b280613e574bbfd54cbd220c552b518d" //nolint
+			b, _ := hex.DecodeString(sigHex[2:])
+			*sig, _ = blst.SignatureFromBytes(b)
+		},
+		func(key *blst.PublicKey, c fuzz.Continue) {
+			keyHex := "0x9324e32ed1739ae1283888dd91a17b13881f989e94fc1b572d678392e0e0df8fa7e5dec44b8cf378000d68ecca5e36eb" //nolint
+			b, _ := hex.DecodeString(keyHex[2:])
+			*key, _ = blst.PublicKeyFromBytes(b)
+		},
+	)
+
+	for i := 0; i < num; i++ {
+		m := &message.Fake{}
+		f.Fuzz(m)
+		// todo: (Jason) add fuzz for the proposal contains in the accusation accountability message.
+		// since our RLP encoding of accusation msg does not allow a full proposal, thus we skip the proposal code.
+		if m.FakeCode == message.ProposalCode {
+			m.FakeCode++
+		}
+		msgs = append(msgs, m)
+	}
+	return msgs
+}
+
+func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 	s.BroadcastAll(msg)
 	// construct garbage off chain accusation msg and sent it.
 	if msg.H() <= uint64(1) {
@@ -142,16 +175,23 @@ func (s *GarbageOffChainAccusation) Broadcast(msg message.Msg) {
 		if c.Address == s.Address() {
 			continue
 		}
-		targets := make(map[common.Address]struct{})
-		targets[c.Address] = struct{}{}
-		peers := backEnd.Broadcaster.FindPeers(targets)
-		payload, err := e2e.GenerateRandomBytes(2048)
+		peer, ok := backEnd.Broadcaster.FindPeer(c.Address)
+
+		evidences := fuzzedMessages()
+		accusation := &accountability.Proof{
+			Type:          autonity.AccountabilityEventType(rand.Int()),
+			Rule:          autonity.Rule(rand.Int()),
+			Evidences:     evidences,
+			Message:       evidences[0],
+			OffenderIndex: rand.Int(),
+		}
+		proof, err := rlp.EncodeToBytes(accusation)
 		if err != nil {
 			panic("Failed to generate random bytes ")
 		}
-		if len(peers) > 0 {
-			// send garbage accusation msg.
-			go peers[c.Address].Send(bk.AccountabilityNetworkMsg, payload) // nolint
+		if ok {
+			// send fuzzed accusation msg.
+			go peer.Send(bk.AccountabilityNetworkMsg, proof) // nolint
 			s.Logger().Info("Off chain Accusation garbage accusation is simulated")
 		}
 	}
@@ -176,29 +216,39 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 	if !ok {
 		panic("cannot simulate duplicated off chain accusation")
 	}
+	header := backEnd.BlockChain().GetHeaderByNumber(msg.H() - 2)
+	if header == nil {
+		panic("cannot fetch parent header")
+	}
 
-	preVotes := backEnd.MsgStore.Get(msg.H()-1, func(m message.Msg) bool {
-		return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
+	self := int(header.CommitteeMember(s.Address()).Index)
+
+	preVotes := backEnd.MsgStore.GetPrevotes(msg.H()-1, func(m *message.Prevote) bool {
+		return true
 	})
 
 	for _, pv := range preVotes {
-		targets := make(map[common.Address]struct{})
-		targets[pv.Sender()] = struct{}{}
-		peers := backEnd.Broadcaster.FindPeers(targets)
-		if len(peers) > 0 {
-			accusation := &accountability.Proof{
-				Type:    autonity.Accusation,
-				Rule:    autonity.PVN,
-				Message: pv,
+		for _, signerIndex := range pv.Signers().FlattenUniq() {
+			if signerIndex == self {
+				continue
 			}
-			rProof, err := rlp.EncodeToBytes(accusation)
-			if err != nil {
-				panic("cannot encode accusation at e2e test for off chain accusation protocol")
+			peer, ok := backEnd.Broadcaster.FindPeer(header.Committee[signerIndex].Address)
+			if ok {
+				accusation := &accountability.Proof{
+					Type:          autonity.Accusation,
+					Rule:          autonity.PVN,
+					Message:       pv,
+					OffenderIndex: signerIndex,
+				}
+				rProof, err := rlp.EncodeToBytes(accusation)
+				if err != nil {
+					panic("cannot encode accusation at e2e test for off chain accusation protocol")
+				}
+				// send duplicated msg.
+				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+				s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 			}
-			// send duplicated msg.
-			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-			go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-			s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 		}
 	}
 }
@@ -224,26 +274,35 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 
 	// collect some out of updated consensus msg
 	for h := uint64(2); h <= msg.H(); h++ {
-		preVotes := backEnd.MsgStore.Get(h, func(m message.Msg) bool {
-			return m.Code() == message.PrevoteCode && m.Sender() != msg.Sender()
+		header := backEnd.BlockChain().GetHeaderByNumber(h - 1)
+		if header == nil {
+			panic("cannot fetch parent header")
+		}
+		self := int(header.CommitteeMember(s.Address()).Index)
+		preVotes := backEnd.MsgStore.GetPrevotes(h, func(m *message.Prevote) bool {
+			return true
 		})
 		for _, pv := range preVotes {
-			targets := make(map[common.Address]struct{})
-			targets[pv.Sender()] = struct{}{}
-			peers := backEnd.Broadcaster.FindPeers(targets)
-			if len(peers) > 0 {
-				accusation := &accountability.Proof{
-					Type:    autonity.Accusation,
-					Rule:    autonity.PVN,
-					Message: pv,
+			for _, signerIndex := range pv.Signers().FlattenUniq() {
+				if signerIndex == self {
+					continue
 				}
-				rProof, err := rlp.EncodeToBytes(accusation)
-				if err != nil {
-					panic("cannot encode accusation at e2e test for off chain accusation protocol")
+				peer, ok := backEnd.Broadcaster.FindPeer(header.Committee[signerIndex].Address)
+				if ok {
+					accusation := &accountability.Proof{
+						Type:          autonity.Accusation,
+						Rule:          autonity.PVN,
+						Message:       pv,
+						OffenderIndex: signerIndex,
+					}
+					rProof, err := rlp.EncodeToBytes(accusation)
+					if err != nil {
+						panic("cannot encode accusation at e2e test for off chain accusation protocol")
+					}
+					// send msg.
+					go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+					s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 				}
-				// send msg.
-				go peers[pv.Sender()].Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-				s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 			}
 		}
 	}
@@ -267,54 +326,45 @@ func TestOffChainAccusation(t *testing.T) {
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
 
-	// TODO(lorenzo) attempt to restore
-	// Following in belows, there are 3 testcases to observe if those malicious off-chain challenger's peer is dropped
-	// due to the DoS protection of off chain accusation protocol. Due to the re-dail scheduler in P2P layer, those
-	// dropped peer are reconnected after a short while which making the tests unstable from e2e point of view. So skip
-	// them from CI job.
-	t.Run("Test off chain accusation with garbage msg", func(t *testing.T) {
-		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
-		handler := &interfaces.Services{Broadcaster: newGarbageOffChainAccusation}
-		runDropPeerConnectionTest(t, handler, 10)
+	t.Run("Test off chain accusation with fuzzed msg", func(t *testing.T) {
+		handler := &interfaces.Services{Broadcaster: newOffChainAccusationFuzzer}
+		runDropPeerConnectionTest(t, handler, 30, 60)
 	})
 
 	t.Run("Test duplicated accusation msg from same peer", func(t *testing.T) {
-		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
 		handler := &interfaces.Services{Broadcaster: newOffChainDuplicatedAccusationBroadcaster}
-		runDropPeerConnectionTest(t, handler, 15)
+		runDropPeerConnectionTest(t, handler, 30, 60)
 	})
 
 	t.Run("Test over rated off chain accusation", func(t *testing.T) {
-		t.Skip("dropped peer was reconnected after a while in the p2p layer causing this case unstable")
 		handler := &interfaces.Services{Broadcaster: newOverRatedOffChainAccusation}
-		runDropPeerConnectionTest(t, handler, 20)
+		runDropPeerConnectionTest(t, handler, 30, 60)
 	})
 }
 
-func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testPeriod uint64) { // nolint
-	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
+func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testPeriod uint64, numSec int) { // nolint
 	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	// set malicious challenger
-	challenger := 0
-	validators[challenger].TendermintServices = handler
+	// set malicious
+	spammer := 0
+	validators[spammer].TendermintServices = handler
+
 	// creates a network of 4 validators and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, validators, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
+	n := network[spammer]
+	count := n.ConsensusServer().PeerCount()
+	require.Equal(t, 3, count)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(testPeriod, 20, false)
+	err = network.WaitToMineNBlocks(testPeriod, numSec, false)
 	require.NoError(t, err)
 
 	// the challenger should get no peer connection left.
-	n := network[1]
-	client := n.WsClient
-	count, err := client.PeerCount(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, uint(2), count)
+	count = n.ConsensusServer().PeerCount()
+	require.Equal(t, 0, count)
 }
 
 func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Services, tp autonity.AccountabilityEventType,
@@ -331,7 +381,7 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 	// creates a network of 4 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(testPeriod, 500, false)

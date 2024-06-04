@@ -11,14 +11,16 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
@@ -26,12 +28,11 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		address:                address,
 		logger:                 logger,
 		backend:                backend,
-		backlogs:               make(map[common.Address][]message.Msg),
-		backlogUntrusted:       make(map[uint64][]message.Msg),
+		futureRound:            make(map[int64][]message.Msg),
+		futurePower:            make(map[int64]*message.AggregatedPower),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
-		futureRoundChange:      make(map[int64]map[common.Address]*big.Int),
 		messages:               messagesMap,
 		lockedRound:            -1,
 		validRound:             -1,
@@ -42,6 +43,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
+		noGossip:               noGossip,
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -69,16 +71,13 @@ type Core struct {
 	cancel  context.CancelFunc
 
 	messageSub          *event.TypeMuxSubscription
-	candidateBlockSub   *event.TypeMuxSubscription
-	committedSub        *event.TypeMuxSubscription
+	candidateBlockCh    chan events.NewCandidateBlockEvent
+	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
 	syncEventSub        *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
-	backlogs             map[common.Address][]message.Msg
-	backlogUntrusted     map[uint64][]message.Msg
-	backlogUntrustedSize int
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
 
@@ -86,17 +85,27 @@ type Core struct {
 	// Tendermint FSM state fields
 	//
 
-	stateMu    sync.RWMutex
-	height     *big.Int
-	round      int64
-	committee  interfaces.Committee
-	lastHeader *types.Header
+	// used to ensure that the aggregator can get the correct power values by calling Power, VotesPower, VotesPowerFor
+	// TODO(lorenzo) can this be a performance problem? (aggregator blocking round change in Core)
+	roundChangeMu sync.Mutex
+	stateMu       sync.RWMutex
+	height        *big.Int
+	round         int64
+	committee     interfaces.Committee
+	lastHeader    *types.Header
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	step                  Step
-	stepChange            time.Time
-	curRoundMessages      *message.RoundMessages
-	messages              *message.Map
+	step             Step
+	stepChange       time.Time
+	curRoundMessages *message.RoundMessages
+	messages         *message.Map
+
+	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
+	// they need a lock.
+	futureRound     map[int64][]message.Msg
+	futurePower     map[int64]*message.AggregatedPower // power cache for future value msgs (per round)
+	futureRoundLock sync.RWMutex
+
 	sentProposal          bool
 	sentPrevote           bool
 	sentPrecommit         bool
@@ -111,7 +120,7 @@ type Core struct {
 	prevoteTimeout   *Timeout
 	precommitTimeout *Timeout
 
-	futureRoundChange map[int64]map[common.Address]*big.Int
+	// End of Tendermint FSM fields
 
 	protocolContracts *autonity.ProtocolContracts
 
@@ -123,8 +132,10 @@ type Core struct {
 	proposer    interfaces.Proposer
 
 	// these timestamps are used to compute metrics for tendermint
-	newHeight time.Time
-	newRound  time.Time
+	newHeight          time.Time
+	newRound           time.Time
+	currBlockTimeStamp time.Time
+	noGossip           bool
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -145,6 +156,15 @@ func (c *Core) Address() common.Address {
 
 func (c *Core) Step() Step {
 	return c.step
+}
+
+func (c *Core) Post(ev any) {
+	switch ev := ev.(type) {
+	case events.CommitEvent:
+		c.committedCh <- ev
+	case events.NewCandidateBlockEvent:
+		c.candidateBlockCh <- ev
+	}
 }
 
 func (c *Core) CurRoundMessages() *message.RoundMessages {
@@ -231,14 +251,6 @@ func (c *Core) PrecommitTimeout() *Timeout {
 	return c.precommitTimeout
 }
 
-func (c *Core) FutureRoundChange() map[int64]map[common.Address]*big.Int {
-	return c.futureRoundChange
-}
-
-func (c *Core) SetFutureRoundChange(futureRoundChange map[int64]map[common.Address]*big.Int) {
-	c.futureRoundChange = futureRoundChange
-}
-
 func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
 }
@@ -255,11 +267,11 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
-	committedSeals := make([][]byte, 0)
-	for _, v := range messages.PrecommitsFor(proposalHash) {
-		committedSeals = append(committedSeals, v.Signature())
-	}
-	if err := c.backend.Commit(proposal.Block(), round, committedSeals); err != nil {
+
+	precommitWithQuorum := messages.PrecommitFor(proposalHash)
+	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
+
+	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
@@ -281,11 +293,40 @@ func (c *Core) measureHeightRoundMetrics(round int64) {
 	}
 }
 
+type backlogMessageEvent struct {
+	msg message.Msg
+}
+
+// current round == 0 --> height change
+func (c *Core) processFuture(previousRound int64, currentRound int64) {
+	if currentRound == 0 {
+		// if height change, process future height messages
+		go c.backend.ProcessFutureMsgs(c.Height().Uint64())
+		return
+	}
+
+	// round change, process buffered future round messages
+	c.futureRoundLock.Lock()
+	defer c.futureRoundLock.Unlock()
+
+	for r := previousRound + 1; r <= currentRound; r++ {
+		for _, msg := range c.futureRound[r] {
+			go c.SendEvent(backlogMessageEvent{
+				msg: msg,
+			})
+		}
+		delete(c.futureRound, r)
+		delete(c.futurePower, r)
+	}
+}
+
 // StartRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *Core) StartRound(ctx context.Context, round int64) {
 	if round > constants.MaxRound {
 		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
 	}
+
+	previousRound := c.Round()
 
 	c.measureHeightRoundMetrics(round)
 	// Set initial FSM state
@@ -316,10 +357,16 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
-	c.processBacklog()
+	c.processFuture(previousRound, round)
+	c.backend.Post(events.RoundChangeEvent{Height: c.Height().Uint64(), Round: round})
 }
 
 func (c *Core) setInitialState(r int64) {
+	start := time.Now()
+	c.roundChangeMu.Lock()
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
+	defer c.roundChangeMu.Unlock()
+
 	// Start of new height where round is 0
 	if r == 0 {
 		lastBlockMined := c.backend.HeadBlock()
@@ -332,7 +379,10 @@ func (c *Core) setInitialState(r int64) {
 		c.validRound = -1
 		c.validValue = nil
 		c.messages.Reset()
-		c.futureRoundChange = make(map[int64]map[common.Address]*big.Int)
+		c.futureRoundLock.Lock()
+		c.futureRound = make(map[int64][]message.Msg)
+		c.futurePower = make(map[int64]*message.AggregatedPower)
+		c.futureRoundLock.Unlock()
 		// update height duration timer
 		if metrics.Enabled {
 			now := time.Now()
@@ -361,16 +411,6 @@ func (c *Core) setInitialState(r int64) {
 	}
 }
 
-/*
-	func (c *Core) AcceptVote(roundMsgs *message.RoundMessages, step Step, hash common.Hash, msg message.Message) {
-		switch step {
-		case Prevote:
-			roundMsgs.AddPrevote(hash, msg)
-		case Precommit:
-			roundMsgs.AddPrecommit(hash, msg)
-		}
-	}
-*/
 func (c *Core) SetStep(ctx context.Context, step Step) {
 	now := time.Now()
 	if metrics.Enabled {
@@ -491,8 +531,95 @@ func (c *Core) LastHeader() *types.Header {
 	return c.lastHeader
 }
 
+func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {
+	start := time.Now()
+	c.roundChangeMu.Lock()
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
+	defer c.roundChangeMu.Unlock()
+
+	if h != c.Height().Uint64() {
+		return message.NewAggregatedPower()
+	}
+
+	power := message.NewAggregatedPower()
+	if r > c.Round() {
+		// future round
+		c.futureRoundLock.RLock()
+		futurePower, ok := c.futurePower[r]
+		if ok {
+			power = futurePower.Copy()
+		}
+		c.futureRoundLock.RUnlock()
+	} else {
+		// old or current round
+		power = c.messages.GetOrCreate(r).Power()
+	}
+
+	return power
+}
+
+// NOTE: this assumes that r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
+// This methods should not be used to compute power for future rounds
+func (c *Core) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower {
+	start := time.Now()
+	c.roundChangeMu.Lock()
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
+	defer c.roundChangeMu.Unlock()
+
+	if h != c.Height().Uint64() {
+		return message.NewAggregatedPower()
+	}
+	roundMessages := c.messages.GetOrCreate(r)
+	var power *message.AggregatedPower
+
+	switch code {
+	case message.ProposalCode:
+		c.logger.Crit("Proposal code passed into VotesPower")
+	case message.PrevoteCode:
+		power = roundMessages.PrevotesTotalAggregatedPower()
+	case message.PrecommitCode:
+		power = roundMessages.PrecommitsTotalAggregatedPower()
+	default:
+		c.logger.Crit("unknown message code", "code", code)
+	}
+	return power
+}
+
+// NOTE: assume r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
+// This methods should not be used to compute power for future rounds
+func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower {
+	start := time.Now()
+	c.roundChangeMu.Lock()
+	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
+	defer c.roundChangeMu.Unlock()
+
+	if h != c.Height().Uint64() {
+		return message.NewAggregatedPower()
+	}
+	roundMessages := c.messages.GetOrCreate(r)
+	var power *message.AggregatedPower
+
+	switch code {
+	case message.ProposalCode:
+		c.logger.Crit("Proposal code passed into VotesPower")
+	case message.PrevoteCode:
+		power = roundMessages.PrevotesAggregatedPower(v)
+	case message.PrecommitCode:
+		power = roundMessages.PrecommitsAggregatedPower(v)
+	default:
+		c.logger.Crit("unknown message code", "code", code)
+	}
+	return power
+}
+
 func (c *Core) CurrentHeightMessages() []message.Msg {
-	return c.messages.All()
+	c.futureRoundLock.RLock()
+	var future []message.Msg
+	for _, msgs := range c.futureRound {
+		future = append(future, msgs...)
+	}
+	c.futureRoundLock.RUnlock()
+	return append(c.messages.All(), future...)
 }
 
 func (c *Core) Backend() interfaces.Backend {
@@ -519,7 +646,6 @@ type Broadcaster struct {
 }
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
-	logger := s.Logger().New("step", s.Step())
-	logger.Debug("Broadcasting", "message", msg.String())
+	s.logger.Debug("Broadcasting", "message", log.Lazy{Fn: msg.String})
 	s.BroadcastAll(msg)
 }

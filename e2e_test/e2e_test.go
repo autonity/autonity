@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -26,8 +27,9 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 )
 
@@ -39,18 +41,18 @@ import (
 func TestSendingValue(t *testing.T) {
 	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
-	_ = network.WaitToMineNBlocks(20, 30, false)
+	_ = network.WaitToMineNBlocks(100, 100, false)
 }
 
 func TestProtocolContractsDeployment(t *testing.T) {
 	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// Autonity Contract
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	autonityConfig, err := autonityContract.Config(nil)
@@ -98,7 +100,7 @@ func TestProtocolContractCache(t *testing.T) {
 	t.Run("If minimum base fee is updated, cached value is updated as well", func(t *testing.T) {
 		network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 		require.NoError(t, err)
-		defer network.Shutdown()
+		defer network.Shutdown(t)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
@@ -138,7 +140,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 	network, err := NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	n := network[0]
 
@@ -175,7 +177,8 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// claimable fees should be 0 before epoch
 	for i := range liquidContracts {
 		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
-		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.Bytes())
+		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedATN.Bytes())
+		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedNTN.Bytes())
 	}
 
 	// wait for epoch
@@ -233,7 +236,7 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	// start the network
 	network, err := NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	// mine a couple blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
@@ -246,14 +249,13 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 
 	// get latest inserted block and generate proposal out of it
 	block := node.Eth.BlockChain().CurrentBlock()
-	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], node.Key)
-		return out, common.Address{}
-	}).MustVerify(func(address common.Address) *types.CommitteeMember {
-		return &types.CommitteeMember{
-			Address:     common.Address{},
-			VotingPower: common.Big1,
-		}
+	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) blst.Signature {
+		return node.ConsensusKey.Sign(hash.Bytes())
+	}, &types.CommitteeMember{
+		Address:           node.Address,
+		VotingPower:       common.Big1,
+		ConsensusKeyBytes: node.ConsensusKey.PublicKey().Marshal(),
+		ConsensusKey:      node.ConsensusKey.PublicKey(),
 	})
 
 	// handle the proposal
@@ -264,9 +266,9 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 func TestStartingAndStoppingNodes(t *testing.T) {
 	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	n := network[0]
-	// Send a tx to see that the network is working
+	// Send a TX to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -275,7 +277,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	err = network[1].Close(true)
 	network[1].Wait()
 	require.NoError(t, err)
-	// Send a tx to see that the network is working
+	// Send a TX to see that the network is working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -285,8 +287,8 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	err = network[2].Close(true)
 	network[2].Wait()
 	require.NoError(t, err)
-	// We have now stopped more than F nodes, so we expect tx processing to time out.
-	// Well wait 5 times the avgTransactionDuration before we assume the tx is not being processed.
+	// We have now stopped more than F nodes, so we expect TX processing to time out.
+	// Well wait 5 times the avgTransactionDuration before we assume the TX is not being processed.
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -303,7 +305,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	defer cancel()
 	err = n.AwaitSentTransactions(ctx)
 	require.NoError(t, err)
-	// Send a tx to see that the network is still working
+	// Send a TX to see that the network is still working
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.SendAUTtracked(ctx, network[1].Address, 10)
@@ -312,7 +314,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	// Start the last stopped node
 	err = network[1].Start()
 	require.NoError(t, err)
-	// Send a tx to see that the network is still working
+	// Send a TX to see that the network is still working
 	err = n.SendAUTtracked(context.Background(), network[1].Address, 10)
 	require.NoError(t, err)
 }
@@ -344,7 +346,7 @@ func (s *broadcasterWithCheck) Broadcast(msg message.Msg) {
 func TestWaitForChainSyncAfterStop(t *testing.T) {
 	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitToMineNBlocks(10, 60, false)
 	require.NoError(t, err)
@@ -399,7 +401,7 @@ func TestTendermintQuorum(t *testing.T) {
 	require.NoError(t, err)
 	network, err := NewNetworkFromValidators(t, users, false)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	for i, n := range network {
 		// start 3 nodes
 		if i < 3 {
@@ -433,7 +435,7 @@ func TestTendermintQuorum2(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// stop 3 nodes and verify if transaction processing is halted
 	for i, n := range network {
 		// stop last 3 nodes
@@ -475,7 +477,7 @@ func TestTendermintQuorum4(t *testing.T) {
 	// creates a network of 7 users and starts all the nodes in it
 	network, err := NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
@@ -575,7 +577,7 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(3, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
@@ -649,6 +651,110 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
+func TestValidatorMigration(t *testing.T) {
+	vals, err := Validators(t, 4, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	params.TestChainConfig.AutonityContractConfig.EpochPeriod = 5
+	network, err := NewNetworkFromValidators(t, vals, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	n := network[0]
+	// wait for validator to connect to each other
+	// pause a validator
+	// turn off validator
+	// update ip of a single validator
+	// re-activate validator with new ip:
+	// activate validator again
+	// ensure all validators are connected in full mesh with new ip
+
+	// Setup Bindings
+	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[1].WsClient)
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+
+	validator, _ := autonityContract.GetValidator(nil, n.Address)
+	oldEnode, err := enode.ParseV4(validator.Enode)
+	require.NoError(t, err)
+	// use new port in the newer enode
+	newPort := freeport.GetOne(t)
+	newEnode := enode.AppendConsensusEndpoint(oldEnode.Host(), strconv.Itoa(newPort), oldEnode.String())
+
+	_, err = autonityContract.PauseValidator(transactor, n.Address)
+	require.NoError(t, err)
+
+	inCommitee := func(addr common.Address) bool {
+		members, err := autonityContract.GetCommittee(nil)
+		require.NoError(t, err)
+		found := false
+		for _, m := range members {
+			if m.Addr == addr {
+				found = true
+				break
+			}
+		}
+		return found
+	}
+
+	// wait for few blocks to get the validator out of committee
+loop1:
+	for {
+		time.Sleep(1 * time.Second)
+		if !inCommitee(n.Address) {
+			break loop1
+		}
+	}
+
+	_, err = autonityContract.UpdateEnode(transactor, n.Address, newEnode)
+	require.NoError(t, err)
+	// turn off validator to restart it with new port
+	n.Close(true)
+
+	err = network.WaitToMineNBlocks(1, 10, false)
+	require.NoError(t, err)
+	// verify other client only has 2 connection now
+	require.Equal(t, 2, network[1].ConsensusServer().PeerCount())
+
+	// start the client again
+	n.Config.ConsensusP2P.ListenAddr = oldEnode.Host() + ":" + strconv.Itoa(newPort)
+	n.Start()
+
+	// re-activate validator
+	_, err = autonityContract.ActivateValidator(transactor, n.Address)
+	require.NoError(t, err)
+
+	// wait for few blocks to get the validator in committee
+loop:
+	for {
+		time.Sleep(1 * time.Second)
+		if inCommitee(n.Address) {
+			break loop
+		}
+	}
+	err = network.WaitToMineNBlocks(30, 60, false)
+	require.NoError(t, err)
+
+	fullyConnected := false
+	tries := 30
+	// we are in committee again wait for approximately 30 second to connect everyone
+loop2:
+	for {
+		time.Sleep(1 * time.Second)
+		if n.ConsensusServer().PeerCount() == 3 {
+			fullyConnected = true
+			break loop2
+		}
+		tries--
+		if tries == 0 {
+			break loop2
+		}
+	}
+	// verify we are connected fully again
+	require.True(t, fullyConnected)
+}
+
 /*
 // UNSUPPORTED ON NON UNIX DEV ENV
 func updateRlimit() {
@@ -700,7 +806,7 @@ func TestLargeNetwork(t *testing.T) {
 		genesis.Config.AutonityContractConfig.MaxCommitteeSize = maxCommittee
 	})
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()

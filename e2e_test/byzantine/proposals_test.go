@@ -28,8 +28,9 @@ type duplicateProposalSender struct {
 
 // SendProposal overrides core.sendProposal and send multiple proposals
 func (c *duplicateProposalSender) SendProposal(_ context.Context, p *types.Block) {
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
-	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()-1, p, c.Backend().Sign)
+	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
+	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()-1, p, c.Backend().Sign, self)
 
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
@@ -49,7 +50,7 @@ func TestDuplicateProposal(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -77,7 +78,8 @@ func (c *malProposalSender) Broadcast(msg message.Msg) {
 	header := &types.Header{Number: new(big.Int).SetUint64(height)}
 	block := types.NewBlockWithHeader(header)
 	// create a new proposal message
-	propose := message.NewPropose(round, height, -1, block, c.Backend().Sign)
+	self, _ := selfAndCsize(c.Core, height)
+	propose := message.NewPropose(round, height, -1, block, c.Backend().Sign, self)
 	c.BroadcastAll(propose)
 }
 
@@ -110,7 +112,7 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -130,7 +132,7 @@ func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -162,7 +164,8 @@ func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) 
 		fakeTransactions = append(fakeTransactions, &fakeTransaction)
 	}
 	p.SetTransactions(fakeTransactions)
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
+	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 	//send same proposal twice
@@ -178,7 +181,7 @@ func TestPartialProposal(t *testing.T) {
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := e2e.NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
-	defer network.Shutdown()
+	defer network.Shutdown(t)
 
 	err = network.WaitForSyncComplete()
 	require.NoError(t, err)
@@ -222,12 +225,12 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	var num big.Int
 	f.Fuzz(&num)
 	p.SetHeaderNumber(&num)
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign)
+	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
 
-	//send same proposal twice
 	c.BroadcastAll(proposal)
 }
 
@@ -248,6 +251,5 @@ func TestInvalidBlockProposal(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(5, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
-	network.Shutdown()
-	//}
+	network.Shutdown(t)
 }

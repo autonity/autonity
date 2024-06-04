@@ -13,6 +13,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 
@@ -20,26 +21,19 @@ import (
 )
 
 var (
-	offenderKey, _ = crypto.GenerateKey()
-	offender       = crypto.PubkeyToAddress(offenderKey.PublicKey)
-	cm             = types.CommitteeMember{Address: offender}
-	header         = &types.Header{Committee: []types.CommitteeMember{cm}}
-	signer         = func(hash common.Hash) ([]byte, common.Address) {
-		out, _ := crypto.Sign(hash[:], offenderKey)
-		return out, offender
+	offenderNodeKey, _      = crypto.GenerateKey()
+	offenderConsensusKey, _ = blst.RandKey()
+	offender                = crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
+	cm                      = types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
+	header                  = &types.Header{Committee: []types.CommitteeMember{cm}}
+	signer                  = func(hash common.Hash) blst.Signature {
+		return offenderConsensusKey.Sign(hash[:])
 	}
 	reporter = *params.TestAutonityContractConfig.Validators[0].NodeAddress
 )
 
-func stubVerifier(address common.Address) *types.CommitteeMember {
-	return &types.CommitteeMember{
-		Address:     address,
-		VotingPower: common.Big1,
-	}
-}
-
-func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address) AccountabilityEvent {
-	prevote := message.NewPrevote(0, height, value, signer).MustVerify(stubVerifier)
+func NewAccusationEvent(height uint64, value common.Hash) AccountabilityEvent {
+	prevote := message.NewPrevote(0, height, value, signer, &cm, 1)
 
 	p := &accountability.Proof{
 		Type:    autonity.Accusation,
@@ -55,7 +49,7 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 		EventType:      uint8(p.Type),
 		Rule:           uint8(p.Rule),
 		Reporter:       reporter,
-		Offender:       p.Message.Sender(),
+		Offender:       offender,
 		RawProof:       rawProof,
 		Id:             common.Big0,                           // assigned contract-side
 		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side
@@ -103,7 +97,7 @@ func TestAccusation(t *testing.T) {
 		// reporting should be reverted since reporter is not in current committee and last committee
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
 		noAccessor := common.Address{}
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 		require.Equal(r.t, "execution reverted: function restricted to a committee member", err.Error())
 
@@ -120,7 +114,7 @@ func TestAccusation(t *testing.T) {
 		_, err = r.accountability.SetCommittee(&runOptions{origin: params.AutonityContractAddress}, newCommittee)
 		require.NoError(t, err)
 		chainMock.EXPECT().GetBlock(common.Hash{0xca, 0xff}, accusationHeight).Return(nil)
-		_, err = r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xff}, noAccessor))
+		_, err = r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xff}))
 		require.NoError(t, err)
 
 		// now set new committee, it will set current committee as last committee, the reporter is still allowed for reporting.
@@ -128,14 +122,14 @@ func TestAccusation(t *testing.T) {
 		require.NoError(t, err)
 		chainMock.EXPECT().GetBlock(common.Hash{0xca, 0xff}, accusationHeight).Return(nil)
 		// report same accusation should be reverted since the accusation is pending now.
-		_, err = r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xff}, noAccessor))
+		_, err = r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xff}))
 		require.Equal(t, "execution reverted: already processing an accusation", err.Error())
 
 		// nwo set new committee without having the reporter, then it is not allowed for reporting.
 		_, err = r.accountability.SetCommittee(&runOptions{origin: params.AutonityContractAddress}, newCommittee[0:len(newCommittee)-1])
 		require.NoError(t, err)
 		// report same accusation should be reverted since the accusation is pending now.
-		_, err = r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xff}, noAccessor))
+		_, err = r.accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xff}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 		require.Equal(r.t, "execution reverted: function restricted to a committee member", err.Error())
 	})
@@ -166,43 +160,43 @@ func TestAccusationTiming(t *testing.T) {
 	r.run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})
 	r.run("submit accusation at height = lastCommittedHeight - delta + 1 (too recent)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks + 1
 
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = lastCommittedHeight (too recent)", func(r *runner) {
 		accusationHeight := lastCommittedHeight
 
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = lastCommittedHeight + 5 (future)", func(r *runner) {
 		accusationHeight := lastCommittedHeight + 5
 
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange (too old)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange
 
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4)  (too old)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4)
 
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
 
-		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})
 }

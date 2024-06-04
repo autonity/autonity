@@ -1,28 +1,31 @@
 package backend
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-
-	lru "github.com/hashicorp/golang-lru"
 	ring "github.com/zfjagann/golang-ring"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )
@@ -30,10 +33,16 @@ import (
 const (
 	// fetcherID is the ID indicates the block is from BFT engine
 	fetcherID = "tendermint"
-	// ring buffer to be able to handle at maximum 10 rounds, 20 committee and 3 messages types
-	ringCapacity = 10 * 20 * 3
+	// ring buffer to be able to handle at maximum 10 rounds, 100 committee and 3 messages types
+	ringCapacity = 10 * 100 * 3
+	// maximum number of future height messages
+	maxFutureMsgs = 10 * 100 * 3
 	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
 	retryPeriod = 10
+	// number of buckets to allocate in the fixed cache
+	numBuckets = 499
+	// max number of entries in each packet
+	numEntries = 10
 )
 
 var (
@@ -42,37 +51,44 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(privateKey *ecdsa.PrivateKey,
+func New(nodeKey *ecdsa.PrivateKey,
+	consensusKey blst.SecretKey,
 	vmConfig *vm.Config,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger) *Backend {
+	log log.Logger, noGossip bool) *Backend {
 
-	recentMessages, _ := lru.NewARC(inmemoryPeers)
-	knownMessages, _ := lru.NewARC(inmemoryMessages)
+	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
-		eventMux:       event.NewTypeMuxSilent(evMux, log),
-		privateKey:     privateKey,
-		address:        crypto.PubkeyToAddress(privateKey.PublicKey),
-		logger:         log,
-		coreStarted:    false,
-		recentMessages: recentMessages,
-		knownMessages:  knownMessages,
-		vmConfig:       vmConfig,
-		MsgStore:       ms,
-		jailed:         make(map[common.Address]uint64),
+		eventMux:        event.NewTypeMuxSilent(evMux, log),
+		nodeKey:         nodeKey,
+		consensusKey:    consensusKey,
+		address:         crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:          log,
+		knownMessages:   knownMessages,
+		vmConfig:        vmConfig,
+		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
+		messageCh:       make(chan events.UnverifiedMessageEvent, 1000),
+		jailed:          make(map[common.Address]uint64),
+		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
+		futureMinHeight: math.MaxUint64,
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
-	core := tendermintCore.New(backend, services, backend.address, log)
 
-	backend.gossiper = NewGossiper(backend.recentMessages, backend.knownMessages, backend.address, backend.logger, backend.stopped)
+	backend.gossiper = NewGossiper(backend.knownMessages, backend.address, backend.logger, backend.stopped)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
+
+	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
 	backend.core = core
+	backend.evDispatcher = core
+
+	backend.aggregator = newAggregator(backend, core, log, backend.knownMessages)
+
 	return backend
 }
 
@@ -80,7 +96,8 @@ func New(privateKey *ecdsa.PrivateKey,
 
 type Backend struct {
 	eventMux     *event.TypeMuxSilent
-	privateKey   *ecdsa.PrivateKey
+	nodeKey      *ecdsa.PrivateKey
+	consensusKey blst.SecretKey
 	address      common.Address
 	logger       log.Logger
 	blockchain   *core.BlockChain
@@ -89,14 +106,16 @@ type Backend struct {
 
 	// the channels for tendermint engine notifications
 	commitCh          chan<- *types.Block
+	messageCh         chan events.UnverifiedMessageEvent // to send events to the aggregator
 	proposedBlockHash common.Hash
-	coreStarted       bool
+	coreStarting      atomic.Bool
+	coreRunning       atomic.Bool
 	core              interfaces.Core
+	evDispatcher      interfaces.EventDispatcher
 	stopped           chan struct{}
 	wg                sync.WaitGroup
-	coreMu            sync.RWMutex
 
-	// we save the last received p2p.messages in the ring buffer
+	// used to save consensus messages while core is stopped
 	pendingMessages ring.Ring
 
 	// interface to find peers
@@ -106,20 +125,32 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	//ARCCache is patented by IBM but it has expired https://patents.google.com/patent/US7167953B2/en
-	recentMessages *lru.ARCCache // the cache of peer's messages
-	knownMessages  *lru.ARCCache // the cache of self messages
+	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
 	contractsMu sync.RWMutex //todo(youssef): is that necessary?
 	vmConfig    *vm.Config
 
-	MsgStore   *tendermintCore.MsgStore
+	MsgStore   *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 	jailed     map[common.Address]uint64
 	jailedLock sync.RWMutex
+
+	aggregator *aggregator
+
+	// buffer for future height events and related metadata
+	// TODO(lorenzo) refinements, wrap this stuff into a separate struct?
+	future          map[uint64][]*events.UnverifiedMessageEvent // UnverifiedMessageEvent is used slightly inappropriately here, as the future height messages still need to pass the checks in `handleDecodedMsg` before being posted to the aggregator.
+	futureMinHeight uint64
+	futureMaxHeight uint64
+	futureSize      uint64
+	futureLock      sync.RWMutex
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
 	return sb.blockchain
+}
+
+func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {
+	return sb.messageCh
 }
 
 // Address implements tendermint.Backend.Address
@@ -131,9 +162,11 @@ func (sb *Backend) Address() common.Address {
 func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	// send to others
 	sb.Gossip(committee, message)
-	// send to self
+	// send to self (directly to Core and FD, no need to verify local messages)
 	go sb.Post(events.MessageEvent{
 		Message: message,
+		ErrCh:   nil,
+		Posted:  time.Now(),
 	})
 }
 
@@ -153,11 +186,7 @@ func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
 
 // KnownMsgHash dumps the known messages in case of gossiping.
 func (sb *Backend) KnownMsgHash() []common.Hash {
-	m := make([]common.Hash, 0, sb.knownMessages.Len())
-	for _, v := range sb.knownMessages.Keys() {
-		m = append(m, v.(common.Hash))
-	}
-	return m
+	return sb.knownMessages.Keys()
 }
 
 func (sb *Backend) Logger() log.Logger {
@@ -169,10 +198,10 @@ func (sb *Backend) Gossiper() interfaces.Gossiper {
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) error {
+func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
 	h := proposal.Header()
-	// Append seals and round into extra-data
-	if err := types.WriteCommittedSeals(h, seals); err != nil {
+	// Append quorum certificate and round into extra-data
+	if err := types.WriteQuorumCertificate(h, quorumCertificate); err != nil {
 		return err
 	}
 	if err := types.WriteRound(h, round); err != nil {
@@ -199,7 +228,16 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, seals [][]byte) er
 }
 
 func (sb *Backend) Post(ev any) {
-	sb.eventMux.Post(ev)
+	switch ev := ev.(type) {
+	case events.CommitEvent:
+		sb.evDispatcher.Post(ev)
+	case events.NewCandidateBlockEvent:
+		sb.evDispatcher.Post(ev)
+	case events.UnverifiedMessageEvent:
+		sb.messageCh <- ev
+	default:
+		sb.eventMux.Post(ev)
+	}
 }
 
 func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {
@@ -226,8 +264,8 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 	// verify the header of proposed proposal
 	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
-	// ignore errEmptyCommittedSeals error because we don't have the committed seals yet
-	if err == nil || errors.Is(err, types.ErrEmptyCommittedSeals) {
+	// ignore errEmptyQuorumCertificate error because we don't have the quorum certificate yet
+	if err == nil || errors.Is(err, types.ErrEmptyQuorumCertificate) {
 		var (
 			receipts types.Receipts
 
@@ -298,7 +336,10 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 		for i := range committee {
 			if header.Committee[i].Address != committee[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committee[i].VotingPower) != 0 {
+				header.Committee[i].VotingPower.Cmp(committee[i].VotingPower) != 0 ||
+				!bytes.Equal(header.Committee[i].ConsensusKeyBytes, committee[i].ConsensusKeyBytes) ||
+				!bytes.Equal(header.Committee[i].ConsensusKey.Marshal(), committee[i].ConsensusKey.Marshal()) ||
+				header.Committee[i].Index != committee[i].Index {
 				sb.logger.Error("wrong committee member in the set",
 					"index", i,
 					"currentVerifier", sb.address.String(),
@@ -328,13 +369,9 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 }
 
 // Sign implements tendermint.Backend.Sign
-func (sb *Backend) Sign(data common.Hash) ([]byte, common.Address) {
-	ret, err := crypto.Sign(data[:], sb.privateKey)
-	if err != nil {
-		// We panic here, it should never happen.
-		sb.logger.Crit("Consensus signing failed")
-	}
-	return ret, sb.address
+func (sb *Backend) Sign(data common.Hash) blst.Signature {
+	signature := sb.consensusKey.Sign(data[:])
+	return signature
 }
 
 func (sb *Backend) HeadBlock() *types.Block {
@@ -378,28 +415,29 @@ func (sb *Backend) SyncPeer(address common.Address) {
 		return
 	}
 	sb.logger.Debug("Syncing", "peer", address)
-	targets := map[common.Address]struct{}{address: {}}
-	ps := sb.Broadcaster.FindPeers(targets)
-	p, connected := ps[address]
-	if !connected {
+	peer, ok := sb.Broadcaster.FindPeer(address)
+	if !ok {
 		return
 	}
 	messages := sb.core.CurrentHeightMessages()
+	sb.logger.Debug("sent current height messages", "peer", address, "n", len(messages), "msgs", messages)
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go p.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
+		go peer.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
 
-func (sb *Backend) ResetPeerCache(address common.Address) {
-	ms, ok := sb.recentMessages.Get(address)
-	var m *lru.ARCCache
-	if ok {
-		m, _ = ms.(*lru.ARCCache)
-		m.Purge()
-	}
-}
+// called by tendermint core to dump core state
+func (sb *Backend) FutureMsgs() []message.Msg {
+	sb.futureLock.RLock()
+	defer sb.futureLock.RUnlock()
 
-func (sb *Backend) RemoveMessageFromLocalCache(message message.Msg) {
-	sb.knownMessages.Remove(message.Hash())
+	var msgs []message.Msg
+	for _, evs := range sb.future {
+		for _, ev := range evs {
+			msgs = append(msgs, ev.Message)
+		}
+	}
+
+	return msgs
 }

@@ -3,21 +3,20 @@ package core
 import (
 	"context"
 	"errors"
-	"math/big"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/metrics"
 )
 
 // todo: resolve proper tendermint state synchronization timeout from block period.
 const syncTimeOut = 30 * time.Second
-
-var ErrValidatorJailed = errors.New("jailed validator")
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
@@ -28,6 +27,10 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	c.setCommitteeSet(committeeSet)
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
+
+	// Start a new round from last height + 1
+	c.StartRound(ctx, 0)
+
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
 	go c.backend.HandleUnhandledMsgs(ctx)
@@ -36,11 +39,8 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 // Stop implements Core.Engine.Stop
 func (c *Core) Stop() {
 	c.logger.Debug("Stopping Tendermint Core", "addr", c.address.String())
-
 	c.stopAllTimeouts()
-
 	c.cancel()
-
 	c.proposer.StopFutureProposalTimer()
 	c.unsubscribeEvents()
 
@@ -53,27 +53,26 @@ func (c *Core) subscribeEvents() {
 	c.messageSub = c.backend.Subscribe(
 		events.MessageEvent{},
 		backlogMessageEvent{},
-		backlogUntrustedMessageEvent{},
 		StateRequestEvent{})
-	c.candidateBlockSub = c.backend.Subscribe(events.NewCandidateBlockEvent{})
+	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
+	c.committedCh = make(chan events.CommitEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
-	c.committedSub = c.backend.Subscribe(events.CommitEvent{})
 	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
-// Unsubscribe all messageSub
+// Unsubscribe all
 func (c *Core) unsubscribeEvents() {
 	c.messageSub.Unsubscribe()
-	c.candidateBlockSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
-	c.committedSub.Unsubscribe()
 	c.syncEventSub.Unsubscribe()
 }
 
 func shouldDisconnectSender(err error) bool {
 	switch {
+	/* //TODO(lorenzo) refinements2, double check. Also this is kinda broken due to aggregator not sending an ErrCh
 	case errors.Is(err, constants.ErrFutureHeightMessage):
 		fallthrough
+	*/
 	case errors.Is(err, constants.ErrOldHeightMessage):
 		fallthrough
 	case errors.Is(err, constants.ErrOldRoundMessage):
@@ -94,60 +93,151 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false
-	case errors.Is(err, ErrValidatorJailed):
-		// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
-		// really assume that all the other committee members have the same view on the
-		// jailed validator list before gossip, that is risking then to disconnect honest nodes.
-		// This needs to verified though. Returning false for the time being.
-		return false
 	default:
 		return true
 	}
 }
 
+func recordMessageProcessingTime(code uint8, start time.Time) {
+	if !metrics.Enabled {
+		return
+	}
+	switch code {
+	case message.ProposalCode:
+		MsgProposalBg.Add(time.Since(start).Nanoseconds())
+		MsgProposalPackets.Mark(1)
+	case message.PrevoteCode:
+		MsgPrevoteBg.Add(time.Since(start).Nanoseconds())
+		MsgPrevotePackets.Mark(1)
+	case message.PrecommitCode:
+		MsgPrecommitBg.Add(time.Since(start).Nanoseconds())
+		MsgPrecommitPackets.Mark(1)
+	}
+}
+
+func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
+	quorum := false
+	switch code {
+	case message.ProposalCode:
+		break
+	case message.PrevoteCode:
+		quorum = (c.messages.GetOrCreate(round).PrevotesPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+	case message.PrecommitCode:
+		quorum = (c.messages.GetOrCreate(round).PrecommitsPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+	}
+	return quorum
+}
+
+// TODO(lorenzo) Can I just substitute all the msgs in the c.messages with the complex aggregate?
+//
+//	I think it might cause message loss if we have multiple complex aggregates (see logic of AggregateVotes). To double check.
+func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
+	switch code {
+	case message.PrevoteCode:
+		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
+		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote)
+		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote)
+	case message.PrecommitCode:
+		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value)
+		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
+		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit)
+	}
+}
+
 func (c *Core) mainEventLoop(ctx context.Context) {
-	// Start a new round from last height + 1
-	c.StartRound(ctx, 0)
 	go c.syncLoop(ctx)
 
 eventLoop:
 	for {
 		select {
+		case ev, ok := <-c.candidateBlockCh:
+			if !ok {
+				break eventLoop
+			}
+			newCandidateBlockEvent := ev
+			pb := &newCandidateBlockEvent.NewCandidateBlock
+			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
+			if metrics.Enabled && c.IsProposer() {
+				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
+			}
 		case ev, ok := <-c.messageSub.Chan():
 			if !ok {
 				break eventLoop
 			}
-			// A real ev arrived, process interesting content
+			start := time.Now()
+			// An event arrived, process content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
+				if metrics.Enabled {
+					AggregatorCoreTransitBg.Add(time.Since(e.Posted).Nanoseconds())
+				}
+				msg := e.Message
 
-				// At this stage, a message is parsed and all the internal fields must be accessible
-				if err := c.handleMsg(ctx, e.Message); err != nil {
+				var hadQuorum bool
+				if !c.noGossip {
+					// check if we have quorum for message type for this round
+					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				}
+
+				if err := c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
 					}
-					continue
+					break
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.Message)
+
+				if !c.noGossip {
+					if !hadQuorum {
+						// if we did not have quorum and we reached it now
+						// gossip the (complex) aggregate with quorum to everyone instead of the current message
+						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						if hasQuorum {
+							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+							recordMessageProcessingTime(msg.Code(), start)
+							break // do not gossip single message, only complex aggregate
+						}
+					}
+
+					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
+					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					recordMessageProcessingTime(msg.Code(), start)
+				}
 			case backlogMessageEvent:
-				// No need to check signature for internal messages
-				c.logger.Debug("Started handling consensus backlog event")
-				if err := c.handleValidMsg(ctx, e.msg); err != nil {
+				// TODO(lorenzo) refinements, should we check for disconnection also here?
+				// I am not sure we can get the error ch though
+
+				msg := e.msg
+
+				var hadQuorum bool
+				if !c.noGossip {
+					// check if we have quorum for message type for this round
+					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				}
+
+				c.logger.Debug("Handling consensus backlog event")
+				if err := c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
 
-			case backlogUntrustedMessageEvent:
-				c.logger.Debug("Started handling backlog unchecked event")
-				// messages in the untrusted buffer were successfully decoded
-				if err := c.handleMsg(ctx, e.msg); err != nil {
-					c.logger.Debug("BacklogUntrustedMessageEvent message failed", "err", err)
-					continue
+				if !c.noGossip {
+					if !hadQuorum {
+						// if we did not have quorum and we reached it now
+						// gossip the (complex) aggregate with quorum to everyone instead of the current message
+						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						if hasQuorum {
+							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+							recordMessageProcessingTime(msg.Code(), start)
+							break // do not gossip single message, only complex aggregate
+						}
+					}
+
+					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
+					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					recordMessageProcessingTime(msg.Code(), start)
 				}
-				c.backend.Gossip(c.CommitteeSet().Committee(), e.msg)
 			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -171,27 +261,16 @@ eventLoop:
 					c.handleTimeoutPrecommit(ctx, timeoutE)
 				}
 			}
-		case ev, ok := <-c.committedSub.Chan():
+		case _, ok := <-c.committedCh:
 			if !ok {
 				break eventLoop
 			}
-			switch ev.Data.(type) {
-			case events.CommitEvent:
-				c.precommiter.HandleCommit(ctx)
-			}
-		case ev, ok := <-c.candidateBlockSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			newCandidateBlockEvent := ev.Data.(events.NewCandidateBlockEvent)
-			pb := &newCandidateBlockEvent.NewCandidateBlock
-			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
+			c.precommiter.HandleCommit(ctx)
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
-
 	c.stopped <- struct{}{}
 }
 
@@ -247,48 +326,16 @@ func (c *Core) SendEvent(ev any) {
 	c.backend.Post(ev)
 }
 
-// handleMsg assume msg has already been decoded
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
-	msgHeight := new(big.Int).SetUint64(msg.H())
-	if msgHeight.Cmp(c.Height()) > 0 {
-		// Future height message. Skip processing and put it in the untrusted backlog buffer.
-		c.storeFutureMessage(msg)
-		return constants.ErrFutureHeightMessage // No gossip
-	}
-	if msgHeight.Cmp(c.Height()) < 0 {
-		// Old height messages. Do nothing.
-		return constants.ErrOldHeightMessage // No gossip
-	}
-	// current height message
-
-	// if we already decided on this height block, discard the message. It is useless by now.
-	if c.step == PrecommitDone {
-		return constants.ErrHeightClosed
-	}
-
-	if err := msg.Validate(c.LastHeader().CommitteeMember); err != nil {
-		c.logger.Error("Failed to validate message", "err", err)
-		c.logger.Error(msg.String())
-		return err
-	}
-	if c.backend.IsJailed(msg.Sender()) {
-		c.logger.Debug("Jailed validator, ignoring message", "address", msg.Sender())
-		return ErrValidatorJailed
-	}
-	return c.handleValidMsg(ctx, msg)
-}
-
-func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
-	logger := c.logger.New("from", msg.Sender())
-
 	// These checks need to be repeated here due to backlogged messages being re-injected
-
 	if c.Height().Uint64() > msg.H() {
+		// TODO(lorenzo) should we gossip old height messages?
+		c.logger.Debug("ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
 		return constants.ErrOldHeightMessage
 	}
 
 	if c.Height().Uint64() < msg.H() {
-		panic("Processing future message")
+		panic("Processing future height message")
 	}
 
 	// if we already decided on this height block, discard the message. It is useless by now.
@@ -296,37 +343,60 @@ func (c *Core) handleValidMsg(ctx context.Context, msg message.Msg) error {
 		return constants.ErrHeightClosed
 	}
 
-	// Store the message if it's a future message
-	testBacklog := func(err error) error {
-		// We want to store only future messages in backlog
-		switch {
-		case errors.Is(err, constants.ErrFutureRoundMessage):
-			logger.Debug("Storing future round message in backlog")
-			c.storeBacklog(msg, msg.Sender())
-			// decoding must have been successful to return
-			c.roundSkipCheck(ctx, msg, msg.Sender())
-		}
-		return err
-	}
-
+	var err error
 	switch m := msg.(type) {
 	case *message.Propose:
-		logger.Debug("Handling Proposal")
-		return testBacklog(c.proposer.HandleProposal(ctx, m))
+		c.logger.Debug("Handling Proposal")
+		err = c.proposer.HandleProposal(ctx, m)
 	case *message.Prevote:
-		logger.Debug("Handling Prevote")
-		return testBacklog(c.prevoter.HandlePrevote(ctx, m))
+		c.logger.Debug("Handling Prevote")
+		err = c.prevoter.HandlePrevote(ctx, m)
 	case *message.Precommit:
-		logger.Debug("Handling Precommit")
-		return testBacklog(c.precommiter.HandlePrecommit(ctx, m))
+		c.logger.Debug("Handling Precommit")
+		err = c.precommiter.HandlePrecommit(ctx, m)
 	default:
-		logger.Error("Invalid message", "msg", msg)
+		// this should never happen, decoding only returns us propose, prevote or precommit
+		panic("handled message that is not propose, prevote or precommit. Msg: " + msg.String())
 	}
-	// this should never happen, decoding only returns us propose, prevote or precommit
-	panic("handled message that is not propose, prevote or precommit")
+
+	// Store the message if it is a future round message
+	if errors.Is(err, constants.ErrFutureRoundMessage) {
+		c.logger.Debug("Storing future round message")
+
+		r := msg.R()
+		c.futureRoundLock.Lock()
+		c.futureRound[r] = append(c.futureRound[r], msg)
+
+		// update future power
+		_, ok := c.futurePower[r]
+		if !ok {
+			c.futurePower[r] = message.NewAggregatedPower()
+		}
+		switch m := msg.(type) {
+		case *message.Propose:
+			c.futurePower[r].Set(m.SignerIndex(), m.Power())
+		case *message.Prevote, *message.Precommit:
+			for index, power := range m.(message.Vote).Signers().Powers() {
+				c.futurePower[r].Set(index, power)
+			}
+		}
+		c.futureRoundLock.Unlock()
+
+		c.backend.Post(events.FuturePowerChangeEvent{Height: c.Height().Uint64(), Round: r})
+
+		c.roundSkipCheck(ctx, r)
+	}
+
+	return err
 }
 
 func tryDisconnect(errorCh chan<- error, err error) {
+	//TODO(lorenzo) refinements2, if aggregated vote or local message, we will have no error channel.
+	// maybe I can send back the error to the aggregator so the he can do the disconnection and the removal of messages
+	if errorCh == nil {
+		return
+	}
+
 	select {
 	case errorCh <- err:
 	default: // do nothing

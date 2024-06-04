@@ -100,10 +100,10 @@ Print if the proof of possession for registering a validator is valid or not. Us
 		}
 		sig, err := blst.SignatureFromBytes(signatures[2*crypto.SignatureLength:])
 		if err != nil {
-			utils.Fatalf("can't recover signature key %v", err)
+			utils.Fatalf("can't recover signature %v", err)
 		}
 		if sig.IsZero() {
-			utils.Fatalf("can't recover signature key %v", err)
+			utils.Fatalf("POP signature is zero")
 		}
 		err = crypto.BLSPOPVerify(key, sig, treasuryKey)
 		if err == nil {

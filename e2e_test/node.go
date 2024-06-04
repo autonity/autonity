@@ -13,29 +13,32 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
-
-	"github.com/autonity/autonity/consensus/acn"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/eth/downloader"
-	"github.com/autonity/autonity/p2p/enode"
+	"go.uber.org/goleak"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/graph"
+	"github.com/autonity/autonity/consensus/acn"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth"
+	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 )
 
 const (
 	localhost = "127.0.0.1"
+	verbosity = log.LvlDebug
 )
 
 var (
@@ -66,7 +69,7 @@ var (
 		background: log.BackgroundLightYellow,
 	}, {
 		foreground: log.Black,
-		background: log.BackgroundCyan,
+		background: log.BackgroundLightMagenta,
 	}, {
 		foreground: log.Black,
 		background: log.BackgroundLightGreen,
@@ -82,10 +85,13 @@ type Node struct {
 	Eth       *eth.Ethereum
 	EthConfig *ethconfig.Config
 	WsClient  *ethclient.Client
-	Nonce     uint64
-	Key       *ecdsa.PrivateKey
-	Address   common.Address
-	Tracker   *TransactionTracker
+
+	Interactor   *Interactor
+	Nonce        uint64
+	Key          *ecdsa.PrivateKey
+	ConsensusKey blst.SecretKey
+	Address      common.Address
+	Tracker      *TransactionTracker
 	// The transactions that this node has sent.
 	SentTxs     []*types.Transaction
 	CustHandler *interfaces.Services
@@ -152,7 +158,7 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 		return b
 	})))
 
-	logger.Verbosity(log.DefaultVerbosity)
+	logger.Verbosity(verbosity)
 	nodeConfig.Logger = log.New()
 	nodeConfig.Logger.SetHandler(logger)
 
@@ -160,13 +166,14 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 	nodeConfig.SetTendermintServices(validator.TendermintServices)
 
 	n := &Node{
-		Config:      nodeConfig,
-		EthConfig:   ethConfig,
-		Key:         validator.NodeKey,
-		Address:     address,
-		Tracker:     NewTransactionTracker(),
-		CustHandler: validator.TendermintServices,
-		ID:          id,
+		Config:       nodeConfig,
+		EthConfig:    ethConfig,
+		Key:          validator.NodeKey,
+		ConsensusKey: validator.ConsensusKey,
+		Address:      address,
+		Tracker:      NewTransactionTracker(),
+		CustHandler:  validator.TendermintServices,
+		ID:           id,
 	}
 
 	return n, nil
@@ -204,6 +211,12 @@ func (n *Node) Start() error {
 	if n.Nonce, err = n.WsClient.PendingNonceAt(context.Background(), n.Address); err != nil {
 		return err
 	}
+
+	n.Interactor = Interact(n.HTTPEndpoint())
+	if n.Interactor.err != nil {
+		return n.Interactor.err
+	}
+
 	err = n.Tracker.StartTracking(n.WsClient)
 	return err
 }
@@ -226,6 +239,7 @@ func (n *Node) Close(deleteDataDir bool) error {
 		return err
 	}
 	n.WsClient.Close()
+	n.Interactor.Close()
 	if n.Node != nil {
 		err = n.Node.Close() // This also shuts down the Eth service
 	}
@@ -573,11 +587,11 @@ func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, star
 // NewNetwork generates a network of nodes that are running and mining.
 // For an explanation of the parameters see 'Validators'.
 func NewNetwork(t *testing.T, count int, formatString string) (Network, error) {
-	users, err := Validators(t, count, formatString)
+	validators, err := Validators(t, count, formatString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build users: %v", err)
 	}
-	return NewNetworkFromValidators(t, users, true)
+	return NewNetworkFromValidators(t, validators, true)
 }
 
 type pipeManager struct {
@@ -701,7 +715,8 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
-func (nw Network) Shutdown() {
+func (nw Network) Shutdown(t *testing.T) {
+	defer checkGoRoutineLeak(t)
 	for _, node := range nw {
 		if node != nil && node.isRunning {
 			err := node.Close(true)
@@ -710,6 +725,83 @@ func (nw Network) Shutdown() {
 			}
 		}
 	}
+}
+
+func checkGoRoutineLeak(t *testing.T) {
+	time.Sleep(1 * time.Second)
+	goleak.VerifyNone(t,
+		// this routine from 3rd party SDK is used only by E2E test framework for port query, it does not have a shutdown
+		// triggered from inside of it, and we cannot shut down it from e2e test framework side as well.
+		goleak.IgnoreTopFunction("github.com/hashicorp/consul/sdk/freeport.checkFreedPorts"),
+	)
+}
+
+type TopologyManager struct {
+	Graph *graph.Graph
+}
+
+func NewTopologyManager(graph *graph.Graph) *TopologyManager {
+	return &TopologyManager{Graph: graph}
+}
+
+func (t *TopologyManager) transformPeerListToMap(peers []*p2p.Peer, nodes map[string]*Node) map[string]struct{} {
+	m := make(map[string]struct{})
+	mapper := make(map[enode.ID]string, len(nodes))
+	for index, n := range nodes {
+		mapper[n.ExecutionServer().Self().ID()] = index
+	}
+	for _, v := range peers {
+		index, ok := mapper[v.Node().ID()]
+		if ok {
+			m[index] = struct{}{}
+		} else {
+			panic("Node doesn't exists")
+		}
+	}
+	return m
+}
+
+func (t *TopologyManager) ApplyTopologyOverNetwork(nodes map[string]*Node) error {
+	edges := t.getEdges()
+	connections := t.getPeerConnections(edges)
+	for nodeKey, connectionsList := range connections {
+		m := t.transformPeerListToMap(nodes[nodeKey].ExecutionServer().Peers(), nodes)
+		for k := range m {
+			if _, ok := connectionsList[k]; ok {
+				continue
+			}
+			n := nodes[k]
+			log.Info("disconnecting execution peer", "peer", n.ExecutionServer().Self().String())
+			nodes[nodeKey].ExecutionServer().RemovePeer(n.ExecutionServer().Self())
+			log.Info("disconnecting acn peer", "peer", n.ConsensusServer().Self().String())
+			nodes[nodeKey].ConsensusServer().RemovePeer(n.ConsensusServer().Self())
+		}
+	}
+	return nil
+}
+
+func (t *TopologyManager) getPeerConnections(edges []*graph.Edge) map[string]map[string]struct{} {
+	res := make(map[string]map[string]struct{})
+	for _, v := range edges {
+		m, ok := res[v.LeftNode]
+		if !ok {
+			m = make(map[string]struct{})
+		}
+		m[v.RightNode] = struct{}{}
+		res[v.LeftNode] = m
+
+		m, ok = res[v.RightNode]
+		if !ok {
+			m = make(map[string]struct{})
+		}
+		m[v.LeftNode] = struct{}{}
+		res[v.RightNode] = m
+	}
+	return res
+}
+
+func (t *TopologyManager) getEdges() []*graph.Edge {
+	return t.Graph.Edges
 }
 
 // ValueTransferTransaction builds a signed value transfer transaction from the

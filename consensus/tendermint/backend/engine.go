@@ -7,30 +7,24 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/crypto"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
 	"github.com/autonity/autonity/trie"
-)
-
-const (
-	inmemorySnapshots = 128 // Number of recent vote snapshots to keep in memory
-	inmemoryPeers     = 150
-	inmemoryMessages  = 8192
 )
 
 // ErrStartedEngine is returned if the engine is already started
@@ -65,6 +59,7 @@ var (
 	nilUncleHash                  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce                    = types.BlockNonce{}
 	now                           = time.Now
+	sealDelayBg                   = metrics.NewRegisteredBufferedGauge("work/seal/delay", nil, nil) // injected sleep delay before producing new candidate block
 )
 
 // Author retrieves the Ethereum address of the account that minted the given
@@ -161,7 +156,7 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 		return err
 	}
 
-	return sb.verifyCommittedSeals(header, parent)
+	return sb.verifyQuorumCertificate(header, parent)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -217,55 +212,51 @@ func (sb *Backend) verifySigner(header, parent *types.Header) error {
 	return errUnauthorized
 }
 
-// verifyCommittedSeals validates that the committed seals for header come from
-// committee members and that the voting power of the committed seals constitutes
-// a quorum.
-func (sb *Backend) verifyCommittedSeals(header, parent *types.Header) error {
-	// The length of Committed seals should be larger than 0
-	if len(header.CommittedSeals) == 0 {
-		return types.ErrEmptyCommittedSeals
+// verifyQuorumCertificate validates that the quorum certificate for header come from
+// committee members and that the voting power constitute a quorum.
+func (sb *Backend) verifyQuorumCertificate(header, parent *types.Header) error {
+	// un-finalized proposals will have these fields set to nil
+	if header.QuorumCertificate.Signature == nil || header.QuorumCertificate.Signers == nil {
+		return types.ErrEmptyQuorumCertificate
+	}
+	quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
+	if err := quorumCertificate.Signers.Validate(len(parent.Committee)); err != nil {
+		return fmt.Errorf("Invalid quorum certificate signers information: %w", err)
 	}
 
-	// Setup map to track votes made by committee members
-	votes := make(map[common.Address]int, len(parent.Committee))
-
-	// Calculate total voting power
+	// Calculate total voting power of committee
 	committeeVotingPower := new(big.Int)
 	for _, member := range parent.Committee {
 		committeeVotingPower.Add(committeeVotingPower, member.VotingPower)
 	}
 
-	// Total Voting power for this block
-	power := new(big.Int)
 	// The data that was signed over for this block
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
 
-	// 1. Get committed seals from current header
-	for _, signedSeal := range header.CommittedSeals {
-		// 2. Get the address from signature
-		addr, err := tendermint.SigToAddr(headerSeal, signedSeal)
-		if err != nil {
-			sb.logger.Error("not a valid address", "err", err)
-			return types.ErrInvalidSignature
-		}
+	// Total Voting power for this block
+	power := new(big.Int)
+	for _, index := range quorumCertificate.Signers.FlattenUniq() {
+		power.Add(power, parent.Committee[index].VotingPower)
+	}
 
-		member := parent.CommitteeMember(addr)
-		if member == nil {
-			sb.logger.Error(fmt.Sprintf("block had seal from non committee member %q", addr))
-			return types.ErrInvalidCommittedSeals
-		}
-
-		votes[member.Address]++
-		if votes[member.Address] > 1 {
-			sb.logger.Error(fmt.Sprintf("committee member %q had multiple seals on block", addr))
-			return types.ErrInvalidCommittedSeals
-		}
-		power.Add(power, member.VotingPower)
+	// verify signature
+	var keys [][]byte //nolint
+	for _, index := range quorumCertificate.Signers.Flatten() {
+		keys = append(keys, parent.Committee[index].ConsensusKeyBytes)
+	}
+	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	if err != nil {
+		sb.logger.Crit("Failed to aggregate keys from committee members", "err", err)
+	}
+	valid := quorumCertificate.Signature.Verify(aggregatedKey, headerSeal[:])
+	if !valid {
+		sb.logger.Error("block had invalid committed seal")
+		return types.ErrInvalidQuorumCertificate
 	}
 
 	// We need at least a quorum for the block to be considered valid
 	if power.Cmp(bft.Quorum(committeeVotingPower)) < 0 {
-		return types.ErrInvalidCommittedSeals
+		return types.ErrInvalidQuorumCertificate
 	}
 
 	return nil
@@ -290,7 +281,7 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 
 	// set header's timestamp
 	// todo: block period from contract
-	header.Time = new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(1)).Uint64()
+	header.Time = parent.Time + 1
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())
 	}
@@ -347,12 +338,8 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
-	sb.coreMu.RLock()
-	isStarted := sb.coreStarted
-	stoppedCh := sb.stopped
-	sb.coreMu.RUnlock()
-	if !isStarted {
+func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<- *types.Block, stop <-chan struct{}) error {
+	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
 	// update the block header and signature and propose the block to core engine
@@ -370,46 +357,42 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, results
 
 	block, err := sb.AddSeal(block)
 	if err != nil {
-		sb.logger.Error("seal error updateBlock", "err", err.Error())
+		sb.logger.Error("sealing error", "err", err.Error())
 		return err
 	}
 
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
+	if metrics.Enabled {
+		sealDelayBg.Add(delay.Nanoseconds())
+	}
 	select {
 	case <-time.After(delay):
 		// nothing to do
-	case <-stoppedCh:
+	case <-sb.stopped:
 		return nil
 	case <-stop:
 		return nil
 	}
-	sb.setResultChan(results)
+
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
 		NewCandidateBlock: *block,
+		CreatedAt:         time.Now(),
 	})
+
 	return nil
 }
 
-func (sb *Backend) setResultChan(results chan<- *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
+func (sb *Backend) SetResultChan(results chan<- *types.Block) {
 	sb.commitCh = results
 }
 
 func (sb *Backend) sendResultChan(block *types.Block) {
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-
 	sb.commitCh <- block
 }
 
 func (sb *Backend) isResultChanNil() bool {
-	sb.coreMu.RLock()
-	defer sb.coreMu.RUnlock()
-
 	return sb.commitCh == nil
 }
 
@@ -428,7 +411,7 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()
 	hashData := types.SigHash(header)
-	signature, err := crypto.Sign(hashData[:], sb.privateKey)
+	signature, err := crypto.Sign(hashData[:], sb.nodeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -460,42 +443,40 @@ func getCommittee(header *types.Header, chain consensus.ChainReader) (types.Comm
 // Start implements consensus.Start
 // youssef: I'm not sure about the use case of this context in argument
 func (sb *Backend) Start(ctx context.Context) error {
-	// the mutex along with coreStarted should prevent double start
-	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
-	if sb.coreStarted {
+	if !sb.coreStarting.CompareAndSwap(false, true) {
 		return ErrStartedEngine
 	}
+
 	sb.stopped = make(chan struct{})
 	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
-	// Start Tendermint
-	go sb.faultyValidatorsWatcher(ctx)
+
 	sb.wg.Add(1)
+	go sb.faultyValidatorsWatcher(ctx)
+
+	// Start Tendermint
+	sb.aggregator.start(ctx)
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
-	sb.coreStarted = true
+	sb.coreRunning.CompareAndSwap(false, true)
 	return nil
 }
 
 // Close signals core to stop all background threads.
 func (sb *Backend) Close() error {
-	// the mutex along with coreStarted should prevent double stop
-	sb.coreMu.Lock()
-	if !sb.coreStarted {
-		sb.coreMu.Unlock()
+	if !sb.coreRunning.CompareAndSwap(true, false) {
 		return ErrStoppedEngine
 	}
-	sb.coreStarted = false
-	sb.coreMu.Unlock()
 	// We need to make sure we close sb.stopped before calling sb.core.Stop
 	// otherwise we can end up with a deadlock where sb.core.Stop is waiting
 	// for a routine to return from calling sb.AskSync but sb.AskSync will
 	// never return because we did not close sb.stopped.
 	close(sb.stopped)
 	// Stop Tendermint
+	sb.aggregator.stop()
 	sb.core.Stop()
 	sb.wg.Wait()
+	sb.coreStarting.CompareAndSwap(true, false)
 	return nil
 }
 

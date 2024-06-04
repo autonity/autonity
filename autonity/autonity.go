@@ -66,15 +66,23 @@ func NewEVMContract(evmProvider EVMProvider, contractABI *abi.ABI, db ethdb.Data
 }
 
 type Cache struct {
+	// minimum base fee
 	minBaseFee    atomic.Pointer[big.Int]
 	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
 	subMinBaseFee event.Subscription
-	subscriptions *event.SubscriptionScope // will be useful when we have multiple subscriptions
+
+	// epoch period
+	epochPeriod    atomic.Pointer[big.Int]
+	epochPeriodCh  chan *AutonityEpochPeriodUpdated
+	subEpochPeriod event.Subscription
+
+	subscriptions *event.SubscriptionScope
 	quit          chan struct{}
 	done          chan struct{}
 }
 
 func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cache, error) {
+	// initialize minimum base fee through contract call and subscribe to updated event
 	minBaseFee, err := ac.MinimumBaseFee(head, state)
 	if err != nil {
 		return nil, err
@@ -84,16 +92,35 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 	if err != nil {
 		return nil, err
 	}
+
+	// initialize epoch period and subscribe to updated event
+	epochPeriod, err := ac.EpochPeriod(head, state)
+	if err != nil {
+		return nil, err
+	}
+	epochPeriodCh := make(chan *AutonityEpochPeriodUpdated)
+	subEpochPeriod, err := ac.WatchEpochPeriodUpdated(nil, epochPeriodCh)
+	if err != nil {
+		return nil, err
+	}
+
 	scope := new(event.SubscriptionScope)
 	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
+	subEpochPeriodWrapped := scope.Track(subEpochPeriod)
 	cache := &Cache{
-		minBaseFeeCh:  minBaseFeeCh,
-		subMinBaseFee: subMinBaseFeeWrapped,
-		subscriptions: scope,
-		quit:          make(chan struct{}),
-		done:          make(chan struct{}),
+		minBaseFeeCh:   minBaseFeeCh,
+		subMinBaseFee:  subMinBaseFeeWrapped,
+		epochPeriodCh:  epochPeriodCh,
+		subEpochPeriod: subEpochPeriodWrapped,
+		subscriptions:  scope,
+		quit:           make(chan struct{}),
+		done:           make(chan struct{}),
 	}
+
+	// store initial values
 	cache.minBaseFee.Store(minBaseFee)
+	cache.epochPeriod.Store(epochPeriod)
+
 	go cache.Listen()
 	return cache, nil
 }
@@ -168,13 +195,17 @@ func (c *Cache) Listen() {
 
 	for {
 		select {
-		case <-c.subMinBaseFee.Err():
-			// This should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
-			// In that case network errors can occur. Since everything is local here, no error should ever occur.
-			// we crash the client to avoid using a out-of-date value of minBaseFee in case something goes very wrong.
-			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case ev := <-c.minBaseFeeCh:
 			c.minBaseFee.Store(ev.GasPrice)
+		case ev := <-c.epochPeriodCh:
+			c.epochPeriod.Store(ev.Period)
+		// These should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
+		// In that case network errors can occur. Since everything is local here, no error should ever occur.
+		// we crash the client to avoid using a out-of-date value in case something goes very wrong.
+		case <-c.subEpochPeriod.Err():
+			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
+		case <-c.subMinBaseFee.Err():
+			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case <-c.quit:
 			return
 		}
@@ -190,6 +221,10 @@ func (c *Cache) MinimumBaseFee() *big.Int {
 	return new(big.Int).Set(c.minBaseFee.Load())
 }
 
+func (c *Cache) EpochPeriod() *big.Int {
+	return new(big.Int).Set(c.epochPeriod.Load())
+}
+
 func (c *AutonityContract) CommitteeEnodes(block *types.Block, db vm.StateDB, asACN bool) (*types.Nodes, error) {
 	return c.callGetCommitteeEnodes(db, block.Header(), asACN)
 }
@@ -203,6 +238,13 @@ func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*
 		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.MinBaseFee), nil
 	}
 	return c.callGetMinimumBaseFee(db, block)
+}
+
+func (c *AutonityContract) EpochPeriod(block *types.Header, db vm.StateDB) (*big.Int, error) {
+	if block.Number.Uint64() <= 1 {
+		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.EpochPeriod), nil
+	}
+	return c.callGetEpochPeriod(db, block)
 }
 
 func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
@@ -360,6 +402,14 @@ func (c *AutonityContract) CallContractFuncAs(statedb vm.StateDB, header *types.
 	return c.EVMContract.CallContractFuncAs(statedb, header, params.AutonityContractAddress, origin, packedArgs)
 }
 
+func (c *NonStakableVestingContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {
+	return c.EVMContract.CallContractFuncAs(statedb, header, params.NonStakableVestingContractAddress, origin, packedArgs)
+}
+
+func (c *StakableVestingContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {
+	return c.EVMContract.CallContractFuncAs(statedb, header, params.StakableVestingContractAddress, origin, packedArgs)
+}
+
 func (c *EVMContract) upgradeAbiCache(newAbi string) error {
 	c.Lock()
 	defer c.Unlock()
@@ -422,6 +472,18 @@ type StabilizationContract struct {
 }
 
 type UpgradeManagerContract struct {
+	EVMContract
+}
+
+type InflationControllerContract struct {
+	EVMContract
+}
+
+type StakableVestingContract struct {
+	EVMContract
+}
+
+type NonStakableVestingContract struct {
 	EVMContract
 }
 
@@ -489,6 +551,30 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 				chainConfig: chainConfig,
 			},
 		},
+		InflationControllerContract: InflationControllerContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.InflationControllerAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		StakableVestingContract: StakableVestingContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.StakableVestingAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		NonStakableVestingContract: NonStakableVestingContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.NonStakableVestingAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
 		statedb: statedb,
 	}
 }
@@ -501,6 +587,9 @@ type GenesisEVMContracts struct {
 	SupplyControlContract
 	StabilizationContract
 	UpgradeManagerContract
+	InflationControllerContract
+	StakableVestingContract
+	NonStakableVestingContract
 
 	statedb vm.StateDB
 }
@@ -570,4 +659,40 @@ func (c *GenesisEVMContracts) DeployStabilizationContract(
 
 func (c *GenesisEVMContracts) DeployUpgradeManagerContract(autonityAddress common.Address, operatorAddress common.Address, bytecode []byte) error {
 	return c.UpgradeManagerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, operatorAddress)
+}
+
+func (c *GenesisEVMContracts) DeployInflationControllerContract(bytecode []byte, param InflationControllerParams) error {
+	return c.InflationControllerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, param)
+}
+
+func (c *GenesisEVMContracts) DeployStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
+	return c.StakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
+}
+
+func (c *GenesisEVMContracts) SetStakableTotalNominal(totalNominal *big.Int) error {
+	return c.StakableVestingContract.SetTotalNominal(nil, c.statedb, totalNominal)
+}
+
+func (c *GenesisEVMContracts) NewStakableContract(contract params.StakableVestingData) error {
+	return c.StakableVestingContract.NewContract(nil, c.statedb, contract)
+}
+
+func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
+	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
+}
+
+func (c *GenesisEVMContracts) SetNonStakableTotalNominal(totalNominal *big.Int) error {
+	return c.NonStakableVestingContract.SetTotalNominal(nil, c.statedb, totalNominal)
+}
+
+func (c *GenesisEVMContracts) SetMaxAllowedDuration(maxAllowedDuration *big.Int) error {
+	return c.NonStakableVestingContract.SetMaxAllowedDuration(nil, c.statedb, maxAllowedDuration)
+}
+
+func (c *GenesisEVMContracts) CreateNonStakableSchedule(schedule params.NonStakableSchedule) error {
+	return c.NonStakableVestingContract.CreateSchedule(nil, c.statedb, schedule)
+}
+
+func (c *GenesisEVMContracts) NewNonStakableContract(contract params.NonStakableVestingData) error {
+	return c.NonStakableVestingContract.NewContract(nil, c.statedb, contract)
 }

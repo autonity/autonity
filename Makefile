@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast generate
 
 BINDIR = ./build/bin
 GO ?= latest
@@ -92,11 +92,14 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,AutonityTest)
 	@$(call gen-contract,,AccountabilityTest)
 	@$(call gen-contract,,UpgradeManager)
+	@$(call gen-contract,,InflationController)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
+	@$(call gen-contract,vesting/,NonStakableVesting)
+	@$(call gen-contract,vesting/,StakableVesting)
 	# update 4byte selector for clef
-	build/generate_4bytedb.sh $(SOLC_BINARY)
+	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
 	# Generate go bindings
 	@echo Generating protocol contracts bindings
@@ -145,7 +148,6 @@ test-race-all: all
 
 test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
-	go test -race -v ./consensus/test/... -timeout 30m
 
 test-contracts: test-contracts-asm test-contracts-truffle
 
@@ -172,9 +174,9 @@ APE_VERSION := 0.6.26
 HARDHAT_VERSION := 2.19.1
 test-contracts-asm: test-contracts-asm-pre
 	@echo "run tests for the asm contracts"
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/acu
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/stabilization
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity WARNING test --network ::hardhat ./test/asm/supply_control
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/acu
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/stabilization
+	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/supply_control
 
 .PHONY: test-contracts-asm-pre
 test-contracts-asm-pre:
@@ -191,6 +193,7 @@ test-contracts-asm-pre:
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
+	@echo "dependencies installed"
 
 # start an autonity network for contract tests
 start-autonity:
@@ -246,6 +249,9 @@ mock-gen:
 	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/broadcaster.go -package=interfaces -destination=consensus/tendermint/core/interfaces/broadcaster_mock.go
+
+generate:
+	cd core/types/ && go generate
 
 lint-dead:
 	@./.github/tools/golangci-lint run \
