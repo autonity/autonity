@@ -41,8 +41,8 @@ func TestCollusionPVN(t *testing.T) {
 	b := getCollusion(autonity.PVN)
 	for _, f := range b.followers {
 		faultyAddress := crypto.PubkeyToAddress(f.NodeKey.PublicKey)
-		detected := e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.PVN, network)
-		require.Equal(t, true, detected)
+		err = e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.PVN, network)
+		require.NoError(t, err)
 	}
 }
 

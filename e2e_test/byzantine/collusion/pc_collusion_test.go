@@ -35,20 +35,20 @@ func TestCollusionPC(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(120, 180, false)
+	err = network.WaitToMineNBlocks(150, 240, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	b := getCollusion(autonity.C1)
 	// the leader should be slashed by PO accusation, since there is no innocence proof for it.
 	leader := crypto.PubkeyToAddress(b.leader.NodeKey.PublicKey)
-	detected := e2e.AccountabilityEventDetected(t, leader, autonity.Accusation, autonity.PO, network)
-	require.Equal(t, true, detected)
+	err = e2e.AccountabilityEventDetected(t, leader, autonity.Accusation, autonity.PO, network)
+	require.NoError(t, err)
 
 	// while the followers should be slashed by C1 accusation since there are no innocence proof for it.
 	for _, f := range b.followers {
 		faultyAddress := crypto.PubkeyToAddress(f.NodeKey.PublicKey)
-		detected = e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.C1, network)
-		require.Equal(t, true, detected)
+		err = e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.C1, network)
+		require.NoError(t, err)
 	}
 }
 
