@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -61,6 +62,17 @@ func newUnverifiedLightPropose(r int64, h uint64, vr int64, block *types.Block, 
 		panic("cannot decode light proposal: " + err.Error())
 	}
 	return unverifiedPropose
+}
+
+// don't care about power and address when dealing with signature verification
+func makeCommitteeMemberWithKey(key blst.SecretKey, index uint64) *types.CommitteeMember {
+	return &types.CommitteeMember{
+		Address:           testAddr,
+		VotingPower:       common.Big1,
+		ConsensusKey:      key.PublicKey(),
+		ConsensusKeyBytes: key.PublicKey().Marshal(),
+		Index:             index,
+	}
 }
 
 func makeSigner(key blst.SecretKey) func(common.Hash) blst.Signature {
@@ -142,18 +154,73 @@ func TestMessageDecode(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	key1, err := blst.RandKey()
+	require.NoError(t, err)
+	key2, err := blst.RandKey()
+	require.NoError(t, err)
+
+	signer1 := makeSigner(key1)
+	signer2 := makeSigner(key2)
+
+	member1 := makeCommitteeMemberWithKey(key1, 0)
+	member2 := makeCommitteeMemberWithKey(key2, 1)
+	committee := types.Committee{*member1, *member2}
+	csize := len(committee)
+
+	header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: committee}
+
 	t.Run("invalid signature, error returned", func(t *testing.T) {
-		header := &types.Header{Number: new(big.Int).SetUint64(25)}
 		msg := newUnverifiedPrevote(1, 25, header.Hash(), func(hash common.Hash) blst.Signature {
 			// tamper the hash to make signature invalid
 			hash[0] = 0xca
 			hash[1] = 0xfe
-			return defaultSigner(hash)
-		}, testCommitteeMember, 1)
-		err := msg.PreValidate(testHeader)
+			return signer1(hash)
+		}, member1, csize)
+		err := msg.PreValidate(header)
 		require.NoError(t, err)
 		err = msg.Validate()
 		require.ErrorIs(t, err, ErrBadSignature)
+
+		// if aggregate with a valid signature, resulting signature is still invalid
+		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
+		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2})
+
+		// unverify the aggregated vote
+		unverifiedPrevote := &Prevote{}
+		reader := bytes.NewReader(aggregatedVote.Payload())
+		if err := rlp.Decode(reader, unverifiedPrevote); err != nil {
+			panic("cannot decode prevote: " + err.Error())
+		}
+		require.False(t, unverifiedPrevote.verified)
+
+		err = unverifiedPrevote.PreValidate(header)
+		require.NoError(t, err)
+		err = unverifiedPrevote.Validate()
+		require.ErrorIs(t, err, ErrBadSignature)
+	})
+	t.Run("valid signature, no error returned", func(t *testing.T) {
+		msg := newUnverifiedPrevote(1, 25, header.Hash(), signer1, member1, csize)
+		err := msg.PreValidate(header)
+		require.NoError(t, err)
+		err = msg.Validate()
+		require.NoError(t, err)
+
+		// if aggregated with a valid signature, resulting signature is still valid
+		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
+		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2})
+
+		// unverify the aggregated vote
+		unverifiedPrevote := &Prevote{}
+		reader := bytes.NewReader(aggregatedVote.Payload())
+		if err := rlp.Decode(reader, unverifiedPrevote); err != nil {
+			panic("cannot decode prevote: " + err.Error())
+		}
+		require.False(t, unverifiedPrevote.verified)
+
+		err = unverifiedPrevote.PreValidate(header)
+		require.NoError(t, err)
+		err = unverifiedPrevote.Validate()
+		require.NoError(t, err)
 	})
 }
 
@@ -363,7 +430,7 @@ func FuzzFromPayload(f *testing.F) {
 
 func TestAggregateVotes(t *testing.T) {
 	// Rules:
-	// 1. votes are ordered by decreasing number of distinct signers
+	// 1. votes are ordered by decreasing power
 	// 2. a vote is aggregated to the previous ones only if it adds information (i.e. adds a new signer) and the resulting aggregate respects the boundary (max coefficient = committee size)
 	h := uint64(1)
 	r := int64(0)
@@ -371,6 +438,7 @@ func TestAggregateVotes(t *testing.T) {
 	csize := len(testCommittee)
 	err := testCommittee.Enrich()
 	require.NoError(t, err)
+	header := &types.Header{Committee: testCommittee}
 
 	var votes []Vote
 
@@ -424,7 +492,43 @@ func TestAggregateVotes(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Signers().Bits[0]), "01010101")
 	require.NoError(t, aggregate7.Signers().Validate(csize))
 
-	// TODO(lorenzo) add test to verify that we never exceed committeeSize boundary, even when merging two complex aggregates
+	// aggregate with artificially inflated contribution from index = 0. validator 0 has already the maximum coefficient.
+	inflatedAggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[1], csize)})
+	inflatedAggregate.Signers().Increment(&testCommittee[0])
+	inflatedAggregate.Signers().Increment(&testCommittee[0])
+	inflatedAggregate.Signers().Increment(&testCommittee[0])
+	t.Log(inflatedAggregate.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", inflatedAggregate.Signers().Bits[0]), "11010000")
+
+	// inflatedAggregate has quorum
+	require.True(t, inflatedAggregate.Power().Cmp(bft.Quorum(header.TotalVotingPower())) >= 0)
+
+	aggregate8 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[3], csize)})
+
+	aggregate9 := AggregatePrevotes([]Vote{aggregate8, inflatedAggregate})
+	t.Log(aggregate9.Signers().String())
+	// inflated aggregate is privileged because it carries higher voting power
+	require.Equal(t, fmt.Sprintf("%08b", aggregate9.Signers().Bits[0]), "11010000")
+	require.NoError(t, aggregate9.Signers().Validate(csize))
+
+	aggregate10 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize)})
+	aggregate11 := AggregatePrevotes([]Vote{aggregate10, inflatedAggregate})
+	t.Log(aggregate11.Signers().String())
+	// inflated aggregate is privileged because it carries higher voting power
+	require.Equal(t, fmt.Sprintf("%08b", aggregate11.Signers().Bits[0]), "11010000")
+	require.NoError(t, aggregate11.Signers().Validate(csize))
+	aggregate12 := AggregatePrevotes([]Vote{inflatedAggregate, aggregate10})
+	t.Log(aggregate12.Signers().String())
+	// inflated aggregate is privileged because it carries higher voting power
+	require.Equal(t, fmt.Sprintf("%08b", aggregate12.Signers().Bits[0]), "11010000")
+	require.NoError(t, aggregate12.Signers().Validate(csize))
+
+	aggregate13 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee[2], csize)})
+	// aggregate13 is privileged because it carries higher voting power
+	aggregate14 := AggregatePrevotes([]Vote{inflatedAggregate, aggregate13})
+	t.Log(aggregate14.Signers().String())
+	require.Equal(t, fmt.Sprintf("%08b", aggregate14.Signers().Bits[0]), "01010100")
+	require.NoError(t, aggregate14.Signers().Validate(csize))
 }
 
 func TestAggregateVotesSimple(t *testing.T) {

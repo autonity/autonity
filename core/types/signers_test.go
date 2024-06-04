@@ -498,6 +498,16 @@ func TestSigners(t *testing.T) {
 		require.False(t, s1.RespectsBoundaries(s2))
 
 	})
+	t.Run("panic if committee size boundary is exceeded", func(t *testing.T) {
+		s := NewSigners(10)
+
+		for i := 0; i < 10; i++ {
+			s.Increment(&committee[0])
+		}
+
+		defer expectPanic(t)
+		s.Increment(&committee[0])
+	})
 }
 
 func TestValidation(t *testing.T) {
