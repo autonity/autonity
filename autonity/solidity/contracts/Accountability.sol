@@ -539,12 +539,10 @@ contract Accountability is IAccountability {
         // make sure they are still in the reporter set, then replace last committee
         // with current committee.
         _grantReportAccess(curCommittee);
-        delete lastCommittee;
         lastCommittee = curCommittee;
 
         // grant access for new committee and replace current committee with new one.
         _grantReportAccess(_newCommittee);
-        delete curCommittee;
         curCommittee = _newCommittee;
     }
 
