@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -89,11 +91,22 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
 	ret := make(autonity.GenesisBonds, len(*ga))
 	for addr, alloc := range *ga {
-		ret[addr] = autonity.GenesisBond{
-			NewtonBalance: alloc.NewtonBalance,
-			Bonds:         alloc.Bonds,
+		delegations := make([]autonity.Delegation, 0)
+		for validator, amount := range alloc.Bonds {
+			delegations = append(delegations, autonity.Delegation{Validator: validator, Amount: amount})
 		}
+		slices.SortFunc(delegations, func(a, b autonity.Delegation) bool {
+			return a.Validator.String() < b.Validator.String()
+		})
+		ret = append(ret, autonity.GenesisBond{
+			Staker:        addr,
+			NewtonBalance: alloc.NewtonBalance,
+			Bonds:         delegations,
+		})
 	}
+	slices.SortFunc(ret, func(a, b autonity.GenesisBond) bool {
+		return a.Staker.String() < b.Staker.String()
+	})
 	return ret
 }
 
