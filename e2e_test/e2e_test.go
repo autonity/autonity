@@ -82,7 +82,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.DefaultAccountabilityConfig.JailFactor, accountabilityConfig.JailFactor.Uint64())
 	require.Equal(t, params.DefaultAccountabilityConfig.BaseSlashingRateMid, accountabilityConfig.BaseSlashingRateMid.Uint64())
 	require.Equal(t, params.DefaultAccountabilityConfig.BaseSlashingRateLow, accountabilityConfig.BaseSlashingRateLow.Uint64())
-	require.Equal(t, params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow, accountabilityConfig.InnocenceProofSubmissionWindow.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.InnocenceProofSubmissionWindow, accountabilityConfig.InnocenceProofSubmissionWindow.Uint64())
 	// Oracle Contract -- todo
 	// ACU Contract -- todo
 	// Supply Control Contract -- todo
