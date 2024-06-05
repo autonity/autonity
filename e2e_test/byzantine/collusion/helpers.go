@@ -128,15 +128,24 @@ func validProposer(address common.Address, h uint64, r int64, core faultyBroadca
 func sendPrevote(c *core.Core, rule autonity.Rule) {
 	h, r, v := getCollusion(rule).context()
 	// if the leader haven't set up the context, skip.
-	if v == nil || h != c.Height().Uint64() {
+	if v == nil || c.Height().Uint64() < h {
 		return
 	}
 
-	// send prevote for the planned invalid proposal.
 	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
 	if header == nil {
 		panic("cannot fetch header")
 	}
+
+	if rule == autonity.PVO && h == c.Height().Uint64() {
+		// send prevote for the planned invalid proposal for PVO.
+		vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
+		c.SetSentPrevote(true)
+		c.BroadcastAll(vote)
+		return
+	}
+
+	// send prevote for the planned invalid proposal for PVN
 	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
 	c.SetSentPrevote(true)
 	c.BroadcastAll(vote)
