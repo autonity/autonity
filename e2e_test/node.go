@@ -523,6 +523,18 @@ func (nw Network) CheckReimbursement(height uint64, reporter common.Address) err
 		preHeight := n.Eth.BlockChain().GetBlockByNumber(height - 1)
 		preState, err := n.Eth.BlockChain().StateAt(preHeight.Root())
 		if err != nil {
+			// for debugging in the ci test context.
+			curHeight := n.Eth.BlockChain().CurrentBlock().NumberU64()
+			for h := uint64(0); h <= curHeight; h++ {
+				b := n.Eth.BlockChain().GetBlockByNumber(h)
+				_, err = n.Eth.BlockChain().StateAt(b.Root())
+				if err != nil {
+					log.Error("missing state at height", "height", h, "err", err)
+					continue
+				}
+				log.Error("state find for height", "height", h)
+			}
+
 			return err
 		}
 

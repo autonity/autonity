@@ -743,6 +743,16 @@ var (
 		Operator:                common.HexToAddress("0x12321"),
 	}
 
+	TestAccountabilityConfig = &AccountabilityGenesis{
+		InnocenceProofSubmissionWindow: 30,   // to shorten the tests
+		BaseSlashingRateLow:            1000, // 10%
+		BaseSlashingRateMid:            2000, // 20%
+		CollusionFactor:                500,  // 5%
+		HistoryFactor:                  750,  // 7.5%
+		JailFactor:                     48,   // 1 day with 30 mins epoch
+		SlashingRatePrecision:          10_000,
+	}
+
 	TestChainConfig = &ChainConfig{
 		big.NewInt(1337),
 		big.NewInt(0),
@@ -764,7 +774,7 @@ var (
 		nil,
 		new(EthashConfig),
 		TestAutonityContractConfig,
-		DefaultAccountabilityConfig,
+		TestAccountabilityConfig,
 		DefaultGenesisOracleConfig,
 		DefaultInflationControllerGenesis,
 		AsmConfig{
