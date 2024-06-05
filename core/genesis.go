@@ -89,7 +89,7 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 }
 
 func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
-	ret := make(autonity.GenesisBonds, len(*ga))
+	ret := make(autonity.GenesisBonds, 0, len(*ga))
 	for addr, alloc := range *ga {
 		delegations := make([]autonity.Delegation, 0)
 		for validator, amount := range alloc.Bonds {
