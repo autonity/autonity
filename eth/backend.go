@@ -707,22 +707,23 @@ func (s *Ethereum) genesisCountdown() {
 		minutes := int(duration.Minutes()) % 60
 		seconds := int(duration.Seconds()) % 60
 
-		if days > 0 {
+		switch {
+		case days > 0:
 			if days != lastDays {
 				lastDays = days
 				s.log.Info(fmt.Sprintf("%d day(s) remaining before genesis", days))
 			}
-		} else if hours == 1 || hours == 2 || hours == 6 || hours == 12 {
+		case (hours == 1 || hours == 2 || hours == 6 || hours == 12) && days == 0:
 			if hours != lastHours {
 				lastHours = hours
 				s.log.Info(fmt.Sprintf("%d hour(s) remaining before genesis", hours))
 			}
-		} else if (minutes == 1 || minutes == 5 || minutes == 15 || minutes == 30 || minutes == 45) && seconds == 0 {
+		case (minutes == 1 || minutes == 5 || minutes == 15 || minutes == 30 || minutes == 45) && hours == 0 && days == 0 && seconds == 0:
 			if minutes != lastMinute {
 				lastMinute = minutes
 				s.log.Info(fmt.Sprintf("%d minute(s) remaining before genesis", minutes))
 			}
-		} else if seconds < 10 || seconds == 30 || seconds == 45 {
+		case (seconds < 10 || seconds == 30 || seconds == 45) && days == 0 && hours == 0 && minutes == 0:
 			if seconds != lastSecond {
 				lastSecond = seconds
 				s.log.Info(fmt.Sprintf("%d second(s) before genesis", seconds))
