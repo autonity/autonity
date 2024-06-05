@@ -532,7 +532,7 @@ func (nw Network) CheckReimbursement(height uint64, reporter common.Address) err
 					log.Error("missing state at height", "height", h, "err", err)
 					continue
 				}
-				log.Error("state find for height", "height", h)
+				log.Debug("state find for height", "height", h)
 			}
 
 			return err
