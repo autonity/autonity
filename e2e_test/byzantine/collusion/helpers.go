@@ -1,6 +1,7 @@
 package collusion
 
 import (
+	"github.com/autonity/autonity/log"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -146,6 +147,7 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 	}
 
 	// send prevote for the planned invalid proposal for PVN
+	log.Info("collusion of PVN simulated", "h", c.Height(), "r", r, "v", v.Hash(), "node", c.Address())
 	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
 	c.SetSentPrevote(true)
 	c.BroadcastAll(vote)
@@ -202,4 +204,5 @@ func setupCollusionContext(c faultyBroadcaster, rule autonity.Rule) {
 	}
 
 	getCollusion(rule).setupContext(futureHeight, round, b)
+	log.Info("setup collusion context done for", "rule", rule)
 }
