@@ -21,6 +21,7 @@ import (
 var (
 	DecimalPrecision = int64(18)
 	SecondsInYear    = int64(365 * 24 * 60 * 60)
+	SecondsInDay     = int64(24 * 60 * 60)
 	DecimalFactor    = new(big.Int).Exp(big.NewInt(10), big.NewInt(DecimalPrecision), nil)
 	NTNDecimalFactor = new(big.Int).SetUint64(Ether)
 
@@ -57,7 +58,7 @@ var (
 		InflationRateTransition:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 5.5% AR
 		InflationReserveDecayRate: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.328% AR
 		InflationTransitionPeriod: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear), DecimalFactor)),
-		InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_429), DecimalFactor), big.NewInt(1_000))), // -1.429
+		InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_900), DecimalFactor), big.NewInt(1_000))), // -1.429
 	}
 
 	DefaultAccountabilityConfig = &AccountabilityGenesis{

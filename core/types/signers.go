@@ -23,7 +23,7 @@ var (
 	multipleSignatures = byte(3)
 
 	ErrNilSigners          = errors.New("validator bitmap or coefficient array is nil")
-	ErrOversizedSigners    = errors.New("validator bitmap or coefficient array is oversized")
+	ErrWrongSizeSigners    = errors.New("validator bitmap or coefficient array has incorrect size")
 	ErrEmptySigners        = errors.New("signers information is empty")
 	ErrWrongCoefficientLen = errors.New("coefficient array has incorrect length")
 	ErrInvalidSingleSig    = errors.New("individual signature has coefficient != 1")
@@ -130,7 +130,7 @@ func (s *Signers) Validate(committeeSize int) error {
 
 	// length safety check
 	if !s.Bits.Valid(committeeSize) || len(s.Coefficients) > committeeSize {
-		return ErrOversizedSigners
+		return ErrWrongSizeSigners
 	}
 
 	// gather data about signers bits
@@ -216,7 +216,7 @@ func (s *Signers) RespectsBoundaries(other *Signers) bool {
 
 		secondCoefficient = int(other.Bits.Get(i))
 		if secondCoefficient == int(multipleSignatures) {
-			secondCoefficient = int(other.Coefficients[count])
+			secondCoefficient = int(other.Coefficients[count2])
 			count2++
 		}
 
@@ -295,7 +295,6 @@ func (s *Signers) increment(index int) {
 			}
 		}
 		// max allowed coefficient for a single validator is committeeSize
-		//TODO(lorenzo) write test that ends up here, to verify that this actually never happens when aggregating votes
 		if int(s.Coefficients[count]) >= s.committeeSize {
 			panic("Aggregate signature coefficients exceeds allowed boundaries")
 		}

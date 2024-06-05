@@ -18,11 +18,15 @@ type raw []byte
 
 // GenesisBonds is an intermediary struct used to pass genesis bondings.
 // We cannot use autonity/core package here as it would cause import cycle
-type GenesisBonds = map[common.Address]GenesisBond
-
+type GenesisBonds = []GenesisBond
+type Delegation = struct {
+	Validator common.Address
+	Amount    *big.Int
+}
 type GenesisBond struct {
+	Staker        common.Address
 	NewtonBalance *big.Int
-	Bonds         map[common.Address]*big.Int
+	Bonds         []Delegation
 }
 
 func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts) error {
@@ -152,13 +156,13 @@ func DeployInflationControllerContract(config *params.ChainConfig, evmContracts 
 		log.Error("DeployInflationControllerContract failed", "err", err)
 		return fmt.Errorf("failed to deploy inflation controller contract: %w", err)
 	}
-	log.Info("Deployed inflation controller contract", "address", params.InflationControllerContractAddress)
+	log.Info("Deployed Inflation Controller contract", "address", params.InflationControllerContractAddress)
 	return nil
 }
 
 func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
 	if config.StakableVestingConfig == nil {
-		log.Info("Config missing, using default parameters for the Stakable Vesting contract")
+		log.Info("Config missing, using default parameters for the Stakeable Vesting contract")
 		config.StakableVestingConfig = params.DefaultStakableVestingGenesis
 	} else {
 		config.StakableVestingConfig.SetDefaults()
@@ -167,18 +171,18 @@ func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *Gen
 		generated.StakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
 	); err != nil {
 		log.Error("DeployStakableVestingContract failed", "err", err)
-		return fmt.Errorf("failed to deploy stakable vesting contract: %w", err)
+		return fmt.Errorf("failed to deploy stakeable vesting contract: %w", err)
 	}
-	log.Info("Deployed stakable vesting contract", "address", params.StakableVestingContractAddress)
+	log.Info("Deployed Stakeable Vesting contract", "address", params.StakableVestingContractAddress)
 	if err := evmContracts.Mint(params.StakableVestingContractAddress, config.StakableVestingConfig.TotalNominal); err != nil {
-		return fmt.Errorf("error while minting total nominal to stakable vesting contract: %w", err)
+		return fmt.Errorf("error while minting total nominal to stakeable vesting contract: %w", err)
 	}
 	if err := evmContracts.SetStakableTotalNominal(config.StakableVestingConfig.TotalNominal); err != nil {
-		return fmt.Errorf("error while setting total nominal in stakable vesting contract: %w", err)
+		return fmt.Errorf("error while setting total nominal in stakeable vesting contract: %w", err)
 	}
 	for _, vesting := range config.StakableVestingConfig.StakableContracts {
 		if err := evmContracts.NewStakableContract(vesting); err != nil {
-			return fmt.Errorf("failed to create new stakable vesting contract: %w", err)
+			return fmt.Errorf("failed to create new stakeable vesting contract: %w", err)
 		}
 	}
 	return nil
@@ -195,9 +199,9 @@ func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *
 		generated.NonStakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
 	); err != nil {
 		log.Error("DeployNonStakableVestingContract failed", "err", err)
-		return fmt.Errorf("failed to deploy non-stakable vesting contract: %w", err)
+		return fmt.Errorf("failed to deploy non-stakeable vesting contract: %w", err)
 	}
-	log.Info("Deployed non-stakable vesting contract", "address", params.NonStakableVestingContractAddress)
+	log.Info("Deployed Non-Stakeable Vesting contract", "address", params.NonStakableVestingContractAddress)
 	if err := evmContracts.SetNonStakableTotalNominal(config.NonStakableVestingConfig.TotalNominal); err != nil {
 		return fmt.Errorf("error while seting total nominal in non-stakable vesting contract: %w", err)
 	}
@@ -299,53 +303,42 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 		},
 		ContractVersion: big.NewInt(1),
 	}
-
 	validators := make([]params.Validator, 0, len(genesisConfig.Validators))
 	for _, v := range genesisConfig.Validators {
 		validators = append(validators, *v)
 	}
-
-	err := evmContracts.DeployAutonityContract(genesisConfig.Bytecode, validators, contractConfig)
-	if err != nil {
+	if err := evmContracts.DeployAutonityContract(genesisConfig.Bytecode, validators, contractConfig); err != nil {
 		log.Error("DeployAutonityContract failed", "err", err)
 		return fmt.Errorf("failed to deploy Autonity contract: %w", err)
 	}
 
-	for addr, account := range genesisBonds {
-
+	for _, alloc := range genesisBonds {
 		balanceToMint := new(big.Int)
-
-		if account.NewtonBalance != nil {
-			balanceToMint.Add(balanceToMint, account.NewtonBalance)
+		if alloc.NewtonBalance != nil {
+			balanceToMint.Add(balanceToMint, alloc.NewtonBalance)
 		}
-
-		for _, amount := range account.Bonds {
-			balanceToMint.Add(balanceToMint, amount)
+		for _, delegation := range alloc.Bonds {
+			balanceToMint.Add(balanceToMint, delegation.Amount)
 		}
-
 		if balanceToMint.Cmp(common.Big0) > 0 {
-			err := evmContracts.Mint(addr, balanceToMint)
+			err := evmContracts.Mint(alloc.Staker, balanceToMint)
 			if err != nil {
 				return fmt.Errorf("error while minting Newton: %w", err)
 			}
-
-			for validatorAddress, amount := range account.Bonds {
-				err = evmContracts.Bond(addr, validatorAddress, amount)
+			for _, delegation := range alloc.Bonds {
+				err = evmContracts.Bond(alloc.Staker, delegation.Validator, delegation.Amount)
 				if err != nil {
 					return fmt.Errorf("error while bonding: %w", err)
 				}
 			}
 		}
-
 	}
 
-	err = evmContracts.FinalizeInitialization()
-	if err != nil {
+	if err := evmContracts.FinalizeInitialization(); err != nil {
 		return fmt.Errorf("error while calling finalizeInitialization: %w", err)
 	}
 
 	log.Info("Deployed Autonity contract", "address", params.AutonityContractAddress)
-
 	return nil
 }
 
