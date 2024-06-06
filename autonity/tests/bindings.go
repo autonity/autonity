@@ -203,7 +203,7 @@ var ACUFuncSigs = ACUMetaData.Sigs
 var ACUBin = ACUMetaData.Bin
 
 // DeployACU deploys a new Ethereum contract, binding an instance of ACU to it.
-func (r *runner) deployACU(opts *runOptions, symbols_ []string, quantities_ []*big.Int, scale_ *big.Int, autonity common.Address, operator common.Address, oracle common.Address) (common.Address, uint64, *ACU, error) {
+func (r *Runner) DeployACU(opts *runOptions, symbols_ []string, quantities_ []*big.Int, scale_ *big.Int, autonity common.Address, operator common.Address, oracle common.Address) (common.Address, uint64, *ACU, error) {
 	parsed, err := ACUMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -729,7 +729,7 @@ var AccountabilityFuncSigs = AccountabilityMetaData.Sigs
 var AccountabilityBin = AccountabilityMetaData.Bin
 
 // DeployAccountability deploys a new Ethereum contract, binding an instance of Accountability to it.
-func (r *runner) deployAccountability(opts *runOptions, _autonity common.Address, _config AccountabilityConfig) (common.Address, uint64, *Accountability, error) {
+func (r *Runner) DeployAccountability(opts *runOptions, _autonity common.Address, _config AccountabilityConfig) (common.Address, uint64, *Accountability, error) {
 	parsed, err := AccountabilityMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -1738,7 +1738,7 @@ var AutonityFuncSigs = AutonityMetaData.Sigs
 var AutonityBin = AutonityMetaData.Bin
 
 // DeployAutonity deploys a new Ethereum contract, binding an instance of Autonity to it.
-func (r *runner) deployAutonity(opts *runOptions, _validators []AutonityValidator, _config AutonityConfig) (common.Address, uint64, *Autonity, error) {
+func (r *Runner) DeployAutonity(opts *runOptions, _validators []AutonityValidator, _config AutonityConfig) (common.Address, uint64, *Autonity, error) {
 	parsed, err := AutonityMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -5455,6 +5455,610 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 		}
 
 
+		// AutonityNotificationBondingAppliedFailedIterator is returned from FilterNotificationBondingAppliedFailed and is used to iterate over the raw logs and unpacked data for NotificationBondingAppliedFailed events raised by the Autonity contract.
+		type AutonityNotificationBondingAppliedFailedIterator struct {
+			Event *AutonityNotificationBondingAppliedFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityNotificationBondingAppliedFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityNotificationBondingAppliedFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityNotificationBondingAppliedFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityNotificationBondingAppliedFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityNotificationBondingAppliedFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityNotificationBondingAppliedFailed represents a NotificationBondingAppliedFailed event raised by the Autonity contract.
+		type AutonityNotificationBondingAppliedFailed struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationBondingAppliedFailed is a free log retrieval operation binding the contract event 0xfb45a1d805315c547f04d5321f70786e35f8d08aea9c40d30b04a84eb0c1af87.
+		//
+		// Solidity: event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_Autonity *Autonity) FilterNotificationBondingAppliedFailed(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityNotificationBondingAppliedFailedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "NotificationBondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityNotificationBondingAppliedFailedIterator{contract: _Autonity.contract, event: "NotificationBondingAppliedFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationBondingAppliedFailed is a free log subscription operation binding the contract event 0xfb45a1d805315c547f04d5321f70786e35f8d08aea9c40d30b04a84eb0c1af87.
+		//
+		// Solidity: event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) WatchNotificationBondingAppliedFailed(opts *bind.WatchOpts, sink chan<- *AutonityNotificationBondingAppliedFailed, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "NotificationBondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityNotificationBondingAppliedFailed)
+						if err := _Autonity.contract.UnpackLog(event, "NotificationBondingAppliedFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationBondingAppliedFailed is a log parse operation binding the contract event 0xfb45a1d805315c547f04d5321f70786e35f8d08aea9c40d30b04a84eb0c1af87.
+		//
+		// Solidity: event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) ParseNotificationBondingAppliedFailed(log types.Log) (*AutonityNotificationBondingAppliedFailed, error) {
+			event := new(AutonityNotificationBondingAppliedFailed)
+			if err := _Autonity.contract.UnpackLog(event, "NotificationBondingAppliedFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityNotificationRewardsDistributionFailedIterator is returned from FilterNotificationRewardsDistributionFailed and is used to iterate over the raw logs and unpacked data for NotificationRewardsDistributionFailed events raised by the Autonity contract.
+		type AutonityNotificationRewardsDistributionFailedIterator struct {
+			Event *AutonityNotificationRewardsDistributionFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityNotificationRewardsDistributionFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityNotificationRewardsDistributionFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityNotificationRewardsDistributionFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityNotificationRewardsDistributionFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityNotificationRewardsDistributionFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityNotificationRewardsDistributionFailed represents a NotificationRewardsDistributionFailed event raised by the Autonity contract.
+		type AutonityNotificationRewardsDistributionFailed struct {
+			Delegator common.Address;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationRewardsDistributionFailed is a free log retrieval operation binding the contract event 0x6b12fd8ab9e08998f7a6a2016dd36e5effb92291250c05ca2a229c61caac9a0b.
+		//
+		// Solidity: event NotificationRewardsDistributionFailed(address indexed delegator)
+ 		func (_Autonity *Autonity) FilterNotificationRewardsDistributionFailed(opts *bind.FilterOpts, delegator []common.Address) (*AutonityNotificationRewardsDistributionFailedIterator, error) {
+
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "NotificationRewardsDistributionFailed", delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityNotificationRewardsDistributionFailedIterator{contract: _Autonity.contract, event: "NotificationRewardsDistributionFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationRewardsDistributionFailed is a free log subscription operation binding the contract event 0x6b12fd8ab9e08998f7a6a2016dd36e5effb92291250c05ca2a229c61caac9a0b.
+		//
+		// Solidity: event NotificationRewardsDistributionFailed(address indexed delegator)
+		func (_Autonity *Autonity) WatchNotificationRewardsDistributionFailed(opts *bind.WatchOpts, sink chan<- *AutonityNotificationRewardsDistributionFailed, delegator []common.Address) (event.Subscription, error) {
+
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "NotificationRewardsDistributionFailed", delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityNotificationRewardsDistributionFailed)
+						if err := _Autonity.contract.UnpackLog(event, "NotificationRewardsDistributionFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationRewardsDistributionFailed is a log parse operation binding the contract event 0x6b12fd8ab9e08998f7a6a2016dd36e5effb92291250c05ca2a229c61caac9a0b.
+		//
+		// Solidity: event NotificationRewardsDistributionFailed(address indexed delegator)
+		func (_Autonity *Autonity) ParseNotificationRewardsDistributionFailed(log types.Log) (*AutonityNotificationRewardsDistributionFailed, error) {
+			event := new(AutonityNotificationRewardsDistributionFailed)
+			if err := _Autonity.contract.UnpackLog(event, "NotificationRewardsDistributionFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityNotificationUnbondingAppliedFailedIterator is returned from FilterNotificationUnbondingAppliedFailed and is used to iterate over the raw logs and unpacked data for NotificationUnbondingAppliedFailed events raised by the Autonity contract.
+		type AutonityNotificationUnbondingAppliedFailedIterator struct {
+			Event *AutonityNotificationUnbondingAppliedFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityNotificationUnbondingAppliedFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityNotificationUnbondingAppliedFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityNotificationUnbondingAppliedFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityNotificationUnbondingAppliedFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityNotificationUnbondingAppliedFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityNotificationUnbondingAppliedFailed represents a NotificationUnbondingAppliedFailed event raised by the Autonity contract.
+		type AutonityNotificationUnbondingAppliedFailed struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationUnbondingAppliedFailed is a free log retrieval operation binding the contract event 0x25e5961503865dce0fd51da83fa8b64c7cda1910df47859371ae2691e6ef7b01.
+		//
+		// Solidity: event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_Autonity *Autonity) FilterNotificationUnbondingAppliedFailed(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityNotificationUnbondingAppliedFailedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "NotificationUnbondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityNotificationUnbondingAppliedFailedIterator{contract: _Autonity.contract, event: "NotificationUnbondingAppliedFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationUnbondingAppliedFailed is a free log subscription operation binding the contract event 0x25e5961503865dce0fd51da83fa8b64c7cda1910df47859371ae2691e6ef7b01.
+		//
+		// Solidity: event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) WatchNotificationUnbondingAppliedFailed(opts *bind.WatchOpts, sink chan<- *AutonityNotificationUnbondingAppliedFailed, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "NotificationUnbondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityNotificationUnbondingAppliedFailed)
+						if err := _Autonity.contract.UnpackLog(event, "NotificationUnbondingAppliedFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationUnbondingAppliedFailed is a log parse operation binding the contract event 0x25e5961503865dce0fd51da83fa8b64c7cda1910df47859371ae2691e6ef7b01.
+		//
+		// Solidity: event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) ParseNotificationUnbondingAppliedFailed(log types.Log) (*AutonityNotificationUnbondingAppliedFailed, error) {
+			event := new(AutonityNotificationUnbondingAppliedFailed)
+			if err := _Autonity.contract.UnpackLog(event, "NotificationUnbondingAppliedFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityNotificationUnbondingReleasedFailedIterator is returned from FilterNotificationUnbondingReleasedFailed and is used to iterate over the raw logs and unpacked data for NotificationUnbondingReleasedFailed events raised by the Autonity contract.
+		type AutonityNotificationUnbondingReleasedFailedIterator struct {
+			Event *AutonityNotificationUnbondingReleasedFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityNotificationUnbondingReleasedFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityNotificationUnbondingReleasedFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityNotificationUnbondingReleasedFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityNotificationUnbondingReleasedFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityNotificationUnbondingReleasedFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityNotificationUnbondingReleasedFailed represents a NotificationUnbondingReleasedFailed event raised by the Autonity contract.
+		type AutonityNotificationUnbondingReleasedFailed struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationUnbondingReleasedFailed is a free log retrieval operation binding the contract event 0x1b89ebeadf9994782fadedf9606326d4c348a23b6b1b8d25b44a912b0a9a151a.
+		//
+		// Solidity: event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_Autonity *Autonity) FilterNotificationUnbondingReleasedFailed(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityNotificationUnbondingReleasedFailedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.FilterLogs(opts, "NotificationUnbondingReleasedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityNotificationUnbondingReleasedFailedIterator{contract: _Autonity.contract, event: "NotificationUnbondingReleasedFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationUnbondingReleasedFailed is a free log subscription operation binding the contract event 0x1b89ebeadf9994782fadedf9606326d4c348a23b6b1b8d25b44a912b0a9a151a.
+		//
+		// Solidity: event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) WatchNotificationUnbondingReleasedFailed(opts *bind.WatchOpts, sink chan<- *AutonityNotificationUnbondingReleasedFailed, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _Autonity.contract.WatchLogs(opts, "NotificationUnbondingReleasedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityNotificationUnbondingReleasedFailed)
+						if err := _Autonity.contract.UnpackLog(event, "NotificationUnbondingReleasedFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationUnbondingReleasedFailed is a log parse operation binding the contract event 0x1b89ebeadf9994782fadedf9606326d4c348a23b6b1b8d25b44a912b0a9a151a.
+		//
+		// Solidity: event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_Autonity *Autonity) ParseNotificationUnbondingReleasedFailed(log types.Log) (*AutonityNotificationUnbondingReleasedFailed, error) {
+			event := new(AutonityNotificationUnbondingReleasedFailed)
+			if err := _Autonity.contract.UnpackLog(event, "NotificationUnbondingReleasedFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
 		// AutonityPausedValidatorIterator is returned from FilterPausedValidator and is used to iterate over the raw logs and unpacked data for PausedValidator events raised by the Autonity contract.
 		type AutonityPausedValidatorIterator struct {
 			Event *AutonityPausedValidator // Event containing the contract specifics and raw log
@@ -6618,7 +7222,7 @@ var AutonityUpgradeTestFuncSigs = AutonityUpgradeTestMetaData.Sigs
 var AutonityUpgradeTestBin = AutonityUpgradeTestMetaData.Bin
 
 // DeployAutonityUpgradeTest deploys a new Ethereum contract, binding an instance of AutonityUpgradeTest to it.
-func (r *runner) deployAutonityUpgradeTest(opts *runOptions) (common.Address, uint64, *AutonityUpgradeTest, error) {
+func (r *Runner) DeployAutonityUpgradeTest(opts *runOptions) (common.Address, uint64, *AutonityUpgradeTest, error) {
 	parsed, err := AutonityUpgradeTestMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -10335,6 +10939,610 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 		}
 
 
+		// AutonityUpgradeTestNotificationBondingAppliedFailedIterator is returned from FilterNotificationBondingAppliedFailed and is used to iterate over the raw logs and unpacked data for NotificationBondingAppliedFailed events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationBondingAppliedFailedIterator struct {
+			Event *AutonityUpgradeTestNotificationBondingAppliedFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestNotificationBondingAppliedFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestNotificationBondingAppliedFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestNotificationBondingAppliedFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestNotificationBondingAppliedFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestNotificationBondingAppliedFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestNotificationBondingAppliedFailed represents a NotificationBondingAppliedFailed event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationBondingAppliedFailed struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationBondingAppliedFailed is a free log retrieval operation binding the contract event 0xfb45a1d805315c547f04d5321f70786e35f8d08aea9c40d30b04a84eb0c1af87.
+		//
+		// Solidity: event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterNotificationBondingAppliedFailed(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestNotificationBondingAppliedFailedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "NotificationBondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestNotificationBondingAppliedFailedIterator{contract: _AutonityUpgradeTest.contract, event: "NotificationBondingAppliedFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationBondingAppliedFailed is a free log subscription operation binding the contract event 0xfb45a1d805315c547f04d5321f70786e35f8d08aea9c40d30b04a84eb0c1af87.
+		//
+		// Solidity: event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchNotificationBondingAppliedFailed(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestNotificationBondingAppliedFailed, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "NotificationBondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestNotificationBondingAppliedFailed)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationBondingAppliedFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationBondingAppliedFailed is a log parse operation binding the contract event 0xfb45a1d805315c547f04d5321f70786e35f8d08aea9c40d30b04a84eb0c1af87.
+		//
+		// Solidity: event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNotificationBondingAppliedFailed(log types.Log) (*AutonityUpgradeTestNotificationBondingAppliedFailed, error) {
+			event := new(AutonityUpgradeTestNotificationBondingAppliedFailed)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationBondingAppliedFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityUpgradeTestNotificationRewardsDistributionFailedIterator is returned from FilterNotificationRewardsDistributionFailed and is used to iterate over the raw logs and unpacked data for NotificationRewardsDistributionFailed events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationRewardsDistributionFailedIterator struct {
+			Event *AutonityUpgradeTestNotificationRewardsDistributionFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestNotificationRewardsDistributionFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestNotificationRewardsDistributionFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestNotificationRewardsDistributionFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestNotificationRewardsDistributionFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestNotificationRewardsDistributionFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestNotificationRewardsDistributionFailed represents a NotificationRewardsDistributionFailed event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationRewardsDistributionFailed struct {
+			Delegator common.Address;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationRewardsDistributionFailed is a free log retrieval operation binding the contract event 0x6b12fd8ab9e08998f7a6a2016dd36e5effb92291250c05ca2a229c61caac9a0b.
+		//
+		// Solidity: event NotificationRewardsDistributionFailed(address indexed delegator)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterNotificationRewardsDistributionFailed(opts *bind.FilterOpts, delegator []common.Address) (*AutonityUpgradeTestNotificationRewardsDistributionFailedIterator, error) {
+
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "NotificationRewardsDistributionFailed", delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestNotificationRewardsDistributionFailedIterator{contract: _AutonityUpgradeTest.contract, event: "NotificationRewardsDistributionFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationRewardsDistributionFailed is a free log subscription operation binding the contract event 0x6b12fd8ab9e08998f7a6a2016dd36e5effb92291250c05ca2a229c61caac9a0b.
+		//
+		// Solidity: event NotificationRewardsDistributionFailed(address indexed delegator)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchNotificationRewardsDistributionFailed(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestNotificationRewardsDistributionFailed, delegator []common.Address) (event.Subscription, error) {
+
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "NotificationRewardsDistributionFailed", delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestNotificationRewardsDistributionFailed)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationRewardsDistributionFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationRewardsDistributionFailed is a log parse operation binding the contract event 0x6b12fd8ab9e08998f7a6a2016dd36e5effb92291250c05ca2a229c61caac9a0b.
+		//
+		// Solidity: event NotificationRewardsDistributionFailed(address indexed delegator)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNotificationRewardsDistributionFailed(log types.Log) (*AutonityUpgradeTestNotificationRewardsDistributionFailed, error) {
+			event := new(AutonityUpgradeTestNotificationRewardsDistributionFailed)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationRewardsDistributionFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityUpgradeTestNotificationUnbondingAppliedFailedIterator is returned from FilterNotificationUnbondingAppliedFailed and is used to iterate over the raw logs and unpacked data for NotificationUnbondingAppliedFailed events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationUnbondingAppliedFailedIterator struct {
+			Event *AutonityUpgradeTestNotificationUnbondingAppliedFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestNotificationUnbondingAppliedFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestNotificationUnbondingAppliedFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestNotificationUnbondingAppliedFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestNotificationUnbondingAppliedFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestNotificationUnbondingAppliedFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestNotificationUnbondingAppliedFailed represents a NotificationUnbondingAppliedFailed event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationUnbondingAppliedFailed struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationUnbondingAppliedFailed is a free log retrieval operation binding the contract event 0x25e5961503865dce0fd51da83fa8b64c7cda1910df47859371ae2691e6ef7b01.
+		//
+		// Solidity: event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterNotificationUnbondingAppliedFailed(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestNotificationUnbondingAppliedFailedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "NotificationUnbondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestNotificationUnbondingAppliedFailedIterator{contract: _AutonityUpgradeTest.contract, event: "NotificationUnbondingAppliedFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationUnbondingAppliedFailed is a free log subscription operation binding the contract event 0x25e5961503865dce0fd51da83fa8b64c7cda1910df47859371ae2691e6ef7b01.
+		//
+		// Solidity: event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchNotificationUnbondingAppliedFailed(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestNotificationUnbondingAppliedFailed, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "NotificationUnbondingAppliedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestNotificationUnbondingAppliedFailed)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationUnbondingAppliedFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationUnbondingAppliedFailed is a log parse operation binding the contract event 0x25e5961503865dce0fd51da83fa8b64c7cda1910df47859371ae2691e6ef7b01.
+		//
+		// Solidity: event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNotificationUnbondingAppliedFailed(log types.Log) (*AutonityUpgradeTestNotificationUnbondingAppliedFailed, error) {
+			event := new(AutonityUpgradeTestNotificationUnbondingAppliedFailed)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationUnbondingAppliedFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
+		// AutonityUpgradeTestNotificationUnbondingReleasedFailedIterator is returned from FilterNotificationUnbondingReleasedFailed and is used to iterate over the raw logs and unpacked data for NotificationUnbondingReleasedFailed events raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationUnbondingReleasedFailedIterator struct {
+			Event *AutonityUpgradeTestNotificationUnbondingReleasedFailed // Event containing the contract specifics and raw log
+
+			contract *bind.BoundContract // Generic contract to use for unpacking event data
+			event    string              // Event name to use for unpacking event data
+
+			logs chan types.Log        // Log channel receiving the found contract events
+			sub  ethereum.Subscription // Subscription for errors, completion and termination
+			done bool                  // Whether the subscription completed delivering logs
+			fail error                 // Occurred error to stop iteration
+		}
+		// Next advances the iterator to the subsequent event, returning whether there
+		// are any more events found. In case of a retrieval or parsing error, false is
+		// returned and Error() can be queried for the exact failure.
+		func (it *AutonityUpgradeTestNotificationUnbondingReleasedFailedIterator) Next() bool {
+			// If the iterator failed, stop iterating
+			if (it.fail != nil) {
+				return false
+			}
+			// If the iterator completed, deliver directly whatever's available
+			if (it.done) {
+				select {
+				case log := <-it.logs:
+					it.Event = new(AutonityUpgradeTestNotificationUnbondingReleasedFailed)
+					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+						it.fail = err
+						return false
+					}
+					it.Event.Raw = log
+					return true
+
+				default:
+					return false
+				}
+			}
+			// Iterator still in progress, wait for either a data or an error event
+			select {
+			case log := <-it.logs:
+				it.Event = new(AutonityUpgradeTestNotificationUnbondingReleasedFailed)
+				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+					it.fail = err
+					return false
+				}
+				it.Event.Raw = log
+				return true
+
+			case err := <-it.sub.Err():
+				it.done = true
+				it.fail = err
+				return it.Next()
+			}
+		}
+		// Error returns any retrieval or parsing error occurred during filtering.
+		func (it *AutonityUpgradeTestNotificationUnbondingReleasedFailedIterator) Error() error {
+			return it.fail
+		}
+		// Close terminates the iteration process, releasing any pending underlying
+		// resources.
+		func (it *AutonityUpgradeTestNotificationUnbondingReleasedFailedIterator) Close() error {
+			it.sub.Unsubscribe()
+			return nil
+		}
+
+		// AutonityUpgradeTestNotificationUnbondingReleasedFailed represents a NotificationUnbondingReleasedFailed event raised by the AutonityUpgradeTest contract.
+		type AutonityUpgradeTestNotificationUnbondingReleasedFailed struct {
+			Validator common.Address;
+			Delegator common.Address;
+			Amount *big.Int;
+			Raw types.Log // Blockchain specific contextual infos
+		}
+
+		// FilterNotificationUnbondingReleasedFailed is a free log retrieval operation binding the contract event 0x1b89ebeadf9994782fadedf9606326d4c348a23b6b1b8d25b44a912b0a9a151a.
+		//
+		// Solidity: event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_AutonityUpgradeTest *AutonityUpgradeTest) FilterNotificationUnbondingReleasedFailed(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityUpgradeTestNotificationUnbondingReleasedFailedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.FilterLogs(opts, "NotificationUnbondingReleasedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityUpgradeTestNotificationUnbondingReleasedFailedIterator{contract: _AutonityUpgradeTest.contract, event: "NotificationUnbondingReleasedFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNotificationUnbondingReleasedFailed is a free log subscription operation binding the contract event 0x1b89ebeadf9994782fadedf9606326d4c348a23b6b1b8d25b44a912b0a9a151a.
+		//
+		// Solidity: event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) WatchNotificationUnbondingReleasedFailed(opts *bind.WatchOpts, sink chan<- *AutonityUpgradeTestNotificationUnbondingReleasedFailed, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityUpgradeTest.contract.WatchLogs(opts, "NotificationUnbondingReleasedFailed", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityUpgradeTestNotificationUnbondingReleasedFailed)
+						if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationUnbondingReleasedFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+
+		// ParseNotificationUnbondingReleasedFailed is a log parse operation binding the contract event 0x1b89ebeadf9994782fadedf9606326d4c348a23b6b1b8d25b44a912b0a9a151a.
+		//
+		// Solidity: event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNotificationUnbondingReleasedFailed(log types.Log) (*AutonityUpgradeTestNotificationUnbondingReleasedFailed, error) {
+			event := new(AutonityUpgradeTestNotificationUnbondingReleasedFailed)
+			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NotificationUnbondingReleasedFailed", log); err != nil {
+				return nil, err
+			}
+			event.Raw = log
+			return event, nil
+		}
+
+
 		// AutonityUpgradeTestPausedValidatorIterator is returned from FilterPausedValidator and is used to iterate over the raw logs and unpacked data for PausedValidator events raised by the AutonityUpgradeTest contract.
 		type AutonityUpgradeTestPausedValidatorIterator struct {
 			Event *AutonityUpgradeTestPausedValidator // Event containing the contract specifics and raw log
@@ -11406,7 +12614,7 @@ var BytesLibABI = BytesLibMetaData.ABI
 var BytesLibBin = BytesLibMetaData.Bin
 
 // DeployBytesLib deploys a new Ethereum contract, binding an instance of BytesLib to it.
-func (r *runner) deployBytesLib(opts *runOptions) (common.Address, uint64, *BytesLib, error) {
+func (r *Runner) DeployBytesLib(opts *runOptions) (common.Address, uint64, *BytesLib, error) {
 	parsed, err := BytesLibMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -11456,7 +12664,7 @@ var ContractBaseFuncSigs = ContractBaseMetaData.Sigs
 var ContractBaseBin = ContractBaseMetaData.Bin
 
 // DeployContractBase deploys a new Ethereum contract, binding an instance of ContractBase to it.
-func (r *runner) deployContractBase(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *ContractBase, error) {
+func (r *Runner) DeployContractBase(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *ContractBase, error) {
 	parsed, err := ContractBaseMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -11541,6 +12749,425 @@ func (_ContractBase *ContractBase) TotalContracts(opts *runOptions, _beneficiary
 
  */
 
+// DummyStakintgContractMetaData contains all meta data concerning the DummyStakintgContract contract.
+var DummyStakintgContractMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"Validator_Rewarded\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Validator_Staked\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"autonity\",\"outputs\":[{\"internalType\":\"contractAutonity\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"bond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_bondingID\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_liquid\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_selfDelegation\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"bondingApplied\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"bondingCost\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"failAfterRewardsDistribution\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"failAfterUnbondingApplied\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"failNever\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"notifiedBondings\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquid\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"selfDelegation\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"rejected\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"applied\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"notifiedRelease\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"rejeced\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"applied\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"notifiedUnbonding\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"rejected\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"applied\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"processStakingOperations\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"receiveATN\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"removeRequestedBondingIDs\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"removeRequestedUnbondingIDs\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"requestedBondings\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"requestedUnbondings\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"revertStaking\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"revertStakingOperations\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"revertStep\",\"outputs\":[{\"internalType\":\"enumDummyStakintgContract.Fail\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_validators\",\"type\":\"address[]\"}],\"name\":\"rewardsDistributed\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unbond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"unbondingApplied\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unbondingCost\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"_rejected\",\"type\":\"bool\"}],\"name\":\"unbondingReleased\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"validatorsState\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"36f81657": "Validator_Rewarded()",
+		"cc643164": "Validator_Staked()",
+		"55463ceb": "autonity()",
+		"a515366a": "bond(address,uint256)",
+		"9dfd1b8e": "bondingApplied(uint256,address,uint256,bool,bool)",
+		"a5f4dfbb": "bondingCost()",
+		"c14164d5": "failAfterRewardsDistribution()",
+		"3ab9020b": "failAfterUnbondingApplied()",
+		"fdb3281c": "failNever()",
+		"23394eec": "notifiedBondings(uint256)",
+		"66615685": "notifiedRelease(uint256)",
+		"da3bec82": "notifiedUnbonding(uint256)",
+		"97beb714": "processStakingOperations()",
+		"161605e3": "receiveATN()",
+		"0e508f6e": "removeRequestedBondingIDs()",
+		"134e7778": "removeRequestedUnbondingIDs()",
+		"a65258d9": "requestedBondings(uint256)",
+		"ff160a31": "requestedUnbondings(uint256)",
+		"70f33ab2": "revertStaking()",
+		"604e7a8d": "revertStakingOperations()",
+		"d0f08582": "revertStep()",
+		"d18736ab": "rewardsDistributed(address[])",
+		"a5d059ca": "unbond(address,uint256)",
+		"a8920241": "unbondingApplied(uint256,address,bool)",
+		"17da0f63": "unbondingCost()",
+		"3c54c290": "unbondingReleased(uint256,uint256,bool)",
+		"33202b24": "validatorsState(uint256,address)",
+	},
+	Bin: "0x60806040523480156200001157600080fd5b5060405162001745380380620017458339810160408190526200003491620003d1565b600080546001600160b01b0319166001600160a01b03831690811790915560408051632def6e8b60e11b81529051635bdedd16916004808201926020929091908290030181865afa1580156200008e573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190620000b4919062000403565b60008054906101000a90046001600160a01b03166001600160a01b031663cef984506040518163ffffffff1660e01b8152600401602060405180830381865afa15801562000106573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906200012c919062000403565b62000138919062000433565b600155600054604080516335dce58760e11b815290516001600160a01b0390921691636bb9cb0e916004808201926020929091908290030181865afa15801562000186573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190620001ac919062000403565b60016000828254620001bf91906200044f565b909155505060005460408051632def6e8b60e11b815290516001600160a01b0390921691635bdedd16916004808201926020929091908290030181865afa1580156200020f573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019062000235919062000403565b60008054906101000a90046001600160a01b03166001600160a01b03166371d1bc596040518163ffffffff1660e01b8152600401602060405180830381865afa15801562000287573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190620002ad919062000403565b60008054906101000a90046001600160a01b03166001600160a01b031663386a827b6040518163ffffffff1660e01b8152600401602060405180830381865afa158015620002ff573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019062000325919062000403565b62000331919062000433565b6200033d919062000433565b600255600054604080516335dce58760e11b815290516001600160a01b0390921691636bb9cb0e916004808201926020929091908290030181865afa1580156200038b573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190620003b1919062000403565b60026000828254620003c491906200044f565b9091555062000469915050565b600060208284031215620003e457600080fd5b81516001600160a01b0381168114620003fc57600080fd5b9392505050565b6000602082840312156200041657600080fd5b5051919050565b634e487b7160e01b600052601160045260246000fd5b808201808211156200044957620004496200041d565b92915050565b80820281158282048414176200044957620004496200041d565b6112cc80620004796000396000f3fe60806040526004361061019c5760003560e01c806397beb714116100ec578063c14164d51161008a578063d18736ab11610064578063d18736ab1461050c578063da3bec821461052c578063fdb3281c1461059f578063ff160a31146105bf57600080fd5b8063c14164d5146104b4578063cc643164146104c9578063d0f08582146104de57600080fd5b8063a5d059ca116100c6578063a5d059ca1461044b578063a5f4dfbb1461045e578063a65258d914610474578063a89202411461049457600080fd5b806397beb714146103f95780639dfd1b8e14610418578063a515366a1461043857600080fd5b806336f816571161015957806355463ceb1161013357806355463ceb1461030e578063604e7a8d14610346578063666156851461036b57806370f33ab2146103c857600080fd5b806336f81657146102c45780633ab9020b146102d95780633c54c290146102ee57600080fd5b80630e508f6e146101a1578063134e7778146101b8578063161605e3146101b657806317da0f63146101cd57806323394eec146101f657806333202b241461028c575b600080fd5b3480156101ad57600080fd5b506101b66105df565b005b3480156101c457600080fd5b506101b66105ed565b3480156101d957600080fd5b506101e360025481565b6040519081526020015b60405180910390f35b34801561020257600080fd5b50610252610211366004610f85565b6005602052600090815260409020805460018201546002909201546001600160a01b03909116919060ff808216916101008104821691620100009091041685565b604080516001600160a01b03909616865260208601949094529115159284019290925290151560608301521515608082015260a0016101ed565b34801561029857600080fd5b506101e36102a7366004610fba565b600860209081526000928352604080842090915290825290205481565b3480156102d057600080fd5b506101e3600281565b3480156102e557600080fd5b506101b66105f9565b3480156102fa57600080fd5b506101b6610309366004610ff6565b610616565b34801561031a57600080fd5b5060005461032e906001600160a01b031681565b6040516001600160a01b0390911681526020016101ed565b34801561035257600080fd5b506101b66000805460ff60a01b1916600160a01b179055565b34801561037757600080fd5b506103ab610386366004610f85565b6007602052600090815260409020805460019091015460ff8082169161010090041683565b6040805193845291151560208401521515908201526060016101ed565b3480156103d457600080fd5b506000546103e990600160a01b900460ff1681565b60405190151581526020016101ed565b34801561040557600080fd5b506101b66000805460ff60a01b19169055565b34801561042457600080fd5b506101b661043336600461102b565b6106fd565b6101e3610446366004611082565b610826565b6101e3610459366004611082565b610a12565b34801561046a57600080fd5b506101e360015481565b34801561048057600080fd5b506101e361048f366004610f85565b610c1c565b3480156104a057600080fd5b506101b66104af3660046110ac565b610c3d565b3480156104c057600080fd5b506101b6610d71565b3480156104d557600080fd5b506101e3600181565b3480156104ea57600080fd5b506000546104ff90600160a81b900460ff1681565b6040516101ed91906110f5565b34801561051857600080fd5b506101b6610527366004611133565b610d8b565b34801561053857600080fd5b50610578610547366004610f85565b6006602052600090815260409020546001600160a01b0381169060ff600160a01b8204811691600160a81b90041683565b604080516001600160a01b03909416845291151560208401521515908201526060016101ed565b3480156105ab57600080fd5b506101b66000805461ffff60a01b19169055565b3480156105cb57600080fd5b506101e36105da366004610f85565b610f3b565b6105eb60036000610f4b565b565b6105eb60046000610f4b565b600080546002919060ff60a81b1916600160a81b835b0217905550565b6000546001600160a01b031633146106495760405162461bcd60e51b8152600401610640906111f8565b60405180910390fd5b600054600160a01b900460ff16156106a35760405162461bcd60e51b815260206004820152601960248201527f756e626f6e64696e6752656c65617365642072657665727473000000000000006044820152606401610640565b60408051606081018252928352901515602080840191825260018484018181526000968752600790925292909420925183555191018054925115156101000261ff00199215159290921661ffff1990931692909217179055565b6000546001600160a01b031633146107275760405162461bcd60e51b8152600401610640906111f8565b600054600160a01b900460ff161561077a5760405162461bcd60e51b8152602060048201526016602482015275626f6e64696e674170706c696564207265766572747360501b6044820152606401610640565b6040805160a0810182526001600160a01b0395861681526020808201958652931515818301908152921515606082019081526001608083018181526000998a52600590965292909720905181546001600160a01b03191696169590951785559251928401929092559051600290920180549351915161ffff1990941692151561ff00191692909217610100911515919091021762ff000019166201000092151592909202919091179055565b6000805460015460405163528a9b3560e11b81526001600160a01b038681166004830152602482018690528493169163a515366a9160440160206040518083038185885af115801561087c573d6000803e3d6000fd5b50505050506040513d601f19601f820116820180604052508101906108a19190611240565b600380546001818101835560009283527fc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b9091018390558154604080516332765ebd60e21b815290519495509193600893926001600160a01b039092169163c9d97af49160048083019260209291908290030181865afa158015610929573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061094d9190611240565b8152602080820192909252604090810160009081206001600160a01b03808a1680845291855283832095909555825160a08101845290815280840188815281840183815260608301848152608084018581528986526005909752949093209151825496166001600160a01b0319909616959095178155935160018501555160029093018054915192511515620100000262ff0000199315156101000261ff00199515159590951661ffff19909316929092179390931791909116179055905092915050565b600080546002546040516352e82ce560e11b81526001600160a01b038681166004830152602482018690528493169163a5d059ca9160440160206040518083038185885af1158015610a68573d6000803e3d6000fd5b50505050506040513d601f19601f82011682018060405250810190610a8d9190611240565b600480546001818101835560008381527f8a35acfbc15ff81a39ae7d344fd709f28e8600b4aa8c65c6b64bfe7fe36bd19b9092018490558154604080516332765ebd60e21b8152905195965091946008946001600160a01b039092169263c9d97af492818101926020929091908290030181865afa158015610b13573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610b379190611240565b8152602080820192909252604090810160009081206001600160a01b03808a16808452918552838320959095558251606080820185529181528085018381528185018481528885526006875285852092518354925191511515600160a81b0260ff60a81b19921515600160a01b026001600160a81b0319909416919099161791909117169590951790945581519384018252868452838301818152848301828152868352600790945291902092518355516001929092018054915115156101000261ff00199315159390931661ffff1990921691909117919091179055905092915050565b60038181548110610c2c57600080fd5b600091825260209091200154905081565b6000546001600160a01b03163314610c675760405162461bcd60e51b8152600401610640906111f8565b600054600160a01b900460ff1615610cc15760405162461bcd60e51b815260206004820152601860248201527f756e626f6e64696e674170706c696564207265766572747300000000000000006044820152606401610640565b604080516060810182526001600160a01b038085168252831515602080840191825260018486019081526000898152600690925294902092518354915194511515600160a81b0260ff60a81b19951515600160a01b026001600160a81b0319909316919093161717929092169190911790556002600054600160a81b900460ff166002811115610d5357610d536110df565b03610d6c576000805460ff60a01b1916600160a01b1790555b505050565b600080546001919060ff60a81b1916600160a81b8361060f565b6000546001600160a01b03163314610db55760405162461bcd60e51b8152600401610640906111f8565b600054600160a01b900460ff1615610e0f5760405162461bcd60e51b815260206004820152601a60248201527f72657761726473446973747269627574656420726576657274730000000000006044820152606401610640565b6000600860008060009054906101000a90046001600160a01b03166001600160a01b031663c9d97af46040518163ffffffff1660e01b8152600401602060405180830381865afa158015610e67573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610e8b9190611240565b8152602001908152602001600020905060005b8251811015610efd576002826000858481518110610ebe57610ebe611259565b60200260200101516001600160a01b03166001600160a01b03168152602001908152602001600020819055508080610ef59061126f565b915050610e9e565b506001600054600160a81b900460ff166002811115610f1e57610f1e6110df565b03610f37576000805460ff60a01b1916600160a01b1790555b5050565b60048181548110610c2c57600080fd5b5080546000825590600052602060002090810190610f699190610f6c565b50565b5b80821115610f815760008155600101610f6d565b5090565b600060208284031215610f9757600080fd5b5035919050565b80356001600160a01b0381168114610fb557600080fd5b919050565b60008060408385031215610fcd57600080fd5b82359150610fdd60208401610f9e565b90509250929050565b80358015158114610fb557600080fd5b60008060006060848603121561100b57600080fd5b833592506020840135915061102260408501610fe6565b90509250925092565b600080600080600060a0868803121561104357600080fd5b8535945061105360208701610f9e565b93506040860135925061106860608701610fe6565b915061107660808701610fe6565b90509295509295909350565b6000806040838503121561109557600080fd5b61109e83610f9e565b946020939093013593505050565b6000806000606084860312156110c157600080fd5b833592506110d160208501610f9e565b915061102260408501610fe6565b634e487b7160e01b600052602160045260246000fd5b602081016003831061111757634e487b7160e01b600052602160045260246000fd5b91905290565b634e487b7160e01b600052604160045260246000fd5b6000602080838503121561114657600080fd5b823567ffffffffffffffff8082111561115e57600080fd5b818501915085601f83011261117257600080fd5b8135818111156111845761118461111d565b8060051b604051601f19603f830116810181811085821117156111a9576111a961111d565b6040529182528482019250838101850191888311156111c757600080fd5b938501935b828510156111ec576111dd85610f9e565b845293850193928501926111cc565b98975050505050505050565b60208082526028908201527f66756e6374696f6e207265737472696374656420746f204175746f6e6974792060408201526718dbdb9d1c9858dd60c21b606082015260800190565b60006020828403121561125257600080fd5b5051919050565b634e487b7160e01b600052603260045260246000fd5b60006001820161128f57634e487b7160e01b600052601160045260246000fd5b506001019056fea2646970667358221220c21ada9e8699db7403f79ded564eca9107668f21e4aaccb1aa48ef8c1400736e64736f6c63430008150033",
+}
+
+// DummyStakintgContractABI is the input ABI used to generate the binding from.
+// Deprecated: Use DummyStakintgContractMetaData.ABI instead.
+var DummyStakintgContractABI = DummyStakintgContractMetaData.ABI
+
+// Deprecated: Use DummyStakintgContractMetaData.Sigs instead.
+// DummyStakintgContractFuncSigs maps the 4-byte function signature to its string representation.
+var DummyStakintgContractFuncSigs = DummyStakintgContractMetaData.Sigs
+
+// DummyStakintgContractBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use DummyStakintgContractMetaData.Bin instead.
+var DummyStakintgContractBin = DummyStakintgContractMetaData.Bin
+
+// DeployDummyStakintgContract deploys a new Ethereum contract, binding an instance of DummyStakintgContract to it.
+func (r *Runner) DeployDummyStakintgContract(opts *runOptions, _autonity common.Address) (common.Address, uint64, *DummyStakintgContract, error) {
+	parsed, err := DummyStakintgContractMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
+	}
+
+	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(DummyStakintgContractBin), _autonity)
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	return address, gasConsumed, &DummyStakintgContract{contract: c}, nil
+}
+
+// DummyStakintgContract is an auto generated Go binding around an Ethereum contract.
+type DummyStakintgContract struct {
+	*contract
+}
+
+// ValidatorRewarded is a free data retrieval call binding the contract method 0x36f81657.
+//
+// Solidity: function Validator_Rewarded() view returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) ValidatorRewarded(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "Validator_Rewarded")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// ValidatorStaked is a free data retrieval call binding the contract method 0xcc643164.
+//
+// Solidity: function Validator_Staked() view returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) ValidatorStaked(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "Validator_Staked")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Autonity is a free data retrieval call binding the contract method 0x55463ceb.
+//
+// Solidity: function autonity() view returns(address)
+func (_DummyStakintgContract *DummyStakintgContract) Autonity(opts *runOptions) (common.Address, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "autonity")
+
+	if err != nil {
+		return *new(common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, consumed, err
+
+}
+
+// BondingCost is a free data retrieval call binding the contract method 0xa5f4dfbb.
+//
+// Solidity: function bondingCost() view returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) BondingCost(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "bondingCost")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// NotifiedBondings is a free data retrieval call binding the contract method 0x23394eec.
+//
+// Solidity: function notifiedBondings(uint256 ) view returns(address validator, uint256 liquid, bool selfDelegation, bool rejected, bool applied)
+func (_DummyStakintgContract *DummyStakintgContract) NotifiedBondings(opts *runOptions, arg0 *big.Int) (struct {
+	Validator      common.Address
+	Liquid         *big.Int
+	SelfDelegation bool
+	Rejected       bool
+	Applied        bool
+}, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "notifiedBondings", arg0)
+
+	outstruct := new(struct {
+		Validator      common.Address
+		Liquid         *big.Int
+		SelfDelegation bool
+		Rejected       bool
+		Applied        bool
+	})
+	if err != nil {
+		return *outstruct, consumed, err
+	}
+
+	outstruct.Validator = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.Liquid = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.SelfDelegation = *abi.ConvertType(out[2], new(bool)).(*bool)
+	outstruct.Rejected = *abi.ConvertType(out[3], new(bool)).(*bool)
+	outstruct.Applied = *abi.ConvertType(out[4], new(bool)).(*bool)
+	return *outstruct, consumed, err
+
+}
+
+// NotifiedRelease is a free data retrieval call binding the contract method 0x66615685.
+//
+// Solidity: function notifiedRelease(uint256 ) view returns(uint256 amount, bool rejeced, bool applied)
+func (_DummyStakintgContract *DummyStakintgContract) NotifiedRelease(opts *runOptions, arg0 *big.Int) (struct {
+	Amount  *big.Int
+	Rejeced bool
+	Applied bool
+}, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "notifiedRelease", arg0)
+
+	outstruct := new(struct {
+		Amount  *big.Int
+		Rejeced bool
+		Applied bool
+	})
+	if err != nil {
+		return *outstruct, consumed, err
+	}
+
+	outstruct.Amount = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Rejeced = *abi.ConvertType(out[1], new(bool)).(*bool)
+	outstruct.Applied = *abi.ConvertType(out[2], new(bool)).(*bool)
+	return *outstruct, consumed, err
+
+}
+
+// NotifiedUnbonding is a free data retrieval call binding the contract method 0xda3bec82.
+//
+// Solidity: function notifiedUnbonding(uint256 ) view returns(address validator, bool rejected, bool applied)
+func (_DummyStakintgContract *DummyStakintgContract) NotifiedUnbonding(opts *runOptions, arg0 *big.Int) (struct {
+	Validator common.Address
+	Rejected  bool
+	Applied   bool
+}, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "notifiedUnbonding", arg0)
+
+	outstruct := new(struct {
+		Validator common.Address
+		Rejected  bool
+		Applied   bool
+	})
+	if err != nil {
+		return *outstruct, consumed, err
+	}
+
+	outstruct.Validator = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.Rejected = *abi.ConvertType(out[1], new(bool)).(*bool)
+	outstruct.Applied = *abi.ConvertType(out[2], new(bool)).(*bool)
+	return *outstruct, consumed, err
+
+}
+
+// RequestedBondings is a free data retrieval call binding the contract method 0xa65258d9.
+//
+// Solidity: function requestedBondings(uint256 ) view returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) RequestedBondings(opts *runOptions, arg0 *big.Int) (*big.Int, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "requestedBondings", arg0)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// RequestedUnbondings is a free data retrieval call binding the contract method 0xff160a31.
+//
+// Solidity: function requestedUnbondings(uint256 ) view returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) RequestedUnbondings(opts *runOptions, arg0 *big.Int) (*big.Int, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "requestedUnbondings", arg0)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// RevertStaking is a free data retrieval call binding the contract method 0x70f33ab2.
+//
+// Solidity: function revertStaking() view returns(bool)
+func (_DummyStakintgContract *DummyStakintgContract) RevertStaking(opts *runOptions) (bool, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "revertStaking")
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// RevertStep is a free data retrieval call binding the contract method 0xd0f08582.
+//
+// Solidity: function revertStep() view returns(uint8)
+func (_DummyStakintgContract *DummyStakintgContract) RevertStep(opts *runOptions) (uint8, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "revertStep")
+
+	if err != nil {
+		return *new(uint8), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+	return out0, consumed, err
+
+}
+
+// UnbondingCost is a free data retrieval call binding the contract method 0x17da0f63.
+//
+// Solidity: function unbondingCost() view returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) UnbondingCost(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "unbondingCost")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// ValidatorsState is a free data retrieval call binding the contract method 0x33202b24.
+//
+// Solidity: function validatorsState(uint256 , address ) view returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) ValidatorsState(opts *runOptions, arg0 *big.Int, arg1 common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _DummyStakintgContract.call(opts, "validatorsState", arg0, arg1)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Bond is a paid mutator transaction binding the contract method 0xa515366a.
+//
+// Solidity: function bond(address _validator, uint256 _amount) payable returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) Bond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "bond", _validator, _amount)
+	return consumed, err
+}
+
+// BondingApplied is a paid mutator transaction binding the contract method 0x9dfd1b8e.
+//
+// Solidity: function bondingApplied(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) returns()
+func (_DummyStakintgContract *DummyStakintgContract) BondingApplied(opts *runOptions, _bondingID *big.Int, _validator common.Address, _liquid *big.Int, _selfDelegation bool, _rejected bool) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "bondingApplied", _bondingID, _validator, _liquid, _selfDelegation, _rejected)
+	return consumed, err
+}
+
+// FailAfterRewardsDistribution is a paid mutator transaction binding the contract method 0xc14164d5.
+//
+// Solidity: function failAfterRewardsDistribution() returns()
+func (_DummyStakintgContract *DummyStakintgContract) FailAfterRewardsDistribution(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "failAfterRewardsDistribution")
+	return consumed, err
+}
+
+// FailAfterUnbondingApplied is a paid mutator transaction binding the contract method 0x3ab9020b.
+//
+// Solidity: function failAfterUnbondingApplied() returns()
+func (_DummyStakintgContract *DummyStakintgContract) FailAfterUnbondingApplied(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "failAfterUnbondingApplied")
+	return consumed, err
+}
+
+// FailNever is a paid mutator transaction binding the contract method 0xfdb3281c.
+//
+// Solidity: function failNever() returns()
+func (_DummyStakintgContract *DummyStakintgContract) FailNever(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "failNever")
+	return consumed, err
+}
+
+// ProcessStakingOperations is a paid mutator transaction binding the contract method 0x97beb714.
+//
+// Solidity: function processStakingOperations() returns()
+func (_DummyStakintgContract *DummyStakintgContract) ProcessStakingOperations(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "processStakingOperations")
+	return consumed, err
+}
+
+// ReceiveATN is a paid mutator transaction binding the contract method 0x161605e3.
+//
+// Solidity: function receiveATN() payable returns()
+func (_DummyStakintgContract *DummyStakintgContract) ReceiveATN(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "receiveATN")
+	return consumed, err
+}
+
+// RemoveRequestedBondingIDs is a paid mutator transaction binding the contract method 0x0e508f6e.
+//
+// Solidity: function removeRequestedBondingIDs() returns()
+func (_DummyStakintgContract *DummyStakintgContract) RemoveRequestedBondingIDs(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "removeRequestedBondingIDs")
+	return consumed, err
+}
+
+// RemoveRequestedUnbondingIDs is a paid mutator transaction binding the contract method 0x134e7778.
+//
+// Solidity: function removeRequestedUnbondingIDs() returns()
+func (_DummyStakintgContract *DummyStakintgContract) RemoveRequestedUnbondingIDs(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "removeRequestedUnbondingIDs")
+	return consumed, err
+}
+
+// RevertStakingOperations is a paid mutator transaction binding the contract method 0x604e7a8d.
+//
+// Solidity: function revertStakingOperations() returns()
+func (_DummyStakintgContract *DummyStakintgContract) RevertStakingOperations(opts *runOptions) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "revertStakingOperations")
+	return consumed, err
+}
+
+// RewardsDistributed is a paid mutator transaction binding the contract method 0xd18736ab.
+//
+// Solidity: function rewardsDistributed(address[] _validators) returns()
+func (_DummyStakintgContract *DummyStakintgContract) RewardsDistributed(opts *runOptions, _validators []common.Address) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "rewardsDistributed", _validators)
+	return consumed, err
+}
+
+// Unbond is a paid mutator transaction binding the contract method 0xa5d059ca.
+//
+// Solidity: function unbond(address _validator, uint256 _amount) payable returns(uint256)
+func (_DummyStakintgContract *DummyStakintgContract) Unbond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "unbond", _validator, _amount)
+	return consumed, err
+}
+
+// UnbondingApplied is a paid mutator transaction binding the contract method 0xa8920241.
+//
+// Solidity: function unbondingApplied(uint256 _unbondingID, address _validator, bool _rejected) returns()
+func (_DummyStakintgContract *DummyStakintgContract) UnbondingApplied(opts *runOptions, _unbondingID *big.Int, _validator common.Address, _rejected bool) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "unbondingApplied", _unbondingID, _validator, _rejected)
+	return consumed, err
+}
+
+// UnbondingReleased is a paid mutator transaction binding the contract method 0x3c54c290.
+//
+// Solidity: function unbondingReleased(uint256 _unbondingID, uint256 _amount, bool _rejected) returns()
+func (_DummyStakintgContract *DummyStakintgContract) UnbondingReleased(opts *runOptions, _unbondingID *big.Int, _amount *big.Int, _rejected bool) (uint64, error) {
+	_, consumed, err := _DummyStakintgContract.call(opts, "unbondingReleased", _unbondingID, _amount, _rejected)
+	return consumed, err
+}
+
+/* EVENTS ARE NOT YET SUPPORTED
+
+ */
+
 // HelpersMetaData contains all meta data concerning the Helpers contract.
 var HelpersMetaData = &bind.MetaData{
 	ABI: "[]",
@@ -11556,7 +13183,7 @@ var HelpersABI = HelpersMetaData.ABI
 var HelpersBin = HelpersMetaData.Bin
 
 // DeployHelpers deploys a new Ethereum contract, binding an instance of Helpers to it.
-func (r *runner) deployHelpers(opts *runOptions) (common.Address, uint64, *Helpers, error) {
+func (r *Runner) DeployHelpers(opts *runOptions) (common.Address, uint64, *Helpers, error) {
 	parsed, err := HelpersMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -15132,7 +16759,7 @@ var InflationControllerFuncSigs = InflationControllerMetaData.Sigs
 var InflationControllerBin = InflationControllerMetaData.Bin
 
 // DeployInflationController deploys a new Ethereum contract, binding an instance of InflationController to it.
-func (r *runner) deployInflationController(opts *runOptions, _params InflationControllerParams) (common.Address, uint64, *InflationController, error) {
+func (r *Runner) DeployInflationController(opts *runOptions, _params InflationControllerParams) (common.Address, uint64, *InflationController, error) {
 	parsed, err := InflationControllerMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -16111,7 +17738,7 @@ var LiquidRewardManagerFuncSigs = LiquidRewardManagerMetaData.Sigs
 var LiquidRewardManagerBin = LiquidRewardManagerMetaData.Bin
 
 // DeployLiquidRewardManager deploys a new Ethereum contract, binding an instance of LiquidRewardManager to it.
-func (r *runner) deployLiquidRewardManager(opts *runOptions, _autonity common.Address) (common.Address, uint64, *LiquidRewardManager, error) {
+func (r *Runner) DeployLiquidRewardManager(opts *runOptions, _autonity common.Address) (common.Address, uint64, *LiquidRewardManager, error) {
 	parsed, err := LiquidRewardManagerMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -16362,7 +17989,7 @@ var NonStakableVestingFuncSigs = NonStakableVestingMetaData.Sigs
 var NonStakableVestingBin = NonStakableVestingMetaData.Bin
 
 // DeployNonStakableVesting deploys a new Ethereum contract, binding an instance of NonStakableVesting to it.
-func (r *runner) deployNonStakableVesting(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *NonStakableVesting, error) {
+func (r *Runner) DeployNonStakableVesting(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *NonStakableVesting, error) {
 	parsed, err := NonStakableVestingMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -16731,7 +18358,7 @@ var OracleFuncSigs = OracleMetaData.Sigs
 var OracleBin = OracleMetaData.Bin
 
 // DeployOracle deploys a new Ethereum contract, binding an instance of Oracle to it.
-func (r *runner) deployOracle(opts *runOptions, _voters []common.Address, _autonity common.Address, _operator common.Address, _symbols []string, _votePeriod *big.Int) (common.Address, uint64, *Oracle, error) {
+func (r *Runner) DeployOracle(opts *runOptions, _voters []common.Address, _autonity common.Address, _operator common.Address, _symbols []string, _votePeriod *big.Int) (common.Address, uint64, *Oracle, error) {
 	parsed, err := OracleMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -17592,7 +19219,7 @@ var PrecompiledFuncSigs = PrecompiledMetaData.Sigs
 var PrecompiledBin = PrecompiledMetaData.Bin
 
 // DeployPrecompiled deploys a new Ethereum contract, binding an instance of Precompiled to it.
-func (r *runner) deployPrecompiled(opts *runOptions) (common.Address, uint64, *Precompiled, error) {
+func (r *Runner) DeployPrecompiled(opts *runOptions) (common.Address, uint64, *Precompiled, error) {
 	parsed, err := PrecompiledMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -17801,7 +19428,7 @@ var StabilizationFuncSigs = StabilizationMetaData.Sigs
 var StabilizationBin = StabilizationMetaData.Bin
 
 // DeployStabilization deploys a new Ethereum contract, binding an instance of Stabilization to it.
-func (r *runner) deployStabilization(opts *runOptions, config_ StabilizationConfig, autonity common.Address, operator common.Address, oracle common.Address, supplyControl common.Address, collateralToken common.Address) (common.Address, uint64, *Stabilization, error) {
+func (r *Runner) DeployStabilization(opts *runOptions, config_ StabilizationConfig, autonity common.Address, operator common.Address, oracle common.Address, supplyControl common.Address, collateralToken common.Address) (common.Address, uint64, *Stabilization, error) {
 	parsed, err := StabilizationMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -19083,7 +20710,7 @@ var StakableVestingFuncSigs = StakableVestingMetaData.Sigs
 var StakableVestingBin = StakableVestingMetaData.Bin
 
 // DeployStakableVesting deploys a new Ethereum contract, binding an instance of StakableVesting to it.
-func (r *runner) deployStakableVesting(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *StakableVesting, error) {
+func (r *Runner) DeployStakableVesting(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *StakableVesting, error) {
 	parsed, err := StakableVestingMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -19883,7 +21510,7 @@ var SupplyControlFuncSigs = SupplyControlMetaData.Sigs
 var SupplyControlBin = SupplyControlMetaData.Bin
 
 // DeploySupplyControl deploys a new Ethereum contract, binding an instance of SupplyControl to it.
-func (r *runner) deploySupplyControl(opts *runOptions, autonity common.Address, operator common.Address, stabilizer_ common.Address) (common.Address, uint64, *SupplyControl, error) {
+func (r *Runner) DeploySupplyControl(opts *runOptions, autonity common.Address, operator common.Address, stabilizer_ common.Address) (common.Address, uint64, *SupplyControl, error) {
 	parsed, err := SupplyControlMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -20334,7 +21961,7 @@ var TestBaseFuncSigs = TestBaseMetaData.Sigs
 var TestBaseBin = TestBaseMetaData.Bin
 
 // DeployTestBase deploys a new Ethereum contract, binding an instance of TestBase to it.
-func (r *runner) deployTestBase(opts *runOptions, _foo string) (common.Address, uint64, *TestBase, error) {
+func (r *Runner) DeployTestBase(opts *runOptions, _foo string) (common.Address, uint64, *TestBase, error) {
 	parsed, err := TestBaseMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -20398,7 +22025,7 @@ var TestUpgradedFuncSigs = TestUpgradedMetaData.Sigs
 var TestUpgradedBin = TestUpgradedMetaData.Bin
 
 // DeployTestUpgraded deploys a new Ethereum contract, binding an instance of TestUpgraded to it.
-func (r *runner) deployTestUpgraded(opts *runOptions, _bar string, _foo string) (common.Address, uint64, *TestUpgraded, error) {
+func (r *Runner) DeployTestUpgraded(opts *runOptions, _bar string, _foo string) (common.Address, uint64, *TestUpgraded, error) {
 	parsed, err := TestUpgradedMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -20499,7 +22126,7 @@ var UpgradeManagerFuncSigs = UpgradeManagerMetaData.Sigs
 var UpgradeManagerBin = UpgradeManagerMetaData.Bin
 
 // DeployUpgradeManager deploys a new Ethereum contract, binding an instance of UpgradeManager to it.
-func (r *runner) deployUpgradeManager(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *UpgradeManager, error) {
+func (r *Runner) DeployUpgradeManager(opts *runOptions, _autonity common.Address, _operator common.Address) (common.Address, uint64, *UpgradeManager, error) {
 	parsed, err := UpgradeManagerMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
