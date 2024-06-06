@@ -57,83 +57,83 @@ func NewAccusationEvent(height uint64, value common.Hash) AccountabilityEvent {
 }
 
 func TestAccusation(t *testing.T) {
-	r := setup(t, nil)
+	r := Setup(t, nil)
 
 	// load the accountability precompiles into the EVM
 	accountability.LoadPrecompiles()
 
 	// setup current height
 	currentHeight := uint64(1024)
-	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
+	r.Evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
 	lastCommittedHeight := currentHeight - 1
 
 	// TODO(lorenzo) add similar tests for PVO and C1
-	r.run("PVN accusation with prevote nil should revert", func(r *runner) {
+	r.Run("PVN accusation with prevote nil should revert", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
-		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0x1} }
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
-		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0x1} }
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
+		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
-	r.run("accusation for committed value should revert", func(r *runner) {
+	r.Run("accusation for committed value should revert", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
-		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0xca, 0xfe} }
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0xca, 0xfe} }
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
 }
 
 func TestAccusationTiming(t *testing.T) {
-	r := setup(t, nil)
+	r := Setup(t, nil)
 
 	// no more dependency of blockchain now.
 	accountability.LoadPrecompiles()
 
 	currentHeight := uint64(1024) // height of current consensus instance
-	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
+	r.Evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
 	r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 	lastCommittedHeight := currentHeight - 1 // height of last committed block
 
-	r.run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *runner) {
+	r.Run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
-		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.NoError(r.t, err)
+		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.NoError(r.T, err)
 	})
-	r.run("submit accusation at height = lastCommittedHeight - delta + 1 (too recent)", func(r *runner) {
+	r.Run("submit accusation at height = lastCommittedHeight - delta + 1 (too recent)", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks + 1
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
-	r.run("submit accusation at height = lastCommittedHeight (too recent)", func(r *runner) {
+	r.Run("submit accusation at height = lastCommittedHeight (too recent)", func(r *Runner) {
 		accusationHeight := lastCommittedHeight
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
-	r.run("submit accusation at height = lastCommittedHeight + 5 (future)", func(r *runner) {
+	r.Run("submit accusation at height = lastCommittedHeight + 5 (future)", func(r *Runner) {
 		accusationHeight := lastCommittedHeight + 5
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
-	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange (too old)", func(r *runner) {
+	r.Run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange (too old)", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
-	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4)  (too old)", func(r *runner) {
+	r.Run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4)  (too old)", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4)
 
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
 
-	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *runner) {
+	r.Run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
-		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.NoError(r.t, err)
+		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
+		_, err := r.Accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		require.NoError(r.T, err)
 	})
 }
