@@ -640,7 +640,7 @@ var (
 		var {{.Type}}Bin = {{.Type}}MetaData.Bin
 
 		// Deploy{{.Type}} deploys a new Ethereum contract, binding an instance of {{.Type}} to it.
-		func (r *runner) deploy{{.Type}}(opts *runOptions {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, uint64, *{{.Type}}, error) {
+		func (r *Runner) Deploy{{.Type}}(opts *runOptions {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, uint64, *{{.Type}}, error) {
 		  parsed, err := {{.Type}}MetaData.GetAbi()
 		  if err != nil {
 		    return common.Address{}, 0, nil, err

@@ -152,7 +152,7 @@ func (p goParams) calculateSupplyDeltaPerm(inflationReserve, lastEpochTime, curr
 //}
 
 func TestInflationContract(t *testing.T) {
-	r := setup(t, nil)
+	r := Setup(t, nil)
 	T := big.NewInt(10 * params.SecondsInYear)
 	p := &InflationControllerParams{
 		InflationRateInitial:      (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateInitial),
@@ -162,14 +162,14 @@ func TestInflationContract(t *testing.T) {
 		InflationReserveDecayRate: (*big.Int)(params.DefaultInflationControllerGenesis.InflationReserveDecayRate),
 	}
 	inflationReserve := (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve)
-	genesisTime := r.evm.Context.Time
+	genesisTime := r.Evm.Context.Time
 	goP := newGoParams(p, genesisTime)
-	_, _, inflationControllerContract, err := r.deployInflationController(nil, *p)
-	require.NoError(r.t, err)
+	_, _, inflationControllerContract, err := r.DeployInflationController(nil, *p)
+	require.NoError(r.T, err)
 	currentSupply := new(big.Int).Mul(big.NewInt(60_000_000), params.NTNDecimalFactor) // NTN precision is 18
 	epochPeriod := big.NewInt(4 * 60 * 60)
 	epochCount := new(big.Int).Div(T, epochPeriod)
-	r.t.Log("total epoch", epochCount)
+	r.T.Log("total epoch", epochCount)
 	for i := uint64(0); i < epochCount.Uint64(); i++ {
 		lastEpochTime := new(big.Int).Add(genesisTime, new(big.Int).Mul(new(big.Int).SetUint64(i), epochPeriod))
 		currentEpochTime := new(big.Int).Add(genesisTime, new(big.Int).Mul(new(big.Int).SetUint64(i+1), epochPeriod))
@@ -178,8 +178,8 @@ func TestInflationContract(t *testing.T) {
 		years := currentTime.Year()
 
 		delta, gasConsumed, err := inflationControllerContract.CalculateSupplyDelta(nil, currentSupply, inflationReserve, lastEpochTime, currentEpochTime)
-		require.NoError(r.t, err)
-		require.LessOrEqual(r.t, gasConsumed, uint64(30_000))
+		require.NoError(r.T, err)
+		require.LessOrEqual(r.T, gasConsumed, uint64(30_000))
 		goDeltaComputation := goP.calculateSupplyDelta(currentSupply, inflationReserve, lastEpochTime, currentEpochTime)
 		inflationReserve.Sub(inflationReserve, delta)
 
@@ -187,9 +187,9 @@ func TestInflationContract(t *testing.T) {
 		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
 		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
-		require.True(r.t, diffSolWithGoBasis.Cmp(common.Big0) == 0, "inflation reward calculation mismatch")
+		require.True(r.T, diffSolWithGoBasis.Cmp(common.Big0) == 0, "inflation reward calculation mismatch")
 
 		currentSupply.Add(currentSupply, delta)
 	}
-	r.t.Log("final NTN supply", new(big.Int).Div(currentSupply, params.NTNDecimalFactor))
+	r.T.Log("final NTN supply", new(big.Int).Div(currentSupply, params.NTNDecimalFactor))
 }
