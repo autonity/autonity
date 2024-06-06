@@ -16,17 +16,17 @@ var (
 
 func TestClaimRewards(t *testing.T) {
 	// Test 1 validator 1 staker
-	r := setup(t, nil)
+	r := Setup(t, nil)
 	// Mint Newton to some few accounts
-	r.autonity.Mint(operator, staker1, params.Ntn10000)
-	r.autonity.Mint(operator, staker2, params.Ntn10000)
-	r.autonity.Mint(operator, staker3, params.Ntn10000)
-	r.autonity.Bond(&runOptions{origin: staker1}, r.committee.validators[0].NodeAddress, params.Ntn10000)
-	r.autonity.Bond(&runOptions{origin: staker2}, r.committee.validators[1].NodeAddress, params.Ntn10000)
-	r.autonity.Bond(&runOptions{origin: staker3}, r.committee.validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
+	r.Autonity.Mint(Operator, staker1, params.Ntn10000)
+	r.Autonity.Mint(Operator, staker2, params.Ntn10000)
+	r.Autonity.Mint(Operator, staker3, params.Ntn10000)
+	r.Autonity.Bond(&runOptions{origin: staker1}, r.Committee.Validators[0].NodeAddress, params.Ntn10000)
+	r.Autonity.Bond(&runOptions{origin: staker2}, r.Committee.Validators[1].NodeAddress, params.Ntn10000)
+	r.Autonity.Bond(&runOptions{origin: staker3}, r.Committee.Validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
 
 	// create liquid staking contract per validator
-	r.waitNextEpoch()
+	r.WaitNextEpoch()
 	// .. test here claiming rewards, checking if NTN/ATN reward is coherent and accurate.
 	// transactions fees can be simulated be sending atns directly to the autonity contract account.
 	// todo: Think about in base.go to assign at each epoch the current list of validators / committee
