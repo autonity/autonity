@@ -252,6 +252,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     event UnlockingScheduleFailed(uint256 epochTime);
 
     /**
+     * @notice Event to notify staker contract that Autonity failed to notify about staking operation
+     */
+    event NotificationRewardsDistributionFailed(address indexed delegator);
+    event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount);
+    event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount);
+    event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount);
+
+    /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
      * Note that `gasPrice` may be zero.
      */
@@ -1299,8 +1307,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _gasUsed -= gasleft();
         } catch {
             _gasUsed -= gasleft();
+            emit NotificationBondingAppliedFailed(_bonding.delegatee, _delegator, _bonding.amount);
             if (!_rejected) {
-                _revertBonding(_id);
+                _revertBonding(_id, _liquid);
             }
         }
         if (gasLeft[_delegator] > _gasUsed) {
@@ -1315,17 +1324,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @dev bonding request was applied successfully, but couldn't notify the delegator.
      * so we need to revert the applied bonding
      */
-    function _revertBonding(uint256 _id) internal virtual {
+    function _revertBonding(uint256 _id, uint256 _liquid) internal virtual {
         BondingRequest storage _bonding = bondingMap[_id];
         accounts[_bonding.delegator] += _bonding.amount;
         Validator storage _validator = validators[_bonding.delegatee];
         // assuming that the bonding request was applied successfully, so the validator must be active
         if (_bonding.delegator != _validator.treasury) {
-            // delegatedStake cannot be 0 because the bonding was applied successfully
-            // calculate LNTN using current ratio of NTN:LNTN
-            uint256 _liquidAmount = _validator.liquidSupply * _bonding.amount / (_validator.bondedStake - _validator.selfBondedStake);
-            _validator.liquidContract.burn(_bonding.delegator, _liquidAmount);
-            _validator.liquidSupply -= _liquidAmount;
+            _validator.liquidContract.burn(_bonding.delegator, _liquid);
+            _validator.liquidSupply -= _liquid;
         } else {
             _validator.selfBondedStake -= _bonding.amount;
         }
@@ -1415,6 +1421,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         } catch {
             // failed to notify
             _gasUsed -= gasleft();
+            emit NotificationUnbondingReleasedFailed(_unbonding.delegatee, _delegator, _amount);
             if (!_rejected) {
                 // we released successfully, but failed to notify. need to revert
                 _revertReleasedUnbonding(_id, _amount);
@@ -1491,7 +1498,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
      * @dev notify the delegator (if it is a contract) that unbonding was applied or rejected
      */
-    function _notifyUnbondingApplied(uint256 _id, bool _rejected) private {
+    function _notifyUnbondingApplied(uint256 _id, uint256 _newtonAmount, bool _rejected) private {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
         address _delegator = _unbonding.delegator;
         if (!_isContract(_delegator)) {
@@ -1507,9 +1514,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         } catch {
             // failed to notify
             _gasUsed -= gasleft();
+            emit NotificationUnbondingAppliedFailed(_unbonding.delegatee, _delegator, _unbonding.amount);
             if (!_rejected) {
                 // request was applied successfully, but failed to notify, so we need to revert it
-                _revertAppliedUnbonding(_id);
+                _revertAppliedUnbonding(_id, _newtonAmount);
             }
         }
         if (gasLeft[_delegator] > _gasUsed) {
@@ -1524,23 +1532,18 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @dev in case the unbonding request came from a contract, and we applied the request successfully but couldn't
      * notify the contract, we have to revert the applied request
      */
-    function _revertAppliedUnbonding(uint256 _id) private {
+    function _revertAppliedUnbonding(uint256 _id, uint256 _newtonAmount) private {
         // assuming unbonding was applied successfully
         UnbondingRequest storage _unbonding = unbondingMap[_id];
         Validator storage _validator = validators[_unbonding.delegatee];
 
-        uint256 _newtonAmount;
         if (!_unbonding.selfDelegation){
             uint256 _liquidAmount = _unbonding.amount;
             _validator.liquidContract.mint(_unbonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
-            // calculate newton amount from unbonding share
-            _newtonAmount = _unbonding.unbondingShare *  _validator.unbondingStake / _validator.unbondingShares;
             _validator.unbondingStake -= _newtonAmount;
             _validator.unbondingShares -=  _unbonding.unbondingShare;
         } else {
-            // self-delegated stake path, no LNTN<>NTN conversion
-            _newtonAmount = _unbonding.unbondingShare *  _validator.selfUnbondingStake / _validator.selfUnbondingShares;
             _validator.selfUnbondingStake -= _newtonAmount;
             _validator.selfUnbondingShares -= _unbonding.unbondingShare;
             _validator.selfBondedStake += _newtonAmount;
@@ -1554,14 +1557,22 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     function _applyUnbonding(uint256 _id) internal virtual {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
+        Validator storage _validator = validators[_unbonding.delegatee];
+
         // in case delegator is a contract and we failed to notify the contract about rewards distribution,
         // then we cannot notify the contract about _applyUnbonding. So we reject the unbonding request
         if (stakingReverted[_unbonding.delegator] == 1) {
             emit UnbondingRejected(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _unbonding.amount);
-            _notifyUnbondingApplied(_id, true);
+            // we should unlock the locked unbonding amount
+            if (!_unbonding.selfDelegation) {
+                _validator.liquidContract.unlock(_unbonding.delegator, _unbonding.amount);
+            }
+            else {
+                _validator.selfUnbondingStakeLocked -= _unbonding.amount;
+            }
+            _notifyUnbondingApplied(_id, 0, true);
             return;
         }
-        Validator storage _validator = validators[_unbonding.delegatee];
 
         uint256 _newtonAmount;
         if (!_unbonding.selfDelegation){
@@ -1606,7 +1617,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         _unbonding.unlocked = true;
         // Final step: Reduce amount of newton bonded
         _validator.bondedStake -= _newtonAmount;
-        _notifyUnbondingApplied(_id, false);
+        _notifyUnbondingApplied(_id, _newtonAmount, false);
     }
 
     function _applyNewCommissionRates() internal virtual {
@@ -1683,6 +1694,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 _gasUsed -= gasleft();
             } catch {
                 _gasUsed -= gasleft();
+                emit NotificationRewardsDistributionFailed(_contract);
                 stakingReverted[_contract] = 1;
             }
             if (gasLeft[_contract] > _gasUsed) {
