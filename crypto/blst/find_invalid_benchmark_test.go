@@ -8,7 +8,7 @@ import (
 // benchmarks
 
 // benchmark bls public key aggregation
-func benchmarkAggregatePK(n int, b *testing.B) {
+func benchmarkAggregateRawPK(n int, b *testing.B) {
 	// print out parameters
 	b.Logf("n: %d\n", n)
 
@@ -26,24 +26,24 @@ func benchmarkAggregatePK(n int, b *testing.B) {
 	// start the actual aggregation benchmarking
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := AggregatePublicKeys(pks); err != nil {
+		if _, err := AggregateRawPublicKeys(pks); err != nil {
 			b.Fatal("failed pks aggregation: ", err)
 		}
 	}
 
 }
 
-func BenchmarkAggregatePK0_100(b *testing.B)  { benchmarkAggregatePK(100, b) }
-func BenchmarkAggregatePK1_100(b *testing.B)  { benchmarkAggregatePK(100, b) }
-func BenchmarkAggregatePK2_100(b *testing.B)  { benchmarkAggregatePK(100, b) }
-func BenchmarkAggregatePK0_200(b *testing.B)  { benchmarkAggregatePK(200, b) }
-func BenchmarkAggregatePK1_200(b *testing.B)  { benchmarkAggregatePK(200, b) }
-func BenchmarkAggregatePK2_200(b *testing.B)  { benchmarkAggregatePK(200, b) }
-func BenchmarkAggregatePK0_300(b *testing.B)  { benchmarkAggregatePK(300, b) }
-func BenchmarkAggregatePK1_300(b *testing.B)  { benchmarkAggregatePK(300, b) }
-func BenchmarkAggregatePK2_300(b *testing.B)  { benchmarkAggregatePK(300, b) }
-func BenchmarkAggregatePK1_1000(b *testing.B) { benchmarkAggregatePK(1000, b) }
-func BenchmarkAggregatePK2_1000(b *testing.B) { benchmarkAggregatePK(1000, b) }
+func BenchmarkAggregatePK0_100(b *testing.B)  { benchmarkAggregateRawPK(100, b) }
+func BenchmarkAggregatePK1_100(b *testing.B)  { benchmarkAggregateRawPK(100, b) }
+func BenchmarkAggregatePK2_100(b *testing.B)  { benchmarkAggregateRawPK(100, b) }
+func BenchmarkAggregatePK0_200(b *testing.B)  { benchmarkAggregateRawPK(200, b) }
+func BenchmarkAggregatePK1_200(b *testing.B)  { benchmarkAggregateRawPK(200, b) }
+func BenchmarkAggregatePK2_200(b *testing.B)  { benchmarkAggregateRawPK(200, b) }
+func BenchmarkAggregatePK0_300(b *testing.B)  { benchmarkAggregateRawPK(300, b) }
+func BenchmarkAggregatePK1_300(b *testing.B)  { benchmarkAggregateRawPK(300, b) }
+func BenchmarkAggregatePK2_300(b *testing.B)  { benchmarkAggregateRawPK(300, b) }
+func BenchmarkAggregatePK1_1000(b *testing.B) { benchmarkAggregateRawPK(1000, b) }
+func BenchmarkAggregatePK2_1000(b *testing.B) { benchmarkAggregateRawPK(1000, b) }
 
 // benchmark bls signature aggregation
 func benchmarkAggregateSigs(seed int64, n int, b *testing.B) {
@@ -164,7 +164,7 @@ func BenchmarkSigVerifyAgg(b *testing.B) {
 	}
 
 	sig := AggregateSignatures(sigs)
-	aggPk, err := AggregatePublicKeys(pks)
+	aggPk, err := AggregateRawPublicKeys(pks)
 	if err != nil {
 		b.Fatal("failed pks aggregation: ", err)
 	}
@@ -219,7 +219,7 @@ func BenchmarkAggregateVerify3(b *testing.B) {
 	aggSigPrevote := AggregateSignatures(sigsPrevote)
 	aggSigPrecommit := AggregateSignatures(sigsPrecommit)
 	aggSig := AggregateSignatures([]Signature{sigPropose, aggSigPrevote, aggSigPrecommit})
-	aggPk, err := AggregatePublicKeys(pks)
+	aggPk, err := AggregateRawPublicKeys(pks)
 	if err != nil {
 		b.Fatal("failed pks aggregation: ", err)
 	}
@@ -266,7 +266,7 @@ func BenchmarkAggregateVerify15(b *testing.B) {
 		}
 	}
 
-	aggPk, err := AggregatePublicKeys(pks)
+	aggPk, err := AggregateRawPublicKeys(pks)
 	if err != nil {
 		b.Fatal("failed pks aggregation: ", err)
 	}

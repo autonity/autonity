@@ -83,19 +83,37 @@ func (s *BlsSignature) Verify(pubKey PublicKey, msg []byte) bool {
 	return s.s.Verify(false, pubKey.(*BlsPublicKey).p, false, msg, generalDST)
 }
 
+// Same as AggregateVerify, but enforces the distinct messages constraint.
+// This constraint should always be enforced, as not doing it can lead to inconsistencies in how signatures are validated across nodes
+// see TestBlsAttacks for more information
+func (s *BlsSignature) AggregateVerifyStrict(pubKeys []PublicKey, msgs [][32]byte) bool {
+	seen := make(map[[32]byte]struct{})
+	for _, msg := range msgs {
+		_, ok := seen[msg]
+		if ok {
+			// panic instead of returning false, since passing duplicated messages doesn't imply that the signature is invalid.
+			// it just implies that `AggregateVerify` is being improperly used (i.e. coding error).
+			panic("Duplicated message given to AggregateVerify")
+		}
+		seen[msg] = struct{}{}
+	}
+	return s.AggregateVerify(pubKeys, msgs)
+
+}
+
 // AggregateVerify verifies each public key against its respective message. This is vulnerable to
 // rogue public-key attack. Each user must provide a proof-of-knowledge of the public key.
 //
-// Note: The msgs must be distinct. For maximum performance, this method does not ensure distinct
-// messages.
+// NOTE: The msgs MUST BE DISTINCT!. For maximum performance, this method does not ensure distinct
+// messages. Use `AggregateVerifyStrict` instead if you want to enforce this check.
 //
 // In IETF draft BLS specification:
-// AggregateVerify((PK_1, message_1), ..., (PK_n, message_n),
+// AggregateVerify((PK_1, message_1), ..., (PK_n, message_n), signature)
 //
-//	signature) -> VALID or INVALID: an aggregate verification
-//	algorithm that outputs VALID if signature is a valid aggregated
-//	signature for a collection of public keys and messages, and
-//	outputs INVALID otherwise.
+//	 -> VALID or INVALID: an aggregate verification
+//		algorithm that outputs VALID if signature is a valid aggregated
+//		signature for a collection of public keys and messages, and
+//		outputs INVALID otherwise.
 func (s *BlsSignature) AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool {
 	size := len(pubKeys)
 	if size == 0 {
