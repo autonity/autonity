@@ -169,7 +169,9 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.QuorumCertificate = *dec.QuorumCertificate
 
-	//TODO(lorenzo) Added this manually to make the e2e test work. Fix it properly.
+	//TODO: This needs to be added manually to make the e2e test work.
+	// However it will be overridden by automatically generated code via `go generate`.
+	// Not sure if there is a better way to do it.
 	if err := h.Committee.Enrich(); err != nil {
 		return err
 	}

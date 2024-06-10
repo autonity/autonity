@@ -31,7 +31,6 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Prevoting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-	//TODO(lorenzo) refactor and use the CommitteeSet() interface instead? Also add Len() method
 	self := c.LastHeader().CommitteeMember(c.address)
 	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)

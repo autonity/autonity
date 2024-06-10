@@ -243,10 +243,6 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	ev, err := fd.innocenceProof(accusation, committee)
 	if err != nil {
 		fd.logger.Warn("cannot collect ev of innocence for the accusation", "err", err)
-		// to disconnect remote peer by rising the error.
-		if errors.Is(err, errUnprovableRule) {
-			return errUnprovableRule
-		}
 		return nil
 	}
 

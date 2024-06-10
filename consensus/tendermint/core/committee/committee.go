@@ -41,7 +41,7 @@ func NewRoundRobinSet(members types.Committee, lastBlockProposer common.Address)
 		allProposers:      make(map[int64]types.CommitteeMember),
 	}
 
-	// sort validator
+	// sort validators
 	sort.Sort(committee.members)
 
 	// calculate total power

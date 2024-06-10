@@ -295,6 +295,29 @@ func TestUncleHash(t *testing.T) {
 	}
 }
 
+func TestQuorumCertificateDeserialization(t *testing.T) {
+	// if nil when encoded, should be nil when decoded
+	header := &Header{QuorumCertificate: AggregateSignature{Signature: nil, Signers: nil}}
+	b, err := rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded := &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.NoError(t, err)
+	require.Nil(t, headerDecoded.QuorumCertificate.Signature)
+	require.Nil(t, headerDecoded.QuorumCertificate.Signers)
+
+	// if signature != nil, but signature.s == nil --> decoded signature should still be nil
+	// same for signers
+	header = &Header{QuorumCertificate: AggregateSignature{Signature: &blst.BlsSignature{}, Signers: &Signers{}}}
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.NoError(t, err)
+	require.Nil(t, headerDecoded.QuorumCertificate.Signature)
+	require.Nil(t, headerDecoded.QuorumCertificate.Signers)
+}
+
 var benchBuffer = bytes.NewBuffer(make([]byte, 0, 32000))
 
 func BenchmarkEncodeBlock(b *testing.B) {

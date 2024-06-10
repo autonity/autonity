@@ -1,31 +1,101 @@
 package message
 
-/* //TODO(lorenzo) restore this and add more tests
-func TestAddsVotingPower(t *testing.T) {
-	aggregator := new(big.Int)
-	core := new(big.Int)
+import (
+	"math/big"
+	"testing"
 
-	aggregator.SetBit(aggregator, 0, 1)
-	require.True(t, AddsVotingPower(aggregator, core))
+	"github.com/stretchr/testify/require"
 
-	core.SetBit(core, 0, 1)
-	require.False(t, AddsVotingPower(aggregator, core))
+	"github.com/autonity/autonity/common"
+)
 
-	aggregator.SetBit(aggregator, 1000000000, 1)
-	require.True(t, AddsVotingPower(aggregator, core))
+func TestAggregatedPower(t *testing.T) {
+	aggregatedPower := NewAggregatedPower()
 
-	core.SetBit(core, 1000000001, 1)
-	require.True(t, AddsVotingPower(aggregator, core))
+	aggregatedPower.Set(0, common.Big1)
+	require.Equal(t, common.Big1, aggregatedPower.Power())
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(0))
 
-	core.SetBit(core, 1000000000, 1)
-	require.False(t, AddsVotingPower(aggregator, core))
+	aggregatedPower.Set(0, common.Big1)
+	require.Equal(t, common.Big1, aggregatedPower.Power())
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(0))
 
-	aggregator.SetBit(aggregator, 1, 1)
-	core.SetBit(core, 4, 1)
-	core.SetBit(core, 107, 1)
-	core.SetBit(core, 64, 1)
-	require.True(t, AddsVotingPower(aggregator, core))
+	aggregatedPower.Set(1, common.Big2)
+	require.Equal(t, common.Big3, aggregatedPower.Power())
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(0))
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(1))
 
-	core.SetBit(core, 1, 1)
-	require.False(t, AddsVotingPower(aggregator, core))
-}*/
+	aggregatedPower.Set(5, common.Big3)
+	require.Equal(t, big.NewInt(6), aggregatedPower.Power())
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(0))
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(1))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(2))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(3))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(4))
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(5))
+}
+
+func TestContribution(t *testing.T) {
+	aggregator := NewAggregatedPower()
+	core := NewAggregatedPower()
+
+	aggregator.Set(0, common.Big1)
+	contribution := Contribution(aggregator.Signers(), core.Signers())
+	require.Equal(t, uint(1), contribution.Bit(0))
+	require.NotEqual(t, 0, contribution.Cmp(common.Big0))
+
+	core.Set(0, common.Big1)
+	contribution = Contribution(aggregator.Signers(), core.Signers())
+	require.Equal(t, uint(0), contribution.Bit(0))
+	require.Equal(t, 0, contribution.Cmp(common.Big0))
+
+	aggregator.Set(1000000000, common.Big1)
+	contribution = Contribution(aggregator.Signers(), core.Signers())
+	require.Equal(t, uint(0), contribution.Bit(0))
+	require.Equal(t, uint(0), contribution.Bit(100))
+	require.Equal(t, uint(1), contribution.Bit(1000000000))
+	require.NotEqual(t, 0, contribution.Cmp(common.Big0))
+
+	core.Set(1000000001, common.Big1)
+	contribution = Contribution(aggregator.Signers(), core.Signers())
+	require.Equal(t, uint(0), contribution.Bit(0))
+	require.Equal(t, uint(0), contribution.Bit(100))
+	require.Equal(t, uint(1), contribution.Bit(1000000000))
+	require.Equal(t, uint(0), contribution.Bit(1000000001))
+	require.NotEqual(t, 0, contribution.Cmp(common.Big0))
+
+	core.Set(1000000000, common.Big1)
+	contribution = Contribution(aggregator.Signers(), core.Signers())
+	require.Equal(t, uint(0), contribution.Bit(0))
+	require.Equal(t, uint(0), contribution.Bit(100))
+	require.Equal(t, uint(0), contribution.Bit(1000000000))
+	require.Equal(t, uint(0), contribution.Bit(1000000001))
+	require.Equal(t, 0, contribution.Cmp(common.Big0))
+
+	aggregator.Set(1, common.Big1)
+	core.Set(4, common.Big1)
+	core.Set(107, common.Big1)
+	core.Set(64, common.Big1)
+	contribution = Contribution(aggregator.Signers(), core.Signers())
+	require.Equal(t, uint(0), contribution.Bit(0))
+	require.Equal(t, uint(1), contribution.Bit(1))
+	require.Equal(t, uint(0), contribution.Bit(4))
+	require.Equal(t, uint(0), contribution.Bit(64))
+	require.Equal(t, uint(0), contribution.Bit(100))
+	require.Equal(t, uint(0), contribution.Bit(107))
+	require.Equal(t, uint(0), contribution.Bit(1000000000))
+	require.Equal(t, uint(0), contribution.Bit(1000000001))
+	require.NotEqual(t, 0, contribution.Cmp(common.Big0))
+
+	core.Set(1, common.Big1)
+	contribution = Contribution(aggregator.Signers(), core.Signers())
+	require.Equal(t, uint(0), contribution.Bit(0))
+	require.Equal(t, uint(0), contribution.Bit(1))
+	require.Equal(t, uint(0), contribution.Bit(4))
+	require.Equal(t, uint(0), contribution.Bit(64))
+	require.Equal(t, uint(0), contribution.Bit(100))
+	require.Equal(t, uint(0), contribution.Bit(107))
+	require.Equal(t, uint(0), contribution.Bit(1000000000))
+	require.Equal(t, uint(0), contribution.Bit(1000000001))
+	require.Equal(t, 0, contribution.Cmp(common.Big0))
+}

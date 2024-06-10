@@ -332,7 +332,7 @@ func (s *Signers) Merge(other *Signers) {
 		panic("Power has not been assigned in signers information")
 	}
 
-	count := 0
+	otherCount := 0
 Loop:
 	for i := 0; i < other.committeeSize; i++ {
 		value := other.Bits.Get(i)
@@ -345,11 +345,43 @@ Loop:
 			s.increment(i)
 			s.increment(i)
 		case multipleSignatures:
-			//TODO(lorenzo) refinements, instaed of looping just sum the other uint16
-			for j := 0; j < int(other.Coefficients[count]); j++ {
-				s.increment(i)
+			// update s without using increment to save CPU power
+			previousValue := s.Bits.Get(i)
+			innerCount := 0
+			switch previousValue {
+			case noSignature:
+				// we are adding a new signer, update the length cache
+				s.length++
+				fallthrough
+			case oneSignature:
+				fallthrough
+			case twoSignatures:
+				// add a new uint16 into the Coefficients array
+				for j := 0; j < i; j++ {
+					if s.Bits.Get(j) == multipleSignatures {
+						innerCount++
+					}
+				}
+				if innerCount == len(s.Coefficients) {
+					s.Coefficients = append(s.Coefficients, uint16(previousValue))
+				} else {
+					s.Coefficients = append(s.Coefficients[:innerCount+1], s.Coefficients[innerCount:]...)
+					s.Coefficients[innerCount] = uint16(previousValue)
+				}
+			case multipleSignatures:
+				for j := 0; j < i; j++ {
+					if s.Bits.Get(j) == multipleSignatures {
+						innerCount++
+					}
+				}
 			}
-			count++
+			// max allowed coefficient for a single validator is committeeSize
+			if int(s.Coefficients[innerCount])+int(other.Coefficients[otherCount]) > s.committeeSize {
+				panic("Aggregate signature coefficients exceeds allowed boundaries")
+			}
+			s.Bits.Set(i, multipleSignatures)
+			s.Coefficients[innerCount] += other.Coefficients[otherCount]
+			otherCount++
 		}
 		// update powers
 		_, alreadyPresent := s.powers[i]

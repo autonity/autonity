@@ -23,6 +23,8 @@ var (
 	Big1   = big.NewInt(1)
 	Big2   = big.NewInt(2)
 	Big3   = big.NewInt(3)
+	Big4   = big.NewInt(4)
+	Big5   = big.NewInt(5)
 	Big0   = big.NewInt(0)
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(256)
