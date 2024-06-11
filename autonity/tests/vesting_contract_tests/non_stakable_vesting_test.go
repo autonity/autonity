@@ -1,4 +1,4 @@
-package vesting_contract_tests
+package vestingtests
 
 import (
 	"math/big"
