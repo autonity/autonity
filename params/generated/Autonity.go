@@ -277,37 +277,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
          {
             "indexed" : true,
             "internalType" : "address",
-            "name" : "validator",
-            "type" : "address"
-         },
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "bool",
-            "name" : "selfBonded",
-            "type" : "bool"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "AppliedUnbondingReverted",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
             "name" : "owner",
             "type" : "address"
          },
@@ -356,31 +325,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "name" : "BondingRejected",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "validator",
-            "type" : "address"
-         },
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "BondingReverted",
       "type" : "event"
    },
    {
@@ -578,94 +522,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
          {
             "indexed" : true,
             "internalType" : "address",
-            "name" : "validator",
-            "type" : "address"
-         },
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "NotificationBondingAppliedFailed",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         }
-      ],
-      "name" : "NotificationRewardsDistributionFailed",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "validator",
-            "type" : "address"
-         },
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "NotificationUnbondingAppliedFailed",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "validator",
-            "type" : "address"
-         },
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "NotificationUnbondingReleasedFailed",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
             "name" : "treasury",
             "type" : "address"
          },
@@ -728,37 +584,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
          {
             "indexed" : true,
             "internalType" : "address",
-            "name" : "validator",
-            "type" : "address"
-         },
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "bool",
-            "name" : "selfBonded",
-            "type" : "bool"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "ReleasedUnbondingReverted",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
             "name" : "addr",
             "type" : "address"
          },
@@ -801,37 +626,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "name" : "Transfer",
-      "type" : "event"
-   },
-   {
-      "anonymous" : false,
-      "inputs" : [
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "validator",
-            "type" : "address"
-         },
-         {
-            "indexed" : true,
-            "internalType" : "address",
-            "name" : "delegator",
-            "type" : "address"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "bool",
-            "name" : "selfBonded",
-            "type" : "bool"
-         },
-         {
-            "indexed" : false,
-            "internalType" : "uint256",
-            "name" : "amount",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "UnbondingRejected",
       "type" : "event"
    },
    {
@@ -991,7 +785,7 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "stateMutability" : "payable",
+      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
@@ -1323,6 +1117,25 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
       "type" : "function"
    },
    {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_bondingID",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "getBondedLiquid",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
       "inputs" : [],
       "name" : "getCommittee",
       "outputs" : [
@@ -1582,8 +1395,56 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "name" : "getRevertingAmount",
+      "name" : "getReleasedStake",
       "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_bondingID",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "getRewardsTillBonding",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_bondingID",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "getRewardsTillUnbonding",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         },
          {
             "internalType" : "uint256",
             "name" : "",
@@ -1627,25 +1488,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
             "internalType" : "uint256",
             "name" : "",
             "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_unbondingID",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "getUnbondingReleaseState",
-      "outputs" : [
-         {
-            "internalType" : "enum Autonity.UnbondingReleaseState",
-            "name" : "",
-            "type" : "uint8"
          }
       ],
       "stateMutability" : "view",
@@ -1812,6 +1654,44 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
       "type" : "function"
    },
    {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_bondingID",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "isBondingRejected",
+      "outputs" : [
+         {
+            "internalType" : "bool",
+            "name" : "",
+            "type" : "bool"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_unbondingID",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "isUnbondingReleased",
+      "outputs" : [
+         {
+            "internalType" : "bool",
+            "name" : "",
+            "type" : "bool"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
       "inputs" : [],
       "name" : "lastEpochTime",
       "outputs" : [
@@ -1947,13 +1827,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "receiveATN",
-      "outputs" : [],
-      "stateMutability" : "payable",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "string",
@@ -2057,58 +1930,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
       "inputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_gas",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setMaxBondAppliedGas",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_gas",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setMaxRewardsDistributionGas",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_gas",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setMaxUnbondAppliedGas",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_gas",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setMaxUnbondReleasedGas",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
             "name" : "_price",
             "type" : "uint256"
          }
@@ -2166,19 +1987,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "name" : "setStabilizationContract",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_price",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setStakingGasPrice",
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"
@@ -2246,19 +2054,6 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
       "name" : "setUpgradeManagerContract",
       "outputs" : [],
       "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "stakingGasPrice",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
       "type" : "function"
    },
    {
@@ -2361,7 +2156,7 @@ var AutonityAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "stateMutability" : "payable",
+      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
