@@ -71,39 +71,6 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
    {
       "inputs" : [
          {
-            "internalType" : "uint256",
-            "name" : "_bondingID",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "address",
-            "name" : "_validator",
-            "type" : "address"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_liquid",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "bool",
-            "name" : "_selfDelegation",
-            "type" : "bool"
-         },
-         {
-            "internalType" : "bool",
-            "name" : "_rejected",
-            "type" : "bool"
-         }
-      ],
-      "name" : "bondingApplied",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
             "internalType" : "address",
             "name" : "_beneficiary",
             "type" : "address"
@@ -446,13 +413,6 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "receiveATN",
-      "outputs" : [],
-      "stateMutability" : "payable",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "uint256",
@@ -533,71 +493,6 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "type" : "function"
    },
    {
-      "inputs" : [],
-      "name" : "requiredBondingGasCost",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "requiredUnbondingGasCost",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "address[]",
-            "name" : "_validators",
-            "type" : "address[]"
-         }
-      ],
-      "name" : "rewardsDistributed",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_gas",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setRequiredGasBond",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_gas",
-            "type" : "uint256"
-         }
-      ],
-      "name" : "setRequiredGasUnbond",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
       "inputs" : [
          {
             "internalType" : "uint256",
@@ -669,52 +564,6 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "stateMutability" : "payable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_unbondingID",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "address",
-            "name" : "_validator",
-            "type" : "address"
-         },
-         {
-            "internalType" : "bool",
-            "name" : "_rejected",
-            "type" : "bool"
-         }
-      ],
-      "name" : "unbondingApplied",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
-      "type" : "function"
-   },
-   {
-      "inputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "_unbondingID",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "uint256",
-            "name" : "_amount",
-            "type" : "uint256"
-         },
-         {
-            "internalType" : "bool",
-            "name" : "_rejected",
-            "type" : "bool"
-         }
-      ],
-      "name" : "unbondingReleased",
-      "outputs" : [],
-      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
@@ -874,6 +723,90 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "outputs" : [],
       "stateMutability" : "nonpayable",
       "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_beneficiary",
+            "type" : "address"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "_id",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "updateFundsAndGetContract",
+      "outputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint256",
+                  "name" : "currentNTNAmount",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "withdrawnValue",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "start",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "cliffDuration",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "totalDuration",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "canStake",
+                  "type" : "bool"
+               }
+            ],
+            "internalType" : "struct ContractBase.Contract",
+            "name" : "",
+            "type" : "tuple"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_beneficiary",
+            "type" : "address"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "_id",
+            "type" : "uint256"
+         }
+      ],
+      "name" : "updateFundsAndGetContractTotalValue",
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "",
+            "type" : "uint256"
+         }
+      ],
+      "stateMutability" : "nonpayable",
+      "type" : "function"
+   },
+   {
+      "stateMutability" : "payable",
+      "type" : "receive"
    }
 ]
 `))
