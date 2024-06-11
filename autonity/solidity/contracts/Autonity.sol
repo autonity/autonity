@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.19;
 
-import "./interfaces/IStakeProxy.sol";
 import "./interfaces/INonStakableVestingVault.sol";
 import "./liquid/LiquidLogic.sol";
 import "./liquid/LiquidState.sol";
@@ -33,15 +32,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 internal constant POP_LEN = 226; // Proof of possession length in bytes. (Enode, OracleNode, ValidatorNode)
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
-
-    // TODO (tariq): review the values [already tested from stakable-vesting-contract]
-    /**
-     * @notice max allowed gas for notifying delegator (contract) about staking operations
-     */
-    uint256 public maxBondAppliedGas = 50_000;
-    uint256 public maxUnbondAppliedGas = 50_000;
-    uint256 public maxUnbondReleasedGas = 50_000;
-    uint256 public maxRewardsDistributionGas = 20_000;
 
 
     struct Validator {
@@ -85,27 +75,25 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         address delegatee;
         uint256 amount;
         uint256 requestBlock;
+        uint256 liquidMinted;
+        uint256 atnRewardsTillBonding;
+        uint256 ntnRewardsTillBonding;
+        bool rejected;
     }
     mapping(uint256 => BondingRequest) internal bondingMap;
     uint256 internal tailBondingID;
     uint256 internal headBondingID;
-
-    enum UnbondingReleaseState {
-        notReleased,
-        released,
-        rejected,
-        reverted
-    }
 
     struct UnbondingRequest {
         address payable delegator;
         address delegatee;
         uint256 amount; // NTN for self-delegation, LNTN otherwise
         uint256 unbondingShare;
+        uint256 releasedStake;
+        uint256 atnRewardsTillUnbonding;
+        uint256 ntnRewardsTillUnbonding;
         uint256 requestBlock;
-        // new amount of NTN (self-bonding) or LNTN (delegation) in case unbonding was released, but later reverted
-        uint256 revertingAmount;
-        UnbondingReleaseState state;
+        bool released;
         bool unlocked;
         bool selfDelegation;
     }
@@ -190,22 +178,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
-    /* For callback function at epoch end to notify about staking operations */
-    mapping(address => mapping(address => uint256)) isValidatorStaked;
-    mapping(address => address[]) internal validatorsStaked;
-    mapping(address => uint256) internal contractSaved;
-    address[] internal contractAddresses;
-    mapping(address => uint256) internal stakingReverted;
-
-    // TODO (tariq): review stakingGasPrice value
-    /**
-     * @notice the gas price to notify the delegator (only if contract) about the staking operation at epoch end
-     */
-    uint256 public stakingGasPrice = 1_000_000_000;
-    /**
-     * @dev stores how much gas given by delegator is left
-     */
-    mapping(address => uint256) internal gasLeft;
 
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
@@ -245,7 +217,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
     event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, ValidatorState state);
-    event BondingReverted(address indexed validator, address indexed delegator, uint256 amount);
 
     /** @notice This event is emitted when an unbonding request to a validator node has been registered.
     * This request will only be effective after the unbonding period, rounded to the next epoch.
@@ -258,9 +229,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * If not self-bonded, this is the amount of Liquid Newton to be unbonded.
     */
     event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
-    event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
-    event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
-    event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
 
     event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract);
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
@@ -281,14 +249,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @dev event to notify the failure in unlocking mechanism of the non-stakable schedules
      */
     event UnlockingScheduleFailed(uint256 epochTime);
-
-    /**
-     * @notice Event to notify staker contract that Autonity failed to notify about staking operation
-     */
-    event NotificationRewardsDistributionFailed(address indexed delegator);
-    event NotificationBondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount);
-    event NotificationUnbondingAppliedFailed(address indexed validator, address indexed delegator, uint256 amount);
-    event NotificationUnbondingReleasedFailed(address indexed validator, address indexed delegator, uint256 amount);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -346,13 +306,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
         _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod));
-    }
-
-    /**
-     * @notice can be used to send AUT to the contract
-     */
-    function receiveATN() external payable {
-        // do nothing
     }
 
     /**
@@ -460,10 +413,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @param _validator address of the validator to delegate stake to.
     * @param _amount total amount of NTN to bond.
     */
-    function bond(address _validator, uint256 _amount) public payable virtual nonReentrant returns (uint256) {
+    function bond(address _validator, uint256 _amount) public virtual nonReentrant returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(validators[_validator].state == ValidatorState.active, "validator need to be active");
-        gasLeft[msg.sender] += msg.value / stakingGasPrice;
         return _bond(_validator, _amount, payable(msg.sender));
     }
 
@@ -474,10 +426,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @param _validator address of the validator to unbond stake to.
     * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
     */
-    function unbond(address _validator, uint256 _amount) public payable virtual nonReentrant returns (uint256) {
+    function unbond(address _validator, uint256 _amount) public virtual nonReentrant returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(_amount > 0, "unbonding amount is 0");
-        gasLeft[msg.sender] += msg.value / stakingGasPrice;
         return _unbond(_validator, _amount, payable(msg.sender));
     }
 
@@ -533,35 +484,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         commissionRateChangeQueue[commissionRateChangeQueueLast] = _newRequest;
         commissionRateChangeQueueLast += 1;
         emit CommissionRateChange(_validator, _rate);
-    }
-
-    /**
-     * @notice sets the value of max allowed gas for notifying delegator about staking operations
-     * NOTE: before updating, please check if the updated value works. It can be checked by updatting
-     * the hardcoded value of requiredGasBond and then compiling the contracts and running the tests
-     * in stakable_vesting_test.go
-     */
-    function setMaxBondAppliedGas(uint256 _gas) public onlyOperator {
-        maxBondAppliedGas = _gas;
-    }
-
-    function setMaxUnbondAppliedGas(uint256 _gas) public onlyOperator {
-        maxUnbondAppliedGas = _gas;
-    }
-
-    function setMaxUnbondReleasedGas(uint256 _gas) public onlyOperator {
-        maxUnbondReleasedGas = _gas;
-    }
-
-    function setMaxRewardsDistributionGas(uint256 _gas) public onlyOperator {
-        maxRewardsDistributionGas = _gas;
-    }
-
-    /**
-     * @notice Set gas price for notification on staking operation
-     */
-    function setStakingGasPrice(uint256 _price) public virtual onlyOperator {
-        stakingGasPrice = _price;
     }
 
     /**
@@ -841,9 +763,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
             // end of epoch here
-            _notifyRewardsDistribution();
             _stakingOperations();
-            _removeContractAddresses();
             _applyNewCommissionRates();
 
             address[] memory _voters = computeCommittee();
@@ -911,17 +831,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @notice Returns the release state of the unbonding request
      */
 
-    function getUnbondingReleaseState(uint256 _unbondingID) external view returns (UnbondingReleaseState) {
-        return unbondingMap[_unbondingID].state;
+    function isUnbondingReleased(uint256 _unbondingID) external view returns (bool) {
+        return unbondingMap[_unbondingID].released;
     }
 
-    /**
-     * @notice Returns the amount of LNTN or NTN bonded when the released unbonding was reverted
-     */
-
-    function getRevertingAmount(uint256 _unbondingID) external view returns (uint256) {
-        require(unbondingMap[_unbondingID].state == UnbondingReleaseState.reverted, "unbonding release not reverted");
-        return unbondingMap[_unbondingID].revertingAmount;
+    function getReleasedStake(uint256 _unbondingID) external view returns (uint256) {
+        return unbondingMap[_unbondingID].releasedStake;
     }
 
     /**
@@ -944,8 +859,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-* @notice Returns the un-bonding period.
-    */
+     * @notice Returns the un-bonding period.
+     */
     function getUnbondingPeriod() external view virtual returns (uint256) {
         return config.policy.unbondingPeriod;
     }
@@ -1093,13 +1008,31 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
      * @notice Returns epoch associated to the block number.
      * @param _block the input block number.
-    */
+     */
     function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
         require(_block <= block.number, "cannot get epoch for a future block");
         if (_block <= lastFinalizedBlock) {
             return blockEpochMap[_block];
         }
         return epochID;
+    }
+
+    function isBondingRejected(uint256 _bondingID) external view returns (bool) {
+        return bondingMap[_bondingID].rejected;
+    }
+
+    function getBondedLiquid(uint256 _bondingID) external view virtual returns (uint256) {
+        return bondingMap[_bondingID].liquidMinted;
+    }
+
+    function getRewardsTillBonding(uint256 _bondingID) external view returns (uint256, uint256) {
+        BondingRequest storage _bonding = bondingMap[_bondingID];
+        return (_bonding.atnRewardsTillBonding, _bonding.ntnRewardsTillBonding);
+    }
+
+    function getRewardsTillUnbonding(uint256 _bondingID) external view returns (uint256, uint256) {
+        UnbondingRequest storage _unbonding = unbondingMap[_bondingID];
+        return (_unbonding.atnRewardsTillUnbonding, _unbonding.ntnRewardsTillUnbonding);
     }
 
     /*
@@ -1321,26 +1254,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         emit PausedValidator(val.treasury, _address, epochInfos[epochID].nextEpochBlock);
     }
 
-    function _isContract(address _to) private view returns (bool) {
-        uint size;
-        assembly {
-            size := extcodesize(_to)
-        }
-        return size > 0;
-    }
-    
-    function _storeAddress(address _delegator, address _validator) private {
-        if (contractSaved[_delegator] == 0) {
-            contractSaved[_delegator] = 1;
-            contractAddresses.push(_delegator);
-        }
-
-        if (isValidatorStaked[_delegator][_validator] == 0) {
-            isValidatorStaked[_delegator][_validator] = 1;
-            validatorsStaked[_delegator].push(_validator);
-        }
-    }
-
 
     /**
      * @dev Create a bonding object of `amount` stake token with the `_recipient` address.
@@ -1353,72 +1266,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
         accounts[_recipient] -= _amount;
-        BondingRequest memory _bonding = BondingRequest(_recipient, _validator, _amount, block.number);
+        BondingRequest memory _bonding = BondingRequest(_recipient, _validator, _amount, block.number, 0, 0, 0, false);
         bondingMap[headBondingID] = _bonding;
         headBondingID++;
 
         bool _selfBonded = validators[_validator].treasury == _recipient;
         emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount);
-        // if the delegator is a contract, store the address to notify it about rewards distribution at epoch end
-        if (_isContract(_recipient)) {
-            _storeAddress(_recipient, _validator);
-        }
         return headBondingID-1;
-    }
-
-    /**
-     * @dev If the _delegator is a contract, then notify it if bonding request was applied or rejected.
-     * Use limited gas to notify the contract. In case the call reverts, revert the staking operation as well.
-     * But in case the operation is already rejected (`_rejected = true`), no need to revert anything, because
-     * no operation was applied.
-     */
-    function _notifyBondingApplied(uint256 _id, uint256 _liquid, bool _selfDelegation, bool _rejected) private {
-        BondingRequest storage _bonding = bondingMap[_id];
-        address _delegator = _bonding.delegator;
-        if (!_isContract(_delegator)) {
-            return;
-        }
-        uint256 _gasAllowed = gasLeft[_delegator];
-        if (_gasAllowed > maxBondAppliedGas) {
-            _gasAllowed = maxBondAppliedGas;
-        }
-        uint256 _gasUsed = gasleft();
-        try IStakeProxy(_delegator).bondingApplied{gas: _gasAllowed}(_id, _bonding.delegatee, _liquid, _selfDelegation, _rejected) {
-            _gasUsed -= gasleft();
-        } catch {
-            _gasUsed -= gasleft();
-            emit NotificationBondingAppliedFailed(_bonding.delegatee, _delegator, _bonding.amount);
-            if (!_rejected) {
-                _revertBonding(_id, _liquid);
-            }
-        }
-        if (gasLeft[_delegator] > _gasUsed) {
-            gasLeft[_delegator] -= _gasUsed;
-        }
-        else {
-            delete gasLeft[_delegator];
-        }
-    }
-
-    /**
-     * @dev bonding request was applied successfully, but couldn't notify the delegator.
-     * so we need to revert the applied bonding
-     */
-    function _revertBonding(uint256 _id, uint256 _liquid) internal virtual {
-        BondingRequest storage _bonding = bondingMap[_id];
-        Validator storage _validator = validators[_bonding.delegatee];
-        // assuming that the bonding request was applied successfully, so the validator must be active
-        if (_bonding.delegator != _validator.treasury) {
-            // delegatedStake cannot be 0 because the bonding was applied successfully
-            // calculate LNTN using current ratio of NTN:LNTN
-            ILiquidLogic(_validator.liquidStateContract).burn(_bonding.delegator, _liquid);
-            _validator.liquidSupply -= _liquid;
-        } else {
-            _validator.selfBondedStake -= _bonding.amount;
-        }
-        accounts[_bonding.delegator] += _bonding.amount;
-        _validator.bondedStake -= _bonding.amount;
-        emit BondingReverted(_bonding.delegatee, _bonding.delegator, _bonding.amount);
     }
 
     function _applyBonding(uint256 id) internal virtual {
@@ -1427,10 +1281,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         // no new bonding can be applied for jailbound or jailed or paused validator
         // in case delegator couldn't be notified about rewards distribution, we reject bonding request
-        if (_validator.state != ValidatorState.active || stakingReverted[_bonding.delegator] == 1) {
+        if (_validator.state != ValidatorState.active) {
             accounts[_bonding.delegator] += _bonding.amount;
+            (_bonding.atnRewardsTillBonding, _bonding.ntnRewardsTillBonding) = _validator.liquidContract.realisedFees(_bonding.delegator);
+            _bonding.rejected = true;
             emit BondingRejected(_bonding.delegatee, _bonding.delegator, _bonding.amount, _validator.state);
-            _notifyBondingApplied(id, 0, _bonding.delegator == _validator.treasury, true);
             return;
         }
 
@@ -1447,13 +1302,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             ILiquidLogic(_validator.liquidStateContract).mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
             _validator.bondedStake += _bonding.amount;
-            _notifyBondingApplied(id, _liquidAmount, false, false);
+            _bonding.liquidMinted += _liquidAmount;
         } else {
             // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
             _validator.selfBondedStake += _bonding.amount;
             _validator.bondedStake += _bonding.amount;
-            _notifyBondingApplied(id, 0, true, false);
         }
+        (_bonding.atnRewardsTillBonding, _bonding.ntnRewardsTillBonding) = _validator.liquidContract.realisedFees(_bonding.delegator);
     }
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
@@ -1472,96 +1327,18 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _validator.selfUnbondingStakeLocked += _amount;
         }
         unbondingMap[headUnbondingID] = UnbondingRequest(
-            _recipient, _validatorAddress, _amount, 0, block.number, 0, UnbondingReleaseState.notReleased, false, selfDelegation
+            _recipient, _validatorAddress, _amount, 0, 0, 0, 0, block.number, false, false, selfDelegation
         );
         headUnbondingID++;
 
         emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
-        // if the delegator is a contract, store the address to notify it about rewards distribution at epoch end
-        if (_isContract(_recipient)) {
-            _storeAddress(_recipient, _validatorAddress);
-        }
         return headUnbondingID-1;
-    }
-
-    /**
-     * @dev notify the delegator (only if contract) if unbonding release was successful or rejected
-     */
-    function _notifyUnbondingReleased(uint256 _id, uint256 _amount, bool _rejected) private {
-        UnbondingRequest storage _unbonding = unbondingMap[_id];
-        address _delegator = _unbonding.delegator;
-        if (!_isContract(_delegator)) {
-            return;
-        }
-        uint256 _gasAllowed = gasLeft[_delegator];
-        if (_gasAllowed > maxUnbondReleasedGas) {
-            _gasAllowed = maxUnbondReleasedGas;
-        }
-        uint256 _gasUsed = gasleft();
-        try IStakeProxy(_delegator).unbondingReleased{gas: _gasAllowed}(_id, _amount, _rejected) {
-            _gasUsed -= gasleft();
-        } catch {
-            // failed to notify
-            _gasUsed -= gasleft();
-            emit NotificationUnbondingReleasedFailed(_unbonding.delegatee, _delegator, _amount);
-            if (!_rejected) {
-                // we released successfully, but failed to notify. need to revert
-                _revertReleasedUnbonding(_id, _amount);
-            }
-        }
-        if (gasLeft[_delegator] > _gasUsed) {
-            gasLeft[_delegator] -= _gasUsed;
-        }
-        else {
-            delete gasLeft[_delegator];
-        }
-    }
-
-    /**
-     * @dev in case the release was successful but we couldn't notify the delegator (only if contract), we revert the release.
-     * We know _amount NTN was released, so we bond _amount NTN again using current NTN:LNTN ratio
-     */
-    function _revertReleasedUnbonding(uint256 _id, uint256 _amount) private {
-        UnbondingRequest storage _unbonding = unbondingMap[_id];
-        if (_amount == 0) {
-            _unbonding.state = UnbondingReleaseState.reverted;
-            emit ReleasedUnbondingReverted(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _amount);
-            return;
-        }
-        Validator storage _validator = validators[_unbonding.delegatee];
-        if (!_unbonding.selfDelegation) {
-            // calculate LNTN amount
-            uint256 _liquidAmount;
-            uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
-            if (_delegatedStake == 0) {
-                _liquidAmount = _amount;
-            } else {
-                _liquidAmount = (_validator.liquidSupply * _amount) / _delegatedStake;
-            }
-            ILiquidLogic(_validator.liquidStateContract).mint(_unbonding.delegator, _liquidAmount);
-            _validator.liquidSupply += _liquidAmount;
-            _unbonding.revertingAmount = _liquidAmount;
-        } else {
-            _unbonding.revertingAmount = _amount;
-            _validator.selfBondedStake += _amount;
-        }
-        _unbonding.state = UnbondingReleaseState.reverted;
-        accounts[_unbonding.delegator] -= _amount;
-        _validator.bondedStake += _amount;
-        emit ReleasedUnbondingReverted(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _amount);
     }
 
     function _releaseUnbondingStake(uint256 _id) internal virtual {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
-        if (!_unbonding.unlocked) {
-            // unbonding request was either rejected or reverted, in any case we reject release
-            _unbonding.state = UnbondingReleaseState.rejected;
-            _notifyUnbondingReleased(_id, 0, true);
-            return;
-        }
-        _unbonding.state = UnbondingReleaseState.released;
+        _unbonding.released = true;
         if (_unbonding.unbondingShare == 0) {
-            _notifyUnbondingReleased(_id, 0, false);
             return;
         }
         Validator storage _validator = validators[_unbonding.delegatee];
@@ -1575,88 +1352,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _validator.selfUnbondingStake -= _returnedStake;
             _validator.selfUnbondingShares -= _unbonding.unbondingShare;
         }
+        _unbonding.releasedStake = _returnedStake;
         accounts[_unbonding.delegator] += _returnedStake;
-        _notifyUnbondingReleased(_id, _returnedStake, false);
-    }
-
-    /**
-     * @dev notify the delegator (if it is a contract) that unbonding was applied or rejected
-     */
-    function _notifyUnbondingApplied(uint256 _id, uint256 _newtonAmount, bool _rejected) private {
-        UnbondingRequest storage _unbonding = unbondingMap[_id];
-        address _delegator = _unbonding.delegator;
-        if (!_isContract(_delegator)) {
-            return;
-        }
-        uint256 _gasAllowed = gasLeft[_delegator];
-        if (_gasAllowed > maxUnbondAppliedGas) {
-            _gasAllowed = maxUnbondAppliedGas;
-        }
-        uint256 _gasUsed = gasleft();
-        try IStakeProxy(_delegator).unbondingApplied{gas: _gasAllowed}(_id, _unbonding.delegatee, _rejected) {
-            _gasUsed -= gasleft();
-        } catch {
-            // failed to notify
-            _gasUsed -= gasleft();
-            emit NotificationUnbondingAppliedFailed(_unbonding.delegatee, _delegator, _unbonding.amount);
-            if (!_rejected) {
-                // request was applied successfully, but failed to notify, so we need to revert it
-                _revertAppliedUnbonding(_id, _newtonAmount);
-            }
-        }
-        if (gasLeft[_delegator] > _gasUsed) {
-            gasLeft[_delegator] -= _gasUsed;
-        }
-        else {
-            delete gasLeft[_delegator];
-        }
-    }
-
-    /**
-     * @dev in case the unbonding request came from a contract, and we applied the request successfully but couldn't
-     * notify the contract, we have to revert the applied request
-     */
-    function _revertAppliedUnbonding(uint256 _id, uint256 _newtonAmount) private {
-        // assuming unbonding was applied successfully
-        UnbondingRequest storage _unbonding = unbondingMap[_id];
-        Validator storage _validator = validators[_unbonding.delegatee];
-
-        if (!_unbonding.selfDelegation){
-            uint256 _liquidAmount = _unbonding.amount;
-            ILiquidLogic(_validator.liquidStateContract).mint(_unbonding.delegator, _liquidAmount);
-            _validator.liquidSupply += _liquidAmount;
-            _validator.unbondingStake -= _newtonAmount;
-            _validator.unbondingShares -=  _unbonding.unbondingShare;
-        } else {
-            _validator.selfUnbondingStake -= _newtonAmount;
-            _validator.selfUnbondingShares -= _unbonding.unbondingShare;
-            _validator.selfBondedStake += _newtonAmount;
-        }
-
-        _unbonding.unbondingShare = 0;
-        _unbonding.unlocked = false;
-        _validator.bondedStake += _newtonAmount;
-        emit AppliedUnbondingReverted(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _unbonding.amount);
     }
 
     function _applyUnbonding(uint256 _id) internal virtual {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
         Validator storage _validator = validators[_unbonding.delegatee];
-
-        // in case delegator is a contract and we failed to notify the contract about rewards distribution,
-        // then we cannot notify the contract about _applyUnbonding. So we reject the unbonding request
-        if (stakingReverted[_unbonding.delegator] == 1) {
-            emit UnbondingRejected(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _unbonding.amount);
-            // we should unlock the locked unbonding amount
-            if (!_unbonding.selfDelegation) {
-                _validator.liquidContract.unlock(_unbonding.delegator, _unbonding.amount);
-            }
-            else {
-                _validator.selfUnbondingStakeLocked -= _unbonding.amount;
-            }
-            _notifyUnbondingApplied(_id, 0, true);
-            return;
-        }
 
         uint256 _newtonAmount;
         if (!_unbonding.selfDelegation){
@@ -1698,10 +1400,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _validator.selfUnbondingStakeLocked -= _unbonding.amount;
         }
 
+        (_unbonding.atnRewardsTillUnbonding, _unbonding.ntnRewardsTillUnbonding) = _validator.liquidContract.realisedFees(_unbonding.delegator);
         _unbonding.unlocked = true;
         // Final step: Reduce amount of newton bonded
         _validator.bondedStake -= _newtonAmount;
-        _notifyUnbondingApplied(_id, _newtonAmount, false);
     }
 
     function _applyNewCommissionRates() internal virtual {
@@ -1751,58 +1453,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             }
         }
         tailUnbondingID = _processedId;
-    }
-
-    /**
-     * @dev notify about all the contracts that made bonding or unbonding requests in current epoch
-     * about rewards distribution. Because when request are applied in _applyBonding and _applyUnbonding,
-     * liquid balances change, and rewads should be known before changing liquid balances.
-     * NOTE: It is not necessary to notify about rewards distribution when unbonding is released,
-     * because liquid balances do not change in release
-     */
-    function _notifyRewardsDistribution() private {
-        uint256 _length = contractAddresses.length;
-        for (uint256 _contractIdx = 0; _contractIdx < _length; _contractIdx++) {
-            address _contract = contractAddresses[_contractIdx];
-            address[] memory _validators = validatorsStaked[_contract];
-            for (uint256 _validatorIdx = 0; _validatorIdx < _validators.length; _validatorIdx++) {
-                delete isValidatorStaked[_contract][_validators[_validatorIdx]];
-            }
-            delete validatorsStaked[_contract];
-            uint256 _gasAllowed = gasLeft[_contract];
-            if (_gasAllowed > maxRewardsDistributionGas*_validators.length) {
-                _gasAllowed = maxRewardsDistributionGas*_validators.length;
-            }
-            uint256 _gasUsed = gasleft();
-            try IStakeProxy(_contract).rewardsDistributed{gas: _gasAllowed}(_validators) {
-                _gasUsed -= gasleft();
-            } catch {
-                _gasUsed -= gasleft();
-                emit NotificationRewardsDistributionFailed(_contract);
-                stakingReverted[_contract] = 1;
-            }
-            if (gasLeft[_contract] > _gasUsed) {
-                gasLeft[_contract] -= _gasUsed;
-            }
-            else {
-                delete gasLeft[_contract];
-            }
-        }
-    }
-
-    /**
-     * @dev remove saved contract addresses that made bonding or unbonding requests in current epoch
-     */
-    function _removeContractAddresses() private {
-        uint256 _length = contractAddresses.length;
-        for (uint256 i = 0; i < _length; i++) {
-            address _contract = contractAddresses[i];
-            delete contractSaved[_contract];
-            if (stakingReverted[_contract] == 1) {
-                delete stakingReverted[_contract];
-            }
-        }
-        delete contractAddresses;
     }
 
     function _removeFromArray(address _address, address[] storage _array) internal virtual{

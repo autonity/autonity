@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../interfaces/IStakeProxy.sol";
 import "./LiquidRewardManager.sol";
 import "./ContractBase.sol";
 
-contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
+contract StakableVesting is ContractBase, LiquidRewardManager {
     // NTN can be here: LOCKED or UNLOCKED
     // LOCKED are tokens that can't be withdrawn yet, need to wait for the release contract
     // UNLOCKED are tokens that can be withdrawn
     uint256 public contractVersion = 1;
-    uint256 private requiredGasBond = 50_000;
-    uint256 private requiredGasUnbond = 50_000;
 
     /**
      * @notice stake reserved to create new contracts
@@ -26,40 +23,34 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         uint256 amount;
         uint256 epochID;
         address validator;
-        bool processed;
     }
 
     struct PendingUnbondingRequest {
         uint256 liquidAmount;
         uint256 epochID;
         address validator;
-        bool rejected;
-        bool applied;
     }
 
     mapping(uint256 => PendingBondingRequest) private pendingBondingRequest;
     mapping(uint256 => PendingUnbondingRequest) private pendingUnbondingRequest;
 
     /**
-     * @dev bondingToContract is needed to handle notification from autonity when bonding is applied.
-     * In case the it fails to notify the vesting contract, contractToBonding is needed to revert the failed requests.
+     * @dev We put all the bonding request id of past epoch in contractToBonding[contractID] array and apply them whenever needed.
      * All bonding requests are applied at epoch end, so we can process all of them (failed or successful) together.
-     * See bond and _revertPendingBondingRequest for more clarity
+     * See bond and _handlePendingBondingRequest for more clarity
      */
 
-    mapping(uint256 => uint256) private bondingToContract;
     mapping(uint256 => uint256[]) private contractToBonding;
 
     /**
-     * @dev unbondingToContract is needed to handle notification from autonity when unbonding is applied and released.
-     * In case it fails to notify the vesting contract, contractToUnbonding is needed to revert the failed requests.
-     * Not all requests are released together at epoch end, so we cannot process all the request together.
-     * tailPendingUnbondingID and headPendingUnbondingID helps to keep track of contractToUnbonding.
-     * See unbond and _revertPendingUnbondingRequest for more clarity
+     * @dev We put all the unbonding request id of past epoch in contractToUnbonding mapping. All requests from past epoch
+     * can be applied together. But not all requests are released together at epoch end. So we need to put them in map
+     * and use tailPendingUnbondingID and headPendingUnbondingID to keep track of contractToUnbonding.
+     * See unbond and _handlePendingUnbondingRequest for more clarity
      */
 
-    mapping(uint256 => uint256) private unbondingToContract;
     mapping(uint256 => mapping(uint256 => uint256)) private contractToUnbonding;
+    mapping(uint256 => uint256) private appliedPendingUnbondingID;
     mapping(uint256 => uint256) private tailPendingUnbondingID;
     mapping(uint256 => uint256) private headPendingUnbondingID;
 
@@ -182,9 +173,11 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        _updateFunds(_contractID);
         (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
         atnRewards[_beneficiary] += _atnReward;
         ntnRewards[_beneficiary] += _ntnReward;
+        _clearValidators(_contractID);
         _changeContractBeneficiary(_contractID, _beneficiary, _recipient);
     }
 
@@ -194,6 +187,18 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
     function updateFunds(address _beneficiary, uint256 _id) virtual external {
         _updateFunds(_getUniqueContractID(_beneficiary, _id));
+    }
+
+    function updateFundsAndGetContractTotalValue(address _beneficiary, uint256 _id) external returns (uint256) {
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        _updateFunds(_contractID);
+        return _calculateTotalValue(_contractID);
+    }
+
+    function updateFundsAndGetContract(address _beneficiary, uint256 _id) external returns (Contract memory) {
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        _updateFunds(_contractID);
+        return contracts[_contractID];
     }
 
     /**
@@ -207,20 +212,6 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice Update the required gas to get notified about staking operation
-     * NOTE: before updating, please check if the updated value works. It can be checked by updatting
-     * the hardcoded value of requiredGasBond and then compiling the contracts and running the tests
-     * in stakable_vesting_test.go
-     */
-    function setRequiredGasBond(uint256 _gas) external onlyOperator {
-        requiredGasBond = _gas;
-    }
-
-    function setRequiredGasUnbond(uint256 _gas) external onlyOperator {
-        requiredGasUnbond = _gas;
-    }
-
-    /**
      * @notice Used by beneficiary to bond some NTN of some contract _id.
      * All bondings are delegated, as vesting manager cannot own a validator
      * @param _id id of the contract numbered from 0 to (n-1) where n = total contracts entitled to the beneficiary (excluding canceled ones)
@@ -228,21 +219,21 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * @param _amount amount of NTN to bond
      */
     function bond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
-        // TODO (tariq): do we need to wait till _contract.start before bonding??
-        require(msg.value >= requiredBondingGasCost(), "not enough gas given for notification on bonding");
+
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _updateFunds(_contractID);
+
         Contract storage _contract = contracts[_contractID];
         require(_contract.start <= block.timestamp, "contract not started yet");
         require(_contract.currentNTNAmount >= _amount, "not enough tokens");
 
-        uint256 _bondingID = autonity.bond{value: msg.value}(_validator, _amount);
+        uint256 _bondingID = autonity.bond(_validator, _amount);
         _contract.currentNTNAmount -= _amount;
-        // offset by 1 to handle empty value
+
         contractToBonding[_contractID].push(_bondingID);
-        bondingToContract[_bondingID] = _contractID+1;
-        pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _epochID(), _validator, false);
-        _initiate(_contractID, _validator);
+        pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _getEpochID(), _validator);
+
+        _newBondingRequested(_contractID, _validator, _bondingID);
         _clearValidators(_contractID);
         return _bondingID;
     }
@@ -253,18 +244,20 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * @param _amount amount of LNTN to unbond
      */
     function unbond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
-        require(msg.value >= requiredUnbondingGasCost(), "not enough gas given for notification on unbonding");
+
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _cleanup(_contractID);
+
         _lock(_contractID, _validator, _amount);
-        uint256 _unbondingID = autonity.unbond{value: msg.value}(_validator, _amount);
-        // offset by 1 to handle empty value
-        unbondingToContract[_unbondingID] = _contractID+1;
-        pendingUnbondingRequest[_unbondingID] = PendingUnbondingRequest(_amount, _epochID(), _validator, false, false);
+        uint256 _unbondingID = autonity.unbond(_validator, _amount);
+        
+        pendingUnbondingRequest[_unbondingID] = PendingUnbondingRequest(_amount, _getEpochID(), _validator);
         uint256 _lastID = headPendingUnbondingID[_contractID];
         // contractToUnbonding[_contractID][_i] stores the _unbondingID of the i'th unbonding request
         contractToUnbonding[_contractID][_lastID] = _unbondingID;
         headPendingUnbondingID[_contractID] = _lastID+1;
+
+        _newPendingRewardEvent(_validator, _unbondingID, false);
         return _unbondingID;
     }
 
@@ -275,8 +268,10 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
     function claimRewards(uint256 _id, address _validator) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        _updateFunds(_contractID);
         (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID, _validator);
         _sendRewards(_atnReward, _ntnReward);
+        _clearValidators(_contractID);
     }
 
     /**
@@ -284,8 +279,10 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
     function claimRewards(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        _updateFunds(_contractID);
         (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
         _sendRewards(_atnReward, _ntnReward);
+        _clearValidators(_contractID);
     }
 
     /**
@@ -311,49 +308,10 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice can be used to send ATN to the contract
-     */
-    function receiveATN() external payable {
-        // do nothing
-    }
-
-    /**
-     * @notice callback function restricted to autonity to notify the vesting contract to update rewards (AUT) for _validators
-     * @param _validators address of the validators that have staking operations and need to update their rewards (AUT)
-     */
-    function rewardsDistributed(address[] memory _validators) external onlyAutonity {
-        _updateValidatorReward(_validators);
-    }
-
-    /**
-     * @notice implements IStakeProxy.bondingApplied(), a callback function for autonity when bonding is applied
-     * @param _bondingID bonding id from Autonity when bonding was requested
-     * @param _liquid amount of LNTN after bonding applied successfully
-     * @param _selfDelegation true if self bonded, false for delegated bonding
-     * @param _rejected true if bonding request was rejected, false if applied successfully
-     */
-    function bondingApplied(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) external onlyAutonity {
-        _applyBonding(_bondingID, _validator, _liquid, _selfDelegation, _rejected);
-    }
-
-    /**
-     * @notice implements IStakeProxy.unbondingApplied(). callback function for autonity when unbonding is applied
-     * @param _unbondingID unbonding id from Autonity when unbonding was requested
-     * @param _rejected true if unbonding was rejected, false if applied successfully
-     */
-    function unbondingApplied(uint256 _unbondingID, address _validator, bool _rejected) external onlyAutonity {
-        _applyUnbonding(_unbondingID, _validator, _rejected);
-    }
-
-    /**
-     * @dev implements IStakeProxy.unbondingReleased(). callback function for autonity when unbonding is released
-     * @param _unbondingID unbonding id from Autonity when unbonding was requested
-     * @param _amount amount of NTN released
-     * @param _rejected true if unbonding was rejected, false if applied and released successfully
-     */
-    function unbondingReleased(uint256 _unbondingID, uint256 _amount, bool _rejected) external onlyAutonity {
-        _releaseUnbonding(_unbondingID, _amount, _rejected);
-    }
+    * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
+    *
+    */
+    receive() external payable {}
 
     /**
      * @dev returns equivalent amount of NTN using the ratio.
@@ -436,74 +394,13 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     function _updateAndTransferLNTN(uint256 _contractID, address _to, uint256 _amount, address _validator) private {
-        _updateUnclaimedReward(_validator);
-        _decreaseLiquid(_contractID, _validator, _amount);
-        _transferLNTN(_to, _amount, _validator);
-    }
-
-    function _transferLNTN(address _to, uint256 _amount, address _validator) private {
-        (bool _sent, ) = _liquidStateContract(_validator).call(
-            abi.encodeWithSignature("transfer(address,uint256)", _to, _amount)
-        );
+        _burnLiquid(_contractID, _validator, _amount, _getEpochID()-1);
+        bool _sent = ILiquidLogic(_liquidStateContract(_validator)).transfer(_to, _amount);
         require(_sent, "LNTN transfer failed");
-    }
 
-    function _updateValidatorReward(address[] memory _validators) internal {
-        for (uint256 i = 0; i < _validators.length; i++) {
-            _updateUnclaimedReward(_validators[i]);
-        }
-    }
-
-    /**
-     * @dev mimic _applyBonding from Autonity.sol
-     */
-    function _applyBonding(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) internal {
-        require(_selfDelegation == false, "bonding should be delegated");
-        uint256 _contractID = bondingToContract[_bondingID] - 1;
-
-        PendingBondingRequest storage _request = pendingBondingRequest[_bondingID];
-        _request.processed = true;
-
-        if (_rejected) {
-            Contract storage _contract = contracts[_contractID];
-            _contract.currentNTNAmount += _request.amount;
-        }
-        else {
-            _increaseLiquid(_contractID, _validator, _liquid);
-        }
-    }
-
-    /**
-     * @dev mimic _applyUnbonding from Autonity.sol
-     */
-    function _applyUnbonding(uint256 _unbondingID, address _validator, bool _rejected) internal {
-        uint256 _contractID = unbondingToContract[_unbondingID] - 1;
-        PendingUnbondingRequest storage _unbondingRequest = pendingUnbondingRequest[_unbondingID];
-        uint256 _liquid = _unbondingRequest.liquidAmount;
-        _unlock(_contractID, _validator, _liquid);
-
-        if (_rejected) {
-            _unbondingRequest.rejected = true;
-            return;
-        }
-
-        _unbondingRequest.applied = true;
-        _decreaseLiquid(_contractID, _validator, _liquid);
-    }
-
-    function _releaseUnbonding(uint256 _unbondingID, uint256 _amount, bool _rejected) internal {
-        uint256 _contractID = unbondingToContract[_unbondingID] - 1;
-
-        if (_rejected) {
-            // If released of unbonding is rejected, then it is assumed that the applying of unbonding was also rejected
-            // or reverted at Autonity because Autonity could not notify us (_applyUnbonding reverted).
-            // If applying of unbonding was successful, then releasing of unbonding cannot be rejected.
-            // Here we assume that it was rejected at vesting manager as well, otherwise if it was reverted (due to out of gas)
-            // it will revert here as well. In any case, _revertPendingUnbondingRequest will handle the reverted or rejected request
-            return;
-        }
-        Contract storage _contract = contracts[_contractID];
-        _contract.currentNTNAmount += _amount;
+        // this transfer decreases the total liquid balance, which will affect pending reward event
+        // update pending reward event, if any
+        _updatePendingEvent(_validator);
     }
 
     function _sendRewards(uint256 _atnReward, uint256 _ntnReward) private {
@@ -517,8 +414,8 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     function _updateFunds(uint256 _contractID) private {
-        _revertPendingBondingRequest(_contractID);
-        _revertPendingUnbondingRequest(_contractID);
+        _handlePendingBondingRequest(_contractID);
+        _handlePendingUnbondingRequest(_contractID);
     }
 
     /**
@@ -529,110 +426,156 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * @param _contractID unique global contract id
      */
     function _cleanup(uint256 _contractID) private {
-        _revertPendingBondingRequest(_contractID);
-        _revertPendingUnbondingRequest(_contractID);
+        _updateFunds(_contractID);
         _clearValidators(_contractID);
     }
 
     /**
-     * @dev in case some bonding request from some previous epoch was unsuccessful and vesting contract was not notified,
-     * this function handles such requests. All the requests from past epoch can be handled as the bonding requests are
+     * @dev Handles all the pending bonding requests.
+     * All the requests from past epoch can be handled as the bonding requests are
      * applied at epoch end immediately. Requests from current epoch are not handled.
      * @param _contractID unique global id of the contract
      */
-    function _revertPendingBondingRequest(uint256 _contractID) private {
+    function _handlePendingBondingRequest(uint256 _contractID) private {
         uint256[] storage _bondingIDs = contractToBonding[_contractID];
         uint256 _length = _bondingIDs.length;
         if (_length == 0) {
             return;
         }
 
-        uint256 _oldBondingID;
-        PendingBondingRequest storage _oldBondingRequest;
-        uint256 _totalAmount = 0;
-        uint256 _currentEpochID = _epochID();
+        uint256 _bondingID;
+        PendingBondingRequest storage _bondingRequest;
+        uint256 _totalBondingRejected = 0;
+        uint256 _currentEpochID = _getEpochID();
         for (uint256 i = 0; i < _length; i++) {
-            _oldBondingID = _bondingIDs[i];
-            _oldBondingRequest = pendingBondingRequest[_oldBondingID];
-            // will revert request from some previous epoch, request from current epoch will not be reverted
-            if (_oldBondingRequest.epochID == _currentEpochID) {
+            _bondingID = _bondingIDs[i];
+            _bondingRequest = pendingBondingRequest[_bondingID];
+            // request is from current epoch, not applied yet
+            if (_bondingRequest.epochID == _currentEpochID) {
                 // all the request in the array are from current epoch
                 return;
             }
-            _bondingRequestExpired(_contractID, _oldBondingRequest.validator);
-            // if the request is not processed successfully, then we need to revert it
-            if (_oldBondingRequest.processed == false) {
-                _totalAmount += _oldBondingRequest.amount;
+            
+            _updateLastRewardEvent(_bondingRequest.validator);
+            _bondingRequestExpired(_contractID, _bondingRequest.validator);
+            if (autonity.isBondingRejected(_bondingID)) {
+                _totalBondingRejected += _bondingRequest.amount;
             }
-            delete pendingBondingRequest[_oldBondingID];
-            delete bondingToContract[_oldBondingID];
+            else {
+                uint256 _liquid = autonity.getBondedLiquid(_bondingID);
+                _mintLiquid(_contractID, _bondingRequest.validator, _liquid, _bondingRequest.epochID);
+            }
+            delete pendingBondingRequest[_bondingID];
         }
 
         delete contractToBonding[_contractID];
-        if (_totalAmount == 0) {
+        if (_totalBondingRejected == 0) {
             return;
         }
         Contract storage _contract = contracts[_contractID];
-        _contract.currentNTNAmount += _totalAmount;
+        _contract.currentNTNAmount += _totalBondingRejected;
     }
 
     /**
-     * @dev in case some unbonding request from some previous epoch was unsuccessful (not applied successfully or
-     * not released successfully) and vesting contract was not notified, this function handles such requests.
-     * Any request that has been processed in _releaseUnbondingStake function can be handled here.
-     * Other requests need to wait.
+     * @dev Handles all the pending unbonding requests. All unbonding requests from past epoch are applied.
+     * Unbonding request that are released in Autonity are released.
      * @param _contractID unique global id of the contract
      */
-    function _revertPendingUnbondingRequest(uint256 _contractID) private {
+    function _handlePendingUnbondingRequest(uint256 _contractID) private {
         uint256 _unbondingID;
         PendingUnbondingRequest storage _unbondingRequest;
         mapping(uint256 => uint256) storage _unbondingIDs = contractToUnbonding[_contractID];
         uint256 _lastID = headPendingUnbondingID[_contractID];
-        uint256 _processingID = tailPendingUnbondingID[_contractID];
+        uint256 _currentEpochID = _getEpochID();
+
+        // first apply all request
+        uint256 _processingID = appliedPendingUnbondingID[_contractID];
         for (; _processingID < _lastID; _processingID++) {
             _unbondingID = _unbondingIDs[_processingID];
-            Autonity.UnbondingReleaseState _releaseState = autonity.getUnbondingReleaseState(_unbondingID);
-            if (_releaseState == Autonity.UnbondingReleaseState.notReleased) {
+            _unbondingRequest = pendingUnbondingRequest[_unbondingID];
+            if (_unbondingRequest.epochID == _currentEpochID) {
+                break;
+            }
+            // unbonding request is always applied at Autonity
+            _updateLastRewardEvent(_unbondingRequest.validator);
+            _unlockAndBurnLiquid(_contractID, _unbondingRequest.validator, _unbondingRequest.liquidAmount, _unbondingRequest.epochID);
+        }
+        appliedPendingUnbondingID[_contractID] = _processingID;
+
+        // process released stake
+        uint256 _totalReleasedStake;
+        _processingID = tailPendingUnbondingID[_contractID];
+        for (; _processingID < _lastID; _processingID++) {
+            _unbondingID = _unbondingIDs[_processingID];
+            bool _released = autonity.isUnbondingReleased(_unbondingID);
+            if (_released == false) {
                 // all the rest have not been released yet
                 break;
             }
             delete _unbondingIDs[_processingID];
-            delete unbondingToContract[_unbondingID];
-            
-            if (_releaseState == Autonity.UnbondingReleaseState.released) {
-                // unbonding was released successfully
-                delete pendingUnbondingRequest[_unbondingID];
-                continue;
-            }
 
             _unbondingRequest = pendingUnbondingRequest[_unbondingID];
-            address _validator = _unbondingRequest.validator;
-
-            if (_releaseState == Autonity.UnbondingReleaseState.reverted) {
-                // it means the unbonding was released, but later reverted due to failing to notify us
-                // that means unbonding was applied successfully
-                require(_unbondingRequest.applied, "unbonding was released but not applied succesfully");
-                _updateUnclaimedReward(_validator);
-                _increaseLiquid(_contractID, _validator, autonity.getRevertingAmount(_unbondingID));
-            }
-            else if (_releaseState == Autonity.UnbondingReleaseState.rejected) {
-                require(_unbondingRequest.applied == false, "unbonding was applied successfully but release was rejected");
-                // _unbondingRequest.rejected = true means we already rejected it
-                if (_unbondingRequest.rejected == false) {
-                    _unlock(_contractID, _validator, _unbondingRequest.liquidAmount);
-                }
-            }
-            else {
-                require(false, "unknown UnbondingReleaseState, need to implement");
-            }
-            
+            _totalReleasedStake += autonity.getReleasedStake(_unbondingID);
             delete pendingUnbondingRequest[_unbondingID];
         }
         tailPendingUnbondingID[_contractID] = _processingID;
+        if (_totalReleasedStake > 0) {
+            Contract storage _contract = contracts[_contractID];
+            _contract.currentNTNAmount += _totalReleasedStake;
+        }
     }
 
-    function _epochID() private view returns (uint256) {
-        return autonity.epochID();
+    function _stakingRequestBalanceChange(
+        uint256 _contractID,
+        address _validator
+    ) private view returns (int256 _balanceChange, uint256 _lastRequestEpoch) {
+        uint256 _currentEpochID = _getEpochID();
+
+        // get balance increase for bonding requests
+        uint256[] storage _bondingIDs = contractToBonding[_contractID];
+        uint256 _length = _bondingIDs.length;
+        uint256 _stakingID;
+        PendingBondingRequest storage _bondingRequest;
+
+        for (uint256 i = 0; i < _length; i++) {
+            _stakingID = _bondingIDs[i];
+            _bondingRequest = pendingBondingRequest[_stakingID];
+            // request is from current epoch, not applied yet
+            if (_bondingRequest.epochID == _currentEpochID) {
+                // all the request in the array are from current epoch
+                break;
+            }
+
+            if (_bondingRequest.validator != _validator) {
+                continue;
+            }
+            
+            if (autonity.isBondingRejected(_stakingID) == false) {
+                _balanceChange += int256(autonity.getBondedLiquid(_stakingID));
+            }
+            _lastRequestEpoch = _bondingRequest.epochID;
+        }
+
+        // get balance decrease for unbonding requests
+        PendingUnbondingRequest storage _unbondingRequest;
+        mapping(uint256 => uint256) storage _unbondingIDs = contractToUnbonding[_contractID];
+        uint256 _lastID = headPendingUnbondingID[_contractID];
+        uint256 _processingID = appliedPendingUnbondingID[_contractID];
+
+        for (; _processingID < _lastID; _processingID++) {
+            _stakingID = _unbondingIDs[_processingID];
+            _unbondingRequest = pendingUnbondingRequest[_stakingID];
+            if (_unbondingRequest.epochID == _currentEpochID) {
+                break;
+            }
+            if (_unbondingRequest.validator != _validator) {
+                continue;
+            }
+
+            // unbonding request is always applied at Autonity
+            _balanceChange -= int256(_unbondingRequest.liquidAmount);
+            _lastRequestEpoch = _unbondingRequest.epochID;
+        }
     }
 
     /*
@@ -642,20 +585,6 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
 
     /**
-     * @notice returns the gas cost required in "wei" to notify vesting manager when the bonding is applied
-     */
-    function requiredBondingGasCost() public view returns (uint256) {
-        return requiredGasBond * autonity.stakingGasPrice();
-    }
-
-    /**
-     * @notice returns the gas cost required in "wei" to notify vesting manager when the unbonding is applied and released
-     */
-    function requiredUnbondingGasCost() public view returns (uint256) {
-        return requiredGasUnbond * autonity.stakingGasPrice();
-    }
-
-    /**
      * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding to _validator
      * @param _beneficiary beneficiary address
      * @param _id contract ID
@@ -663,15 +592,22 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
     function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID, _validator);
+        (int256 _balanceChange, uint256 _epochID) = _stakingRequestBalanceChange(_contractID, _validator);
+        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID, _validator, _balanceChange, _epochID);
     }
 
     /**
      * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding
      */
-    function unclaimedRewards(address _beneficiary, uint256 _id) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
+    function unclaimedRewards(address _beneficiary, uint256 _id) virtual public view returns (uint256 _atnFee, uint256 _ntnFee) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID);
+        address[] memory _validators = _bondedValidators(_contractID);
+        for (uint256 i = 0; i < _validators.length; i++) {
+            (int256 _balanceChange, uint256 _epochID) = _stakingRequestBalanceChange(_contractID, _validators[i]);
+            (uint256 _atn, uint256 _ntn) = _unclaimedRewards(_contractID, _validators[i], _balanceChange, _epochID);
+            _atnFee += _atn;
+            _ntnFee += _ntn;
+        }
     }
 
     /**
@@ -680,9 +616,9 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
         _atnTotalFee = atnRewards[_beneficiary];
         _ntnTotalFee = ntnRewards[_beneficiary];
-        uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
-        for (uint256 i = 0; i < _contractIDs.length; i++) {
-            (uint256 _atnFee, uint256 _ntnFee) = _unclaimedRewards(_contractIDs[i]);
+        uint256 _length = beneficiaryContracts[_beneficiary].length;
+        for (uint256 i = 0; i < _length; i++) {
+            (uint256 _atnFee, uint256 _ntnFee) = unclaimedRewards(_beneficiary, i);
             _atnTotalFee += _atnFee;
             _ntnTotalFee += _ntnFee;
         }
