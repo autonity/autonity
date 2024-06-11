@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
-import "./interfaces/IStakeProxy.sol";
 import {DECIMALS} from "./Autonity.sol";
 
 // References:
@@ -158,6 +157,10 @@ contract Liquid is IERC20
         _unclaimedNTN =  ntnRealisedFees[_account] + _ntnUnrealisedFee;
     }
 
+    function realisedFees(address _account) external view returns (uint256, uint256) {
+        return (atnRealisedFees[_account], ntnRealisedFees[_account]);
+    }
+
     /**
     * @notice Withdraws all fees earned so far by the caller.
     */
@@ -175,12 +178,8 @@ contract Liquid is IERC20
         }
 
         // Send the AUT
-        if (_isContract(msg.sender)) {
-            IStakeProxy(msg.sender).receiveATN{value: _atnRealisedFees}();
-            return;
-        }
         //   solhint-disable-next-line avoid-low-level-calls
-        (sent, ) = msg.sender.call{value: _atnRealisedFees}("");
+        (sent, ) = msg.sender.call{value: _atnRealisedFees, gas: 2300}("");
         require(sent, "Failed to send ATN");
     }
 
@@ -444,14 +443,6 @@ contract Liquid is IERC20
 
         allowances[_owner][_spender] = _amount;
         emit Approval(_owner, _spender, _amount);
-    }
-
-    function _isContract(address _to) private view returns (bool) {
-        uint size;
-        assembly {
-            size := extcodesize(_to)
-        }
-        return size > 0;
     }
 
 
