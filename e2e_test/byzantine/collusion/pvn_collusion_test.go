@@ -32,7 +32,7 @@ func TestCollusionPVN(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(180, 240, false)
+	err = network.WaitToMineNBlocks(120, 150, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	// Accusation of PVN should rise since followers prevote for the planed invalid value.

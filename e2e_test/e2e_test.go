@@ -76,13 +76,13 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
 	accountabilityConfig, err := accountabilityContract.Config(nil)
 	require.NoError(t, err)
-	require.Equal(t, params.DefaultAccountabilityConfig.SlashingRatePrecision, accountabilityConfig.SlashingRatePrecision.Uint64())
-	require.Equal(t, params.DefaultAccountabilityConfig.HistoryFactor, accountabilityConfig.HistoryFactor.Uint64())
-	require.Equal(t, params.DefaultAccountabilityConfig.CollusionFactor, accountabilityConfig.CollusionFactor.Uint64())
-	require.Equal(t, params.DefaultAccountabilityConfig.JailFactor, accountabilityConfig.JailFactor.Uint64())
-	require.Equal(t, params.DefaultAccountabilityConfig.BaseSlashingRateMid, accountabilityConfig.BaseSlashingRateMid.Uint64())
-	require.Equal(t, params.DefaultAccountabilityConfig.BaseSlashingRateLow, accountabilityConfig.BaseSlashingRateLow.Uint64())
-	require.Equal(t, params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow, accountabilityConfig.InnocenceProofSubmissionWindow.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.SlashingRatePrecision, accountabilityConfig.SlashingRatePrecision.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.HistoryFactor, accountabilityConfig.HistoryFactor.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.CollusionFactor, accountabilityConfig.CollusionFactor.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.JailFactor, accountabilityConfig.JailFactor.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.BaseSlashingRateMid, accountabilityConfig.BaseSlashingRateMid.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.BaseSlashingRateLow, accountabilityConfig.BaseSlashingRateLow.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.InnocenceProofSubmissionWindow, accountabilityConfig.InnocenceProofSubmissionWindow.Uint64())
 	// Oracle Contract -- todo
 	// ACU Contract -- todo
 	// Supply Control Contract -- todo
