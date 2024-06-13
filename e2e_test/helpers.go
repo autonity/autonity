@@ -77,17 +77,17 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 	rule autonity.Rule, network Network) bool {
 
 	n := network[1]
-	autonityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
+	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
 	var events []autonity.AccountabilityEvent
 	if eventType == autonity.Misbehaviour {
-		faults, err := autonityContract.GetValidatorFaults(nil, faultyValidator)
+		faults, err := accountabilityContract.GetValidatorFaults(nil, faultyValidator)
 		require.NoError(t, err)
 		events = append(events, faults...)
 	} else {
-		iter, err := autonityContract.FilterNewAccusation(nil, []common.Address{faultyValidator})
+		iter, err := accountabilityContract.FilterNewAccusation(nil, []common.Address{faultyValidator})
 		require.NoError(t, err)
 		for iter.Next() {
-			event, err := autonityContract.Events(nil, iter.Event.Id)
+			event, err := accountabilityContract.Events(nil, iter.Event.Id)
 			require.NoError(t, err)
 			events = append(events, event)
 		}

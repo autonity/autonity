@@ -353,21 +353,21 @@ var (
 			MaxAllowedDuration: big.NewInt(3 * SecondsInYear),
 			NonStakableSchedules: []NonStakableSchedule{
 				{
-					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp),
-					CliffDuration: big.NewInt(2 * 7 * SecondsInDay),
-					TotalDuration: big.NewInt(4 * 7 * SecondsInDay),
+					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp + 2*7*SecondsInDay),
+					CliffDuration: big.NewInt(0),
+					TotalDuration: big.NewInt(2 * 7 * SecondsInDay),
 					Amount:        new(big.Int).Mul(big.NewInt(1_000_000), DecimalFactor),
 				},
 				{
-					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp),
-					CliffDuration: big.NewInt(4 * 7 * SecondsInDay),
-					TotalDuration: big.NewInt(2 * SecondsInYear),
+					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp + 4*7*SecondsInDay),
+					CliffDuration: big.NewInt(0),
+					TotalDuration: big.NewInt(2*SecondsInYear - 4*7*SecondsInDay),
 					Amount:        new(big.Int).Mul(big.NewInt(4_000_000), DecimalFactor),
 				},
 				{
-					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp),
-					CliffDuration: big.NewInt(6 * 7 * SecondsInDay),
-					TotalDuration: big.NewInt(3 * SecondsInYear),
+					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp + 6*7*SecondsInDay),
+					CliffDuration: big.NewInt(0),
+					TotalDuration: big.NewInt(3*SecondsInYear - 6*7*SecondsInDay),
 					Amount:        new(big.Int).Mul(big.NewInt(5_000_000), DecimalFactor),
 				},
 			},
@@ -743,6 +743,16 @@ var (
 		Operator:                common.HexToAddress("0x12321"),
 	}
 
+	TestAccountabilityConfig = &AccountabilityGenesis{
+		InnocenceProofSubmissionWindow: 30,   // to shorten the tests
+		BaseSlashingRateLow:            1000, // 10%
+		BaseSlashingRateMid:            2000, // 20%
+		CollusionFactor:                500,  // 5%
+		HistoryFactor:                  750,  // 7.5%
+		JailFactor:                     48,   // 1 day with 30 mins epoch
+		SlashingRatePrecision:          10_000,
+	}
+
 	TestChainConfig = &ChainConfig{
 		big.NewInt(1337),
 		big.NewInt(0),
@@ -764,7 +774,7 @@ var (
 		nil,
 		new(EthashConfig),
 		TestAutonityContractConfig,
-		DefaultAccountabilityConfig,
+		TestAccountabilityConfig,
 		DefaultGenesisOracleConfig,
 		DefaultInflationControllerGenesis,
 		AsmConfig{
