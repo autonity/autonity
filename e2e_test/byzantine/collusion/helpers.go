@@ -114,12 +114,7 @@ func initCollusion(vals []*gengen.Validator, rule autonity.Rule, planer collusio
 	collusions[rule] = b
 }
 
-func validProposer(address common.Address, h uint64, r int64, core faultyBroadcaster) bool {
-	contract := core.Backend().BlockChain().ProtocolContracts()
-	committee, err := core.Backend().BlockChain().CommitteeOfHeight(h)
-	if err != nil {
-		panic(err)
-	}
+func validProposer(address common.Address, h uint64, r int64, contract *autonity.ProtocolContracts, committee *types.Committee) bool {
 	return address == contract.Proposer(committee, nil, h-1, r)
 }
 
@@ -184,15 +179,16 @@ func setupCollusionContext(c faultyBroadcaster, rule autonity.Rule) {
 	leader := c.Address()
 	futureHeight := c.Height().Uint64() + 5
 	round := int64(0)
-
+	committee := c.Backend().BlockChain().Genesis().Header().Committee
+	contract := c.Backend().BlockChain().ProtocolContracts()
 	for ; ; round++ {
 		// select a none proposer to propose faulty value in PVN context.
-		if rule == autonity.PVN && !validProposer(leader, futureHeight, round, c) {
+		if rule == autonity.PVN && !validProposer(leader, futureHeight, round, contract, committee) {
 			break
 		}
 
 		// select a proposer to propose faulty value in PVO and C1 context
-		if round != 0 && rule != autonity.PVN && validProposer(leader, futureHeight, round, c) {
+		if round != 0 && rule != autonity.PVN && validProposer(leader, futureHeight, round, contract, committee) {
 			break
 		}
 	}

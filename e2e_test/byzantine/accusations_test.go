@@ -161,16 +161,6 @@ func TestAccusationFlow(t *testing.T) {
 		rule := autonity.PVN
 		runTest(t, handler, tp, rule, 100)
 	})
-	/*
-		Not supported, require more complicated setup
-		we need to be able to handle more than one byzantine validator
-		t.Run("AccusationRulePVO", func(t *testing.T) {
-			handler := &interfaces.Services{Broadcaster: &AccusationPVO{}}
-			tp := autonity.Accusation
-			rule := autonity.PVO
-			runTest(t, handler, tp, rule, 60)
-		})
-	*/
 	t.Run("AccusationRuleC1", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationC1}
 		tp := autonity.Accusation
