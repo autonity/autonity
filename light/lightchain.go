@@ -466,6 +466,16 @@ func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return lc.hc.GetTd(hash, number)
 }
 
+// LatestConsensusView retrieves the latest committee and the chain head of block chain.
+func (lc *LightChain) LatestConsensusView() (*types.Committee, *types.Header) {
+	return lc.hc.LatestConsensusView()
+}
+
+// CommitteeOfHeight retrieves the committee of a given block number.
+func (lc *LightChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	return lc.hc.CommitteeOfHeight(number)
+}
+
 // GetHeaderByNumberOdr retrieves the total difficult from the database or
 // network by hash and number, caching it (associated with its hash) if found.
 func (lc *LightChain) GetTdOdr(ctx context.Context, hash common.Hash, number uint64) *big.Int {

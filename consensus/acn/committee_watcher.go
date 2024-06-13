@@ -7,20 +7,22 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
-// TODO: watch for epoch rotation event instead
 func (acn *ACN) watchCommittee(ctx context.Context) {
 	acn.wg.Add(1)
 
 	chainHeadCh := make(chan core.ChainHeadEvent)
 	chainHeadSub := acn.chain.SubscribeChainHeadEvent(chainHeadCh)
 
-	updateConsensusEnodes := func(block *types.Block) {
-		state, err := acn.chain.StateAt(block.Header().Root)
+	epochHeadCh := make(chan core.EpochHeadEvent)
+	epochHeadSub := acn.chain.SubscribeEpochHeadEvent(epochHeadCh)
+
+	updateConsensusEnodes := func(header *types.Header) {
+		state, err := acn.chain.StateAt(header.Root)
 		if err != nil {
 			acn.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := acn.chain.ProtocolContracts().CommitteeEnodes(block, state, true)
+		enodesList, err := acn.chain.ProtocolContracts().CommitteeEnodes(header, state, true)
 		if err != nil {
 			acn.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -29,22 +31,23 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	}
 
 	wasValidating := false
-	currentBlock := acn.chain.CurrentBlock()
-	if currentBlock.Header().CommitteeMember(acn.address) != nil {
-		updateConsensusEnodes(currentBlock)
+	committee, currentHead := acn.chain.LatestConsensusView()
+	if committee.CommitteeMember(acn.address) != nil {
+		updateConsensusEnodes(currentHead)
 		wasValidating = true
 	}
 
 	go func() {
 		defer acn.wg.Done()
-		defer chainHeadSub.Unsubscribe()
+		defer epochHeadSub.Unsubscribe()
 		for {
 			select {
 			case ev := <-chainHeadCh:
 				acn.server.SetCurrentBlockNumber(ev.Block.NumberU64())
-				header := ev.Block.Header()
+			case ev := <-epochHeadCh:
+				committee = ev.Header.Committee
 				// check if the local node belongs to the consensus committee.
-				if header.CommitteeMember(acn.address) == nil {
+				if committee.CommitteeMember(acn.address) == nil {
 					// if the local node was part of the committee set for the previous block
 					// there is no longer the need to retain the full connections and the
 					// consensus engine enabled.
@@ -54,9 +57,11 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 					}
 					continue
 				}
-				updateConsensusEnodes(ev.Block)
+				updateConsensusEnodes(ev.Header)
 				wasValidating = true
 			// Err() channel will be closed when unsubscribing.
+			case <-epochHeadSub.Err():
+				return
 			case <-chainHeadSub.Err():
 				return
 			case <-ctx.Done():

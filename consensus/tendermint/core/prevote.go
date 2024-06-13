@@ -31,9 +31,12 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Prevoting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-	//TODO(lorenzo) refactor and use the CommitteeSet() interface instead? Also add Len() method
-	self := c.LastHeader().CommitteeMember(c.address)
-	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
+	self, err := c.CommitteeSet().GetByAddress(c.address)
+	if err != nil {
+		c.logger.Info("validator is no longer in current committee")
+		return
+	}
+	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)
@@ -87,7 +90,7 @@ func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevo
 		"msgRound", prevote.R(),
 		"currentStep", c.step,
 		"isProposer", log.Lazy{Fn: c.IsProposer},
-		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
+		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", prevote.Value() == common.Hash{},
 		"value", prevote.Value(),
 		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrevotesTotalPower},

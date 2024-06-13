@@ -503,6 +503,46 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	return hc.GetHeader(hash, number)
 }
 
+// LatestConsensusView retrieves the latest committee and the current chain head of chain.
+func (hc *HeaderChain) LatestConsensusView() (*types.Committee, *types.Header) {
+	currentHead := hc.CurrentHeader()
+
+	if currentHead.IsEpochHeader() {
+		return currentHead.Committee, currentHead
+	}
+
+	return hc.GetHeaderByNumber(currentHead.LastEpochBlock.Uint64()).Committee, currentHead
+}
+
+// CommitteeOfHeight retrieves the committee of a given block number.
+func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	if number == 0 {
+		return hc.genesisHeader.Committee, nil
+	}
+
+	parent := hc.GetHeaderByNumber(number - 1)
+	if parent == nil {
+		return nil, consensus.ErrUnknownAncestor
+	}
+
+	if parent.IsGenesis() {
+		return hc.genesisHeader.Committee, nil
+	}
+
+	// if current head is an epoch head, return its committee.
+	header := hc.GetHeaderByNumber(number)
+	if header != nil && header.IsEpochHeader() {
+		return header.Committee, nil
+	}
+
+	// otherwise, query the committee by its index.
+	epoch := hc.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
+	if epoch == nil {
+		return nil, consensus.ErrUnknownEpoch
+	}
+	return epoch.Committee, nil
+}
+
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going
 // backwards from the given number.
 // If the 'number' is higher than the highest local header, this method will

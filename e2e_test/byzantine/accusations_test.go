@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -15,11 +14,12 @@ import (
 )
 
 func selfAndCsize(c *core.Core, h uint64) (*types.CommitteeMember, int) {
-	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
-	if header == nil {
-		panic(fmt.Sprintf("cannot fetch header, h: %d", (h - 1)))
+	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	if err != nil {
+		panic(err)
 	}
-	return header.CommitteeMember(c.Address()), len(header.Committee)
+
+	return committee.CommitteeMember(c.Address()), committee.Len()
 }
 
 type AccusationPO struct {

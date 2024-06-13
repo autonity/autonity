@@ -101,11 +101,12 @@ func TestGetCoreState(t *testing.T) {
 	blsKeys[1] = blsKey.PublicKey()
 
 	one := common.Big1
-	members := []types.CommitteeMember{
+	committee := new(types.Committee)
+	committee.Members = []types.CommitteeMember{
 		{Address: proposers[0], VotingPower: one, ConsensusKey: blsKeys[1], ConsensusKeyBytes: blsKeys[1].Marshal(), Index: 0},
 		{Address: proposers[1], VotingPower: one, ConsensusKey: blsKeys[0], ConsensusKeyBytes: blsKeys[0].Marshal(), Index: 1},
 	}
-	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
+	committeeSet, err := tdmcommittee.NewRoundRobinSet(committee, proposers[1]) // todo construct set here
 	require.NoError(t, err)
 	setCoreState(c, height, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet,
 		prevBlock.Header())
@@ -179,7 +180,6 @@ func setCoreState(c *Core, h *big.Int, r int64, s Step, lv *types.Block, lr int6
 	c.validValue = vv
 	c.validRound = vr
 	c.setCommitteeSet(committee)
-	c.setLastHeader(header)
 	c.sentProposal = true
 	c.sentPrevote = true
 	c.sentPrecommit = true

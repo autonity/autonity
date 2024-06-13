@@ -225,11 +225,11 @@ func (c *Cache) EpochPeriod() *big.Int {
 	return new(big.Int).Set(c.epochPeriod.Load())
 }
 
-func (c *AutonityContract) CommitteeEnodes(block *types.Block, db vm.StateDB, asACN bool) (*types.Nodes, error) {
-	return c.callGetCommitteeEnodes(db, block.Header(), asACN)
+func (c *AutonityContract) CommitteeEnodes(header *types.Header, db vm.StateDB, asACN bool) (*types.Nodes, error) {
+	return c.callGetCommitteeEnodes(db, header, asACN)
 }
 
-func (c *AutonityContract) Committee(header *types.Header, db vm.StateDB) ([]types.CommitteeMember, error) {
+func (c *AutonityContract) Committee(header *types.Header, db vm.StateDB) (*types.Committee, error) {
 	return c.callGetCommittee(db, header)
 }
 
@@ -247,7 +247,8 @@ func (c *AutonityContract) EpochPeriod(block *types.Header, db vm.StateDB) (*big
 	return c.callGetEpochPeriod(db, block)
 }
 
-func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
+// Todo: (Jason) keeping stateDB as a input parameter gives a chance that we can compute proposer from AC contract.
+func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -261,7 +262,7 @@ func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height u
 
 	proposer, ok = c.proposers[height][round]
 	if !ok {
-		proposer = c.electProposer(header, height, round)
+		proposer = c.electProposer(committee, height, round)
 		c.proposers[height][round] = proposer
 	}
 
@@ -276,12 +277,9 @@ func (c *AutonityContract) Proposer(header *types.Header, _ vm.StateDB, height u
 
 // electProposer is a part of consensus, that it elect proposer from parent header's committee list which was returned
 // from autonity contract stable ordered by voting power in evm context.
-func (c *AutonityContract) electProposer(parentHeader *types.Header, height uint64, round int64) common.Address {
+func (c *AutonityContract) electProposer(committee *types.Committee, height uint64, round int64) common.Address {
 	seed := big.NewInt(constants.MaxRound)
-	totalVotingPower := big.NewInt(0)
-	for _, c := range parentHeader.Committee {
-		totalVotingPower.Add(totalVotingPower, c.VotingPower)
-	}
+	totalVotingPower := committee.TotalVotingPower()
 
 	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
 	h := new(big.Int).SetUint64(height)
@@ -293,15 +291,15 @@ func (c *AutonityContract) electProposer(parentHeader *types.Header, height uint
 	// find the index hit which committee member which line up in the committee list.
 	// we assume there is no 0 stake/power validators.
 	counter := new(big.Int).SetUint64(0)
-	for _, c := range parentHeader.Committee {
-		counter.Add(counter, c.VotingPower)
+	for _, val := range committee.Members {
+		counter.Add(counter, val.VotingPower)
 		if index.Cmp(counter) == -1 {
-			return c.Address
+			return val.Address
 		}
 	}
 
 	// otherwise, we elect with round-robin.
-	return parentHeader.Committee[round%int64(len(parentHeader.Committee))].Address
+	return committee.Members[round%int64(committee.Len())].Address
 }
 
 /* the Proposer election function is called from core and from the fault detector.
@@ -327,19 +325,19 @@ func (c *AutonityContract) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (types.Committee, *types.Receipt, error) {
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (*types.Committee, *types.Receipt, *big.Int, error) {
+	// todo: (Jason) check if we need this? GenesisToBlock() does not call this function.
 	if header.Number.Uint64() == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(params.AutonityContractAddress),
 		"block", header.Number.Uint64())
 
-	upgradeContract, committee, err := c.callFinalize(statedb, header)
-
+	upgradeContract, committee, lastEpochBlock, err := c.callFinalize(statedb, header)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Create a new receipt for the finalize call
@@ -359,7 +357,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 			log.Warn("Autonity Contracts Upgrade Failed", "err", err)
 		}
 	}
-	return committee, receipt, nil
+	return committee, receipt, lastEpochBlock, nil
 }
 
 func (c *AutonityContract) upgradeAutonityContract(statedb vm.StateDB, header *types.Header) error {

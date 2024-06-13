@@ -92,7 +92,6 @@ type Core struct {
 	height        *big.Int
 	round         int64
 	committee     interfaces.Committee
-	lastHeader    *types.Header
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	step             Step
@@ -373,7 +372,12 @@ func (c *Core) setInitialState(r int64) {
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
-		c.setLastHeader(lastHeader)
+		// on epoch rotation, update committee.
+		if lastBlockMined.IsEpochHead() {
+			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
+			c.committee.SetCommittee(lastBlockMined.Header().Committee)
+		}
+
 		c.lockedRound = -1
 		c.lockedValue = nil
 		c.validRound = -1
@@ -501,12 +505,6 @@ func (c *Core) setCommitteeSet(set interfaces.Committee) {
 	c.committee = set
 }
 
-func (c *Core) setLastHeader(lastHeader *types.Header) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.lastHeader = lastHeader
-}
-
 func (c *Core) Round() int64 {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
@@ -523,12 +521,6 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
-}
-
-func (c *Core) LastHeader() *types.Header {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.lastHeader
 }
 
 func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {

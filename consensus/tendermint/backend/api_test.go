@@ -16,24 +16,15 @@ import (
 )
 
 func TestGetCommittee(t *testing.T) {
-	want := types.Committee{}
+	want := &types.Committee{}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	bn := rpc.BlockNumber(1)
 	c := consensus.NewMockChainReader(ctrl)
-	h := &types.Header{Number: big.NewInt(1)}
-	c.EXPECT().GetHeaderByNumber(uint64(1)).Return(h)
+	c.EXPECT().CommitteeOfHeight(uint64(bn.Int64())).Return(want, nil)
 	api := &API{
 		chain: c,
-		getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
-			if header == h && chain == c {
-				return want, nil
-			}
-			return nil, nil
-		},
 	}
-
-	bn := rpc.BlockNumber(1)
-
 	got, err := api.GetCommittee(&bn)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
@@ -64,21 +55,14 @@ func TestGetCommitteeAtHash(t *testing.T) {
 		defer ctrl.Finish()
 
 		hash := common.HexToHash("0x0123456789")
+		want := &types.Committee{}
 
 		c := consensus.NewMockChainReader(ctrl)
 		h := &types.Header{Number: big.NewInt(1)}
 		c.EXPECT().GetHeaderByHash(hash).Return(h)
-
-		want := types.Committee{}
-
+		c.EXPECT().CommitteeOfHeight(h.Number.Uint64()).Return(want, nil)
 		api := &API{
 			chain: c,
-			getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
-				if header == h && chain == c {
-					return want, nil
-				}
-				return nil, nil
-			},
 		}
 
 		got, err := api.GetCommitteeAtHash(hash)

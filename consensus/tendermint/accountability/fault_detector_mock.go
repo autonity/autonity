@@ -271,3 +271,33 @@ func (mr *MockChainContextMockRecorder) Validator() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validator", reflect.TypeOf((*MockChainContext)(nil).Validator))
 }
+
+// LatestConsensusView mocks base method
+func (m *MockChainContext) LatestConsensusView() (*types.Committee, *types.Header) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestConsensusView")
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[0].(*types.Header)
+	return ret0, ret1
+}
+
+// LatestConsensusView indicates an expected call of LatestConsensusView
+func (mr *MockChainContextMockRecorder) LatestConsensusView() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestConsensusView", reflect.TypeOf((*MockChainContext)(nil).LatestConsensusView))
+}
+
+// CommitteeOfHeight mocks base method
+func (m *MockChainContext) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeOfHeight", number)
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitteeOfHeight indicates an expected call of CommitteeOfHeight
+func (mr *MockChainContextMockRecorder) CommitteeOfHeight(number interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainContext)(nil).CommitteeOfHeight), number)
+}

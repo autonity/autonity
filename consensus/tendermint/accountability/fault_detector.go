@@ -3,7 +3,6 @@ package accountability
 import (
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"sort"
@@ -305,20 +304,20 @@ loop:
 			}
 
 			h := decodedProof.Message.H()
-			lastHeader := fd.blockchain.GetHeaderByNumber(h - 1)
-			if lastHeader == nil {
-				fd.logger.Error("Can't get header", "header", h-1)
+			committee, err := fd.blockchain.CommitteeOfHeight(h)
+			if err != nil {
+				fd.logger.Error("Can't get committee from chain", "height", h)
 				break
 			}
 
 			// The signatures must be valid at this stage, however we have to recover the original
 			// senders, hence the following call.
-			if err = verifyProofSignatures(lastHeader, decodedProof); err != nil {
+			if err = verifyProofSignatures(committee, decodedProof); err != nil {
 				fd.logger.Error("Can't verify proof signatures", "err", err)
 				break
 			}
 
-			innocenceProof, err := fd.innocenceProof(decodedProof, lastHeader.Committee)
+			innocenceProof, err := fd.innocenceProof(decodedProof, committee)
 			if err == nil && innocenceProof != nil {
 				// send on chain innocence proof ASAP since the client is on challenge that requires the proof to be
 				// provided before the client get slashed.
@@ -354,18 +353,17 @@ loop:
 // todo(youssef): this needs to be thoroughly verified accounting for edge cases scenarios at
 // the epoch limit. Also the contract side enforcement is missing.
 func (fd *FaultDetector) canReport(height uint64) bool {
-	hdr := fd.blockchain.GetHeaderByNumber(height - 1)
-	if hdr == nil {
+	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	if err != nil {
 		panic("must not happen, height:" + strconv.Itoa(int(height)))
 	}
-	committee := hdr.Committee
 
 	// each reporting slot contains reportingSlotPeriod block period that a unique and deterministic validator is asked to
 	// be the reporter of that slot period, then at the end block of that slot, the reporter reports
 	// available events. Thus, between each reporting slot, we have 5 block period to wait for
 	// accountability events to be mined by network, and it is also disaster friendly that if the last
 	// reporter fails, the next reporter will continue to report missing events.
-	reporterIndex := (height / reportingSlotPeriod) % uint64(len(committee))
+	reporterIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
 
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
@@ -373,7 +371,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 		return false
 	}
 	// todo(youssef): this seems like a non-committee member can't send a proof/ do we want that?
-	return committee[reporterIndex].Address == fd.address
+	return committee.Members[reporterIndex].Address == fd.address
 }
 
 func (fd *FaultDetector) Stop() {
@@ -411,7 +409,7 @@ func (fd *FaultDetector) eventFromProof(p *Proof, offender common.Address) *auto
 
 // getInnocentProof is called by client who is on a challenge with a certain accusation, to get innocent proof from msg
 // store.
-func (fd *FaultDetector) innocenceProof(p *Proof, committee types.Committee) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProof(p *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
 	// the protocol contains below provable accusations.
 	switch p.Rule {
 	case autonity.PO:
@@ -437,11 +435,11 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 	height := precommit.H()
 
 	// compute quorum
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
-		return nil, errNoParentHeader
+	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	if err != nil {
+		return nil, err
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
+	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V
 	if fd.msgStore.PrevotesPowerFor(height, precommit.R(), precommit.Value()).Cmp(quorum) < 0 {
@@ -464,7 +462,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 		Message:       precommit,
 		Evidences:     evidences,
 		OffenderIndex: c.OffenderIndex,
-	}, lastHeader.Committee[c.OffenderIndex].Address)
+	}, committee.Members[c.OffenderIndex].Address)
 	return p, nil
 }
 
@@ -477,11 +475,11 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 	validRound := liteProposal.(*message.LightProposal).ValidRound()
 
 	// compute quorum
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
-		return nil, errNoParentHeader
+	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	if err != nil {
+		return nil, err
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
+	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V at validRound
 	if fd.msgStore.PrevotesPowerFor(height, validRound, liteProposal.Value()).Cmp(quorum) < 0 {
@@ -504,12 +502,12 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 		Message:       liteProposal,
 		Evidences:     evidences,
 		OffenderIndex: c.OffenderIndex,
-	}, lastHeader.Committee[c.OffenderIndex].Address)
+	}, committee.Members[c.OffenderIndex].Address)
 	return p, nil
 }
 
 // get innocent proof of accusation of rule PVN from msg store.
-func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee types.Committee) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
 	// get innocent proofs for PVN, for a prevote that vote for a new value,
 	// then there must be a proposal for this new value.
 	prevote := c.Message
@@ -530,7 +528,7 @@ func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee types.Committee) 
 				message.NewLightProposal(proposals[0]),
 			},
 			OffenderIndex: c.OffenderIndex,
-		}, committee[c.OffenderIndex].Address)
+		}, committee.Members[c.OffenderIndex].Address)
 		return p, nil
 	}
 	return nil, errNoEvidenceForPVN
@@ -544,11 +542,11 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 	validRound := oldProposal.(*message.LightProposal).ValidRound()
 
 	// compute quorum
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
-		return nil, errNoParentHeader
+	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	if err != nil {
+		return nil, err
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
+	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V at validRound
 	if fd.msgStore.PrevotesPowerFor(height, validRound, oldProposal.Value()).Cmp(quorum) < 0 {
@@ -571,7 +569,7 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 		Message:       c.Message,
 		Evidences:     append(c.Evidences, evidences...),
 		OffenderIndex: c.OffenderIndex,
-	}, lastHeader.Committee[c.OffenderIndex].Address)
+	}, committee.Members[c.OffenderIndex].Address)
 	return p, nil
 }
 
@@ -606,20 +604,21 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 	if height <= fd.msgStore.FirstHeightBuffered() {
 		return nil
 	}
-	lastHeader := fd.blockchain.GetHeaderByNumber(height - 1)
-	if lastHeader == nil {
+
+	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	if err != nil {
 		// youssef: is that even possible?
 		return nil
 	}
-	quorum := bft.Quorum(lastHeader.TotalVotingPower())
-	proofs := fd.runRulesOverHeight(height, quorum, lastHeader.Committee)
+	quorum := bft.Quorum(committee.TotalVotingPower())
+	proofs := fd.runRulesOverHeight(height, quorum, committee)
 	events := make([]*autonity.AccountabilityEvent, 0, len(proofs))
 
 	// used to enforce max accusation per committee member per height
 	accused := make(map[common.Address]uint64)
 
 	for _, proof := range proofs {
-		offender := lastHeader.Committee[proof.OffenderIndex].Address
+		offender := committee.Members[proof.OffenderIndex].Address
 
 		// skip misbehaviour or accusation against self
 		if fd.address == offender {
@@ -631,7 +630,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 		if proof.Type == autonity.Accusation {
 			if accused[offender] < maxAccusationPerHeight {
 				fd.addOffChainAccusation(proof)
-				fd.sendOffChainAccusationMsg(proof, lastHeader.Committee)
+				fd.sendOffChainAccusationMsg(proof, committee)
 				accused[offender]++
 			} else {
 				fd.logger.Debug("Discarding accusation, maximum already reached for this height", "offender", offender)
@@ -639,14 +638,14 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 			continue
 		}
 
-		p := fd.eventFromProof(proof, lastHeader.Committee[proof.OffenderIndex].Address)
+		p := fd.eventFromProof(proof, committee.Members[proof.OffenderIndex].Address)
 		events = append(events, p)
 	}
 
 	return events
 }
 
-func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum *big.Int, committee types.Committee) (proofs []*Proof) {
+func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum *big.Int, committee *types.Committee) (proofs []*Proof) {
 	// Rules read right to left (find  the right and look for the left)
 	//
 	// Rules should be evaluated such that we check all possible instances and if we can't find a single instance that
@@ -822,7 +821,7 @@ oldProposalLoop:
 	return proofs
 }
 
-func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.Int, committee types.Committee) (proofs []*Proof) {
+func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.Int, committee *types.Committee) (proofs []*Proof) {
 	// ------------New and Old prevotes------------
 
 	prevotes := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -832,7 +831,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 	for _, prevote := range prevotes {
 	signersLoop:
 		for _, signerIndex := range prevote.Signers().FlattenUniq() {
-			signer := committee[signerIndex].Address
+			signer := committee.Members[signerIndex].Address
 			// Skip the prevotes that the signer addressed as equivocated
 			prevotesForR := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
 				return m.R() == prevote.R() && m.Signers().Contains(signerIndex) && m.Value() != prevote.Value()
@@ -1140,7 +1139,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 	return nil
 }
 
-func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *big.Int, committee types.Committee) (proofs []*Proof) {
+func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *big.Int, committee *types.Committee) (proofs []*Proof) {
 	// ------------precommits------------
 	// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
@@ -1152,7 +1151,7 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 	for _, precommit := range precommits {
 	signersLoop:
 		for _, signerIndex := range precommit.Signers().FlattenUniq() {
-			signer := committee[signerIndex].Address
+			signer := committee.Members[signerIndex].Address
 
 			// Skip if preCommit is equivocated
 			precommitsForR := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
@@ -1281,9 +1280,13 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 
 	// account for equivocation for votes.
 	var err error
-	lastHeader := fd.blockchain.GetHeaderByNumber(m.H() - 1)
+	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
+	if err != nil {
+		return err
+	}
+
 	for _, signerIndex := range m.Signers().FlattenUniq() {
-		signer := lastHeader.Committee[signerIndex].Address
+		signer := committee.Members[signerIndex].Address
 		equivocatedMessages := fd.msgStore.GetPrevotes(m.H(), func(msg *message.Prevote) bool {
 			return msg.R() == m.R() && msg.Signers().Contains(signerIndex) && msg.Value() != m.Value()
 		})
@@ -1309,9 +1312,12 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 
 	// account for equivocation for votes.
 	var err error
-	lastHeader := fd.blockchain.GetHeaderByNumber(m.H() - 1)
+	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
+	if err != nil {
+		return err
+	}
 	for _, signerIndex := range m.Signers().FlattenUniq() {
-		signer := lastHeader.Committee[signerIndex].Address
+		signer := committee.Members[signerIndex].Address
 		equivocatedMessages := fd.msgStore.GetPrecommits(m.H(), func(msg *message.Precommit) bool {
 			return msg.R() == m.R() && msg.Signers().Contains(signerIndex) && msg.Value() != m.Value()
 		})
@@ -1343,21 +1349,11 @@ func errorToRule(err error) autonity.Rule {
 // it would be better to use that function but it requires sharing the CommitteeSet between Core and the FD.
 // It would reduce code repetition, however the proposer cache is already shared so it would not improve performance.
 func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
-	parentHeader := chain.GetHeaderByNumber(h - 1)
-	// to prevent the panic on node shutdown.
-	if parentHeader == nil {
-		return common.Address{}, fmt.Errorf("cannot find parent header")
-	}
-	statedb, err := chain.State()
+	committee, err := chain.CommitteeOfHeight(h)
 	if err != nil {
-		log.Crit("could not retrieve state")
 		return common.Address{}, err
 	}
-	proposer := chain.ProtocolContracts().Proposer(parentHeader, statedb, parentHeader.Number.Uint64(), r)
-	member := parentHeader.CommitteeMember(proposer)
-	if member == nil {
-		return common.Address{}, fmt.Errorf("cannot find correct proposer")
-	}
+	proposer := chain.ProtocolContracts().Proposer(committee, nil, h-1, r)
 	return proposer, nil
 }
 

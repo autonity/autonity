@@ -32,11 +32,12 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		MixDigest         common.Hash        `json:"mixHash"`
 		Nonce             BlockNonce         `json:"nonce"`
 		BaseFee           *hexutil.Big       `json:"baseFeePerGas"`
-		Committee         Committee          `json:"committee"           gencodec:"required"`
+		Committee         *Committee         `json:"committee"           gencodec:"required"`
 		ProposerSeal      hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             hexutil.Uint64     `json:"round"               gencodec:"required"`
-		QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+		QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
 		Hash              common.Hash        `json:"hash"`
+		LastEpochBlock    *hexutil.Big           `json:"lastEpochBlock" gencodec:"required"`
 	}
 	var enc Header
 	enc.ParentHash = h.ParentHash
@@ -60,6 +61,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.Round = hexutil.Uint64(h.Round)
 	enc.QuorumCertificate = h.QuorumCertificate
 	enc.Hash = h.Hash()
+	enc.LastEpochBlock = (*hexutil.Big)(h.LastEpochBlock)
 	return json.Marshal(&enc)
 }
 
@@ -85,7 +87,8 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Committee         *Committee          `json:"committee"           gencodec:"required"`
 		ProposerSeal      *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             *hexutil.Uint64     `json:"round"               gencodec:"required"`
-		QuorumCertificate *AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+		QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		LastEpochBlock    *hexutil.Big        `json:"lastEpochBlock"      gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -155,7 +158,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if dec.Committee == nil {
 		return errors.New("missing required field 'committee' for Header")
 	}
-	h.Committee = *dec.Committee
+	h.Committee = dec.Committee
 	if dec.ProposerSeal == nil {
 		return errors.New("missing required field 'proposerSeal' for Header")
 	}
@@ -168,7 +171,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'quorumCertificate' for Header")
 	}
 	h.QuorumCertificate = *dec.QuorumCertificate
-
+	h.LastEpochBlock = (*big.Int)(dec.LastEpochBlock)
 	//TODO(lorenzo) Added this manually to make the e2e test work. Fix it properly.
 	if err := h.Committee.Enrich(); err != nil {
 		return err

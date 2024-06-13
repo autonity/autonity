@@ -2,8 +2,6 @@ package types
 
 import (
 	"errors"
-	"strings"
-
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/autonity/autonity/crypto"
@@ -112,28 +110,4 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 	}
 	h.QuorumCertificate = quorumCertificate.Copy()
 	return nil
-}
-
-func (c Committee) String() string {
-	var ret string
-	for _, val := range c {
-		ret += "[" + val.Address.String() + " - " + val.VotingPower.String() + " - " + val.ConsensusKey.Hex() + "] " //nolint
-	}
-	return ret
-}
-
-func (c Committee) Len() int {
-	return len(c)
-}
-
-func (c Committee) Less(i, j int) bool {
-	return strings.Compare(c[i].String(), c[j].String()) < 0
-}
-
-func (c Committee) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-
-func (m CommitteeMember) String() string {
-	return m.Address.String()
 }

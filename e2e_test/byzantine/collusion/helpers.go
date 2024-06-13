@@ -12,7 +12,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
 )
@@ -37,7 +36,6 @@ type faultyBroadcaster interface {
 	Height() *big.Int
 	Backend() interfaces.Backend
 	Address() common.Address
-	LastHeader() *types.Header
 }
 
 // configurations for different testcases
@@ -117,12 +115,11 @@ func initCollusion(vals []*gengen.Validator, rule autonity.Rule, planer collusio
 
 func validProposer(address common.Address, h uint64, r int64, core faultyBroadcaster) bool {
 	contract := core.Backend().BlockChain().ProtocolContracts()
-	db := core.Backend().BlockChain().StateCache()
-	statedb, err := state.New(core.LastHeader().Root, db, nil)
+	committee, err := core.Backend().BlockChain().CommitteeOfHeight(h)
 	if err != nil {
-		panic("cannot load state from block chain.")
+		panic(err)
 	}
-	return address == contract.Proposer(core.LastHeader(), statedb, h, r)
+	return address == contract.Proposer(committee, nil, h-1, r)
 }
 
 func sendPrevote(c *core.Core, rule autonity.Rule) {
@@ -133,11 +130,11 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 	}
 
 	// send prevote for the planned invalid proposal.
-	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
-	if header == nil {
-		panic("cannot fetch header")
+	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	if err != nil {
+		panic(err)
 	}
-	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
+	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, committee.CommitteeMember(c.Address()), committee.Len())
 	c.SetSentPrevote(true)
 	c.BroadcastAll(vote)
 }
@@ -162,11 +159,11 @@ func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
 	}
 
 	// send invalid proposal with the planed data.
-	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
-	if header == nil {
-		panic("cannot fetch header")
+	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	if err != nil {
+		panic(err)
 	}
-	p := message.NewPropose(r, h, vr, v, c.Backend().Sign, header.CommitteeMember(c.Address()))
+	p := message.NewPropose(r, h, vr, v, c.Backend().Sign, committee.CommitteeMember(c.Address()))
 	c.BroadcastAll(p)
 }
 

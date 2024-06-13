@@ -48,8 +48,8 @@ var (
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
 
-func headerAndBlsKeys(committeeSize int) (*types.Header, []blst.SecretKey) {
-	validators := make(types.Committee, committeeSize)
+func committeeAndBlsKeys(committeeSize int) (*types.Committee, []blst.SecretKey) {
+	committee := new(types.Committee)
 	secretKeys := make([]blst.SecretKey, committeeSize)
 
 	for i := 0; i < committeeSize; i++ {
@@ -63,14 +63,10 @@ func headerAndBlsKeys(committeeSize int) (*types.Header, []blst.SecretKey) {
 			ConsensusKey:      secretKey.PublicKey(),
 			Index:             uint64(i),
 		}
-		validators[i] = committeeMember
+		committee.Members = append(committee.Members, committeeMember)
 	}
 
-	header := &types.Header{
-		Number:    new(big.Int).SetUint64(7),
-		Committee: validators,
-	}
-	return header, secretKeys
+	return committee, secretKeys
 }
 
 func makeSigner(key blst.SecretKey) message.Signer {
@@ -83,12 +79,11 @@ func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// We are testing for a Quorum Q of peers to be asked for sync.
-	header, _ := headerAndBlsKeys(7) // N=7, F=2, Q=5
-	validators := header.Committee
-	addresses := make([]common.Address, 0, len(validators))
+	committee, _ := committeeAndBlsKeys(7) // N=7, F=2, Q=5
+	addresses := make([]common.Address, 0, committee.Len())
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
-	for _, val := range validators {
+	for _, val := range committee.Members {
 		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
@@ -109,7 +104,7 @@ func TestAskSync(t *testing.T) {
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
-	b.AskSync(header)
+	b.AskSync(committee)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 5 {
 		t.Fatalf("ask sync message transmission failure")
@@ -120,8 +115,8 @@ func BenchmarkGossip(b *testing.B) {
 	ctrl := gomock.NewController(b)
 	defer ctrl.Finish()
 
-	header, _ := headerAndBlsKeys(10)
-	validators := header.Committee
+	committee, _ := committeeAndBlsKeys(10)
+
 	msgs := make([]*message.Prevote, 0)
 	for i := 0; i < 1000; i++ {
 		b := [32]byte{}
@@ -131,7 +126,7 @@ func BenchmarkGossip(b *testing.B) {
 	}
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	for _, val := range validators {
+	for _, val := range committee.Members {
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).AnyTimes()
 		broadcaster.EXPECT().FindPeer(val.Address).Return(mockedPeer, true).AnyTimes()
@@ -150,14 +145,14 @@ func BenchmarkGossip(b *testing.B) {
 	for n := 0; n < 1000; n++ {
 		i := n % 1000
 		//n := time.Now()
-		bk.Gossip(validators, msgs[i])
+		bk.Gossip(committee, msgs[i])
 		//b.Log("time in 1 gossip", time.Since(n).Nanoseconds())
 	}
 	b.Run("cache checks", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
 			i := n % 1000
-			bk.Gossip(validators, msgs[i])
+			bk.Gossip(committee, msgs[i])
 		}
 	})
 }
@@ -167,15 +162,14 @@ func TestGossip(t *testing.T) {
 	defer ctrl.Finish()
 
 	csize := 5
-	header, blsKeys := headerAndBlsKeys(csize)
-	validators := header.Committee
-	msg := message.NewPrevote(1, 1, common.Hash{}, makeSigner(blsKeys[0]), &validators[0], 5)
+	committee, blsKeys := committeeAndBlsKeys(csize)
+	msg := message.NewPrevote(1, 1, common.Hash{}, makeSigner(blsKeys[0]), &committee.Members[0], 5)
 
-	addresses := make([]common.Address, 0, len(validators))
+	addresses := make([]common.Address, 0, committee.Len())
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	for i, val := range validators {
+	for i, val := range committee.Members {
 		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
@@ -205,7 +199,7 @@ func TestGossip(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	b.Gossip(validators, msg)
+	b.Gossip(committee, msg)
 	<-time.NewTimer(2 * time.Second).C
 	if c := atomic.LoadUint64(&counter); c != 4 {
 		t.Fatal("Gossip message transmission failure", "have", c, "want", 4)
@@ -215,6 +209,8 @@ func TestGossip(t *testing.T) {
 func TestVerifyProposal(t *testing.T) {
 	blockchain, backend := newBlockChain(1)
 	blocks := make([]*types.Block, 5)
+	committee, err := blockchain.CommitteeOfHeight(0)
+	require.NoError(t, err)
 
 	for i := range blocks {
 		var parent *types.Block
@@ -243,9 +239,9 @@ func TestVerifyProposal(t *testing.T) {
 		// Append quorum certificate into extra-data
 		quorumCertificate := types.AggregateSignature{
 			Signature: committedSeal.(*blst.BlsSignature),
-			Signers:   types.NewSigners(len(parent.Header().Committee)),
+			Signers:   types.NewSigners(committee.Len()),
 		}
-		quorumCertificate.Signers.Increment(&parent.Header().Committee[0])
+		quorumCertificate.Signers.Increment(&committee.Members[0])
 		header := block.Header()
 		if err := types.WriteQuorumCertificate(header, quorumCertificate); err != nil {
 			t.Fatalf("could not write quorum certificate %d, err=%s", i, err)
@@ -294,13 +290,15 @@ func TestSign(t *testing.T) {
 func TestCommit(t *testing.T) {
 	t.Run("Broadcaster is not set", func(t *testing.T) {
 		chain, backend := newBlockChain(4)
+		committee, err := chain.CommitteeOfHeight(0)
+		require.NoError(t, err)
 
 		commitCh := make(chan *types.Block, 1)
 		backend.SetResultChan(commitCh)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
-		quorumCertificate.Signers.Increment(&chain.Genesis().Header().Committee[0])
+		quorumCertificate.Signers.Increment(&committee.Members[0])
 
 		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 		testCases := []struct {
@@ -367,6 +365,8 @@ func TestCommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		chain, engine := newBlockChain(1)
+		committee, err := chain.CommitteeOfHeight(0)
+		require.NoError(t, err)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		if err != nil {
 			t.Fatal(err)
@@ -392,7 +392,7 @@ func TestCommit(t *testing.T) {
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
-		quorumCertificate.Signers.Increment(&chain.Genesis().Header().Committee[0])
+		quorumCertificate.Signers.Increment(&committee.Members[0])
 
 		err = b.Commit(newBlock, 0, quorumCertificate)
 		if err != nil {

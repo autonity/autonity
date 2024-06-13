@@ -342,26 +342,28 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
 		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
-	genesisCommittee, err := evmContracts.AutonityContract.Committee(nil, statedb)
+	committee, err := evmContracts.AutonityContract.Committee(nil, statedb)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}
+
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
-		Number:     new(big.Int).SetUint64(g.Number),
-		Nonce:      types.EncodeNonce(g.Nonce),
-		Time:       g.Timestamp,
-		ParentHash: g.ParentHash,
-		Extra:      g.ExtraData,
-		GasLimit:   g.GasLimit,
-		GasUsed:    g.GasUsed,
-		BaseFee:    g.BaseFee,
-		Difficulty: g.Difficulty,
-		MixDigest:  g.Mixhash,
-		Coinbase:   g.Coinbase,
-		Root:       root,
-		Round:      0,
-		Committee:  genesisCommittee,
+		Number:         new(big.Int).SetUint64(g.Number),
+		Nonce:          types.EncodeNonce(g.Nonce),
+		Time:           g.Timestamp,
+		ParentHash:     g.ParentHash,
+		Extra:          g.ExtraData,
+		GasLimit:       g.GasLimit,
+		GasUsed:        g.GasUsed,
+		BaseFee:        g.BaseFee,
+		Difficulty:     g.Difficulty,
+		MixDigest:      g.Mixhash,
+		Coinbase:       g.Coinbase,
+		Root:           root,
+		Round:          0,
+		Committee:      committee,
+		LastEpochBlock: common.Big0,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit

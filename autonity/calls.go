@@ -560,16 +560,16 @@ func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *type
 	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
-func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) ([]types.CommitteeMember, error) {
-	var committee types.Committee
-	if err := c.AutonityContractCall(state, header, "getCommittee", &committee); err != nil {
+func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) (*types.Committee, error) {
+	var committeeMembers []types.CommitteeMember
+	if err := c.AutonityContractCall(state, header, "getCommittee", &committeeMembers); err != nil {
 		return nil, err
 	}
-
+	committee := &types.Committee{}
+	committee.Members = committeeMembers
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
 	}
-
 	return committee, nil
 }
 
@@ -591,18 +591,27 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 	return epochPeriod, nil
 }
 
-func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, types.Committee, error) {
+func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Committee, *big.Int, error) {
 	var updateReady bool
-	var committee types.Committee
-	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}); err != nil {
-		return false, nil, err
+	var committeeMembers []types.CommitteeMember
+	lastEpochBlock := new(big.Int)
+	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committeeMembers, &lastEpochBlock}); err != nil {
+		return false, nil, nil, err
 	}
 
+	// no shuffling on committee, return without committee.
+	committee := &types.Committee{}
+	if len(committeeMembers) == 0 {
+		return updateReady, committee, lastEpochBlock, nil
+	}
+
+	// on epoch rotation, return with new committee.
+	committee.Members = committeeMembers
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error())
 	}
 
-	return updateReady, committee, nil
+	return updateReady, committee, lastEpochBlock, nil
 }
 
 func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.Header) ([]byte, string, error) {

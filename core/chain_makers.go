@@ -26,7 +26,6 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/params"
 )
@@ -223,19 +222,20 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	var committee types.Committee
+	var committee *types.Committee
 	if config.AutonityContractConfig != nil {
 		validators := config.AutonityContractConfig.Validators
-		committee = make(types.Committee, len(validators))
+		committee = &types.Committee{Members: make([]types.CommitteeMember, len(validators))}
 		for i, val := range validators {
-			consensusKey, _ := blst.PublicKeyFromBytes(val.ConsensusKey)
-			committee[i] = types.CommitteeMember{
+			committee.Members[i] = types.CommitteeMember{
 				Address:           *val.NodeAddress,
 				VotingPower:       val.BondedStake,
 				ConsensusKeyBytes: val.ConsensusKey,
-				ConsensusKey:      consensusKey,
-				Index:             uint64(i),
 			}
+		}
+		committee.Sort()
+		if err := committee.Enrich(); err != nil {
+			panic(fmt.Sprintf("GenerateChain failed to setup committee error: %v", err))
 		}
 	}
 
@@ -358,7 +358,7 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 
 type fakeChainReader struct {
 	config    *params.ChainConfig
-	committee types.Committee
+	committee *types.Committee
 }
 
 // Config returns the chain configuration.
@@ -380,4 +380,10 @@ func (cr *fakeChainReader) Engine() consensus.Engine                            
 func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int          { return nil }
 func (cr *fakeChainReader) MinBaseFee() *big.Int {
 	return big.NewInt(0)
+}
+func (cr *fakeChainReader) CommitteeOfHeight(_ uint64) (*types.Committee, error) {
+	return nil, nil
+}
+func (cr *fakeChainReader) LatestConsensusView() (*types.Committee, *types.Header) {
+	return nil, nil
 }

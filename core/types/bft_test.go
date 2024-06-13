@@ -30,7 +30,7 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0xebec6824a0f6a3870d987f61c23909c0e0248b4fbc46ef64457a7011fd761a61")
+	posHeaderHash := common.HexToHash("0x67bef6fc714ae6eeda726447c857bfe5b72b7e4345e8df841d85e9dc44aa964d")
 
 	quorumCertificate := AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
@@ -69,7 +69,7 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				Committee: Committee{
+				Committee: &Committee{Members: []CommitteeMember{
 					{
 						Address:           common.HexToAddress("0x1234566"),
 						VotingPower:       new(big.Int).SetUint64(12),
@@ -83,14 +83,15 @@ func TestHeaderHash(t *testing.T) {
 						ConsensusKey:      testKey.PublicKey(),
 					},
 				},
+				},
 			}),
-			common.HexToHash("0xe81df587da3150a831fa0f13f9386ef3abd962f880251e65963547dbba84a703"),
+			common.HexToHash("0xefbcd3ff1a5280b766875b7a2314eeb27e5284555c66dbf8e4205652589f1669"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0xebec6824a0f6a3870d987f61c23909c0e0248b4fbc46ef64457a7011fd761a61"),
+			common.HexToHash("0x67bef6fc714ae6eeda726447c857bfe5b72b7e4345e8df841d85e9dc44aa964d"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{

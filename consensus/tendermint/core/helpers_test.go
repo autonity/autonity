@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 	"math/rand"
-	"sort"
 	"testing"
 	"time"
 
@@ -41,7 +40,6 @@ var (
 		VotingPower:       common.Big1,
 		Index:             0,
 	}
-	testCommittee = types.Committee{*testCommitteeMember}
 )
 
 func makeSigner(key blst.SecretKey) message.Signer {
@@ -79,8 +77,8 @@ type Keys struct {
 	node      *ecdsa.PrivateKey
 }
 
-func GenerateCommittee(n int) (types.Committee, AddressKeyMap) {
-	validators := make(types.Committee, 0)
+func GenerateCommittee(n int) (*types.Committee, AddressKeyMap) {
+	committee := new(types.Committee)
 	keymap := make(AddressKeyMap)
 	for i := 0; i < n; i++ {
 		privateKey, _ := crypto.GenerateKey()
@@ -91,26 +89,26 @@ func GenerateCommittee(n int) (types.Committee, AddressKeyMap) {
 			ConsensusKey:      consensusKey.PublicKey(),
 			ConsensusKeyBytes: consensusKey.PublicKey().Marshal(),
 		}
-		validators = append(validators, committeeMember)
+		committee.Members = append(committee.Members, committeeMember)
 		keymap[committeeMember.Address] = Keys{consensus: consensusKey, node: privateKey}
 	}
-	sort.Sort(validators)
+	committee.Sort()
 	// assign indexes
 	for i := 0; i < n; i++ {
-		validators[i].Index = uint64(i)
+		committee.Members[i].Index = uint64(i)
 	}
-	return validators, keymap
+	return committee, keymap
 }
 
 func NewTestCommitteeSet(n int) interfaces.Committee {
 	validators, _ := GenerateCommittee(n)
-	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators[0].Address)
+	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators.Members[0].Address)
 	return set
 }
 
 func NewTestCommitteeSetWithKeys(n int) (interfaces.Committee, AddressKeyMap) {
 	validators, keyMap := GenerateCommittee(n)
-	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators[0].Address)
+	set, _ := tdmcommittee.NewRoundRobinSet(validators, validators.Members[0].Address)
 	return set, keyMap
 }
 
@@ -141,8 +139,8 @@ func randomProposal(t *testing.T) *message.Propose {
 
 // Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
 func prepareCommittee(t *testing.T, cSize int) (interfaces.Committee, AddressKeyMap) {
-	committeeMembers, privateKeys := GenerateCommittee(cSize)
-	committeeSet, err := tdmcommittee.NewRoundRobinSet(committeeMembers, committeeMembers[len(committeeMembers)-1].Address)
+	committee, privateKeys := GenerateCommittee(cSize)
+	committeeSet, err := tdmcommittee.NewRoundRobinSet(committee, committee.Members[committee.Len()-1].Address)
 	assert.NoError(t, err)
 	return committeeSet, privateKeys
 }

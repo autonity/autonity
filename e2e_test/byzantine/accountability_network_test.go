@@ -171,7 +171,7 @@ func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 
 	committee := s.Core.CommitteeSet().Committee()
 
-	for _, c := range committee {
+	for _, c := range committee.Members {
 		if c.Address == s.Address() {
 			continue
 		}
@@ -216,23 +216,22 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 	if !ok {
 		panic("cannot simulate duplicated off chain accusation")
 	}
-	header := backEnd.BlockChain().GetHeaderByNumber(msg.H() - 2)
-	if header == nil {
-		panic("cannot fetch parent header")
+	committee, err := backEnd.BlockChain().CommitteeOfHeight(msg.H())
+	if err != nil {
+		panic(err)
 	}
 
-	self := int(header.CommitteeMember(s.Address()).Index)
-
+	self := committee.CommitteeMember(s.Address()).Index
 	preVotes := backEnd.MsgStore.GetPrevotes(msg.H()-1, func(m *message.Prevote) bool {
 		return true
 	})
 
 	for _, pv := range preVotes {
 		for _, signerIndex := range pv.Signers().FlattenUniq() {
-			if signerIndex == self {
+			if uint64(signerIndex) == self {
 				continue
 			}
-			peer, ok := backEnd.Broadcaster.FindPeer(header.Committee[signerIndex].Address)
+			peer, ok := backEnd.Broadcaster.FindPeer(committee.Members[signerIndex].Address)
 			if ok {
 				accusation := &accountability.Proof{
 					Type:          autonity.Accusation,
@@ -274,20 +273,21 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 
 	// collect some out of updated consensus msg
 	for h := uint64(2); h <= msg.H(); h++ {
-		header := backEnd.BlockChain().GetHeaderByNumber(h - 1)
-		if header == nil {
-			panic("cannot fetch parent header")
+		committee, err := backEnd.BlockChain().CommitteeOfHeight(h)
+		if err != nil {
+			panic(err)
 		}
-		self := int(header.CommitteeMember(s.Address()).Index)
+
+		self := committee.CommitteeMember(s.Address()).Index
 		preVotes := backEnd.MsgStore.GetPrevotes(h, func(m *message.Prevote) bool {
 			return true
 		})
 		for _, pv := range preVotes {
 			for _, signerIndex := range pv.Signers().FlattenUniq() {
-				if signerIndex == self {
+				if uint64(signerIndex) == self {
 					continue
 				}
-				peer, ok := backEnd.Broadcaster.FindPeer(header.Committee[signerIndex].Address)
+				peer, ok := backEnd.Broadcaster.FindPeer(committee.Members[signerIndex].Address)
 				if ok {
 					accusation := &accountability.Proof{
 						Type:          autonity.Accusation,

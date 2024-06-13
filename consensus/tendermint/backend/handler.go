@@ -179,14 +179,14 @@ func handleConsensusMsg[T any, PT interface {
 }
 
 func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender common.Address) (bool, error) {
-	header := sb.BlockChain().GetHeaderByNumber(msg.H() - 1)
-	if header == nil {
-		// since this is not a future message, we should always have the header of the parent block.
-		sb.logger.Crit("Missing parent header for non-future consensus message", "height", msg.H())
+	committee, err := sb.BlockChain().CommitteeOfHeight(msg.H())
+	if err != nil {
+		// since this is not a future message, we should always have the committee of the height.
+		sb.logger.Crit("Missing committee for non-future consensus message", "height", msg.H())
 	}
 
 	// assign power and bls signer key
-	if err := msg.PreValidate(header); err != nil {
+	if err := msg.PreValidate(committee); err != nil {
 		return true, err
 	}
 
@@ -204,7 +204,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
 		for _, signerIndex := range vote.Signers().FlattenUniq() {
-			signer := header.Committee[signerIndex].Address
+			signer := committee.Members[signerIndex].Address
 			if sb.IsJailed(signer) {
 				sb.logger.Debug("Vote message contains signature from jailed validator, ignoring message", "address", signer)
 				// same

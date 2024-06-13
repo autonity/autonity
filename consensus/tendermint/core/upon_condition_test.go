@@ -28,10 +28,10 @@ const timeoutDuration, sleepDuration = 1 * time.Microsecond, 1 * time.Millisecon
 var testSender = common.HexToAddress("0x8605cdbbdb6d264aa742e77020dcbc58fcdce182")
 
 var signer = func(e *ConsensusENV, index int64) message.Signer {
-	return makeSigner(e.keys[e.committee.Committee()[index].Address].consensus)
+	return makeSigner(e.keys[e.committee.Committee().Members[index].Address].consensus)
 }
 var member = func(e *ConsensusENV, index int64) *types.CommitteeMember {
-	return &e.committee.Committee()[index]
+	return &e.committee.Committee().Members[index]
 }
 
 // The following tests aim to test lines 1 - 21 & 57 - 60 of Tendermint Algorithm described on page 6 of
@@ -158,7 +158,7 @@ func TestStartRound(t *testing.T) {
 	t.Run("client is not the proposer", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
 			clientIndex := e.committeeSize - 1
-			e.clientAddress = e.committee.Committee()[clientIndex].Address
+			e.clientAddress = e.committee.Committee().Members[clientIndex].Address
 			e.clientKey = e.keys[e.clientAddress].consensus
 			e.clientSigner = signer(e, int64(clientIndex))
 			e.clientMember = member(e, int64(clientIndex))
@@ -516,7 +516,7 @@ func TestOldProposal(t *testing.T) {
 	t.Run("handle proposal before full quorum prevote on valid round is satisfied, exe action by applying old round prevote into round state", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
 			clientIndex := e.committeeSize - 1
-			clientAddr := e.committee.Committee()[clientIndex].Address
+			clientAddr := e.committee.Committee().Members[clientIndex].Address
 			e.clientAddress = clientAddr
 			e.clientKey = e.keys[clientAddr].consensus
 			e.clientSigner = signer(e, int64(clientIndex))
@@ -1133,7 +1133,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	err := e.core.handleMsg(context.Background(), precommit)
 	assert.NoError(t, err)
 
-	newCommitteeSet, err := tdmcommittee.NewRoundRobinSet(e.committee.Committee(), e.committee.Committee()[e.curRound].Address)
+	newCommitteeSet, err := tdmcommittee.NewRoundRobinSet(e.committee.Committee(), e.committee.Committee().Members[e.curRound].Address)
 	e.core.committee = newCommitteeSet
 	assert.NoError(t, err)
 	backendMock.EXPECT().HeadBlock().Return(proposal.Block()).MaxTimes(2)
@@ -1234,7 +1234,7 @@ func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c interfaces.Commi
 	h := b.Header()
 	h.Committee = c.Committee()
 	hashData := types.SigHash(h)
-	signature, err := crypto.Sign(hashData[:], keys[c.Committee()[signerIndex].Address].node)
+	signature, err := crypto.Sign(hashData[:], keys[c.Committee().Members[signerIndex].Address].node)
 	require.NoError(t, err)
 	err = types.WriteSeal(h, signature)
 	require.NoError(t, err)
@@ -1291,8 +1291,8 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 
 	setCommitteeAndSealOnBlock(t, env.previousValue, env.committee, env.keys, 0)
 
-	env.clientAddress = env.committee.Committee()[0].Address
-	env.clientMember = &env.committee.Committee()[0]
+	env.clientAddress = env.committee.Committee().Members[0].Address
+	env.clientMember = &env.committee.Committee().Members[0]
 	env.clientKey = env.keys[env.clientAddress].consensus
 	env.clientSigner = makeSigner(env.clientKey)
 
@@ -1310,7 +1310,6 @@ func (e *ConsensusENV) setupCore(backend interfaces.Backend, address common.Addr
 	e.core = New(backend, nil, address, log.Root(), false)
 	e.core.setCommitteeSet(e.committee)
 	e.core.setHeight(e.curHeight)
-	e.core.setLastHeader(&types.Header{Committee: e.committee.Committee(), Number: new(big.Int).SetUint64(e.curHeight.Uint64() - 1)})
 	e.core.setRound(e.curRound)
 	e.core.SetValidRound(e.validRound)
 	e.core.SetLockedRound(e.lockedRound)

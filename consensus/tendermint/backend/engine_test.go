@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"errors"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"sync"
@@ -39,6 +40,8 @@ func TestPrepare(t *testing.T) {
 // TODO(lorenzo) I don't understand what this test is doing + it is not working because the eventLoop part never executes
 func TestSealCommittedOtherHash(t *testing.T) {
 	chain, engine := newBlockChain(4)
+	committee, err := chain.CommitteeOfHeight(0)
+	require.NoError(t, err)
 
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	if err != nil {
@@ -56,7 +59,7 @@ func TestSealCommittedOtherHash(t *testing.T) {
 			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
 		}
 		signers := types.NewSigners(4)
-		signers.Increment(&otherBlock.Header().Committee[0])
+		signers.Increment(&committee.Members[0])
 		err = engine.Commit(otherBlock, 0, types.AggregateSignature{Signature: new(blst.BlsSignature), Signers: signers})
 		if err != nil {
 			t.Error("commit should not return error", err.Error())

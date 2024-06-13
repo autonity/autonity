@@ -23,7 +23,6 @@ import (
 	"io"
 	"math/big"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -92,14 +91,12 @@ type Header struct {
 		PoS header fields, round & quorumCertificate not taken into account
 		for computing the sigHash.
 	*/
-	Committee Committee `json:"committee"           gencodec:"required"`
-	// used for committee member lookup, lazily initialised.
-	committeeMap map[common.Address]*CommitteeMember
-	// Used to ensure the committeeMap is created only once.
-	once              sync.Once
+	Committee         *Committee         `json:"committee"           gencodec:"required"`
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
 	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+	// Used for epoch head lookup as an indexing.
+	LastEpochBlock *big.Int `json:"lastEpochBlock"      gencodec:"required"`
 }
 
 type AggregateSignature struct {
@@ -116,38 +113,6 @@ func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) Aggre
 
 func (a AggregateSignature) Copy() AggregateSignature {
 	return AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
-}
-
-//go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
-
-type CommitteeMember struct {
-	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
-	VotingPower       *big.Int       `json:"votingPower"        gencodec:"required"`
-	ConsensusKeyBytes []byte         `json:"consensusKey"       gencodec:"required"       abi:"consensusKey"`
-	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
-	ConsensusKey blst.PublicKey `json:"-" rlp:"-"`
-	Index        uint64         `json:"-" rlp:"-"` // index of this committee member in the committee array
-}
-
-type committeeMemberMarshaling struct {
-	Address           common.Address
-	VotingPower       *hexutil.Big
-	ConsensusKeyBytes hexutil.Bytes
-}
-
-type Committee []CommitteeMember
-
-// Enrich adds some convenience information to the committee member structs
-func (c Committee) Enrich() error {
-	for i := range c {
-		consensusKey, err := blst.PublicKeyFromBytes(c[i].ConsensusKeyBytes)
-		if err != nil {
-			return fmt.Errorf("Error when decoding bls key: index %d, address: %v, err: %w", i, c[i].Address, err)
-		}
-		c[i].ConsensusKey = consensusKey
-		c[i].Index = uint64(i)
-	}
-	return nil
 }
 
 // originalHeader represents the ethereum blockchain header.
@@ -179,10 +144,11 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee         Committee          `json:"committee"           gencodec:"required"`
+	Committee         *Committee         `json:"committee"           gencodec:"required"`
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
 	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+	LastEpochBlock    *big.Int           `json:"lastEpochBlock" gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -202,8 +168,9 @@ type headerMarshaling struct {
 	/*
 		PoS header fields type overrides
 	*/
-	ProposerSeal hexutil.Bytes
-	Round        hexutil.Uint64
+	ProposerSeal   hexutil.Bytes
+	Round          hexutil.Uint64
+	LastEpochBlock *hexutil.Big
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -221,6 +188,10 @@ func (h *Header) Hash() common.Hash {
 	// If not using the BFT mixdigest then return the original ethereum block header hash, this
 	// let Autonity to remain compatible with original go-ethereum tests.
 	return rlpHash(h.original())
+}
+
+func (h *Header) IsEpochHeader() bool {
+	return h.Number.Cmp(h.LastEpochBlock) == 0
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -272,6 +243,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Committee = hExtra.Committee
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
+		h.LastEpochBlock = hExtra.LastEpochBlock
 
 		if err := h.Committee.Enrich(); err != nil {
 			return fmt.Errorf("Error while deserializing consensus keys: %w", err)
@@ -315,6 +287,7 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 		ProposerSeal:      h.ProposerSeal,
 		Round:             h.Round,
 		QuorumCertificate: h.QuorumCertificate,
+		LastEpochBlock:    h.LastEpochBlock,
 	}
 
 	original := h.original()
@@ -468,17 +441,10 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	/* PoS fields deep copy section*/
-	committee := make([]CommitteeMember, len(h.Committee))
-	for i, val := range h.Committee {
-		committee[i] = CommitteeMember{
-			Address:           val.Address,
-			VotingPower:       new(big.Int).Set(val.VotingPower),
-			ConsensusKeyBytes: append(val.ConsensusKeyBytes[:0:0], val.ConsensusKeyBytes...),
-			ConsensusKey:      val.ConsensusKey.Copy(),
-			Index:             val.Index,
-		}
+	committee := &Committee{}
+	if h.Committee != nil {
+		committee = h.Committee.Copy()
 	}
-
 	proposerSeal := make([]byte, 0)
 	if len(h.ProposerSeal) > 0 {
 		proposerSeal = make([]byte, len(h.ProposerSeal))
@@ -488,6 +454,11 @@ func CopyHeader(h *Header) *Header {
 	quorumCertificate := AggregateSignature{}
 	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Signers != nil {
 		quorumCertificate = h.QuorumCertificate.Copy()
+	}
+
+	lastEpochBlock := big.NewInt(0)
+	if h.LastEpochBlock != nil {
+		lastEpochBlock.Set(h.LastEpochBlock)
 	}
 
 	cpy := &Header{
@@ -511,6 +482,7 @@ func CopyHeader(h *Header) *Header {
 		BaseFee:           baseFee,
 		Round:             h.Round,
 		QuorumCertificate: quorumCertificate,
+		LastEpochBlock:    lastEpochBlock,
 	}
 	return cpy
 }
@@ -600,6 +572,8 @@ func (b *Block) Size() common.StorageSize {
 func (b *Block) SanityCheck() error {
 	return b.header.SanityCheck()
 }
+
+func (b *Block) IsEpochHead() bool { return b.header.IsEpochHeader() }
 
 type writeCounter common.StorageSize
 

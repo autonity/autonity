@@ -25,12 +25,18 @@ var (
 	offenderConsensusKey, _ = blst.RandKey()
 	offender                = crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
 	cm                      = types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
-	header                  = &types.Header{Committee: []types.CommitteeMember{cm}}
+	header                  = &types.Header{Committee: newCommittee()}
 	signer                  = func(hash common.Hash) blst.Signature {
 		return offenderConsensusKey.Sign(hash[:])
 	}
 	reporter = *params.TestAutonityContractConfig.Validators[0].NodeAddress
 )
+
+func newCommittee() *types.Committee {
+	c := new(types.Committee)
+	c.Members = append(c.Members, cm)
+	return c
+}
 
 func NewAccusationEvent(height uint64, value common.Hash) AccountabilityEvent {
 	prevote := message.NewPrevote(0, height, value, signer, &cm, 1)
@@ -79,7 +85,7 @@ func TestAccusation(t *testing.T) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 
 		chainMock.EXPECT().GetBlock(common.Hash{}, accusationHeight).Return(nil)
-
+		chainMock.EXPECT().CommitteeOfHeight(accusationHeight).Return(header.Committee, nil)
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
@@ -117,7 +123,7 @@ func TestAccusationTiming(t *testing.T) {
 
 	r.run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
-
+		chainMock.EXPECT().CommitteeOfHeight(accusationHeight).Return(header.Committee, nil)
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})
@@ -153,7 +159,7 @@ func TestAccusationTiming(t *testing.T) {
 	})
 	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
-
+		chainMock.EXPECT().CommitteeOfHeight(accusationHeight).Return(header.Committee, nil)
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})

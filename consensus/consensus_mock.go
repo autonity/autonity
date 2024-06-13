@@ -360,13 +360,14 @@ func (mr *MockEngineMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(types.Committee)
+	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(*big.Int)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Finalize indicates an expected call of Finalize.
@@ -644,13 +645,14 @@ func (mr *MockPoWMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(types.Committee)
+	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(*big.Int)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Finalize indicates an expected call of Finalize.
@@ -866,13 +868,14 @@ func (mr *MockBFTMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(types.Committee)
+	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(*big.Int)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Finalize indicates an expected call of Finalize.
@@ -1192,4 +1195,64 @@ func (m *MockPeer) SendRaw(msgcode uint64, data []byte) error {
 func (mr *MockPeerMockRecorder) SendRaw(msgcode, data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRaw", reflect.TypeOf((*MockPeer)(nil).SendRaw), msgcode, data)
+}
+
+// LatestConsensusView mocks base method
+func (m *MockChainHeaderReader) LatestConsensusView() (*types.Committee, *types.Header) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestConsensusView")
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(*types.Header)
+	return ret0, ret1
+}
+
+// LatestConsensusView indicates an expected call of LatestConsensusView
+func (mr *MockChainHeaderReaderMockRecorder) LatestConsensusView() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestConsensusView", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestConsensusView))
+}
+
+// CommitteeOfHeight mocks base method.
+func (m *MockChainHeaderReader) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeOfHeight", number)
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitteeOfHeight indicates an expected call of CommitteeOfHeight.
+func (mr *MockChainHeaderReaderMockRecorder) CommitteeOfHeight(number interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).CommitteeOfHeight), number)
+}
+
+// LatestConsensusView mocks base method
+func (m *MockChainReader) LatestConsensusView() (*types.Committee, *types.Header) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestConsensusView")
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(*types.Header)
+	return ret0, ret1
+}
+
+// LatestConsensusView indicates an expected call of LatestConsensusView
+func (mr *MockChainReaderMockRecorder) LatestConsensusView() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestConsensusView", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestConsensusView))
+}
+
+// CommitteeOfHeight mocks base method.
+func (m *MockChainReader) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeOfHeight", number)
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitteeOfHeight indicates an expected call of CommitteeOfHeight.
+func (mr *MockChainReaderMockRecorder) CommitteeOfHeight(number interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).CommitteeOfHeight), number)
 }

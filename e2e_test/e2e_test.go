@@ -816,24 +816,19 @@ func TestLargeNetwork(t *testing.T) {
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 	require.NoError(t, err)
 
-	getNetworkState := func() (height uint64, committee types.Committee) {
+	getNetworkState := func() (height uint64, committee *types.Committee) {
 		for _, n := range network {
 			nodeHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 			if nodeHeight > height {
 				height = nodeHeight
-				committee = n.Eth.BlockChain().CurrentHeader().Committee
+				committee, _ = n.Eth.BlockChain().LatestConsensusView()
 			}
 		}
 		return
 	}
 
-	inCommittee := func(address common.Address, committee types.Committee) bool {
-		for i := range committee {
-			if committee[i].Address == address {
-				return true
-			}
-		}
-		return false
+	inCommittee := func(address common.Address, committee *types.Committee) bool {
+		return committee.CommitteeMember(address) != nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)
