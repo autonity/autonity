@@ -38,9 +38,10 @@ import (
 )
 
 const (
-	headerCacheLimit = 512
-	tdCacheLimit     = 1024
-	numberCacheLimit = 2048
+	headerCacheLimit    = 512
+	tdCacheLimit        = 1024
+	numberCacheLimit    = 2048
+	committeeCacheLimit = 4096
 )
 
 // HeaderChain implements the basic block header chain logic that is shared by
@@ -64,9 +65,10 @@ type HeaderChain struct {
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
-	headerCache *lru.Cache // Cache for the most recent block headers
-	tdCache     *lru.Cache // Cache for the most recent block total difficulties
-	numberCache *lru.Cache // Cache for the most recent block numbers
+	headerCache    *lru.Cache // Cache for the most recent block headers
+	tdCache        *lru.Cache // Cache for the most recent block total difficulties
+	numberCache    *lru.Cache // Cache for the most recent block numbers
+	committeeCache *lru.Cache // Cache for the most recent height's committee
 
 	procInterrupt func() bool
 
@@ -80,6 +82,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
+	committeeCache, _ := lru.New(committeeCacheLimit)
 
 	// Seed a fast but crypto originating random generator
 	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
@@ -87,14 +90,15 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		return nil, err
 	}
 	hc := &HeaderChain{
-		config:        config,
-		chainDb:       chainDb,
-		headerCache:   headerCache,
-		tdCache:       tdCache,
-		numberCache:   numberCache,
-		procInterrupt: procInterrupt,
-		rand:          mrand.New(mrand.NewSource(seed.Int64())),
-		engine:        engine,
+		config:         config,
+		chainDb:        chainDb,
+		headerCache:    headerCache,
+		committeeCache: committeeCache,
+		tdCache:        tdCache,
+		numberCache:    numberCache,
+		procInterrupt:  procInterrupt,
+		rand:           mrand.New(mrand.NewSource(seed.Int64())),
+		engine:         engine,
 	}
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
 	if hc.genesisHeader == nil {
@@ -516,7 +520,12 @@ func (hc *HeaderChain) LatestConsensusView() (*types.Committee, *types.Header) {
 
 // CommitteeOfHeight retrieves the committee of a given block number.
 func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+	if committee, ok := hc.committeeCache.Get(number); ok {
+		return committee.(*types.Committee), nil
+	}
+
 	if number == 0 {
+		hc.committeeCache.Add(number, hc.genesisHeader.Committee)
 		return hc.genesisHeader.Committee, nil
 	}
 
@@ -526,11 +535,13 @@ func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error
 	}
 
 	if parent.IsGenesis() {
+		hc.committeeCache.Add(number, hc.genesisHeader.Committee)
 		return hc.genesisHeader.Committee, nil
 	}
 
 	// if parent is an epoch head, return its committee.
 	if parent.IsEpochHeader() {
+		hc.committeeCache.Add(number, parent.Committee)
 		return parent.Committee, nil
 	}
 
@@ -539,6 +550,7 @@ func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error
 	if epoch == nil {
 		return nil, consensus.ErrUnknownEpoch
 	}
+	hc.committeeCache.Add(number, epoch.Committee)
 	return epoch.Committee, nil
 }
 
