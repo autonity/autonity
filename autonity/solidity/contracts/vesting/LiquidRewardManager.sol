@@ -11,18 +11,27 @@ contract LiquidRewardManager {
     address private operator;
     Autonity private autonity;
 
+    /**
+     * @dev This structure tracks the activity to update rewards. Any activity like increase or decrease of liquid balances
+     * or claiming rewards require updating rewards before the activity is applied. This structure tracks those activities,
+     * when such activity is requested.
+     */
     struct RewardEvent {
         uint256 epochID;
         uint256 totalLiquid;
         uint256 stakingRequestID;
-        bool bonding;
+        bool isBonding;
         bool eventExist;
         bool applied;
     }
 
+    /**
+     * @dev Tracks rewards for each validator.
+     */
     struct RewardTracker {
         uint256 atnUnclaimedRewards;
         uint256 ntnUnclaimedRewards;
+        // offset by 1 to handle empty value
         uint256 lastUpdateEpochID;
         Liquid liquidContract;
         RewardEvent lastRewardEvent;
@@ -134,6 +143,7 @@ contract LiquidRewardManager {
         if (_balance == 0) {
             return 0;
         }
+        require(_lastUnrealisedFeeFactor >= _unrealisedFeeFactor, "invalid unrealised fee factor");
         return (_lastUnrealisedFeeFactor - _unrealisedFeeFactor) * _balance / FEE_FACTOR_UNIT_RECIP;
     }
 
@@ -147,10 +157,9 @@ contract LiquidRewardManager {
         require(_epochID > 0, "no rewards until first epoch finalized");
         _updateUnclaimedReward(_validator, _epochID-1);
         // because all the rewards are being claimed
-        // offset by 1
         _rewardTracker.atnUnclaimedRewards = 0;
         _rewardTracker.ntnUnclaimedRewards = 0;
-        _rewardTracker.liquidContract.claimRewards();
+        _liquidContract(_validator).claimRewards();
     }
 
     /**
@@ -168,7 +177,7 @@ contract LiquidRewardManager {
     function _claimRewards(uint256 _id, address _validator) internal returns (uint256 _atnFee, uint256 _ntnFee) {
         Account storage _account = accounts[_id][_validator];
         _claimRewards(_validator);
-        (_atnFee, _ntnFee) = _realiseFees(_id, _validator, _getEpochID());
+        (_atnFee, _ntnFee) = _realiseFees(_id, _validator, _getEpochID()-1);
         _account.atnRealisedFee = 0;
         _account.ntnRealisedFee = 0;
     }
@@ -239,30 +248,40 @@ contract LiquidRewardManager {
         delete validatorIdx[_id][_validator];
     }
 
+    function getPendingRewardEvent(address _validator) public view returns (RewardEvent memory) {
+        return rewardTracker[_validator].pendingRewardEvent;
+    }
+
+    function getLastRewardEvent(address _validator) public view returns (RewardEvent memory) {
+        return rewardTracker[_validator].lastRewardEvent;
+    }
+
     /**
      * @dev If pending rewrad event exists and if the event is not from current epoch, then the pending rewrad event
      * replaces the last reward event.
      */
-    function _updateLastRewardEvent(address _validator) internal {
+    function _updateLastRewardEvent(address _validator) private {
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
         RewardEvent storage _pending = _rewardTracker.pendingRewardEvent;
-        RewardEvent storage _last = _rewardTracker.lastRewardEvent;
         if (_pending.eventExist == true && _pending.epochID < _getEpochID()) {
-            require(_last.applied == true, "reward needs to be updated from last event before replacing");
-            _last = _pending;
+            RewardEvent storage _last = _rewardTracker.lastRewardEvent;
+            require(_last.eventExist == false || _last.applied == true, "last event needs to be applied before being replaced");
+            _rewardTracker.lastRewardEvent = _rewardTracker.pendingRewardEvent;
             _pending.eventExist = false;
         }
     }
 
-    function _newPendingRewardEvent(address _validator, uint256 _stakingRequestID, bool _bonding) internal {
-        _updateLastRewardEvent(_validator);
+    function _newPendingRewardEvent(address _validator, uint256 _stakingRequestID, bool _isBonding) internal {
         // if there is already a pending event, replacing it is fine
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
+        if (_rewardTracker.lastRewardEvent.eventExist == true) {
+            _updateUnclaimedReward(_validator, _rewardTracker.lastRewardEvent.epochID);
+        }
         _rewardTracker.pendingRewardEvent = RewardEvent(
             _getEpochID(),
-            _rewardTracker.liquidContract.balanceOf(address(this)),
+            _liquidContract(_validator).balanceOf(address(this)),
             _stakingRequestID,
-            _bonding,
+            _isBonding,
             true,
             false
         );
@@ -270,8 +289,9 @@ contract LiquidRewardManager {
 
     function _updatePendingEvent(address _validator) internal {
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
-        if (_rewardTracker.pendingRewardEvent.eventExist == true) {
-            _rewardTracker.pendingRewardEvent.totalLiquid = _rewardTracker.liquidContract.balanceOf(address(this));
+        RewardEvent storage _pending = _rewardTracker.pendingRewardEvent;
+        if (_pending.eventExist == true && _pending.epochID == _getEpochID()) {
+            _pending.totalLiquid = _liquidContract(_validator).balanceOf(address(this));
         }
     }
 
@@ -283,15 +303,30 @@ contract LiquidRewardManager {
         uint256 _totalLiquid
     ) private {
         mapping(uint256 => uint256) storage _lastUnrealisedFeeFactor =_rewardTracker.atnLastUnrealisedFeeFactor;
-        _lastUnrealisedFeeFactor[_epochID] = _lastUnrealisedFeeFactor[_rewardTracker.lastUpdateEpochID]
-                                            + (_atnReward-_rewardTracker.atnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+
+        if (_rewardTracker.lastUpdateEpochID > 0) {
+            _lastUnrealisedFeeFactor[_epochID] = _lastUnrealisedFeeFactor[_rewardTracker.lastUpdateEpochID-1];
+        }
+
+        if (_totalLiquid > 0) {
+            _lastUnrealisedFeeFactor[_epochID] += (_atnReward-_rewardTracker.atnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+        }
+
         _rewardTracker.atnUnclaimedRewards = _atnReward;
 
         _lastUnrealisedFeeFactor =_rewardTracker.ntnLastUnrealisedFeeFactor;
-        _lastUnrealisedFeeFactor[_epochID] = _lastUnrealisedFeeFactor[_rewardTracker.lastUpdateEpochID]
-                                            + (_ntnReward-_rewardTracker.ntnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+
+        if (_rewardTracker.lastUpdateEpochID > 0) {
+            _lastUnrealisedFeeFactor[_epochID] = _lastUnrealisedFeeFactor[_rewardTracker.lastUpdateEpochID-1];
+        }
+
+        if (_totalLiquid > 0) {
+            _lastUnrealisedFeeFactor[_epochID] += (_ntnReward-_rewardTracker.ntnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+        }
+
         _rewardTracker.ntnUnclaimedRewards = _ntnReward;
-        _rewardTracker.lastUpdateEpochID = _epochID;
+        // offset by 1 to handle empty value
+        _rewardTracker.lastUpdateEpochID = _epochID+1;
     }
 
     /**
@@ -302,6 +337,7 @@ contract LiquidRewardManager {
      * some time later, whenever the related account sends some transaction that will require the updated liquid balance.
      */
     function _updateUnclaimedReward(address _validator, uint256 _epochID) private {
+        _updateLastRewardEvent(_validator);
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
         
         uint256 _atnReward;
@@ -309,74 +345,148 @@ contract LiquidRewardManager {
 
         // first update last event
         RewardEvent storage _lastRewardEvent = _rewardTracker.lastRewardEvent;
-        uint256 _totalLiquid = _lastRewardEvent.totalLiquid;
-        if (_lastRewardEvent.eventExist == true && _totalLiquid > 0) {
+        if (_lastRewardEvent.eventExist == true) {
             uint256 _currentUdpateEpoch = _lastRewardEvent.epochID;
-            require(_rewardTracker.lastUpdateEpochID <= _currentUdpateEpoch, "rewards already updated for epoch");
-            if (_lastRewardEvent.bonding) {
+            require(_rewardTracker.lastUpdateEpochID <= _currentUdpateEpoch+1, "reward update event is passed");
+            if (_lastRewardEvent.isBonding) {
                 (_atnReward, _ntnReward) = autonity.getRewardsTillBonding(_lastRewardEvent.stakingRequestID);
             }
             else {
                 (_atnReward, _ntnReward) = autonity.getRewardsTillUnbonding(_lastRewardEvent.stakingRequestID);
             }
             _lastRewardEvent.applied = true;
-            _updateLastUnrealisedFeeFactor(_rewardTracker, _currentUdpateEpoch, _atnReward, _ntnReward, _totalLiquid);
+            _updateLastUnrealisedFeeFactor(_rewardTracker, _currentUdpateEpoch, _atnReward, _ntnReward, _lastRewardEvent.totalLiquid);
             if (_currentUdpateEpoch >= _epochID) {
                 return;
             }
         }
 
         // there is no event after last event, so we update the latest rewards
-        require(_getEpochID() > _epochID, "epoch not finalized yet");
-        _epochID = _getEpochID() - 1;
-        require(_rewardTracker.lastUpdateEpochID <= _epochID, "rewards already updated for epoch");
-        Liquid _contract = _rewardTracker.liquidContract;
-        _totalLiquid = _contract.balanceOf(address(this));
+        require(_getEpochID()-1 == _epochID, "cannot update rewards for input epochID");
+        require(_rewardTracker.lastUpdateEpochID <= _epochID+1, "impossible: fatal error");
+        Liquid _contract = _liquidContract(_validator);
         (_atnReward, _ntnReward) = _contract.unclaimedRewards(address(this));
-        _updateLastUnrealisedFeeFactor(_rewardTracker, _epochID, _atnReward, _ntnReward, _totalLiquid);
+        _updateLastUnrealisedFeeFactor(_rewardTracker, _epochID, _atnReward, _ntnReward, _contract.balanceOf(address(this)));
 
         // lastRewardEvent is in the past now
         _lastRewardEvent.eventExist = false;
     }
 
     /**
-     * @dev fetches the unclaimedRewards from liquid contract and calculates the changes in lastUnrealisedFeeFactor
-     * but does not update any state variable. This function exists only to support _unclaimedRewards to act as view only function
+     * @dev Fetches the unclaimedRewards from liquid contract and calculates the changes in lastUnrealisedFeeFactor
+     * but does not update any state variable. This function helps to calculate unclaimed rewards.
      */
-    function _unfetchedFeeFactor(address _validator) private view returns (uint256 _atnFeeFactor, uint256 _ntnFeeFactor) {
-        RewardTracker storage _rewardTracker = rewardTracker[_validator];
-        Liquid _contract = _rewardTracker.liquidContract;
+    function _unfetchedFeeFactor(
+        Liquid _contract,
+        uint256 _atnLastReward,
+        uint256 _ntnLastReward
+    ) private view returns (
+        uint256 _atnFeeFactor,
+        uint256 _ntnFeeFactor
+    ) {
+        require(address(_contract) != address(0), "validator not initiated");
         uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid > 0) {
-            // reward is increased by  OFFSET
             (uint256 _atnReward, uint256 _ntnReward) = _contract.unclaimedRewards(address(this));
-            _atnFeeFactor = (_atnReward-_rewardTracker.atnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
-            _ntnFeeFactor = (_ntnReward-_rewardTracker.ntnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+            _atnFeeFactor = (_atnReward-_atnLastReward) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+            _ntnFeeFactor = (_ntnReward-_ntnLastReward) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
         }
     }
 
-    function _pendingEventFeeFactor(address _validator) private view returns (uint256 _atnFeeFactor, uint256 _ntnFeeFactor) {
-        RewardTracker storage _rewardTracker = rewardTracker[_validator];
-        RewardEvent storage _pendingEvent = _rewardTracker.pendingRewardEvent;
-        require(_pendingEvent.eventExist == true, "there must be pending reward event");
-        require(_pendingEvent.epochID < _getEpochID(), "pending event should be from past epoch");
-
-        uint256 _totalLiquid = _pendingEvent.totalLiquid;
-        if (_totalLiquid > 0) {
-            uint256 _atnReward;
-            uint256 _ntnReward;
-
-            // getting rewards at the time the staking request was applied
-            if (_pendingEvent.bonding == true) {
-                (_atnReward, _ntnReward) = autonity.getRewardsTillBonding(_pendingEvent.stakingRequestID);
-            }
-            else {
-                (_atnReward, _ntnReward) = autonity.getRewardsTillUnbonding(_pendingEvent.stakingRequestID);
-            }
-
-            _atnFeeFactor = (_atnReward-_rewardTracker.atnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
-            _ntnFeeFactor = (_ntnReward-_rewardTracker.ntnUnclaimedRewards) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+    /**
+     * @dev Applies the reward event without changing the state and generates rewards.
+     * This function helps to calculate unclaimed rewards.
+     * @param _rewardEvent Reward event to apply
+     */
+    function _rewardEventSimulator(
+        RewardEvent storage _rewardEvent,
+        uint256 _atnLastReward,
+        uint256 _ntnLastReward
+    ) private view returns (
+        uint256 _atnNewReward,
+        uint256 _ntnNewReward,
+        uint256 _atnFeeFactor,
+        uint256 _ntnFeeFactor
+    ) {
+        // getting rewards at the time the staking request was applied
+        if (_rewardEvent.isBonding == true) {
+            (_atnNewReward, _ntnNewReward) = autonity.getRewardsTillBonding(_rewardEvent.stakingRequestID);
         }
+        else {
+            (_atnNewReward, _ntnNewReward) = autonity.getRewardsTillUnbonding(_rewardEvent.stakingRequestID);
+        }
+
+        uint256 _totalLiquid = _rewardEvent.totalLiquid;
+        if (_totalLiquid > 0) {
+            _atnFeeFactor = (_atnNewReward-_atnLastReward) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+            _ntnFeeFactor = (_ntnNewReward-_ntnLastReward) * FEE_FACTOR_UNIT_RECIP / _totalLiquid;
+        }
+    }
+
+    /**
+     * @dev Generates unrealised fee factor for validator till the rewards for epochID have been distributed.
+     * This function helps to calculate unclaimed rewards.
+     * @param _validator validator address
+     * @param _epochID epochID
+     */
+    function _generateUnrealisedFeeFactor(
+        address _validator,
+        uint256 _epochID
+    ) private view returns (
+        uint256 _atnUnrealisedFeeFactor,
+        uint256 _ntnUnrealisedFeeFactor
+    ) {
+
+        require(_epochID < _getEpochID(), "epoch not finalized yet");
+        RewardTracker storage _rewardTracker = rewardTracker[_validator];
+        uint256 _lastRewardUpdate = _rewardTracker.lastUpdateEpochID;
+        if (_lastRewardUpdate >= _epochID+1) {
+            return (_rewardTracker.atnLastUnrealisedFeeFactor[_epochID], _rewardTracker.ntnLastUnrealisedFeeFactor[_epochID]);
+        }
+
+        if (_lastRewardUpdate > 0) {
+            _atnUnrealisedFeeFactor = _rewardTracker.atnLastUnrealisedFeeFactor[_lastRewardUpdate-1];
+            _ntnUnrealisedFeeFactor = _rewardTracker.ntnLastUnrealisedFeeFactor[_lastRewardUpdate-1];
+        }
+        
+        uint256 _atnReward = _rewardTracker.atnUnclaimedRewards;
+        uint256 _ntnReward = _rewardTracker.ntnUnclaimedRewards;
+        uint256 _atnFeeFactorFetched;
+        uint256 _ntnFeeFactorFetched;
+
+        // apply last reward event
+        RewardEvent storage _rewardEvent = _rewardTracker.lastRewardEvent;
+        if (_rewardEvent.eventExist == true && _lastRewardUpdate < _rewardEvent.epochID+1) {
+            _lastRewardUpdate = _rewardEvent.epochID+1;
+            require(_epochID >= _rewardEvent.epochID, "cannot generate unrealised fee factor for epochID from last reward event");
+            (_atnReward, _ntnReward, _atnFeeFactorFetched, _ntnFeeFactorFetched) = _rewardEventSimulator(_rewardEvent, _atnReward, _ntnReward);
+            _atnUnrealisedFeeFactor += _atnFeeFactorFetched;
+            _ntnUnrealisedFeeFactor += _ntnFeeFactorFetched;
+
+            if (_epochID == _rewardEvent.epochID) {
+                return (_atnUnrealisedFeeFactor, _ntnUnrealisedFeeFactor);
+            }
+        }
+
+        // apply pending reward event
+        _rewardEvent = _rewardTracker.pendingRewardEvent;
+        if (_rewardEvent.eventExist == true && _rewardEvent.epochID < _getEpochID() && _lastRewardUpdate < _rewardEvent.epochID+1) {
+            _lastRewardUpdate = _rewardEvent.epochID+1;
+            require(_epochID >= _rewardEvent.epochID, "cannot generate unrealised fee factor for epochID from pending reward event");
+            (_atnReward, _ntnReward, _atnFeeFactorFetched, _ntnFeeFactorFetched) = _rewardEventSimulator(_rewardEvent, _atnReward, _ntnReward);
+            _atnUnrealisedFeeFactor += _atnFeeFactorFetched;
+            _ntnUnrealisedFeeFactor += _ntnFeeFactorFetched;
+
+            if (_epochID == _rewardEvent.epochID) {
+                return (_atnUnrealisedFeeFactor, _ntnUnrealisedFeeFactor);
+            }
+        }
+
+        // need to fetch latest reward update
+        require(_epochID == _getEpochID()-1, "cannot generate unrealised fee factor");
+        (_atnFeeFactorFetched, _ntnFeeFactorFetched) = _unfetchedFeeFactor(_rewardTracker.liquidContract, _atnReward, _ntnReward);
+        _atnUnrealisedFeeFactor += _atnFeeFactorFetched;
+        _ntnUnrealisedFeeFactor += _ntnFeeFactorFetched;
     }
 
     /**
@@ -389,58 +499,41 @@ contract LiquidRewardManager {
         uint256 _updateEpochID
     ) internal view returns (uint256 _atnReward, uint256 _ntnReward) {
         Account storage _account = accounts[_id][_validator];
-        (uint256 _atnLastUnrealisedFeeFactor, uint256 _ntnLastUnrealisedFeeFactor) = _unfetchedFeeFactor(_validator);
-        RewardTracker storage _rewardTracker = rewardTracker[_validator];
-        uint256 _lastUpdateEpoch = _rewardTracker.lastUpdateEpochID;
-        _atnLastUnrealisedFeeFactor += _rewardTracker.atnLastUnrealisedFeeFactor[_lastUpdateEpoch];
-        _ntnLastUnrealisedFeeFactor += _rewardTracker.ntnLastUnrealisedFeeFactor[_lastUpdateEpoch];
+        if (_account.liquidBalance == 0 && _balanceChange == 0) {
+            return (_account.atnRealisedFee, _account.ntnRealisedFee);
+        }
 
+        uint256 _lastEpochID = _getEpochID()-1;
+        if (_updateEpochID > 0) {
+            _lastEpochID = _updateEpochID-1;
+        }
         uint256 _balance = _account.liquidBalance;
+        (uint256 _atnMidUnrealisedFeeFactor, uint256 _ntnMidUnrealisedFeeFactor) = _generateUnrealisedFeeFactor(_validator, _lastEpochID);
+
         _atnReward = _account.atnRealisedFee
                     + _computeUnrealisedFees(
-                        _balance, _account.atnUnrealisedFeeFactor, _atnLastUnrealisedFeeFactor
+                        _balance, _account.atnUnrealisedFeeFactor, _atnMidUnrealisedFeeFactor
                     );
 
         _ntnReward = _account.ntnRealisedFee
                     + _computeUnrealisedFees(
-                        _balance, _account.ntnUnrealisedFeeFactor, _ntnLastUnrealisedFeeFactor
+                        _balance, _account.ntnUnrealisedFeeFactor, _ntnMidUnrealisedFeeFactor
                     );
+        
 
-        if (_balanceChange == 0) {
-            return (_atnReward, _ntnReward);
-        }
+        require(int256(_account.liquidBalance) + _balanceChange >= 0, "balance change is wrong");
+        _balance = uint256(int256(_account.liquidBalance) + _balanceChange);
 
-        require(_updateEpochID < _getEpochID(), "balance cannot change before epoch is finalized");
-        // there is a balance change after _updateEpochID due to staking request but they are not applied yet
-        // which means there has been no new staking request after _updateEpochID
-        // we can also be certain that _updateEpochID < current epoch ID
-        uint256 _atnPastUnrealisedFeeFactor;
-        uint256 _ntnPastUnrealisedFeeFactor;
-        if (_rewardTracker.lastUpdateEpochID >= _updateEpochID) {
-            // the balance change takes effect after _updateEpochID
-            // so only rewards from current epoch until _updateEpochID is affected by balance change
-            _atnPastUnrealisedFeeFactor = _rewardTracker.atnLastUnrealisedFeeFactor[_updateEpochID];
-            _ntnPastUnrealisedFeeFactor = _rewardTracker.ntnLastUnrealisedFeeFactor[_updateEpochID];
-        }
-        else {
-            // We have not updated rewards at or after _updateEpochID, so there must be a pending reward event
-            // for those staking requests. Otherwise we would already update rewards for _updateEpochID
-            // or there should be no staking requests (_balanceChange == 0)
-            (_atnPastUnrealisedFeeFactor, _ntnPastUnrealisedFeeFactor) = _pendingEventFeeFactor(_validator);
-        }
+        require(_updateEpochID <= _getEpochID(), "balance cannot change before epoch is finalized");
+        (uint256 _atnLastUnrealisedFeeFactor, uint256 _ntnLastUnrealisedFeeFactor) = _generateUnrealisedFeeFactor(_validator, _getEpochID()-1);
 
-        if (_balanceChange > 0) {
-            _atnReward += _computeUnrealisedFees(
-                uint256(_balanceChange), _atnPastUnrealisedFeeFactor, _atnLastUnrealisedFeeFactor
-            );
-            _ntnReward += _computeUnrealisedFees(
-                uint256(_balanceChange), _ntnPastUnrealisedFeeFactor, _ntnLastUnrealisedFeeFactor
-            );
-        }
-    }
+        _atnReward += _computeUnrealisedFees(
+            _balance, _atnMidUnrealisedFeeFactor, _atnLastUnrealisedFeeFactor
+        );
 
-    function _isNewBondingRequested(uint256 _id, address _validator) internal view returns (bool) {
-        return accounts[_id][_validator].newBondingRequested;
+        _ntnReward += _computeUnrealisedFees(
+            _balance, _ntnMidUnrealisedFeeFactor, _ntnLastUnrealisedFeeFactor
+        );
     }
 
     function _liquidBalanceOf(uint256 _id, address _validator) internal view returns (uint256) {
@@ -463,8 +556,12 @@ contract LiquidRewardManager {
         return bondedValidators[_id];
     }
 
-    function _liquidContract(address _validator) internal view returns (Liquid) {
-        return rewardTracker[_validator].liquidContract;
+    function _liquidContract(address _validator) internal returns (Liquid) {
+        RewardTracker storage _rewardTracker = rewardTracker[_validator];
+        if (address(_rewardTracker.liquidContract) == address(0)) {
+            _initiateValidator(_validator);
+        }
+        return _rewardTracker.liquidContract;
     }
 
     function _getEpochID() internal view returns (uint256) {

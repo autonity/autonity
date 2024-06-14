@@ -308,9 +308,8 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-    * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
-    *
-    */
+     * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
+     */
     receive() external payable {}
 
     /**
@@ -456,7 +455,6 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
                 return;
             }
             
-            _updateLastRewardEvent(_bondingRequest.validator);
             _bondingRequestExpired(_contractID, _bondingRequest.validator);
             if (autonity.isBondingRejected(_bondingID)) {
                 _totalBondingRejected += _bondingRequest.amount;
@@ -496,14 +494,16 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
             if (_unbondingRequest.epochID == _currentEpochID) {
                 break;
             }
+
             // unbonding request is always applied at Autonity
-            _updateLastRewardEvent(_unbondingRequest.validator);
             _unlockAndBurnLiquid(_contractID, _unbondingRequest.validator, _unbondingRequest.liquidAmount, _unbondingRequest.epochID);
+            delete pendingUnbondingRequest[_unbondingID];
         }
         appliedPendingUnbondingID[_contractID] = _processingID;
 
         // process released stake
         uint256 _totalReleasedStake;
+        _lastID = appliedPendingUnbondingID[_contractID];
         _processingID = tailPendingUnbondingID[_contractID];
         for (; _processingID < _lastID; _processingID++) {
             _unbondingID = _unbondingIDs[_processingID];
@@ -514,9 +514,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
             }
             delete _unbondingIDs[_processingID];
 
-            _unbondingRequest = pendingUnbondingRequest[_unbondingID];
             _totalReleasedStake += autonity.getReleasedStake(_unbondingID);
-            delete pendingUnbondingRequest[_unbondingID];
         }
         tailPendingUnbondingID[_contractID] = _processingID;
         if (_totalReleasedStake > 0) {
@@ -525,7 +523,15 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
         }
     }
 
-    function _stakingRequestBalanceChange(
+    /**
+     * @dev Calculates the balance changes for the pending staking requests to some validator.
+     * If the requests are from current epoch, then they are not taken into account.
+     * @param _contractID unique contract ID
+     * @param _validator validator address
+     * @return _balanceChange balance change, positive if balance increases, negative otherwise
+     * @return _lastRequestEpoch epochID, offset by 1, of the requests (all requests should be from the same epoch)
+     */
+    function _balanceChangeFromStakingRequest(
         uint256 _contractID,
         address _validator
     ) private view returns (int256 _balanceChange, uint256 _lastRequestEpoch) {
@@ -553,7 +559,11 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
             if (autonity.isBondingRejected(_stakingID) == false) {
                 _balanceChange += int256(autonity.getBondedLiquid(_stakingID));
             }
-            _lastRequestEpoch = _bondingRequest.epochID;
+            require(
+                _lastRequestEpoch == 0 || _lastRequestEpoch == _bondingRequest.epochID+1,
+                "pending requests are from different epoch"
+            );
+            _lastRequestEpoch = _bondingRequest.epochID+1;
         }
 
         // get balance decrease for unbonding requests
@@ -574,7 +584,11 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
             // unbonding request is always applied at Autonity
             _balanceChange -= int256(_unbondingRequest.liquidAmount);
-            _lastRequestEpoch = _unbondingRequest.epochID;
+            require(
+                _lastRequestEpoch == 0 || _lastRequestEpoch == _unbondingRequest.epochID+1,
+                "pending requests are from different epoch"
+            );
+            _lastRequestEpoch = _unbondingRequest.epochID+1;
         }
     }
 
@@ -590,37 +604,37 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @param _id contract ID
      * @param _validator validator address
      */
-    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
+    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnReward, uint256 _ntnReward) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (int256 _balanceChange, uint256 _epochID) = _stakingRequestBalanceChange(_contractID, _validator);
-        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID, _validator, _balanceChange, _epochID);
+        (int256 _balanceChange, uint256 _epochID) = _balanceChangeFromStakingRequest(_contractID, _validator);
+        (_atnReward, _ntnReward) = _unclaimedRewards(_contractID, _validator, _balanceChange, _epochID);
     }
 
     /**
      * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding
      */
-    function unclaimedRewards(address _beneficiary, uint256 _id) virtual public view returns (uint256 _atnFee, uint256 _ntnFee) {
+    function unclaimedRewards(address _beneficiary, uint256 _id) virtual public view returns (uint256 _atnReward, uint256 _ntnReward) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         address[] memory _validators = _bondedValidators(_contractID);
         for (uint256 i = 0; i < _validators.length; i++) {
-            (int256 _balanceChange, uint256 _epochID) = _stakingRequestBalanceChange(_contractID, _validators[i]);
+            (int256 _balanceChange, uint256 _epochID) = _balanceChangeFromStakingRequest(_contractID, _validators[i]);
             (uint256 _atn, uint256 _ntn) = _unclaimedRewards(_contractID, _validators[i], _balanceChange, _epochID);
-            _atnFee += _atn;
-            _ntnFee += _ntn;
+            _atnReward += _atn;
+            _ntnReward += _ntn;
         }
     }
 
     /**
      * @notice returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to _beneficiary
      */
-    function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
-        _atnTotalFee = atnRewards[_beneficiary];
-        _ntnTotalFee = ntnRewards[_beneficiary];
+    function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnReward, uint256 _ntnReward) {
+        _atnReward = atnRewards[_beneficiary];
+        _ntnReward = ntnRewards[_beneficiary];
         uint256 _length = beneficiaryContracts[_beneficiary].length;
         for (uint256 i = 0; i < _length; i++) {
             (uint256 _atnFee, uint256 _ntnFee) = unclaimedRewards(_beneficiary, i);
-            _atnTotalFee += _atnFee;
-            _ntnTotalFee += _ntnFee;
+            _atnReward += _atnFee;
+            _ntnReward += _ntnFee;
         }
     }
 

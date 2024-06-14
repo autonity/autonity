@@ -1221,7 +1221,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _validator.liquidContract.mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
             _validator.bondedStake += _bonding.amount;
-            _bonding.liquidMinted += _liquidAmount;
+            _bonding.liquidMinted = _liquidAmount;
         } else {
             // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
             _validator.selfBondedStake += _bonding.amount;
