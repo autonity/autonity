@@ -529,13 +529,12 @@ func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error
 		return hc.genesisHeader.Committee, nil
 	}
 
-	// if current head is an epoch head, return its committee.
-	header := hc.GetHeaderByNumber(number)
-	if header != nil && header.IsEpochHeader() {
-		return header.Committee, nil
+	// if parent is an epoch head, return its committee.
+	if parent.IsEpochHeader() {
+		return parent.Committee, nil
 	}
 
-	// otherwise, query the committee by its index.
+	// otherwise, query the committee with the index saved in the parent header.
 	epoch := hc.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
 	if epoch == nil {
 		return nil, consensus.ErrUnknownEpoch
