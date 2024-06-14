@@ -71,12 +71,12 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
-	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
+	DefaultNonStakeableVestingGenesis = &NonStakeableVestingGenesis{
 		TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
 		MaxAllowedDuration: big.NewInt(3 * SecondsInYear),                           // 3 years
 	}
 
-	DefaultStakableVestingGenesis = &StakableVestingGenesis{
+	DefaultStakeableVestingGenesis = &StakeableVestingGenesis{
 		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
 	}
 
@@ -89,8 +89,8 @@ var (
 	StabilizationContractAddress       = crypto.CreateAddress(DeployerAddress, 5)
 	UpgradeManagerContractAddress      = crypto.CreateAddress(DeployerAddress, 6)
 	InflationControllerContractAddress = crypto.CreateAddress(DeployerAddress, 7)
-	StakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 8)
-	NonStakableVestingContractAddress  = crypto.CreateAddress(DeployerAddress, 9)
+	StakeableVestingContractAddress    = crypto.CreateAddress(DeployerAddress, 8)
+	NonStakeableVestingContractAddress = crypto.CreateAddress(DeployerAddress, 9)
 )
 
 type AutonityContractGenesis struct {
@@ -456,41 +456,41 @@ func (s *InflationControllerGenesis) SetDefaults() {
 	}
 }
 
-type NonStakableVestingGenesis struct {
-	TotalNominal         *big.Int                 `json:"totalNominal"`
-	MaxAllowedDuration   *big.Int                 `json:"maxAllowedDuration"`
-	NonStakableSchedules []NonStakableSchedule    `json:"nonStakableSchedules"`
-	NonStakableContracts []NonStakableVestingData `json:"nonStakableVestingContracts"`
+type NonStakeableVestingGenesis struct {
+	TotalNominal          *big.Int                  `json:"totalNominal"`
+	MaxAllowedDuration    *big.Int                  `json:"maxAllowedDuration"`
+	NonStakeableSchedules []NonStakeableSchedule    `json:"nonStakeableSchedules"`
+	NonStakeableContracts []NonStakeableVestingData `json:"nonStakeableVestingContracts"`
 }
 
-type NonStakableSchedule struct {
+type NonStakeableSchedule struct {
 	Start         *big.Int `json:"startTime"`
 	CliffDuration *big.Int `json:"cliffDuration"`
 	TotalDuration *big.Int `json:"totalDuration"`
 	Amount        *big.Int `json:"amount"`
 }
 
-type NonStakableVestingData struct {
+type NonStakeableVestingData struct {
 	Beneficiary common.Address `json:"beneficiary"`
 	Amount      *big.Int       `json:"amount"`
 	ScheduleID  *big.Int       `json:"scheduleID"`
 }
 
-func (s *NonStakableVestingGenesis) SetDefaults() {
+func (s *NonStakeableVestingGenesis) SetDefaults() {
 	if s.TotalNominal == nil {
-		s.TotalNominal = DefaultNonStakableVestingGenesis.TotalNominal
+		s.TotalNominal = DefaultNonStakeableVestingGenesis.TotalNominal
 	}
 	if s.MaxAllowedDuration == nil {
-		s.MaxAllowedDuration = DefaultNonStakableVestingGenesis.MaxAllowedDuration
+		s.MaxAllowedDuration = DefaultNonStakeableVestingGenesis.MaxAllowedDuration
 	}
 }
 
-type StakableVestingGenesis struct {
-	TotalNominal      *big.Int              `json:"totalNominal"`
-	StakableContracts []StakableVestingData `json:"stakableVestingContracts"`
+type StakeableVestingGenesis struct {
+	TotalNominal       *big.Int               `json:"totalNominal"`
+	StakeableContracts []StakeableVestingData `json:"stakeableVestingContracts"`
 }
 
-type StakableVestingData struct {
+type StakeableVestingData struct {
 	Beneficiary   common.Address `json:"beneficiary"`
 	Amount        *big.Int       `json:"amount"`
 	Start         *big.Int       `json:"startTime"`
@@ -498,8 +498,8 @@ type StakableVestingData struct {
 	TotalDuration *big.Int       `json:"totalDuration"`
 }
 
-func (s *StakableVestingGenesis) SetDefaults() {
+func (s *StakeableVestingGenesis) SetDefaults() {
 	if s.TotalNominal == nil {
-		s.TotalNominal = DefaultStakableVestingGenesis.TotalNominal
+		s.TotalNominal = DefaultStakeableVestingGenesis.TotalNominal
 	}
 }

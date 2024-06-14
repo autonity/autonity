@@ -348,10 +348,10 @@ var (
 			},
 		},
 		AccountabilityConfig: DefaultAccountabilityConfig,
-		NonStakableVestingConfig: &NonStakableVestingGenesis{
+		NonStakeableVestingConfig: &NonStakeableVestingGenesis{
 			TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
 			MaxAllowedDuration: big.NewInt(3 * SecondsInYear),
-			NonStakableSchedules: []NonStakableSchedule{
+			NonStakeableSchedules: []NonStakeableSchedule{
 				{
 					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp + 2*7*SecondsInDay),
 					CliffDuration: big.NewInt(0),
@@ -371,7 +371,7 @@ var (
 					Amount:        new(big.Int).Mul(big.NewInt(5_000_000), DecimalFactor),
 				},
 			},
-			NonStakableContracts: []NonStakableVestingData{
+			NonStakeableContracts: []NonStakeableVestingData{
 				{
 					Beneficiary: common.HexToAddress("0xB0984E6bB363040394BcDdf317A27E3B9b064438"),
 					Amount:      new(big.Int).Mul(big.NewInt(25_000), DecimalFactor),
@@ -399,9 +399,9 @@ var (
 				},
 			},
 		},
-		StakableVestingConfig: &StakableVestingGenesis{
+		StakeableVestingConfig: &StakeableVestingGenesis{
 			TotalNominal: new(big.Int).Mul(big.NewInt(1_000_000), DecimalFactor),
-			StakableContracts: []StakableVestingData{
+			StakeableContracts: []StakeableVestingData{
 				{
 					Beneficiary:   common.HexToAddress("0xB0984E6bB363040394BcDdf317A27E3B9b064438"),
 					Amount:        new(big.Int).Mul(big.NewInt(100), DecimalFactor),
@@ -782,8 +782,8 @@ var (
 			StabilizationContractConfig: DefaultStabilizationGenesis,
 			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
-		DefaultNonStakableVestingGenesis,
-		DefaultStakableVestingGenesis,
+		DefaultNonStakeableVestingGenesis,
+		DefaultStakeableVestingGenesis,
 		false,
 	}
 )
@@ -890,16 +890,16 @@ type ChainConfig struct {
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
 
 	// Various consensus engines
-	Ethash                   *EthashConfig               `json:"ethash,omitempty"`
-	AutonityContractConfig   *AutonityContractGenesis    `json:"autonity,omitempty"`
-	AccountabilityConfig     *AccountabilityGenesis      `json:"accountability,omitempty"`
-	OracleContractConfig     *OracleContractGenesis      `json:"oracle,omitempty"`
-	InflationContractConfig  *InflationControllerGenesis `json:"inflation,omitempty"`
-	ASM                      AsmConfig                   `json:"asm,omitempty"`
-	NonStakableVestingConfig *NonStakableVestingGenesis  `json:"nonStakableVesting,omitempty"`
-	StakableVestingConfig    *StakableVestingGenesis     `json:"stakableVesting,omitempty"`
+	Ethash                    *EthashConfig               `json:"ethash,omitempty"`
+	AutonityContractConfig    *AutonityContractGenesis    `json:"autonity,omitempty"`
+	AccountabilityConfig      *AccountabilityGenesis      `json:"accountability,omitempty"`
+	OracleContractConfig      *OracleContractGenesis      `json:"oracle,omitempty"`
+	InflationContractConfig   *InflationControllerGenesis `json:"inflation,omitempty"`
+	ASM                       AsmConfig                   `json:"asm,omitempty"`
+	NonStakeableVestingConfig *NonStakeableVestingGenesis `json:"nonStakeableVesting,omitempty"`
+	StakeableVestingConfig    *StakeableVestingGenesis    `json:"stakeableVesting,omitempty"`
 
-	// true if run in testmode, false by default
+	// TestMode is set true if running in a test environment, false by default
 	TestMode bool `json:"testMode,omitempty"`
 }
 
