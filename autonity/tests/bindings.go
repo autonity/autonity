@@ -14319,10 +14319,6 @@ func (_StakableVesting *StakableVesting) UnclaimedRewards0(opts *runOptions, _be
 	outstruct.AtnRewards = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	outstruct.NtnRewards = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 	return *outstruct, consumed, err
-
-}
-
-// UnclaimedRewards1 is a free data retrieval call binding the contract method 0xc8daa85d.
 //
 // Solidity: function unclaimedRewards(address _beneficiary, uint256 _id) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVesting) UnclaimedRewards1(opts *runOptions, _beneficiary common.Address, _id *big.Int) (struct {
