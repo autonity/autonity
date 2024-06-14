@@ -31,11 +31,13 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         uint256 lastUnlockTime;
     }
 
-    // stores all the schedules, there should not be too many of them, for the sake of efficiency
-    // of unlockTokens() function
+    /**
+     * @dev Stores all the schedules, there should not be too many of them, for the sake of efficiency
+     * of unlockTokens() function
+     */
     Schedule[] private schedules;
 
-    // id of schedule that some contract is subscribed to
+    /** @dev ID of schedule that some contract is subscribed to */
     mapping(uint256 => uint256) private subscribedTo;
 
     constructor(
@@ -43,14 +45,14 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     ) ContractBase(_autonity, _operator) {}
 
     /**
-     * @notice creates a new schedule, restricted to operator
-     * the schedule has totalAmount = 0 initially. As new contracts are subscribed to the schedule, its totalAmount increases
-     * At any point, totalAmount of schedule is the sum of totalValue all the contracts that are subscribed to the schedule.
-     * totalValue of a contract can be calculated via _calculateTotalValue function
+     * @notice Creates a new schedule.
+     * @dev The schedule has unsubscribedAmount = amount initially. As new contracts are subscribed to the schedule, its unsubscribedAmount decreases.
+     * At any point, subscribedAmount of schedule is amount - unsubscribedAmount.
      * @param _amount total amount of the schedule
      * @param _startTime start time
      * @param _cliffDuration cliff period, after _cliffDuration + _startTime, the schedule will have claimables
      * @param _totalDuration total duration of the schedule
+     * @custom:restricted-to operator account
      */
     function createSchedule(
         uint256 _amount,
@@ -66,10 +68,14 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @notice creates a new non-stakable contract, restricted to only operator
+     * @notice Creates a new non-stakable contract which subscribes to some schedule.
+     * @dev If the contract is created before cliff period has passed, the beneficiary is entitled to NTN as it unlocks.
+     * Otherwise, the contract already has some unlocked NTN which is not entitled to beneficiary. However, NTN that will
+     * be unlocked in future will be entitled to beneficiary.
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
      * @param _scheduleID schedule to subscribe
+     * @custom:restricted-to operator account
      */
     function newContract(
         address _beneficiary,
@@ -111,25 +117,26 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @notice Sets the totalNominal to create new contract
+     * @notice Sets the totalNominal to create new contract.
+     * @custom:restricted-to operator account
      */
     function setTotalNominal(uint256 _totalNominal) virtual external onlyOperator {
         totalNominal = _totalNominal;
     }
 
     /**
-     * @notice Sets the max allowed duration of any schedule or contract
+     * @notice Sets the max allowed duration of any schedule or contract.
+     * @custom:restricted-to operator account
      */
     function setMaxAllowedDuration(uint256 _newMaxDuration) virtual external onlyOperator {
         maxAllowedDuration = _newMaxDuration;
     }
 
     /**
-     * @notice used by beneficiary to transfer all unlocked NTN of some contract to his own address
+     * @notice Used by beneficiary to transfer all unlocked NTN of some contract to his own address.
      * @param _id id of the contract numbered from 0 to (n-1) where n = total contracts entitled to
      * the beneficiary (excluding canceled ones). So any beneficiary can number their contracts
-     * from 0 to (n-1). Beneficiary does not need to know the unique global contract id which can
-     * be retrieved via _getUniqueContractID function
+     * from 0 to (n-1). Beneficiary does not need to know the unique global contract id.
      */
     function releaseAllFunds(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
@@ -138,7 +145,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     /**
-     * @notice used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address
+     * @notice Used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address.
      * @param _amount amount of NTN to release
      */
     function releaseFund(uint256 _id, uint256 _amount) virtual external {
@@ -148,11 +155,11 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @notice changes the beneficiary of some contract to the _recipient address. _recipient can release tokens from the contract
-     * only operator is able to call the function
+     * @notice Changes the beneficiary of some contract to the recipient address. The recipient address can release tokens from the contract as it unlocks.
      * @param _beneficiary beneficiary address whose contract will be canceled
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
      * @param _recipient whome the contract is transferred to
+     * @custom:restricted-to operator account
      */
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
@@ -165,11 +172,16 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @notice Unlock tokens of all schedules upto current time, restricted to autonity only.
+     * @notice Unlock tokens of all schedules upto current time.
      * @dev It calculates the newly unlocked tokens upto current time and also updates the amount
      * of total unlocked tokens and the time of unlock for each schedule
-     * Autonity must mint _totalNewUnlocked tokens, because this contract knows that for each _schedule,
-     * _schedule.totalUnlocked tokens are now unlocked and available to release
+     * Autonity must mint new unlocked tokens, because this contract knows that for each schedule,
+     * schedule.totalUnlocked tokens are now unlocked and available to release
+     * @return _newUnlockedSubscribed tokens unlocked from contract subscribed to some schedule
+     * @return _newUnlockedUnsubscribed tokens unlocked from schedule.unsubscribedAmount, which is not subscribed by any contract
+     * @dev newUnlockedSubscribed goes to the balance of address(this) and newUnlockedUnsubscribed goes to the treasury address.
+     * See finalize() in Autonity.sol
+     * @custom:restricted-to Autonity contract
      */
     function unlockTokens() external onlyAutonity returns (uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed) {
         uint256 _currentTime = block.timestamp;
@@ -204,7 +216,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @dev calculates the total value of the contract, which is constant for non stakable contracts
+     * @dev Calculates the total value of the contract, which is constant for non stakable contracts.
      * @param _contractID unique global id of the contract
      */
     function _calculateTotalValue(uint256 _contractID) private view returns (uint256) {
@@ -213,11 +225,11 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @dev calculates the amount of funds that are unlocked but not released yet. calculates upto _schedule.lastUnlockTime
-     * where _schedule = schedule subsribed by the contract.
+     * @dev Calculates the amount of withdrawable funds upto schedule.lastUnlockTime, which is the last epoch time.
+     * where schedule = schedule subsribed by the contract.
      * The unlock mechanism is epoch based, but instead of taking time from autonity.lastEpochBlock(), we take the time
-     * from _schedule.lastUnlockTime. Because the locked tokens are not minted from genesis. This way it is ensured that
-     * the unlocked tokens are minted by calling the function unlockTokens()
+     * from schedule.lastUnlockTime. Because the locked tokens are not minted from genesis. This way it is ensured that
+     * the unlocked tokens are minted at epoch end.
      */
     function _unlockedFunds(uint256 _contractID) private view returns (uint256) {
         return _calculateAvailableUnlockedFunds(
@@ -234,7 +246,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      */
 
     /**
-     * @notice returns the amount of unlocked but not yet released funds in NTN for some contract
+     * @notice Returns the amount of withdrawable funds upto the last epoch time.
      */
     function unlockedFunds(
         address _beneficiary, uint256 _id
@@ -242,6 +254,10 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         return _unlockedFunds(_getUniqueContractID(_beneficiary, _id));
     }
 
+    /**
+     * @notice Returns some schedule
+     * @param _id id of some schedule numbered from 0 to (n-1), where n = total schedules created
+     */
     function getSchedule(uint256 _id) external view returns (Schedule memory) {
         require(schedules.length > _id, "schedule does not exist");
         return schedules[_id];

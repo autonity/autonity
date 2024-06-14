@@ -14,14 +14,16 @@ contract ContractBase {
         bool canStake;
     }
 
-    // stores the unique ids of contracts assigned to a beneficiary, but beneficiary does not need to know the id
-    // beneficiary will number his contracts as: 0 for first contract, 1 for 2nd and so on
-    // we can get the unique contract id from beneficiaryContracts as follows
-    // beneficiaryContracts[beneficiary][0] is the unique id of his first contract
-    // beneficiaryContracts[beneficiary][1] is the unique id of his 2nd contract and so on
+    /**
+     * @dev Stores the unique ids of contracts assigned to a beneficiary, but beneficiary does not need to know the id
+     * beneficiary will number his contracts as: 0 for first contract, 1 for 2nd and so on.
+     * We can get the unique contract id from beneficiaryContracts as follows:
+     * beneficiaryContracts[beneficiary][0] is the unique id of his first contract
+     * beneficiaryContracts[beneficiary][1] is the unique id of his 2nd contract and so on
+     */
     mapping(address => uint256[]) internal beneficiaryContracts;
 
-    // list of all contracts
+    /** @dev List of all contracts */
     Contract[] internal contracts;
 
     Autonity internal autonity;
@@ -65,6 +67,9 @@ contract ContractBase {
         }
     }
 
+    /**
+     * @dev Given the total value (in NTN) of the contract, calculates the amount of withdrawable tokens (in NTN).
+     */
     function _calculateAvailableUnlockedFunds(
         uint256 _contractID, uint256 _totalValue, uint256 _time
     ) internal view returns (uint256) {
@@ -78,6 +83,10 @@ contract ContractBase {
         return 0;
     }
 
+    /**
+     * @dev Calculates total unlocked funds while assuming cliff period has passed.
+     * Check if cliff is passed before calling this function.
+     */
     function _calculateTotalUnlockedFunds(
         uint256 _start, uint256 _totalDuration, uint256 _time, uint256 _totalAmount
     ) internal pure returns (uint256) {
@@ -104,7 +113,7 @@ contract ContractBase {
     }
 
     /**
-     * @dev returns a unique id for each contract
+     * @dev Returns a unique id for each contract.
      * @param _beneficiary address of the contract holder
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
      */
@@ -113,6 +122,9 @@ contract ContractBase {
         return beneficiaryContracts[_beneficiary][_id];
     }
 
+    /**
+     * @dev Updates the contract with contractID and transfers NTN.
+     */
     function _updateAndTransferNTN(uint256 _contractID, address _to, uint256 _amount) internal {
         Contract storage _contract = contracts[_contractID];
         _contract.currentNTNAmount -= _amount;
@@ -132,7 +144,7 @@ contract ContractBase {
      */
 
     /**
-     * @notice returns a contract entitled to _beneficiary
+     * @notice Returns id'th contract entitled to beneficiary.
      * @param _beneficiary beneficiary address
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
      */
@@ -141,7 +153,7 @@ contract ContractBase {
     }
 
     /**
-     * @notice returns the list of current contracts assigned to a beneficiary
+     * @notice Returns the list of current contracts assigned to a beneficiary.
      * @param _beneficiary address of the beneficiary
      */
     function getContracts(address _beneficiary) virtual external view returns (Contract[] memory) {
@@ -154,7 +166,7 @@ contract ContractBase {
     }
 
     /**
-     * @notice returns if beneficiary can stake from his contract
+     * @notice Returns if beneficiary can stake from his contract.
      * @param _beneficiary beneficiary address
      */
     function canStake(address _beneficiary, uint256 _id) virtual external view returns (bool) {
@@ -162,7 +174,7 @@ contract ContractBase {
     }
 
     /**
-     * @notice returns the number of schudeled entitled to some beneficiary
+     * @notice Returns the number of contracts entitled to some beneficiary.
      * @param _beneficiary address of the beneficiary
      */
     function totalContracts(address _beneficiary) virtual external view returns (uint256) {
