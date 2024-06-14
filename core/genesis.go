@@ -338,7 +338,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if err := autonity.ExecuteGenesisSequence(g.Config, genesisBonds, evm); err != nil {
 		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
-	genesisCommittee, err := autonity.Committee(evm)
+	genesisCommittee, err := autonity.CallGetCommittee(evm)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}
