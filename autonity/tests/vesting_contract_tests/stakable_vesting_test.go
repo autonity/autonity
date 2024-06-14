@@ -872,14 +872,9 @@ func checkRewards(
 	userStakes map[common.Address]map[int]map[common.Address]*big.Int,
 	oldRewardsFromValidator map[common.Address]Reward,
 	oldUserRewards map[common.Address]map[int]map[common.Address]Reward,
-) (
-	rewardsFromValidator map[common.Address]Reward,
-	userRewards map[common.Address]map[int]map[common.Address]Reward,
 ) {
 
 	currentRewards := make(map[common.Address]Reward)
-	rewardsFromValidator = make(map[common.Address]Reward)
-	userRewards = make(map[common.Address]map[int]map[common.Address]Reward)
 	// check total rewards from each validator
 	for i, validator := range validators {
 		validatorTotalRewardATN := new(big.Int).Mul(validatorStakes[validator], totalReward.rewardATN)
@@ -921,25 +916,18 @@ func checkRewards(
 			new(big.Int).Sub(unclaimedReward.UnclaimedATN, oldRewardsFromValidator[validator].rewardATN),
 			new(big.Int).Sub(unclaimedReward.UnclaimedNTN, oldRewardsFromValidator[validator].rewardNTN),
 		}
-
-		rewardsFromValidator[validator] = Reward{
-			unclaimedReward.UnclaimedATN,
-			unclaimedReward.UnclaimedNTN,
-		}
 	}
 
 	// check each user rewards
 	for _, user := range users {
 		userRewardATN := new(big.Int)
 		userRewardNTN := new(big.Int)
-		userRewards[user] = make(map[int]map[common.Address]Reward)
 		// The following loops is equivalent to: (user_all_stake_to_all_validator) * totalReward / totalStake
 		// But StakableVesting contract handles reward for each validator separately, so there can be some funds lost due to
 		// integer division in solidity. So we simulate the calculation with the for loop instead
 		for i := 0; i < contractCount; i++ {
 			unclaimedRewardForContractATN := new(big.Int)
 			unclaimedRewardForContractNTN := new(big.Int)
-			userRewards[user][i] = make(map[common.Address]Reward)
 			for _, validator := range validators {
 				calculatedRewardATN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].rewardATN)
 				calculatedRewardNTN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].rewardNTN)
@@ -954,11 +942,6 @@ func checkRewards(
 
 				unclaimedReward, _, err := r.StakableVesting.UnclaimedRewards(nil, user, big.NewInt(int64(i)), validator)
 				require.NoError(r.T, err)
-
-				userRewards[user][i][validator] = Reward{
-					unclaimedReward.AtnReward,
-					unclaimedReward.NtnReward,
-				}
 
 				diff := new(big.Int).Sub(calculatedRewardATN, unclaimedReward.AtnReward)
 				fmt.Printf("calculatedRewardATN %v\n", calculatedRewardATN)
@@ -1013,7 +996,6 @@ func checkRewards(
 			"unclaimed ntn reward mismatch",
 		)
 	}
-	return rewardsFromValidator, userRewards
 }
 
 func setupContracts(
