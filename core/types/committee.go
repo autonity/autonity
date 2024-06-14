@@ -101,7 +101,7 @@ func (c *Committee) Copy() *Committee {
 func (c *Committee) MemberByIndex(index int) *CommitteeMember {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	if index >= len(c.Members) {
+	if index >= len(c.Members) || index < 0 {
 		return nil
 	}
 	return &c.Members[index]

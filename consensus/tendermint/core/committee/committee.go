@@ -65,21 +65,22 @@ func (set *RoundRobinCommittee) SetCommittee(committee *types.Committee) {
 func (set *RoundRobinCommittee) GetByIndex(i int) (*types.CommitteeMember, error) {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
-	if i < 0 || i >= set.committee.Len() {
+	m := set.committee.MemberByIndex(i)
+	if m == nil {
 		return nil, consensus.ErrCommitteeMemberNotFound
 	}
-	return &set.committee.Members[i], nil
+	return m, nil
 }
 
 func (set *RoundRobinCommittee) GetByAddress(addr common.Address) (*types.CommitteeMember, error) {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
-	for _, member := range set.committee.Members {
-		if addr == member.Address {
-			return &member, nil
-		}
+	m := set.committee.MemberByAddress(addr)
+	if m == nil {
+		return nil, consensus.ErrCommitteeMemberNotFound
 	}
-	return nil, consensus.ErrCommitteeMemberNotFound
+
+	return m, nil
 }
 
 func (set *RoundRobinCommittee) GetProposer(round int64) *types.CommitteeMember {
@@ -140,10 +141,6 @@ func NewWeightedRandomSamplingCommittee(previousHeader *types.Header, committee 
 	}
 }
 
-func (w *WeightedRandomSamplingCommittee) CommitteeMember(address common.Address) *types.CommitteeMember {
-	return w.committee.MemberByAddress(address)
-}
-
 func (w *WeightedRandomSamplingCommittee) SetCommittee(committee *types.Committee) {
 	w.committee = committee
 }
@@ -159,10 +156,11 @@ func (w *WeightedRandomSamplingCommittee) SetLastHeader(header *types.Header) {
 
 // Get validator by index
 func (w *WeightedRandomSamplingCommittee) GetByIndex(i int) (*types.CommitteeMember, error) {
-	if i < 0 || i >= w.committee.Len() {
+	m := w.committee.MemberByIndex(i)
+	if m == nil {
 		return nil, consensus.ErrCommitteeMemberNotFound
 	}
-	return &w.committee.Members[i], nil
+	return m, nil
 }
 
 // Get validator by given address
