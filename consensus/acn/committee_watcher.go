@@ -32,7 +32,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 
 	wasValidating := false
 	committee, currentHead := acn.chain.LatestConsensusView()
-	if committee.CommitteeMember(acn.address) != nil {
+	if committee.MemberByAddress(acn.address) != nil {
 		updateConsensusEnodes(currentHead)
 		wasValidating = true
 	}
@@ -40,6 +40,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	go func() {
 		defer acn.wg.Done()
 		defer epochHeadSub.Unsubscribe()
+		defer chainHeadSub.Unsubscribe()
 		for {
 			select {
 			case ev := <-chainHeadCh:
@@ -47,7 +48,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 			case ev := <-epochHeadCh:
 				committee = ev.Header.Committee
 				// check if the local node belongs to the consensus committee.
-				if committee.CommitteeMember(acn.address) == nil {
+				if committee.MemberByAddress(acn.address) == nil {
 					// if the local node was part of the committee set for the previous block
 					// there is no longer the need to retain the full connections and the
 					// consensus engine enabled.

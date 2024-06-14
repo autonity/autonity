@@ -222,7 +222,7 @@ func (p *Propose) PreValidate(committee *types.Committee) error {
 		return nil
 	}
 
-	validator := committee.CommitteeMember(p.signer)
+	validator := committee.MemberByAddress(p.signer)
 	if validator == nil {
 		return ErrUnauthorizedAddress
 	}
@@ -381,7 +381,7 @@ func (p *LightProposal) PreValidate(committee *types.Committee) error {
 		return nil
 	}
 
-	validator := committee.CommitteeMember(p.signer)
+	validator := committee.MemberByAddress(p.signer)
 	if validator == nil {
 		return ErrUnauthorizedAddress
 	}

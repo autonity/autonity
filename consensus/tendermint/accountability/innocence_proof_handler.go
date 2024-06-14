@@ -191,7 +191,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 		return err
 	}
 
-	memberShip := committee.CommitteeMember(sender)
+	memberShip := committee.MemberByAddress(sender)
 	if memberShip == nil {
 		return errAccusationFromNoneValidator
 	}

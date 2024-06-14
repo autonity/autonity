@@ -94,7 +94,7 @@ func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
 	if err != nil {
 		panic(err)
 	}
-	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign, committee.CommitteeMember(c.Address()), committee.Len())
+	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign, committee.MemberByAddress(c.Address()), committee.Len())
 	c.SetSentPrecommit(true)
 	c.Broadcaster().Broadcast(precommit)
 }

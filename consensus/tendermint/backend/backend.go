@@ -316,13 +316,13 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, err
 		}
 		receipts = append(receipts, receipt)
-		//Validate the state of the proposal
+		// Validate the state of the proposal
 		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, *usedGas); err != nil {
 			sb.logger.Error("proposal proposed, bad root state", err)
 			return 0, err
 		}
 
-		// verify if LastEpochBlock is correct
+		// Verify if LastEpochBlock is correct
 		if header.LastEpochBlock.Cmp(lastEpochBlock) != 0 {
 			sb.logger.Error("wrong lastEpochBlock",
 				"proposalNumber", proposalNumber,
@@ -332,7 +332,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, consensus.ErrInconsistentLastEpochBlock
 		}
 
-		//Perform the actual comparison
+		// Perform the actual comparison
 		if header.Committee.Len() != committee.Len() {
 			sb.logger.Error("wrong committee set",
 				"proposalNumber", proposalNumber,

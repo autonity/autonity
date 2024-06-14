@@ -19,7 +19,7 @@ func selfAndCsize(c *core.Core, h uint64) (*types.CommitteeMember, int) {
 		panic(err)
 	}
 
-	return committee.CommitteeMember(c.Address()), committee.Len()
+	return committee.MemberByAddress(c.Address()), committee.Len()
 }
 
 type AccusationPO struct {

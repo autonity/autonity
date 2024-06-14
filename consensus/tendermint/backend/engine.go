@@ -235,7 +235,7 @@ func (sb *Backend) verifySigner(header *types.Header, committee *types.Committee
 		return errInvalidCoinbase
 	}
 	// Signer should be in the validator set of previous block's extraData.
-	if committee.CommitteeMember(signer) != nil {
+	if committee.MemberByAddress(signer) != nil {
 		return nil
 	}
 	return errUnauthorized
@@ -374,7 +374,7 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 		return err
 	}
 	nodeAddress := sb.Address()
-	if committee.CommitteeMember(nodeAddress) == nil {
+	if committee.MemberByAddress(nodeAddress) == nil {
 		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
 		return errUnauthorized
 	}

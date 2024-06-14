@@ -828,7 +828,7 @@ func TestLargeNetwork(t *testing.T) {
 	}
 
 	inCommittee := func(address common.Address, committee *types.Committee) bool {
-		return committee.CommitteeMember(address) != nil
+		return committee.MemberByAddress(address) != nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)

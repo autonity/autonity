@@ -221,7 +221,7 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 		panic(err)
 	}
 
-	self := committee.CommitteeMember(s.Address()).Index
+	self := committee.MemberByAddress(s.Address()).Index
 	preVotes := backEnd.MsgStore.GetPrevotes(msg.H()-1, func(m *message.Prevote) bool {
 		return true
 	})
@@ -278,7 +278,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 			panic(err)
 		}
 
-		self := committee.CommitteeMember(s.Address()).Index
+		self := committee.MemberByAddress(s.Address()).Index
 		preVotes := backEnd.MsgStore.GetPrevotes(h, func(m *message.Prevote) bool {
 			return true
 		})

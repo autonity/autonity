@@ -115,7 +115,7 @@ func (g *Gossiper) AskSync(committee *types.Committee) {
 				g.logger.Debug("Asking sync to", "addr", addr)
 				go p.Send(SyncNetworkMsg, []byte{}) //nolint
 
-				member := committee.CommitteeMember(addr)
+				member := committee.MemberByAddress(addr)
 				if member == nil {
 					g.logger.Error("could not retrieve member from address")
 					continue

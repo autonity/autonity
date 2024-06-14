@@ -599,7 +599,7 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 		return false, nil, nil, err
 	}
 
-	// no shuffling on committee, return without committee.
+	// no shuffling on committee, return with empty committee.
 	committee := &types.Committee{}
 	if len(committeeMembers) == 0 {
 		return updateReady, committee, lastEpochBlock, nil

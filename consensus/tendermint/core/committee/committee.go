@@ -141,7 +141,7 @@ func NewWeightedRandomSamplingCommittee(previousHeader *types.Header, committee 
 }
 
 func (w *WeightedRandomSamplingCommittee) CommitteeMember(address common.Address) *types.CommitteeMember {
-	return w.committee.CommitteeMember(address)
+	return w.committee.MemberByAddress(address)
 }
 
 func (w *WeightedRandomSamplingCommittee) SetCommittee(committee *types.Committee) {
@@ -168,7 +168,7 @@ func (w *WeightedRandomSamplingCommittee) GetByIndex(i int) (*types.CommitteeMem
 // Get validator by given address
 // GetByAddress Get validator by given address
 func (w *WeightedRandomSamplingCommittee) GetByAddress(addr common.Address) (*types.CommitteeMember, error) {
-	m := w.committee.CommitteeMember(addr)
+	m := w.committee.MemberByAddress(addr)
 	if m == nil {
 		return nil, consensus.ErrCommitteeMemberNotFound
 	}
@@ -179,7 +179,7 @@ func (w *WeightedRandomSamplingCommittee) GetByAddress(addr common.Address) (*ty
 // Get the round proposer
 func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) *types.CommitteeMember {
 	proposer := w.autonityContract.Proposer(w.committee, nil, w.previousHeader.Number.Uint64(), round)
-	member := w.committee.CommitteeMember(proposer)
+	member := w.committee.MemberByAddress(proposer)
 	if member == nil {
 		log.Crit("Cannot find elected proposer from current committee")
 	}

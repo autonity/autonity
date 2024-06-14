@@ -1,7 +1,6 @@
 package types
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -63,14 +62,6 @@ func (c *Committee) Len() int {
 	return len(c.Members)
 }
 
-func (c *Committee) Less(i, j int) bool {
-	return bytes.Compare(c.Members[i].Bytes(), c.Members[j].Bytes()) < 0
-}
-
-func (c *Committee) Swap(i, j int) {
-	c.Members[i], c.Members[j] = c.Members[j], c.Members[i]
-}
-
 func (c *Committee) Copy() *Committee {
 	var clone = &Committee{}
 	if c.Members != nil {
@@ -107,7 +98,16 @@ func (c *Committee) Copy() *Committee {
 	return clone
 }
 
-func (c *Committee) CommitteeMember(address common.Address) *CommitteeMember {
+func (c *Committee) MemberByIndex(index int) *CommitteeMember {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	if index >= len(c.Members) {
+		return nil
+	}
+	return &c.Members[index]
+}
+
+func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.membersMap == nil {

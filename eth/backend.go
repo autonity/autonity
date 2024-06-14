@@ -617,7 +617,7 @@ func (s *Ethereum) validatorController() {
 	wasValidating := false
 
 	committee, currentHead := s.blockchain.LatestConsensusView()
-	if committee.CommitteeMember(s.address) != nil {
+	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)
 		s.miner.Start()
 		s.log.Info("Starting node as validator")
@@ -633,7 +633,7 @@ func (s *Ethereum) validatorController() {
 			// epoch head change comes with the committee rotation:
 			committee = ev.Header.Committee
 			// check if the local node belongs to the consensus committee.
-			if committee.CommitteeMember(s.address) == nil {
+			if committee.MemberByAddress(s.address) == nil {
 				// if the local node was part of the committee set for the previous block
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
@@ -691,7 +691,7 @@ func (s *Ethereum) genesisCountdown() {
 	genesisTime := time.Unix(int64(s.blockchain.Genesis().Time()), 0)
 	s.log.Info(fmt.Sprintf("Chain genesis time: %v", genesisTime))
 	committee := s.blockchain.Genesis().Header().Committee
-	if committee.CommitteeMember(s.address) != nil {
+	if committee.MemberByAddress(s.address) != nil {
 		s.log.Warn("**************************************************************")
 		s.log.Warn("Local node is detected GENESIS VALIDATOR")
 		s.log.Warn("Please remain tuned to our Telegram channel for announcements")
