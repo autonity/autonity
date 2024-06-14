@@ -325,6 +325,108 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "inputs" : [
          {
             "internalType" : "address",
+            "name" : "_validator",
+            "type" : "address"
+         }
+      ],
+      "name" : "getLastRewardEvent",
+      "outputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint256",
+                  "name" : "epochID",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "totalLiquid",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "stakingRequestID",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "isBonding",
+                  "type" : "bool"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "eventExist",
+                  "type" : "bool"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "applied",
+                  "type" : "bool"
+               }
+            ],
+            "internalType" : "struct LiquidRewardManager.RewardEvent",
+            "name" : "",
+            "type" : "tuple"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
+            "name" : "_validator",
+            "type" : "address"
+         }
+      ],
+      "name" : "getPendingRewardEvent",
+      "outputs" : [
+         {
+            "components" : [
+               {
+                  "internalType" : "uint256",
+                  "name" : "epochID",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "totalLiquid",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "uint256",
+                  "name" : "stakingRequestID",
+                  "type" : "uint256"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "isBonding",
+                  "type" : "bool"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "eventExist",
+                  "type" : "bool"
+               },
+               {
+                  "internalType" : "bool",
+                  "name" : "applied",
+                  "type" : "bool"
+               }
+            ],
+            "internalType" : "struct LiquidRewardManager.RewardEvent",
+            "name" : "",
+            "type" : "tuple"
+         }
+      ],
+      "stateMutability" : "view",
+      "type" : "function"
+   },
+   {
+      "inputs" : [
+         {
+            "internalType" : "address",
             "name" : "_beneficiary",
             "type" : "address"
          },
@@ -588,12 +690,12 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "outputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_atnFee",
+            "name" : "_atnReward",
             "type" : "uint256"
          },
          {
             "internalType" : "uint256",
-            "name" : "_ntnFee",
+            "name" : "_ntnReward",
             "type" : "uint256"
          }
       ],
@@ -612,12 +714,12 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "outputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_atnTotalFee",
+            "name" : "_atnReward",
             "type" : "uint256"
          },
          {
             "internalType" : "uint256",
-            "name" : "_ntnTotalFee",
+            "name" : "_ntnReward",
             "type" : "uint256"
          }
       ],
@@ -641,12 +743,12 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "outputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_atnFee",
+            "name" : "_atnReward",
             "type" : "uint256"
          },
          {
             "internalType" : "uint256",
-            "name" : "_ntnFee",
+            "name" : "_ntnReward",
             "type" : "uint256"
          }
       ],
