@@ -55,7 +55,7 @@ type ChainHeaderReader interface {
 	// CommitteeOfHeight retrieves the committee for a given block number.
 	CommitteeOfHeight(number uint64) (*types.Committee, error)
 
-	// LatestConsensusView retrieves the latest committee and chain head of block chain.
+	// LatestConsensusView retrieves the latest committee and chain head of blockchain.
 	LatestConsensusView() (*types.Committee, *types.Header)
 }
 
