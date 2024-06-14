@@ -107,6 +107,9 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@echo Generating internal testing bindings
 	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/tests/bindings.go
 
+contract-docs:
+	@cd $(CONTRACTS_BASE_DIR) && npx hardhat docgen && cd -
+	@rm -r $(CONTRACTS_BASE_DIR)/artifacts && rm -r $(CONTRACTS_BASE_DIR)/cache
 
 $(SOLC_BINARY):
 	mkdir -p $(BINDIR)
