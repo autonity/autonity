@@ -38,10 +38,10 @@ import (
 )
 
 const (
+	committeeCacheLimit = 512 // cache the most recent 512 heights' committee.
 	headerCacheLimit    = 512
 	tdCacheLimit        = 1024
 	numberCacheLimit    = 2048
-	committeeCacheLimit = 4096
 )
 
 // HeaderChain implements the basic block header chain logic that is shared by
