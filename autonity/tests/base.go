@@ -74,6 +74,7 @@ func (c *contract) Contract() *contract {
 	return c
 }
 
+// call a contract function and then revert. helpful to get output of the function without changing state
 func (r *Runner) SimulateCall(c *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
 	snap := r.snapshot()
 	out, consumed, err := c.call(opts, method, params...)
@@ -219,6 +220,17 @@ func (r *Runner) revertSnapshot(id int) {
 	r.Evm.StateDB.RevertToSnapshot(id)
 }
 
+// helpful to run a code snippet without changing the state
+func (r *Runner) RunAndRevert(f func(r *Runner)) {
+	context := r.Evm.Context
+	snap := r.snapshot()
+	committee := r.Committee
+	f(r)
+	r.revertSnapshot(snap)
+	r.Evm.Context = context
+	r.Committee = committee
+}
+
 // run is a convenience wrapper against t.run with automated state snapshot
 func (r *Runner) Run(name string, f func(r *Runner)) {
 	r.T.Run(name, func(t2 *testing.T) {
@@ -236,8 +248,8 @@ func (r *Runner) Run(name string, f func(r *Runner)) {
 	})
 }
 
-func (r *Runner) GiveMeSomeMoney(user common.Address, amount *big.Int) { //nolint
-	r.Evm.StateDB.AddBalance(user, amount)
+func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) { //nolint
+	r.Evm.StateDB.AddBalance(account, amount)
 }
 
 func (r *Runner) GetBalanceOf(account common.Address) *big.Int { //nolint
@@ -322,7 +334,112 @@ func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) { //n
 	r.Evm.StateDB.AddBalance(recipient, value)
 }
 
-func initalizeEVM() (*vm.EVM, error) {
+func (r *Runner) CheckClaimedRewards(
+	account common.Address,
+	unclaimedAtnRewards *big.Int,
+	unclaimedNtnRewards *big.Int,
+	claimFunc func(opts *runOptions) (uint64, error),
+) {
+	atnBalance := r.GetBalanceOf(account)
+	ntnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+
+	r.NoError(
+		claimFunc(FromSender(account, nil)),
+	)
+
+	newAtnBalance := r.GetBalanceOf(account)
+	newNtnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+
+	atnRewards := new(big.Int).Sub(newAtnBalance, atnBalance)
+	ntnRewards := new(big.Int).Sub(newNtnBalance, ntnBalance)
+
+	require.True(
+		r.T,
+		atnRewards.Cmp(unclaimedAtnRewards) == 0,
+		"claimed atn rewards mismatch",
+	)
+
+	require.True(
+		r.T,
+		ntnRewards.Cmp(unclaimedNtnRewards) == 0,
+		"claimed ntn rewards mismatch",
+	)
+}
+
+func (r *Runner) CheckClaimedRewards1(
+	account common.Address,
+	unclaimedAtnRewards *big.Int,
+	unclaimedNtnRewards *big.Int,
+	claimFunc func(opts *runOptions, id *big.Int) (uint64, error),
+	id *big.Int,
+) {
+	atnBalance := r.GetBalanceOf(account)
+	ntnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+
+	r.NoError(
+		claimFunc(FromSender(account, nil), id),
+	)
+
+	newAtnBalance := r.GetBalanceOf(account)
+	newNtnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+
+	atnRewards := new(big.Int).Sub(newAtnBalance, atnBalance)
+	ntnRewards := new(big.Int).Sub(newNtnBalance, ntnBalance)
+
+	require.True(
+		r.T,
+		atnRewards.Cmp(unclaimedAtnRewards) == 0,
+		"claimed atn rewards mismatch",
+	)
+
+	require.True(
+		r.T,
+		ntnRewards.Cmp(unclaimedNtnRewards) == 0,
+		"claimed ntn rewards mismatch",
+	)
+}
+
+func (r *Runner) CheckClaimedRewards2(
+	account common.Address,
+	unclaimedAtnRewards *big.Int,
+	unclaimedNtnRewards *big.Int,
+	claimFunc func(opts *runOptions, id *big.Int, validator common.Address) (uint64, error),
+	id *big.Int,
+	validator common.Address,
+) {
+	atnBalance := r.GetBalanceOf(account)
+	ntnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+
+	r.NoError(
+		claimFunc(FromSender(account, nil), id, validator),
+	)
+
+	newAtnBalance := r.GetBalanceOf(account)
+	newNtnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+
+	atnRewards := new(big.Int).Sub(newAtnBalance, atnBalance)
+	ntnRewards := new(big.Int).Sub(newNtnBalance, ntnBalance)
+
+	require.True(
+		r.T,
+		atnRewards.Cmp(unclaimedAtnRewards) == 0,
+		"claimed atn rewards mismatch",
+	)
+
+	require.True(
+		r.T,
+		ntnRewards.Cmp(unclaimedNtnRewards) == 0,
+		"claimed ntn rewards mismatch",
+	)
+}
+
+func initializeEVM() (*vm.EVM, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
 	stateDB, err := state.New(common.Hash{}, db, nil)
@@ -349,7 +466,7 @@ func initalizeEVM() (*vm.EVM, error) {
 }
 
 func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
-	evm, err := initalizeEVM()
+	evm, err := initializeEVM()
 	require.NoError(t, err)
 	r := &Runner{T: t, Evm: evm}
 	/*// todo: left for later..

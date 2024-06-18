@@ -1,7 +1,6 @@
 package vestingtests
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -127,7 +126,8 @@ func TestBonding(t *testing.T) {
 	cliff := 500 + start
 	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
 	end := contractTotalAmount + start
-	users, validators, liquidContracts := setupContracts(r, 2, 2, contractTotalAmount, start, cliff, end)
+	contractCount := 2
+	users, validators, liquidContracts := setupContracts(r, contractCount, 2, contractTotalAmount, start, cliff, end)
 
 	beneficiary := users[0]
 	contractID := common.Big0
@@ -210,7 +210,28 @@ func TestBonding(t *testing.T) {
 	})
 
 	r.Run("track liquids when bonding from multiple contracts to multiple validators", func(r *tests.Runner) {
-		// TODO (tariq): complete
+		bondingIteration := 2
+		bondingAmount := big.NewInt(contractTotalAmount / (int64(len(validators) * bondingIteration)))
+		require.True(r.T, bondingAmount.Cmp(common.Big0) > 0, "cannot test")
+
+		requests := make([]StakingRequest, 0)
+		for _, user := range users {
+			for i := 0; i < contractCount; i++ {
+				for _, validator := range validators {
+					requests = append(requests, StakingRequest{user, bondingAmount, big.NewInt(int64(i)), validator, "", true})
+				}
+			}
+		}
+
+		require.True(
+			r.T,
+			isInitialBalanceZero(r, requests),
+			"initial liquid balances should be 0",
+		)
+
+		for i := 0; i < bondingIteration; i++ {
+			bondAndFinalize(r, requests)
+		}
 	})
 
 	r.Run("when bonded, release NTN first", func(r *tests.Runner) {
@@ -390,53 +411,62 @@ func TestRwardTracking(t *testing.T) {
 		r.WaitNextEpoch()
 		r.GiveMeSomeMoney(r.Autonity.Address(), reward)
 		r.WaitNextEpoch()
+
 		rewardOfContract, _, err := liquidContract.UnclaimedRewards(nil, r.StakableVesting.Address())
 		require.NoError(r.T, err)
 		require.True(r.T, rewardOfContract.UnclaimedNTN.Cmp(common.Big0) > 0, "no NTN reward")
 		require.True(r.T, rewardOfContract.UnclaimedATN.Cmp(common.Big0) > 0, "no ATN reward")
+
 		rewardOfUser, _, err := r.StakableVesting.UnclaimedRewards(nil, beneficiary, contractID, validator)
 		require.NoError(r.T, err)
-		require.Equal(r.T, rewardOfContract.UnclaimedATN, rewardOfUser.AtnReward, "ATN reward mismatch")
-		require.Equal(r.T, rewardOfContract.UnclaimedNTN, rewardOfUser.NtnReward, "NTN reward mismatch")
+		require.Equal(r.T, rewardOfContract.UnclaimedATN, rewardOfUser.AtnRewards, "ATN reward mismatch")
+		require.Equal(r.T, rewardOfContract.UnclaimedNTN, rewardOfUser.NtnRewards, "NTN reward mismatch")
+
 		rewardOfUser, _, err = r.StakableVesting.UnclaimedRewards1(nil, beneficiary, contractID)
 		require.NoError(r.T, err)
-		require.Equal(r.T, rewardOfContract.UnclaimedATN, rewardOfUser.AtnReward, "ATN reward mismatch")
-		require.Equal(r.T, rewardOfContract.UnclaimedNTN, rewardOfUser.NtnReward, "NTN reward mismatch")
+		require.Equal(r.T, rewardOfContract.UnclaimedATN, rewardOfUser.AtnRewards, "ATN reward mismatch")
+		require.Equal(r.T, rewardOfContract.UnclaimedNTN, rewardOfUser.NtnRewards, "NTN reward mismatch")
+
 		rewardOfUser, _, err = r.StakableVesting.UnclaimedRewards0(nil, beneficiary)
 		require.NoError(r.T, err)
-		require.Equal(r.T, rewardOfContract.UnclaimedATN, rewardOfUser.AtnReward, "ATN reward mismatch")
-		require.Equal(r.T, rewardOfContract.UnclaimedNTN, rewardOfUser.NtnReward, "NTN reward mismatch")
-		balanceNTN, _, err := r.Autonity.BalanceOf(nil, beneficiary)
-		require.NoError(r.T, err)
-		balanceATN := r.GetBalanceOf(beneficiary)
+		require.Equal(r.T, rewardOfContract.UnclaimedATN, rewardOfUser.AtnRewards, "ATN reward mismatch")
+		require.Equal(r.T, rewardOfContract.UnclaimedNTN, rewardOfUser.NtnRewards, "NTN reward mismatch")
 
-		r.NoError(
-			r.StakableVesting.ClaimRewards0(
-				tests.FromSender(beneficiary, nil),
-			),
-		)
-		newBalanceNTN, _, err := r.Autonity.BalanceOf(nil, beneficiary)
-		require.NoError(r.T, err)
-		require.Equal(r.T, new(big.Int).Add(balanceNTN, rewardOfUser.NtnReward), newBalanceNTN, "NTN reward not claimed")
-		newBalanceATN := r.GetBalanceOf(beneficiary)
-		require.Equal(r.T, new(big.Int).Add(balanceATN, rewardOfUser.AtnReward), newBalanceATN, "ATN reward not claimed")
+		// checking all the variations of claim rewards function
+		r.RunAndRevert(func(r *tests.Runner) {
+			r.CheckClaimedRewards(beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards, r.StakableVesting.ClaimRewards0)
+		})
+
+		r.RunAndRevert(func(r *tests.Runner) {
+			r.CheckClaimedRewards1(beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards, r.StakableVesting.ClaimRewards, contractID)
+		})
+
+		r.RunAndRevert(func(r *tests.Runner) {
+			r.CheckClaimedRewards2(beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards, r.StakableVesting.ClaimRewards1, contractID, validator)
+		})
 	})
 
 	// set commission rate = 0, so all rewards go to delegation
 	r.NoError(
 		r.Autonity.SetTreasuryFee(operator, common.Big0),
 	)
+	for _, validator := range r.Committee.Validators {
+		r.NoError(
+			r.Autonity.ChangeCommissionRate(
+				tests.FromSender(validator.Treasury, nil), validator.NodeAddress, common.Big0,
+			),
+		)
+	}
+	for r.Committee.Validators[0].CommissionRate.Cmp(common.Big0) > 0 {
+		r.WaitNextEpoch()
+	}
+
 	// remove all bonding, so we only have bonding from contracts only
 	for _, validator := range r.Committee.Validators {
 		require.Equal(r.T, validator.SelfBondedStake, validator.BondedStake, "delegation stake should not exist")
 		r.NoError(
 			r.Autonity.Unbond(
 				tests.FromSender(validator.Treasury, nil), validator.NodeAddress, validator.SelfBondedStake,
-			),
-		)
-		r.NoError(
-			r.Autonity.ChangeCommissionRate(
-				tests.FromSender(validator.Treasury, nil), validator.NodeAddress, common.Big0,
 			),
 		)
 	}
@@ -446,6 +476,9 @@ func TestRwardTracking(t *testing.T) {
 	totalBonded := new(big.Int)
 	for _, user := range users {
 		for i := 0; i < contractCount; i++ {
+			bondedVals, _, err := r.StakableVesting.GetBondedValidators(nil, user, big.NewInt(int64(i)))
+			require.NoError(r.T, err)
+			require.True(r.T, len(bondedVals) == 0)
 			for _, validator := range validators {
 				r.NoError(
 					r.StakableVesting.Bond(
@@ -469,9 +502,6 @@ func TestRwardTracking(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, eachValidatorStake, balance)
 	}
-	for r.Committee.Validators[0].CommissionRate.Cmp(common.Big0) > 0 {
-		r.WaitNextEpoch()
-	}
 
 	r.Run("bond in differenet epoch and track reward", func(r *tests.Runner) {
 		extraBonds := make([]StakingRequest, 0)
@@ -487,7 +517,13 @@ func TestRwardTracking(t *testing.T) {
 
 		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
 
-		for i, request := range extraBonds {
+		require.True(
+			r.T,
+			isAllRewardsZero(r, contractCount, liquidContracts, users, validators),
+			"all rewards should be zero initially",
+		)
+
+		for _, request := range extraBonds {
 
 			user := request.staker
 			if request.amount.Cmp(common.Big0) > 0 {
@@ -502,8 +538,8 @@ func TestRwardTracking(t *testing.T) {
 			oldRewardsFromValidator, oldUserRewards := unclaimedRewards(r, contractCount, liquidContracts, users, validators)
 			totalReward := rewardsAfterOneEpoch(r)
 			r.WaitNextEpoch()
+
 			// request is not applied yet
-			fmt.Printf("\n\n\ntest %v\n\n\n\n", i)
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
 				liquidContracts, validators, users, validatorStakes,
@@ -519,6 +555,8 @@ func TestRwardTracking(t *testing.T) {
 				userStakes[user][id][validator].Add(userStakes[user][id][validator], amount)
 				totalStake.Add(totalStake, amount)
 			}
+
+			r.WaitNextEpoch()
 		}
 	})
 
@@ -831,7 +869,7 @@ func unclaimedRewards(
 			for _, validator := range validators {
 				unclaimedReward, _, err := r.StakableVesting.UnclaimedRewards(nil, user, big.NewInt(int64(i)), validator)
 				require.NoError(r.T, err)
-				oldUserRewards[user][i][validator] = Reward{unclaimedReward.AtnReward, unclaimedReward.NtnReward}
+				oldUserRewards[user][i][validator] = Reward{unclaimedReward.AtnRewards, unclaimedReward.NtnRewards}
 			}
 		}
 	}
@@ -943,10 +981,7 @@ func checkRewards(
 				unclaimedReward, _, err := r.StakableVesting.UnclaimedRewards(nil, user, big.NewInt(int64(i)), validator)
 				require.NoError(r.T, err)
 
-				diff := new(big.Int).Sub(calculatedRewardATN, unclaimedReward.AtnReward)
-				fmt.Printf("calculatedRewardATN %v\n", calculatedRewardATN)
-				fmt.Printf("unclaimedReward.AtnReward %v\n", unclaimedReward.AtnReward)
-				fmt.Printf("diff %v\n", diff)
+				diff := new(big.Int).Sub(calculatedRewardATN, unclaimedReward.AtnRewards)
 				diff.Abs(diff)
 				// difference should be less than or equal to 1 wei
 				require.True(
@@ -955,10 +990,7 @@ func checkRewards(
 					"atn reward calculation mismatch",
 				)
 
-				diff = new(big.Int).Sub(calculatedRewardNTN, unclaimedReward.NtnReward)
-				fmt.Printf("calculatedRewardNTN %v\n", calculatedRewardNTN)
-				fmt.Printf("unclaimedReward.NtnReward %v\n", unclaimedReward.NtnReward)
-				fmt.Printf("diff %v\n", diff)
+				diff = new(big.Int).Sub(calculatedRewardNTN, unclaimedReward.NtnRewards)
 				diff.Abs(diff)
 				// difference should be less than or equal to 1 wei
 				require.True(
@@ -966,17 +998,33 @@ func checkRewards(
 					diff.Cmp(common.Big1) <= 0,
 					"ntn reward calculation mismatch",
 				)
-				unclaimedRewardForContractATN.Add(unclaimedRewardForContractATN, unclaimedReward.AtnReward)
-				unclaimedRewardForContractNTN.Add(unclaimedRewardForContractNTN, unclaimedReward.NtnReward)
+				unclaimedRewardForContractATN.Add(unclaimedRewardForContractATN, unclaimedReward.AtnRewards)
+				unclaimedRewardForContractNTN.Add(unclaimedRewardForContractNTN, unclaimedReward.NtnRewards)
+
+				// so that following code snippet reverts
+				r.RunAndRevert(func(r *tests.Runner) {
+					r.CheckClaimedRewards2(
+						user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards, r.StakableVesting.ClaimRewards1, big.NewInt(int64(i)), validator,
+					)
+
+				})
 			}
 
 			unclaimedReward, _, err := r.StakableVesting.UnclaimedRewards1(nil, user, big.NewInt(int64(i)))
 			require.NoError(r.T, err)
-			require.Equal(r.T, unclaimedRewardForContractATN, unclaimedReward.AtnReward)
-			require.Equal(r.T, unclaimedRewardForContractNTN, unclaimedReward.NtnReward)
 
-			userRewardATN.Add(userRewardATN, unclaimedReward.AtnReward)
-			userRewardNTN.Add(userRewardNTN, unclaimedReward.NtnReward)
+			require.Equal(r.T, unclaimedRewardForContractATN, unclaimedReward.AtnRewards)
+			require.Equal(r.T, unclaimedRewardForContractNTN, unclaimedReward.NtnRewards)
+
+			userRewardATN.Add(userRewardATN, unclaimedReward.AtnRewards)
+			userRewardNTN.Add(userRewardNTN, unclaimedReward.NtnRewards)
+
+			// so that following code snippet reverts
+			r.RunAndRevert(func(r *tests.Runner) {
+				r.CheckClaimedRewards1(
+					user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards, r.StakableVesting.ClaimRewards, big.NewInt(int64(i)),
+				)
+			})
 		}
 
 		unclaimedReward, _, err := r.StakableVesting.UnclaimedRewards0(nil, user)
@@ -985,17 +1033,85 @@ func checkRewards(
 		require.Equal(
 			r.T,
 			userRewardATN,
-			unclaimedReward.AtnReward,
+			unclaimedReward.AtnRewards,
 			"unclaimed atn reward mismatch",
 		)
 
 		require.Equal(
 			r.T,
 			userRewardNTN,
-			unclaimedReward.NtnReward,
+			unclaimedReward.NtnRewards,
 			"unclaimed ntn reward mismatch",
 		)
+
+		// so that following code snippet reverts
+		r.RunAndRevert(func(r *tests.Runner) {
+			r.CheckClaimedRewards(
+				user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards, r.StakableVesting.ClaimRewards0,
+			)
+		})
 	}
+}
+
+func isAllRewardsZero(
+	r *tests.Runner,
+	contractCount int,
+	liquidContracts []*tests.Liquid,
+	users, validators []common.Address,
+) bool {
+
+	for _, liquidContract := range liquidContracts {
+		rewards, _, err := liquidContract.UnclaimedRewards(nil, r.StakableVesting.Address())
+		require.NoError(r.T, err)
+
+		if rewards.UnclaimedATN.Cmp(common.Big0) != 0 {
+			return false
+		}
+
+		if rewards.UnclaimedNTN.Cmp(common.Big0) != 0 {
+			return false
+		}
+	}
+
+	for _, user := range users {
+		for i := 0; i < contractCount; i++ {
+			for _, validator := range validators {
+				rewards, _, err := r.StakableVesting.UnclaimedRewards(nil, user, big.NewInt(int64(i)), validator)
+				require.NoError(r.T, err)
+
+				if rewards.AtnRewards.Cmp(common.Big0) != 0 {
+					return false
+				}
+
+				if rewards.NtnRewards.Cmp(common.Big0) != 0 {
+					return false
+				}
+			}
+
+			rewards, _, err := r.StakableVesting.UnclaimedRewards1(nil, user, big.NewInt(int64(i)))
+			require.NoError(r.T, err)
+
+			if rewards.AtnRewards.Cmp(common.Big0) != 0 {
+				return false
+			}
+
+			if rewards.NtnRewards.Cmp(common.Big0) != 0 {
+				return false
+			}
+		}
+
+		rewards, _, err := r.StakableVesting.UnclaimedRewards0(nil, user)
+		require.NoError(r.T, err)
+
+		if rewards.AtnRewards.Cmp(common.Big0) != 0 {
+			return false
+		}
+
+		if rewards.NtnRewards.Cmp(common.Big0) != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func setupContracts(
@@ -1065,19 +1181,55 @@ func checkReleaseAllNTN(r *tests.Runner, user common.Address, contractID, unlock
 	)
 }
 
+func isInitialBalanceZero(
+	r *tests.Runner,
+	requests []StakingRequest,
+) bool {
+
+	updateVestingContractFunds(r, requests)
+
+	for _, request := range requests {
+		balance, _, err := r.StakableVesting.LiquidBalanceOf(nil, request.staker, request.contractID, request.validator)
+		require.NoError(r.T, err)
+		if balance.Cmp(common.Big0) != 0 {
+			return false
+		}
+	}
+
+	for _, liquidContract := range r.Committee.LiquidContracts {
+		balance, _, err := liquidContract.BalanceOf(nil, r.StakableVesting.Address())
+		require.NoError(r.T, err)
+		if balance.Cmp(common.Big0) != 0 {
+			return false
+		}
+	}
+
+	return true
+
+}
+
 func initialBalances(
 	r *tests.Runner,
 	stakingRequests []StakingRequest,
 ) (
 	liquidContracts map[common.Address]*tests.Liquid,
 	liquidOfVestingContract map[common.Address]*big.Int,
-	liquidOfUser map[common.Address]map[int64]*big.Int,
-	contractNTN map[int64]*big.Int,
+	liquidOfUser map[common.Address]map[common.Address]map[int64]*big.Int,
+	contractNTN map[common.Address]map[int64]*big.Int,
 ) {
 	liquidContracts = make(map[common.Address]*tests.Liquid)
 	liquidOfVestingContract = make(map[common.Address]*big.Int)
-	liquidOfUser = make(map[common.Address]map[int64]*big.Int)
-	contractNTN = make(map[int64]*big.Int)
+	liquidOfUser = make(map[common.Address]map[common.Address]map[int64]*big.Int)
+	contractNTN = make(map[common.Address]map[int64]*big.Int)
+
+	for _, request := range stakingRequests {
+		liquidOfUser[request.staker] = make(map[common.Address]map[int64]*big.Int)
+		contractNTN[request.staker] = make(map[int64]*big.Int)
+	}
+
+	for _, request := range stakingRequests {
+		liquidOfUser[request.staker][request.validator] = make(map[int64]*big.Int)
+	}
 
 	for i, validator := range r.Committee.Validators {
 		for _, request := range stakingRequests {
@@ -1089,7 +1241,6 @@ func initialBalances(
 				require.NoError(r.T, err)
 				liquidOfVestingContract[request.validator] = balance
 
-				liquidOfUser[request.validator] = make(map[int64]*big.Int)
 				break
 			}
 		}
@@ -1098,11 +1249,11 @@ func initialBalances(
 	for _, request := range stakingRequests {
 		userLiquid, _, err := r.StakableVesting.LiquidBalanceOf(nil, request.staker, request.contractID, request.validator)
 		require.NoError(r.T, err)
-		liquidOfUser[request.validator][request.contractID.Int64()] = userLiquid
+		liquidOfUser[request.staker][request.validator][request.contractID.Int64()] = userLiquid
 
 		contract, _, err := r.StakableVesting.GetContract(nil, request.staker, request.contractID)
 		require.NoError(r.T, err)
-		contractNTN[request.contractID.Int64()] = contract.CurrentNTNAmount
+		contractNTN[request.staker][request.contractID.Int64()] = contract.CurrentNTNAmount
 	}
 	return liquidContracts, liquidOfVestingContract, liquidOfUser, contractNTN
 }
@@ -1119,7 +1270,7 @@ func bondAndFinalize(
 	r *tests.Runner, bondingRequests []StakingRequest,
 ) {
 
-	liquidContracts, liquidOfVestingContract, liquidOfUser, _ := initialBalances(r, bondingRequests)
+	liquidContracts, liquidOfVestingContract, liquidOfUser, contractNTNs := initialBalances(r, bondingRequests)
 
 	newtonBalance, _, err := r.Autonity.BalanceOf(nil, r.StakableVesting.Address())
 	require.NoError(r.T, err)
@@ -1129,30 +1280,33 @@ func bondAndFinalize(
 		require.NoError(r.T, err)
 		contractNTN := contract.CurrentNTNAmount
 
-		_, err = r.StakableVesting.Bond(
+		_, bondErr := r.StakableVesting.Bond(
 			tests.FromSender(request.staker, nil),
 			request.contractID,
 			request.validator,
 			request.amount,
 		)
 
+		contract, _, err = r.StakableVesting.GetContract(nil, request.staker, request.contractID)
+		require.NoError(r.T, err)
+		remaining := new(big.Int).Sub(contractNTN, common.Big0)
+
 		if request.expectedErr == "" {
-			require.NoError(r.T, err)
+			require.NoError(r.T, bondErr)
 			validator := request.validator
 			id := request.contractID.Int64()
 			liquidOfVestingContract[validator].Add(liquidOfVestingContract[validator], request.amount)
-			liquidOfUser[validator][id].Add(liquidOfUser[validator][id], request.amount)
+			liquidOfUser[request.staker][validator][id].Add(liquidOfUser[request.staker][validator][id], request.amount)
 
-			contract, _, err = r.StakableVesting.GetContract(nil, request.staker, request.contractID)
-			require.NoError(r.T, err)
-			remaining := new(big.Int).Sub(contractNTN, request.amount)
-			require.True(r.T, remaining.Cmp(contract.CurrentNTNAmount) == 0, "contract not updated properly")
+			remaining.Sub(remaining, request.amount)
+			contractNTNs[request.staker][id].Sub(contractNTNs[request.staker][id], request.amount)
 
 			newtonBalance.Sub(newtonBalance, request.amount)
 		} else {
-			require.Error(r.T, err)
-			require.Equal(r.T, request.expectedErr, err.Error())
+			require.Error(r.T, bondErr)
+			require.Equal(r.T, request.expectedErr, bondErr.Error())
 		}
+		require.True(r.T, remaining.Cmp(contract.CurrentNTNAmount) == 0, "contract not updated properly")
 	}
 
 	// let bonding apply
@@ -1178,8 +1332,16 @@ func bondAndFinalize(
 		require.NoError(r.T, err)
 		require.True(
 			r.T,
-			liquidOfUser[validator][id].Cmp(userLiquid) == 0,
+			liquidOfUser[request.staker][validator][id].Cmp(userLiquid) == 0,
 			"vesting contract cannot track liquid balance",
+		)
+
+		contract, _, err := r.StakableVesting.GetContract(nil, request.staker, request.contractID)
+		require.NoError(r.T, err)
+		require.True(
+			r.T,
+			contract.CurrentNTNAmount.Cmp(contractNTNs[request.staker][id]) == 0,
+			"contract not updated properly",
 		)
 
 	}
@@ -1203,7 +1365,7 @@ func unbondAndRelease(
 		require.NoError(r.T, err)
 		unlockedLiquid, _, err := r.StakableVesting.UnlockedLiquidBalanceOf(nil, request.staker, request.contractID, request.validator)
 		require.NoError(r.T, err)
-		_, err = r.StakableVesting.Unbond(
+		_, unbondErr := r.StakableVesting.Unbond(
 			tests.FromSender(request.staker, nil),
 			request.contractID,
 			request.validator,
@@ -1211,12 +1373,12 @@ func unbondAndRelease(
 		)
 
 		if request.expectedErr == "" {
-			require.NoError(r.T, err)
+			require.NoError(r.T, unbondErr)
 			validator := request.validator
 			id := request.contractID.Int64()
 			liquidOfVestingContract[validator].Sub(liquidOfVestingContract[validator], request.amount)
-			liquidOfUser[validator][id].Sub(liquidOfUser[validator][id], request.amount)
-			contractNTN[id].Add(contractNTN[id], request.amount)
+			liquidOfUser[request.staker][validator][id].Sub(liquidOfUser[request.staker][validator][id], request.amount)
+			contractNTN[request.staker][id].Add(contractNTN[request.staker][id], request.amount)
 
 			newLockedLiquid, _, err := r.StakableVesting.LockedLiquidBalanceOf(nil, request.staker, request.contractID, request.validator)
 			require.NoError(r.T, err)
@@ -1236,8 +1398,8 @@ func unbondAndRelease(
 
 			newtonBalance.Add(newtonBalance, request.amount)
 		} else {
-			require.Error(r.T, err)
-			require.Equal(r.T, request.expectedErr, err.Error())
+			require.Error(r.T, unbondErr)
+			require.Equal(r.T, request.expectedErr, unbondErr.Error())
 		}
 	}
 
@@ -1262,7 +1424,7 @@ func unbondAndRelease(
 		require.NoError(r.T, err)
 		require.True(
 			r.T,
-			userLiquid.Cmp(liquidOfUser[validator][id]) == 0,
+			userLiquid.Cmp(liquidOfUser[request.staker][validator][id]) == 0,
 			"vesting contract cannot track liquid",
 		)
 
@@ -1300,7 +1462,7 @@ func unbondAndRelease(
 		id := request.contractID.Int64()
 		require.True(
 			r.T,
-			contract.CurrentNTNAmount.Cmp(contractNTN[id]) == 0,
+			contract.CurrentNTNAmount.Cmp(contractNTN[request.staker][id]) == 0,
 			"contract not updated",
 		)
 	}
