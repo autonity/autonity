@@ -2,6 +2,7 @@ package eth
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,8 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
+var committeeSizeToCheck = []int{50, 64, 65, 100, 200, 500, 1000}
+
 func TestEdgeDirection(t *testing.T) {
 	// test if the edges are unidirectional or bidirectional
 	// test should fail if edges are not bidirectional
@@ -18,31 +21,32 @@ func TestEdgeDirection(t *testing.T) {
 	nodes := make([]*enode.Node, 0, nodeCount)
 	privateKeys := make(map[*ecdsa.PrivateKey]bool)
 	edgeChecker := make([][]int, nodeCount)
-	nodesIdx := make(map[*enode.Node]int)
+	nodesIndex := make(map[*enode.Node]int)
 	for i := 0; i < nodeCount; i++ {
 		edgeChecker[i] = make([]int, nodeCount)
 	}
 	connections := make([][]*enode.Node, nodeCount)
 	topology := NewGraphTopology(0)
 	for i := 0; i < nodeCount; i++ {
+		testID := i + 1
 		privateKey, newNode := createNewNode(t, privateKeys)
 		privateKeys[privateKey] = true
 		nodes = append(nodes, newNode)
-		nodesIdx[newNode] = i
-		for myIdx := 0; myIdx < len(nodes); myIdx++ {
-			edges := topology.RequestSubset(nodes, myIdx)
+		nodesIndex[newNode] = i
+		for myIndex := 0; myIndex < len(nodes); myIndex++ {
+			edges := topology.RequestSubset(nodes, myIndex)
 			for _, peer := range edges {
-				peerIdx := nodesIdx[peer]
-				edgeChecker[myIdx][peerIdx] = i + 1
+				peerIndex := nodesIndex[peer]
+				edgeChecker[myIndex][peerIndex] = testID
 			}
-			connections[myIdx] = edges
+			connections[myIndex] = edges
 		}
-		for myIdx := 0; myIdx < len(nodes); myIdx++ {
-			for _, peer := range connections[myIdx] {
-				peerIdx := nodesIdx[peer]
-				require.True(t, edgeChecker[peerIdx][myIdx] == i+1)
+		for myIndex := 0; myIndex < len(nodes); myIndex++ {
+			for _, peer := range connections[myIndex] {
+				peerIndex := nodesIndex[peer]
+				require.True(t, edgeChecker[peerIndex][myIndex] == testID)
 			}
-			require.True(t, edgeChecker[myIdx][myIdx] == 0)
+			require.True(t, edgeChecker[myIndex][myIndex] == 0)
 		}
 	}
 }
@@ -53,7 +57,14 @@ func TestGraphDegree(t *testing.T) {
 	graph := NewBulkGraphTester(targetDiameter, nodeCount, t)
 	for n := 1; n <= nodeCount; n++ {
 		graph.AddNewNode()
-		graph.TestGraphDegree()
+		printDegree := false
+		for _, committeeSize := range committeeSizeToCheck {
+			if n == committeeSize {
+				printDegree = true
+				break
+			}
+		}
+		graph.TestGraphDegree(printDegree)
 	}
 }
 
@@ -63,6 +74,8 @@ func TestGraphDiamter(t *testing.T) {
 	graph := NewBulkGraphTester(targetDiameter, nodeCount, t)
 	for n := 1; n <= nodeCount; n++ {
 		graph.AddNewNode()
+		// tests if the graph diameter <= target diameter for the whole graph
+		// which ensures that the whole graph is connected
 		graph.TestGraphDiamter()
 	}
 }
@@ -90,7 +103,7 @@ type graphTester struct {
 	topology       networkTopology
 	nodes          []*enode.Node
 	privateKeys    map[*ecdsa.PrivateKey]bool
-	nodesIdx       map[*enode.Node]int
+	nodesIndex     map[*enode.Node]int
 	connections    [][]*enode.Node
 	distance       [][]int
 	// if bulkTest = true, the graph is tested for each node added, and some optimimzation must be applied
@@ -104,7 +117,7 @@ func (graph *graphTester) initiateGraph(targetDiameter, totalNodeCount int) {
 	graph.topology = NewGraphTopology(0)
 	graph.nodes = make([]*enode.Node, 0, totalNodeCount)
 	graph.privateKeys = make(map[*ecdsa.PrivateKey]bool)
-	graph.nodesIdx = make(map[*enode.Node]int)
+	graph.nodesIndex = make(map[*enode.Node]int)
 	graph.distance = make([][]int, totalNodeCount)
 	for i := 0; i < totalNodeCount; i++ {
 		graph.distance[i] = make([]int, totalNodeCount)
@@ -152,7 +165,7 @@ func createNewNode(t require.TestingT, privateKeys map[*ecdsa.PrivateKey]bool) (
 
 func (graph *graphTester) AddNewNode() {
 	privateKey, newNode := createNewNode(graph.t, graph.privateKeys)
-	graph.nodesIdx[newNode] = len(graph.nodes)
+	graph.nodesIndex[newNode] = len(graph.nodes)
 	graph.nodes = append(graph.nodes, newNode)
 	graph.privateKeys[privateKey] = true
 	if !graph.bulkTest && len(graph.nodes) < graph.totalNodeCount {
@@ -164,20 +177,27 @@ func (graph *graphTester) AddNewNode() {
 	}
 }
 
-func (graph *graphTester) TestGraphDegree() {
+func (graph *graphTester) TestGraphDegree(printDegree bool) {
 	// check if the degree properties hold
+	if printDegree {
+		fmt.Printf("\n\ndegree check for committee size %v\n\n", len(graph.nodes))
+	}
 	for i := 0; i < len(graph.nodes); i++ {
 		require.True(graph.t, len(graph.connections[i]) <= MaxDegree)
+
+		if printDegree {
+			fmt.Printf("node %v degree count : %v\n", i, len(graph.connections[i]))
+		}
 	}
 }
 
 // It returns a number of 2 digits in b-base number system: i*b + j where i <= j is maintained
-// i <= j condition is maintained so that combinedIdx(i,j,b) = combinedIdx(j,i,b)
+// i <= j condition is maintained so that combinedIndex(i,j,b) = combinedIndex(j,i,b)
 // This is used to convert a pair (a,b) where (0 <= a,b < n) to a single number
-// So we get combinedIdx(a,b,n) = combinedIdx(b,a,n) = c which represents the pair (a,b) or (b,a)
-func combinedIdx(i, j, b int) int {
+// So we get combinedIndex(a,b,n) = combinedIndex(b,a,n) = c which represents the pair (a,b) or (b,a)
+func combinedIndex(i, j, b int) int {
 	if i > j {
-		return combinedIdx(j, i, b)
+		return combinedIndex(j, i, b)
 	}
 	return i*b + j
 }
@@ -191,7 +211,7 @@ func (graph *graphTester) TestGraphDiamter() {
 		}
 		graph.distance[i][i] = 0
 	}
-	pairsToUpdate := totalNodes * (totalNodes - 1) / 2 // we have C(n,2) pairs of nodes
+	pairsToUpdate := totalNodes * (totalNodes - 1) / 2 // we have C(n,2) unordered pairs of nodes
 	updatedPairs := make(map[int]bool)
 	for nodeCount := len(graph.nodes); nodeCount > 0 && len(updatedPairs) < pairsToUpdate; nodeCount-- {
 		source := nodeCount - 1
@@ -206,22 +226,24 @@ func (graph *graphTester) TestGraphDiamter() {
 		for j := 0; j < source; j++ {
 			d := graph.distance[source][j]
 			require.True(graph.t, d <= graph.targetDiameter, "graph diameter more than expected")
+			// assuming that the graph is bidirectional, which is tested in TestEdgeDirection
 			graph.distance[j][source] = d
-			updatedPairs[combinedIdx(j, source, totalNodes)] = true
+			updatedPairs[combinedIndex(j, source, totalNodes)] = true
 			if d < graph.targetDiameter {
 				distantNodes[d] = append(distantNodes[d], j)
 			}
 		}
-		// update any pair (i,j) such that the shortest path between i and j includes source
+		// update any pair (nodeA,nodeB) such that the shortest path between nodeA and nodeB includes source
+		// As our targetedDiameter = 4, doing this operation is not very costly.
 		for d := 1; d < graph.targetDiameter; d++ {
-			for _, nodeIdx := range distantNodes[d] {
+			for _, nodeAIndex := range distantNodes[d] {
 				for d1 := d; d1+d <= graph.targetDiameter; d1++ {
-					for _, peerIdx := range distantNodes[d1] {
-						if peerIdx != nodeIdx {
+					for _, nodeBIndex := range distantNodes[d1] {
+						if nodeBIndex != nodeAIndex {
 							// no need to check distance here as d+d1 <= targetDiameter
-							graph.distance[nodeIdx][peerIdx] = min(graph.distance[nodeIdx][peerIdx], d+d1)
-							graph.distance[peerIdx][nodeIdx] = min(graph.distance[peerIdx][nodeIdx], d+d1)
-							updatedPairs[combinedIdx(nodeIdx, peerIdx, totalNodes)] = true
+							graph.distance[nodeAIndex][nodeBIndex] = min(graph.distance[nodeAIndex][nodeBIndex], d+d1)
+							graph.distance[nodeBIndex][nodeAIndex] = min(graph.distance[nodeBIndex][nodeAIndex], d+d1)
+							updatedPairs[combinedIndex(nodeAIndex, nodeBIndex, totalNodes)] = true
 						}
 					}
 				}
@@ -231,26 +253,26 @@ func (graph *graphTester) TestGraphDiamter() {
 }
 
 // Here nodeCount <= totalNodes, the number of nodes we are testing
-// Lets say for all nodes with ID >= nodeCount, we have distance[i][ID] and distance[ID][i] is updated for all 0 <= i < totalNodes
-// Now we want to update distance for all pair (i,sourceIdx) where 0 <= i,sourceIdx < nodeCount
-// If the shortest path between i and sourceIdx includes any node j where j >= nodeCount, then distance[i][sourceIdx] can be updated
-// via j, i.e. distance[i][sourceIdx] = distance[i][j] + distance[j][sourceIdx]. As our targetedDiameter = 4, doing this operation is not very costly.
-// So in bfs we don't need to concern any node, i, where i >= nodeCount or the shortest path between i and sourceIdx includes j where j >= nodeCount
-func (graph *graphTester) bfs(sourceIdx, nodeCount int, dis []int) {
+// Lets say for all nodes with ID >= nodeCount, we have distance[i][ID] and distance[ID][i] updated for all 0 <= i < totalNodes
+// Now we want to update distance for all pair (i,sourceIndex) where 0 <= i,sourceIndex < nodeCount for all 0 <= i < nodeCount
+// If the shortest path between i and sourceIndex includes any node j where j >= nodeCount, then distance[i][sourceIndex] can be updated
+// via j, i.e. distance[i][sourceIndex] = distance[i][j] + distance[j][sourceIndex] which is already done before calling bfs.
+// So in bfs we don't need to include path which has some intermediate node, x such that x >= nodeCount
+func (graph *graphTester) bfs(sourceIndex, nodeCount int, dis []int) {
 	// enque source
 	queue := make([]int, 0, nodeCount)
-	queue = append(queue, sourceIdx)
-	dis[sourceIdx] = 0
+	queue = append(queue, sourceIndex)
+	dis[sourceIndex] = 0
 	for len(queue) > 0 {
 		// pop
-		nodeIdx := queue[0]
+		nodeIndex := queue[0]
 		queue = queue[1:]
-		for _, peer := range graph.connections[nodeIdx] {
-			peerIdx := graph.nodesIdx[peer]
-			if peerIdx < nodeCount && dis[peerIdx] > dis[nodeIdx]+1 {
+		for _, peer := range graph.connections[nodeIndex] {
+			peerIndex := graph.nodesIndex[peer]
+			if peerIndex < nodeCount && dis[peerIndex] > dis[nodeIndex]+1 {
 				// enque adjacent nodes
-				queue = append(queue, peerIdx)
-				dis[peerIdx] = dis[nodeIdx] + 1
+				queue = append(queue, peerIndex)
+				dis[peerIndex] = dis[nodeIndex] + 1
 			}
 		}
 	}
