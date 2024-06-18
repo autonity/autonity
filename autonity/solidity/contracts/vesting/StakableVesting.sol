@@ -218,7 +218,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @param _validator address of the validator for bonding
      * @param _amount amount of NTN to bond
      */
-    function bond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
+    function bond(uint256 _id, address _validator, uint256 _amount) virtual public returns (uint256) {
 
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _updateFunds(_contractID);
@@ -243,7 +243,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @param _validator address of the validator
      * @param _amount amount of LNTN to unbond
      */
-    function unbond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
+    function unbond(uint256 _id, address _validator, uint256 _amount) virtual public returns (uint256) {
 
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _cleanup(_contractID);
@@ -266,22 +266,22 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @param _id contract ID
      * @param _validator validator address
      */
-    function claimRewards(uint256 _id, address _validator) virtual external {
+    function claimRewards(uint256 _id, address _validator) virtual external returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _updateFunds(_contractID);
-        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID, _validator);
-        _sendRewards(_atnReward, _ntnReward);
+        (_atnRewards, _ntnRewards) = _claimRewards(_contractID, _validator);
+        _sendRewards(_atnRewards, _ntnRewards);
         _clearValidators(_contractID);
     }
 
     /**
      * @notice used by beneficiary to claim rewards from contract _id from bonding
      */
-    function claimRewards(uint256 _id) virtual external {
+    function claimRewards(uint256 _id) virtual external returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _updateFunds(_contractID);
-        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
-        _sendRewards(_atnReward, _ntnReward);
+        (_atnRewards, _ntnRewards) = _claimRewards(_contractID);
+        _sendRewards(_atnRewards, _ntnRewards);
         _clearValidators(_contractID);
     }
 
@@ -290,21 +290,21 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @dev Rewards from some cancelled contracts are stored in atnRewards and ntnRewards mapping. All rewards from
      * contracts that are still entitled to the beneficiary need to be calculated via _claimRewards
      */
-    function claimRewards() virtual external {
+    function claimRewards() virtual external returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256[] storage _contractIDs = beneficiaryContracts[msg.sender];
-        uint256 _atnTotalFees = atnRewards[msg.sender];
-        uint256 _ntnTotalFees = ntnRewards[msg.sender];
+        _atnRewards = atnRewards[msg.sender];
+        _ntnRewards = ntnRewards[msg.sender];
         atnRewards[msg.sender] = 0;
         ntnRewards[msg.sender] = 0;
         
         for (uint256 i = 0; i < _contractIDs.length; i++) {
             _updateFunds(_contractIDs[i]);
-            (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractIDs[i]);
-            _atnTotalFees += _atnReward;
-            _ntnTotalFees += _ntnReward;
+            (uint256 _atn, uint256 _ntn) = _claimRewards(_contractIDs[i]);
+            _atnRewards += _atn;
+            _ntnRewards += _ntn;
             _clearValidators(_contractIDs[i]);
         }
-        _sendRewards(_atnTotalFees, _ntnTotalFees);
+        _sendRewards(_atnRewards, _ntnRewards);
     }
 
     /**
@@ -399,17 +399,17 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
         // this transfer decreases the total liquid balance, which will affect pending reward event
         // update pending reward event, if any
-        _updatePendingEvent(_validator);
+        _updatePendingEventLiquid(_validator);
     }
 
     function _sendRewards(uint256 _atnReward, uint256 _ntnReward) private {
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
         (bool _sent, ) = msg.sender.call{value: _atnReward}("");
-        require(_sent, "Failed to send AUT");
+        require(_sent, "failed to send ATN");
 
         _sent = autonity.transfer(msg.sender, _ntnReward);
-        require(_sent, "Failed to send NTN");
+        require(_sent, "failed to send NTN");
     }
 
     function _updateFunds(uint256 _contractID) private {
@@ -444,7 +444,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
         uint256 _bondingID;
         PendingBondingRequest storage _bondingRequest;
-        uint256 _totalBondingRejected = 0;
+        uint256 _totalBondingRejected;
         uint256 _currentEpochID = _getEpochID();
         for (uint256 i = 0; i < _length; i++) {
             _bondingID = _bondingIDs[i];
@@ -604,37 +604,37 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @param _id contract ID
      * @param _validator validator address
      */
-    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnReward, uint256 _ntnReward) {
+    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         (int256 _balanceChange, uint256 _epochID) = _balanceChangeFromStakingRequest(_contractID, _validator);
-        (_atnReward, _ntnReward) = _unclaimedRewards(_contractID, _validator, _balanceChange, _epochID);
+        (_atnRewards, _ntnRewards) = _unclaimedRewards(_contractID, _validator, _balanceChange, _epochID);
     }
 
     /**
      * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding
      */
-    function unclaimedRewards(address _beneficiary, uint256 _id) virtual public view returns (uint256 _atnReward, uint256 _ntnReward) {
+    function unclaimedRewards(address _beneficiary, uint256 _id) virtual public view returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         address[] memory _validators = _bondedValidators(_contractID);
         for (uint256 i = 0; i < _validators.length; i++) {
             (int256 _balanceChange, uint256 _epochID) = _balanceChangeFromStakingRequest(_contractID, _validators[i]);
             (uint256 _atn, uint256 _ntn) = _unclaimedRewards(_contractID, _validators[i], _balanceChange, _epochID);
-            _atnReward += _atn;
-            _ntnReward += _ntn;
+            _atnRewards += _atn;
+            _ntnRewards += _ntn;
         }
     }
 
     /**
      * @notice returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to _beneficiary
      */
-    function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnReward, uint256 _ntnReward) {
-        _atnReward = atnRewards[_beneficiary];
-        _ntnReward = ntnRewards[_beneficiary];
+    function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
+        _atnRewards = atnRewards[_beneficiary];
+        _ntnRewards = ntnRewards[_beneficiary];
         uint256 _length = beneficiaryContracts[_beneficiary].length;
         for (uint256 i = 0; i < _length; i++) {
             (uint256 _atnFee, uint256 _ntnFee) = unclaimedRewards(_beneficiary, i);
-            _atnReward += _atnFee;
-            _ntnReward += _ntnFee;
+            _atnRewards += _atnFee;
+            _ntnRewards += _ntnFee;
         }
     }
 

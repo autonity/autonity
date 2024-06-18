@@ -131,7 +131,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * from 0 to (n-1). Beneficiary does not need to know the unique global contract id which can
      * be retrieved via _getUniqueContractID function
      */
-    function releaseAllFunds(uint256 _id) virtual external { // onlyActive(_id) {
+    function releaseAllFunds(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _releaseNTN(_contractID, _unlockedFunds(_contractID));
     }
@@ -141,7 +141,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * @notice used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address
      * @param _amount amount of NTN to release
      */
-    function releaseFund(uint256 _id, uint256 _amount) virtual external { // onlyActive(_id) {
+    function releaseFund(uint256 _id, uint256 _amount) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         require(_amount <= _unlockedFunds(_contractID), "not enough unlocked funds");
         _releaseNTN(_contractID, _amount);
