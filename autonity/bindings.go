@@ -24354,7 +24354,7 @@ func (_Stabilization *StabilizationFilterer) ParseWithdraw(log types.Log) (*Stab
 
 // StakableVestingMetaData contains all meta data concerning the StakableVesting contract.
 var StakableVestingMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"FEE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"bond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"canStake\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"}],\"name\":\"changeContractBeneficiary\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"contractTotalValue\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"contractVersion\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getBondedValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getContract\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalDuration\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"}],\"internalType\":\"structContractBase.Contract\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"getContracts\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalDuration\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"}],\"internalType\":\"structContractBase.Contract[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"getLastRewardEvent\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"epochID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalLiquid\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"stakingRequestID\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isBonding\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"eventExist\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"applied\",\"type\":\"bool\"}],\"internalType\":\"structLiquidRewardManager.RewardEvent\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"getPendingRewardEvent\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"epochID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalLiquid\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"stakingRequestID\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isBonding\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"eventExist\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"applied\",\"type\":\"bool\"}],\"internalType\":\"structLiquidRewardManager.RewardEvent\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"liquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"lockedLiquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_startTime\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_totalDuration\",\"type\":\"uint256\"}],\"name\":\"newContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseAllLNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseAllNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"releaseLNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"releaseNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_newTotalNominal\",\"type\":\"uint256\"}],\"name\":\"setTotalNominal\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"totalContracts\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalNominal\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unbond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnReward\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnReward\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnReward\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"unlockedFunds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"unlockedLiquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"updateFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"updateFundsAndGetContract\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalDuration\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"}],\"internalType\":\"structContractBase.Contract\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"updateFundsAndGetContractTotalValue\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"FEE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"bond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"canStake\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"}],\"name\":\"changeContractBeneficiary\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"claimRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnRewards\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnRewards\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnRewards\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnRewards\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"claimRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnRewards\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnRewards\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"contractTotalValue\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"contractVersion\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getBondedValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getContract\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalDuration\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"}],\"internalType\":\"structContractBase.Contract\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"getContracts\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalDuration\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"}],\"internalType\":\"structContractBase.Contract[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"getLastRewardEvent\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"epochID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalLiquid\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"stakingRequestID\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isBonding\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"eventExist\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"applied\",\"type\":\"bool\"}],\"internalType\":\"structLiquidRewardManager.RewardEvent\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"getPendingRewardEvent\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"epochID\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalLiquid\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"stakingRequestID\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isBonding\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"eventExist\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"applied\",\"type\":\"bool\"}],\"internalType\":\"structLiquidRewardManager.RewardEvent\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"liquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"lockedLiquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_startTime\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_totalDuration\",\"type\":\"uint256\"}],\"name\":\"newContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseAllLNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseAllNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"releaseFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"releaseLNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"releaseNTN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_newTotalNominal\",\"type\":\"uint256\"}],\"name\":\"setTotalNominal\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"totalContracts\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalNominal\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unbond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnRewards\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnRewards\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnRewards\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnRewards\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_atnRewards\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_ntnRewards\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"unlockedFunds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"}],\"name\":\"unlockedLiquidBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"updateFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"updateFundsAndGetContract\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"currentNTNAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"withdrawnValue\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"cliffDuration\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalDuration\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"canStake\",\"type\":\"bool\"}],\"internalType\":\"structContractBase.Contract\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_beneficiary\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"updateFundsAndGetContractTotalValue\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
 	Sigs: map[string]string{
 		"187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
 		"c0d3895e": "bond(uint256,address,uint256)",
@@ -24970,24 +24970,24 @@ func (_StakableVesting *StakableVestingCallerSession) TotalNominal() (*big.Int, 
 
 // UnclaimedRewards is a free data retrieval call binding the contract method 0x53deba2d.
 //
-// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingCaller) UnclaimedRewards(opts *bind.CallOpts, _beneficiary common.Address, _id *big.Int, _validator common.Address) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	var out []interface{}
 	err := _StakableVesting.contract.Call(opts, &out, "unclaimedRewards", _beneficiary, _id, _validator)
 
 	outstruct := new(struct {
-		AtnReward *big.Int
-		NtnReward *big.Int
+		AtnRewards *big.Int
+		NtnRewards *big.Int
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
-	outstruct.AtnReward = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.NtnReward = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.AtnRewards = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.NtnRewards = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -24995,44 +24995,44 @@ func (_StakableVesting *StakableVestingCaller) UnclaimedRewards(opts *bind.CallO
 
 // UnclaimedRewards is a free data retrieval call binding the contract method 0x53deba2d.
 //
-// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingSession) UnclaimedRewards(_beneficiary common.Address, _id *big.Int, _validator common.Address) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	return _StakableVesting.Contract.UnclaimedRewards(&_StakableVesting.CallOpts, _beneficiary, _id, _validator)
 }
 
 // UnclaimedRewards is a free data retrieval call binding the contract method 0x53deba2d.
 //
-// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingCallerSession) UnclaimedRewards(_beneficiary common.Address, _id *big.Int, _validator common.Address) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	return _StakableVesting.Contract.UnclaimedRewards(&_StakableVesting.CallOpts, _beneficiary, _id, _validator)
 }
 
 // UnclaimedRewards0 is a free data retrieval call binding the contract method 0x949813b8.
 //
-// Solidity: function unclaimedRewards(address _beneficiary) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingCaller) UnclaimedRewards0(opts *bind.CallOpts, _beneficiary common.Address) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	var out []interface{}
 	err := _StakableVesting.contract.Call(opts, &out, "unclaimedRewards0", _beneficiary)
 
 	outstruct := new(struct {
-		AtnReward *big.Int
-		NtnReward *big.Int
+		AtnRewards *big.Int
+		NtnRewards *big.Int
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
-	outstruct.AtnReward = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.NtnReward = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.AtnRewards = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.NtnRewards = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -25040,44 +25040,44 @@ func (_StakableVesting *StakableVestingCaller) UnclaimedRewards0(opts *bind.Call
 
 // UnclaimedRewards0 is a free data retrieval call binding the contract method 0x949813b8.
 //
-// Solidity: function unclaimedRewards(address _beneficiary) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingSession) UnclaimedRewards0(_beneficiary common.Address) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	return _StakableVesting.Contract.UnclaimedRewards0(&_StakableVesting.CallOpts, _beneficiary)
 }
 
 // UnclaimedRewards0 is a free data retrieval call binding the contract method 0x949813b8.
 //
-// Solidity: function unclaimedRewards(address _beneficiary) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingCallerSession) UnclaimedRewards0(_beneficiary common.Address) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	return _StakableVesting.Contract.UnclaimedRewards0(&_StakableVesting.CallOpts, _beneficiary)
 }
 
 // UnclaimedRewards1 is a free data retrieval call binding the contract method 0xc8daa85d.
 //
-// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingCaller) UnclaimedRewards1(opts *bind.CallOpts, _beneficiary common.Address, _id *big.Int) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	var out []interface{}
 	err := _StakableVesting.contract.Call(opts, &out, "unclaimedRewards1", _beneficiary, _id)
 
 	outstruct := new(struct {
-		AtnReward *big.Int
-		NtnReward *big.Int
+		AtnRewards *big.Int
+		NtnRewards *big.Int
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
-	outstruct.AtnReward = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.NtnReward = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.AtnRewards = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.NtnRewards = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -25085,20 +25085,20 @@ func (_StakableVesting *StakableVestingCaller) UnclaimedRewards1(opts *bind.Call
 
 // UnclaimedRewards1 is a free data retrieval call binding the contract method 0xc8daa85d.
 //
-// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingSession) UnclaimedRewards1(_beneficiary common.Address, _id *big.Int) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	return _StakableVesting.Contract.UnclaimedRewards1(&_StakableVesting.CallOpts, _beneficiary, _id)
 }
 
 // UnclaimedRewards1 is a free data retrieval call binding the contract method 0xc8daa85d.
 //
-// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id) view returns(uint256 _atnReward, uint256 _ntnReward)
+// Solidity: function unclaimedRewards(address _beneficiary, uint256 _id) view returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingCallerSession) UnclaimedRewards1(_beneficiary common.Address, _id *big.Int) (struct {
-	AtnReward *big.Int
-	NtnReward *big.Int
+	AtnRewards *big.Int
+	NtnRewards *big.Int
 }, error) {
 	return _StakableVesting.Contract.UnclaimedRewards1(&_StakableVesting.CallOpts, _beneficiary, _id)
 }
@@ -25167,21 +25167,21 @@ func (_StakableVesting *StakableVestingCallerSession) UnlockedLiquidBalanceOf(_b
 
 // Bond is a paid mutator transaction binding the contract method 0xc0d3895e.
 //
-// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) returns(uint256)
 func (_StakableVesting *StakableVestingTransactor) Bond(opts *bind.TransactOpts, _id *big.Int, _validator common.Address, _amount *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.contract.Transact(opts, "bond", _id, _validator, _amount)
 }
 
 // Bond is a paid mutator transaction binding the contract method 0xc0d3895e.
 //
-// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) returns(uint256)
 func (_StakableVesting *StakableVestingSession) Bond(_id *big.Int, _validator common.Address, _amount *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.Contract.Bond(&_StakableVesting.TransactOpts, _id, _validator, _amount)
 }
 
 // Bond is a paid mutator transaction binding the contract method 0xc0d3895e.
 //
-// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) returns(uint256)
 func (_StakableVesting *StakableVestingTransactorSession) Bond(_id *big.Int, _validator common.Address, _amount *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.Contract.Bond(&_StakableVesting.TransactOpts, _id, _validator, _amount)
 }
@@ -25209,63 +25209,63 @@ func (_StakableVesting *StakableVestingTransactorSession) ChangeContractBenefici
 
 // ClaimRewards is a paid mutator transaction binding the contract method 0x0962ef79.
 //
-// Solidity: function claimRewards(uint256 _id) returns()
+// Solidity: function claimRewards(uint256 _id) returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingTransactor) ClaimRewards(opts *bind.TransactOpts, _id *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.contract.Transact(opts, "claimRewards", _id)
 }
 
 // ClaimRewards is a paid mutator transaction binding the contract method 0x0962ef79.
 //
-// Solidity: function claimRewards(uint256 _id) returns()
+// Solidity: function claimRewards(uint256 _id) returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingSession) ClaimRewards(_id *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.Contract.ClaimRewards(&_StakableVesting.TransactOpts, _id)
 }
 
 // ClaimRewards is a paid mutator transaction binding the contract method 0x0962ef79.
 //
-// Solidity: function claimRewards(uint256 _id) returns()
+// Solidity: function claimRewards(uint256 _id) returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingTransactorSession) ClaimRewards(_id *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.Contract.ClaimRewards(&_StakableVesting.TransactOpts, _id)
 }
 
 // ClaimRewards0 is a paid mutator transaction binding the contract method 0x372500ab.
 //
-// Solidity: function claimRewards() returns()
+// Solidity: function claimRewards() returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingTransactor) ClaimRewards0(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return _StakableVesting.contract.Transact(opts, "claimRewards0")
 }
 
 // ClaimRewards0 is a paid mutator transaction binding the contract method 0x372500ab.
 //
-// Solidity: function claimRewards() returns()
+// Solidity: function claimRewards() returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingSession) ClaimRewards0() (*types.Transaction, error) {
 	return _StakableVesting.Contract.ClaimRewards0(&_StakableVesting.TransactOpts)
 }
 
 // ClaimRewards0 is a paid mutator transaction binding the contract method 0x372500ab.
 //
-// Solidity: function claimRewards() returns()
+// Solidity: function claimRewards() returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingTransactorSession) ClaimRewards0() (*types.Transaction, error) {
 	return _StakableVesting.Contract.ClaimRewards0(&_StakableVesting.TransactOpts)
 }
 
 // ClaimRewards1 is a paid mutator transaction binding the contract method 0x6c7b69cb.
 //
-// Solidity: function claimRewards(uint256 _id, address _validator) returns()
+// Solidity: function claimRewards(uint256 _id, address _validator) returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingTransactor) ClaimRewards1(opts *bind.TransactOpts, _id *big.Int, _validator common.Address) (*types.Transaction, error) {
 	return _StakableVesting.contract.Transact(opts, "claimRewards1", _id, _validator)
 }
 
 // ClaimRewards1 is a paid mutator transaction binding the contract method 0x6c7b69cb.
 //
-// Solidity: function claimRewards(uint256 _id, address _validator) returns()
+// Solidity: function claimRewards(uint256 _id, address _validator) returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingSession) ClaimRewards1(_id *big.Int, _validator common.Address) (*types.Transaction, error) {
 	return _StakableVesting.Contract.ClaimRewards1(&_StakableVesting.TransactOpts, _id, _validator)
 }
 
 // ClaimRewards1 is a paid mutator transaction binding the contract method 0x6c7b69cb.
 //
-// Solidity: function claimRewards(uint256 _id, address _validator) returns()
+// Solidity: function claimRewards(uint256 _id, address _validator) returns(uint256 _atnRewards, uint256 _ntnRewards)
 func (_StakableVesting *StakableVestingTransactorSession) ClaimRewards1(_id *big.Int, _validator common.Address) (*types.Transaction, error) {
 	return _StakableVesting.Contract.ClaimRewards1(&_StakableVesting.TransactOpts, _id, _validator)
 }
@@ -25419,21 +25419,21 @@ func (_StakableVesting *StakableVestingTransactorSession) SetTotalNominal(_newTo
 
 // Unbond is a paid mutator transaction binding the contract method 0xba19a4ae.
 //
-// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) returns(uint256)
 func (_StakableVesting *StakableVestingTransactor) Unbond(opts *bind.TransactOpts, _id *big.Int, _validator common.Address, _amount *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.contract.Transact(opts, "unbond", _id, _validator, _amount)
 }
 
 // Unbond is a paid mutator transaction binding the contract method 0xba19a4ae.
 //
-// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) returns(uint256)
 func (_StakableVesting *StakableVestingSession) Unbond(_id *big.Int, _validator common.Address, _amount *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.Contract.Unbond(&_StakableVesting.TransactOpts, _id, _validator, _amount)
 }
 
 // Unbond is a paid mutator transaction binding the contract method 0xba19a4ae.
 //
-// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) returns(uint256)
 func (_StakableVesting *StakableVestingTransactorSession) Unbond(_id *big.Int, _validator common.Address, _amount *big.Int) (*types.Transaction, error) {
 	return _StakableVesting.Contract.Unbond(&_StakableVesting.TransactOpts, _id, _validator, _amount)
 }

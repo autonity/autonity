@@ -65,7 +65,7 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "stateMutability" : "payable",
+      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
@@ -124,14 +124,36 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "name" : "claimRewards",
-      "outputs" : [],
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_atnRewards",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "_ntnRewards",
+            "type" : "uint256"
+         }
+      ],
       "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
       "inputs" : [],
       "name" : "claimRewards",
-      "outputs" : [],
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_atnRewards",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "_ntnRewards",
+            "type" : "uint256"
+         }
+      ],
       "stateMutability" : "nonpayable",
       "type" : "function"
    },
@@ -149,7 +171,18 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
          }
       ],
       "name" : "claimRewards",
-      "outputs" : [],
+      "outputs" : [
+         {
+            "internalType" : "uint256",
+            "name" : "_atnRewards",
+            "type" : "uint256"
+         },
+         {
+            "internalType" : "uint256",
+            "name" : "_ntnRewards",
+            "type" : "uint256"
+         }
+      ],
       "stateMutability" : "nonpayable",
       "type" : "function"
    },
@@ -665,7 +698,7 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
             "type" : "uint256"
          }
       ],
-      "stateMutability" : "payable",
+      "stateMutability" : "nonpayable",
       "type" : "function"
    },
    {
@@ -690,12 +723,12 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "outputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_atnReward",
+            "name" : "_atnRewards",
             "type" : "uint256"
          },
          {
             "internalType" : "uint256",
-            "name" : "_ntnReward",
+            "name" : "_ntnRewards",
             "type" : "uint256"
          }
       ],
@@ -714,12 +747,12 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "outputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_atnReward",
+            "name" : "_atnRewards",
             "type" : "uint256"
          },
          {
             "internalType" : "uint256",
-            "name" : "_ntnReward",
+            "name" : "_ntnRewards",
             "type" : "uint256"
          }
       ],
@@ -743,12 +776,12 @@ var StakableVestingAbi, _ = abi.JSON(strings.NewReader(`[
       "outputs" : [
          {
             "internalType" : "uint256",
-            "name" : "_atnReward",
+            "name" : "_atnRewards",
             "type" : "uint256"
          },
          {
             "internalType" : "uint256",
-            "name" : "_ntnReward",
+            "name" : "_ntnRewards",
             "type" : "uint256"
          }
       ],
