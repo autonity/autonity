@@ -68,7 +68,7 @@ var (
 	Ntn10000     = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
 	Ntn40000     = new(big.Int).Mul(big.NewInt(40_000), NtnPrecision)
 
-	PiccadillyGenesisTime, _       = time.Parse(time.RFC3339, "2024-06-21:14:00:00Z")
+	PiccadillyGenesisTime, _       = time.Parse(time.RFC3339, "2024-06-21T14:00:00Z")
 	PiccadillyGenesisUnixTimestamp = PiccadillyGenesisTime.Unix()
 
 	// PiccadillyChainConfig contains the chain parameters to run a node on the Piccadilly test network.

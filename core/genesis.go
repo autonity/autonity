@@ -537,6 +537,7 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 				NewtonBalance: new(big.Int).Mul(big.NewInt(20_880_000), params.NTNDecimalFactor),
 			},
 			ctlReserve: {
+				Balance:       common.Big0,
 				NewtonBalance: new(big.Int).Mul(big.NewInt(17_500_050), params.NTNDecimalFactor),
 			},
 		},
