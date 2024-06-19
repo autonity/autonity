@@ -75,23 +75,24 @@ func TestAccusation(t *testing.T) {
 	lastCommittedHeight := currentHeight - 1
 
 	// TODO(lorenzo) add similar tests for PVO and C1
-	/*
-		r.run("PVN accusation with prevote nil should revert", func(r *runner) {
-			accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 
-			chainMock.EXPECT().GetBlock(common.Hash{}, accusationHeight).Return(nil)
+	r.run("PVN accusation with prevote nil should revert", func(r *runner) {
+		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 
-			_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}, reporter))
-			require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
-		})
-		r.run("accusation for committed value should revert", func(r *runner) {
-			accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
+		chainMock.EXPECT().GetBlock(common.Hash{}, accusationHeight).Return(nil)
 
-			chainMock.EXPECT().GetBlock(common.Hash{0xca, 0xfe}, accusationHeight).Return(&types.Block{})
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}, reporter))
+		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+	})
+	r.run("accusation for committed value should revert", func(r *runner) {
+		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 
-			_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
-			require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
-		})*/
+		chainMock.EXPECT().GetBlock(common.Hash{0xca, 0xfe}, accusationHeight).Return(&types.Block{})
+
+		_, err := r.accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
+	})
+
 	r.run("reporting right tests", func(r *runner) {
 
 		// reporting should be reverted since reporter is not in current committee and last committee

@@ -261,11 +261,11 @@ func (ms *MsgStore) PrevotesPowerFor(height uint64, round int64, value common.Ha
 // this function checks if we have a quorum for a value in (h,r). It excludes the `excludedValue` from the search.
 // it is used by the fault detector to verify if we have quorums of prevotes for values != `excludedValue`.
 // returns the slice of messages constituting the quorum
-func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue common.Hash, quorum *big.Int) []message.Msg {
+func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue common.Hash, quorum *big.Int) []*message.Prevote {
 	ms.Lock()
 	defer ms.Unlock()
 
-	var result []message.Msg
+	var result []*message.Prevote
 
 	_, ok := ms.prevotesPower[height]
 	if !ok {

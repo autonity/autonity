@@ -1,19 +1,14 @@
 package accountability
 
 import (
-	"context"
 	"errors"
-	"github.com/autonity/autonity/core/types"
-	"time"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
 const (
-	MaxSubmissionAttempts = 100
-	SubmissionDelay       = 1 * time.Second
-	MaxEventSize          = 20480 // 20KB
+	MaxEventSize = 20480 // 20KB
 )
 
 var (
@@ -104,30 +99,11 @@ func (fd *FaultDetector) eventReporter() {
 		case uint8(autonity.Innocence):
 			tx, err = fd.protocolContracts.HandleInnocenceProof(fd.txOpts, event)
 		default:
-			fd.logger.Warn("Skip unknown accountability event", "type", event.EventType)
-			continue
+			panic("Skip unknown accountability event")
 		}
 
 		if err == nil {
-			fd.logger.Warn("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
-			// wait until it get mined before moving to the next one
-			attempt := 0
-			for ; attempt < MaxSubmissionAttempts; attempt++ {
-				select {
-				case <-fd.stopRetry:
-					return
-				default:
-					time.Sleep(SubmissionDelay)
-					_, _, blockNumber, _, _ := fd.ethBackend.GetTransaction(context.Background(), tx.Hash())
-					if blockNumber != 0 {
-						break
-					}
-				}
-			}
-			if attempt == MaxSubmissionAttempts {
-				fd.logger.Error("Accountability transaction didn't get mined, cancelling")
-				break
-			}
+			fd.logger.Info("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
 		} else {
 			fd.logger.Error("Cannot submit accountability transaction", "err", err)
 		}

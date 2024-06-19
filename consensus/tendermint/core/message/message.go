@@ -795,8 +795,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	p.signers = encoded.Signers
 	p.payload = payload
 	// precompute hash and signature hash
-	signaturePayload, _ := rlp.EncodeToBytes([]any{PrevoteCode, encoded.Round, encoded.Height, encoded.Value})
-	p.signatureInput = crypto.Hash(signaturePayload)
+	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
 	p.hash = crypto.Hash(payload)
 	p.verified = false
 	p.preverified = false
@@ -834,12 +833,16 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	p.signers = encoded.Signers
 	p.payload = payload
 	// precompute hash and signature hash
-	signaturePayload, _ := rlp.EncodeToBytes([]any{PrecommitCode, encoded.Round, encoded.Height, encoded.Value})
-	p.signatureInput = crypto.Hash(signaturePayload)
+	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrecommitCode, encoded.Value)
 	p.hash = crypto.Hash(payload)
 	p.verified = false
 	p.preverified = false
 	return nil
+}
+
+func VoteSignatureInput(h uint64, r uint64, code uint8, v common.Hash) common.Hash {
+	signaturePayload, _ := rlp.EncodeToBytes([]any{code, r, h, v})
+	return crypto.Hash(signaturePayload)
 }
 
 // PrepareCommittedSeal returns the input data to compute the committed seal for a given block hash.

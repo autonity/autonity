@@ -404,7 +404,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		proof   Proof
 		outCome []byte
 	}
-
+	parentHeader := newBlockHeader(height-1, committee)
 	liteNewP := newValidatedLightProposal(height, 1, -1, signer, committee, nil, proposerIdx)
 	liteOldP := newValidatedLightProposal(height, 3, 0, signer, committee, nil, proposerIdx)
 
@@ -432,6 +432,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	preCommitR2PVN := newValidatedPrecommit(2, height, nilValue, signer, self, cSize)
 	proposalPVN := newValidatedLightProposal(height, 3, -1, signer, committee, nil, proposerIdx)
+	preCommitR2PVN1 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize)
 	// node preVote for V2 at round 3
 	prevotePVN := newValidatedPrevote(3, height, proposalPVN.Value(), signer, self, cSize)
 
@@ -454,6 +455,20 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	// a prevote at round 3, with value v.
 	preVotePVO12 := newValidatedPrevote(3, height, correspondingProposalPVO.Value(), signer, self, cSize)
 
+	missingPrecommitPVO12 := &HighlyAggregatedPrecommit{
+		Height: height,
+		RoundValueSigners: []*RoundValueSigners{{
+			Round:   pcForVPVO12.R(),
+			Value:   pcForVPVO12.Value(),
+			Signers: pcForVPVO12.Signers().Flatten(),
+		}},
+		Signature: pcForVPVO12.Signature(),
+	}
+	err := missingPrecommitPVO12.PreValidate(parentHeader)
+	require.NoError(t, err)
+	err = missingPrecommitPVO12.Validate()
+	require.NoError(t, err)
+
 	// Rule C settings.
 	preCommitC := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
 	preCommitNilC := newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
@@ -463,6 +478,36 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	}
 	aggVoteC := message.AggregatePrevotes(votesC)
 	aggVoteCNoQuorum := message.AggregatePrevotes(votesC[2:3])
+
+	highlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, aggPrecomitR1PVN, preCommitR2PVN})
+	err = highlyAggPrecommitPVN.PreValidate(parentHeader)
+	require.NoError(t, err)
+	err = highlyAggPrecommitPVN.Validate()
+	require.NoError(t, err)
+
+	invalidHighlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, aggPrecomitR1PVN, preCommitR2PVN, commit1})
+	err = invalidHighlyAggPrecommitPVN.PreValidate(parentHeader)
+	require.NoError(t, err)
+	err = invalidHighlyAggPrecommitPVN.Validate()
+	require.NoError(t, err)
+
+	gappedHighlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, aggPrecomitR1PVN})
+	err = gappedHighlyAggPrecommitPVN.PreValidate(parentHeader)
+	require.NoError(t, err)
+	err = gappedHighlyAggPrecommitPVN.Validate()
+	require.NoError(t, err)
+
+	highlyAggPrecommitPVO12 := AggregateDistinctPrecommits([]*message.Precommit{pcForVPVO12, pcForNotVPVO12})
+	err = highlyAggPrecommitPVO12.PreValidate(parentHeader)
+	require.NoError(t, err)
+	err = highlyAggPrecommitPVO12.Validate()
+	require.NoError(t, err)
+
+	invalidHighlyAggPrecommitPVO12 := AggregateDistinctPrecommits([]*message.Precommit{aggPrecommit, pcForVPVO12, pcForNotVPVO12})
+	err = invalidHighlyAggPrecommitPVO12.PreValidate(parentHeader)
+	require.NoError(t, err)
+	err = invalidHighlyAggPrecommitPVO12.Validate()
+	require.NoError(t, err)
 
 	t.Run("Test misbehaviour verifier required gas", func(t *testing.T) {
 		mv := MisbehaviourVerifier{}
@@ -679,22 +724,12 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
-			// vote for nil value
-			proof: Proof{
-				Rule:          autonity.PVN,
-				OffenderIndex: proposerIdx,
-				Message:       fakedVote3,
-				Evidences:     []message.Msg{aggVote},
-			},
-			outCome: failureReturn,
-		},
-		{
 			// no corresponding proposal provided in the proof.
 			proof: Proof{
 				Rule:          autonity.PVN,
 				OffenderIndex: proposerIdx,
 				Message:       prevotePVN,
-				Evidences:     []message.Msg{preCommitPVN, preCommitR1PVN, preCommitR2PVN},
+				Evidences:     []message.Msg{preCommitPVN},
 			},
 			outCome: failureReturn,
 		},
@@ -704,36 +739,60 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PVN,
 				OffenderIndex: proposerIdx,
 				Message:       prevotePVN,
-				Evidences:     []message.Msg{liteOldP, preCommitPVN, preCommitR1PVN, preCommitR2PVN},
+				Evidences:     []message.Msg{liteOldP},
 			},
 			outCome: failureReturn,
 		},
 		{
 			// evidence contains invalid precomit message.
 			proof: Proof{
-				Rule:          autonity.PVN,
-				OffenderIndex: proposerIdx,
-				Message:       prevotePVN,
-				Evidences:     []message.Msg{proposalPVN, preCommitPVN, aggPrecomitR1PVN, preCommitR2PVN, commit1},
+				Rule:               autonity.PVN,
+				OffenderIndex:      proposerIdx,
+				Message:            prevotePVN,
+				DistinctPrecommits: invalidHighlyAggPrecommitPVN,
+				Evidences:          []message.Msg{proposalPVN},
 			},
 			outCome: failureReturn,
 		},
 		{
 			// proof contains round gaps in precommits
 			proof: Proof{
-				Rule:          autonity.PVN,
-				OffenderIndex: proposerIdx,
-				Message:       prevotePVN,
-				Evidences:     []message.Msg{proposalPVN, preCommitPVN, aggPrecomitR1PVN},
+				Rule:               autonity.PVN,
+				OffenderIndex:      proposerIdx,
+				Message:            prevotePVN,
+				DistinctPrecommits: gappedHighlyAggPrecommitPVN,
+				Evidences:          []message.Msg{proposalPVN},
 			},
 			outCome: failureReturn,
 		},
 		{
+			// the evidence just contain a proposal, there is no precomit message or aggregated precommit at all.
 			proof: Proof{
 				Rule:          autonity.PVN,
 				OffenderIndex: proposerIdx,
 				Message:       prevotePVN,
-				Evidences:     []message.Msg{proposalPVN, preCommitPVN, aggPrecomitR1PVN, preCommitR2PVN},
+				Evidences:     []message.Msg{proposalPVN},
+			},
+			outCome: failureReturn,
+		},
+		{
+			// there is a single valid precomit attached in the evidence field.
+			proof: Proof{
+				Rule:          autonity.PVN,
+				OffenderIndex: proposerIdx,
+				Message:       prevotePVN,
+				Evidences:     []message.Msg{proposalPVN, preCommitR2PVN1},
+			},
+			outCome: validReturn(prevotePVN, proposer, autonity.PVN),
+		},
+		{
+			// there is a aggregated valid precommit attached.
+			proof: Proof{
+				Rule:               autonity.PVN,
+				OffenderIndex:      proposerIdx,
+				Message:            prevotePVN,
+				DistinctPrecommits: highlyAggPrecommitPVN,
+				Evidences:          []message.Msg{proposalPVN},
 			},
 			outCome: validReturn(prevotePVN, proposer, autonity.PVN),
 		},
@@ -868,7 +927,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			proof: Proof{
 				Rule:      autonity.PVO12,
 				Message:   liteOldP,
-				Evidences: []message.Msg{correspondingProposalPVO, pcForVPVO12, pcForNotVPVO12},
+				Evidences: []message.Msg{correspondingProposalPVO},
 			},
 			outCome: failureReturn,
 		},
@@ -878,7 +937,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PVO12,
 				Message:       preVotePVO12,
 				OffenderIndex: proposerIdx + 1,
-				Evidences:     []message.Msg{correspondingProposalPVO, pcForVPVO12, pcForNotVPVO12},
+				Evidences:     []message.Msg{correspondingProposalPVO},
 			},
 			outCome: failureReturn,
 		},
@@ -888,7 +947,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PVO12,
 				Message:       fakedVote3,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{correspondingProposalPVO, pcForVPVO12, pcForNotVPVO12},
+				Evidences:     []message.Msg{correspondingProposalPVO},
 			},
 			outCome: failureReturn,
 		},
@@ -898,7 +957,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PVO12,
 				Message:       preVotePVO12,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{pcForVPVO12, pcForNotVPVO12},
+				Evidences:     []message.Msg{pcForVPVO12},
 			},
 			outCome: failureReturn,
 		},
@@ -908,20 +967,22 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PVO12,
 				Message:       preVotePVO12,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{liteOldP, pcForVPVO12, pcForNotVPVO12},
+				Evidences:     []message.Msg{liteOldP},
 			},
 			outCome: failureReturn,
 		},
 		{
 			// there is invalid precommits from the proof
 			proof: Proof{
-				Rule:          autonity.PVO12,
-				Message:       preVotePVO12,
-				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{correspondingProposalPVO, aggPrecommit, pcForVPVO12, pcForNotVPVO12},
+				Rule:               autonity.PVO12,
+				Message:            preVotePVO12,
+				OffenderIndex:      proposerIdx,
+				DistinctPrecommits: invalidHighlyAggPrecommitPVO12,
+				Evidences:          []message.Msg{correspondingProposalPVO},
 			},
 			outCome: failureReturn,
 		},
+		/* // todo: (Jason) move this edge case to distinct_msg_aggregator_test.go since this aggregated msg won't be validated successfully.
 		{
 			// there is invalid msg from the proof
 			proof: Proof{
@@ -931,23 +992,25 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Evidences:     []message.Msg{correspondingProposalPVO, aggPrevote, pcForVPVO12, pcForNotVPVO12},
 			},
 			outCome: failureReturn,
-		},
+		},*/
 		{
 			// there is missing round of precommits from the proof
 			proof: Proof{
-				Rule:          autonity.PVO12,
-				Message:       preVotePVO12,
-				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{correspondingProposalPVO, pcForVPVO12},
+				Rule:               autonity.PVO12,
+				Message:            preVotePVO12,
+				OffenderIndex:      proposerIdx,
+				DistinctPrecommits: missingPrecommitPVO12,
+				Evidences:          []message.Msg{correspondingProposalPVO},
 			},
 			outCome: failureReturn,
 		},
 		{
 			proof: Proof{
-				Rule:          autonity.PVO12,
-				Message:       preVotePVO12,
-				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{correspondingProposalPVO, pcForVPVO12, pcForNotVPVO12},
+				Rule:               autonity.PVO12,
+				Message:            preVotePVO12,
+				OffenderIndex:      proposerIdx,
+				DistinctPrecommits: highlyAggPrecommitPVO12,
+				Evidences:          []message.Msg{correspondingProposalPVO},
 			},
 			outCome: validReturn(preVotePVO12, proposer, autonity.PVO12),
 		},
