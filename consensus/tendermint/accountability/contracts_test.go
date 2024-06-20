@@ -105,7 +105,7 @@ func TestDecodeAndVerifyProofs(t *testing.T) {
 		outCome error
 	}
 	var validProof Proof
-	aggregatedPrecommit := randomHighlyAggregatedPrecomits(height, r)
+	aggregatedPrecommit := randomHighlyAggregatedPrecommits(height, r)
 	validProof.Type = autonity.AccountabilityEventType(rand.Intn(3))
 	validProof.Rule = autonity.Rule(rand.Intn(10))
 	validProof.Message = defNewProposal.ToLight()

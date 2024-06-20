@@ -175,7 +175,7 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 
 	var fastAggregatedPrecommits []*message.Precommit
 
-	// first we filter out votes with same: (h, r, code, value), and fast aggregate them into single one.
+	// first we filter out fast-aggregatable votes with same msg, and fast aggregate them into single one.
 	var fastAggregatablePrecommits []message.Vote
 	fastAggregatablePrecommits = append(fastAggregatablePrecommits, precommits[0])
 	height := precommits[0].H()
