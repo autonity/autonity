@@ -304,3 +304,8 @@ devtools:
 	@type "npm" 2> /dev/null || echo 'Please install node.js and npm'
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
+
+release: autonity contracts
+	mkdir -p ./build/release/$(VERSION)
+	cd ./build/bin && tar -czvf ../release/$(VERSION)/autonity-linux-amd64-$(VERSION).tar.gz autonity
+	cd ./params/generated && tar -czvf ../../build/release/$(VERSION)/protocol-contracts-abi-$(VERSION).tar.gz *.abi

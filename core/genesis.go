@@ -89,7 +89,7 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 }
 
 func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
-	ret := make(autonity.GenesisBonds, len(*ga))
+	ret := make(autonity.GenesisBonds, 0, len(*ga))
 	for addr, alloc := range *ga {
 		delegations := make([]autonity.Delegation, 0)
 		for validator, amount := range alloc.Bonds {
@@ -537,6 +537,7 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 				NewtonBalance: new(big.Int).Mul(big.NewInt(20_880_000), params.NTNDecimalFactor),
 			},
 			ctlReserve: {
+				Balance:       common.Big0,
 				NewtonBalance: new(big.Int).Mul(big.NewInt(17_500_050), params.NTNDecimalFactor),
 			},
 		},

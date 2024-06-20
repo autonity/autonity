@@ -12,10 +12,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/metrics"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
+
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 type v2Reporter struct {
@@ -114,6 +115,17 @@ func (r *v2Reporter) send() {
 
 			pt := influxdb2.NewPoint(measurement, r.tags, fields, now)
 			r.write.WritePoint(pt)
+
+		case metrics.BufferedGauge:
+			ms := metric.SnapshotAndClear()
+			for _, v := range ms.Values() {
+				measurement := fmt.Sprintf("%s%s.bufferedgauge", namespace, name)
+				fields := map[string]interface{}{
+					"value": v.Value(),
+				}
+				pt := influxdb2.NewPoint(measurement, r.tags, fields, v.Timestamp())
+				r.write.WritePoint(pt)
+			}
 
 		case metrics.GaugeFloat64:
 			ms := metric.Snapshot()
