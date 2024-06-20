@@ -3,7 +3,7 @@
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
 import "./interfaces/IStakeProxy.sol";
-import {DECIMALS} from "./Autonity.sol";
+import "./Upgradeable.sol";
 
 // References:
 //
@@ -40,18 +40,9 @@ import {DECIMALS} from "./Autonity.sol";
 //   implementation.
 //
 
-contract Liquid is IERC20
-{
-    IERC20 internal autonityContract; //not hardcoded for testing purposes
+contract LiquidLogic is IERC20, Upgradeable {
 
-    // TODO: Better solution to address the fractional terms in fee
-    // computations?
-    //
-    // If fee computations are to be performed to 9 decimal places,
-    // this value should be 1,000,000,000.
-    uint256 public constant FEE_FACTOR_UNIT_RECIP = 1_000_000_000;
-    uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
-
+    // storage layout - this must be compatible with LiquidLogic
     mapping(address => uint256) private balances;
     mapping(address => uint256) private lockedBalances;
 
@@ -65,45 +56,60 @@ contract Liquid is IERC20
     mapping(address => uint256) private ntnUnrealisedFeeFactors;
     uint256 private ntnLastUnrealisedFeeFactor;
 
-    string private _name;
-    string private _symbol;
+    string private name;
+    string private symbol;
 
     address public validator;
     address payable public treasury;
     uint256 public commissionRate;
 
-    constructor(
-        address _validator,
-        address payable _treasury,
-        uint256 _commissionRate,
-        string memory _index)
-    {
-        // commissionRate <= 1.0
-        require(_commissionRate <= COMMISSION_RATE_PRECISION);
+    uint256 public treasuryUnclaimedATN;
 
-        validator = _validator;
-        treasury = _treasury;
-        commissionRate = _commissionRate;
-        _name = string.concat("LNTN-", _index);
-        _symbol = string.concat("LNTN-", _index);
+    // this must be always last, since logic is delegated to LiquidLogic and
+    // they must use same storage layout
+
+    // TODO: Better solution to address the fractional terms in fee
+    // computations?
+    //
+    // If fee computations are to be performed to 9 decimal places,
+    // this value should be 1,000,000,000.
+    uint256 public constant FEE_FACTOR_UNIT_RECIP = 1_000_000_000;
+    uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
+
+    address public operator;
+
+    IERC20 internal autonityContract; //not hardcoded for testing purposes
+
+    constructor(address _operator) {
+        operator = _operator;
         autonityContract = IERC20(msg.sender);
     }
 
     /**
-    * @notice Redistribute fees, called once per epoch by the autonity contract.
-    * Update lastUnrealisedFeeFactor and transfer treasury fees.
-    * @dev Restricted to the autonity contract.
-    */
-    function redistribute(uint256 _ntnReward) external payable onlyAutonity returns (uint256, uint256)
-    {
+     * @notice Sets the operator account.
+     * @param _account new operator account
+     * @custom:restricted-to operator account
+     */
+    function setOperatorAccount(address _account) external onlyOperator {
+        operator = _account;
+    }
+
+    /**
+     * @notice Redistribute fees, called once per epoch by the autonity contract.
+     * Update lastUnrealisedFeeFactor and transfer treasury fees.
+     * @custom:restricted-to the autonity contract
+     */
+    function redistribute(uint256 _ntnReward) external payable onlyAutonity returns (uint256, uint256) {
         uint256 _atnReward = msg.value;
         // Step 1 : transfer entitled amount of fees to validator's
         // treasury account.
         uint256 _atnValidatorReward = (_atnReward * commissionRate) / COMMISSION_RATE_PRECISION;
         require(_atnValidatorReward <= _atnReward, "invalid atn validator reward");
         _atnReward -= _atnValidatorReward;
-        // TODO: handle failure.
-        treasury.call{value: _atnValidatorReward, gas:2300}("");
+        (bool _sent, ) = treasury.call{value: _atnValidatorReward, gas:2300}("");
+        if (_sent == false) {
+            treasuryUnclaimedATN += _atnValidatorReward;
+        }
 
         uint256 _ntnValidatorReward = (_ntnReward * commissionRate) / COMMISSION_RATE_PRECISION;
         require(_ntnValidatorReward <= _ntnReward, "invalid ntn validator reward");
@@ -128,50 +134,45 @@ contract Liquid is IERC20
     }
 
     /**
-    * @notice Mint new tokens and transfer them to the target account.
-    * @dev Restricted to the autonity contract.
-    */
-    function mint(address _account, uint256 _amount) external onlyAutonity
-    {
+     * @notice Mint new tokens and transfer them to the target account.
+     * @custom:restricted-to the autonity contract.
+     */
+    function mint(address _account, uint256 _amount) external onlyAutonity {
         _increaseBalance(_account, _amount);
         emit Transfer(address(0), _account, _amount);
     }
 
     /**
-    * @notice Burn tokens from the target account.
-    * @dev Restricted to the autonity contract.
-    */
-    function burn(address _account, uint256 _amount) external onlyAutonity
-    {
+     * @notice Burn tokens from the target account.
+     * @custom:restricted-to Restricted to the autonity contract.
+     */
+    function burn(address _account, uint256 _amount) external onlyAutonity {
         _requireAndDecreaseBalance(_account, _amount);
         emit Transfer(_account, address(0), _amount);
     }
 
     /**
-    * @notice  Returns the total claimable fees (AUT) earned by the delegator to-date.
-    * @param _account the delegator account.
-    */
-    function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN)
-    {
-        (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) = _computeUnrealisedFees(_account);
-        _unclaimedATN =  atnRealisedFees[_account] + _atnUnrealisedFee;
-        _unclaimedNTN =  ntnRealisedFees[_account] + _ntnUnrealisedFee;
+     * @notice Send the unclaimed ATN entitled to treasury to treasury account
+     */
+    function claimTreasuryATN() external {
+        require(msg.sender == treasury, "only treasury can claim his reward");
+        (bool _sent, ) = treasury.call{value: treasuryUnclaimedATN}("");
+        require(_sent, "failed to send ATN");
     }
 
     /**
-    * @notice Withdraws all fees earned so far by the caller.
-    */
-    function claimRewards() external
-    {
+     * @notice Withdraws all fees earned so far by the caller.
+     */
+    function claimRewards() external {
         (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) = _realiseFees(msg.sender);
         delete atnRealisedFees[msg.sender];
         delete ntnRealisedFees[msg.sender];
 
         // Send the NTN
-        bool sent;
+        bool _sent;
         if (_ntnRealisedFees > 0) {
-            sent = autonityContract.transfer(msg.sender, _ntnRealisedFees);
-            require(sent, "Failed to send NTN");
+            _sent = autonityContract.transfer(msg.sender, _ntnRealisedFees);
+            require(_sent, "Failed to send NTN");
         }
 
         // Send the AUT
@@ -180,76 +181,22 @@ contract Liquid is IERC20
             return;
         }
         //   solhint-disable-next-line avoid-low-level-calls
-        (sent, ) = msg.sender.call{value: _atnRealisedFees}("");
-        require(sent, "Failed to send ATN");
+        (_sent, ) = msg.sender.call{value: _atnRealisedFees}("");
+        require(_sent, "Failed to send ATN");
     }
 
     /**
-    * @notice Returns the total amount of stake token issued.
-    */
-    function totalSupply() public view override returns (uint256)
-    {
-        return supply;
-    }
-
-    /**
-    * @return the number of decimals the LNTN token uses.
-    * @dev ERC-20 Optional.
-    */
-    function decimals() public pure returns (uint8) {
-        return DECIMALS;
-    }
-
-    /**
-    * @notice Returns the amount of liquid newtons held by the account (ERC-20).
-    */
-    function balanceOf(address _delegator)
-        external view override returns (uint256)
-    {
-        return balances[_delegator];
-    }
-
-    /**
-    * @notice Returns the amount of locked liquid newtons held by the account.
-    */
-    function lockedBalanceOf(address _delegator)
-        external view returns (uint256)
-    {
-        return lockedBalances[_delegator];
-    }
-
-    /**
-    * @notice Returns the amount of unlocked liquid newtons held by the account.
-    */
-    function unlockedBalanceOf(address _delegator)
-        external view returns (uint256)
-    {
-        return  balances[_delegator] - lockedBalances[_delegator];
-    }
-
-    /**
-    * @notice Moves `_amount` LNEW tokens from the caller's account to the recipient `_to`.
-    *
-    * @return _success a boolean value indicating whether the operation succeeded.
-    *
-    * @dev Emits a {Transfer} event. Implementation of {IERC20 transfer}
-    */
-    function transfer(address _to, uint256 _amount)
-        public override returns (bool _success)
-    {
+     * @notice Moves `_amount` LNEW tokens from the caller's account to the recipient `_to`.
+     *
+     * @return _success a boolean value indicating whether the operation succeeded.
+     *
+     * @dev Emits a {Transfer} event. Implementation of {IERC20 transfer}
+     */
+    function transfer(address _to, uint256 _amount) public returns (bool _success) {
         _requireAndDecreaseBalance(msg.sender, _amount);
         _increaseBalance(_to, _amount);
         emit Transfer(msg.sender, _to, _amount);
         return true;
-    }
-
-    /**
-    * @dev See {IERC20-allowance}.
-    */
-    function allowance(address _owner, address _spender)
-        public view override returns (uint256)
-    {
-        return allowances[_owner][_spender];
     }
 
     /**
@@ -259,30 +206,27 @@ contract Liquid is IERC20
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address _spender, uint256 _amount) public override returns (bool)
-    {
+    function approve(address _spender, uint256 _amount) public returns (bool) {
         _approve(msg.sender, _spender, _amount);
         return true;
     }
 
     /**
-      * @dev See {IERC20-transferFrom}.
-      *
-      * Emits an {Approval} event indicating the updated allowance.
-      *
-      * Requirements:
-      *
-      * - `sender` and `recipient` must be allowed to hold stake.
-      * - `sender` must have a balance of at least `amount`.
-      * - the caller must have allowance for ``sender``'s tokens of at least
-      * `amount`.
-      */
-    function transferFrom(address _sender, address _recipient, uint256 _amount)
-        public override returns (bool _success)
-    {
-        uint256 currentAllowance = allowances[_sender][msg.sender];
-        require(currentAllowance >= _amount, "ERC20: transfer amount exceeds allowance");
-        _approve(_sender, msg.sender, currentAllowance - _amount);
+     * @dev See {IERC20-transferFrom}.
+     *
+     * Emits an {Approval} event indicating the updated allowance.
+     *
+     * Requirements:
+     *
+     * - `sender` and `recipient` must be allowed to hold stake.
+     * - `sender` must have a balance of at least `amount`.
+     * - the caller must have allowance for ``sender``'s tokens of at least
+     * `amount`.
+     */
+    function transferFrom(address _sender, address _recipient, uint256 _amount) public returns (bool) {
+        uint256 _currentAllowance = allowances[_sender][msg.sender];
+        require(_currentAllowance >= _amount, "ERC20: transfer amount exceeds allowance");
+        _approve(_sender, msg.sender, _currentAllowance - _amount);
 
         _requireAndDecreaseBalance(_sender, _amount);
         _increaseBalance(_recipient, _amount);
@@ -292,57 +236,42 @@ contract Liquid is IERC20
 
 
     /**
-      * @notice Setter for the commission rate, restricted to the Autonity Contract.
-      * @param _rate New rate.
-      */
+     * @notice Setter for the commission rate, restricted to the Autonity Contract.
+     * @param _rate New rate.
+     */
     function setCommissionRate(uint256 _rate) public onlyAutonity {
         commissionRate = _rate;
     }
 
     /**
-      * @notice Add amount to the locked funds, restricted to the Autonity Contract.
-      * @param _account address of the account to lock funds .
-               _amount LNTN amount of tokens to lock.
-      */
+     * @notice Add amount to the locked funds, restricted to the Autonity Contract.
+     * @param _account address of the account to lock funds .
+              _amount LNTN amount of tokens to lock.
+     */
     function lock(address _account, uint256 _amount) public onlyAutonity {
         require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
         lockedBalances[_account] += _amount;
     }
 
     /**
-      * @notice Unlock the locked funds, restricted to the Autonity Contract.
-      * @param _account address of the account to lock funds .
-               _amount LNTN amount of tokens to lock.
-      */
+     * @notice Unlock the locked funds, restricted to the Autonity Contract.
+     * @param _account address of the account to lock funds .
+              _amount LNTN amount of tokens to lock.
+     */
     function unlock(address _account, uint256 _amount) public onlyAutonity {
         require(lockedBalances[_account] >= _amount, "can't unlock more funds than locked");
         lockedBalances[_account] -= _amount;
     }
 
     /**
-    * @notice returns the name of this Liquid Newton contract
-    */
-    function name() external view returns (string memory){
-        return _name;
-    }
-
-    /**
-    * @notice returns the symbol of this Liquid Newton contract
-    */
-    function symbol() external view returns (string memory){
-        return _symbol;
-    }
-
-    /**
-    ============================================================
+     ============================================================
 
         Internals
 
-    ============================================================
-    */
+     ============================================================
+     */
 
-    function _increaseBalance(address _delegator, uint256 _value) private
-    {
+    function _increaseBalance(address _delegator, uint256 _value) private {
         _realiseFees(_delegator); //always updates fee factor
         balances[_delegator] += _value;
         // when transferring, this value will just be decreased
@@ -350,9 +279,7 @@ contract Liquid is IERC20
         supply += _value;
     }
 
-    function _requireAndDecreaseBalance(address _delegator, uint256 _value)
-        private
-    {
+    function _requireAndDecreaseBalance(address _delegator, uint256 _value) private {
         _realiseFees(_delegator); // always updates fee factor
         uint256 _balance = balances[_delegator];
         require(_value <= _balance - lockedBalances[_delegator], "insufficient unlocked funds");
@@ -370,20 +297,18 @@ contract Liquid is IERC20
 
 
     /**
-    * @dev Compute all unrealised fees, update the fee balance and reset
-    * the unrealised fee factor for the given participant.  This
-    * function ALWAYS sets the unrealised fee factor for the
-    * delegator, so should not be called if the delegators balance is
-    * known to be zero (or the caller should handle this case itself).
-    * @param _delegator, the target account to compute fees.
-    * @return _atnRealisedFees that is the calculated amount of AUT that
-    * the delegator is entitled to withdraw.
-    * @return _ntnRealisedFees that is the calculated amount of NTN that
-    * the delegator is entitled to withdraw.
-    */
-    function _realiseFees(address _delegator) private
-        returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees)
-    {
+     * @dev Compute all unrealised fees, update the fee balance and reset
+     * the unrealised fee factor for the given participant.  This
+     * function ALWAYS sets the unrealised fee factor for the
+     * delegator, so should not be called if the delegators balance is
+     * known to be zero (or the caller should handle this case itself).
+     * @param _delegator, the target account to compute fees.
+     * @return _atnRealisedFees that is the calculated amount of AUT that
+     * the delegator is entitled to withdraw.
+     * @return _ntnRealisedFees that is the calculated amount of NTN that
+     * the delegator is entitled to withdraw.
+     */
+    function _realiseFees(address _delegator) private returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) {
         (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) = _computeUnrealisedFees(_delegator);
 
         _atnRealisedFees = atnRealisedFees[_delegator] + _atnUnrealisedFee;
@@ -396,8 +321,7 @@ contract Liquid is IERC20
     }
 
     function _computeUnrealisedFees(address _delegator)
-        private view returns (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee)
-    {
+        private view returns (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) {
         // TODO: save looking up the LNEW balance multiple times by passing it
         // in here.
 
@@ -435,9 +359,7 @@ contract Liquid is IERC20
      * Emits an {Approval} event.
      *
      */
-    function _approve(address _owner, address _spender, uint256 _amount)
-        internal virtual
-    {
+    function _approve(address _owner, address _spender, uint256 _amount) internal virtual {
         require(_owner != address(0), "ERC20: approve from the zero address");
         require(_spender != address(0), "ERC20: approve to the zero address");
 
@@ -447,24 +369,62 @@ contract Liquid is IERC20
     }
 
     function _isContract(address _to) private view returns (bool) {
-        uint size;
+        uint _size;
         assembly {
-            size := extcodesize(_to)
+            _size := extcodesize(_to)
         }
-        return size > 0;
+        return _size > 0;
+    }
+
+    /*
+     ============================================================
+        Getters
+     ============================================================
+     */
+
+    /**
+     * @notice Returns the total claimable fees (ATN and NTN) earned by the delegator to-date.
+     * @param _account the delegator account.
+     */
+    function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
+        (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) = _computeUnrealisedFees(_account);
+        _unclaimedATN =  atnRealisedFees[_account] + _atnUnrealisedFee;
+        _unclaimedNTN =  ntnRealisedFees[_account] + _ntnUnrealisedFee;
+    }
+
+    /**
+     * @notice All of the following getters exist to implement the IRC20 interface. They have no use.
+     */
+    function totalSupply() external view returns (uint256) {
+        return supply;
+    }
+
+    function balanceOf(address _account) external view returns (uint256) {
+        return balances[_account];
+    }
+
+    function allowance(address _owner, address _spender) external view returns (uint256) {
+        return allowances[_owner][_spender];
     }
 
 
     /*
-    ============================================================
+     ============================================================
 
         Modifiers
 
-    ============================================================
-    */
+     ============================================================
+     */
 
-    modifier onlyAutonity
-    {
+    modifier onlyOperator override {
+        require(
+            operator == msg.sender,
+            "Caller restricted to the operator account"
+        );
+        _;
+    }
+
+    modifier onlyAutonity {
         require(
             msg.sender == address(autonityContract),
             "Call restricted to the Autonity Contract");
