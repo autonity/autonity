@@ -105,10 +105,12 @@ func TestDecodeAndVerifyProofs(t *testing.T) {
 		outCome error
 	}
 	var validProof Proof
+	aggregatedPrecommit := randomHighlyAggregatedPrecomits(height, r)
 	validProof.Type = autonity.AccountabilityEventType(rand.Intn(3))
 	validProof.Rule = autonity.Rule(rand.Intn(10))
 	validProof.Message = defNewProposal.ToLight()
 	validProof.OffenderIndex = proposerIdx
+	validProof.DistinctPrecommits = aggregatedPrecommit
 	validProof.Evidences = append(validProof.Evidences, aggPrevote, aggPrecommit)
 
 	p2 := validProof
@@ -161,6 +163,8 @@ func TestDecodeAndVerifyProofs(t *testing.T) {
 			assert.Equal(t, tc.Proof.Rule, decodeProof.Rule)
 			assert.Equal(t, tc.Proof.Message.Signature(), decodeProof.Message.Signature())
 			assert.Equal(t, tc.Proof.Evidences, decodeProof.Evidences)
+			assert.Equal(t, tc.Proof.DistinctPrecommits.Len(), decodeProof.DistinctPrecommits.Len())
+			assert.Equal(t, true, decodeProof.DistinctPrecommits.validated)
 		}
 	}
 }
@@ -455,14 +459,14 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	// a prevote at round 3, with value v.
 	preVotePVO12 := newValidatedPrevote(3, height, correspondingProposalPVO.Value(), signer, self, cSize)
 
-	missingPrecommitPVO12 := &HighlyAggregatedPrecommit{
+	missingPrecommitPVO12 := HighlyAggregatedPrecommit{
 		Height: height,
 		RoundValueSigners: []*RoundValueSigners{{
 			Round:   pcForVPVO12.R(),
 			Value:   pcForVPVO12.Value(),
 			Signers: pcForVPVO12.Signers().Flatten(),
 		}},
-		Signature: pcForVPVO12.Signature(),
+		Signature: pcForVPVO12.Signature().Marshal(),
 	}
 	err := missingPrecommitPVO12.PreValidate(parentHeader)
 	require.NoError(t, err)

@@ -424,7 +424,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	}
 
 	// Otherwise, we have to process aggregated precommits from the aggregated precommits.
-	if p.DistinctPrecommits != nil {
+	if p.DistinctPrecommits.Len() > 0 {
 		preCommits := p.DistinctPrecommits.RoundValueSigners
 		lastIndex := len(preCommits) - 1
 		for i, pc := range preCommits {
@@ -548,7 +548,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	currentRound := correspondingProposal.R()
 	validRound := correspondingProposal.ValidRound()
 
-	if p.DistinctPrecommits != nil {
+	if p.DistinctPrecommits.Len() > 0 {
 
 		allPreCommits := p.DistinctPrecommits.RoundValueSigners
 		// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
@@ -887,7 +887,7 @@ func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 	}
 
 	// pre-validate and validate the highly aggregated precommits.
-	if p.DistinctPrecommits != nil {
+	if p.DistinctPrecommits.Len() > 0 {
 		if err := p.DistinctPrecommits.PreValidate(lastHeader); err != nil {
 			return err
 		}

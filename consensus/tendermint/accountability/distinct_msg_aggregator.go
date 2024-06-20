@@ -6,6 +6,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/rlp"
+	"io"
 )
 
 var (
@@ -23,6 +25,43 @@ type RoundValueSigners struct {
 	aggregatedPublicKey blst.PublicKey   `rlp:"-"`
 	hasSigners          map[int]struct{} `rlp:"-"`
 	preValidated        bool             `rlp:"-"`
+}
+
+type extRoundValueSigners struct {
+	Round   uint64
+	Value   common.Hash
+	Signers []uint
+}
+
+func (r *RoundValueSigners) EncodeRLP(w io.Writer) error {
+	signers := make([]uint, len(r.Signers))
+	for i, s := range r.Signers {
+		signers[i] = uint(s)
+	}
+
+	ext := extRoundValueSigners{
+		Round:   uint64(r.Round),
+		Value:   r.Value,
+		Signers: signers,
+	}
+
+	return rlp.Encode(w, &ext)
+}
+
+func (r *RoundValueSigners) DecodeRLP(stream *rlp.Stream) error {
+	ext := extRoundValueSigners{}
+	if err := stream.Decode(&ext); err != nil {
+		return err
+	}
+
+	r.Round = int64(ext.Round)
+	r.Value = ext.Value
+	signers := make([]int, len(ext.Signers))
+	for i, s := range ext.Signers {
+		signers[i] = int(s)
+	}
+	r.Signers = signers
+	return nil
 }
 
 // PreValidate computes the aggregated public key and set the preValidated flag.
@@ -74,10 +113,16 @@ type HighlyAggregatedPrecommit struct {
 	RoundValueSigners []*RoundValueSigners
 
 	// a single highly aggregated signature.
-	Signature blst.Signature
+	Signature []byte
 
-	preValidated bool `rlp:"-"`
-	validated    bool `rlp:"-"`
+	// computed fields from the validation phase.
+	signature    blst.Signature `rlp:"-"`
+	preValidated bool           `rlp:"-"`
+	validated    bool           `rlp:"-"`
+}
+
+func (h *HighlyAggregatedPrecommit) Len() int {
+	return len(h.RoundValueSigners)
 }
 
 // PreValidate checks if the index of each sub set are reasonable, and aggregate public keys for each sub set.
@@ -93,6 +138,12 @@ func (h *HighlyAggregatedPrecommit) PreValidate(parentHeader *types.Header) erro
 		}
 	}
 
+	signature, err := blst.SignatureFromBytes(h.Signature)
+	if err != nil {
+		return err
+	}
+
+	h.signature = signature
 	h.preValidated = true
 	return nil
 }
@@ -110,7 +161,7 @@ func (h *HighlyAggregatedPrecommit) Validate() error {
 		msgs[i] = message.VoteSignatureInput(h.Height, uint64(m.Round), message.PrecommitCode, m.Value)
 	}
 
-	if !h.Signature.AggregateVerify(publicKeys, msgs) {
+	if !h.signature.AggregateVerify(publicKeys, msgs) {
 		return ErrSignatureInvalid
 	}
 
@@ -120,7 +171,7 @@ func (h *HighlyAggregatedPrecommit) Validate() error {
 
 // AggregateDistinctPrecommits assumes that the input precommits are sorted by round ascending with same height, the
 // input precommits could be fastAggregated it here are duplicated msg.
-func AggregateDistinctPrecommits(precommits []*message.Precommit) *HighlyAggregatedPrecommit {
+func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregatedPrecommit {
 
 	var fastAggregatedPrecommits []*message.Precommit
 
@@ -162,7 +213,7 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) *HighlyAggrega
 		fastAggregatedPrecommits = append(fastAggregatedPrecommits, fastAggregatablePrecommits[0].(*message.Precommit))
 	}
 
-	result := &HighlyAggregatedPrecommit{}
+	result := HighlyAggregatedPrecommit{}
 	signatures := make([]blst.Signature, len(fastAggregatedPrecommits))
 	for i, m := range fastAggregatedPrecommits {
 		roundValueSigners := &RoundValueSigners{
@@ -174,7 +225,7 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) *HighlyAggrega
 		signatures[i] = m.Signature()
 	}
 	result.Height = height
-	result.Signature = blst.AggregateSignatures(signatures)
+	result.Signature = blst.AggregateSignatures(signatures).Marshal()
 	return result
 }
 
