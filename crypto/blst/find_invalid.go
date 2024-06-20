@@ -53,8 +53,7 @@ func findInvalid(
 	wg.Add(1)
 
 	go func() {
-		aggSig := AggregateSignatures(signatures[start:pivot])
-		verified := aggSig.FastAggregateVerify(pks[start:pivot], msg)
+		verified := FastAggregateVerifyBatch(signatures[start:pivot], pks[start:pivot], msg)
 
 		if !verified {
 			leftInvalid = findInvalid(signatures, pks, msg, start, pivot)
@@ -67,8 +66,7 @@ func findInvalid(
 	wg.Add(1)
 
 	go func() {
-		aggSig := AggregateSignatures(signatures[pivot:end])
-		verified := aggSig.FastAggregateVerify(pks[pivot:end], msg)
+		verified := FastAggregateVerifyBatch(signatures[pivot:end], pks[pivot:end], msg)
 
 		if !verified {
 
