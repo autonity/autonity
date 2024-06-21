@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/core/vm"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -181,6 +183,12 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 		return err
 	}
 
+	// TODO(lorenzo) this will currently cause syncing issues, because we are not be able to fetch the consensus view.
+	// It needs to be implemented after Epoch header gets merged. With that we should be able to fetch the committee
+	//if _, _, _, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound); err != nil {
+	//	return err
+	//}
+
 	return sb.verifyQuorumCertificate(header, committee)
 }
 
@@ -265,7 +273,7 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 	}
 	quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
 	if err := quorumCertificate.Signers.Validate(committee.Len()); err != nil {
-		return fmt.Errorf("Invalid quorum certificate signers information: %w", err)
+		return fmt.Errorf("invalid quorum certificate signers information: %w", err)
 	}
 
 	// The data that was signed over for this block
@@ -303,12 +311,11 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
 func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
-	// unused fields, force to set to empty
 	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
 	header.MixDigest = types.BFTDigest
 
-	// copy the parent extra data as the header extra data
+	// fetch the parent to correctly set the header time
 	number := header.Number.Uint64()
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
@@ -323,7 +330,64 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())
 	}
+
+	// assemble nodes' activity proof of height h from the msgs of h-delta
+	proof, round, err := sb.assembleActivityProof(number)
+	if err != nil {
+		return fmt.Errorf("error while assembling activity proof: %w", err)
+	}
+	types.WriteActivityProof(header, proof, round)
 	return nil
+}
+
+// assembleActivityProof assembles the nodes' activity proof of height `h` with the aggregated precommit
+// of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
+// If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
+func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, uint64, error) {
+
+	// TODO(lorenzo) I think that when assembling proof taking the latest epoch should always be correct, but verify
+	committee, _, lastEpochBlock, _, err := sb.BlockChain().LatestEpoch()
+	if err != nil {
+		return types.AggregateSignature{}, 0, fmt.Errorf("error while fetching latest epoch %w", err)
+	}
+
+	// for the 1st delta blocks of the epoch, the proposer does not have to provide an activity proof
+	delta := sb.BlockChain().ProtocolContracts().OmissionDelta().Uint64()
+	if h <= lastEpochBlock+delta {
+		sb.logger.Debug("Skip to assemble activity proof at the start of epoch", "height", h, "lastEpochBlock", lastEpochBlock)
+		return types.AggregateSignature{}, 0, nil
+	}
+
+	// after delta blocks, get quorum certificates from height h-delta.
+	targetHeight := h - delta
+	targetHeader := sb.BlockChain().GetHeaderByNumber(targetHeight)
+	targetRound := targetHeader.Round
+
+	precommits := sb.MsgStore.GetPrecommits(targetHeight, func(m *message.Precommit) bool {
+		return m.R() == int64(targetRound) && m.Value() == targetHeader.Hash()
+	})
+
+	// we should have provided an activity proof, but we do not have past messages
+	if len(precommits) == 0 {
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer", "height", h, "targetHeight", targetHeight)
+		return types.AggregateSignature{}, 0, nil
+	}
+
+	votes := make([]message.Vote, len(precommits))
+	for i, p := range precommits {
+		votes[i] = p
+	}
+
+	aggregatePrecommit := message.AggregatePrecommits(votes)
+
+	// if we do not have enough voting power, leave the proof empty
+	quorum := bft.Quorum(committee.TotalVotingPower())
+	if aggregatePrecommit.Power().Cmp(quorum) < 0 {
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "power", aggregatePrecommit.Power(), "quorum", quorum)
+		return types.AggregateSignature{}, 0, nil
+	}
+
+	return types.NewAggregateSignature(aggregatePrecommit.Signature().(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil
 }
 
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
@@ -358,6 +422,13 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
 }
 
+func prettyPrintRevertError(err error) string {
+	if !errors.Is(err, vm.ErrExecutionReverted) || !errors.Is(err, autonity.ErrRevertWithReason) {
+		return err.Error()
+	}
+	return strings.Replace(err.Error(), "\n", " - ", 2) // substitute the \n inserted by errors.Join with dashes
+}
+
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
 // committee field containaining the list of committee members allowed to participate in consensus for the next block.
 func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
@@ -365,7 +436,7 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 
 	receipt, epochInfo, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
-		sb.logger.Error("Autonity Contract finalize", "err", err)
+		sb.logger.Error("Autonity Contract finalize", "err", prettyPrintRevertError(err))
 		return nil, nil, err
 	}
 

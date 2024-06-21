@@ -28,7 +28,7 @@ import (
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
 type ChainContext interface {
-	// GetHeader returns the hash corresponding to their hash.
+	// GetHeader returns the header corresponding to the passed hash and number
 	GetHeader(common.Hash, uint64) *types.Header
 	// Engine retrieves the chain's consensus engine.
 	Engine() consensus.Engine
@@ -54,6 +54,13 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 	if header.Difficulty.Cmp(common.Big0) == 0 {
 		random = &header.MixDigest
 	}
+
+	var activityProofCopy types.AggregateSignature
+	// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
+	if !header.ActivityProof.Empty() {
+		activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
+	}
+
 	return vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -65,12 +72,21 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		BaseFee:     baseFee,
 		GasLimit:    header.GasLimit,
 		Random:      random,
+
+		ActivityProof:      activityProofCopy,
+		ActivityProofRound: header.ActivityProofRound,
 	}
 }
 
 // Used by the Autonity Contract
 func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 	return func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
+		var activityProofCopy types.AggregateSignature
+		// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
+		if !header.ActivityProof.Empty() {
+			activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
+		}
+
 		evmContext := vm.BlockContext{
 			CanTransfer: CanTransfer,
 			Transfer:    Transfer,
@@ -81,6 +97,9 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			GasLimit:    header.GasLimit,
 			Difficulty:  header.Difficulty,
 			BaseFee:     header.BaseFee,
+
+			ActivityProof:      activityProofCopy,
+			ActivityProofRound: header.ActivityProofRound,
 		}
 		txContext := vm.TxContext{
 			Origin:   origin,

@@ -105,9 +105,20 @@ func WriteRound(h *Header, round int64) error {
 
 // WriteQuorumCertificate writes the extra-data field of a block header with given quorumCertificate
 func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) error {
+	// TODO(Lorenzo) I think these cases can never happen and could be removed. same goes for the other Write* functions
 	if quorumCertificate.Signature == nil || quorumCertificate.Signers == nil || quorumCertificate.Signers.Len() == 0 {
 		return ErrInvalidQuorumCertificate
 	}
 	h.QuorumCertificate = quorumCertificate.Copy()
 	return nil
+}
+
+// WriteActivityProof writes the extra-data field of a block header with given activity proof
+func WriteActivityProof(h *Header, proof AggregateSignature, round uint64) {
+	// if the proof is empty, do not copy anything
+	if proof.Signature == nil || proof.Signers == nil || proof.Signers.Len() == 0 {
+		return
+	}
+	h.ActivityProof = proof.Copy()
+	h.ActivityProofRound = round
 }

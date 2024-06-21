@@ -35,6 +35,8 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		ProposerSeal      hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             hexutil.Uint64     `json:"round"               gencodec:"required"`
 		QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
+		ActivityProofRound hexutil.Uint64     `json:"activityProofRound"  gencodec:"required"`
 		Epoch             *Epoch              `json:"epoch"              gencodec:"optional"`
 		Hash              common.Hash        `json:"hash"`
 	}
@@ -58,6 +60,8 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.ProposerSeal = h.ProposerSeal
 	enc.Round = hexutil.Uint64(h.Round)
 	enc.QuorumCertificate = h.QuorumCertificate
+	enc.ActivityProof = h.ActivityProof
+	enc.ActivityProofRound = hexutil.Uint64(h.ActivityProofRound)
 	if h.Epoch != nil {
 		enc.Epoch = h.Epoch
 	}
@@ -87,6 +91,8 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		ProposerSeal      *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             *hexutil.Uint64     `json:"round"               gencodec:"required"`
 		QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		ActivityProof      *AggregateSignature `json:"activityProof"       gencodec:"required"`
+		ActivityProofRound *hexutil.Uint64     `json:"activityProofRound"  gencodec:"required"`
 		Epoch             *Epoch              `json:"epoch"              gencodec:"optional"`
 	}
 	var dec Header
@@ -168,9 +174,20 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'quorumCertificate' for Header")
 	}
 	h.QuorumCertificate = *dec.QuorumCertificate
+	if dec.ActivityProof == nil {
+		return errors.New("missing required field 'activityProof' for Header")
+	}
+	h.ActivityProof = *dec.ActivityProof
+	if dec.ActivityProofRound == nil {
+		return errors.New("missing required field 'activityProofRound' for Header")
+	}
+	h.ActivityProofRound = uint64(*dec.ActivityProofRound)
 
 	if dec.Epoch != nil {
 		h.Epoch = dec.Epoch
+		//TODO: This needs to be added manually to make the e2e test work.
+		// However it will be overridden by automatically generated code via `go generate`.
+		// Not sure if there is a better way to do it.
 		if err := h.Epoch.Committee.Enrich(); err != nil {
 			return err
 		}

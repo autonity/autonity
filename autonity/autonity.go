@@ -33,9 +33,8 @@ var (
 
 // Errors
 var (
-	ErrAutonityContract = errors.New("could not call Autonity contract")
-	ErrWrongParameter   = errors.New("wrong parameter")
 	ErrNoAutonityConfig = errors.New("autonity section missing from genesis")
+	ErrRevertWithReason = errors.New("reverted due to") // To be used in conjunction with a revert reason string. see errorWithRevertReason function
 )
 
 // EVMProvider provides a new evm. This allows us to decouple the contract from *core.blockchain which is required to build a new evm.
@@ -74,12 +73,17 @@ type Cache struct {
 	epochPeriodCh  chan *AutonityEpochPeriodUpdated
 	subEpochPeriod event.Subscription
 
+	// omission accountability delta
+	delta    atomic.Pointer[big.Int]
+	deltaCh  chan *OmissionAccountabilityDeltaUpdated
+	subDelta event.Subscription
+
 	subscriptions *event.SubscriptionScope
 	quit          chan struct{}
 	done          chan struct{}
 }
 
-func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cache, error) {
+func newCache(ac *AutonityContract, omissionAccountabilityContract *OmissionAccountability, head *types.Header, state vm.StateDB) (*Cache, error) {
 	// initialize minimum base fee through contract call and subscribe to updated event
 	minBaseFee, err := ac.MinimumBaseFee(head, state)
 	if err != nil {
@@ -102,14 +106,28 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 		return nil, err
 	}
 
+	// initialize delta and subscribe to updated event
+	delta, err := omissionAccountabilityContract.GetDelta(nil)
+	if err != nil {
+		return nil, err
+	}
+	deltaCh := make(chan *OmissionAccountabilityDeltaUpdated)
+	subDelta, err := omissionAccountabilityContract.WatchDeltaUpdated(nil, deltaCh)
+	if err != nil {
+		return nil, err
+	}
+
 	scope := new(event.SubscriptionScope)
 	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
 	subEpochPeriodWrapped := scope.Track(subEpochPeriod)
+	subDeltaWrapped := scope.Track(subDelta)
 	cache := &Cache{
 		minBaseFeeCh:   minBaseFeeCh,
 		subMinBaseFee:  subMinBaseFeeWrapped,
 		epochPeriodCh:  epochPeriodCh,
 		subEpochPeriod: subEpochPeriodWrapped,
+		deltaCh:        deltaCh,
+		subDelta:       subDeltaWrapped,
 		subscriptions:  scope,
 		quit:           make(chan struct{}),
 		done:           make(chan struct{}),
@@ -118,6 +136,7 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 	// store initial values
 	cache.minBaseFee.Store(minBaseFee)
 	cache.epochPeriod.Store(epochPeriod)
+	cache.delta.Store(delta)
 
 	go cache.Listen()
 	return cache, nil
@@ -135,6 +154,7 @@ type ProtocolContracts struct {
 	*AutonityContract
 	*Cache
 	*Accountability
+	*OmissionAccountability
 }
 
 func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend, head *types.Header, state vm.StateDB) (*ProtocolContracts, error) {
@@ -167,19 +187,29 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 		proposers:        make(map[uint64]map[int64]common.Address),
 	}
 
+	// bind to omission accountability contract
+	omissionAccountabilityContract, err := NewOmissionAccountability(params.OmissionAccountabilityContractAddress, contractBackend)
+	if err != nil {
+		return nil, err
+	}
+
 	// initialize protocol contract cache
-	cache, err := newCache(autonityContract, head, state)
+	cache, err := newCache(autonityContract, omissionAccountabilityContract, head, state)
 	if err != nil {
 		return nil, err
 	}
 
 	// bind to accountability contract
-	accountabilityContract, _ := NewAccountability(params.AccountabilityContractAddress, contractBackend)
+	accountabilityContract, err := NewAccountability(params.AccountabilityContractAddress, contractBackend)
+	if err != nil {
+		return nil, err
+	}
 
 	contract := ProtocolContracts{
-		AutonityContract: autonityContract,
-		Cache:            cache,
-		Accountability:   accountabilityContract,
+		AutonityContract:       autonityContract,
+		Cache:                  cache,
+		Accountability:         accountabilityContract,
+		OmissionAccountability: omissionAccountabilityContract,
 	}
 
 	return &contract, nil
@@ -197,12 +227,16 @@ func (c *Cache) Listen() {
 			c.minBaseFee.Store(ev.GasPrice)
 		case ev := <-c.epochPeriodCh:
 			c.epochPeriod.Store(ev.Period)
+		case ev := <-c.deltaCh:
+			c.delta.Store(ev.Delta)
 		// These should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
 		// In that case network errors can occur. Since everything is local here, no error should ever occur.
 		// we crash the client to avoid using a out-of-date value in case something goes very wrong.
 		case <-c.subEpochPeriod.Err():
 			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case <-c.subMinBaseFee.Err():
+			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
+		case <-c.subDelta.Err():
 			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
 		case <-c.quit:
 			return
@@ -221,6 +255,10 @@ func (c *Cache) MinimumBaseFee() *big.Int {
 
 func (c *Cache) EpochPeriod() *big.Int {
 	return new(big.Int).Set(c.epochPeriod.Load())
+}
+
+func (c *Cache) OmissionDelta() *big.Int {
+	return new(big.Int).Set(c.delta.Load())
 }
 
 func (c *AutonityContract) CommitteeEnodes(header *types.Header, db vm.StateDB, asACN bool) (*types.Nodes, error) {
@@ -310,7 +348,6 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(params.AutonityContractAddress),
 		"block", header.Number.Uint64())
-
 	upgradeContract, epochInfo, err := c.callFinalize(statedb, header)
 	if err != nil {
 		return nil, nil, err
@@ -367,9 +404,8 @@ func (c *AutonityContract) upgradeAutonityContract(statedb vm.StateDB, header *t
 	return nil
 }
 
-func (c *AutonityContract) CallContractFunc(statedb vm.StateDB, header *types.Header, packedArgs []byte) ([]byte, error) {
-	packedResult, _, err := c.EVMContract.CallContractFunc(statedb, header, params.AutonityContractAddress, packedArgs)
-	return packedResult, err
+func (c *AutonityContract) CallContractFunc(statedb vm.StateDB, header *types.Header, packedArgs []byte) ([]byte, uint64, error) {
+	return c.EVMContract.CallContractFunc(statedb, header, params.AutonityContractAddress, packedArgs)
 }
 
 func (c *AutonityContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {
@@ -461,6 +497,10 @@ type NonStakableVestingContract struct {
 	EVMContract
 }
 
+type OmissionAccountabilityContract struct {
+	EVMContract
+}
+
 func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
 	evmProvider := func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		if header != nil {
@@ -482,6 +522,14 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 			EVMContract: EVMContract{
 				evmProvider: evmProvider,
 				contractABI: &generated.AccountabilityAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		OmissionAccountabilityContract: OmissionAccountabilityContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.OmissionAccountabilityAbi,
 				db:          db,
 				chainConfig: chainConfig,
 			},
@@ -564,7 +612,7 @@ type GenesisEVMContracts struct {
 	InflationControllerContract
 	StakableVestingContract
 	NonStakableVestingContract
-
+	OmissionAccountabilityContract
 	statedb vm.StateDB
 }
 
@@ -574,6 +622,10 @@ func (c *GenesisEVMContracts) DeployAutonityContract(bytecode []byte, validators
 
 func (c *GenesisEVMContracts) DeployAccountabilityContract(autonityAddress common.Address, config AccountabilityConfig, bytecode []byte) error {
 	return c.AccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
+}
+
+func (c *GenesisEVMContracts) DeployOmissionAccountabilityContract(autonityAddress common.Address, operator common.Address, treasuries []common.Address, config OmissionAccountabilityConfig, bytecode []byte) error {
+	return c.OmissionAccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, operator, treasuries, config)
 }
 
 func (c *GenesisEVMContracts) Mint(address common.Address, amount *big.Int) error {

@@ -261,6 +261,8 @@ contract('Protocol', function (accounts) {
     "slashingRatePrecision": 10000
   }
 
+  const omissionAccountabilityConfig = config.OMISSION_ACCOUNTABILITY_CONFIG
+
   const genesisNodeAddresses = config.GENESIS_NODE_ADDRESSES
 
   // accounts[2] is skipped because it is used as a genesis validator when running against autonity
@@ -272,7 +274,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 1', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from: operator});
     });
@@ -316,7 +318,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 2', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -354,7 +356,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 3', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -387,7 +389,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 4', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -432,7 +434,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 5', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -462,7 +464,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 6', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -509,7 +511,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 7', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -559,7 +561,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 8', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator, false);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -593,7 +595,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 9', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -684,7 +686,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 10', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -718,7 +720,7 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 11', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });

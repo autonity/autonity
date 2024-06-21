@@ -101,7 +101,9 @@ var (
 			Operator:                common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
 			Treasury:                common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
 			TreasuryFee:             10_000_000_000_000_000,
-			DelegationRate:          1000,
+			DelegationRate:          1000, // 10%
+			WithholdingThreshold:    0,    // 0%, no tolerance
+			ProposerRewardRate:      1000, // 10% TODO(lorenzo) fix correct value
 			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			Validators: []*Validator{
 				// Ctl-1
@@ -348,7 +350,8 @@ var (
 					common.Big1)),
 			},
 		},
-		AccountabilityConfig: DefaultAccountabilityConfig,
+		AccountabilityConfig:         DefaultAccountabilityConfig,
+		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
 		NonStakableVestingConfig: &NonStakableVestingGenesis{
 			TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
 			MaxAllowedDuration: big.NewInt(3 * SecondsInYear),
@@ -461,6 +464,8 @@ var (
 			TreasuryFee:             10_000_000_000_000_000,
 			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			DelegationRate:          1000,
+			WithholdingThreshold:    0,    // 0%, no tolerance
+			ProposerRewardRate:      1000, // 10% TODO(lorenzo) fix correct value
 			Validators: []*Validator{{
 				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
 				OracleAddress: common.HexToAddress("0x4D8387E38F42084aa24CE7DA137222786fF23A3E"),
@@ -514,7 +519,8 @@ var (
 				)),
 			},
 		},
-		AccountabilityConfig: DefaultAccountabilityConfig,
+		AccountabilityConfig:         DefaultAccountabilityConfig,
+		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
 	}
 
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
@@ -712,7 +718,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, false}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, nil, false}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -735,8 +741,10 @@ var (
 		MaxCommitteeSize:        21,
 		BlockPeriod:             1,
 		UnbondingPeriod:         120,
-		EpochPeriod:             30,
+		EpochPeriod:             40,   // needs to be > DELTA+lookback-1
 		DelegationRate:          1200, // 12%
+		WithholdingThreshold:    0,    // 0%, no tolerance
+		ProposerRewardRate:      1000, // 10%
 		Treasury:                common.Address{120},
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              InitialBaseFee,
@@ -785,6 +793,7 @@ var (
 		},
 		DefaultNonStakableVestingGenesis,
 		DefaultStakableVestingGenesis,
+		DefaultOmissionAccountabilityConfig,
 		false,
 	}
 )
@@ -803,9 +812,9 @@ func init() {
 		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)
 	}
-	TestAutonityContractConfig.Prepare()
-	PiccadillyChainConfig.AutonityContractConfig.Prepare()
-	BakerlooChainConfig.AutonityContractConfig.Prepare()
+	TestAutonityContractConfig.Prepare(DefaultOmissionAccountabilityConfig.LookbackWindow, DefaultOmissionAccountabilityConfig.Delta)
+	PiccadillyChainConfig.AutonityContractConfig.Prepare(PiccadillyChainConfig.OmissionAccountabilityConfig.LookbackWindow, PiccadillyChainConfig.OmissionAccountabilityConfig.Delta)
+	BakerlooChainConfig.AutonityContractConfig.Prepare(BakerlooChainConfig.OmissionAccountabilityConfig.LookbackWindow, BakerlooChainConfig.OmissionAccountabilityConfig.Delta)
 }
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
@@ -891,14 +900,15 @@ type ChainConfig struct {
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
 
 	// Various consensus engines
-	Ethash                   *EthashConfig               `json:"ethash,omitempty"`
-	AutonityContractConfig   *AutonityContractGenesis    `json:"autonity,omitempty"`
-	AccountabilityConfig     *AccountabilityGenesis      `json:"accountability,omitempty"`
-	OracleContractConfig     *OracleContractGenesis      `json:"oracle,omitempty"`
-	InflationContractConfig  *InflationControllerGenesis `json:"inflation,omitempty"`
-	ASM                      AsmConfig                   `json:"asm,omitempty"`
-	NonStakableVestingConfig *NonStakableVestingGenesis  `json:"nonStakableVesting,omitempty"`
-	StakableVestingConfig    *StakableVestingGenesis     `json:"stakableVesting,omitempty"`
+	Ethash                       *EthashConfig                  `json:"ethash,omitempty"`
+	AutonityContractConfig       *AutonityContractGenesis       `json:"autonity,omitempty"`
+	AccountabilityConfig         *AccountabilityGenesis         `json:"accountability,omitempty"`
+	OracleContractConfig         *OracleContractGenesis         `json:"oracle,omitempty"`
+	InflationContractConfig      *InflationControllerGenesis    `json:"inflation,omitempty"`
+	ASM                          AsmConfig                      `json:"asm,omitempty"`
+	NonStakableVestingConfig     *NonStakableVestingGenesis     `json:"nonStakableVesting,omitempty"`
+	StakableVestingConfig        *StakableVestingGenesis        `json:"stakableVesting,omitempty"`
+	OmissionAccountabilityConfig *OmissionAccountabilityGenesis `json:"omissionAccountability,omitempty"`
 
 	// true if run in testmode, false by default
 	TestMode bool `json:"testMode,omitempty"`
@@ -1133,65 +1143,6 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 		return newCompatError("Merge Start fork block", c.MergeForkBlock, newcfg.MergeForkBlock)
 	}
 	return nil
-}
-
-func (c *ChainConfig) Copy() *ChainConfig {
-	cfg := &ChainConfig{
-		DAOForkSupport: c.DAOForkSupport,
-		EIP150Hash:     c.EIP150Hash,
-	}
-	if c.Ethash != nil {
-		cfg.Ethash = &(*c.Ethash)
-	}
-	if c.AutonityContractConfig != nil {
-		cfg.AutonityContractConfig = &(*c.AutonityContractConfig)
-		cfg.AutonityContractConfig = &AutonityContractGenesis{
-			Bytecode:                c.AutonityContractConfig.Bytecode, // no deep copy needed
-			ABI:                     c.AutonityContractConfig.ABI,      // no deep copy needed
-			MinBaseFee:              c.AutonityContractConfig.MinBaseFee,
-			EpochPeriod:             c.AutonityContractConfig.EpochPeriod,
-			UnbondingPeriod:         c.AutonityContractConfig.UnbondingPeriod,
-			BlockPeriod:             c.AutonityContractConfig.BlockPeriod,
-			MaxCommitteeSize:        c.AutonityContractConfig.MaxCommitteeSize,
-			Operator:                c.AutonityContractConfig.Operator,
-			Treasury:                c.AutonityContractConfig.Treasury,
-			TreasuryFee:             c.AutonityContractConfig.TreasuryFee,
-			DelegationRate:          c.AutonityContractConfig.DelegationRate,
-			InitialInflationReserve: c.AutonityContractConfig.InitialInflationReserve,                                          // no deep copy needed
-			Validators:              append(c.AutonityContractConfig.Validators[:0:0], c.AutonityContractConfig.Validators...), // NEED DEEP COPY HERE
-		}
-	}
-	if c.OracleContractConfig != nil {
-		cfg.OracleContractConfig = c.OracleContractConfig
-	}
-	if c.ChainID != nil {
-		cfg.ChainID = big.NewInt(0).Set(c.ChainID)
-	}
-	if c.HomesteadBlock != nil {
-		cfg.HomesteadBlock = big.NewInt(0).Set(c.HomesteadBlock)
-	}
-	if c.DAOForkBlock != nil {
-		cfg.DAOForkBlock = big.NewInt(0).Set(c.DAOForkBlock)
-	}
-	if c.EIP150Block != nil {
-		cfg.EIP150Block = big.NewInt(0).Set(c.EIP150Block)
-	}
-	if c.EIP155Block != nil {
-		cfg.EIP155Block = big.NewInt(0).Set(c.EIP155Block)
-	}
-	if c.EIP158Block != nil {
-		cfg.EIP158Block = big.NewInt(0).Set(c.EIP158Block)
-	}
-	if c.ByzantiumBlock != nil {
-		cfg.ByzantiumBlock = big.NewInt(0).Set(c.ByzantiumBlock)
-	}
-	if c.ConstantinopleBlock != nil {
-		cfg.ConstantinopleBlock = big.NewInt(0).Set(c.ConstantinopleBlock)
-	}
-	if c.PetersburgBlock != nil {
-		cfg.PetersburgBlock = big.NewInt(0).Set(c.PetersburgBlock)
-	}
-	return cfg
 }
 
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to

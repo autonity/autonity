@@ -1,17 +1,19 @@
 package autonity
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
-	"math/big"
-	"reflect"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
+	"math/big"
+	"reflect"
 )
 
 type raw []byte
@@ -28,6 +30,9 @@ type GenesisBond struct {
 	NewtonBalance *big.Int
 	Bonds         []Delegation
 }
+
+// 4 byte signature that is used to encode revert reasons
+var revertSig = crypto.Keccak256Hash([]byte("Error(string)")).Bytes()[:4]
 
 func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts) error {
 	if err := DeployAutonityContract(genesisConfig.AutonityContractConfig, genesisBonds, evmContracts); err != nil {
@@ -59,6 +64,9 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	}
 	if err := DeployNonStakableVestingContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
+	}
+	if err := DeployOmissionAccountabilityContract(genesisConfig, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the omission accountability contract: %w", err)
 	}
 	return nil
 }
@@ -275,6 +283,59 @@ func DeployAccountabilityContract(config *params.AccountabilityGenesis, evmContr
 	return nil
 }
 
+func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	config := genesisConfig.OmissionAccountabilityConfig
+	if config == nil {
+		config = params.DefaultOmissionAccountabilityConfig
+	}
+
+	// check that pastPerformanceWeight <= inactivityThreshold
+	// This ensures that a validator having 100% inactivity in epoch x and 0% inactivity in epoch x + n
+	// will not be considered inactive again at epoch x + n
+	if config.PastPerformanceWeight > config.InactivityThreshold {
+		return fmt.Errorf("PastPerformanceWeight is too high. PastPerformanceWeight: %d, InactivityThreshold: %d", config.PastPerformanceWeight, config.InactivityThreshold)
+	}
+
+	if config.LookbackWindow == 0 {
+		return fmt.Errorf("LookbackWindow needs to be >=1")
+	}
+
+	if config.Delta == 0 {
+		return fmt.Errorf("delta needs to be >=1")
+	}
+
+	conf := OmissionAccountabilityConfig{
+		InactivityThreshold:    new(big.Int).SetUint64(config.InactivityThreshold),
+		LookbackWindow:         new(big.Int).SetUint64(config.LookbackWindow),
+		PastPerformanceWeight:  new(big.Int).SetUint64(config.PastPerformanceWeight),
+		InitialJailingPeriod:   new(big.Int).SetUint64(config.InitialJailingPeriod),
+		InitialProbationPeriod: new(big.Int).SetUint64(config.InitialProbationPeriod),
+		InitialSlashingRate:    new(big.Int).SetUint64(config.InitialSlashingRate),
+		SlashingRatePrecision:  new(big.Int).SetUint64(genesisConfig.AccountabilityConfig.SlashingRatePrecision), // same as accountability
+		Delta:                  new(big.Int).SetUint64(config.Delta),
+	}
+
+	treasuries := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+	for i, val := range genesisConfig.AutonityContractConfig.Validators {
+		treasuries[i] = val.Treasury
+	}
+
+	err := evmContracts.DeployOmissionAccountabilityContract(
+		params.AutonityContractAddress,
+		genesisConfig.AutonityContractConfig.Operator,
+		treasuries,
+		conf,
+		generated.OmissionAccountabilityBytecode,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
+	}
+
+	log.Info("Deployed Omission Accountability contract", "address", params.OmissionAccountabilityContractAddress)
+
+	return nil
+}
+
 func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts) error {
 	contractConfig := AutonityConfig{
 		Policy: AutonityPolicy{
@@ -283,17 +344,21 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			DelegationRate:          new(big.Int).SetUint64(genesisConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(genesisConfig.InitialInflationReserve),
+			WithholdingThreshold:    new(big.Int).SetUint64(genesisConfig.WithholdingThreshold),
+			ProposerRewardRate:      new(big.Int).SetUint64(genesisConfig.ProposerRewardRate),
+			WithheldRewardsPool:     genesisConfig.Treasury, //TODO(lorenzo) decide if fine
 			TreasuryAccount:         genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract:      params.AccountabilityContractAddress,
-			OracleContract:              params.OracleContractAddress,
-			AcuContract:                 params.ACUContractAddress,
-			SupplyControlContract:       params.SupplyControlContractAddress,
-			StabilizationContract:       params.StabilizationContractAddress,
-			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
-			InflationControllerContract: params.InflationControllerContractAddress,
-			NonStakableVestingContract:  params.NonStakableVestingContractAddress,
+			AccountabilityContract:         params.AccountabilityContractAddress,
+			OracleContract:                 params.OracleContractAddress,
+			AcuContract:                    params.ACUContractAddress,
+			SupplyControlContract:          params.SupplyControlContractAddress,
+			StabilizationContract:          params.StabilizationContractAddress,
+			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
+			InflationControllerContract:    params.InflationControllerContractAddress,
+			NonStakableVestingContract:     params.NonStakableVestingContractAddress,
+			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: genesisConfig.Operator,
@@ -382,30 +447,64 @@ func (c *EVMContract) replaceAutonityBytecode(header *types.Header, statedb vm.S
 	return nil
 }
 
+func errorWithRevertReason(err error, ret []byte) error {
+	if err == nil || !errors.Is(err, vm.ErrExecutionReverted) {
+		return err
+	}
+	// no 4 byte selector
+	if len(ret) < 4 {
+		return err
+	}
+
+	if !bytes.Equal(ret[:4], revertSig) {
+		// TODO: decode also custom revert errors, leave it for later since we don't use them much yet
+		// 	see: https://docs.soliditylang.org/en/latest/control-structures.html#revert
+		log.Debug("Function reverted with custom error, reason decoding to be implemented")
+		return err
+	}
+
+	// if we arrive here it means we have a revert reason from a revert() call
+	// we should always have at least 4 (selector) + 32 (offset) + 32 (length) bytes in the return value
+	// so this shouldn't happen, but leave the check for the time being
+	if len(ret) < 4+32+32 {
+		log.Warn("revert reason doesn't contain enough bytes")
+		return err
+	}
+	offset := new(big.Int).SetBytes(ret[4:36]).Uint64()
+	length := new(big.Int).SetBytes(ret[offset+4 : offset+4+32]).Uint64()
+	if length == 0 {
+		return err
+	}
+	reason := ret[offset+4+32 : offset+4+32+length]
+	errorWithReason := errors.Join(vm.ErrExecutionReverted, ErrRevertWithReason, errors.New(string(reason)))
+	return errorWithReason
+}
+
 // AutonityContractCall calls the specified function of the autonity contract
 // with the given args, and returns the output unpacked into the result
 // interface.
-func (c *AutonityContract) AutonityContractCall(statedb vm.StateDB, header *types.Header, function string, result any, args ...any) error {
+// It returns the gas used for the call
+func (c *AutonityContract) AutonityContractCall(statedb vm.StateDB, header *types.Header, function string, result any, args ...any) (uint64, error) {
 	packedArgs, err := c.contractABI.Pack(function, args...)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	ret, err := c.CallContractFunc(statedb, header, packedArgs)
+	ret, usedGas, err := c.CallContractFunc(statedb, header, packedArgs)
 	if err != nil {
-		return err
+		return usedGas, errorWithRevertReason(err, ret)
 	}
 	// if result's type is "raw" then bypass unpacking
 	if reflect.TypeOf(result) == reflect.TypeOf(&raw{}) {
 		rawPtr := result.(*raw)
 		*rawPtr = ret
-		return nil
+		return usedGas, nil
 	}
 	if err := c.contractABI.UnpackIntoInterface(result, function, ret); err != nil {
 		log.Error("Could not unpack returned value", "function", function)
-		return err
+		return usedGas, err
 	}
 
-	return nil
+	return usedGas, nil
 }
 
 func (c *AutonityContract) Mint(header *types.Header, statedb vm.StateDB, address common.Address, amount *big.Int) error {
@@ -441,7 +540,7 @@ func (c *AutonityContract) FinalizeInitialization(header *types.Header, statedb 
 		return fmt.Errorf("error while generating call data for finalizeInitialization: %w", err)
 	}
 
-	_, err = c.CallContractFunc(statedb, header, packedArgs)
+	_, _, err = c.CallContractFunc(statedb, header, packedArgs)
 	if err != nil {
 		return fmt.Errorf("error while calling finalizeInitialization: %w", err)
 	}
@@ -538,10 +637,13 @@ func (c *StakableVestingContract) NewContract(header *types.Header, statedb vm.S
 // packed result. If there is an error making the evm call it will be returned.
 // Callers should use the autonity contract ABI to pack and unpack the args and
 // result.
+// It returns the amount of gas used for the call
 func (c *EVMContract) CallContractFunc(statedb vm.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, uint64, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, params.DeployerAddress, statedb)
-	return evm.Call(vm.AccountRef(params.DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
+	packedResult, leftOverGas, err := evm.Call(vm.AccountRef(params.DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
+	usedGas := gas - leftOverGas
+	return packedResult, usedGas, err
 }
 
 func (c *EVMContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, contractAddress common.Address, origin common.Address, packedArgs []byte) ([]byte, error) {
@@ -553,7 +655,7 @@ func (c *EVMContract) CallContractFuncAs(statedb vm.StateDB, header *types.Heade
 
 func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *types.Header, asACN bool) (*types.Nodes, error) {
 	var returnedEnodes []string
-	err := c.AutonityContractCall(state, header, "getCommitteeEnodes", &returnedEnodes)
+	_, err := c.AutonityContractCall(state, header, "getCommitteeEnodes", &returnedEnodes)
 	if err != nil {
 		return nil, err
 	}
@@ -562,7 +664,7 @@ func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *type
 
 func (c *AutonityContract) callGetCommitteeByHeight(state vm.StateDB, header *types.Header, height *big.Int) (*types.Committee, error) {
 	var committeeMembers []types.CommitteeMember
-	if err := c.AutonityContractCall(state, header, "getCommitteeByHeight", &committeeMembers, height); err != nil {
+	if _, err := c.AutonityContractCall(state, header, "getCommitteeByHeight", &committeeMembers, height); err != nil {
 		return nil, err
 	}
 	committee := &types.Committee{}
@@ -581,7 +683,7 @@ func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Head
 	curEpochBlock := new(big.Int)
 	nextEpochBlock := new(big.Int)
 
-	if err := c.AutonityContractCall(state, header, "getEpochInfo", &[]any{&committeeMembers, &previousEpochBlock, &curEpochBlock, &nextEpochBlock}); err != nil {
+	if _, err := c.AutonityContractCall(state, header, "getEpochInfo", &[]any{&committeeMembers, &previousEpochBlock, &curEpochBlock, &nextEpochBlock}); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	committee := &types.Committee{}
@@ -594,7 +696,7 @@ func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Head
 
 func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) (*types.Committee, error) {
 	var committeeMembers []types.CommitteeMember
-	if err := c.AutonityContractCall(state, header, "getCommittee", &committeeMembers); err != nil {
+	if _, err := c.AutonityContractCall(state, header, "getCommittee", &committeeMembers); err != nil {
 		return nil, err
 	}
 	committee := &types.Committee{}
@@ -607,7 +709,7 @@ func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Head
 
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	minBaseFee := new(big.Int)
-	err := c.AutonityContractCall(state, header, "getMinimumBaseFee", &minBaseFee)
+	_, err := c.AutonityContractCall(state, header, "getMinimumBaseFee", &minBaseFee)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +718,7 @@ func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types
 
 func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	epochPeriod := new(big.Int)
-	err := c.AutonityContractCall(state, header, "getEpochPeriod", &epochPeriod)
+	_, err := c.AutonityContractCall(state, header, "getEpochPeriod", &epochPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -629,7 +731,9 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	var committeeMembers []types.CommitteeMember
 	previousEpochBlock := new(big.Int)
 	nextEpochBlock := new(big.Int)
-	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock}); err != nil {
+	usedGas, err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock})
+	log.Debug("gas used to call finalize", "usedGas", usedGas)
+	if err != nil {
 		return false, nil, err
 	}
 
@@ -656,7 +760,7 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.Header) ([]byte, string, error) {
 	var bytecode []byte
 	var abi string
-	if err := c.AutonityContractCall(state, header, "getNewContract", &[]any{&bytecode, &abi}); err != nil {
+	if _, err := c.AutonityContractCall(state, header, "getNewContract", &[]any{&bytecode, &abi}); err != nil {
 		return nil, "", err
 	}
 	return bytecode, abi, nil

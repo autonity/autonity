@@ -241,7 +241,7 @@ func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {
 	return sb.eventMux.Subscribe(types...)
 }
 
-// VerifyProposal implements tendermint.Backend.VerifyProposal and verifiy if the proposal is valid
+// VerifyProposal implements tendermint.Backend.VerifyProposal and verify if the proposal is valid
 func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) {
 	// TODO: fix always false statement and check for non nil
 	// TODO: use interface instead of type

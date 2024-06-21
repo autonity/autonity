@@ -65,7 +65,6 @@ var genesisTest = struct {
     			"oracle": {
       				"votePeriod": 30
 				},
-
 				"accountability": {
 					  "innocenceProofSubmissionWindow": 30,
 					  "baseSlashingRateLow": 500,
@@ -75,10 +74,20 @@ var genesisTest = struct {
 					  "jailFactor": 60,
 					  "slashingRatePrecision": 10000
 				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 300, 
+					  "initialSlashingRate": 1000,
+					  "slashingRatePrecision": 10000,
+                      "delta": 10
+				},
 				"chainId" : 1
 			}
 		}`,
-	// Chnage stake of validator as 2.
+	// Change stake of validator as 2.
 	misMatchGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
@@ -123,6 +132,25 @@ var genesisTest = struct {
     			"oracle": {
       				"votePeriod": 30
 				},
+				"accountability": {
+					  "innocenceProofSubmissionWindow": 30,
+					  "baseSlashingRateLow": 500,
+					  "baseSlashingRateMid": 1000,
+					  "collusionFactor": 550,
+					  "historyFactor": 750,
+					  "jailFactor": 60,
+					  "slashingRatePrecision": 10000
+				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 300, 
+					  "initialSlashingRate": 1000,
+					  "slashingRatePrecision": 10000,
+                      "delta": 10
+				},
 				"chainId" : 1
 			}
 		}`,
@@ -157,9 +185,26 @@ var genesisTest = struct {
 					]
 				},
     			"oracle": {
-					"bytecode": "",
-      				"abi": "",
       				"votePeriod": 30
+				},
+				"accountability": {
+					  "innocenceProofSubmissionWindow": 30,
+					  "baseSlashingRateLow": 500,
+					  "baseSlashingRateMid": 1000,
+					  "collusionFactor": 550,
+					  "historyFactor": 750,
+					  "jailFactor": 60,
+					  "slashingRatePrecision": 10000
+				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 300, 
+					  "initialSlashingRate": 1000,
+					  "slashingRatePrecision": 10000,
+                      "delta": 10
 				},
 				"chainId" : 1
 			}

@@ -8,6 +8,8 @@ const UN_BONDING_PERIOD = 60;
 const TREASURY_FEE = "10000000000000000";
 // because we cannot test inflation in truffle properly, due to the fact that its time of deployment is not same as that of autonity contract
 const INITIAL_INFLATION_RESERVE = "0";
+const PROPOSER_REWARD_RATE = 1000
+const WITHHOLDING_THRESHOLD = 0
 const MIN_EPOCH_PERIOD = 30;
 const VERSION = 0;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -22,6 +24,17 @@ const ACCOUNTABILITY_CONFIG = {
         "jailFactor": 60,
         "slashingRatePrecision": 10000
     };
+
+const OMISSION_ACCOUNTABILITY_CONFIG = {
+    "inactivityThreshold": 1000,     // 10%
+    "lookbackWindow":  10,   // 10 blocks
+    "pastPerformanceWeight":   1000, // 10%
+    "initialJailingPeriod":    300,  // 300 blocks
+    "initialProbationPeriod":  300,  // 300 blocks
+    "initialSlashingRate":     1000, // 10%
+    "slashingRatePrecision": ACCOUNTABILITY_CONFIG.slashingRatePrecision,
+    "delta": 10, // 10 blocks
+}
 
 const GENESIS_ENODES = [
         "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
@@ -38,6 +51,13 @@ const GENESIS_NODE_ADDRESSES = [
         "0xc443C6c6AE98F5110702921138D840e77dA67702",
         "0x09428E8674496e2D1E965402F33A9520c5fCBbE2",
     ];
+
+const GENESIS_CONSENSUS_KEYS = [
+    "0xb10a7d9920aca66523e7f30d60cd9da832f5a122882ebe5e973f1e3e8e608dffc69fca62dc93f42a8fa273d1e5af2439",
+    "0x83530bec48a262f2ca0231001a29824e9a0de41801742a9634a4d452daaa41fc009fa9d160cb30827741da5ff2db367b",
+    "0xb5f30c01a36560d144df1c41ffa0208cd3393c5628ac4957236cf45389d8497bdce90c8d42cf0b3f9c5fcc9944fa0a0b",
+    "0x905034a9758670d4881ad36b655e89ab234c21112d225e247ffb5f0108337f5f0ccc0c48a5cad307f4c7f667c48f146d",
+];
 
 const BASE_VALIDATOR = {
         "selfBondedStake": 0,
@@ -86,8 +106,11 @@ function autonityConfig(operator, treasuryAccount) {
             "minBaseFee": MIN_BASE_FEE,
             "delegationRate": DELEGATION_RATE,
             "unbondingPeriod" : UN_BONDING_PERIOD,
-            "treasuryAccount": treasuryAccount,
             "initialInflationReserve": INITIAL_INFLATION_RESERVE,
+            "withholdingThreshold": WITHHOLDING_THRESHOLD,
+            "proposerRewardRate": PROPOSER_REWARD_RATE,
+            "withheldRewardsPool": treasuryAccount, //TODO(lorenzo) decide if fine
+            "treasuryAccount": treasuryAccount,
         },
         "contracts": {
             "oracleContract" : ZERO_ADDRESS, // gets updated in deployContracts()
@@ -98,6 +121,7 @@ function autonityConfig(operator, treasuryAccount) {
             "upgradeManagerContract" :ZERO_ADDRESS,
             "inflationControllerContract" :ZERO_ADDRESS,
             "nonStakableVestingContract" :ZERO_ADDRESS,
+            "omissionAccountabilityContract": ZERO_ADDRESS,
         },
         "protocol": {
             "operatorAccount": operator,
@@ -118,6 +142,7 @@ function validators(accounts) {
             "nodeAddress": GENESIS_NODE_ADDRESSES[0],
             "oracleAddress": accounts[0],
             "enode": GENESIS_ENODES[0],
+            "consensusKey": GENESIS_CONSENSUS_KEYS[0],
             "commissionRate": 100,
             "bondedStake": 100,
         },
@@ -126,6 +151,7 @@ function validators(accounts) {
             "nodeAddress": GENESIS_NODE_ADDRESSES[1],
             "oracleAddress": accounts[1],
             "enode": GENESIS_ENODES[1],
+            "consensusKey": GENESIS_CONSENSUS_KEYS[1],
             "commissionRate": 100,
             "bondedStake": 90,
         },
@@ -134,6 +160,7 @@ function validators(accounts) {
             "nodeAddress": GENESIS_NODE_ADDRESSES[2],
             "oracleAddress": accounts[3],
             "enode": GENESIS_ENODES[2],
+            "consensusKey": GENESIS_CONSENSUS_KEYS[2],
             "commissionRate": 100,
             "bondedStake": 110,
         },
@@ -142,6 +169,7 @@ function validators(accounts) {
             "nodeAddress": GENESIS_NODE_ADDRESSES[3],
             "oracleAddress": accounts[4],
             "enode": GENESIS_ENODES[3],
+            "consensusKey": GENESIS_CONSENSUS_KEYS[3],
             "commissionRate": 100,
             "bondedStake": 120,
         },
@@ -153,6 +181,7 @@ module.exports = {
     COMMITTEE_SIZE: COMMITTEE_SIZE,
     VERSION: VERSION,
     ACCOUNTABILITY_CONFIG: ACCOUNTABILITY_CONFIG,
+    OMISSION_ACCOUNTABILITY_CONFIG: OMISSION_ACCOUNTABILITY_CONFIG,
     GENESIS_ENODES: GENESIS_ENODES,
     GENESIS_NODE_ADDRESSES: GENESIS_NODE_ADDRESSES,
     BASE_VALIDATOR: BASE_VALIDATOR,

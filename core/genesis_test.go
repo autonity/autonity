@@ -260,7 +260,7 @@ func TestGenesis_InitialNewton_Bindings(t *testing.T) {
 }
 
 func TestDefaultPiccadillyGenesisBlock(t *testing.T) {
-	params.PiccadillyChainConfig.AutonityContractConfig.Prepare()
+	params.PiccadillyChainConfig.AutonityContractConfig.Prepare(params.PiccadillyChainConfig.OmissionAccountabilityConfig.LookbackWindow, params.PiccadillyChainConfig.OmissionAccountabilityConfig.Delta)
 	genesis := DefaultPiccadillyGenesisBlock()
 	b, err := json.MarshalIndent(genesis, "", "\t")
 	require.NoError(t, err)

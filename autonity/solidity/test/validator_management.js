@@ -19,6 +19,7 @@ contract('Autonity', function (accounts) {
     const treasuryAccount = accounts[8];
 
     const accountabilityConfig = config.ACCOUNTABILITY_CONFIG
+    const omissionAccountabilityConfig = config.OMISSION_ACCOUNTABILITY_CONFIG
     const genesisEnodes = config.GENESIS_ENODES
     const genesisNodeAddresses = config.GENESIS_NODE_ADDRESSES
     const baseValidator = config.BASE_VALIDATOR
@@ -36,7 +37,7 @@ contract('Autonity', function (accounts) {
         let consensusKey;
         let pop;
         beforeEach(async function () {
-            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
+            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
 
             const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test0.key`)
             const oracleKey = utils.randomPrivateKey();
@@ -207,7 +208,7 @@ contract('Autonity', function (accounts) {
             let customizedEpochPeriod = 20;
             copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
-            autonity = await utils.deployContracts(vals, copyParams, accountabilityConfig, deployer, operator);
+            autonity = await utils.deployContracts(vals, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
             assert.equal(customizedEpochPeriod,(await autonity.getEpochPeriod()).toNumber());
 
             const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test1.key`)
@@ -305,7 +306,7 @@ contract('Autonity', function (accounts) {
         });
         it('test more than committeeSize bonded validators, the ones with less stake should remain outside of the committee', async function() {
             // re-deploy with 4 validators instead of 1
-            autonity = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator);
+            autonity = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
 
             // set committeeSize to 0, minimum stake validator should be excluded
             await autonity.setCommitteeSize(3, {from: operator});
@@ -331,7 +332,7 @@ contract('Autonity', function (accounts) {
 
     describe('After effects of slashing, ', function () {
         beforeEach(async function () {
-            autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+            autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
             accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
             await autonity.setAccountabilityContract(accountability.address, {from:operator});
         });

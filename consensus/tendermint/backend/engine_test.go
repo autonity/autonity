@@ -3,6 +3,9 @@ package backend
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"sync"
@@ -144,6 +147,26 @@ func TestVerifyHeader(t *testing.T) {
 	}
 }
 
+// insert block with valid quorum certificate in the chain.
+// It also add the precommit to the msgStore so that we can successfully create activity proof for the following blocks
+// It assumes that we have a single committee member
+// This is needed for `makeBlockWithoutSeal` to generate another block correctly.
+func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types.Block) {
+	self := &chain.Genesis().Header().Epoch.Committee.Members[0]
+
+	header := b.Header()
+	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, 1)
+	quorumCertificate := types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers())
+	err := types.WriteQuorumCertificate(header, quorumCertificate)
+	require.NoError(t, err)
+	blockWithCertificate := b.WithSeal(header) // improper use, we use the WithSeal function to substitute the header with the one with quorumCertificate set
+	time.Sleep(1 * time.Second)                // wait a couple seconds so that the block has not future timestamp anymore and the block import is done
+	_, err = chain.InsertChain(types.Blocks{blockWithCertificate})
+	require.NoError(t, err)
+
+	engine.MsgStore.Save(precommit)
+}
+
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
@@ -151,6 +174,7 @@ func TestVerifyHeaders(t *testing.T) {
 	// success case
 	var headers []*types.Header
 	var blocks []*types.Block
+
 	size := 100
 
 	var err error
@@ -167,13 +191,20 @@ func TestVerifyHeaders(t *testing.T) {
 
 		b, _ = engine.AddSeal(b)
 
+		insertBlock(t, chain, engine, b)
+
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
 	}
 
+	// reset the chain to simulate receiving new headers
+	err = chain.Reset()
+	require.NoError(t, err)
+
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
+	defer func() { now = time.Now }()
 
 	_, results := engine.VerifyHeaders(chain, headers, nil)
 
@@ -224,13 +255,20 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 
 		b, _ = engine.AddSeal(b)
 
+		insertBlock(t, chain, engine, b)
+
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
 	}
 
+	// reset the chain to simulate receiving new headers
+	err = chain.Reset()
+	require.NoError(t, err)
+
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
+	defer func() { now = time.Now }()
 
 	const timeoutDura = 2 * time.Second
 
@@ -285,13 +323,20 @@ func TestVerifyErrorHeaders(t *testing.T) {
 
 		b, _ = engine.AddSeal(b)
 
+		insertBlock(t, chain, engine, b)
+
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
 	}
 
+	// reset the chain to simulate receiving new headers
+	err = chain.Reset()
+	require.NoError(t, err)
+
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
+	defer func() { now = time.Now }()
 
 	const timeoutDura = 2 * time.Second
 

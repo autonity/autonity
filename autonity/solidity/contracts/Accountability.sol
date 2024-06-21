@@ -328,6 +328,8 @@ contract Accountability is IAccountability {
     /**
     * @notice Take funds away from faulty node account.
     * @dev Emit a {SlashingEvent} event for the fined account
+    * similar logic as OmissionAccountability.sol _slash function.
+    * If updating this func, probably makes sense to update the one in OmissionAccountability.sol as well.
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
         // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
@@ -528,7 +530,7 @@ contract Accountability is IAccountability {
     * @dev Modifier that checks if the caller is the slashing contract.
     */
     modifier onlyAutonity {
-        require(msg.sender == address(autonity) , "function restricted to the validator");
+        require(msg.sender == address(autonity) , "function restricted to the Autonity Contract");
         _;
     }
 

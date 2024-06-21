@@ -836,7 +836,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
-			// there is invalid prvotes in the proof
+			// there is invalid prevotes in the proof
 			proof: Proof{
 				Rule:          autonity.PVO,
 				Message:       maliciousPreVotePVO,

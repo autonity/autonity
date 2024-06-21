@@ -45,6 +45,9 @@ func FakeContractBackendProvider(t gomock.TestReporter) func(_ *BlockChain, _ et
 			return nil
 		})
 		contractBackend.EXPECT().SubscribeFilterLogs(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(sub, nil)
+		// TODO(lorenzo) actually use the abi to encode the value 10 instead of just hardcoding
+		delta := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		contractBackend.EXPECT().CallContract(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(delta, nil)
 		return contractBackend
 	}
 }

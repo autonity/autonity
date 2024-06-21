@@ -137,5 +137,21 @@
   "d18736ab": "rewardsDistributed(address[])",
   "a8920241": "unbondingApplied(uint256,address,bool)",
   "3c54c290": "unbondingReleased(uint256,uint256,bool)",
-  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()"
+  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
+  "f56b5615": "COMMITTEE_FRACTION_PRECISION()",
+  "5115840b": "PROPOSER_REWARD_RATE_PRECISION()",
+  "e490389e": "WITHHOLDING_THRESHOLD_PRECISION()",
+  "b47c3eaa": "setOmissionAccountabilityContract(address)",
+  "416f86a2": "setProposerRewardRate(uint256)",
+  "39f9eb1f": "setWithheldRewardsPool(address)",
+  "905d76e9": "setWithholdingThreshold(uint256)",
+  "625fb940": "ACTIVITY_CONTRACT()",
+  "eeb92233": "distributeProposerRewards(uint256)",
+  "c549176e": "getDelta()",
+  "9a11e0e6": "getInactivityScore(address)",
+  "5ca1809c": "getLookbackWindow()",
+  "7f5e2f11": "getScaleFactor()",
+  "53b1821b": "getTotalEffort()",
+  "e3deef9c": "setCommittee((address,uint256,bytes)[],address[])",
+  "e1e8cac6": "setLastEpochBlock(uint256)"
 }

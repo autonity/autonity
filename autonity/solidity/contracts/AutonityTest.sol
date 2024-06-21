@@ -54,7 +54,9 @@ contract AutonityTest is Autonity {
 
    function testComputeCommittee() public {
       _stakingOperations();
-      address[] memory voters = computeCommittee();
+      address[] memory voters;
+      address[] memory treasuries;
+       (voters,treasuries) = computeCommittee();
       address[] memory addresses = new address[](voters.length);
       uint256 totalStake = 0;
       uint256 lastStake = 0;
@@ -74,6 +76,7 @@ contract AutonityTest is Autonity {
         require(validator.nodeAddress == memberAddress, "validator does not exist");
         require(validator.bondedStake == stake, "stake mismatch");
         require(validator.oracleAddress == voters[i], "oracle address mismatch");
+        require(validator.treasury == treasuries[i], "treasury address mismatch");
         require(validator.state == ValidatorState.active, "validator not active");
         require(keccak256(abi.encodePacked(validator.enode)) == keccak256(abi.encodePacked(committeeNodes[i])), "enode mismatch");
         require(keccak256(abi.encodePacked(validator.consensusKey)) == keccak256(abi.encodePacked(committee[i].consensusKey)), "consensus key mismatch");

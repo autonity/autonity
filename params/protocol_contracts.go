@@ -71,6 +71,24 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
+	/*
+	* 1. percentage values assume 10_000 as scaling factor
+	* 2. the following equation needs to be respected: pastPerformanceWeight <= InactivityThreshold
+	*    this ensures that a validator with 100% inactivity in epoch x and 0% inactivity in epoch x+n,
+	*    will not be considered inactive again at epoch x+n
+	* 3. lookbackWindow needs to be >= 1
+	 */
+	// TODO(lorenzo): change to agreed upon initial values
+	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
+		InactivityThreshold:    1000, // 10%
+		LookbackWindow:         30,   // 30 blocks
+		PastPerformanceWeight:  1000, // 10%
+		InitialJailingPeriod:   300,  // 300 blocks
+		InitialProbationPeriod: 24,   // 24 epochs
+		InitialSlashingRate:    1000, // 10%
+		Delta:                  10,   // 10 blocks
+	}
+
 	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
 		TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
 		MaxAllowedDuration: big.NewInt(3 * SecondsInYear),                           // 3 years
@@ -80,17 +98,18 @@ var (
 		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
 	}
 
-	DeployerAddress                    = common.Address{}
-	AutonityContractAddress            = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress      = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress              = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress                 = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress       = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress       = crypto.CreateAddress(DeployerAddress, 5)
-	UpgradeManagerContractAddress      = crypto.CreateAddress(DeployerAddress, 6)
-	InflationControllerContractAddress = crypto.CreateAddress(DeployerAddress, 7)
-	StakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 8)
-	NonStakableVestingContractAddress  = crypto.CreateAddress(DeployerAddress, 9)
+	DeployerAddress                       = common.Address{}
+	AutonityContractAddress               = crypto.CreateAddress(DeployerAddress, 0)
+	AccountabilityContractAddress         = crypto.CreateAddress(DeployerAddress, 1)
+	OracleContractAddress                 = crypto.CreateAddress(DeployerAddress, 2)
+	ACUContractAddress                    = crypto.CreateAddress(DeployerAddress, 3)
+	SupplyControlContractAddress          = crypto.CreateAddress(DeployerAddress, 4)
+	StabilizationContractAddress          = crypto.CreateAddress(DeployerAddress, 5)
+	UpgradeManagerContractAddress         = crypto.CreateAddress(DeployerAddress, 6)
+	InflationControllerContractAddress    = crypto.CreateAddress(DeployerAddress, 7)
+	StakableVestingContractAddress        = crypto.CreateAddress(DeployerAddress, 8)
+	NonStakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
+	OmissionAccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 10)
 )
 
 type AutonityContractGenesis struct {
@@ -105,12 +124,15 @@ type AutonityContractGenesis struct {
 	Treasury                common.Address        `json:"treasury"`
 	TreasuryFee             uint64                `json:"treasuryFee"`
 	DelegationRate          uint64                `json:"delegationRate"`
+	WithholdingThreshold    uint64                `json:"withholdingThreshold"`
+	ProposerRewardRate      uint64                `json:"proposerRewardRate"`
 	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 }
 
 type AccountabilityGenesis struct {
 	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
+
 	// Slashing parameters
 	BaseSlashingRateLow   uint64 `json:"baseSlashingRateLow"`
 	BaseSlashingRateMid   uint64 `json:"baseSlashingRateMid"`
@@ -120,15 +142,31 @@ type AccountabilityGenesis struct {
 	SlashingRatePrecision uint64 `json:"slashingRatePrecision"`
 }
 
+// OmissionAccountabilityGenesis defines the omission fault detection parameters
+type OmissionAccountabilityGenesis struct {
+	InactivityThreshold    uint64 `json:"inactivityThreshold"`
+	LookbackWindow         uint64 `json:"LookbackWindow"`
+	PastPerformanceWeight  uint64 `json:"pastPerformanceWeight"` // k belong to [0, 1), after scaling in the contract
+	InitialJailingPeriod   uint64 `json:"initialJailingPeriod"`
+	InitialProbationPeriod uint64 `json:"initialProbationPeriod"`
+	InitialSlashingRate    uint64 `json:"initialSlashingRate"`
+	Delta                  uint64 `json:"delta"`
+}
+
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.
 // It returns an error if the configuration is invalid.
-func (g *AutonityContractGenesis) Prepare() error {
+func (g *AutonityContractGenesis) Prepare(lookbackWindow uint64, delta uint64) error {
 	if g.Bytecode == nil && g.ABI != nil || g.Bytecode != nil && g.ABI == nil {
 		return errors.New("autonity contract abi or bytecode missing")
 	}
 	if g.Bytecode == nil && g.ABI == nil {
 		g.ABI = &generated.AutonityAbi
 		g.Bytecode = generated.AutonityBytecode
+	}
+	// TODO(lorenzo) if we have the omission accountability config empty this check will fail because both delta and lookback will be 0
+	// this is because we assign the default config only later. To be fixed.
+	if g.EpochPeriod <= delta+lookbackWindow-1 {
+		return errors.New("epoch period cannot be lower or equal than delta+lookbackWindow-1")
 	}
 	if g.MaxCommitteeSize == 0 {
 		return errors.New("invalid max committee size")
@@ -346,12 +384,12 @@ func (v *Validator) Validate() error {
 		return fmt.Errorf("commission rate for enode %q not allowed", nodeAddr.String())
 	}
 	if _, err = blst.PublicKeyFromBytes(v.ConsensusKey); err != nil {
-		return errors.New("cant decode bls public key")
+		return fmt.Errorf("cant decode bls public key: %w", err)
 	}
 	return nil
 }
 
-// OracleContractGenesis Autonity contract config. It'is used for deployment.
+// OracleContractGenesis Autonity contract config. It is used for deployment.
 type OracleContractGenesis struct {
 	Bytecode   hexutil.Bytes `json:"bytecode,omitempty" toml:",omitempty"`
 	ABI        *abi.ABI      `json:"abi,omitempty" toml:",omitempty"`

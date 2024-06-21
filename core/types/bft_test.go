@@ -30,13 +30,15 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0x9d465e9557b41bff471c11c5ebf0ac5eeaf64dd508242b268cd318f1eaa206ab")
+	posHeaderHash := common.HexToHash("0xc1baba79e0c591d03dff86ed1a2e1a612bba7dde7c4eaa588a6a106fb0bb9b60")
 
 	quorumCertificate := AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
 	quorumCertificate.Signature = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
 	quorumCertificate.Signers = NewSigners(1)
 	quorumCertificate.Signers.increment(0)
+
+	activityProof := quorumCertificate.Copy()
 
 	// add committee to header's EpochExtra.
 	c := &Committee{
@@ -93,13 +95,32 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				Epoch: epoch,
 			}),
-			common.HexToHash("0xb2f1911b3792b6dc69fb287b23d13e966cecff18114e8dca614b960c1316e29b"),
+			common.HexToHash("0x4429e362109095b8b26dc2b562c20baf0ac9f0ae7691131a3ca3dd1e79799239"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: proposerSeal,
 			}),
-			common.HexToHash("0x19d1ba63cb5ce5d6b0de64f7d9efd0540a026ce886f62e379323cd52046e1572"),
+			common.HexToHash("0x8e89c040c96dee171875b4127032b51f32b8d92be8144befbad7798bafb42e0b"),
+		},
+		{
+			setExtra(PosHeader, headerExtra{
+				ActivityProof: activityProof,
+			}),
+			common.HexToHash("0xdf76b7d1c578314a7dc4e5a6dd93e17a5d754bc7ebbb5deece3e2c843de81cbe"),
+		},
+		{
+			setExtra(PosHeader, headerExtra{
+				ActivityProofRound: uint64(7),
+			}),
+			common.HexToHash("0x2eaeb68590ba4b86564e52849d66a9bae61104ab1d1c547a0d28e3a4103d0cb9"),
+		},
+		{
+			setExtra(PosHeader, headerExtra{
+				ActivityProof:      activityProof,
+				ActivityProofRound: uint64(7),
+			}),
+			common.HexToHash("0x3b093edc9a33bb5d22de9252861221880fd260cc889b461f02b7ac02116a199d"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
@@ -128,9 +149,11 @@ func TestHeaderHash(t *testing.T) {
 }
 
 func setExtra(h Header, hExtra headerExtra) Header {
-	h.Epoch = hExtra.Epoch
 	h.ProposerSeal = hExtra.ProposerSeal
 	h.Round = hExtra.Round
 	h.QuorumCertificate = hExtra.QuorumCertificate
+	h.Epoch = hExtra.Epoch
+	h.ActivityProof = hExtra.ActivityProof
+	h.ActivityProofRound = hExtra.ActivityProofRound
 	return h
 }

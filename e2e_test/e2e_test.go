@@ -54,7 +54,12 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	autonityConfig, err := autonityContract.Config(nil)
 	require.NoError(t, err)
-	require.Equal(t, params.TestAutonityContractConfig.Operator, autonityConfig.Protocol.OperatorAccount)
+
+	validators, err := autonityContract.GetValidators(nil)
+	require.NoError(t, err)
+
+	// gengen sets the operator to the address of the first validator
+	require.Equal(t, validators[0], autonityConfig.Protocol.OperatorAccount)
 	require.Equal(t, params.TestAutonityContractConfig.BlockPeriod, autonityConfig.Protocol.BlockPeriod.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.EpochPeriod, autonityConfig.Protocol.EpochPeriod.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.MaxCommitteeSize, autonityConfig.Protocol.CommitteeSize.Uint64())
@@ -65,6 +70,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.TestAutonityContractConfig.UnbondingPeriod, autonityConfig.Policy.UnbondingPeriod.Uint64())
 	require.Equal(t, params.UpgradeManagerContractAddress, autonityConfig.Contracts.UpgradeManagerContract)
 	require.Equal(t, params.AccountabilityContractAddress, autonityConfig.Contracts.AccountabilityContract)
+	require.Equal(t, params.OmissionAccountabilityContractAddress, autonityConfig.Contracts.OmissionAccountabilityContract)
 	require.Equal(t, params.ACUContractAddress, autonityConfig.Contracts.AcuContract)
 	require.Equal(t, params.StabilizationContractAddress, autonityConfig.Contracts.StabilizationContract)
 	require.Equal(t, params.OracleContractAddress, autonityConfig.Contracts.OracleContract)
@@ -653,7 +659,6 @@ func TestValidatorMigration(t *testing.T) {
 	vals, err := Validators(t, 4, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	params.TestChainConfig.AutonityContractConfig.EpochPeriod = 5
 	network, err := NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
 	defer network.Shutdown(t)

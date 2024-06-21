@@ -91,10 +91,12 @@ type Header struct {
 		PoS header fields, round & quorumCertificate not taken into account
 		for computing the sigHash.
 	*/
-	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	Epoch             *Epoch             `json:"epoch"               gencodec:"optional"`
+	ProposerSeal       []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64             `json:"round"               gencodec:"required"`
+	QuorumCertificate  AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	Epoch              *Epoch             `json:"epoch"               gencodec:"optional"`
+	ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
+	ActivityProofRound uint64             `json:"activityProofRound"  gencodec:"required"`
 }
 
 type AggregateSignature struct {
@@ -111,6 +113,14 @@ func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) Aggre
 
 func (a AggregateSignature) Copy() AggregateSignature {
 	return AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
+}
+
+func (a AggregateSignature) Empty() bool {
+	return a.Signature == nil && a.Signers == nil
+}
+
+func (a AggregateSignature) Malformed() bool {
+	return (a.Signature != nil && a.Signers == nil) || (a.Signature == nil && a.Signers != nil)
 }
 
 // originalHeader represents the ethereum blockchain header.
@@ -142,10 +152,12 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	Epoch             *Epoch             `rlp:"nil"                  gencodec:"required"`
+	ProposerSeal       []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64             `json:"round"               gencodec:"required"`
+	QuorumCertificate  AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	Epoch              *Epoch             `rlp:"nil"                  gencodec:"required"`
+	ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
+	ActivityProofRound uint64             `json:"activityProofRound"  gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -165,8 +177,9 @@ type headerMarshaling struct {
 	/*
 		PoS header fields type overrides
 	*/
-	ProposerSeal hexutil.Bytes
-	Round        hexutil.Uint64
+	ProposerSeal       hexutil.Bytes
+	Round              hexutil.Uint64
+	ActivityProofRound hexutil.Uint64
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -261,9 +274,23 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 			return err
 		}
 		h.QuorumCertificate = hExtra.QuorumCertificate
+		h.ActivityProof = hExtra.ActivityProof
+		h.ActivityProofRound = hExtra.ActivityProofRound
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
 		h.Epoch = hExtra.Epoch
+
+		if h.QuorumCertificate.Malformed() {
+			return fmt.Errorf("malformed header quorum certificate")
+		}
+
+		if h.ActivityProof.Malformed() {
+			return fmt.Errorf("malformed header activity proof")
+		}
+
+		if h.ActivityProof.Empty() && h.ActivityProofRound != 0 {
+			return fmt.Errorf("activity proof round should be 0 if proof is empty")
+		}
 
 		if h.IsEpochHeader() {
 			if h.Epoch.Committee == nil {
@@ -271,7 +298,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 			}
 
 			if err = h.Epoch.Committee.Enrich(); err != nil {
-				return err
+				return fmt.Errorf("error while deserializing consensus keys: %w", err)
 			}
 
 			if len(h.Epoch.Committee.Members) == 0 {
@@ -317,10 +344,12 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 // extra data.
 func (h *Header) EncodeRLP(w io.Writer) error {
 	hExtra := headerExtra{
-		ProposerSeal:      h.ProposerSeal,
-		Round:             h.Round,
-		QuorumCertificate: h.QuorumCertificate,
-		Epoch:             h.Epoch,
+		ProposerSeal:       h.ProposerSeal,
+		Round:              h.Round,
+		QuorumCertificate:  h.QuorumCertificate,
+		Epoch:              h.Epoch,
+		ActivityProof:      h.ActivityProof,
+		ActivityProofRound: h.ActivityProofRound,
 	}
 
 	original := h.original()
@@ -485,26 +514,33 @@ func CopyHeader(h *Header) *Header {
 		quorumCertificate = h.QuorumCertificate.Copy()
 	}
 
+	activityProof := AggregateSignature{}
+	if h.ActivityProof.Signature != nil && h.ActivityProof.Signers != nil {
+		activityProof = h.ActivityProof.Copy()
+	}
+
 	cpy := &Header{
-		ParentHash:        h.ParentHash,
-		UncleHash:         h.UncleHash,
-		Coinbase:          h.Coinbase,
-		Root:              h.Root,
-		TxHash:            h.TxHash,
-		ReceiptHash:       h.ReceiptHash,
-		Bloom:             h.Bloom,
-		Difficulty:        difficulty,
-		Number:            number,
-		GasLimit:          h.GasLimit,
-		GasUsed:           h.GasUsed,
-		Time:              h.Time,
-		Extra:             extra,
-		MixDigest:         h.MixDigest,
-		Nonce:             h.Nonce,
-		ProposerSeal:      proposerSeal,
-		BaseFee:           baseFee,
-		Round:             h.Round,
-		QuorumCertificate: quorumCertificate,
+		ParentHash:         h.ParentHash,
+		UncleHash:          h.UncleHash,
+		Coinbase:           h.Coinbase,
+		Root:               h.Root,
+		TxHash:             h.TxHash,
+		ReceiptHash:        h.ReceiptHash,
+		Bloom:              h.Bloom,
+		Difficulty:         difficulty,
+		Number:             number,
+		GasLimit:           h.GasLimit,
+		GasUsed:            h.GasUsed,
+		Time:               h.Time,
+		Extra:              extra,
+		MixDigest:          h.MixDigest,
+		Nonce:              h.Nonce,
+		ProposerSeal:       proposerSeal,
+		BaseFee:            baseFee,
+		Round:              h.Round,
+		QuorumCertificate:  quorumCertificate,
+		ActivityProof:      activityProof,
+		ActivityProofRound: h.ActivityProofRound,
 	}
 
 	if h.Epoch != nil {

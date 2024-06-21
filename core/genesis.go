@@ -308,7 +308,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		return nil, fmt.Errorf("autonity config section missing in genesis")
 	}
 	g.setDefaultHardforks()
-	if err := g.Config.AutonityContractConfig.Prepare(); err != nil {
+	if err := g.Config.AutonityContractConfig.Prepare(g.Config.OmissionAccountabilityConfig.LookbackWindow, g.Config.OmissionAccountabilityConfig.Delta); err != nil {
 		return nil, err
 	}
 	if g.Difficulty == nil {
@@ -400,6 +400,9 @@ func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 		Time:        new(big.Int).SetUint64(genesis.Timestamp),
 		GasLimit:    genesis.GasLimit,
 		Difficulty:  genesis.Difficulty,
+
+		ActivityProof:      types.AggregateSignature{},
+		ActivityProofRound: 0,
 	}
 	txContext := vm.TxContext{
 		Origin:   params.DeployerAddress,
@@ -625,8 +628,10 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		MaxCommitteeSize:        1,
 		BlockPeriod:             1,
 		UnbondingPeriod:         120,
-		EpochPeriod:             30,               //seconds
+		EpochPeriod:             60,               //seconds
 		DelegationRate:          1200,             // 12%
+		WithholdingThreshold:    0,                // 0%, no tolerance
+		ProposerRewardRate:      1000,             // 10%
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              10000000000,
 		Operator:                faucet.Address,
@@ -642,7 +647,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			},
 		},
 	}
-	if err := testAutonityContractConfig.Prepare(); err != nil {
+	if err := testAutonityContractConfig.Prepare(params.DefaultOmissionAccountabilityConfig.LookbackWindow, params.DefaultOmissionAccountabilityConfig.Delta); err != nil {
 		log.Error("Error preparing contract, err:", err)
 	}
 
@@ -657,22 +662,23 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			faucet.Address: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
 		},
 		Config: &params.ChainConfig{
-			ChainID:                big.NewInt(65111111),
-			HomesteadBlock:         big.NewInt(0),
-			EIP150Block:            big.NewInt(0),
-			EIP155Block:            big.NewInt(0),
-			EIP158Block:            big.NewInt(0),
-			ByzantiumBlock:         big.NewInt(0),
-			ConstantinopleBlock:    big.NewInt(0),
-			PetersburgBlock:        big.NewInt(0),
-			IstanbulBlock:          big.NewInt(0),
-			MuirGlacierBlock:       big.NewInt(0),
-			BerlinBlock:            big.NewInt(0),
-			LondonBlock:            big.NewInt(0),
-			ArrowGlacierBlock:      big.NewInt(0),
-			AutonityContractConfig: &testAutonityContractConfig,
-			AccountabilityConfig:   params.DefaultAccountabilityConfig,
-			OracleContractConfig:   params.DefaultGenesisOracleConfig,
+			ChainID:                      big.NewInt(65111111),
+			HomesteadBlock:               big.NewInt(0),
+			EIP150Block:                  big.NewInt(0),
+			EIP155Block:                  big.NewInt(0),
+			EIP158Block:                  big.NewInt(0),
+			ByzantiumBlock:               big.NewInt(0),
+			ConstantinopleBlock:          big.NewInt(0),
+			PetersburgBlock:              big.NewInt(0),
+			IstanbulBlock:                big.NewInt(0),
+			MuirGlacierBlock:             big.NewInt(0),
+			BerlinBlock:                  big.NewInt(0),
+			LondonBlock:                  big.NewInt(0),
+			ArrowGlacierBlock:            big.NewInt(0),
+			AutonityContractConfig:       &testAutonityContractConfig,
+			AccountabilityConfig:         params.DefaultAccountabilityConfig,
+			OracleContractConfig:         params.DefaultGenesisOracleConfig,
+			OmissionAccountabilityConfig: params.DefaultOmissionAccountabilityConfig,
 		},
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -494,7 +495,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys, consensusKeys := getGenesisAndKeys(n)
 
 	memDB := rawdb.NewMemoryDatabase()
-	msgStore := new(tdmcore.MsgStore)
+	msgStore := tdmcore.NewMsgStore()
 	// Use the first key as private key
 	b := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
@@ -511,6 +512,26 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	}
 
 	return blockchain, b
+}
+
+func copyConfig(original *params.ChainConfig) *params.ChainConfig {
+	jsonBytes, err := json.Marshal(original)
+	if err != nil {
+		panic("cannot marshal genesis config: " + err.Error())
+	}
+	genesisCopy := &params.ChainConfig{}
+	err = json.Unmarshal(jsonBytes, genesisCopy)
+	if err != nil {
+		panic("cannot unmarshal genesis config: " + err.Error())
+	}
+	// deep copying through json marshaling kinda messes up the ABIs (we have `{}` instead of `nil` for empty elements)
+	// so let's just copy them from the original, we do not modify them in tests anyways for now
+	// TODO: find a better solution to deep copy also the ABIs.
+	// I suspect it is not straightforward due to how the generated ABIs are computed.
+	// See gen-contract target in Makefile and `TestAPIGetContractABI`
+	genesisCopy.AutonityContractConfig.ABI = original.AutonityContractConfig.ABI
+	genesisCopy.OracleContractConfig.ABI = original.OracleContractConfig.ABI
+	return genesisCopy
 }
 
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.SecretKey) {
@@ -532,7 +553,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 
 	// generate genesis block
 
-	genesis.Config = params.TestChainConfig.Copy()
+	genesis.Config = copyConfig(params.TestChainConfig)
 	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Config.Ethash = nil
 	genesis.GasLimit = 10000000
@@ -541,7 +562,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 	genesis.Timestamp = 1
 
 	AppendValidators(genesis, nodeKeys, consensusKeys)
-	err := genesis.Config.AutonityContractConfig.Prepare()
+	err := genesis.Config.AutonityContractConfig.Prepare(genesis.Config.OmissionAccountabilityConfig.LookbackWindow, genesis.Config.OmissionAccountabilityConfig.Delta)
 	if err != nil {
 		panic(err)
 	}
@@ -614,9 +635,15 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 	return <-resultCh, nil
 }
 
+// TODO: currently this helper will not insert the block into the chain. This is fine by itself,
+// but it means we are not going to be able to prepare another block on top of it (engine.Prepare will fail)
+// might be worth to rewrite this method
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, chain)
-	_ = engine.Prepare(chain, header)
+	err := engine.Prepare(chain, header)
+	if err != nil {
+		return nil, err
+	}
 
 	state, errS := chain.StateAt(parent.Root())
 	if errS != nil {
@@ -644,6 +671,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		nonce++
 		receipts = append(receipts, receipt)
 	}
+
 	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
 	if err != nil {
 		return nil, err
