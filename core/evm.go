@@ -28,8 +28,11 @@ import (
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
 type ChainContext interface {
-	// GetHeader returns the hash corresponding to their hash.
+	// GetHeader returns the header corresponding to the passed hash and number
 	GetHeader(common.Hash, uint64) *types.Header
+
+	GetHeaderByNumber(uint64) *types.Header
+
 	// Engine retrieves the chain's consensus engine.
 	Engine() consensus.Engine
 }
@@ -54,6 +57,7 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 	if header.Difficulty.Cmp(common.Big0) == 0 {
 		random = &header.MixDigest
 	}
+
 	return vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -65,6 +69,9 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		BaseFee:     baseFee,
 		GasLimit:    header.GasLimit,
 		Random:      random,
+
+		ActivityProof:      header.ActivityProof,
+		ActivityProofRound: header.ActivityProofRound,
 	}
 }
 
@@ -81,6 +88,9 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			GasLimit:    header.GasLimit,
 			Difficulty:  header.Difficulty,
 			BaseFee:     header.BaseFee,
+
+			ActivityProof:      header.ActivityProof,
+			ActivityProofRound: header.ActivityProofRound,
 		}
 		txContext := vm.TxContext{
 			Origin:   origin,
@@ -115,21 +125,43 @@ func NewEVMTxContext(msg Message) vm.TxContext {
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
 func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
-	// Cache will initially contain [refHash.parent],
-	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
 	var cache []common.Hash
 
+	// we could be in the process of building an optimistic block
+	// i.e. a block whose parent has not been finalized yet.
+	// Therefore the only block guaranteed to be finalized and included in the chain is ref.Number - 2 (the grandParent)
+
 	return func(n uint64) common.Hash {
+		// only past blocks are accessible
+		if n >= ref.Number.Uint64() {
+			return common.Hash{}
+		}
+
+		// ref.Number will always be >= 1 as we cannot include tx in the genesis block
+		if n == ref.Number.Uint64()-1 {
+			return ref.ParentHash
+		}
+
+		// if we end up here we have the guarantee that ref.Number >= 2
+		// if ref.Number == 1, then the only valid value of n is 0 and we would have returned at the previous if
+		// we also that the guarantee that n <= ref.Number - 2
+
 		// If there's no hash cache yet, make one
 		if len(cache) == 0 {
-			cache = append(cache, ref.ParentHash)
+			grandParent := chain.GetHeaderByNumber(ref.Number.Uint64() - 2)
+			if grandParent == nil {
+				return common.Hash{}
+			}
+			cache = append(cache, grandParent.Hash())
 		}
-		if idx := ref.Number.Uint64() - n - 1; idx < uint64(len(cache)) {
+
+		// element in position 0 is ref-2, position 1 is ref-3, ...
+		if idx := ref.Number.Uint64() - n - 2; idx < uint64(len(cache)) {
 			return cache[idx]
 		}
 		// No luck in the cache, but we can start iterating from the last element we already know
 		lastKnownHash := cache[len(cache)-1]
-		lastKnownNumber := ref.Number.Uint64() - uint64(len(cache))
+		lastKnownNumber := ref.Number.Uint64() - uint64(len(cache)) - 1
 
 		for {
 			header := chain.GetHeader(lastKnownHash, lastKnownNumber)

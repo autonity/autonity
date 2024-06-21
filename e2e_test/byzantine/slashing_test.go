@@ -41,6 +41,8 @@ import (
 
 // invalid ValidRound message?
 
+const SlashingRatePrecision = 10_000 // needs to match precision in Slasher.sol
+
 func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPeriod, stake, selfBondedStake uint64, faultyNodes []int, offendersCount, faultsCount uint64, epochs int) (uint64, []autonity.AutonityValidator, []autonity.AutonityValidator) {
 
 	validators, err := e2e.Validators(t, nodesCount, fmt.Sprintf("10e36,v,%d,0.0.0.0:%%s,%%s,%%s,%%s", selfBondedStake))
@@ -57,7 +59,6 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 	var baseRate uint64
 	var collusionFactor uint64
 	var historyFactor uint64
-	var slashingPrecision uint64
 
 	// creates a network of validators and starts all the nodes in it
 	// and sneak default slashing parameters
@@ -65,7 +66,6 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		baseRate = genesis.Config.AccountabilityConfig.BaseSlashingRateMid
 		collusionFactor = genesis.Config.AccountabilityConfig.CollusionFactor
 		historyFactor = genesis.Config.AccountabilityConfig.HistoryFactor
-		slashingPrecision = genesis.Config.AccountabilityConfig.SlashingRatePrecision
 		genesis.Config.AutonityContractConfig.EpochPeriod = epochPeriod
 
 		//if stake is set, it means we need some other account to bond
@@ -156,13 +156,13 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	//as per ADR, expected slashing rate is:
 	slashingRate := baseRate + (offendersCount * collusionFactor) + (faultsCount * historyFactor)
-	if slashingRate >= slashingPrecision {
-		slashingRate = slashingPrecision
+	if slashingRate >= SlashingRatePrecision {
+		slashingRate = SlashingRatePrecision
 	}
 
 	for i := range faultyNodes {
 		// slashing amounts are based on bonded stake before a penalty
-		expectedSlashAmount := new(big.Int).Div(new(big.Int).Mul(big.NewInt(int64(slashingRate)), validatorsBefore[i].BondedStake), new(big.Int).SetUint64(slashingPrecision))
+		expectedSlashAmount := new(big.Int).Div(new(big.Int).Mul(big.NewInt(int64(slashingRate)), validatorsBefore[i].BondedStake), new(big.Int).SetUint64(SlashingRatePrecision))
 
 		require.Equal(t, expectedSlashAmount, slashingEvents[i].Amount)
 	}
@@ -179,7 +179,7 @@ func TestPenaltyAbsorbingStake(t *testing.T) {
 	stake := uint64(200)
 	selfBondedStake := uint64(500)
 
-	expectedSlashingAmount, validatorsBefore, validatorsAfter := runSlashingTest(context.TODO(), t, 4, 40, stake, selfBondedStake, []int{2}, 1, 0, 1)
+	expectedSlashingAmount, validatorsBefore, validatorsAfter := runSlashingTest(context.TODO(), t, 4, 50, stake, selfBondedStake, []int{2}, 1, 0, 1)
 
 	expectedSelfBondedStake := validatorsBefore[0].SelfBondedStake.Uint64() - expectedSlashingAmount
 
@@ -287,7 +287,7 @@ func TestHistoryFactor(t *testing.T) {
 	baseRate := accountabilityConfig.BaseSlashingRateMid
 	collusionFactor := accountabilityConfig.CollusionFactor
 	historyFactor := accountabilityConfig.HistoryFactor
-	slashingRatePrecision := accountabilityConfig.SlashingRatePrecision
+	slashingRatePrecision := new(big.Int).SetUint64(SlashingRatePrecision)
 
 	// one offender in total
 	offendersCount := int64(1)

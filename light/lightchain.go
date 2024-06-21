@@ -504,8 +504,8 @@ func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return lc.hc.GetTd(hash, number)
 }
 
-func (lc *LightChain) EpochOfHeight(h uint64) (*types.EpochInfo, error) {
-	return lc.hc.EpochOfHeight(h)
+func (lc *LightChain) EpochOfHeight(h uint64, fetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
+	return lc.hc.EpochOfHeight(h, fetcher)
 }
 
 // GetHeaderByNumberOdr retrieves the total difficult from the database or

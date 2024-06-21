@@ -250,7 +250,6 @@ func TestAccusationProvers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil)
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
@@ -272,7 +271,7 @@ func TestAccusationProvers(t *testing.T) {
 			Message:       proposal.ToLight(),
 		}
 
-		proof, err := fd.innocenceProofPO(&accusation)
+		proof, err := fd.innocenceProofPO(&accusation, committee)
 		assert.NoError(t, err)
 		assert.Equal(t, uint8(autonity.Innocence), proof.EventType)
 		assert.Equal(t, proposer, proof.Reporter)
@@ -286,7 +285,6 @@ func TestAccusationProvers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 		var blockSub event.Subscription
@@ -307,7 +305,7 @@ func TestAccusationProvers(t *testing.T) {
 			Message:       message.NewLightProposal(proposal),
 		}
 
-		_, err := fd.innocenceProofPO(&accusation)
+		_, err := fd.innocenceProofPO(&accusation, committee)
 		assert.Equal(t, errNoEvidenceForPO, err)
 	})
 
@@ -373,7 +371,6 @@ func TestAccusationProvers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil)
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
@@ -389,7 +386,7 @@ func TestAccusationProvers(t *testing.T) {
 		p.Message = preVote
 		p.Evidences = append(p.Evidences, oldProposal.ToLight())
 
-		_, err := fd.innocenceProofPVO(&p)
+		_, err := fd.innocenceProofPVO(&p, committee)
 		assert.Equal(t, err, errNoEvidenceForPVO)
 	})
 
@@ -397,7 +394,6 @@ func TestAccusationProvers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil)
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
@@ -417,7 +413,7 @@ func TestAccusationProvers(t *testing.T) {
 		aggregatedVote := aggregatedPreVote(committee.Len(), height, validRound, oldProposal.Value(), keys, committee)
 		fd.msgStore.Save(aggregatedVote)
 
-		onChainProof, err := fd.innocenceProofPVO(&p)
+		onChainProof, err := fd.innocenceProofPVO(&p, committee)
 		assert.NoError(t, err)
 		assert.Equal(t, uint8(autonity.Innocence), onChainProof.EventType)
 		assert.Equal(t, proposer, onChainProof.Reporter)
@@ -428,7 +424,6 @@ func TestAccusationProvers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil)
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
@@ -451,7 +446,7 @@ func TestAccusationProvers(t *testing.T) {
 			Message:       preCommit,
 		}
 
-		proof, err := fd.innocenceProofC1(&accusation)
+		proof, err := fd.innocenceProofC1(&accusation, committee)
 		assert.NoError(t, err)
 		assert.Equal(t, uint8(autonity.Innocence), proof.EventType)
 		assert.Equal(t, proposer, proof.Reporter)
@@ -464,7 +459,6 @@ func TestAccusationProvers(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().CommitteeOfHeight(height).Return(committee, nil)
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
@@ -482,7 +476,7 @@ func TestAccusationProvers(t *testing.T) {
 			Message:       preCommit,
 		}
 
-		_, err := fd.innocenceProofC1(&accusation)
+		_, err := fd.innocenceProofC1(&accusation, committee)
 		assert.Equal(t, errNoEvidenceForC1, err)
 	})
 

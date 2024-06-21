@@ -480,7 +480,6 @@ func TestHandleOffChainAccusation(t *testing.T) {
 			preVote := newValidatedPrevote(validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee.Members[i], cSize)
 			mStore.Save(preVote)
 		}
-		chainMock.EXPECT().CommitteeOfHeight(accusationHeight).Return(committee, nil)
 		chainMock.EXPECT().GetBlock(accusationPO.Message.Value(), accusationPO.Message.H()).Return(nil)
 		err = fd.handleOffChainAccusation(&accusationPO, remotePeer, hash, committee)
 		require.NoError(t, err)

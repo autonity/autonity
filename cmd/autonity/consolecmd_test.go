@@ -53,12 +53,15 @@ var genesis = `{
 					"minBaseFee" : 5000,
 					"blockPeriod" : 1,
 		            "treasury": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
+		            "withheldRewardsPool": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
 					"treasuryFee": 150000000,
     	    	    "unbondingPeriod": 120,
 					"delegationRate" : 1000,
 					"maxCommitteeSize" : 7,
 	    	        "epochPeriod": 30,
 					"initialInflationReserve": "0x20000000000",
+					"withholdingThreshold": 0,
+					"proposerRewardRate": 1000,
 					"validators" : [
 						{
 						  "enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
@@ -75,11 +78,19 @@ var genesis = `{
 					  "baseSlashingRateMid": 1000,
 					  "collusionFactor": 550,
 					  "historyFactor": 750,
-					  "jailFactor": 60,
-					  "slashingRatePrecision": 10000
+					  "jailFactor": 60
 					},
     			"oracle": {
       				"votePeriod": 30
+				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 24, 
+					  "initialSlashingRate": 25,
+                      "delta": 5
 				},
 				"chainId" : 1
 			}

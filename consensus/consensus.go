@@ -52,8 +52,10 @@ type ChainHeaderReader interface {
 	// GetTd retrieves the total difficulty from the database by hash and number.
 	GetTd(hash common.Hash, number uint64) *big.Int
 
-	EpochOfHeight(height uint64) (*types.EpochInfo, error)
+	EpochOfHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error)
 }
+
+type HeaderWithStateFn func() (*types.Header, *state.StateDB, error)
 
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
@@ -94,7 +96,7 @@ type Engine interface {
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	Prepare(chain ChainHeaderReader, parentHeader, header *types.Header) error
+	Prepare(chain ChainHeaderReader, parentHeader, header *types.Header, parentState *state.StateDB) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// but does not assemble the block.

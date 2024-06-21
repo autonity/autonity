@@ -9,6 +9,7 @@ pragma solidity ^0.8.3;
 // careful about the ordering. try to put the test-contract later than the original contract, otherwise might get error while generating bindings.
 
 import "./Autonity.sol";
+import "./OmissionAccountability.sol";
 import "./liquid/LiquidStateTest.sol";
 import "./Oracle.sol";
 import "./asm/ACU.sol";

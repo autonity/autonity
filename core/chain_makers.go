@@ -378,6 +378,7 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
 	epoch.Committee = cr.committee.Copy()
 	epoch.PreviousEpochBlock = common.Big0
 	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
+	epoch.Delta = new(big.Int).SetUint64(10)
 	header.Epoch = &epoch
 	return header
 }
@@ -389,6 +390,6 @@ func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int      
 func (cr *fakeChainReader) MinBaseFee() *big.Int {
 	return big.NewInt(0)
 }
-func (cr *fakeChainReader) EpochOfHeight(_ uint64) (*types.EpochInfo, error) {
+func (cr *fakeChainReader) EpochOfHeight(_ uint64, _ consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
 	return nil, nil
 }

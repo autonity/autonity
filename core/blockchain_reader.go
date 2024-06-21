@@ -32,11 +32,8 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-// CommitteeOfHeight resolve committee of height, it is used by consensus engine and AFD modules only.
-// It get committee from LRU cache first, otherwise it trys to search backward epoch with limited hops, if the
-// committee of the height cannot be find still, then it try to query it from the state DB.
 func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
-	epoch, err := bc.EpochOfHeight(height)
+	epoch, err := bc.EpochOfHeight(height, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -44,8 +41,18 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	return epoch.Committee, nil
 }
 
-func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+func defaultFetcher(bc *BlockChain) consensus.HeaderWithStateFn {
+	return func() (*types.Header, *state.StateDB, error) {
+		currentHeader := bc.CurrentHeader()
+		stateDB, err := bc.StateAt(currentHeader.Root)
+		if err != nil {
+			return nil, nil, err
+		}
+		return currentHeader, stateDB, nil
+	}
+}
 
+func (bc *BlockChain) EpochOfHeight(height uint64, customFetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
 	// always get it from LRU cache first
 	if epoch, ok := bc.epochCache.Get(height); ok {
 		return epoch.(*types.EpochInfo), nil
@@ -73,24 +80,30 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 
 	// otherwise try to get committee from state db of the height.
 	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
-	currentHeader := bc.CurrentHeader()
-	stateDB, err := bc.StateAt(currentHeader.Root)
+	fetcher := defaultFetcher(bc)
+	if customFetcher != nil {
+		fetcher = customFetcher
+	}
+	header, stateDB, err := fetcher()
 	if err != nil {
 		return nil, err
 	}
 
-	epoch, err = bc.protocolContracts.EpochByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
+	bc.log.Debug("query epoch of height", "height", height, "with state at", header.Number.Uint64())
+	epoch, err = bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
 	if err != nil {
 		return nil, err
 	}
-	bc.log.Debug("query epoch of height", "height", height, "with state at", currentHeader.Number.Uint64())
-	bc.epochCache.Add(height, epoch)
+	// if we are using a custom fetcher, we could be in the process of building an optimistic block
+	// therefore do not save the epoch in the cache, as the parent block is not finalized yet.
+	if customFetcher == nil {
+		bc.epochCache.Add(height, epoch)
+	}
 	return epoch, nil
 }
 
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
-
 	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
 	// double check if chain head fit into current epoch range, otherwise we query latest epoch from state DB.
 	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {

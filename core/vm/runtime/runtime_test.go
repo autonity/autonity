@@ -251,6 +251,16 @@ func (d *dummyChain) GetHeader(h common.Hash, n uint64) *types.Header {
 	return fakeHeader(n, parentHash)
 }
 
+func (d *dummyChain) GetHeaderByNumber(n uint64) *types.Header {
+	d.counter++
+	parentHash := common.Hash{}
+	s := common.LeftPadBytes(big.NewInt(int64(n-1)).Bytes(), 32)
+	copy(parentHash[:], s)
+
+	return fakeHeader(n, parentHash)
+
+}
+
 // TestBlockhash tests the blockhash operation. It's a bit special, since it internally
 // requires access to a chain reader.
 func TestBlockhash(t *testing.T) {

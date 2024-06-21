@@ -119,7 +119,7 @@ func (mr *MockBackendMockRecorder) Broadcast(committee, message any) *gomock.Cal
 }
 
 // Commit mocks base method.
-func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
+func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, quorumCertificate *types.AggregateSignature) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, quorumCertificate)
 	ret0, _ := ret[0].(error)

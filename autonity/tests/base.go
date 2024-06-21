@@ -1,8 +1,12 @@
 package tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 	"math"
 	"math/big"
 	"testing"
@@ -15,13 +19,10 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
@@ -30,38 +31,8 @@ import (
 )
 
 var (
-	Operator     = &runOptions{origin: defaultAutonityConfig.Protocol.OperatorAccount}
 	FromAutonity = &runOptions{origin: params.AutonityContractAddress}
 	User         = common.HexToAddress("0x99")
-
-	// todo: replicate truffle tests default config.
-	defaultAutonityConfig = AutonityConfig{
-		Policy: AutonityPolicy{
-			TreasuryFee:             new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
-			MinBaseFee:              new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
-			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
-			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
-			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
-			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
-		},
-		Contracts: AutonityContracts{
-			AccountabilityContract:      params.AccountabilityContractAddress,
-			OracleContract:              params.OracleContractAddress,
-			AcuContract:                 params.ACUContractAddress,
-			SupplyControlContract:       params.SupplyControlContractAddress,
-			StabilizationContract:       params.StabilizationContractAddress,
-			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
-			InflationControllerContract: params.InflationControllerContractAddress,
-		},
-		Protocol: AutonityProtocol{
-			OperatorAccount:     params.TestAutonityContractConfig.Operator,
-			EpochPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
-			BlockPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
-			CommitteeSize:       new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
-			MaxScheduleDuration: new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxScheduleDuration),
-		},
-		ContractVersion: big.NewInt(1),
-	}
 )
 
 type runOptions struct {
@@ -152,8 +123,10 @@ type Runner struct {
 	InflationController     *InflationController
 	StakeableVestingManager *StakeableVestingManager
 	NonStakeableVesting     *NonStakeableVesting
+	OmissionAccountability  *OmissionAccountability
 
-	Committee Committee // genesis validators for easy access
+	Committee Committee   // genesis validators for easy access
+	Operator  *runOptions // operator runOptions for easy access
 }
 
 func (r *Runner) NoError(gasConsumed uint64, err error) uint64 {
@@ -165,6 +138,14 @@ func (r *Runner) LiquidStateContract(validatorAddress common.Address) *ILiquid {
 	validator, _, err := r.Autonity.GetValidator(nil, validatorAddress)
 	require.NoError(r.T, err)
 	return &ILiquid{r.contractObject(ILiquidMetaData, validator.LiquidStateContract)}
+}
+
+func (r *Runner) slasherContract() *Slasher {
+	slasherAddr, _, err := r.Autonity.Slasher(nil)
+	require.NoError(r.T, err)
+	abi, err := SlasherMetaData.GetAbi()
+	require.NoError(r.T, err)
+	return &Slasher{&contract{slasherAddr, abi, r}}
 }
 
 func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -255,11 +236,76 @@ func (r *Runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte,
 	return contractAddress, gas - leftOverGas, &contract{contractAddress, abi, r}, err
 }
 
+// generates an activity proof signed by all committee members, `absentees` excluded
+// NOTE: if additional validators whose key is not in params.TestConsensusKey are registered in the tests,
+// then this func needs to be modified to add their signatures as well.
+func activityProof(committee []AutonityValidator, headerSeal common.Hash, absentees map[common.Address]struct{}) *types.AggregateSignature {
+	var signatures []blst.Signature //nolint
+	signers := types.NewSigners(len(committee))
+	numSigners := 0
+	for _, keyHex := range params.TestConsensusKeys {
+		// deserialize key
+		key, err := blst.SecretKeyFromHex(keyHex)
+		if err != nil {
+			panic(err)
+		}
+
+		// find index in committee, and skip if not in it
+		index := -1
+		for j, member := range committee {
+			if bytes.Equal(member.ConsensusKey, key.PublicKey().Marshal()) {
+				index = j
+			}
+		}
+		if index == -1 { // not in the committee
+			continue
+		}
+
+		// skip if absent
+		if _, isAbsent := absentees[committee[index].NodeAddress]; isAbsent {
+			continue
+		}
+		signatures = append(signatures, key.Sign(headerSeal[:]))
+
+		signers.Bits.Set(index, 1)
+		numSigners++
+	}
+	// if there are no signers, return an empty proof
+	if numSigners == 0 {
+		return nil
+	}
+
+	aggregateSig := blst.AggregateSignatures(signatures)
+
+	return types.NewAggregateSignature(aggregateSig.(*blst.BlsSignature), signers)
+}
+
+// sets up an activity proof, `absentees` are excluded from it
+func (r *Runner) setupActivityProofAndCoinbase(proposer common.Address, absentees map[common.Address]struct{}) {
+	// initialize empty map if absentees was left nil
+	if absentees == nil {
+		absentees = make(map[common.Address]struct{})
+	}
+	epochInfo, _, err := r.Autonity.GetEpochInfo(nil)
+	require.NoError(r.T, err)
+
+	mustBeEmpty := r.Evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.Delta.Uint64()
+	if !mustBeEmpty {
+		r.Evm.Context.Coinbase = proposer
+		targetHeight := r.Evm.Context.BlockNumber.Uint64() - epochInfo.Delta.Uint64()
+
+		r.Evm.Context.ActivityProofRound = 0
+		r.Evm.Context.ActivityProof = activityProof(r.Committee.Validators, sealFaker(targetHeight, r.Evm.Context.ActivityProofRound), absentees)
+	}
+}
+
 func (r *Runner) WaitNBlocks(n int) {
 	start := r.Evm.Context.BlockNumber
 	epochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
 	for i := 0; i < n; i++ {
+		// set validator 0 as proposer always
+		r.setupActivityProofAndCoinbase(r.Committee.Validators[0].NodeAddress, nil)
 		// Finalize is not the only block closing operation - fee redistribution is missing and prob
 		// other stuff. Left as todo.
 		_, err := r.Autonity.Finalize(&runOptions{origin: common.Address{}})
@@ -267,6 +313,10 @@ func (r *Runner) WaitNBlocks(n int) {
 		require.NoError(r.T, err, "finalize function error in waitNblocks", i)
 		r.Evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
 		r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
+		// clean up activity proof related data
+		r.Evm.Context.ActivityProof = nil
+		r.Evm.Context.ActivityProofRound = 0
+		r.Evm.Context.Coinbase = common.Address{}
 	}
 	newEpochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
@@ -355,6 +405,14 @@ func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	return rewardsToDistribute
 }
 
+func hashFaker(h uint64) common.Hash {
+	return common.BytesToHash(new(big.Int).SetUint64(h).Bytes())
+}
+
+func sealFaker(targetHeight uint64, round uint64) common.Hash {
+	return message.PrepareCommittedSeal(hashFaker(targetHeight), int64(round), new(big.Int).SetUint64(targetHeight))
+}
+
 func initializeEVM() (*vm.EVM, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
@@ -372,6 +430,8 @@ func initializeEVM() (*vm.EVM, error) {
 		},
 		BlockNumber: common.Big0,
 		Time:        big.NewInt(time.Now().Unix()),
+		// used by the AbsenteeComputer precompile to verify activity proofs
+		GetHash: hashFaker,
 	}
 	txContext := vm.TxContext{
 		Origin:   common.Address{},
@@ -381,35 +441,82 @@ func initializeEVM() (*vm.EVM, error) {
 	return evm, nil
 }
 
-func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
+func copyConfig(original *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+	jsonBytes, err := json.Marshal(original)
+	if err != nil {
+		panic("cannot marshal autonity genesis config: " + err.Error())
+	}
+	genesisCopy := &params.AutonityContractGenesis{}
+	err = json.Unmarshal(jsonBytes, genesisCopy)
+	if err != nil {
+		panic("cannot unmarshal autonity genesis config: " + err.Error())
+	}
+	return genesisCopy
+}
+
+func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *params.AutonityContractGenesis) *Runner {
 	evm, err := initializeEVM()
 	require.NoError(t, err)
 	r := &Runner{T: t, Evm: evm}
-	/*// todo: left for later..
-	var autonityConfig AutonityConfig
-	if configOverride != nil && configOverride.AutonityContractConfig != nil {
-		// autonityTestConfig prob should use reflection to perform automatic assignments.
-		// maybe we could make it generic just like ... Operator in js
-		autonityConfig = autonityTestConfig(configOverride.AutonityContractConfig)
+
+	var autonityGenesis *params.AutonityContractGenesis
+	if configOverride != nil {
+		autonityGenesis = configOverride(copyConfig(params.TestAutonityContractConfig))
 	} else {
-		autonityConfig = autonityTestConfig(params.TestAutonityContractConfig)
+		autonityGenesis = params.TestAutonityContractConfig
 	}
-	*/
+	//TODO: implement override also for the other contracts
+
 	//
 	// Step 1: Autonity Contract Deployment
 	//
-	r.Committee.Validators = make([]AutonityValidator, 0, len(params.TestAutonityContractConfig.Validators))
-	for _, v := range params.TestAutonityContractConfig.Validators {
+
+	// TODO: replicate truffle tests default config.
+	autonityConfig := AutonityConfig{
+		Policy: AutonityPolicy{
+			TreasuryFee:             new(big.Int).SetUint64(autonityGenesis.TreasuryFee),
+			MinBaseFee:              new(big.Int).SetUint64(autonityGenesis.MinBaseFee),
+			DelegationRate:          new(big.Int).SetUint64(autonityGenesis.DelegationRate),
+			UnbondingPeriod:         new(big.Int).SetUint64(autonityGenesis.UnbondingPeriod),
+			InitialInflationReserve: (*big.Int)(autonityGenesis.InitialInflationReserve),
+			WithholdingThreshold:    new(big.Int).SetUint64(autonityGenesis.WithholdingThreshold),
+			ProposerRewardRate:      new(big.Int).SetUint64(autonityGenesis.ProposerRewardRate),
+			WithheldRewardsPool:     autonityGenesis.Operator,
+			TreasuryAccount:         autonityGenesis.Operator,
+		},
+		Contracts: AutonityContracts{
+			AccountabilityContract:         params.AccountabilityContractAddress,
+			OracleContract:                 params.OracleContractAddress,
+			AcuContract:                    params.ACUContractAddress,
+			SupplyControlContract:          params.SupplyControlContractAddress,
+			StabilizationContract:          params.StabilizationContractAddress,
+			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
+			InflationControllerContract:    params.InflationControllerContractAddress,
+			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+		},
+		Protocol: AutonityProtocol{
+			OperatorAccount:     autonityGenesis.Operator,
+			EpochPeriod:         new(big.Int).SetUint64(autonityGenesis.EpochPeriod),
+			BlockPeriod:         new(big.Int).SetUint64(autonityGenesis.BlockPeriod),
+			CommitteeSize:       new(big.Int).SetUint64(autonityGenesis.MaxCommitteeSize),
+			MaxScheduleDuration: new(big.Int).SetUint64(autonityGenesis.MaxScheduleDuration),
+		},
+		ContractVersion: big.NewInt(1),
+	}
+	r.Operator = &runOptions{origin: autonityConfig.Protocol.OperatorAccount}
+
+	r.Committee.Validators = make([]AutonityValidator, 0, len(autonityGenesis.Validators))
+	for _, v := range autonityGenesis.Validators {
 		validator := genesisToAutonityVal(v)
 		r.Committee.Validators = append(r.Committee.Validators, validator)
 	}
-	_, _, r.Autonity, err = r.DeployAutonity(nil, r.Committee.Validators, defaultAutonityConfig)
+	_, _, r.Autonity, err = r.DeployAutonity(nil, r.Committee.Validators, autonityConfig)
 	require.NoError(t, err)
 	require.Equal(t, r.Autonity.address, params.AutonityContractAddress)
-	_, err = r.Autonity.FinalizeInitialization(nil)
+	_, err = r.Autonity.FinalizeInitialization(nil, new(big.Int).SetUint64(params.DefaultOmissionAccountabilityConfig.Delta))
 	require.NoError(t, err)
-	r.Committee.LiquidStateContracts = make([]*ILiquid, 0, len(params.TestAutonityContractConfig.Validators))
-	for _, v := range params.TestAutonityContractConfig.Validators {
+	r.Committee.LiquidStateContracts = make([]*ILiquid, 0, len(autonityGenesis.Validators))
+	for _, v := range autonityGenesis.Validators {
 		validator, _, err := r.Autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.T, err)
 		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.LiquidStateContract(validator.NodeAddress))
@@ -424,21 +531,20 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 		CollusionFactor:                big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
 		HistoryFactor:                  big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
 		JailFactor:                     big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),
-		SlashingRatePrecision:          big.NewInt(int64(params.DefaultAccountabilityConfig.SlashingRatePrecision)),
 	})
 	require.NoError(t, err)
 	require.Equal(t, r.Accountability.address, params.AccountabilityContractAddress)
 	//
 	// Step 3: Oracle contract deployment
 	//
-	voters := make([]common.Address, len(params.TestAutonityContractConfig.Validators))
-	for _, val := range params.TestAutonityContractConfig.Validators {
+	voters := make([]common.Address, len(autonityGenesis.Validators))
+	for _, val := range autonityGenesis.Validators {
 		voters = append(voters, val.OracleAddress)
 	}
 	_, _, r.Oracle, err = r.DeployOracle(nil,
 		voters,
 		r.Autonity.address,
-		defaultAutonityConfig.Protocol.OperatorAccount,
+		autonityConfig.Protocol.OperatorAccount,
 		params.DefaultGenesisOracleConfig.Symbols,
 		new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.VotePeriod))
 	require.NoError(t, err)
@@ -455,7 +561,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 		bigQuantities,
 		new(big.Int).SetUint64(params.DefaultAcuContractGenesis.Scale),
 		r.Autonity.address,
-		defaultAutonityConfig.Protocol.OperatorAccount,
+		autonityConfig.Protocol.OperatorAccount,
 		r.Oracle.address,
 	)
 	require.NoError(t, err)
@@ -466,7 +572,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	r.Evm.StateDB.AddBalance(common.Address{}, (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation))
 	_, _, r.SupplyControl, err = r.DeploySupplyControl(&runOptions{value: (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation)},
 		r.Autonity.address,
-		defaultAutonityConfig.Protocol.OperatorAccount,
+		autonityConfig.Protocol.OperatorAccount,
 		params.StabilizationContractAddress)
 	require.NoError(t, err)
 	require.Equal(t, r.SupplyControl.address, params.SupplyControlContractAddress)
@@ -481,7 +587,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 			MinDebtRequirement:        (*big.Int)(params.DefaultStabilizationGenesis.MinDebtRequirement),
 			TargetPrice:               (*big.Int)(params.DefaultStabilizationGenesis.TargetPrice),
 		}, params.AutonityContractAddress,
-		defaultAutonityConfig.Protocol.OperatorAccount,
+		autonityConfig.Protocol.OperatorAccount,
 		r.Oracle.address,
 		r.SupplyControl.address,
 		r.Autonity.address,
@@ -493,7 +599,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	//
 	_, _, r.UpgradeManager, err = r.DeployUpgradeManager(nil,
 		r.Autonity.address,
-		defaultAutonityConfig.Protocol.OperatorAccount)
+		autonityConfig.Protocol.OperatorAccount)
 	require.NoError(t, err)
 	require.Equal(t, r.UpgradeManager.address, params.UpgradeManagerContractAddress)
 
@@ -521,7 +627,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	require.NoError(t, err)
 	require.Equal(t, r.StakeableVestingManager.address, params.StakeableVestingManagerContractAddress)
 	r.NoError(
-		r.Autonity.Mint(Operator, r.StakeableVestingManager.address, params.DefaultStakeableVestingGenesis.TotalNominal),
+		r.Autonity.Mint(r.Operator, r.StakeableVestingManager.address, params.DefaultStakeableVestingGenesis.TotalNominal),
 	)
 
 	//
@@ -534,27 +640,49 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	require.NoError(t, err)
 	require.Equal(t, r.NonStakeableVesting.address, params.NonStakeableVestingContractAddress)
 
+	//
+	// Step 11: Omission Accountability Contract Deployment
+	//
+	treasuries := make([]common.Address, len(autonityGenesis.Validators))
+	for i, val := range autonityGenesis.Validators {
+		treasuries[i] = val.Treasury
+	}
+	_, _, r.OmissionAccountability, err = r.DeployOmissionAccountability(nil, r.Autonity.address, autonityConfig.Protocol.OperatorAccount, treasuries, OmissionAccountabilityConfig{
+		InactivityThreshold:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InactivityThreshold)),
+		LookbackWindow:         big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.LookbackWindow)),
+		PastPerformanceWeight:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.PastPerformanceWeight)),
+		InitialJailingPeriod:   big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialJailingPeriod)),
+		InitialProbationPeriod: big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialProbationPeriod)),
+		InitialSlashingRate:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialSlashingRate)),
+		Delta:                  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.Delta)),
+	})
+	require.NoError(t, err)
+	require.Equal(t, r.OmissionAccountability.address, params.OmissionAccountabilityContractAddress)
+
 	// set protocol contracts
 	r.NoError(
-		r.Autonity.SetAccountabilityContract(Operator, r.Accountability.address),
+		r.Autonity.SetAccountabilityContract(r.Operator, r.Accountability.address),
 	)
 	r.NoError(
-		r.Autonity.SetAcuContract(Operator, r.Acu.address),
+		r.Autonity.SetAcuContract(r.Operator, r.Acu.address),
 	)
 	r.NoError(
-		r.Autonity.SetInflationControllerContract(Operator, r.InflationController.address),
+		r.Autonity.SetInflationControllerContract(r.Operator, r.InflationController.address),
 	)
 	r.NoError(
-		r.Autonity.SetOracleContract(Operator, r.Oracle.address),
+		r.Autonity.SetOracleContract(r.Operator, r.Oracle.address),
 	)
 	r.NoError(
-		r.Autonity.SetStabilizationContract(Operator, r.Stabilization.address),
+		r.Autonity.SetStabilizationContract(r.Operator, r.Stabilization.address),
 	)
 	r.NoError(
-		r.Autonity.SetSupplyControlContract(Operator, r.SupplyControl.address),
+		r.Autonity.SetSupplyControlContract(r.Operator, r.SupplyControl.address),
 	)
 	r.NoError(
-		r.Autonity.SetUpgradeManagerContract(Operator, r.UpgradeManager.address),
+		r.Autonity.SetUpgradeManagerContract(r.Operator, r.UpgradeManager.address),
+	)
+	r.NoError(
+		r.Autonity.SetOmissionAccountabilityContract(r.Operator, r.OmissionAccountability.address),
 	)
 
 	r.Evm.Context.BlockNumber = common.Big1
@@ -582,7 +710,6 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 		RegistrationBlock:        v.RegistrationBlock,
 		TotalSlashed:             v.TotalSlashed,
 		JailReleaseBlock:         v.JailReleaseBlock,
-		ProvableFaultCount:       v.ProvableFaultCount,
 		ConsensusKey:             v.ConsensusKey,
 		State:                    *v.State,
 	}

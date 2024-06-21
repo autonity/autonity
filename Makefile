@@ -88,6 +88,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,Autonity)
 	@$(call gen-contract,,Oracle)
 	@$(call gen-contract,,Accountability)
+	@$(call gen-contract,,OmissionAccountability)
 	@$(call gen-contract,,UpgradeManager)
 	@$(call gen-contract,,InflationController)
 	@$(call gen-contract,asm/,ACU)

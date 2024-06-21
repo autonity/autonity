@@ -31,14 +31,14 @@ import (
 var ErrStartedEngine = errors.New("started engine")
 
 var (
-	// errInvalidProposal is returned when a prposal is malformed.
+	// errInvalidProposal is returned when a proposal is malformed.
 	//errInvalidProposal = errors.New("invalid proposal")
 	// errUnknownBlock is returned when the list of committee is requested for a block
 	// that is not part of the local blockchain.
 	errUnknownBlock = errors.New("unknown block")
 	// errUnauthorized is returned if a header is signed by a non authorized entity.
 	errUnauthorized = errors.New("unauthorized")
-	// errInvalidCoindbase is returned if the signer is not the coinbase address,
+	// errInvalidCoinbase is returned if the signer is not the coinbase address,
 	errInvalidCoinbase = errors.New("invalid coinbase")
 	// errInvalidDifficulty is returned if the difficulty of a block is not 1
 	errInvalidDifficulty = errors.New("invalid difficulty")
@@ -46,12 +46,17 @@ var (
 	errInvalidMixDigest = errors.New("invalid BFT mix digest")
 	// errInvalidNonce is returned if a block's nonce is invalid
 	errInvalidNonce = errors.New("invalid nonce")
-	// errInvalidUncleHash is returned if a block contains an non-empty uncle list.
+	// errInvalidUncleHash is returned if a block contains a non-empty uncle list.
 	errInvalidUncleHash = errors.New("non empty uncle hash")
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidRound is returned if the round exceed maximum round number.
-	errInvalidRound = errors.New("invalid round")
+	errInvalidRound             = errors.New("invalid round")
+	errNotEmptyActivityProof    = errors.New("activity proof should be empty")
+	errInvalidActivityProof     = errors.New("invalid activity proof")
+	errInvalidQuorumCertificate = errors.New("invalid quorum certificate")
+	errEmptyQuorumCertificate   = errors.New("empty quorum certificate")
+	errCannotFindHash           = errors.New("cannot find hash")
 )
 var (
 	defaultDifficulty             = big.NewInt(1)
@@ -82,19 +87,29 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return consensus.ErrUnknownAncestor
 	}
 
-	// get latest epoch info for signature checks and epoch boundary checks latter on.
-	epoch, err := chain.EpochOfHeight(header.Number.Uint64())
+	// get the epoch information for the header we are verifying
+	epoch, err := chain.EpochOfHeight(header.Number.Uint64(), nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot fetch epoch information for height %d: %w", header.Number.Uint64(), err)
 	}
 
-	return sb.verifyHeader(chain, header, parent, epoch.Committee, epoch.EpochBlock.Uint64(), epoch.NextEpochBlock.Uint64())
+	hash := func(h uint64) (common.Hash, error) {
+		targetHeader := sb.BlockChain().GetHeaderByNumber(h)
+		if targetHeader == nil {
+			return common.Hash{}, errCannotFindHash
+		}
+		return targetHeader.Hash(), nil
+	}
+
+	return sb.verifyHeader(chain.Config(), header, parent, epoch, hash)
 }
 
-// verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
-// to be provided unless header is the genesis header.
-func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
-	committee *types.Committee, curEpochHead uint64, nextEpochHead uint64) error {
+type HashGetter func(h uint64) (common.Hash, error)
+
+// verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header to always be != nil.
+// it cannot be used to verify the genesis header.
+func (sb *Backend) verifyHeader(config *params.ChainConfig, header *types.Header, parent *types.Header,
+	epoch *types.EpochInfo, hash HashGetter) error {
 	if header.Round > constants.MaxRound {
 		return errInvalidRound
 	}
@@ -130,49 +145,27 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	}
 	// Verify London hard fork attributes
 	// minbasefee is only checked when processing a proposal
-	if err := misc.VerifyEip1559Header(chain.Config(), nil, parent, header); err != nil {
+	if err := misc.VerifyEip1559Header(config, nil, parent, header); err != nil {
 		// Verify the header's EIP-1559 attributes.
 		return err
 	}
 
-	// If this is the genesis block there is no further verification to be
-	// done.
-	if header.IsGenesis() {
-		return nil
-	}
-
-	// We expect the parent to be non nil when header is not the genesis header.
-	if parent == nil {
-		return errUnknownBlock
-	}
-
-	// Re-injecting historical blocks, as epoch info is a factor to compute the hash, thus we don't need to check epoch
-	// , just double check header against its parent and the quorum certificates of this height.
-	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
-		return sb.verifyHeaderAgainstLastView(header, parent, committee)
-	}
-
-	// for unknown headers, header number should pass the corresponding epoch boundary check.
-	if header.Number.Uint64() <= curEpochHead || header.Number.Uint64() > nextEpochHead {
+	// header number should pass the corresponding epoch boundary check.
+	if header.Number.Uint64() <= epoch.EpochBlock.Uint64() || header.Number.Uint64() > epoch.NextEpochBlock.Uint64() {
 		sb.logger.Error("header is out of epoch range",
-			"height", header.Number.Uint64(), "curEpochHead", curEpochHead, "nextEpochHead", nextEpochHead)
+			"height", header.Number.Uint64(), "epochBlock", epoch.EpochBlock.Uint64(), "nextEpochBlock", epoch.NextEpochBlock.Uint64())
 		return consensus.ErrOutOfEpochRange
 	}
 
 	// epoch bi-direction link check for epoch header and its parent epoch header.
 	if header.IsEpochHeader() {
-		if nextEpochHead != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != curEpochHead {
+		if epoch.NextEpochBlock.Uint64() != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != epoch.EpochBlock.Uint64() {
+			sb.logger.Error("epoch header failed bi-direction check",
+				"height", header.Number.Uint64(), "epochBlock", epoch.EpochBlock.Uint64(), "nextEpochBlock", epoch.NextEpochBlock.Uint64(), "previousEpochBlock", header.Epoch.PreviousEpochBlock.Uint64())
 			return consensus.ErrInvalidEpochBoundary
 		}
 	}
 
-	// check quorum certificates of consensus participants
-	return sb.verifyHeaderAgainstLastView(header, parent, committee)
-}
-
-// verifyHeaderAgainstLastView verifies that the given header is valid with respect to its parent block and the
-// corresponding epoch's committee.
-func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, committee *types.Committee) error {
 	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
@@ -181,11 +174,44 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 		return errInvalidTimestamp
 	}
 
-	if err := sb.verifySigner(header, committee); err != nil {
+	// check proposer seal, quorum certificate and activity proof
+	return sb.verifyHeaderSignatures(header, epoch, hash)
+}
+
+// verifyHeaderSignatures verifies the proposer seal, quorum certificate and activity proof
+func (sb *Backend) verifyHeaderSignatures(header *types.Header, epoch *types.EpochInfo, hash HashGetter) error {
+	if err := sb.verifySigner(header, epoch.Committee); err != nil {
 		return err
 	}
 
-	return sb.verifyQuorumCertificate(header, committee)
+	if err := sb.verifyActivityProof(header, epoch, hash); err != nil {
+		return fmt.Errorf("error while validating header activity proof: %w", err)
+	}
+
+	return sb.verifyQuorumCertificate(header, epoch.Committee)
+}
+
+// verify activity proof during header verification
+func (sb *Backend) verifyActivityProof(header *types.Header, epoch *types.EpochInfo, hash HashGetter) error {
+	mustBeEmpty := header.Number.Uint64() <= epoch.EpochBlock.Uint64()+epoch.Delta.Uint64()
+
+	if mustBeEmpty && header.ActivityProof != nil {
+		return errNotEmptyActivityProof
+	}
+
+	if header.ActivityProof != nil {
+		targetHeight := header.Number.Uint64() - epoch.Delta.Uint64()
+		targetHash, err := hash(targetHeight)
+		if err != nil {
+			return err
+		}
+		headerSeal := message.PrepareCommittedSeal(targetHash, int64(header.ActivityProofRound), new(big.Int).SetUint64(targetHeight))
+		_, _, err = header.ActivityProof.Validate(headerSeal, epoch.Committee, true)
+		if err != nil {
+			return errors.Join(errInvalidActivityProof, err)
+		}
+	}
+	return nil
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -196,19 +222,33 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 
+	hash := func(h uint64) (common.Hash, error) {
+		var targetHeader *types.Header
+		if h >= headers[0].Number.Uint64() {
+			index := h - headers[0].Number.Uint64()
+			if index < uint64(len(headers)) {
+				targetHeader = headers[index]
+			}
+		} else {
+			targetHeader = sb.BlockChain().GetHeaderByNumber(h)
+		}
+		if targetHeader == nil {
+			return common.Hash{}, errCannotFindHash
+		}
+		return targetHeader.Hash(), nil
+	}
+
 	go func() {
-		firstHead := headers[0].Number.Uint64()
-		epoch, err := chain.EpochOfHeight(firstHead)
+		firstHeight := headers[0].Number.Uint64()
+		epoch, err := chain.EpochOfHeight(firstHeight, nil)
 		// short circuit, if we cannot find the correct epoch for the 1st header, we quit this batch of verification.
 		if err != nil {
-			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHead)
+			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHeight)
 			results <- err
 			return
 		}
+		chainConfig := chain.Config()
 
-		committee := epoch.Committee
-		curEpochBlock := epoch.EpochBlock.Uint64()
-		nextEpochBlock := epoch.NextEpochBlock.Uint64()
 		for i, header := range headers {
 			var parent *types.Header
 			switch {
@@ -222,15 +262,17 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				sb.logger.Error("VerifyHeaders", "cannot find parent header", header.ParentHash)
 				err = consensus.ErrUnknownAncestor
 			} else {
-				err = sb.verifyHeader(chain, header, parent, committee, curEpochBlock, nextEpochBlock)
+				// check header against parent and parent epoch head.
+				err = sb.verifyHeader(chainConfig, header, parent, epoch, hash)
 			}
 
 			// cross epoch header check, update the committee and epoch boundary if current header is an epoch head.
 			// the verification behind this header will be continued with the updated epoch info.
 			if header.IsEpochHeader() {
-				committee = header.Epoch.Committee
-				curEpochBlock = header.Number.Uint64()
-				nextEpochBlock = header.Epoch.NextEpochBlock.Uint64()
+				epoch = &types.EpochInfo{
+					Epoch:      *header.Epoch,
+					EpochBlock: header.Number,
+				}
 			}
 
 			select {
@@ -273,43 +315,15 @@ func (sb *Backend) verifySigner(header *types.Header, committee *types.Committee
 // verifyQuorumCertificate validates that the quorum certificate for header come from
 // committee members and that the voting power constitute a quorum.
 func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *types.Committee) error {
-	// un-finalized proposals will have these fields set to nil
-	if header.QuorumCertificate.Signature == nil || header.QuorumCertificate.Signers == nil {
-		return types.ErrEmptyQuorumCertificate
+	// un-finalized proposals will have quorum certificate set to nil
+	if header.QuorumCertificate == nil {
+		return errEmptyQuorumCertificate
 	}
-	quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
-	if err := quorumCertificate.Signers.Validate(committee.Len()); err != nil {
-		return fmt.Errorf("Invalid quorum certificate signers information: %w", err)
-	}
-
 	// The data that was signed over for this block
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
-
-	// Total Voting power for this block
-	power := new(big.Int)
-	for _, index := range quorumCertificate.Signers.FlattenUniq() {
-		power.Add(power, committee.Members[index].VotingPower)
-	}
-
-	// verify signature
-	var keys []blst.PublicKey //nolint
-	for _, index := range quorumCertificate.Signers.Flatten() {
-		keys = append(keys, committee.Members[index].ConsensusKey)
-	}
-	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	_, _, err := header.QuorumCertificate.Validate(headerSeal, committee, true)
 	if err != nil {
-		sb.logger.Error("Failed to aggregate keys from committee members", "err", err)
-		return err
-	}
-	valid := quorumCertificate.Signature.Verify(aggregatedKey, headerSeal[:])
-	if !valid {
-		sb.logger.Error("block had invalid committed seal")
-		return types.ErrInvalidQuorumCertificate
-	}
-
-	// We need at least a quorum for the block to be considered valid
-	if power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
-		return types.ErrInvalidQuorumCertificate
+		return errors.Join(errInvalidQuorumCertificate, err)
 	}
 
 	return nil
@@ -317,11 +331,11 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
-func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *types.Header) error {
-	// unused fields, force to set to empty
+func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *types.Header, parentState *state.StateDB) error {
 	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
 	header.MixDigest = types.BFTDigest
+	// use the same difficulty for all blocks
 	header.Difficulty = defaultDifficulty
 
 	// set header's timestamp
@@ -330,11 +344,76 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())
 	}
+
+	height := header.Number.Uint64()
+	// use a custom fetcher to be able to fetch epoch information in the case we are building an optimistic block at the epoch boundary
+	epochInfo, err := sb.BlockChain().EpochOfHeight(height, func() (*types.Header, *state.StateDB, error) {
+		return parentHeader, parentState, nil
+	})
+	if err != nil {
+		return fmt.Errorf("error while fetching epoch information for height %d: %w", height, err)
+	}
+
+	// assemble nodes' activity proof of height h from the msgs of h-delta
+	proof, round, err := sb.assembleActivityProof(height, epochInfo)
+	if err != nil {
+		return fmt.Errorf("error while assembling activity proof: %w", err)
+	}
+	header.ActivityProof = proof
+	header.ActivityProofRound = round
 	return nil
 }
 
+// assembleActivityProof assembles the nodes' activity proof of height `h` with the aggregated precommit
+// of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
+// If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
+func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (*types.AggregateSignature, uint64, error) {
+	epochBlock := epochInfo.EpochBlock.Uint64()
+	delta := epochInfo.Delta.Uint64()
+
+	// for the 1st delta blocks of the epoch, the proposer does not have to provide an activity proof
+	if h <= epochBlock+delta {
+		sb.logger.Debug("Skip to assemble activity proof at the start of epoch", "height", h, "epochBlock", epochBlock)
+		return nil, 0, nil
+	}
+
+	// after delta blocks, get quorum certificates from height h-delta.
+	targetHeight := h - delta
+	targetHeader := sb.BlockChain().GetHeaderByNumber(targetHeight)
+	if targetHeader == nil {
+		return nil, 0, fmt.Errorf("cannot find header by height %d", targetHeight)
+	}
+	targetRound := targetHeader.Round
+
+	precommits := sb.MsgStore.GetPrecommits(targetHeight, func(m *message.Precommit) bool {
+		return m.R() == int64(targetRound) && m.Value() == targetHeader.Hash()
+	})
+
+	// we should have provided an activity proof, but we do not have past messages
+	if len(precommits) == 0 {
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer", "height", h, "targetHeight", targetHeight, "targetRound", targetRound)
+		return nil, 0, nil
+	}
+
+	votes := make([]message.Vote, len(precommits))
+	for i, p := range precommits {
+		votes[i] = p
+	}
+
+	aggregatePrecommit := message.AggregatePrecommits(votes)
+
+	// if we do not have enough voting power, leave the proof empty
+	quorum := bft.Quorum(epochInfo.Committee.TotalVotingPower())
+	if aggregatePrecommit.Power().Cmp(quorum) < 0 {
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "targetRound", targetRound, "power", aggregatePrecommit.Power(), "quorum", quorum)
+		return nil, 0, nil
+	}
+
+	return types.NewAggregateSignature(aggregatePrecommit.Signature().(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil
+}
+
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
-// Finaize doesn't modify the passed header.
+// Finalize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	_ []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 
@@ -346,7 +425,7 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	return receipt, epochInfo, nil
 }
 
-// FinalizeAndAssemble call Finaize to compute post transacation state modifications
+// FinalizeAndAssemble call Finalize to compute post transaction state modifications
 // and assembles the final block.
 func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
@@ -366,7 +445,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 }
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
-// committee field containaining the list of committee members allowed to participate in consensus for the next block.
+// committee field containing the list of committee members allowed to participate in consensus for the next block.
 func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
 	_ []*types.Transaction, _ []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 
@@ -396,8 +475,7 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 	}
 
 	if parent == nil {
-		err := errors.New("unknown ancestor")
-		return err
+		return errors.New("unknown ancestor")
 	}
 
 	// we do the validator authorization later, just before sending proposal
@@ -477,9 +555,7 @@ func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := types.WriteSeal(header, signature); err != nil {
-		return nil, err
-	}
+	header.ProposerSeal = signature
 	return block.WithSeal(header), nil
 }
 
@@ -550,11 +626,11 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	chainHeadCh := make(chan core.ChainHeadEvent)
 
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
-	subSlashigEvent, _ := sb.blockchain.ProtocolContracts().WatchSlashingEvent(nil, slashingEventCh)
-	subChainhead := sb.blockchain.SubscribeChainHeadEvent(chainHeadCh)
+	subSlashingEvent, _ := sb.blockchain.ProtocolContracts().WatchSlashingEvent(nil, slashingEventCh)
+	subChainHead := sb.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	subscriptions.Track(subNewFaultProofs)
-	subscriptions.Track(subSlashigEvent)
-	subscriptions.Track(subChainhead)
+	subscriptions.Track(subSlashingEvent)
+	subscriptions.Track(subChainHead)
 
 	defer func() {
 		subscriptions.Close()

@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
     uint256 constant public SUCCESS = 1;
+    address constant public ACTIVITY_CONTRACT = address(0xf8);
     address constant public UPGRADER_CONTRACT = address(0xf9);
     address constant public COMPUTE_COMMITTEE_CONTRACT = address(0xfa);
     address constant public POP_VERIFIER_CONTRACT = address(0xfb);
@@ -12,6 +13,37 @@ library Precompiled {
     address constant public INNOCENCE_CONTRACT = address(0xfd);
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
     address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
+
+
+    function computeAbsentees(bool _mustBeEmpty, uint256 _delta, uint256 _committeeSlot) internal returns (
+        bool,               // isProposerOmissionFaulty
+        uint256,            // proposerEffort
+        address[] memory    // absentees
+    ){
+        address to = ACTIVITY_CONTRACT;
+
+        bytes memory _input = abi.encodePacked(_mustBeEmpty, _delta, _committeeSlot);
+        uint256 _outputLength;
+
+        assembly {
+            // the call doesn't modify omission state, but it reads the committee from it
+            // however we could actually use a static-call, it doesn't change anything from the precompile point of view
+            //delegatecall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(delegatecall(gas(), to, add(_input,32), mload(_input), 0, 0)) {
+                revert(0, 0)
+            }
+            _outputLength := returndatasize()
+        }
+
+        bytes memory _output = new bytes(_outputLength);
+
+        assembly{
+            returndatacopy(add(_output,32), 0, _outputLength)
+        }
+
+        return abi.decode(_output,(bool,uint256,address[]));
+    }
+
 
     function parseEnode(string memory _enode) internal view returns (address, uint) {
         uint[2] memory p;

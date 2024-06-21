@@ -119,18 +119,18 @@ func (mr *MockChainContextMockRecorder) Engine() *gomock.Call {
 }
 
 // EpochOfHeight mocks base method.
-func (m *MockChainContext) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+func (m *MockChainContext) EpochOfHeight(height uint64, fetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret := m.ctrl.Call(m, "EpochOfHeight", height, fetcher)
 	ret0, _ := ret[0].(*types.EpochInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EpochOfHeight indicates an expected call of EpochOfHeight.
-func (mr *MockChainContextMockRecorder) EpochOfHeight(height any) *gomock.Call {
+func (mr *MockChainContextMockRecorder) EpochOfHeight(height, fetcher any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainContext)(nil).EpochOfHeight), height)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainContext)(nil).EpochOfHeight), height, fetcher)
 }
 
 // GetBlock mocks base method.

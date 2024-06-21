@@ -3,7 +3,6 @@ package accountability
 import (
 	"errors"
 	"fmt"
-
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
 
@@ -194,7 +193,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	memberShip := committee.MemberByAddress(sender)
 	if memberShip == nil {
-		fd.logger.Info("accusation from a none validator node", "height", msgHeight, "sender", sender)
+		fd.logger.Info("accusation from a non validator node", "height", msgHeight, "sender", sender)
 		return errAccusationFromNoneValidator
 	}
 

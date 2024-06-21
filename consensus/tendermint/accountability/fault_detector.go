@@ -47,7 +47,7 @@ const (
 	reportingSlotPeriod           = 20                           // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
 	//NOTE: update to below constants might require a chain fork to upgrade clients, since they impact the Accountability Event execution result. They should be turned into protocol parameters https://github.com/autonity/autonity/issues/949
 	HeightRange = 256 // Default msg buffer range for AFD.
-	DeltaBlocks = 10  // Wait until the GST + delta blocks to start accounting.
+	DeltaBlocks = 10  // Wait until the GST + delta blocks to start accounting
 )
 
 var (
@@ -413,13 +413,13 @@ func (fd *FaultDetector) innocenceProof(p *Proof, committee *types.Committee) (*
 	// the protocol contains below provable accusations.
 	switch p.Rule {
 	case autonity.PO:
-		return fd.innocenceProofPO(p)
+		return fd.innocenceProofPO(p, committee)
 	case autonity.PVN:
 		return fd.innocenceProofPVN(p, committee)
 	case autonity.PVO:
-		return fd.innocenceProofPVO(p)
+		return fd.innocenceProofPVO(p, committee)
 	case autonity.C1:
-		return fd.innocenceProofC1(p)
+		return fd.innocenceProofC1(p, committee)
 	default:
 		// whether the accusation comes from off-chain or on-chain
 		// it always gets verified before we try to fetch the innocence proof
@@ -428,17 +428,11 @@ func (fd *FaultDetector) innocenceProof(p *Proof, committee *types.Committee) (*
 }
 
 // get innocent proof of accusation of rule C1 from msg store.
-func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
 	precommit := c.Message
 	height := precommit.H()
 
 	// compute quorum
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
-	if err != nil {
-		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
-		return nil, err
-	}
-
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V
@@ -475,7 +469,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 }
 
 // get innocent proof of accusation of rule PO from msg store.
-func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
 	// PO: node propose an old value with an validRound, innocent onChainProof of it should be:
 	// there are quorum voting power prevotes for that value at the validRound.
 	liteProposal := c.Message
@@ -483,11 +477,6 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 	validRound := liteProposal.(*message.LightProposal).ValidRound()
 
 	// compute quorum
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
-	if err != nil {
-		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
-		return nil, err
-	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V at validRound
@@ -553,19 +542,13 @@ func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee *types.Committee)
 }
 
 // get innocent proof of accusation of rule PVO from msg store, it collects quorum preVotes for the value voted at a valid round.
-func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
 	// get innocent proofs for PVO, collect quorum preVotes at the valid round of the old proposal.
 	oldProposal := c.Evidences[0]
 	height := oldProposal.H()
 	validRound := oldProposal.(*message.LightProposal).ValidRound()
 
 	// compute quorum
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
-	if err != nil {
-		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
-		return nil, err
-	}
-
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V at validRound

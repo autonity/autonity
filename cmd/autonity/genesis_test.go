@@ -45,6 +45,7 @@ var genesisTest = struct {
 			"config"     : {
 				"autonity"    : {
             		"treasury": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
+		            "withheldRewardsPool": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
             		"treasuryFee": 150000000,
 					"operator": "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
 					"maxCommitteeSize":7,
@@ -52,6 +53,8 @@ var genesisTest = struct {
 					"unbondingPeriod": 120,
 					"initialInflationReserve": "0x20000000000",
 					"epochPeriod": 30,
+					"withholdingThreshold": 0,
+					"proposerRewardRate": 1000,
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
@@ -65,20 +68,27 @@ var genesisTest = struct {
     			"oracle": {
       				"votePeriod": 30
 				},
-
 				"accountability": {
 					  "innocenceProofSubmissionWindow": 30,
 					  "baseSlashingRateLow": 500,
 					  "baseSlashingRateMid": 1000,
 					  "collusionFactor": 550,
 					  "historyFactor": 750,
-					  "jailFactor": 60,
-					  "slashingRatePrecision": 10000
+					  "jailFactor": 60
+				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 24, 
+					  "initialSlashingRate": 25,
+                      "delta": 5
 				},
 				"chainId" : 1
 			}
 		}`,
-	// Chnage stake of validator as 2.
+	// Change stake of validator as 2.
 	misMatchGenesis: `{
 			"alloc"      : {},
 			"coinbase"   : "0x0000000000000000000000000000000000000000",
@@ -103,6 +113,7 @@ var genesisTest = struct {
 				"petersburgBlock": 0,
 				"autonity"    : {
             		"treasury": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
+		            "withheldRewardsPool": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
             		"treasuryFee": 150000000,
 					"operator": "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
 					"unbondingPeriod": 120,
@@ -110,6 +121,8 @@ var genesisTest = struct {
 					"maxCommitteeSize":7,
 					"minBaseFee":100000000,
 					"initialInflationReserve": "0x20000000000",
+					"withholdingThreshold": 0,
+					"proposerRewardRate": 1000,
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
@@ -122,6 +135,23 @@ var genesisTest = struct {
 				},
     			"oracle": {
       				"votePeriod": 30
+				},
+				"accountability": {
+					  "innocenceProofSubmissionWindow": 30,
+					  "baseSlashingRateLow": 500,
+					  "baseSlashingRateMid": 1000,
+					  "collusionFactor": 550,
+					  "historyFactor": 750,
+					  "jailFactor": 60
+				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 24, 
+					  "initialSlashingRate": 25,
+                      "delta": 5
 				},
 				"chainId" : 1
 			}
@@ -140,12 +170,15 @@ var genesisTest = struct {
 			"config"     : {
 				"autonity"    : {
             		"treasury": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
+		            "withheldRewardsPool": "0xCd7231d14b391e1E4b1e6A5F6a6062969088aF8D",
             		"treasuryFee": 150000000,
 					"operator": "0x373bf7359fc85Df6A3Cd1726bef4edDa0460b3F3",
 					"unbondingPeriod": 120,
 					"epochPeriod": 30,
 					"maxCommitteeSize":7,
 					"initialInflationReserve": "0x20000000000",
+					"withholdingThreshold": 0,
+					"proposerRewardRate": 1000,
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
@@ -157,9 +190,24 @@ var genesisTest = struct {
 					]
 				},
     			"oracle": {
-					"bytecode": "",
-      				"abi": "",
       				"votePeriod": 30
+				},
+				"accountability": {
+					  "innocenceProofSubmissionWindow": 30,
+					  "baseSlashingRateLow": 500,
+					  "baseSlashingRateMid": 1000,
+					  "collusionFactor": 550,
+					  "historyFactor": 750,
+					  "jailFactor": 60
+				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 24, 
+					  "initialSlashingRate": 25,
+                      "delta": 5
 				},
 				"chainId" : 1
 			}

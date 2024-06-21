@@ -3,8 +3,15 @@ package backend
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/stretchr/testify/require"
 	"math/big"
-	"reflect"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -24,112 +31,232 @@ import (
 func TestSealCommitted(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedBlock, _ := engine.AddSeal(block)
+	require.NoError(t, err)
+	expectedBlock, err := engine.AddSeal(block)
+	require.NoError(t, err)
 
 	resultCh := make(chan *types.Block)
 	engine.SetResultChan(resultCh)
 	header := block.Header()
 	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	err = engine.Seal(parentHeader, block, resultCh, nil)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
+	require.NoError(t, err)
 	finalBlock := <-resultCh
-	if finalBlock.Hash() != expectedBlock.Hash() {
-		t.Errorf("hash mismatch: have %v, want %v", finalBlock.Hash(), expectedBlock.Hash())
-	}
+	require.Equal(t, expectedBlock.Hash(), finalBlock.Hash())
 }
 
 func TestVerifyHeader(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	t.Run("miscellaneous cases", func(t *testing.T) {
+		chain, engine := newBlockChain(1)
 
-	// errEmptyQuorumCertificate case
-	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	block, _ = engine.AddSeal(block)
-	err = engine.VerifyHeader(chain, block.Header(), false)
-	if err != types.ErrEmptyQuorumCertificate {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyQuorumCertificate)
-	}
+		// errEmptyQuorumCertificate case
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		block, err = engine.AddSeal(block)
+		require.NoError(t, err)
+		err = engine.VerifyHeader(chain, block.Header(), false)
+		require.True(t, errors.Is(err, errEmptyQuorumCertificate))
 
-	header := block.Header()
+		// non zero MixDigest
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header := block.Header()
+		header.MixDigest = common.BytesToHash([]byte("123456789"))
+		err = engine.VerifyHeader(chain, header, false)
+		require.True(t, errors.Is(err, errInvalidMixDigest))
 
-	// non zero MixDigest
-	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	header = block.Header()
-	header.MixDigest = common.BytesToHash([]byte("123456789"))
-	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidMixDigest {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMixDigest)
-	}
+		// invalid uncles hash
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header = block.Header()
+		header.UncleHash = common.BytesToHash([]byte("123456789"))
+		err = engine.VerifyHeader(chain, header, false)
+		require.True(t, errors.Is(err, errInvalidUncleHash))
 
-	// invalid uncles hash
-	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	header = block.Header()
-	header.UncleHash = common.BytesToHash([]byte("123456789"))
-	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidUncleHash {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidUncleHash)
-	}
+		// invalid difficulty
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header = block.Header()
+		header.Difficulty = big.NewInt(2)
+		err = engine.VerifyHeader(chain, header, false)
+		require.True(t, errors.Is(err, errInvalidDifficulty))
 
-	// invalid difficulty
-	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	header = block.Header()
-	header.Difficulty = big.NewInt(2)
-	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidDifficulty {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidDifficulty)
-	}
+		// invalid timestamp
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header = block.Header()
+		header.Time = 0
+		err = engine.VerifyHeader(chain, header, false)
+		require.True(t, errors.Is(err, errInvalidTimestamp))
 
-	// invalid timestamp
-	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	header = block.Header()
-	header.Time = 0
-	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidTimestamp {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidTimestamp)
-	}
+		// future block
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header = block.Header()
+		header.Time = new(big.Int).Add(big.NewInt(now().Unix()), new(big.Int).SetUint64(10)).Uint64()
+		err = engine.VerifyHeader(chain, header, false)
+		require.True(t, errors.Is(err, consensus.ErrFutureTimestampBlock))
 
-	// future block
-	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	header = block.Header()
-	header.Time = new(big.Int).Add(big.NewInt(now().Unix()), new(big.Int).SetUint64(10)).Uint64()
-	err = engine.VerifyHeader(chain, header, false)
-	if err != consensus.ErrFutureTimestampBlock {
-		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrFutureTimestampBlock)
-	}
+		// invalid nonce
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header = block.Header()
+		copy(header.Nonce[:], hexutil.MustDecode("0x111111111111"))
+		err = engine.VerifyHeader(chain, header, false)
+		require.True(t, errors.Is(err, errInvalidNonce))
+	})
+	t.Run("activity proof related cases", func(t *testing.T) {
+		chain, engine := newBlockChain(1)
 
-	// invalid nonce
-	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	header = block.Header()
-	copy(header.Nonce[:], hexutil.MustDecode("0x111111111111"))
-	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidNonce {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidNonce)
-	}
+		// proof should be empty at the first delta block of the epoch
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		sealedBlock, err := engine.AddSeal(block)
+		require.NoError(t, err)
+		blockWithCertificate, _ := addQuorumCertificate(chain, engine, sealedBlock)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		require.NoError(t, err)
+
+		// not empty activity proof at first delta blocks of the epoch should be rejected
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header := block.Header()
+		header.ActivityProof = types.NewAggregateSignature(testSignature.(*blst.BlsSignature), types.NewSigners(1))
+		modifiedBlock := types.NewBlockWithHeader(header)
+		sealedBlock, err = engine.AddSeal(modifiedBlock)
+		require.NoError(t, err)
+		err = engine.VerifyHeader(chain, sealedBlock.Header(), false)
+		require.True(t, errors.Is(err, errNotEmptyActivityProof))
+
+		// now advance the chain of delta blocks
+		epoch, err := chain.LatestEpoch()
+		require.NoError(t, err)
+		delta := epoch.Delta.Uint64()
+		for i := uint64(0); i < delta; i++ {
+			mineOneBlock(t, chain, engine)
+		}
+
+		// empty proof should still be accepted
+		block, err = makeBlockWithoutSeal(chain, engine, chain.CurrentBlock())
+		require.NoError(t, err)
+		sealedBlock, err = engine.AddSeal(block)
+		require.NoError(t, err)
+		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		require.NoError(t, err)
+
+		// not empty valid activity proof should be accepted as well
+		block, err = makeBlockWithoutSeal(chain, engine, chain.CurrentBlock())
+		require.NoError(t, err)
+		header = block.Header()
+		targetHeight := engine.core.Height().Uint64() - delta
+		header.ActivityProof = chain.GetHeaderByNumber(targetHeight).QuorumCertificate.Copy()
+		modifiedBlock = types.NewBlockWithHeader(header)
+		sealedBlock, err = engine.AddSeal(modifiedBlock)
+		require.NoError(t, err)
+		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		require.NoError(t, err)
+
+		// invalid proof (signers information too big) should cause error
+		block, err = makeBlockWithoutSeal(chain, engine, chain.CurrentBlock())
+		require.NoError(t, err)
+		header = block.Header()
+		header.ActivityProof = chain.GetHeaderByNumber(targetHeight).QuorumCertificate.Copy()
+		header.ActivityProof.Signers = types.NewSigners(10)
+		modifiedBlock = types.NewBlockWithHeader(header)
+		sealedBlock, err = engine.AddSeal(modifiedBlock)
+		require.NoError(t, err)
+		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		require.True(t, errors.Is(err, errInvalidActivityProof))
+
+		// invalid proof (invalid sig) should cause error
+		block, err = makeBlockWithoutSeal(chain, engine, chain.CurrentBlock())
+		require.NoError(t, err)
+		header = block.Header()
+		header.ActivityProof = chain.GetHeaderByNumber(targetHeight).QuorumCertificate.Copy()
+		header.ActivityProof.Signature = testSignature.(*blst.BlsSignature)
+		modifiedBlock = types.NewBlockWithHeader(header)
+		sealedBlock, err = engine.AddSeal(modifiedBlock)
+		require.NoError(t, err)
+		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		require.True(t, errors.Is(err, errInvalidActivityProof))
+
+	})
+	// isolate following test case as it require a more complex setup (multiple committee members)
+	t.Run("activity proof with not enough power", func(t *testing.T) {
+		genesis, nodeKeys, consensusKeys := getGenesisAndKeys(2)
+
+		// lower voting power of validator[1]
+		genesis.Config.AutonityContractConfig.Validators[1].BondedStake = new(big.Int).SetUint64(1)
+
+		memDB := rawdb.NewMemoryDatabase()
+		genesis.MustCommit(memDB)
+		engine := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), tdmcore.NewMsgStore(), log.Root(), false)
+		log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+		chain, err := core.NewBlockChain(memDB, nil, genesis.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
+		require.NoError(t, err)
+		engine.SetBlockchain(chain)
+		err = engine.Start(context.Background())
+		require.NoError(t, err)
+
+		// advance the chain of delta blocks
+		epoch, err := chain.LatestEpoch()
+		require.NoError(t, err)
+		delta := epoch.Delta.Uint64()
+		for i := uint64(0); i < delta; i++ {
+			mineOneBlock(t, chain, engine)
+		}
+
+		// invalid proof (no quorum power) should cause error
+		block, err := makeBlockWithoutSeal(chain, engine, chain.CurrentBlock())
+		require.NoError(t, err)
+		header := block.Header()
+		// insert only signature from validator[1] in activity proof
+		targetHeight := engine.core.Height().Uint64() - delta
+		targetHeader := chain.GetHeaderByNumber(targetHeight)
+		headerSeal := message.PrepareCommittedSeal(targetHeader.Hash(), int64(targetHeader.Round), targetHeader.Number)
+		header.ActivityProof = new(types.AggregateSignature)
+		header.ActivityProof.Signature = consensusKeys[1].Sign(headerSeal[:]).(*blst.BlsSignature)
+		header.ActivityProof.Signers = types.NewSigners(2)
+		header.ActivityProof.Signers.Bits.Set(1, 1)
+		header.ActivityProofRound = targetHeader.Round
+		modifiedBlock := types.NewBlockWithHeader(header)
+		sealedBlock, err := engine.AddSeal(modifiedBlock)
+		require.NoError(t, err)
+		blockWithCertificate, _ := addQuorumCertificate(chain, engine, sealedBlock)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		require.True(t, errors.Is(err, errInvalidActivityProof))
+	})
+
+}
+
+// It assumes that we have a single committee member
+func addQuorumCertificate(chain *core.BlockChain, engine *Backend, b *types.Block) (*types.Block, message.Msg) {
+	self := &chain.Genesis().Header().Epoch.Committee.Members[0]
+
+	header := b.Header()
+	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, 1)
+	header.QuorumCertificate = types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers())
+	blockWithCertificate := b.WithSeal(header) // improper use, we use the WithSeal function to substitute the header with the one with quorumCertificate set
+	return blockWithCertificate, precommit
+}
+
+// insert block with valid quorum certificate in the chain.
+// It also add the precommit to the msgStore so that we can successfully create activity proof for the following blocks
+// It assumes that we have a single committee member
+// This is needed for `makeBlockWithoutSeal` to generate another block correctly.
+// It returns the block with the quorum certificate
+func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types.Block) *types.Block {
+	blockWithCertificate, precommit := addQuorumCertificate(chain, engine, b)
+	time.Sleep(1 * time.Second) // wait a couple seconds so that the block has not future timestamp anymore and the block import is done
+	_, err := chain.InsertChain(types.Blocks{blockWithCertificate})
+	require.NoError(t, err)
+
+	engine.MsgStore.Save(precommit)
+	return blockWithCertificate
 }
 
 // The logic of this needs to change with respect of Autonity contact
@@ -139,6 +266,7 @@ func TestVerifyHeaders(t *testing.T) {
 	// success case
 	var headers []*types.Header
 	var blocks []*types.Block
+
 	size := 100
 
 	var err error
@@ -149,19 +277,25 @@ func TestVerifyHeaders(t *testing.T) {
 		} else {
 			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		b, _ = engine.AddSeal(b)
+		b, err = engine.AddSeal(b)
+		require.NoError(t, err)
+
+		b = insertBlock(t, chain, engine, b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
 	}
 
+	// reset the chain to simulate receiving new headers
+	err = chain.Reset()
+	require.NoError(t, err)
+
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	_, results := engine.VerifyHeaders(chain, headers, nil)
 
@@ -172,21 +306,17 @@ OUT1:
 	for {
 		select {
 		case err := <-results:
-			if err != nil {
-				//  The two following errors mean that the processing has gone right
-				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
-					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
-					break OUT1
-				}
-			}
+			require.NoError(t, err)
 			index++
 			if index == size {
 				break OUT1
 			}
 		case <-timeout.C:
-			break OUT1
+			t.Fatal("timeout expired")
 		}
 	}
+	// avoid data race for the re-assignment of now to time.Now
+	chain.Stop()
 }
 
 // The logic of this needs to change with respect of Autonity contact
@@ -206,19 +336,25 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 		} else {
 			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		b, _ = engine.AddSeal(b)
+		b, err = engine.AddSeal(b)
+		require.NoError(t, err)
+
+		b = insertBlock(t, chain, engine, b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
 	}
 
+	// reset the chain to simulate receiving new headers
+	err = chain.Reset()
+	require.NoError(t, err)
+
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	const timeoutDura = 2 * time.Second
 
@@ -230,24 +366,22 @@ OUT2:
 	for {
 		select {
 		case err := <-results:
-			if err != nil {
-				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
-					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
-					break OUT2
-				}
-			}
+			require.NoError(t, err)
 			index++
 			if index == 5 {
 				abort <- struct{}{}
 			}
-			if index >= size {
-				t.Errorf("verifyheaders should be aborted")
+			if index >= 15 {
+				t.Errorf("verifyheaders should be aborted rapidly")
 				break OUT2
 			}
 		case <-timeout.C:
 			break OUT2
 		}
 	}
+	t.Log(index)
+	// avoid data race for the re-assignment of now to time.Now
+	chain.Stop()
 }
 
 // The logic of this needs to change with respect of Autonity contact
@@ -267,19 +401,25 @@ func TestVerifyErrorHeaders(t *testing.T) {
 		} else {
 			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		b, _ = engine.AddSeal(b)
+		b, err = engine.AddSeal(b)
+		require.NoError(t, err)
+
+		b = insertBlock(t, chain, engine, b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
 	}
 
+	// reset the chain to simulate receiving new headers
+	err = chain.Reset()
+	require.NoError(t, err)
+
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	const timeoutDura = 2 * time.Second
 
@@ -289,50 +429,28 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	timeout := time.NewTimer(timeoutDura)
 	index := 0
 	errorCount := 0
-	expectedErrors := 2
+	// header[2] out of epoch range | header[3] != header[2]+1 | header[12] invalid activity proof
+	expectedErrors := 3
 
 OUT3:
 	for {
 		select {
 		case err := <-results:
 			if err != nil {
-				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
-					errorCount++
-				}
+				t.Logf("received error: %v", err)
+				errorCount++
 			}
 			index++
 			if index == size {
-				if errorCount != expectedErrors {
-					t.Errorf("error mismatch: have %v, want %v", err, expectedErrors)
-				}
+				require.Equal(t, expectedErrors, errorCount)
 				break OUT3
 			}
 		case <-timeout.C:
-			break OUT3
+			t.Fatal("timeout expired")
 		}
 	}
-}
-
-func TestWriteQuorumCertificate(t *testing.T) {
-	expectedQuorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
-	expectedQuorumCertificate.Signers.Increment(testCommitteeMember)
-	h := &types.Header{}
-
-	// normal case
-	err := types.WriteQuorumCertificate(h, expectedQuorumCertificate)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want %v", err, nil)
-	}
-
-	if !reflect.DeepEqual(h.QuorumCertificate, expectedQuorumCertificate) {
-		t.Errorf("extra data mismatch: have %v, want %v", h.QuorumCertificate, expectedQuorumCertificate)
-	}
-
-	// invalid seal
-	err = types.WriteQuorumCertificate(h, types.AggregateSignature{})
-	if err != types.ErrInvalidQuorumCertificate {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidQuorumCertificate)
-	}
+	// avoid data race for the re-assignment of now to time.Now
+	chain.Stop()
 }
 
 func TestAPIs(t *testing.T) {
@@ -659,4 +777,116 @@ func TestBackendSealHash(t *testing.T) {
 	if res.Hex() == "" {
 		t.Fatalf("expected not empty string")
 	}
+}
+
+func TestAssembleProof(t *testing.T) {
+	t.Run("for the first delta blocks of the epoch, assembling should return empty proof", func(t *testing.T) {
+		chain, backend := newBlockChain(1)
+
+		epoch, err := chain.LatestEpoch()
+		require.NoError(t, err)
+		delta := epoch.Delta.Uint64()
+
+		proof, round, err := backend.assembleActivityProof(0, epoch)
+		require.Nil(t, proof)
+		require.Equal(t, uint64(0), round)
+		require.Equal(t, err, nil)
+
+		for i := 0; i < int(delta)-1; i++ {
+			mineOneBlock(t, chain, backend)
+		}
+
+		proof, round, err = backend.assembleActivityProof(delta, epoch)
+		require.Nil(t, proof)
+		require.Equal(t, uint64(0), round)
+		require.Equal(t, err, nil)
+	})
+	t.Run("from block Delta+1 of the epoch, assembling should return a valid proof", func(t *testing.T) {
+		chain, backend := newBlockChain(1)
+
+		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
+		epoch, err := chain.LatestEpoch()
+		require.NoError(t, err)
+		delta := epoch.Delta.Uint64()
+
+		for i := 0; i < int(delta); i++ {
+			mineOneBlock(t, chain, backend)
+			header := chain.CurrentHeader()
+
+			// insert precommit in msgStore to be able to assemble proof later
+			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, 1)
+			backend.MsgStore.Save(precommit)
+		}
+
+		proof, round, err := backend.assembleActivityProof(delta+1, epoch)
+		require.NotNil(t, proof)
+		require.False(t, proof.Malformed())
+		require.Equal(t, uint64(0), round)
+		require.Equal(t, err, nil)
+
+		for i := 0; i < int(delta); i++ {
+			mineOneBlock(t, chain, backend)
+			header := chain.CurrentHeader()
+
+			// insert precommit in msgStore to be able to assemble proof later
+			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, 1)
+			backend.MsgStore.Save(precommit)
+		}
+
+		proof, round, err = backend.assembleActivityProof(delta*2+1, epoch)
+		require.NotNil(t, proof)
+		require.False(t, proof.Malformed())
+		require.Equal(t, uint64(0), round)
+		require.Equal(t, err, nil)
+
+		// NOTE: we are not updating the msg store with the new precommits here.
+		// this is to simulate a node crash. Assemble proof should still return no error, but it should return an empty proof
+		for i := 0; i < int(delta); i++ {
+			mineOneBlock(t, chain, backend)
+		}
+
+		proof, round, err = backend.assembleActivityProof(delta*3+1, epoch)
+		require.Nil(t, proof)
+		require.Equal(t, uint64(0), round)
+		require.Equal(t, err, nil)
+
+	})
+	t.Run("proof should be empty if we do not have quorum precommits to provide", func(t *testing.T) {
+		chain, backend := newBlockChain(1)
+
+		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
+		epoch, err := chain.LatestEpoch()
+		require.NoError(t, err)
+		delta := epoch.Delta.Uint64()
+
+		for i := 0; i < int(delta); i++ {
+			mineOneBlock(t, chain, backend)
+			header := chain.CurrentHeader()
+
+			// add fake precommit with low voting power, to simulate not enough voting power to build activity proof
+			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, 1)
+			signers := precommit.Signers()
+			powers := make(map[int]*big.Int)
+			powers[0] = common.Big0
+			signers.AssignPower(powers, common.Big1)
+			precommitWithLowPower := message.NewFakePrecommit(message.Fake{
+				FakeCode:           message.PrecommitCode,
+				FakeRound:          uint64(precommit.R()),
+				FakeHeight:         precommit.H(),
+				FakeValue:          precommit.Value(),
+				FakePayload:        precommit.Payload(),
+				FakeHash:           precommit.Hash(),
+				FakeSigners:        precommit.Signers(),
+				FakeSignature:      precommit.Signature(),
+				FakeSignatureInput: precommit.SignatureInput(),
+				FakeSignerKey:      precommit.SignerKey(),
+			})
+			backend.MsgStore.Save(precommitWithLowPower)
+		}
+
+		proof, round, err := backend.assembleActivityProof(delta+1, epoch)
+		require.Nil(t, proof)
+		require.Equal(t, uint64(0), round)
+		require.Equal(t, err, nil)
+	})
 }

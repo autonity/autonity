@@ -182,7 +182,7 @@ func TestHandlePrecommit(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(1)
 		backendMock.EXPECT().Commit(proposal.Block(), gomock.Any(), gomock.Any()).Return(nil).Do(
-			func(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) {
+			func(proposalBlock *types.Block, round int64, quorumCertificate *types.AggregateSignature) {
 				if round != 2 {
 					t.Fatal("Commit called with round different than precommit seal")
 				}

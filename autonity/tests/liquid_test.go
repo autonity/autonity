@@ -19,9 +19,9 @@ func TestClaimRewards(t *testing.T) {
 	// Test 1 validator 1 staker
 	r := Setup(t, nil)
 	// Mint Newton to some few accounts
-	r.Autonity.Mint(Operator, staker1, params.Ntn10000)
-	r.Autonity.Mint(Operator, staker2, params.Ntn10000)
-	r.Autonity.Mint(Operator, staker3, params.Ntn10000)
+	r.Autonity.Mint(r.Operator, staker1, params.Ntn10000)
+	r.Autonity.Mint(r.Operator, staker2, params.Ntn10000)
+	r.Autonity.Mint(r.Operator, staker3, params.Ntn10000)
 	r.Autonity.Bond(&runOptions{origin: staker1}, r.Committee.Validators[0].NodeAddress, params.Ntn10000)
 	r.Autonity.Bond(&runOptions{origin: staker2}, r.Committee.Validators[1].NodeAddress, params.Ntn10000)
 	r.Autonity.Bond(&runOptions{origin: staker3}, r.Committee.Validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
@@ -106,7 +106,7 @@ func TestLogicOperation(t *testing.T) {
 		require.NotEqual(r.T, liquidLogicFromAutonity, newLiquidLogic)
 
 		r.NoError(
-			r.Autonity.SetLiquidLogicContract(Operator, newLiquidLogic),
+			r.Autonity.SetLiquidLogicContract(r.Operator, newLiquidLogic),
 		)
 
 		liquidLogicFromAutonity, _, err = r.Autonity.LiquidLogicContract(nil)
@@ -130,7 +130,7 @@ func TestLogicOperation(t *testing.T) {
 		require.NoError(r.T, err)
 
 		r.NoError(
-			r.Autonity.SetLiquidLogicContract(Operator, newLiquidLogic),
+			r.Autonity.SetLiquidLogicContract(r.Operator, newLiquidLogic),
 		)
 		checkLiquidBalance(r, liquidState, validator, common.Big1)
 
@@ -150,7 +150,7 @@ func TestLogicOperation(t *testing.T) {
 		require.NoError(r.T, err)
 
 		r.NoError(
-			r.Autonity.SetLiquidLogicContract(Operator, newLiquidLogic.address),
+			r.Autonity.SetLiquidLogicContract(r.Operator, newLiquidLogic.address),
 		)
 
 		r.NoError(
@@ -656,7 +656,7 @@ func withdrawAndCheck(
 
 func redistributeLiquidReward(r *Runner, liquidState *ILiquid, reward *big.Int) {
 	r.NoError(
-		r.Autonity.Mint(Operator, liquidState.address, reward),
+		r.Autonity.Mint(r.Operator, liquidState.address, reward),
 	)
 	r.NoError(
 		liquidState.Redistribute(

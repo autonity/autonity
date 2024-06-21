@@ -92,7 +92,7 @@ func init() {
 	testTxPoolConfig.Journal = ""
 	ethashChainConfig = params.TestChainConfig
 	ethashChainConfig.AutonityContractConfig.Validators = ethashChainConfig.AutonityContractConfig.Validators[0:1]
-	ethashChainConfig.AutonityContractConfig.Prepare()
+	ethashChainConfig.Prepare()
 
 	tendermintChainConfig = params.TestChainConfig
 	tendermintChainConfig.Ethash = nil
@@ -102,7 +102,7 @@ func init() {
 	tendermintChainConfig.AutonityContractConfig.Validators[0].ConsensusKey = testConsensusKey.PublicKey().Marshal()
 	tendermintChainConfig.AutonityContractConfig.Validators[0].Enode = enode.NewV4(&testUserKey.PublicKey, nil, 0, 0).URLv4()
 	tendermintChainConfig.AutonityContractConfig.Validators = tendermintChainConfig.AutonityContractConfig.Validators[0:1]
-	tendermintChainConfig.AutonityContractConfig.Prepare()
+	tendermintChainConfig.Prepare()
 
 	tx1, _ := types.SignTx(types.NewTransaction(0, testUserAddress, big.NewInt(1000), params.TxGas, big.NewInt(params.InitialBaseFee), nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
 	pendingTxs = append(pendingTxs, tx1)

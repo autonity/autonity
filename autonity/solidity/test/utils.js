@@ -4,6 +4,7 @@ const config = require('./config');
 const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
+const OmissionAccountability = artifacts.require("OmissionAccountability");
 const UpgradeManager = artifacts.require("UpgradeManager");
 const Oracle = artifacts.require("Oracle")
 const Acu = artifacts.require("ACU")
@@ -19,6 +20,7 @@ const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
 const ethers = require('ethers');
 const truffleAssert = require('truffle-assertions');
+const {SLASHING_RATE_PRECISION} = require("./config");
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
@@ -207,8 +209,8 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
   return AutonityTest.new(validators, autonityConfig, deployer);
 }
 
-async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator) {
-  await autonity.finalizeInitialization({from: deployer});
+async function initialize(autonity, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator) {
+  await autonity.finalizeInitialization(omissionAccountabilityConfig.delta,{from:deployer});
 
   // accountability contract
   const accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
@@ -230,17 +232,22 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
 
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
   
+  // omission accountability contract
+  let treasuries = validators.map((item, index) => (item.treasury));
+  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, treasuries, omissionAccountabilityConfig, {from:deployer})
+
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});
   await autonity.setSupplyControlContract(acu.address, {from: operator});
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
+  await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator})
 }
 
 // deploys protocol contracts
 // set shortenEpoch = false if no need to call utils.endEpoch
-const deployContracts = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
+const deployContracts = async (validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, shortenEpoch = true) => {
     // we deploy first the inflation controller contract because it requires a genesis timestamp
     // greater than the one of the autonity contract. This is obviously not going to happen for a real network but
     // we can't really simulate a proper genesis sequence with truffle. As consequence all calculations
@@ -251,21 +258,20 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
     // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
     await autonity.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
+    await initialize(autonity, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     return autonity;
 };
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 // set shortenEpoch = false if no need to call utils.endEpoch
-const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
+const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
 
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
 
     // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
-
-    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
+    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     return autonityTest;
 };
 
@@ -405,7 +411,7 @@ async function slash(config, accountability, epochOffenceCount, offender, report
     txEvent = ev;
     return ev.amount.toNumber() > 0;
   });
-  let slashingRate = ruleToRate(config, event.rule) / config.slashingRatePrecision;
+  let slashingRate = ruleToRate(config, event.rule) / SLASHING_RATE_PRECISION;
   return {txEvent, slashingRate};
 }
 

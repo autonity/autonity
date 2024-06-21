@@ -17,19 +17,19 @@ func TestExample1(t *testing.T) {
 	validators, consumed, err := r.Autonity.GetValidators(nil)
 	require.NoError(t, err)
 	require.Equal(t, *params.TestAutonityContractConfig.Validators[0].NodeAddress, validators[0])
-	require.LessOrEqual(t, consumed, uint64(2000))
+	require.LessOrEqual(t, consumed, uint64(2100))
 }
 
 func TestExample2(t *testing.T) {
 	// Setup phase ....
 	r := Setup(t, nil)
-	_, err := r.Autonity.Mint(Operator, User, common.Big2)
+	_, err := r.Autonity.Mint(r.Operator, User, common.Big2)
 	require.NoError(t, err)
 	// End setup - state snapshot here
 	r.Run("sub-test1", func(r *Runner) {
 		balance, _, _ := r.Autonity.BalanceOf(nil, User)
 		require.Equal(r.T, common.Big2, balance)
-		_, _ = r.Autonity.Mint(Operator, User, common.Big1)
+		_, _ = r.Autonity.Mint(r.Operator, User, common.Big1)
 		balance, _, _ = r.Autonity.BalanceOf(nil, User)
 		require.Equal(r.T, common.Big3, balance)
 	})
@@ -44,7 +44,7 @@ func TestSetOperatorAccount(t *testing.T) {
 	r.Run("setOperatorAccount is restricted to Autonity contract", func(r *Runner) {
 		_, err := r.UpgradeManager.SetOperator(&runOptions{origin: User}, User)
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
-		_, err = r.UpgradeManager.SetOperator(Operator, User)
+		_, err = r.UpgradeManager.SetOperator(r.Operator, User)
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 		_, err = r.UpgradeManager.SetOperator(&runOptions{origin: r.Autonity.address}, User)
 		require.NoError(r.T, err)
@@ -69,13 +69,13 @@ func TestUpgrade(t *testing.T) {
 	})
 	r.Run("upgrade target contract", func(r *Runner) {
 		// deploy first dummy contract
-		_, _, base, err := r.DeployTestBase(Operator, "v1")
+		_, _, base, err := r.DeployTestBase(r.Operator, "v1")
 		require.NoError(r.T, err, base)
 		v1string, _, _ := base.Foo(nil)
 		require.Equal(r.T, v1string, "v1")
 		calldata := makeCalldata(TestUpgradedMetaData, "hello", "v2")
 		// call the replace function
-		gas, err := r.UpgradeManager.Upgrade(Operator, base.address, string(calldata))
+		gas, err := r.UpgradeManager.Upgrade(r.Operator, base.address, string(calldata))
 		require.NoError(r.T, err)
 		r.T.Log("gas consumed:", gas)
 		// check if base has been updated
@@ -86,14 +86,14 @@ func TestUpgrade(t *testing.T) {
 	r.Run("upgrade autonity contract", func(r *Runner) {
 		calldata := makeCalldata(AutonityUpgradeTestMetaData)
 		r.T.Log("upgrade autonity: calldata size:", len(calldata)/1000, "kB")
-		gas, err := r.UpgradeManager.Upgrade(Operator, r.Autonity.address, string(calldata))
+		gas, err := r.UpgradeManager.Upgrade(r.Operator, r.Autonity.address, string(calldata))
 		require.NoError(r.T, err)
 		r.T.Log("upgrade autonity: gas consumed:", gas)
 		cfg, _, err := r.Autonity.Config(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, cfg.ContractVersion.Uint64(), common.Big2.Uint64())
 		// test the hot patched _transfer operation, see AutonityUpgradeTest.sol
-		r.Autonity.Transfer(Operator, User, big.NewInt(50))
+		r.Autonity.Transfer(r.Operator, User, big.NewInt(50))
 		balance, _, _ := r.Autonity.BalanceOf(nil, User)
 		require.Equal(r.T, balance.Uint64(), big.NewInt(100).Uint64())
 	})

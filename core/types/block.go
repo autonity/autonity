@@ -19,7 +19,9 @@ package types
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"io"
 	"math/big"
 	"reflect"
@@ -33,8 +35,11 @@ import (
 )
 
 var (
-	EmptyRootHash  = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	EmptyUncleHash = rlpHash([]*Header(nil))
+	EmptyRootHash                = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	EmptyUncleHash               = rlpHash([]*Header(nil))
+	errInvalidSignature          = errors.New("aggregate signature is invalid")
+	ErrNonAggregatablePublicKeys = errors.New("provided public keys cannot be aggregated")
+	errNoQuorum                  = errors.New("aggregate signature does not contain quorum voting power")
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
@@ -87,14 +92,15 @@ type Header struct {
 	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
 	BaseFee *big.Int `json:"baseFeePerGas"`
 
-	/*
-		PoS header fields, round & quorumCertificate not taken into account
-		for computing the sigHash.
-	*/
-	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	Epoch             *Epoch             `json:"epoch"               gencodec:"optional"`
+	// autonity custom fields
+	ProposerSeal       []byte `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64 `json:"round"               gencodec:"required"`
+	ActivityProofRound uint64 `json:"activityProofRound"  gencodec:"required"`
+	// the following fields will be left nil if they were nil when encoded.
+	// see the headerExtra struct for rlp:nil tags and the custom decodeRLP method for Header. This is where sanity checks are done.
+	QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"optional"`
+	Epoch             *Epoch              `json:"epoch"               gencodec:"optional"`
+	ActivityProof     *AggregateSignature `json:"activityProof"       gencodec:"optional"`
 }
 
 type AggregateSignature struct {
@@ -105,12 +111,55 @@ type AggregateSignature struct {
 	Signers   *Signers           `rlp:"nil"`
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) AggregateSignature {
-	return AggregateSignature{Signature: signature, Signers: signers}
+func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) *AggregateSignature {
+	return &AggregateSignature{Signature: signature, Signers: signers}
 }
 
-func (a AggregateSignature) Copy() AggregateSignature {
-	return AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
+func (a *AggregateSignature) Copy() *AggregateSignature {
+	return &AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
+}
+
+func (a *AggregateSignature) Malformed() bool {
+	return a.Signature == nil || a.Signers == nil || len(a.Signers.Bits) == 0
+}
+
+// validates the aggregate signature. It does not modify any internal data structure nor does any caching
+// returns map of signers and total power of the signers
+func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
+	// validate signers information first
+	distinctSigners, err := a.Signers.validate(committee.Len())
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
+	}
+
+	// verify signature
+	flattenedIndexes := a.Signers.flatten(committee.Len())
+	keys := make([]blst.PublicKey, len(flattenedIndexes))
+	for i, index := range flattenedIndexes {
+		keys[i] = committee.Members[index].ConsensusKey
+	}
+	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	if err != nil {
+		return nil, nil, errors.Join(ErrNonAggregatablePublicKeys, err)
+	}
+	valid := a.Signature.Verify(aggregatedKey, message[:])
+	if !valid {
+		return nil, nil, errInvalidSignature
+	}
+
+	// Total assembled voting power for the activity proof
+	power := new(big.Int)
+	signers := make(map[common.Address]struct{}, distinctSigners)
+	for _, index := range a.Signers.flattenUniq(committee.Len()) {
+		power.Add(power, committee.Members[index].VotingPower)
+		signers[committee.Members[index].Address] = struct{}{}
+	}
+
+	if checkQuorum && power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
+		return nil, nil, errNoQuorum
+	}
+
+	return signers, power, nil
 }
 
 // originalHeader represents the ethereum blockchain header.
@@ -142,10 +191,13 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	Epoch             *Epoch             `rlp:"nil"                  gencodec:"required"`
+	ProposerSeal       []byte `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64 `json:"round"               gencodec:"required"`
+	ActivityProofRound uint64 `json:"activityProofRound"  gencodec:"required"`
+
+	QuorumCertificate *AggregateSignature `rlp:"nil" json:"quorumCertificate" gencodec:"required"`
+	Epoch             *Epoch              `rlp:"nil" json:"epoch"             gencodec:"required"`
+	ActivityProof     *AggregateSignature `rlp:"nil" json:"activityProof"     gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -165,8 +217,9 @@ type headerMarshaling struct {
 	/*
 		PoS header fields type overrides
 	*/
-	ProposerSeal hexutil.Bytes
-	Round        hexutil.Uint64
+	ProposerSeal       hexutil.Bytes
+	Round              hexutil.Uint64
+	ActivityProofRound hexutil.Uint64
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -194,6 +247,11 @@ func (h *Header) IsEpochHeader() bool {
 	return h.Epoch != nil
 }
 
+// returns true if the block contains a quorum certificate or a finalization round
+func (h *Header) HasCommitInformation() bool {
+	return h.QuorumCertificate != nil || h.Round != 0
+}
+
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
 
 // Size returns the approximate memory used by all internal contents. It is used
@@ -202,11 +260,11 @@ func (h *Header) Size() common.StorageSize {
 	return headerSize + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen())/8)
 }
 
-// SanityCheck checks a few basic things -- these checks are way beyond what
+// sanityCheck checks a few basic things -- these checks are way beyond what
 // any 'sane' production values should hold, and can mainly be used to prevent
 // that the unbounded fields are stuffed with junk data to add processing
 // overhead
-func (h *Header) SanityCheck() error {
+func (h *Header) sanityCheck() error {
 	if h.Number != nil && !h.Number.IsUint64() {
 		return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
 	}
@@ -225,9 +283,8 @@ func (h *Header) SanityCheck() error {
 	}
 
 	// check sanity of epoch info if the header is an epoch header.
+	// assumes sanity nil checks have already been done
 	if h.IsEpochHeader() {
-		// the integrity of epoch was checked already in rlp decoding phase,
-		// thus the fields of epoch shouldn't be nil, we check the sanity of epoch at here.
 		if !h.Epoch.PreviousEpochBlock.IsUint64() {
 			return fmt.Errorf("too large previous epoch block number: bitlen %d", h.Epoch.PreviousEpochBlock.BitLen())
 		}
@@ -236,12 +293,20 @@ func (h *Header) SanityCheck() error {
 			return fmt.Errorf("too large next epoch block number: bitlen %d", h.Epoch.NextEpochBlock.BitLen())
 		}
 
+		if !h.Epoch.Delta.IsUint64() {
+			return fmt.Errorf("too large next epoch delta: bitlen %d", h.Epoch.Delta.BitLen())
+		}
+
 		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) > 0 {
 			return fmt.Errorf("previous epoch block number %d is larger than current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
 		}
 
-		if h.Number.Cmp(h.Epoch.NextEpochBlock) > 0 {
-			return fmt.Errorf("current epoch block number %d is larger than next epoch block number %d", h.Number.Uint64(), h.Epoch.NextEpochBlock.Uint64())
+		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) == 0 && !h.IsGenesis() { // genesis is allowed to have previousEpochBlock == epochBlock == common.Big0
+			return fmt.Errorf("previous epoch block number %d is equal to current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
+		}
+
+		if h.Number.Cmp(h.Epoch.NextEpochBlock) >= 0 {
+			return fmt.Errorf("current epoch block number %d is larger or equal than next epoch block number %d", h.Number.Uint64(), h.Epoch.NextEpochBlock.Uint64())
 		}
 	}
 	return nil
@@ -264,28 +329,52 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		if err != nil {
 			return err
 		}
+
+		// sanity nil checks
+		if hExtra.QuorumCertificate != nil && hExtra.QuorumCertificate.Malformed() {
+			return fmt.Errorf("malformed header quorum certificate")
+		}
+
+		if hExtra.ActivityProof != nil && hExtra.ActivityProof.Malformed() {
+			return fmt.Errorf("malformed header activity proof")
+		}
+
+		if hExtra.ActivityProof == nil && hExtra.ActivityProofRound != 0 {
+			return fmt.Errorf("activity proof round should be 0 if proof is empty")
+		}
+
+		if hExtra.Epoch != nil {
+			if hExtra.Epoch.Committee == nil {
+				return fmt.Errorf("committee should not be nil")
+			}
+
+			if len(hExtra.Epoch.Committee.Members) == 0 {
+				return fmt.Errorf("no members in committee set")
+			}
+
+			if err = hExtra.Epoch.Committee.Enrich(); err != nil {
+				return fmt.Errorf("error while deserializing consensus keys: %w", err)
+			}
+
+			if hExtra.Epoch.PreviousEpochBlock == nil || hExtra.Epoch.NextEpochBlock == nil {
+				return fmt.Errorf("invalid epoch boundary")
+			}
+
+			if hExtra.Epoch.Delta == nil {
+				return fmt.Errorf("invalid epoch delta")
+			}
+
+			if hExtra.Epoch.Delta.Cmp(common.Big0) == 0 {
+				return fmt.Errorf("epoch delta is zero")
+			}
+		}
+
 		h.QuorumCertificate = hExtra.QuorumCertificate
+		h.ActivityProof = hExtra.ActivityProof
+		h.ActivityProofRound = hExtra.ActivityProofRound
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
 		h.Epoch = hExtra.Epoch
-
-		if h.IsEpochHeader() {
-			if h.Epoch.Committee == nil {
-				return fmt.Errorf("committee shouldn't be nil")
-			}
-
-			if err = h.Epoch.Committee.Enrich(); err != nil {
-				return err
-			}
-
-			if len(h.Epoch.Committee.Members) == 0 {
-				return fmt.Errorf("no validator in committee set")
-			}
-
-			if h.Epoch.PreviousEpochBlock == nil || h.Epoch.NextEpochBlock == nil {
-				return fmt.Errorf("invalid epoch boundary")
-			}
-		}
 	} else {
 		h.Extra = origin.Extra
 	}
@@ -306,6 +395,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.Nonce = origin.Nonce
 	h.BaseFee = origin.BaseFee
 
+	if err := h.sanityCheck(); err != nil {
+		return fmt.Errorf("failed sanity check: %w", err)
+	}
+
 	return nil
 }
 
@@ -321,10 +414,12 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 // extra data.
 func (h *Header) EncodeRLP(w io.Writer) error {
 	hExtra := headerExtra{
-		ProposerSeal:      h.ProposerSeal,
-		Round:             h.Round,
-		QuorumCertificate: h.QuorumCertificate,
-		Epoch:             h.Epoch,
+		ProposerSeal:       h.ProposerSeal,
+		Round:              h.Round,
+		QuorumCertificate:  h.QuorumCertificate,
+		Epoch:              h.Epoch,
+		ActivityProof:      h.ActivityProof,
+		ActivityProofRound: h.ActivityProofRound,
 	}
 
 	original := h.original()
@@ -484,35 +579,44 @@ func CopyHeader(h *Header) *Header {
 		copy(proposerSeal, h.ProposerSeal)
 	}
 
-	quorumCertificate := AggregateSignature{}
-	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Signers != nil {
+	var quorumCertificate *AggregateSignature
+	if h.QuorumCertificate != nil {
 		quorumCertificate = h.QuorumCertificate.Copy()
 	}
 
-	cpy := &Header{
-		ParentHash:        h.ParentHash,
-		UncleHash:         h.UncleHash,
-		Coinbase:          h.Coinbase,
-		Root:              h.Root,
-		TxHash:            h.TxHash,
-		ReceiptHash:       h.ReceiptHash,
-		Bloom:             h.Bloom,
-		Difficulty:        difficulty,
-		Number:            number,
-		GasLimit:          h.GasLimit,
-		GasUsed:           h.GasUsed,
-		Time:              h.Time,
-		Extra:             extra,
-		MixDigest:         h.MixDigest,
-		Nonce:             h.Nonce,
-		ProposerSeal:      proposerSeal,
-		BaseFee:           baseFee,
-		Round:             h.Round,
-		QuorumCertificate: quorumCertificate,
+	var activityProof *AggregateSignature
+	if h.ActivityProof != nil {
+		activityProof = h.ActivityProof.Copy()
 	}
 
+	var epoch *Epoch
 	if h.Epoch != nil {
-		cpy.Epoch = h.Epoch.Copy()
+		epoch = h.Epoch.Copy()
+	}
+
+	cpy := &Header{
+		ParentHash:         h.ParentHash,
+		UncleHash:          h.UncleHash,
+		Coinbase:           h.Coinbase,
+		Root:               h.Root,
+		TxHash:             h.TxHash,
+		ReceiptHash:        h.ReceiptHash,
+		Bloom:              h.Bloom,
+		Difficulty:         difficulty,
+		Number:             number,
+		GasLimit:           h.GasLimit,
+		GasUsed:            h.GasUsed,
+		Time:               h.Time,
+		Extra:              extra,
+		MixDigest:          h.MixDigest,
+		Nonce:              h.Nonce,
+		ProposerSeal:       proposerSeal,
+		BaseFee:            baseFee,
+		Round:              h.Round,
+		QuorumCertificate:  quorumCertificate,
+		Epoch:              epoch,
+		ActivityProof:      activityProof,
+		ActivityProofRound: h.ActivityProofRound,
 	}
 
 	return cpy
@@ -561,17 +665,18 @@ func (b *Block) GasUsed() uint64      { return b.header.GasUsed }
 func (b *Block) Difficulty() *big.Int { return new(big.Int).Set(b.header.Difficulty) }
 func (b *Block) Time() uint64         { return b.header.Time }
 
-func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
-func (b *Block) MixDigest() common.Hash   { return b.header.MixDigest }
-func (b *Block) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
-func (b *Block) Bloom() Bloom             { return b.header.Bloom }
-func (b *Block) Coinbase() common.Address { return b.header.Coinbase }
-func (b *Block) Root() common.Hash        { return b.header.Root }
-func (b *Block) ParentHash() common.Hash  { return b.header.ParentHash }
-func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
-func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
-func (b *Block) UncleHash() common.Hash   { return b.header.UncleHash }
-func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+func (b *Block) NumberU64() uint64          { return b.header.Number.Uint64() }
+func (b *Block) MixDigest() common.Hash     { return b.header.MixDigest }
+func (b *Block) Nonce() uint64              { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
+func (b *Block) Bloom() Bloom               { return b.header.Bloom }
+func (b *Block) Coinbase() common.Address   { return b.header.Coinbase }
+func (b *Block) Root() common.Hash          { return b.header.Root }
+func (b *Block) ParentHash() common.Hash    { return b.header.ParentHash }
+func (b *Block) TxHash() common.Hash        { return b.header.TxHash }
+func (b *Block) ReceiptHash() common.Hash   { return b.header.ReceiptHash }
+func (b *Block) UncleHash() common.Hash     { return b.header.UncleHash }
+func (b *Block) Extra() []byte              { return common.CopyBytes(b.header.Extra) }
+func (b *Block) HasCommitInformation() bool { return b.header.HasCommitInformation() }
 
 func (b *Block) BaseFee() *big.Int {
 	if b.header.BaseFee == nil {
@@ -596,12 +701,6 @@ func (b *Block) Size() common.StorageSize {
 	rlp.Encode(&c, b)
 	b.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
-}
-
-// SanityCheck can be used to prevent that unbounded fields are
-// stuffed with junk data to add processing overhead
-func (b *Block) SanityCheck() error {
-	return b.header.SanityCheck()
 }
 
 func (b *Block) IsEpochHead() bool { return b.header.IsEpochHeader() }

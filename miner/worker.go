@@ -866,16 +866,13 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 
 	var (
 		optimisticCandidate bool
-		parentHeader        *types.Header
 	)
 
 	// Find the parent block for sealing task
 	if parent == nil {
 		parent = w.chain.CurrentBlock()
-		parentHeader = parent.Header()
 	} else {
 		optimisticCandidate = true
-		parentHeader = parent.Header()
 	}
 
 	if genParams.parentHash != (common.Hash{}) {
@@ -883,7 +880,6 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 		if parent == nil {
 			return nil, fmt.Errorf("missing parent")
 		}
-		parentHeader = parent.Header()
 	}
 
 	if parent == nil {
@@ -923,11 +919,7 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)
 		}
 	}
-	// Run the consensus preparation with the default or customized consensus engine.
-	if err := w.engine.Prepare(w.chain, parentHeader, header); err != nil {
-		log.Error("Failed to prepare header for sealing", "err", err)
-		return nil, err
-	}
+
 	// Could potentially happen if starting to mine in an odd state.
 	// Note genParams.coinbase can be different with header.Coinbase
 	// since clique algorithm can modify the coinbase field in header.
@@ -936,6 +928,13 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 		w.eth.Logger().Error("Failed to create sealing context", "err", err)
 		return nil, err
 	}
+
+	// Run the consensus preparation with the default or customized consensus engine.
+	if err := w.engine.Prepare(w.chain, env.parentHeader, env.header, env.state); err != nil {
+		log.Error("Failed to prepare header for sealing", "err", err)
+		return nil, err
+	}
+
 	return env, nil
 }
 

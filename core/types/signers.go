@@ -29,8 +29,8 @@ var (
 	ErrInvalidSingleSig    = errors.New("individual signature has coefficient != 1")
 	ErrInvalidCoefficient  = errors.New("coefficient exceeds maximum boundary (committee size)")
 
-	ErrNotValidated  = errors.New("Using un-validated signers information")
-	ErrDifferentSize = errors.New("Comparing signers information with different committee size")
+	ErrNotValidated  = errors.New("using un-validated signers information")
+	ErrDifferentSize = errors.New("comparing signers information with different committee size")
 )
 
 // represents the senders of an aggregated signature
@@ -123,14 +123,28 @@ func (vb validatorBitmap) Set(validatorIndex int, value byte) {
 
 // validates the sender info, used to ensure received aggregates have correctly sized buffers
 func (s *Signers) Validate(committeeSize int) error {
+	distinctSigners, err := s.validate(committeeSize)
+	if err != nil {
+		return err
+	}
+
+	s.committeeSize = committeeSize
+	s.length = distinctSigners
+	s.validated = true
+	return nil
+}
+
+// validates the signer information and returns the number of distinct signers
+// it does not mutate the signers state
+func (s *Signers) validate(committeeSize int) (int, error) {
 	// whether locally created or received from wire, Bits and Coefficients are never nil
 	if s.Bits == nil || s.Coefficients == nil {
-		return ErrNilSigners
+		return 0, ErrNilSigners
 	}
 
 	// length safety check
 	if !s.Bits.Valid(committeeSize) || len(s.Coefficients) > committeeSize {
-		return ErrWrongSizeSigners
+		return 0, ErrWrongSizeSigners
 	}
 
 	// gather data about signers bits
@@ -150,30 +164,26 @@ func (s *Signers) Validate(committeeSize int) error {
 
 	// there has to be at least a signer
 	if sum == 0 {
-		return ErrEmptySigners
+		return 0, ErrEmptySigners
 	}
 
 	// len(s.Coefficients) should be the same as the number of elements with value 11 in s.Bits
 	if len(s.Coefficients) != countLong {
-		return ErrWrongCoefficientLen
+		return 0, ErrWrongCoefficientLen
 	}
 
 	// if individual signature, its coefficient should be one (01)
 	if countNonZero == 1 && sum != 1 {
-		return ErrInvalidSingleSig
+		return 0, ErrInvalidSingleSig
 	}
 
 	// check that all coefficients respect the maximum allowed boundary (committeeSize)
 	for _, coefficient := range s.Coefficients {
 		if int(coefficient) > committeeSize {
-			return ErrInvalidCoefficient
+			return 0, ErrInvalidCoefficient
 		}
 	}
-
-	s.committeeSize = committeeSize
-	s.length = countNonZero
-	s.validated = true
-	return nil
+	return countNonZero, nil
 }
 
 func (s *Signers) Contains(index int) bool {
@@ -407,9 +417,12 @@ func (s *Signers) AssignPower(powers map[int]*big.Int, power *big.Int) {
 }
 
 func (s *Signers) Copy() *Signers {
-	powers := make(map[int]*big.Int)
-	for index, power := range s.powers {
-		powers[index] = new(big.Int).Set(power)
+	var powers map[int]*big.Int
+	if s.powers != nil {
+		powers = make(map[int]*big.Int, len(s.powers))
+		for index, power := range s.powers {
+			powers[index] = new(big.Int).Set(power)
+		}
 	}
 	return &Signers{
 		Bits:          append(s.Bits[:0:0], s.Bits...),
@@ -430,10 +443,15 @@ func (s *Signers) Flatten() []int {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
+	return s.flatten(s.committeeSize)
+}
+
+// it is responsibility of the caller to pass the correct committee size
+func (s *Signers) flatten(committeeSize int) []int {
 	var indexes []int
 	count := 0
 Loop:
-	for i := 0; i < s.committeeSize; i++ {
+	for i := 0; i < committeeSize; i++ {
 		value := s.Bits.Get(i)
 		switch value {
 		case noSignature:
@@ -458,8 +476,13 @@ func (s *Signers) FlattenUniq() []int {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
+	return s.flattenUniq(s.committeeSize)
+}
+
+// it is responsibility of the caller to pass the correct committee size
+func (s *Signers) flattenUniq(committeeSize int) []int {
 	var indexes []int
-	for i := 0; i < s.committeeSize; i++ {
+	for i := 0; i < committeeSize; i++ {
 		if s.Bits.Get(i) > noSignature {
 			indexes = append(indexes, i)
 		}
@@ -501,7 +524,6 @@ func (s *Signers) Powers() map[int]*big.Int {
 	return s.powers
 }
 
-// Len returns how many committee members the Signers contains
 func (s *Signers) CommitteeSize() int {
 	if !s.validated {
 		panic("Using un-validated signers information")

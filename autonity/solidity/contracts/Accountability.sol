@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import "./interfaces/IAccountability.sol";
 import "./Autonity.sol";
+import {Slasher} from "./Slasher.sol";
 
 contract Accountability is IAccountability {
 
@@ -15,7 +16,6 @@ contract Accountability is IAccountability {
         uint256 collusionFactor;
         uint256 historyFactor;
         uint256 jailFactor;
-        uint256 slashingRatePrecision;
     }
 
     uint256 public epochPeriod;
@@ -73,6 +73,9 @@ contract Accountability is IAccountability {
 
     mapping(address => uint256[]) private validatorFaults;
 
+    // number of times a validator has been slashed in the past
+    mapping(address => uint256) public history;
+
     // validatorAccusation maps a validator with an accusation
     // the id is incremented by one to handle the special case id = 0.
     mapping(address => uint256) private validatorAccusation;
@@ -94,7 +97,7 @@ contract Accountability is IAccountability {
 
     constructor(address payable _autonity, Config memory _config) {
         autonity = Autonity(_autonity);
-        epochPeriod = autonity.getEpochPeriod();
+        epochPeriod = autonity.getCurrentEpochPeriod();
         Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
         for (uint256 i=0; i < committee.length; i++) {
             curCommittee.push(committee[i].addr);
@@ -335,101 +338,33 @@ contract Accountability is IAccountability {
     * @dev Emit a {SlashingEvent} event for the fined account
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
-        // The assumption here is that the node hasn't been slashed yet for the proof's epoch.
-        //_val must be returned - no error check
-        Autonity.Validator memory _val = autonity.getValidator(_event.offender);
+        address offender = _event.offender;
+
         // last reporter is the beneficiary
-        beneficiaries[_event.offender] = _event.reporter;
+        beneficiaries[offender] = _event.reporter;
 
         // if already jailbound, validator has 0 stake
-        if (_val.state == ValidatorState.jailbound) {
+        if (autonity.getValidatorState(offender) == ValidatorState.jailbound) {
             return;
         }
 
-        uint256 _baseRate = _baseSlashingRate(_ruleSeverity(_event.rule));
-        uint256 _history = _val.provableFaultCount;
+        uint256 baseRate = _baseSlashingRate(_ruleSeverity(_event.rule));
 
-        uint256 _slashingRate = _baseRate +
+        uint256 slashingRate = baseRate +
             (_epochOffencesCount * config.collusionFactor) +
-            ( _history * config.historyFactor);
+            (history[offender] * config.historyFactor);
 
-        if(_slashingRate > config.slashingRatePrecision) {
-            _slashingRate = config.slashingRatePrecision;
-        }
+        history[offender] += 1;
+        uint256 jailtime = config.jailFactor * history[offender] * epochPeriod;
 
-        uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
-        uint256 _slashingAmount =  (_slashingRate * _availableFunds)/config.slashingRatePrecision;
-
-        // in case of 100% slash, we jailbound the validator
-        if (_slashingAmount > 0 && _slashingAmount == _availableFunds) {
-            _val.bondedStake = 0;
-            _val.selfBondedStake = 0;
-            _val.selfUnbondingStake = 0;
-            _val.unbondingStake = 0;
-            _val.totalSlashed += _slashingAmount;
-            _val.provableFaultCount += 1;
-            _val.state = ValidatorState.jailbound;
-            _val.jailReleaseBlock = 0;
-            autonity.updateValidatorAndTransferSlashedFunds(_val);
-            emit SlashingEvent(_val.nodeAddress, _slashingAmount, 0, true, _event.id);
-            return;
-        }
-        uint256 _remaining = _slashingAmount;
-        // -------------------------------------------
-        // Implementation of Penalty Absorbing Stake
-        // -------------------------------------------
-        // Self-unbonding stake gets slashed in priority.
-        if(_val.selfUnbondingStake >= _remaining){
-            _val.selfUnbondingStake -= _remaining;
-            _remaining = 0;
-        } else {
-            _remaining -= _val.selfUnbondingStake;
-            _val.selfUnbondingStake = 0;
-        }
-        // Then self-bonded stake
-        if (_remaining > 0){
-            if(_val.selfBondedStake >= _remaining) {
-                _val.selfBondedStake -= _remaining;
-                _val.bondedStake -= _remaining;
-                _remaining = 0;
-            } else {
-                _remaining -= _val.selfBondedStake;
-                _val.bondedStake -= _val.selfBondedStake;
-                _val.selfBondedStake = 0;
-            }
-        }
-        // --------------------------------------------
-        // Remaining stake to be slashed is split equally between the delegated
-        // stake pool and the non-self unbonding stake pool.
-        // As a reminder, the delegated stake pool is bondedStake - selfBondedStake.
-        // if _remaining > 0 then bondedStake = delegated stake, because all selfBondedStake is slashed
-        if (_remaining > 0 && (_val.unbondingStake + _val.bondedStake > 0)) {
-            // as we cannot store fraction here, we are taking floor for both unbondingSlash and delegatedSlash
-            // In case both variable unbondingStake and bondedStake are positive, this modification
-            // will ensure that no variable reaches 0 too fast where the other one is too big. In this case both variables
-            // will reach 0 only when slashed 100%.
-            // That means the fairness issue: https://github.com/autonity/autonity/issues/819 will only be triggered
-            // if 100% stake is slashed
-            uint256 _unbondingSlash = (_remaining * _val.unbondingStake) /
-                                        (_val.unbondingStake + _val.bondedStake);
-            uint256 _delegatedSlash = (_remaining * _val.bondedStake) /
-                                        (_val.unbondingStake + _val.bondedStake);
-            _val.unbondingStake -= _unbondingSlash;
-            _val.bondedStake -= _delegatedSlash;
-            _remaining -= _unbondingSlash + _delegatedSlash;
-
-        }
-
-        // if positive amount remains
-        _slashingAmount -= _remaining;
-        _val.totalSlashed += _slashingAmount;
-        _val.provableFaultCount += 1;
-        _val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
-        _val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
-
-        autonity.updateValidatorAndTransferSlashedFunds(_val);
-
-        emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false, _event.id);
+        (uint256 slashingAmount, uint256 jailReleaseBlock, bool isJailbound) = autonity.slashAndJail(
+            offender,
+            slashingRate,
+            jailtime,
+            ValidatorState.jailed,
+            ValidatorState.jailbound
+        );
+        emit SlashingEvent(offender, slashingAmount, jailReleaseBlock, isJailbound, _event.id);
     }
 
     /**
@@ -504,7 +439,7 @@ contract Accountability is IAccountability {
     }
 
     function _baseSlashingRate(uint256 _severity) internal view returns (uint256) {
-        //
+        // TODO: complete
         if (_severity == uint256(Severity.Minor)) {
             return config.baseSlashingRateMid;
         }
@@ -568,7 +503,7 @@ contract Accountability is IAccountability {
     * @dev Modifier that checks if the caller is the slashing contract.
     */
     modifier onlyAutonity {
-        require(msg.sender == address(autonity) , "function restricted to the autonity protocol contract");
+        require(msg.sender == address(autonity) , "function restricted to the Autonity protocol contract");
         _;
     }
 

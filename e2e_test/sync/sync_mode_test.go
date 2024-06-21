@@ -4,6 +4,7 @@ import (
 	"context"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -46,6 +47,7 @@ func testSyncMode(t *testing.T, mode downloader.SyncMode) {
 	require.Greater(t, epoch.PreviousEpochBlock.Uint64(), uint64(0))
 	require.Greater(t, epoch.EpochBlock.Uint64(), epoch.PreviousEpochBlock.Uint64())
 	require.NotEqual(t, epoch.NextEpochBlock.Uint64(), epoch.EpochBlock.Uint64())
+	require.Equal(t, params.DefaultOmissionAccountabilityConfig.Delta, epoch.Delta.Uint64())
 
 	err = syncNode.Close(true)
 	require.NoError(t, err)

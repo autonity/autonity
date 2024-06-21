@@ -1182,7 +1182,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	quorumCertificateSigners.Merge(precommit.Signers())
 	quorumCertificateSignature := blst.AggregateSignatures([]blst.Signature{quorumPrecommitMsg.Signature(), precommit.Signature()})
 	backendMock.EXPECT().Commit(proposal.Block(), e.curRound, gomock.Any()).Do(
-		func(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) {
+		func(proposalBlock *types.Block, round int64, quorumCertificate *types.AggregateSignature) {
 			if quorumCertificateSignature.Hex() != quorumCertificate.Signature.Hex() {
 				t.Fatal("quorum certificate has wrong signature")
 			}
@@ -1299,8 +1299,7 @@ func sealProposal(t *testing.T, b *types.Block, c interfaces.Committee, keys Add
 	hashData := types.SigHash(h)
 	signature, err := crypto.Sign(hashData[:], keys[c.Committee().Members[signerIndex].Address].node)
 	require.NoError(t, err)
-	err = types.WriteSeal(h, signature)
-	require.NoError(t, err)
+	h.ProposerSeal = signature
 	*b = *b.WithSeal(h)
 }
 

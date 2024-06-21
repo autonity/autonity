@@ -19,6 +19,7 @@ package message
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/metrics"
 	"math/big"
 	"sort"
 
@@ -35,6 +36,9 @@ var (
 	ErrBadSignature            = errors.New("bad signature")
 	ErrUnauthorizedAddress     = errors.New("unauthorized address")
 	ErrInvalidComplexAggregate = errors.New("complex aggregate does not carry quorum")
+
+	// messages that have been discarded from aggregation due to coefficient breaching
+	boundaryBreaching = metrics.NewRegisteredMeter("aggregation/discarded/boundary", nil)
 )
 
 const (
@@ -179,6 +183,10 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	if ext.Height != ext.ProposalBlock.NumberU64() {
 		return constants.ErrInvalidMessage
 	}
+	// quorum certificate and commit round of a proposal should always be set to the default value
+	if ext.ProposalBlock.HasCommitInformation() {
+		return constants.ErrInvalidMessage
+	}
 	if ext.IsValidRoundNil {
 		if ext.ValidRound != 0 {
 			return constants.ErrInvalidMessage
@@ -189,14 +197,6 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 			return constants.ErrInvalidMessage
 		}
 		p.validRound = int64(ext.ValidRound)
-	}
-
-	// these checks ensure that nodes don't exploit the cached state, cache is indexed by block hash which
-	// excludes quorum certificate and round that allows nodes to send garbage for these values for pre-verified
-	// proposal
-	qc := ext.ProposalBlock.Header().QuorumCertificate
-	if qc.Signature != nil || qc.Signers != nil || ext.ProposalBlock.Header().Round != 0 {
-		return constants.ErrInvalidMessage
 	}
 
 	p.round = int64(ext.Round)
@@ -434,7 +434,7 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 	}
 
 	if err := v.signers.Validate(committee.Len()); err != nil {
-		return fmt.Errorf("Invalid signers information: %w", err)
+		return fmt.Errorf("invalid signers information: %w", err)
 	}
 
 	// compute aggregated key and auxiliary data structures
@@ -603,6 +603,11 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 			signers.Merge(vote.Signers())
 			signatures = append(signatures, vote.Signature())
 			publicKeys = append(publicKeys, vote.SignerKey())
+		} else {
+			// update discarded messages metrics if the vote was not merged due to boundary breaching
+			if !signers.RespectsBoundaries(vote.Signers()) {
+				boundaryBreaching.Mark(1)
+			}
 		}
 	}
 	aggregatedSignature := blst.Aggregate(signatures)

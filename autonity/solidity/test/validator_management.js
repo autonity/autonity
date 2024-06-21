@@ -6,6 +6,7 @@ const utils = require('./utils.js');
 const liquidStateContract = artifacts.require("ILiquid")
 const AccountabilityTest = artifacts.require("AccountabilityTest")
 const config = require('./config.js')
+const {SLASHING_RATE_PRECISION} = require("./config");
 
 contract('Autonity', function (accounts) {
 
@@ -19,6 +20,7 @@ contract('Autonity', function (accounts) {
     const treasuryAccount = accounts[8];
 
     const accountabilityConfig = config.ACCOUNTABILITY_CONFIG
+    const omissionAccountabilityConfig = config.OMISSION_ACCOUNTABILITY_CONFIG
     const genesisEnodes = config.GENESIS_ENODES
     const genesisNodeAddresses = config.GENESIS_NODE_ADDRESSES
     const baseValidator = config.BASE_VALIDATOR
@@ -36,7 +38,7 @@ contract('Autonity', function (accounts) {
         let consensusKey;
         let pop;
         beforeEach(async function () {
-            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
+            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
 
             const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test0.key`)
             const oracleKey = utils.randomPrivateKey();
@@ -207,7 +209,7 @@ contract('Autonity', function (accounts) {
             let customizedEpochPeriod = 20;
             copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
-            autonity = await utils.deployContracts(vals, copyParams, accountabilityConfig, deployer, operator);
+            autonity = await utils.deployContracts(vals, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
             assert.equal(customizedEpochPeriod,(await autonity.getEpochPeriod()).toNumber());
 
             const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test1.key`)
@@ -305,7 +307,7 @@ contract('Autonity', function (accounts) {
         });
         it('test more than committeeSize bonded validators, the ones with less stake should remain outside of the committee', async function() {
             // re-deploy with 4 validators instead of 1
-            autonity = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator);
+            autonity = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
 
             // set committeeSize to 0, minimum stake validator should be excluded
             await autonity.setCommitteeSize(3, {from: operator});
@@ -331,7 +333,7 @@ contract('Autonity', function (accounts) {
 
     describe('After effects of slashing, ', function () {
         beforeEach(async function () {
-            autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
+            autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
             accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
             await autonity.setAccountabilityContract(accountability.address, {from:operator});
         });
@@ -341,7 +343,7 @@ contract('Autonity', function (accounts) {
             // it should not happen for slashing amount < totalStake
             let config = JSON.parse(JSON.stringify(accountabilityConfig));
             // modifying config so we get slashingAmount = totalStake - 1, the highest slash possible without triggering fairness issue
-            const expectedBondedStake = parseInt(config.slashingRatePrecision);
+            const expectedBondedStake = SLASHING_RATE_PRECISION;
             const expectedSlash = expectedBondedStake - 1;
             config.collusionFactor = expectedSlash - parseInt(config.baseSlashingRateMid);
             accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});

@@ -550,7 +550,7 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	return hc.GetHeader(hash, number)
 }
 
-func (hc *HeaderChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+func (hc *HeaderChain) EpochOfHeight(height uint64, _ consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
 	epochHead := hc.CurrentHeadEpochHeader()
 	if epochHead == nil {
 		return nil, ErrMissingEpochHeader

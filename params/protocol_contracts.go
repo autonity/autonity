@@ -68,7 +68,36 @@ var (
 		CollusionFactor:                500,  // 5%
 		HistoryFactor:                  750,  // 7.5%
 		JailFactor:                     48,   // 1 day with 30 mins epoch
-		SlashingRatePrecision:          10_000,
+	}
+
+	/*
+	* 1. percentage values assume 10_000 as scaling factor
+	* 2. the following equation needs to be respected: pastPerformanceWeight <= InactivityThreshold
+	*    this ensures that a validator with 100% inactivity in epoch x and 0% inactivity in epoch x+n,
+	*    will not be considered inactive again at epoch x+n
+	* 3. lookbackWindow and delta needs to be >= 1
+	 */
+	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
+		InactivityThreshold:    1000,   // 10%
+		LookbackWindow:         40,     // 40 blocks
+		PastPerformanceWeight:  1000,   // 10%
+		InitialJailingPeriod:   10_000, // 10000 blocks
+		InitialProbationPeriod: 24,     // 24 epochs
+		InitialSlashingRate:    25,     // 0.25%
+		Delta:                  5,      // 5 blocks
+	}
+
+	// same as the previous one, but with InactivityThreshold raised to 50%.
+	// This is a very conservative threshold, and should be used for the first testnet we will run with omission enabled.
+	// the idea is to avoid mass jailings at network startup. We can then lower down the threshold to 10% gradually at network runtime.
+	ConservativeOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
+		InactivityThreshold:    5000,   // 50%
+		LookbackWindow:         40,     // 40 blocks
+		PastPerformanceWeight:  1000,   // 10%
+		InitialJailingPeriod:   10_000, // 10000 blocks
+		InitialProbationPeriod: 24,     // 24 epochs
+		InitialSlashingRate:    25,     // 0.25%
+		Delta:                  5,      // 5 blocks
 	}
 
 	DefaultNonStakeableVestingGenesis = &NonStakeableVestingGenesis{}
@@ -88,6 +117,7 @@ var (
 	InflationControllerContractAddress     = crypto.CreateAddress(DeployerAddress, 7)
 	StakeableVestingManagerContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	NonStakeableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
+	OmissionAccountabilityContractAddress  = crypto.CreateAddress(DeployerAddress, 10)
 )
 
 type AutonityContractGenesis struct {
@@ -101,8 +131,11 @@ type AutonityContractGenesis struct {
 	MaxScheduleDuration     uint64                `json:"maxScheduleDuration"`
 	Operator                common.Address        `json:"operator"`
 	Treasury                common.Address        `json:"treasury"`
+	WithheldRewardsPool     common.Address        `json:"withheldRewardsPool"`
 	TreasuryFee             uint64                `json:"treasuryFee"`
 	DelegationRate          uint64                `json:"delegationRate"`
+	WithholdingThreshold    uint64                `json:"withholdingThreshold"`
+	ProposerRewardRate      uint64                `json:"proposerRewardRate"`
 	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 	Schedules               []Schedule            `json:"schedules"`
@@ -110,42 +143,24 @@ type AutonityContractGenesis struct {
 
 type AccountabilityGenesis struct {
 	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
+
 	// Slashing parameters
-	BaseSlashingRateLow   uint64 `json:"baseSlashingRateLow"`
-	BaseSlashingRateMid   uint64 `json:"baseSlashingRateMid"`
-	CollusionFactor       uint64 `json:"collusionFactor"`
-	HistoryFactor         uint64 `json:"historyFactor"`
-	JailFactor            uint64 `json:"jailFactor"`
-	SlashingRatePrecision uint64 `json:"slashingRatePrecision"`
+	BaseSlashingRateLow uint64 `json:"baseSlashingRateLow"`
+	BaseSlashingRateMid uint64 `json:"baseSlashingRateMid"`
+	CollusionFactor     uint64 `json:"collusionFactor"`
+	HistoryFactor       uint64 `json:"historyFactor"`
+	JailFactor          uint64 `json:"jailFactor"`
 }
 
-// Prepare prepares the AutonityContractGenesis by filling in missing fields.
-// It returns an error if the configuration is invalid.
-func (g *AutonityContractGenesis) Prepare() error {
-	if g.Bytecode == nil && g.ABI != nil || g.Bytecode != nil && g.ABI == nil {
-		return errors.New("autonity contract abi or bytecode missing")
-	}
-	if g.Bytecode == nil && g.ABI == nil {
-		g.ABI = &generated.AutonityAbi
-		g.Bytecode = generated.AutonityBytecode
-	}
-	if g.MaxCommitteeSize == 0 {
-		return errors.New("invalid max committee size")
-	}
-	if len(g.Validators) == 0 {
-		return errors.New("no initial validators")
-	}
-	for i, v := range g.Validators {
-		if err := v.Validate(); err != nil {
-			return fmt.Errorf("error parsing validator %d, err: %v", i+1, err)
-		}
-	}
-	for i, s := range g.Schedules {
-		if err := s.Validate(); err != nil {
-			return fmt.Errorf("error parsing schedule %d, err: %v", i+1, err)
-		}
-	}
-	return nil
+// OmissionAccountabilityGenesis defines the omission fault detection parameters
+type OmissionAccountabilityGenesis struct {
+	InactivityThreshold    uint64 `json:"inactivityThreshold"`
+	LookbackWindow         uint64 `json:"LookbackWindow"`
+	PastPerformanceWeight  uint64 `json:"pastPerformanceWeight"` // k belong to [0, 1), after scaling in the contract
+	InitialJailingPeriod   uint64 `json:"initialJailingPeriod"`
+	InitialProbationPeriod uint64 `json:"initialProbationPeriod"`
+	InitialSlashingRate    uint64 `json:"initialSlashingRate"`
+	Delta                  uint64 `json:"delta"`
 }
 
 type Validator struct {
@@ -166,7 +181,6 @@ type Validator struct {
 	RegistrationBlock        *big.Int
 	TotalSlashed             *big.Int
 	JailReleaseBlock         *big.Int
-	ProvableFaultCount       *big.Int
 	ConsensusKey             []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
 	State                    *uint8
 }
@@ -192,7 +206,6 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 		RegistrationBlock        *big.Int        `json:"registrationBlock"`
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
-		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
 		ConsensusKey             hexutil.Bytes   `json:"consensusKey"`
 		State                    *uint8          `json:"state"`
 	}
@@ -218,7 +231,6 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 	v.RegistrationBlock = dec.RegistrationBlock
 	v.TotalSlashed = dec.TotalSlashed
 	v.JailReleaseBlock = dec.JailReleaseBlock
-	v.ProvableFaultCount = dec.ProvableFaultCount
 	v.ConsensusKey = dec.ConsensusKey
 	v.State = dec.State
 
@@ -244,7 +256,6 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 		RegistrationBlock        *big.Int        `json:"registrationBlock"`
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
-		ProvableFaultCount       *big.Int        `json:"provableFaultCount"`
 		ConsensusKey             hexutil.Bytes   `json:"consensusKey"`
 		State                    *uint8          `json:"state"`
 	}
@@ -267,7 +278,6 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 	enc.RegistrationBlock = v.RegistrationBlock
 	enc.TotalSlashed = v.TotalSlashed
 	enc.JailReleaseBlock = v.JailReleaseBlock
-	enc.ProvableFaultCount = v.ProvableFaultCount
 	enc.ConsensusKey = v.ConsensusKey
 	enc.State = v.State
 	return json.Marshal(&enc)
@@ -343,19 +353,16 @@ func (v *Validator) Validate() error {
 	if v.JailReleaseBlock == nil {
 		v.JailReleaseBlock = new(big.Int)
 	}
-	if v.ProvableFaultCount == nil {
-		v.ProvableFaultCount = new(big.Int)
-	}
 	if v.CommissionRate != nil && v.CommissionRate.Cmp(big.NewInt(0)) != 0 {
 		return fmt.Errorf("commission rate for enode %q not allowed", nodeAddr.String())
 	}
 	if _, err = blst.PublicKeyFromBytes(v.ConsensusKey); err != nil {
-		return errors.New("cant decode bls public key")
+		return fmt.Errorf("cant decode bls public key: %w", err)
 	}
 	return nil
 }
 
-// OracleContractGenesis Autonity contract config. It'is used for deployment.
+// OracleContractGenesis Autonity contract config. It is used for deployment.
 type OracleContractGenesis struct {
 	Bytecode   hexutil.Bytes `json:"bytecode,omitempty" toml:",omitempty"`
 	ABI        *abi.ABI      `json:"abi,omitempty" toml:",omitempty"`
