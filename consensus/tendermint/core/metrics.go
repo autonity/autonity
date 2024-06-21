@@ -76,7 +76,4 @@ var (
 	MsgPrecommitPackets = metrics.NewRegisteredMeter("core/handler/msg/precommit/packets", nil) //nolint:goconst
 
 	AggregatorCoreTransitBg = metrics.NewRegisteredBufferedGauge("core/aggregator/transit", nil, metrics.GetIntPointer(100)) // measures time for message passing from backend to aggregator
-
-	// temporary metrics to evaluate whether core.roundChangeMu is causing lock contention issues
-	RoundChangeMuBg = metrics.NewRegisteredBufferedGauge("tendermint/roundchangemu.bg", nil, nil)
 )

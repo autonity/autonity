@@ -54,17 +54,24 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	autonityConfig, err := autonityContract.Config(nil)
 	require.NoError(t, err)
-	require.Equal(t, params.TestAutonityContractConfig.Operator, autonityConfig.Protocol.OperatorAccount)
+
+	validators, err := autonityContract.GetValidators(nil)
+	require.NoError(t, err)
+
+	// gengen sets the operator to the address of the first validator
+	require.Equal(t, validators[0], autonityConfig.Protocol.OperatorAccount)
 	require.Equal(t, params.TestAutonityContractConfig.BlockPeriod, autonityConfig.Protocol.BlockPeriod.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.EpochPeriod, autonityConfig.Protocol.EpochPeriod.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.MaxCommitteeSize, autonityConfig.Protocol.CommitteeSize.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.DelegationRate, autonityConfig.Policy.DelegationRate.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.MinBaseFee, autonityConfig.Policy.MinBaseFee.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.Treasury, autonityConfig.Policy.TreasuryAccount)
+	require.Equal(t, params.TestAutonityContractConfig.WithheldRewardsPool, autonityConfig.Policy.WithheldRewardsPool)
 	require.Equal(t, params.TestAutonityContractConfig.TreasuryFee, autonityConfig.Policy.TreasuryFee.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.UnbondingPeriod, autonityConfig.Policy.UnbondingPeriod.Uint64())
 	require.Equal(t, params.UpgradeManagerContractAddress, autonityConfig.Contracts.UpgradeManagerContract)
 	require.Equal(t, params.AccountabilityContractAddress, autonityConfig.Contracts.AccountabilityContract)
+	require.Equal(t, params.OmissionAccountabilityContractAddress, autonityConfig.Contracts.OmissionAccountabilityContract)
 	require.Equal(t, params.ACUContractAddress, autonityConfig.Contracts.AcuContract)
 	require.Equal(t, params.StabilizationContractAddress, autonityConfig.Contracts.StabilizationContract)
 	require.Equal(t, params.OracleContractAddress, autonityConfig.Contracts.OracleContract)
@@ -73,7 +80,6 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
 	accountabilityConfig, err := accountabilityContract.Config(nil)
 	require.NoError(t, err)
-	require.Equal(t, params.TestAccountabilityConfig.SlashingRatePrecision, accountabilityConfig.SlashingRatePrecision.Uint64())
 	require.Equal(t, params.TestAccountabilityConfig.HistoryFactor, accountabilityConfig.HistoryFactor.Uint64())
 	require.Equal(t, params.TestAccountabilityConfig.CollusionFactor, accountabilityConfig.CollusionFactor.Uint64())
 	require.Equal(t, params.TestAccountabilityConfig.JailFactor, accountabilityConfig.JailFactor.Uint64())
@@ -84,6 +90,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	// ACU Contract -- todo
 	// Supply Control Contract -- todo
 	// Stabilization Contract -- todo
+	// Omission Contract -- todo
 	// Upgrade Manager Contract
 	upgradeManagerContract, _ := autonity.NewUpgradeManager(params.UpgradeManagerContractAddress, network[0].WsClient)
 	upgradeManagerAutonityAddress, err := upgradeManagerContract.Autonity(nil)
@@ -653,7 +660,6 @@ func TestValidatorMigration(t *testing.T) {
 	vals, err := Validators(t, 4, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	params.TestChainConfig.AutonityContractConfig.EpochPeriod = 5
 	network, err := NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
 	defer network.Shutdown(t)
@@ -819,7 +825,7 @@ func TestLargeNetwork(t *testing.T) {
 			nodeHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 			if nodeHeight > height {
 				height = nodeHeight
-				committee, _, _, _, _ = n.Eth.BlockChain().LatestEpoch()
+				committee, _, _, _, _, _ = n.Eth.BlockChain().LatestEpoch()
 			}
 		}
 		return

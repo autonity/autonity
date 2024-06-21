@@ -179,7 +179,7 @@ func setupCollusionContext(c faultyBroadcaster, rule autonity.Rule) {
 	leader := c.Address()
 	futureHeight := c.Height().Uint64() + 5
 	round := int64(0)
-	committee, _, _, _, _ := c.Backend().BlockChain().LatestEpoch()
+	committee, _, _, _, _, _ := c.Backend().BlockChain().LatestEpoch()
 
 	contract := c.Backend().BlockChain().ProtocolContracts()
 	for ; ; round++ {

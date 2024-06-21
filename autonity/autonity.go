@@ -33,8 +33,6 @@ var (
 
 // Errors
 var (
-	ErrAutonityContract = errors.New("could not call Autonity contract")
-	ErrWrongParameter   = errors.New("wrong parameter")
 	ErrNoAutonityConfig = errors.New("autonity section missing from genesis")
 )
 
@@ -174,7 +172,10 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 	}
 
 	// bind to accountability contract
-	accountabilityContract, _ := NewAccountability(params.AccountabilityContractAddress, contractBackend)
+	accountabilityContract, err := NewAccountability(params.AccountabilityContractAddress, contractBackend)
+	if err != nil {
+		return nil, err
+	}
 
 	contract := ProtocolContracts{
 		AutonityContract: autonityContract,
@@ -233,7 +234,7 @@ func (c *AutonityContract) GetCommitteeByHeight(header *types.Header, db vm.Stat
 
 // EpochInfo get the committee and the corresponding epoch boundary base on the input header's state.
 // it returns the committee, previousEpochBlock, curEpochBlock, and the nextEpochBlock.
-func (c *AutonityContract) EpochInfo(header *types.Header, db vm.StateDB) (*types.Committee, uint64, uint64, uint64, error) {
+func (c *AutonityContract) EpochInfo(header *types.Header, db vm.StateDB) (*types.Committee, uint64, uint64, uint64, uint64, error) {
 	return c.callGetEpochInfo(db, header)
 }
 
@@ -310,7 +311,6 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(params.AutonityContractAddress),
 		"block", header.Number.Uint64())
-
 	upgradeContract, epochInfo, err := c.callFinalize(statedb, header)
 	if err != nil {
 		return nil, nil, err
@@ -367,9 +367,8 @@ func (c *AutonityContract) upgradeAutonityContract(statedb vm.StateDB, header *t
 	return nil
 }
 
-func (c *AutonityContract) CallContractFunc(statedb vm.StateDB, header *types.Header, packedArgs []byte) ([]byte, error) {
-	packedResult, _, err := c.EVMContract.CallContractFunc(statedb, header, params.AutonityContractAddress, packedArgs)
-	return packedResult, err
+func (c *AutonityContract) CallContractFunc(statedb vm.StateDB, header *types.Header, packedArgs []byte) ([]byte, uint64, error) {
+	return c.EVMContract.CallContractFunc(statedb, header, params.AutonityContractAddress, packedArgs)
 }
 
 func (c *AutonityContract) CallContractFuncAs(statedb vm.StateDB, header *types.Header, origin common.Address, packedArgs []byte) ([]byte, error) {
@@ -461,6 +460,10 @@ type NonStakableVestingContract struct {
 	EVMContract
 }
 
+type OmissionAccountabilityContract struct {
+	EVMContract
+}
+
 func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
 	evmProvider := func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		if header != nil {
@@ -482,6 +485,14 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 			EVMContract: EVMContract{
 				evmProvider: evmProvider,
 				contractABI: &generated.AccountabilityAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		OmissionAccountabilityContract: OmissionAccountabilityContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.OmissionAccountabilityAbi,
 				db:          db,
 				chainConfig: chainConfig,
 			},
@@ -564,7 +575,7 @@ type GenesisEVMContracts struct {
 	InflationControllerContract
 	StakableVestingContract
 	NonStakableVestingContract
-
+	OmissionAccountabilityContract
 	statedb vm.StateDB
 }
 
@@ -576,6 +587,10 @@ func (c *GenesisEVMContracts) DeployAccountabilityContract(autonityAddress commo
 	return c.AccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
 }
 
+func (c *GenesisEVMContracts) DeployOmissionAccountabilityContract(autonityAddress common.Address, operator common.Address, treasuries []common.Address, config OmissionAccountabilityConfig, bytecode []byte) error {
+	return c.OmissionAccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, operator, treasuries, config)
+}
+
 func (c *GenesisEVMContracts) Mint(address common.Address, amount *big.Int) error {
 	return c.AutonityContract.Mint(nil, c.statedb, address, amount)
 }
@@ -584,8 +599,8 @@ func (c *GenesisEVMContracts) Bond(from common.Address, validatorAddress common.
 	return c.AutonityContract.Bond(nil, c.statedb, from, validatorAddress, amount)
 }
 
-func (c *GenesisEVMContracts) FinalizeInitialization() error {
-	return c.AutonityContract.FinalizeInitialization(nil, c.statedb)
+func (c *GenesisEVMContracts) FinalizeInitialization(delta uint64) error {
+	return c.AutonityContract.FinalizeInitialization(nil, c.statedb, delta)
 }
 
 func (c *GenesisEVMContracts) DeployOracleContract(

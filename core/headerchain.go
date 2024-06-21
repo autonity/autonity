@@ -551,13 +551,13 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 }
 
 // LatestEpoch retrieves the latest epoch header of the header chain, it can be ahead of blockchain's epoch header.
-func (hc *HeaderChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+func (hc *HeaderChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, uint64, error) {
 	head := hc.CurrentHeadEpochHeader()
 	if head == nil {
-		return nil, 0, 0, 0, ErrMissingEpochHeader
+		return nil, 0, 0, 0, 0, ErrMissingEpochHeader
 	}
 
-	return head.Epoch.Committee, head.Epoch.PreviousEpochBlock.Uint64(), head.Number.Uint64(), head.Epoch.NextEpochBlock.Uint64(), nil
+	return head.Epoch.Committee, head.Epoch.PreviousEpochBlock.Uint64(), head.Number.Uint64(), head.Epoch.NextEpochBlock.Uint64(), head.Epoch.Delta.Uint64(), nil
 }
 
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going

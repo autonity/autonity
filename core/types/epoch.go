@@ -15,14 +15,13 @@ import (
 	"sync"
 )
 
-//go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
-
 var _ = (*Epoch)(nil)
 
 type Epoch struct {
 	PreviousEpochBlock *big.Int   `rlp:"nil" json:"previousEpochBlock" gencodec:"required"`
 	NextEpochBlock     *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`
 	Committee          *Committee `rlp:"nil" json:"committee" gencodec:"required"`
+	Delta              *big.Int   `rlp:"nil" json:"delta" gencodec:"required"` // delta for omission failure
 }
 
 // MarshalJSON marshals as JSON.
@@ -31,6 +30,7 @@ func (e Epoch) MarshalJSON() ([]byte, error) {
 		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
 		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
 		Committee          Committee    `json:"committee" gencodec:"required"`
+		Delta              *hexutil.Big `json:"delta" gencodec:"required"`
 	}
 	var enc epoch
 	enc.PreviousEpochBlock = (*hexutil.Big)(e.PreviousEpochBlock)
@@ -39,6 +39,7 @@ func (e Epoch) MarshalJSON() ([]byte, error) {
 	if e.Committee != nil {
 		enc.Committee = *e.Committee // nolint
 	}
+	enc.Delta = (*hexutil.Big)(e.Delta)
 	return json.Marshal(&enc)
 }
 
@@ -48,6 +49,7 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
 		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
 		Committee          *Committee   `json:"committee" gencodec:"required"`
+		Delta              *hexutil.Big `json:"delta" gencodec:"required"`
 	}
 
 	var dec epoch
@@ -69,6 +71,11 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'committee' for epoch")
 	}
 	e.Committee = dec.Committee
+
+	if dec.Delta == nil {
+		return errors.New("missing required field 'delta' for epoch")
+	}
+	e.Delta = dec.Delta.ToInt()
 	return nil
 }
 
@@ -85,6 +92,10 @@ func (e *Epoch) Copy() *Epoch {
 
 	if e.Committee != nil {
 		cpy.Committee = e.Committee.Copy()
+	}
+
+	if e.Delta != nil {
+		cpy.Delta = new(big.Int).Set(e.Delta)
 	}
 	return cpy
 }
@@ -112,8 +123,14 @@ func (e *Epoch) Equal(other *Epoch) bool {
 		return false
 	}
 
+	if e.Delta.Cmp(other.Delta) != 0 {
+		return false
+	}
+
 	return true
 }
+
+//go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
 
 type CommitteeMember struct {
 	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`

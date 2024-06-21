@@ -30,7 +30,7 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) error
+	Commit(proposalBlock *types.Block, round int64, quorumCertificate *types.AggregateSignature) error
 
 	// GetContractABI returns the Autonity Contract ABI
 	GetContractABI() *abi.ABI

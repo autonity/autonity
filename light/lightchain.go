@@ -505,7 +505,7 @@ func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
 }
 
 // LatestEpoch retrieves the latest epoch header of the light chain.
-func (lc *LightChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+func (lc *LightChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, uint64, error) {
 	return lc.hc.LatestEpoch()
 }
 
