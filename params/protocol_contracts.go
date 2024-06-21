@@ -112,17 +112,6 @@ type AutonityContractGenesis struct {
 type AccountabilityGenesis struct {
 	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
 
-	// Omission fault detection parameters
-	OmissionLoopBackWindow  uint64 `json:"omissionLoopBackWindow"`
-	ActivityProofRewardRate uint64 `json:"activityProofRewardRate"`
-	MaxCommitteeSize        uint64 `json:"maxCommitteeSize"`
-	// A governable protocol parameter which determines how much weight we give to past performance.
-	// It has to respect this relation: PastPerformanceWeight is always in range [0, 1)
-	PastPerformanceWeight  uint64 `json:"pastPerformanceWeight"`
-	InitialJailingPeriod   uint64 `json:"initialJailingPeriod"`
-	InitialProbationPeriod uint64 `json:"initialProbationPeriod"`
-	InitialSlashingRate    uint64 `json:"initialSlashingRate"`
-
 	// Slashing parameters
 	BaseSlashingRateLow   uint64 `json:"baseSlashingRateLow"`
 	BaseSlashingRateMid   uint64 `json:"baseSlashingRateMid"`
@@ -130,6 +119,17 @@ type AccountabilityGenesis struct {
 	HistoryFactor         uint64 `json:"historyFactor"`
 	JailFactor            uint64 `json:"jailFactor"`
 	SlashingRatePrecision uint64 `json:"slashingRatePrecision"`
+}
+
+type OmissionFaultAccountabilityGenesis struct {
+	// Omission fault detection parameters
+	OmissionLoopBackWindow  uint64 `json:"omissionLoopBackWindow"`
+	ActivityProofRewardRate uint64 `json:"activityProofRewardRate"`
+	MaxCommitteeSize        uint64 `json:"maxCommitteeSize"`
+	PastPerformanceWeight   uint64 `json:"pastPerformanceWeight"` // k belong to [0, ), we need precision field in contract.
+	InitialJailingPeriod    uint64 `json:"initialJailingPeriod"`
+	InitialProbationPeriod  uint64 `json:"initialProbationPeriod"`
+	InitialSlashingRate     uint64 `json:"initialSlashingRate"`
 }
 
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.
