@@ -89,6 +89,7 @@ type Node struct {
 	Interactor   *Interactor
 	Nonce        uint64
 	Key          *ecdsa.PrivateKey
+	TreasuryKey  *ecdsa.PrivateKey
 	ConsensusKey blst.SecretKey
 	Address      common.Address
 	Tracker      *TransactionTracker
@@ -169,6 +170,7 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 		Config:       nodeConfig,
 		EthConfig:    ethConfig,
 		Key:          validator.NodeKey,
+		TreasuryKey:  validator.TreasuryKey,
 		ConsensusKey: validator.ConsensusKey,
 		Address:      address,
 		Tracker:      NewTransactionTracker(),
@@ -251,6 +253,16 @@ func NewNoneValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id
 
 func (n *Node) Running() bool {
 	return n.isRunning
+}
+
+func (n *Node) Restart() error {
+	if err := n.Close(false); err != nil {
+		return err
+	}
+	n.Wait()
+	time.Sleep(2 * time.Second)
+
+	return n.Start()
 }
 
 func (n *Node) Start() error {
@@ -536,7 +548,7 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate boo
 					currTime := currHeader.Time
 					parentTime := n.Eth.BlockChain().GetHeaderByHash(currHeader.ParentHash).Time
 					if currTime-parentTime != 1 {
-						return fmt.Errorf("Block rate not respected. parentTime: %d, currTime: %d", parentTime, currTime)
+						return fmt.Errorf("block rate not respected. parentTime: %d, currTime: %d", parentTime, currTime)
 					}
 				}
 				lastHeights[i] = currHeight
@@ -787,6 +799,11 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 // AwaitTransactions ensures that the entire network has processed the provided transactions.
 func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transaction) error {
 	for _, node := range nw {
+		// if even a single node in the network is not running, this function will always timeout
+		// this is intended behaviour, but return a different error to facilitate debugging
+		if !node.isRunning {
+			return fmt.Errorf("node %d is not running", node.ID)
+		}
 		err := node.AwaitTransactions(ctx, txs...)
 		if err != nil {
 			return err
@@ -958,7 +975,7 @@ func Genesis(users []*gengen.Validator, options ...gengen.GenesisOption) (*core.
 		return nil, err
 	}
 	// Make the tests fast
-	if err := g.Config.AutonityContractConfig.Prepare(); err != nil {
+	if err := g.Config.Prepare(); err != nil {
 		return nil, err
 	}
 	return g, nil

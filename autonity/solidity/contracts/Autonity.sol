@@ -15,6 +15,7 @@ import "./asm/IACU.sol";
 import "./asm/ISupplyControl.sol";
 import "./asm/IStabilization.sol";
 import "./interfaces/IAccountability.sol";
+import "./interfaces/IOmissionAccountability.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import "./interfaces/IInflationController.sol";
@@ -22,7 +23,7 @@ import "./interfaces/ILiquidLogic.sol";
 import "./ReentrancyGuard.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
-enum ValidatorState {active, paused, jailed, jailbound}
+enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
 uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
@@ -33,6 +34,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 internal constant POP_LEN = 226; // Proof of possession length in bytes. (Enode, OracleNode, ValidatorNode)
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
+    uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
+    uint256 public constant WITHHOLDING_THRESHOLD_PRECISION = 10_000;
 
     // TODO (tariq): review the values [already tested from stakable-vesting-contract]
     /**
@@ -45,7 +48,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
 
     struct Validator {
-        // any change in Validator struct must be synced with offset constants in core/evm/contracts.go
+        // any change in Validator struct must be synced with offset constants in core/vm/contracts.go
         address payable treasury;
         address nodeAddress;
         address oracleAddress;
@@ -71,7 +74,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     struct CommitteeMember {
         // any change in Validator struct must be synced with CommitteeSelector code to write committee in DB
-        // see CommitteeSelector.updateCommittee function in core/evm/contracts.go
+        // see CommitteeSelector.updateCommittee function in core/vm/contracts.go
         address addr;
         uint256 votingPower;
         bytes consensusKey;
@@ -134,6 +137,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
         INonStakableVestingVault nonStakableVestingContract;
+        IOmissionAccountability omissionAccountabilityContract;
     }
 
     struct Policy {
@@ -142,6 +146,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 delegationRate;
         uint256 unbondingPeriod;
         uint256 initialInflationReserve;
+        uint256 withholdingThreshold;
+        uint256 proposerRewardRate; // fraction of epoch fees allocated for proposer rewarding based on activity proof
+        address payable withheldRewardsPool; // set to the autonity global treasury at genesis, but can be changed
         address payable treasuryAccount;
     }
 
@@ -164,6 +171,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 previousEpochBlock;
         uint256 epochBlock;
         uint256 nextEpochBlock;
+        uint256 delta;
     }
 
     Config public config;
@@ -330,14 +338,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         }
     }
 
-    function finalizeInitialization() onlyProtocol nonReentrant public {
+    function finalizeInitialization(uint256 delta) onlyProtocol nonReentrant public {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
         lastFinalizedBlock = block.number;
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
-        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod));
+        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, delta));
     }
 
     /**
@@ -494,7 +502,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         require(_val.treasury == msg.sender, "require caller to be validator treasury account");
         require(_val.state != ValidatorState.active, "validator already active");
         require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
-        require(_val.state != ValidatorState.jailbound, "validator jailed permanently");
+        require(!(_val.state == ValidatorState.jailedForInactivity && _val.jailReleaseBlock > block.number), "validator still in jail for inactivity");
+        require(_val.state != ValidatorState.jailbound && _val.state != ValidatorState.jailboundForInactivity, "validator jailed permanently");
         _val.state = ValidatorState.active;
         emit ActivatedValidator(_val.treasury, _address, epochInfos[epochID].nextEpochBlock);
     }
@@ -583,13 +592,30 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         config.policy.unbondingPeriod = _period;
     }
 
+    function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
+        require(_proposerRewardRate <= PROPOSER_REWARD_RATE_PRECISION,"Cannot exceed 100%");
+        config.policy.proposerRewardRate = _proposerRewardRate;
+    }
+
+    function setWithholdingThreshold(uint256 _withholdingThreshold) public virtual onlyOperator {
+        require(_withholdingThreshold <= WITHHOLDING_THRESHOLD_PRECISION,"Cannot exceed 100%");
+        config.policy.withholdingThreshold = _withholdingThreshold;
+    }
+
+    function setWithheldRewardsPool(address payable pool) public virtual onlyOperator {
+        require(pool != address(0),"pool cannot be zero address");
+        config.policy.withheldRewardsPool = pool;
+    }
+
     /*
-    * @notice Set the epoch period. Restricted to the Operator account.
-    * @param _period Positive integer.
+    * @notice Set the epoch period. It will be applied at epoch end. Restricted to the Operator account.
+    * @param _period Positive integer. Needs to respect the equation epochPeriod > delta+lookback-1
     */
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
-        // todo: shall we need to limit a minimum epoch period?
-        // the new epoch period will be activated until current epoch ends.
+        uint256 lookbackWindow = config.contracts.omissionAccountabilityContract.getLookbackWindow();
+        uint256 delta = config.contracts.omissionAccountabilityContract.getDelta();
+        require(_period > delta+lookbackWindow-1,"epoch period needs to be greater than delta+lookbackWindow-1");
+
         epochPeriodToBeApplied = _period;
         uint256 toBeAppliedAtBlock = epochInfos[epochID].nextEpochBlock;
         emit EpochPeriodUpdated(_period, toBeAppliedAtBlock);
@@ -606,6 +632,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         config.contracts.supplyControlContract.setOperator(_account);
         config.contracts.stabilizationContract.setOperator(_account);
         config.contracts.upgradeManagerContract.setOperator(_account);
+        config.contracts.omissionAccountabilityContract.setOperator(_account);
     }
 
     /*
@@ -640,6 +667,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     function setAccountabilityContract(IAccountability _address) public virtual onlyOperator {
         config.contracts.accountabilityContract = _address;
+    }
+
+    /*
+     * @notice Set the omission accountability contract address. Restricted to the Operator account.
+     * @param _address the contract address
+     */
+    function setOmissionAccountabilityContract(IOmissionAccountability _address) public virtual onlyOperator {
+        config.contracts.omissionAccountabilityContract = _address;
     }
 
     /*
@@ -782,7 +817,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         return allowances[owner][spender];
     }
 
-    /** @dev finalize is the block state finalisation function. It is called
+    /*
+    * @dev finalize is the block state finalisation function. It is called
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
@@ -791,17 +827,16 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
     * @return previousEpochBlock The previous epoch block number.
     * @return nextEpochBlock The next epoch block number.
+    * @return delta, the current value for delta (omission failure)
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (bool, bool, CommitteeMember[] memory, uint256, uint256) {
+    function finalize() external virtual onlyProtocol nonReentrant returns (bool, bool, CommitteeMember[] memory, uint256, uint256, uint256) {
         lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
 
-        // Making this condition change to make the Autonity contract to have a chance to
-        // finish the epoch rotation in the truffle test context, as in truffle test the
-        // chain height might go beyond the lastEpochBlock+EpochPeriod making the epoch rotation
-        // never happen as the new epoch period is going to be activated on epoch rotation.
-        bool epochEnded = epochInfos[epochID].nextEpochBlock <= block.number;
+        // use >= instead of == to facilitate tests on truffle
+        bool epochEnded = block.number >= epochInfos[epochID].nextEpochBlock;
         config.contracts.accountabilityContract.finalize(epochEnded);
+        uint256 delta = config.contracts.omissionAccountabilityContract.finalize(epochEnded);
 
         if (epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
@@ -837,20 +872,26 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _removeContractAddresses();
             _applyNewCommissionRates();
 
-            (address[] memory newOracles, address[] memory newCommittee) = computeCommittee();
+            // compute the committee for new epoch
+            (address[] memory newOracles, address[] memory newCommittee, address[] memory newTreasuries) = computeCommittee();
             config.contracts.oracleContract.setVoters(newOracles);
             config.contracts.accountabilityContract.setCommittee(newCommittee);
+            config.contracts.omissionAccountabilityContract.setCommittee(committee, newTreasuries);
 
-            uint256 previousEpochBlock = epochInfos[epochID].epochBlock;
             // apply new epoch period.
             if (config.protocol.epochPeriod != epochPeriodToBeApplied && epochPeriodToBeApplied != 0) {
                 config.protocol.epochPeriod = epochPeriodToBeApplied;
                 config.contracts.accountabilityContract.setEpochPeriod(epochPeriodToBeApplied);
             }
+
+            // update epoch information
+            config.contracts.omissionAccountabilityContract.setEpochBlock(block.number);
+            uint256 previousEpochBlock = epochInfos[epochID].epochBlock;
             uint256 nextEpochBlock = block.number + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
+
             epochID += 1;
-            _addEpochInfo(epochID, EpochInfo(committee, previousEpochBlock, block.number, nextEpochBlock));
+            _addEpochInfo(epochID, EpochInfo(committee, previousEpochBlock, block.number, nextEpochBlock, delta));
             emit NewEpoch(epochID);
         }
 
@@ -860,14 +901,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             catch {}
         }
 
-        return (contractUpgradeReady, epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock);
+        return (contractUpgradeReady, epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, delta);
     }
 
     /**
     * @notice update the current committee by selecting top staking validators.
     * Restricted to the protocol.
     */
-    function computeCommittee() public virtual onlyProtocol returns (address[] memory, address[] memory){
+    function computeCommittee() public virtual onlyProtocol returns (address[] memory, address[] memory, address[] memory){
         // Left public for testing purposes.
         require(validatorList.length > 0, "There must be validators");
         uint256[5] memory input;
@@ -886,13 +927,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         require(committeeSize > 0, "committee is empty");
         address[] memory _oracleVoters = new address[](committeeSize);
         address[] memory _afdReporters = new address[](committeeSize);
+        address[] memory _treasuries = new address[](committeeSize);
         for (uint i = 0; i < committeeSize; i++) {
             Validator storage _member = validators[committee[i].addr];
             committeeNodes.push(_member.enode);
             _oracleVoters[i] = _member.oracleAddress;
             _afdReporters[i] = _member.nodeAddress;
+            _treasuries[i] = _member.treasury;
         }
-        return (_oracleVoters, _afdReporters);
+        return (_oracleVoters, _afdReporters, _treasuries);
     }
 
     /*
@@ -919,14 +962,16 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @notice Returns the epoch period.
+    * @notice Returns the epoch period. If there will be an update at epoch end, the new epoch period is returned
     */
     function getEpochPeriod() external view virtual returns (uint256) {
-        // if the new epoch period haven't being applied yet, return it anyway.
-        if (config.protocol.epochPeriod != epochPeriodToBeApplied) {
             return epochPeriodToBeApplied;
-        }
-        // otherwise we return the current applied epoch period.
+    }
+
+    /**
+    * @notice Returns the epoch period of the current epoch
+    */
+    function getCurrentEpochPeriod() external view virtual returns (uint256) {
         return config.protocol.epochPeriod;
     }
 
@@ -961,18 +1006,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
     * @notice Returns the current epoch info of the chain.
     */
-    function getEpochInfo() external view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
+    function getEpochInfo() external view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256, uint256) {
         EpochInfo memory epochInfo = epochInfos[epochID];
         CommitteeMember[] memory members = epochInfo.committee;
         uint256 previous = epochInfo.previousEpochBlock;
         uint256 current = epochInfo.epochBlock;
         uint256 next = epochInfo.nextEpochBlock;
-        return (members, previous, current, next);
+        uint256 delta = epochInfo.delta;
+        return (members, previous, current, next, delta);
     }
 
     /**
      * @notice Returns the block committee.
-     * @return Current block committee if called before finalize(), next block if called after.
+     * @return Current block committee if called before finalize(), next block committee if called after.
      */
     function getCommittee() external view virtual returns (CommitteeMember[] memory) {
         return committee;
@@ -1069,7 +1115,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the epoch info of the height.
     */
     // todo: Jason, add some test for this function by using the new contract test framework.
-    function getEpochByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
+    function getEpochByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256, uint256) {
         require(_height <= lastFinalizedBlock+1, "cannot get epoch for a future block");
 
         uint256 blockEpochID = epochID;
@@ -1084,7 +1130,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 previous = epochInfo.previousEpochBlock;
         uint256 current = epochInfo.epochBlock;
         uint256 next = epochInfo.nextEpochBlock;
-        return (members, previous, current, next);
+        uint256 delta = epochInfo.delta;
+        return (members, previous, current, next, delta);
     }
 
     /**
@@ -1128,11 +1175,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @dev Modifier that checks if the caller is the governance operator account.
+    * @dev Modifier that checks if the caller is the accountability contract or the omission accountability contract
     * This should be abstracted by a separate smart-contract.
     */
     modifier onlyAccountability {
-        require(address(config.contracts.accountabilityContract) == msg.sender, "caller is not the slashing contract");
+        require(address(config.contracts.accountabilityContract) == msg.sender || address(config.contracts.omissionAccountabilityContract) == msg.sender, "caller is not an accountability contract");
         _;
     }
 
@@ -1167,8 +1214,27 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 _atn -= _atnTreasuryReward;
             }
         }
+
+        // proposer fees redistribution based on effort put into activity proofs
+        // if the total effort is 0, just redistribute the proposer rewards based on stake
+        // NOTE: reward forfeiting and withholding based on accountability and omission accountability are not applied to proposer rewards
+        // e.g. a validator punished for equivocation will still receive his share of proposer rewards
+        if(config.contracts.omissionAccountabilityContract.getTotalEffort() > 0){
+            uint256 atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
+            uint256 ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
+            address omission = address(config.contracts.omissionAccountabilityContract);
+            _transfer(address(this), omission, ntnProposerRewards);
+            config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: atnProposerRewards}(accounts[omission]);
+            _atn -= atnProposerRewards;
+            _ntn -= ntnProposerRewards;
+        }
+
+        uint256 omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
+
         // Redistribute fees through the Liquid Newton contract
         atnTotalRedistributed += _atn;
+        uint256 atnTotalWithheld = 0;
+        uint256 ntnTotalWithheld = 0;
         for (uint256 i = 0; i < committee.length; i++) {
             Validator storage _val = validators[committee[i].addr];
             // votingPower in the committee struct is the amount of bonded-stake pre-slashing event.
@@ -1182,14 +1248,37 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                     config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[i].addr, _ntnReward);
                     continue;
                 }
+
+                // if jailed for inactivity, transfer all rewards to the withheld rewards pool
+                if (_val.state == ValidatorState.jailedForInactivity || _val.state == ValidatorState.jailboundForInactivity) {
+                    atnTotalWithheld += _atnReward;
+                    ntnTotalWithheld += _ntnReward;
+                    continue;
+                }
+
+                // rewards withholding based on omission accountability, only members with inactivity lower than InactivityThreshold will arrive here
+                uint256 inactivityScore = config.contracts.omissionAccountabilityContract.getInactivityScore(_val.nodeAddress);
+                if(inactivityScore > config.policy.withholdingThreshold) {
+                    uint256 atnWithheld = _atnReward * inactivityScore / omissionScaleFactor;
+                    uint256 ntnWithheld = _ntnReward * inactivityScore / omissionScaleFactor;
+
+                    atnTotalWithheld += atnWithheld;
+                    ntnTotalWithheld += ntnWithheld;
+
+                    _atnReward -= atnWithheld;
+                    _ntnReward -= ntnWithheld;
+                }
+
                 // non-jailed validators have a strict amount of bonded newton.
                 // the distribution account for the PAS ratio post-slashing.
                 uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;
                 if (_atnSelfReward > 0) {
                     (bool _sent, bytes memory _returnData) = _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
-                    // let the treasury know that call failed
+                    // if transfer doesn't go through (sneaky contract), just keep the amount at the autonity contract for future redistribution
+                    // and let the treasury know that call failed
                     if (_sent == false) {
                         emit CallFailed(_val.treasury, "", _returnData);
+                        atnTotalRedistributed -= _atnSelfReward;
                     }
                 }
                 uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
@@ -1207,6 +1296,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 // from a user perspective then ?
                 emit Rewarded(_val.nodeAddress, _atnReward, _ntnReward);
             }
+        }
+
+        // send withheld funds to the appropriate pool
+        if (atnTotalWithheld > 0) {
+            // Using "call" to let the treasury contract do any kind of computation on receive.
+            (bool _sent, bytes memory _returnData) = config.policy.withheldRewardsPool.call{value: atnTotalWithheld}("");
+            if (_sent == false) {
+                emit CallFailed(config.policy.withheldRewardsPool, "", _returnData);
+            }
+            atnTotalRedistributed -= atnTotalWithheld;
+        }
+        if(ntnTotalWithheld > 0){
+            _transfer(address(this),config.policy.withheldRewardsPool,ntnTotalWithheld);
         }
     }
 
@@ -1308,7 +1410,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @dev Internal function pausing the specified validator. Paused validators
     * can no longer be delegated stake and can no longer be part of the consensus committe.
     * Warning: no checks are done here.
-    * Emit {DisabledValidator} event.
+    * Emit {PausedValidator} event.
     */
     function _pauseValidator(address _address) internal virtual {
         Validator storage val = validators[_address];
@@ -1822,6 +1924,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         epoch.previousEpochBlock = _epoch.previousEpochBlock;
         epoch.epochBlock = _epoch.epochBlock;
         epoch.nextEpochBlock = _epoch.nextEpochBlock;
+        epoch.delta = _epoch.delta;
         for (uint256 i=0; i<_epoch.committee.length; i++) {
             epoch.committee.push(_epoch.committee[i]);
         }

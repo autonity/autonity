@@ -199,18 +199,15 @@ func (sb *Backend) Gossiper() interfaces.Gossiper {
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
+func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate *types.AggregateSignature) error {
 	h := proposal.Header()
-	// Append quorum certificate and round into extra-data
-	if err := types.WriteQuorumCertificate(h, quorumCertificate); err != nil {
-		return err
-	}
-	if err := types.WriteRound(h, round); err != nil {
-		return err
-	}
-	// update block's header
+
+	// update block header with quorum certificate and commit round
+	h.QuorumCertificate = quorumCertificate
+	h.Round = uint64(round)
 	proposal = proposal.WithSeal(h)
 	sb.logger.Info("Quorum of Precommits received", "proposal", proposal.Hash(), "round", round, "height", proposal.Number().Uint64())
+
 	// - if the proposed and committed blocks are the same, send the proposed hash
 	//   to resultCh channel, which is being watched inside the worker.ResultLoop() function.
 	// - otherwise, we try to insert the block.
@@ -245,7 +242,7 @@ func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {
 	return sb.eventMux.Subscribe(types...)
 }
 
-// VerifyProposal implements tendermint.Backend.VerifyProposal and verifiy if the proposal is valid
+// VerifyProposal implements tendermint.Backend.VerifyProposal and verify if the proposal is valid
 func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) {
 	// TODO: fix always false statement and check for non nil
 	// TODO: use interface instead of type
@@ -266,7 +263,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// verify the header of proposed proposal
 	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
 	// ignore errEmptyQuorumCertificate error because we don't have the quorum certificate yet
-	if err == nil || errors.Is(err, types.ErrEmptyQuorumCertificate) {
+	if err == nil || errors.Is(err, errEmptyQuorumCertificate) {
 		var (
 			receipts types.Receipts
 

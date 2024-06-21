@@ -21,9 +21,9 @@ func TestClaimRewards(t *testing.T) {
 	// Test 1 validator 1 staker
 	r := setup(t, nil)
 	// Mint Newton to some few accounts
-	r.autonity.Mint(operator, staker1, params.Ntn10000)
-	r.autonity.Mint(operator, staker2, params.Ntn10000)
-	r.autonity.Mint(operator, staker3, params.Ntn10000)
+	r.autonity.Mint(r.operator, staker1, params.Ntn10000)
+	r.autonity.Mint(r.operator, staker2, params.Ntn10000)
+	r.autonity.Mint(r.operator, staker3, params.Ntn10000)
 	r.autonity.Bond(&runOptions{origin: staker1}, r.committee.validators[0].NodeAddress, params.Ntn10000)
 	r.autonity.Bond(&runOptions{origin: staker2}, r.committee.validators[1].NodeAddress, params.Ntn10000)
 	r.autonity.Bond(&runOptions{origin: staker3}, r.committee.validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
@@ -108,7 +108,7 @@ func TestLogicOperation(t *testing.T) {
 		require.NotEqual(r.t, liquidLogicFromAutonity, newLiquidLogic)
 
 		r.NoError(
-			r.autonity.SetLiquidLogicContract(operator, newLiquidLogic),
+			r.autonity.SetLiquidLogicContract(r.operator, newLiquidLogic),
 		)
 
 		liquidLogicFromAutonity, _, err = r.autonity.LiquidLogicContract(nil)
@@ -132,7 +132,7 @@ func TestLogicOperation(t *testing.T) {
 		require.NoError(r.t, err)
 
 		r.NoError(
-			r.autonity.SetLiquidLogicContract(operator, newLiquidLogic),
+			r.autonity.SetLiquidLogicContract(r.operator, newLiquidLogic),
 		)
 		checkLiquidBalance(r, liquidState, validator, common.Big1)
 
@@ -152,7 +152,7 @@ func TestLogicOperation(t *testing.T) {
 		require.NoError(r.t, err)
 
 		r.NoError(
-			r.autonity.SetLiquidLogicContract(operator, newLiquidLogic.address),
+			r.autonity.SetLiquidLogicContract(r.operator, newLiquidLogic.address),
 		)
 
 		r.NoError(
@@ -662,7 +662,7 @@ func withdrawAndCheck(
 
 func redistributeLiquidReward(r *runner, liquidState *ILiquidLogic, reward *big.Int) {
 	r.NoError(
-		r.autonity.Mint(operator, liquidState.address, reward),
+		r.autonity.Mint(r.operator, liquidState.address, reward),
 	)
 	r.NoError(
 		liquidState.Redistribute(

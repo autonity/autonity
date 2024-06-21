@@ -5,13 +5,12 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/autonity/autonity/params"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/params"
 )
-
-var fromAutonity = &runOptions{origin: params.AutonityContractAddress}
 
 var reward = big.NewInt(1000_000_000)
 
@@ -50,7 +49,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	require.NoError(r.t, err)
 	bondingAmount := big.NewInt(contractTotalAmount)
 	r.NoError(
-		r.autonity.Mint(operator, user, bondingAmount),
+		r.autonity.Mint(r.operator, user, bondingAmount),
 	)
 	r.NoError(
 		r.autonity.Bond(fromSender(user, nil), validator, bondingAmount),
@@ -122,7 +121,7 @@ func TestBondingGasConsumption(t *testing.T) {
 
 	for _, validator := range r.committee.validators {
 		r.NoError(
-			r.autonity.Mint(operator, user, bondingAmount),
+			r.autonity.Mint(r.operator, user, bondingAmount),
 		)
 		r.NoError(
 			r.autonity.Bond(fromSender(user, nil), validator.NodeAddress, bondingAmount),
@@ -573,7 +572,12 @@ func TestStakingRevert(t *testing.T) {
 }
 
 func TestRewardTracking(t *testing.T) {
-	r := setup(t, nil)
+	r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+		// set proposer reward rate and Autonity treasury fee to 0, so all rewards go to delegation
+		config.ProposerRewardRate = 0
+		config.TreasuryFee = 0
+		return config
+	})
 	var contractTotalAmount int64 = 1000
 	start := 100 + r.evm.Context.Time.Int64()
 	cliff := 500 + start
@@ -634,10 +638,6 @@ func TestRewardTracking(t *testing.T) {
 		require.Equal(r.t, new(big.Int).Add(balanceATN, rewardOfUser.AtnTotalFee), newBalanceATN, "ATN reward not claimed")
 	})
 
-	// set commission rate = 0, so all rewards go to delegation
-	r.NoError(
-		r.autonity.SetTreasuryFee(operator, common.Big0),
-	)
 	// remove all bonding, so we only have bonding from contracts only
 	for _, validator := range r.committee.validators {
 		require.Equal(r.t, validator.SelfBondedStake, validator.BondedStake, "delegation stake should not exist")
@@ -881,7 +881,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		newUser := common.HexToAddress("0x88")
 		_, _, err = r.stakableVesting.GetContract(nil, newUser, contractID)
 		require.Equal(r.t, "execution reverted: invalid contract id", err.Error())
-		r.stakableVesting.ChangeContractBeneficiary(operator, user, contractID, newUser)
+		r.stakableVesting.ChangeContractBeneficiary(r.operator, user, contractID, newUser)
 		_, _, err = r.stakableVesting.GetContract(nil, newUser, contractID)
 		require.NoError(r.t, err)
 		_, _, err = r.stakableVesting.GetContract(nil, user, contractID)
@@ -1290,7 +1290,7 @@ func createContract(r *runner, beneficiary common.Address, amount, startTime, cl
 	endBig := big.NewInt(endTime)
 	r.NoError(
 		r.stakableVesting.NewContract(
-			operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
+			r.operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
 			new(big.Int).Sub(cliffBig, startBig), new(big.Int).Sub(endBig, startBig),
 		),
 	)
@@ -1540,7 +1540,7 @@ func bondAndApply(
 		liquidStateContract := liquidStateContracts[key]
 		bondedValidators = append(bondedValidators, key)
 		r.giveMeSomeMoney(r.autonity.address, reward)
-		r.autonity.Mint(operator, liquidStateContract.address, reward)
+		r.autonity.Mint(r.operator, liquidStateContract.address, reward)
 		r.NoError(
 			liquidStateContract.Redistribute(
 				fromSender(r.autonity.address, reward),
@@ -1633,7 +1633,7 @@ func unbondAndApply(
 		liquidStateContract := liquidStateContracts[key]
 		r.giveMeSomeMoney(r.autonity.address, reward)
 		r.NoError(
-			r.autonity.Mint(operator, liquidStateContract.address, reward),
+			r.autonity.Mint(r.operator, liquidStateContract.address, reward),
 		)
 		r.NoError(
 			liquidStateContract.Redistribute(

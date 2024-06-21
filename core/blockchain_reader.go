@@ -90,7 +90,6 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
-
 	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
 	// double check if chain head fit into current epoch range, otherwise we query latest epoch from state DB.
 	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {

@@ -362,9 +362,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 }
 
 func (c *Core) setInitialState(r int64) {
-	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	// Start of new height where round is 0
@@ -528,9 +526,7 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 }
 
 func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {
-	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {
@@ -557,9 +553,7 @@ func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {
 // NOTE: this assumes that r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
 // This methods should not be used to compute power for future rounds
 func (c *Core) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower {
-	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {
@@ -584,9 +578,7 @@ func (c *Core) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPowe
 // NOTE: assume r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
 // This methods should not be used to compute power for future rounds
 func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower {
-	start := time.Now()
 	c.roundChangeMu.Lock()
-	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
 	if h != c.Height().Uint64() {

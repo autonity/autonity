@@ -666,7 +666,7 @@ func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.ProtocolContracts)
 					if err != nil {
 						return makereturn(nil, err)
 					}
-					packedResult, err := ac.CallContractFunc(stateDB, bc.CurrentHeader(), packedArgs)
+					packedResult, _, err := ac.CallContractFunc(stateDB, bc.CurrentHeader(), packedArgs)
 					if err != nil {
 						return makereturn(nil, err)
 					}
