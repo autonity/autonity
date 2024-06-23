@@ -211,9 +211,9 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 		if lastPrecommit.R() == precommits[i].R() &&
 			lastPrecommit.Value() == precommits[i].Value() {
 			continue
-		} else {
-			precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
 		}
+
+		precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
 	}
 
 	result := HighlyAggregatedPrecommit{}
