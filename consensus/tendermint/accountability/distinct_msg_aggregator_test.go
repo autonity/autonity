@@ -3,6 +3,7 @@ package accountability
 import (
 	cr "crypto/rand"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
@@ -14,7 +15,7 @@ import (
 
 var (
 	h            = rand.Uint64()
-	r            = rand.Int63()
+	r            = rand.Int63n(constants.MaxRound)
 	randomBytes1 = make([]byte, 32)
 	randomBytes2 = make([]byte, 32)
 	_, _         = cr.Read(randomBytes1)
@@ -24,10 +25,10 @@ var (
 )
 
 func TestRLPEncodingDeconding(t *testing.T) {
-	rvs := RoundValueSigners{
+	rvs := Signers{
 		Round:               r,
 		Value:               common.Hash{},
-		Signers:             nil,
+		Signers:             []int{0},
 		aggregatedPublicKey: nil,
 		hasSigners:          nil,
 		preValidated:        false,
@@ -35,10 +36,24 @@ func TestRLPEncodingDeconding(t *testing.T) {
 	p, err := rlp.EncodeToBytes(&rvs)
 	require.NoError(t, err)
 
-	decodeRVS := &RoundValueSigners{}
+	decodeRVS := &Signers{}
 	err = rlp.DecodeBytes(p, decodeRVS)
 	require.NoError(t, err)
 	require.Equal(t, r, decodeRVS.Round)
+
+	rvs.Round = constants.MaxRound + 1
+	p, err = rlp.EncodeToBytes(&rvs)
+	require.NoError(t, err)
+	decodeRVS = &Signers{}
+	err = rlp.DecodeBytes(p, decodeRVS)
+	require.Error(t, ErrInvalidRound)
+
+	rvs.Round = constants.MaxRound
+	rvs.Signers = []int{}
+	p, err = rlp.EncodeToBytes(&rvs)
+	decodeRVS = &Signers{}
+	err = rlp.DecodeBytes(p, decodeRVS)
+	require.Error(t, ErrNoSigners)
 }
 
 func TestHighlyAggregatedPrecommit(t *testing.T) {
@@ -181,47 +196,25 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 		defaultHeight = *wrongHeight
 	}
 
-	var fastAggregatedPrecommits []*message.Precommit
-	// first we filter out fast-aggregatable votes with same msg, and fast aggregate them into single one.
-	var fastAggregatablePrecommits []message.Vote
-	fastAggregatablePrecommits = append(fastAggregatablePrecommits, precommits[0])
+	var precommitsToBeAggregated []*message.Precommit
+
+	precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[0])
 
 	for i := 1; i < len(precommits); i++ {
 
-		if fastAggregatablePrecommits[0].R() == precommits[i].R() &&
-			fastAggregatablePrecommits[0].Value() == precommits[i].Value() {
-
-			fastAggregatablePrecommits = append(fastAggregatablePrecommits, precommits[i])
-
+		// skip duplicated msg.
+		lastPrecommit := precommitsToBeAggregated[len(precommitsToBeAggregated)-1]
+		if lastPrecommit.R() == precommits[i].R() &&
+			lastPrecommit.Value() == precommits[i].Value() {
+			continue
 		} else {
-			// if there are multiple fast aggregatable precommits:  aggregate them into single one and append the
-			// aggregated one to the fastAggregatedPrecommits, then reset fastAggregatablePrecommits with current
-			// precommit and continue.
-			if len(fastAggregatablePrecommits) > 1 {
-				aggregatedMsg := message.AggregatePrecommits(fastAggregatablePrecommits)
-				fastAggregatedPrecommits = append(fastAggregatedPrecommits, aggregatedMsg)
-				fastAggregatablePrecommits = []message.Vote{precommits[i]}
-				continue
-			}
-
-			// if there is only one precommit in the fastAggregatablePrecommits: append it to the fastAggregatedPrecommits.
-			// then reset fastAggregatablePrecommits with current precommit and continue.
-			fastAggregatedPrecommits = append(fastAggregatedPrecommits, fastAggregatablePrecommits[0].(*message.Precommit))
-			fastAggregatablePrecommits = []message.Vote{precommits[i]}
+			precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
 		}
 	}
 
-	// append the last patch of fastAggregatablePrecommits to fastAggregatedPrecommits.
-	if len(fastAggregatablePrecommits) > 1 {
-		aggregatedMsg := message.AggregatePrecommits(fastAggregatablePrecommits)
-		fastAggregatedPrecommits = append(fastAggregatedPrecommits, aggregatedMsg)
-	} else {
-		fastAggregatedPrecommits = append(fastAggregatedPrecommits, fastAggregatablePrecommits[0].(*message.Precommit))
-	}
-
 	result := HighlyAggregatedPrecommit{}
-	signatures := make([]blst.Signature, len(fastAggregatedPrecommits))
-	for i, m := range fastAggregatedPrecommits {
+	signatures := make([]blst.Signature, len(precommitsToBeAggregated))
+	for i, m := range precommitsToBeAggregated {
 		defaultRound := m.R()
 		defaultValue := m.Value()
 		defaultSingers := m.Signers().Flatten()
@@ -236,12 +229,12 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 			defaultSingers = wrongSigners
 		}
 
-		roundValueSigners := &RoundValueSigners{
+		roundValueSigners := &Signers{
 			Round:   defaultRound,
 			Value:   defaultValue,
 			Signers: defaultSingers,
 		}
-		result.RoundValueSigners = append(result.RoundValueSigners, roundValueSigners)
+		result.MsgSigners = append(result.MsgSigners, roundValueSigners)
 		signatures[i] = m.Signature()
 	}
 	result.Height = defaultHeight

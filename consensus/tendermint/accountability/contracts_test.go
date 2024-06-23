@@ -153,9 +153,9 @@ func TestDecodeAndVerifyProofs(t *testing.T) {
 	for i, tc := range cases {
 		proof := tc.Proof
 		rp, err := rlp.EncodeToBytes(&proof)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		decodeProof, err := decodeRawProof(rp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = verifyProofSignatures(lastHeader, decodeProof)
 		t.Log("Running TestDecodeAndVerifyProofs case", "case id", i, "actual err", err, "expected", tc.outCome)
 		require.Equal(t, tc.outCome, err)
@@ -405,6 +405,7 @@ func TestAccusationVerifier(t *testing.T) {
 
 func TestMisbehaviourVerifier(t *testing.T) {
 	type testCase struct {
+		index   int
 		proof   Proof
 		outCome []byte
 	}
@@ -461,7 +462,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	missingPrecommitPVO12 := HighlyAggregatedPrecommit{
 		Height: height,
-		RoundValueSigners: []*RoundValueSigners{{
+		MsgSigners: []*Signers{{
 			Round:   pcForVPVO12.R(),
 			Value:   pcForVPVO12.Value(),
 			Signers: pcForVPVO12.Signers().Flatten(),
@@ -489,10 +490,10 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	err = highlyAggPrecommitPVN.Validate()
 	require.NoError(t, err)
 
-	invalidHighlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, aggPrecomitR1PVN, preCommitR2PVN, commit1})
-	err = invalidHighlyAggPrecommitPVN.PreValidate(parentHeader)
+	validHighlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, commit1, aggPrecomitR1PVN, preCommitR2PVN})
+	err = validHighlyAggPrecommitPVN.PreValidate(parentHeader)
 	require.NoError(t, err)
-	err = invalidHighlyAggPrecommitPVN.Validate()
+	err = validHighlyAggPrecommitPVN.Validate()
 	require.NoError(t, err)
 
 	gappedHighlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, aggPrecomitR1PVN})
@@ -534,8 +535,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	})
 
 	tests := []testCase{
-		// test proof of misbehaviour of PN handling comes here:
+		// test proof of misbehaviour of PN handling comes here: index: 0
 		{
+			index: 0,
 			proof: Proof{
 				Rule:          autonity.PN,
 				Message:       newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx),
@@ -545,6 +547,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 1,
 			proof: Proof{
 				Rule:          autonity.PN,
 				Message:       liteNewP,
@@ -554,6 +557,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 2,
 			proof: Proof{
 				Rule:          autonity.PN,
 				Message:       liteNewP,
@@ -563,6 +567,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 3,
 			proof: Proof{
 				Rule:          autonity.PN,
 				Message:       liteNewP,
@@ -572,6 +577,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 4,
 			proof: Proof{
 				Rule:          autonity.PN,
 				Message:       liteNewP,
@@ -581,6 +587,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 5,
 			proof: Proof{
 				Rule:          autonity.PN,
 				Message:       liteNewP,
@@ -590,6 +597,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 6,
 			proof: Proof{
 				Rule:          autonity.PN,
 				Message:       liteNewP,
@@ -598,8 +606,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			},
 			outCome: validReturn(liteNewP, proposer, autonity.PN),
 		},
-		// test proof of misbehaviour of PO handling comes here:
+		// test proof of misbehaviour of PO handling comes here: index: 7
 		{
+			index: 7,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       aggCommit,
@@ -609,6 +618,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 8,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteNewP,
@@ -618,6 +628,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 9,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -626,6 +637,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 10,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -635,6 +647,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: validReturn(liteOldP, proposer, autonity.PO),
 		},
 		{
+			index: 11,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -644,6 +657,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: validReturn(liteOldP, proposer, autonity.PO),
 		},
 		{
+			index: 12,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -653,6 +667,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 13,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -662,6 +677,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 14,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -671,6 +687,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 15,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -680,6 +697,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 16,
 			proof: Proof{
 				Rule:          autonity.PO,
 				Message:       liteOldP,
@@ -688,8 +706,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			},
 			outCome: validReturn(liteOldP, proposer, autonity.PO),
 		},
-		// Misbehaviour of PVN tests comes here:
+		// Misbehaviour of PVN tests comes here: index: 17
 		{
+			index: 17,
 			// no evidence
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -698,6 +717,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 18,
 			// wrong message
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -708,6 +728,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 19,
 			// vote signers does not contain offender idx.
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -718,6 +739,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 20,
 			// vote for nil value
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -728,6 +750,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 21,
 			// no corresponding proposal provided in the proof.
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -738,6 +761,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 22,
 			// invalid proposal provided in the proof.
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -748,17 +772,19 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
-			// evidence contains invalid precomit message.
+			index: 23,
+			// evidence contains valid precomit message.
 			proof: Proof{
 				Rule:               autonity.PVN,
 				OffenderIndex:      proposerIdx,
 				Message:            prevotePVN,
-				DistinctPrecommits: invalidHighlyAggPrecommitPVN,
+				DistinctPrecommits: validHighlyAggPrecommitPVN,
 				Evidences:          []message.Msg{proposalPVN},
 			},
-			outCome: failureReturn,
+			outCome: validReturn(prevotePVN, proposer, autonity.PVN),
 		},
 		{
+			index: 24,
 			// proof contains round gaps in precommits
 			proof: Proof{
 				Rule:               autonity.PVN,
@@ -770,6 +796,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 25,
 			// the evidence just contain a proposal, there is no precomit message or aggregated precommit at all.
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -780,6 +807,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 26,
 			// there is a single valid precomit attached in the evidence field.
 			proof: Proof{
 				Rule:          autonity.PVN,
@@ -790,6 +818,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: validReturn(prevotePVN, proposer, autonity.PVN),
 		},
 		{
+			index: 27,
 			// there is a aggregated valid precommit attached.
 			proof: Proof{
 				Rule:               autonity.PVN,
@@ -802,6 +831,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		},
 		// PVO tests comes here:
 		{
+			index: 28,
 			// no message
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -810,6 +840,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 29,
 			// invalid message type.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -820,6 +851,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 30,
 			// vote signers does not contain offender idx.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -830,6 +862,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 31,
+			// vote signers does not contain offender idx.
 			// vote signers does not contain offender idx.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -840,6 +874,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 32,
 			// vote for nil cannot be accountable
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -850,6 +885,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 33,
 			// there is no corresponding proposal in the proof.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -860,6 +896,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 34,
 			// there is no corresponding proposal in the proof.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -870,6 +907,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 35,
 			// there is invalid proposal in the proof.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -880,6 +918,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 36,
 			// there is invalid prvotes in the proof
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -890,6 +929,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 37,
 			// there is duplicated vote in the proof.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -900,6 +940,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 38,
 			// there is less than quorum prevotes in the proof.
 			proof: Proof{
 				Rule:          autonity.PVO,
@@ -910,6 +951,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 39,
 			proof: Proof{
 				Rule:          autonity.PVO,
 				Message:       maliciousPreVotePVO,
@@ -920,6 +962,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		},
 		// PVO12 tests comes here:
 		{
+			index: 40,
 			// no evidence.
 			proof: Proof{
 				Rule: autonity.PVO12,
@@ -927,6 +970,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 41,
 			// wrong msg type
 			proof: Proof{
 				Rule:      autonity.PVO12,
@@ -936,6 +980,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 42,
 			// wrong offender index
 			proof: Proof{
 				Rule:          autonity.PVO12,
@@ -946,6 +991,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 43,
 			// prevote for nil is not accountable
 			proof: Proof{
 				Rule:          autonity.PVO12,
@@ -957,6 +1003,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		},
 		{
 			// there is no corresponding proposal from the proof
+			index: 44,
 			proof: Proof{
 				Rule:          autonity.PVO12,
 				Message:       preVotePVO12,
@@ -966,6 +1013,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 45,
 			// there is invalid proposal from the proof
 			proof: Proof{
 				Rule:          autonity.PVO12,
@@ -976,6 +1024,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 46,
 			// there is invalid precommits from the proof
 			proof: Proof{
 				Rule:               autonity.PVO12,
@@ -986,18 +1035,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			},
 			outCome: failureReturn,
 		},
-		/* // todo: (Jason) move this edge case to distinct_msg_aggregator_test.go since this aggregated msg won't be validated successfully.
 		{
-			// there is invalid msg from the proof
-			proof: Proof{
-				Rule:          autonity.PVO12,
-				Message:       preVotePVO12,
-				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{correspondingProposalPVO, aggPrevote, pcForVPVO12, pcForNotVPVO12},
-			},
-			outCome: failureReturn,
-		},*/
-		{
+			index: 47,
 			// there is missing round of precommits from the proof
 			proof: Proof{
 				Rule:               autonity.PVO12,
@@ -1009,6 +1048,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 48,
 			proof: Proof{
 				Rule:               autonity.PVO12,
 				Message:            preVotePVO12,
@@ -1020,6 +1060,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		},
 		// C1 misbehaviour proof handling starts from here:
 		{
+			index: 49,
 			// no evidence
 			proof: Proof{
 				Rule: autonity.C,
@@ -1027,6 +1068,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 50,
 			// wrong message type.
 			proof: Proof{
 				Rule:      autonity.C,
@@ -1035,6 +1077,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 51,
 			// msg signer does not contain offender.
 			proof: Proof{
 				Rule:          autonity.C,
@@ -1045,6 +1088,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 52,
 			// precommit for nil is not accountable.
 			proof: Proof{
 				Rule:          autonity.C,
@@ -1055,6 +1099,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 53,
 			// there is invalid msg in the evidence.
 			proof: Proof{
 				Rule:          autonity.C,
@@ -1065,6 +1110,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 54,
 			// there is duplicated msg in the evidence.
 			proof: Proof{
 				Rule:          autonity.C,
@@ -1075,6 +1121,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 55,
 			// there is less quorum prevotes in the evidence.
 			proof: Proof{
 				Rule:          autonity.C,
@@ -1085,6 +1132,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			outCome: failureReturn,
 		},
 		{
+			index: 56,
 			proof: Proof{
 				Rule:          autonity.C,
 				Message:       preCommitC,
@@ -1095,11 +1143,11 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		},
 	}
 	mv := MisbehaviourVerifier{}
-	for i, tc := range tests {
+	for _, tc := range tests {
 		proof := tc.proof
 		ret := mv.validateFault(&proof, committee)
 		if !bytes.Equal(tc.outCome, ret) {
-			t.Log("TestMisbehaviourVerifier", "case", i, "config", tc, "expected", tc.outCome, "actual", ret)
+			t.Log("TestMisbehaviourVerifier", "case", tc.index, "config", tc, "expected", tc.outCome, "actual", ret)
 		}
 		assert.Equal(t, tc.outCome, ret)
 	}

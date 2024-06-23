@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
@@ -11,12 +12,15 @@ import (
 )
 
 var (
-	ErrSignatureInvalid   = errors.New("HighlyAggregatedPrecommit has invalid signature")
-	ErrInvalidSignerIndex = errors.New("HighlyAggregatedPrecommit has invalid signer index")
+	ErrSignatureInvalid     = errors.New("HighlyAggregatedPrecommit has invalid signature")
+	ErrInvalidSignerIndex   = errors.New("HighlyAggregatedPrecommit has invalid signer index")
+	ErrNoSigners            = errors.New("No signers found")
+	ErrInvalidRound         = errors.New("Invalid round")
+	ErrDuplicatedPrecommits = errors.New("Duplicated precommits")
 )
 
-// RoundValueSigners is set that contains signers of the same message with the using of fastAggregate().
-type RoundValueSigners struct {
+// Signers is set that contains signers of the same message with the using of fastAggregate().
+type Signers struct {
 	Round   int64
 	Value   common.Hash
 	Signers []int // it could contain duplicated index.
@@ -27,19 +31,19 @@ type RoundValueSigners struct {
 	preValidated        bool             `rlp:"-"`
 }
 
-type extRoundValueSigners struct {
+type extSigners struct {
 	Round   uint64
 	Value   common.Hash
 	Signers []uint
 }
 
-func (r *RoundValueSigners) EncodeRLP(w io.Writer) error {
+func (r *Signers) EncodeRLP(w io.Writer) error {
 	signers := make([]uint, len(r.Signers))
 	for i, s := range r.Signers {
 		signers[i] = uint(s)
 	}
 
-	ext := extRoundValueSigners{
+	ext := extSigners{
 		Round:   uint64(r.Round),
 		Value:   r.Value,
 		Signers: signers,
@@ -48,10 +52,18 @@ func (r *RoundValueSigners) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, &ext)
 }
 
-func (r *RoundValueSigners) DecodeRLP(stream *rlp.Stream) error {
-	ext := extRoundValueSigners{}
+func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
+	ext := extSigners{}
 	if err := stream.Decode(&ext); err != nil {
 		return err
+	}
+
+	if len(ext.Signers) == 0 {
+		return ErrNoSigners
+	}
+
+	if int64(ext.Round) > constants.MaxRound {
+		return ErrInvalidRound
 	}
 
 	r.Round = int64(ext.Round)
@@ -65,7 +77,7 @@ func (r *RoundValueSigners) DecodeRLP(stream *rlp.Stream) error {
 }
 
 // PreValidate computes the aggregated public key and set the preValidated flag.
-func (r *RoundValueSigners) PreValidate(parentHeader *types.Header) error {
+func (r *Signers) PreValidate(parentHeader *types.Header) error {
 	committeeSize := parentHeader.Committee.Len()
 	publicKeys := make([][]byte, len(r.Signers))
 	r.hasSigners = make(map[int]struct{})
@@ -79,7 +91,8 @@ func (r *RoundValueSigners) PreValidate(parentHeader *types.Header) error {
 
 	aggKey, err := blst.AggregatePublicKeys(publicKeys)
 	if err != nil {
-		return err
+		// should not happen, as the public key is query from the committee by their index.
+		panic(err)
 	}
 
 	r.aggregatedPublicKey = aggKey
@@ -87,14 +100,17 @@ func (r *RoundValueSigners) PreValidate(parentHeader *types.Header) error {
 	return nil
 }
 
-func (r *RoundValueSigners) Contains(index int) bool {
+func (r *Signers) Contains(index int) bool {
+	if !r.preValidated {
+		panic("Signers was not pre-validated yet")
+	}
 	_, ok := r.hasSigners[index]
 	return ok
 }
 
-func (r *RoundValueSigners) AggregatedPublicKey() blst.PublicKey {
+func (r *Signers) AggregatedPublicKey() blst.PublicKey {
 	if !r.preValidated {
-		panic("RoundValueSigners was not pre-validated yet")
+		panic("Signers was not pre-validated yet")
 	}
 	return r.aggregatedPublicKey
 }
@@ -107,10 +123,10 @@ type HighlyAggregatedPrecommit struct {
 	// as well to save size of TXN.
 	Height uint64
 
-	// Distinguish info of the precommit are grouped into a set, RoundValueSigners, each of them contains a fast aggregated
+	// Distinguish info of the precommit are grouped into a set, MsgSigners, each of them contains a fast aggregated
 	// precommit over the same (h, r, code, value). Thus, there are multiple distinct sets to be aggregated and
 	// to be aggregateVerified for the single highly aggregated precommit.
-	RoundValueSigners []*RoundValueSigners
+	MsgSigners []*Signers
 
 	// a single highly aggregated signature.
 	Signature []byte
@@ -122,7 +138,7 @@ type HighlyAggregatedPrecommit struct {
 }
 
 func (h *HighlyAggregatedPrecommit) Len() int {
-	return len(h.RoundValueSigners)
+	return len(h.MsgSigners)
 }
 
 // PreValidate checks if the index of each sub set are reasonable, and aggregate public keys for each sub set.
@@ -132,10 +148,22 @@ func (h *HighlyAggregatedPrecommit) PreValidate(parentHeader *types.Header) erro
 		return errBadHeight
 	}
 
-	for _, m := range h.RoundValueSigners {
+	// check there are no duplicated precommits
+	presentedMsgs := make(map[int64]map[common.Hash]struct{})
+	for _, m := range h.MsgSigners {
+
+		if value, ok := presentedMsgs[m.Round]; ok {
+			if _, ok = value[m.Value]; ok {
+				return ErrDuplicatedPrecommits
+			}
+		}
+
 		if err := m.PreValidate(parentHeader); err != nil {
 			return err
 		}
+
+		presentedMsgs[m.Round] = make(map[common.Hash]struct{})
+		presentedMsgs[m.Round][m.Value] = struct{}{}
 	}
 
 	signature, err := blst.SignatureFromBytes(h.Signature)
@@ -154,9 +182,9 @@ func (h *HighlyAggregatedPrecommit) Validate() error {
 		panic("HighlyAggregatedPrecommit was not pre-validated yet")
 	}
 
-	publicKeys := make([]blst.PublicKey, len(h.RoundValueSigners))
-	msgs := make([][32]byte, len(h.RoundValueSigners))
-	for i, m := range h.RoundValueSigners {
+	publicKeys := make([]blst.PublicKey, len(h.MsgSigners))
+	msgs := make([][32]byte, len(h.MsgSigners))
+	for i, m := range h.MsgSigners {
 		publicKeys[i] = m.AggregatedPublicKey()
 		msgs[i] = message.VoteSignatureInput(h.Height, uint64(m.Round), message.PrecommitCode, m.Value)
 	}
@@ -169,59 +197,34 @@ func (h *HighlyAggregatedPrecommit) Validate() error {
 	return nil
 }
 
-// AggregateDistinctPrecommits assumes that the input precommits are sorted by round ascending with same height, the
-// input precommits could be fastAggregated it here are duplicated msg.
+// It assumes that the input has multiple precommits and they are sorted by round ascending with same height
 func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregatedPrecommit {
+	var precommitsToBeAggregated []*message.Precommit
 
-	var fastAggregatedPrecommits []*message.Precommit
-
-	// first we filter out fast-aggregatable votes with same msg, and fast aggregate them into single one.
-	var fastAggregatablePrecommits []message.Vote
-	fastAggregatablePrecommits = append(fastAggregatablePrecommits, precommits[0])
+	precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[0])
 	height := precommits[0].H()
 
 	for i := 1; i < len(precommits); i++ {
 
-		if fastAggregatablePrecommits[0].R() == precommits[i].R() &&
-			fastAggregatablePrecommits[0].Value() == precommits[i].Value() {
-
-			fastAggregatablePrecommits = append(fastAggregatablePrecommits, precommits[i])
-
+		// skip duplicated msg.
+		lastPrecommit := precommitsToBeAggregated[len(precommitsToBeAggregated)-1]
+		if lastPrecommit.R() == precommits[i].R() &&
+			lastPrecommit.Value() == precommits[i].Value() {
+			continue
 		} else {
-			// if there are multiple fast aggregatable precommits:  aggregate them into single one and append the
-			// aggregated one to the fastAggregatedPrecommits, then reset fastAggregatablePrecommits with current
-			// precommit and continue.
-			if len(fastAggregatablePrecommits) > 1 {
-				aggregatedMsg := message.AggregatePrecommits(fastAggregatablePrecommits)
-				fastAggregatedPrecommits = append(fastAggregatedPrecommits, aggregatedMsg)
-				fastAggregatablePrecommits = []message.Vote{precommits[i]}
-				continue
-			}
-
-			// if there is only one precommit in the fastAggregatablePrecommits: append it to the fastAggregatedPrecommits.
-			// then reset fastAggregatablePrecommits with current precommit and continue.
-			fastAggregatedPrecommits = append(fastAggregatedPrecommits, fastAggregatablePrecommits[0].(*message.Precommit))
-			fastAggregatablePrecommits = []message.Vote{precommits[i]}
+			precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
 		}
 	}
 
-	// append the last patch of fastAggregatablePrecommits to fastAggregatedPrecommits.
-	if len(fastAggregatablePrecommits) > 1 {
-		aggregatedMsg := message.AggregatePrecommits(fastAggregatablePrecommits)
-		fastAggregatedPrecommits = append(fastAggregatedPrecommits, aggregatedMsg)
-	} else {
-		fastAggregatedPrecommits = append(fastAggregatedPrecommits, fastAggregatablePrecommits[0].(*message.Precommit))
-	}
-
 	result := HighlyAggregatedPrecommit{}
-	signatures := make([]blst.Signature, len(fastAggregatedPrecommits))
-	for i, m := range fastAggregatedPrecommits {
-		roundValueSigners := &RoundValueSigners{
+	signatures := make([]blst.Signature, len(precommitsToBeAggregated))
+	for i, m := range precommitsToBeAggregated {
+		roundValueSigners := &Signers{
 			Round:   m.R(),
 			Value:   m.Value(),
 			Signers: m.Signers().Flatten(),
 		}
-		result.RoundValueSigners = append(result.RoundValueSigners, roundValueSigners)
+		result.MsgSigners = append(result.MsgSigners, roundValueSigners)
 		signatures[i] = m.Signature()
 	}
 	result.Height = height
@@ -229,8 +232,8 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 	return result
 }
 
-// FastAggregatePrevotes assumes the votes are for the same msg, it does a BLS fast aggregate for the input signatures.
-func FastAggregatePrevotes(prevotes []*message.Prevote) *message.Prevote {
+// AggregateSamePrevotes assumes the votes are for the same msg, it does a BLS fast aggregate for the input signatures.
+func AggregateSamePrevotes(prevotes []*message.Prevote) *message.Prevote {
 	votes := make([]message.Vote, len(prevotes))
 	for i, prevote := range prevotes {
 		votes[i] = prevote

@@ -373,6 +373,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 
 // check if the Proof of challenge of PVN is valid.
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
+	// if there is no evidence or there is expected number of msg evidence field, return false to prevent DoS attack.
 	if len(p.Evidences) == 0 || len(p.Evidences) > 2 {
 		return false
 	}
@@ -405,11 +406,6 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	// is different from the value preVoted, and the other ones are preCommits of nil.
 	preCommits := p.Evidences[1:]
 
-	// as there is only one precomit at most in evidence field, we return false to prevent DoS attack.
-	if len(preCommits) > 1 {
-		return false
-	}
-
 	// Single precommit as the evidence field, process it.
 	if len(preCommits) == 1 {
 		pc := preCommits[0]
@@ -425,7 +421,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 
 	// Otherwise, we have to process aggregated precommits from the aggregated precommits.
 	if p.DistinctPrecommits.Len() > 0 {
-		preCommits := p.DistinctPrecommits.RoundValueSigners
+		preCommits := p.DistinctPrecommits.MsgSigners
 		lastIndex := len(preCommits) - 1
 		for i, pc := range preCommits {
 			// as height and msg code was checked at validate phase, thus we just check round and values at below.
@@ -513,11 +509,9 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 }
 
 // check if the Proof of challenge of PVO12 is valid.
-// TODO(lorenzo) remove the committee? we probably do not need it
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
-	// As in the context of PVO12, there are always multiple precommits to be aggregated in the proof.DistinctPrecommits
-	// Only old proposal is saved at evidences field.
-	if len(p.Evidences) != 1 {
+	// if there is no evidence or there is expected number of msg evidence field, return false to prevent DoS attack.
+	if len(p.Evidences) == 0 || len(p.Evidences) > 2 {
 		return false
 	}
 
@@ -548,9 +542,26 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	currentRound := correspondingProposal.R()
 	validRound := correspondingProposal.ValidRound()
 
+	precommits := p.Evidences[1:]
+	// Single precommit as the evidence field, process it.
+	if len(precommits) == 1 {
+		preC, ok := precommits[0].(*message.Precommit)
+		if !ok {
+			return false
+		}
+		// check if the msg is in range (validRound, currentRound), and with correct signer, height and code.
+		if preC.R() <= validRound || preC.R() >= currentRound || preC.Code() != message.PrecommitCode ||
+			!preC.Signers().Contains(p.OffenderIndex) || preC.H() != prevote.H() ||
+			int(currentRound-validRound)-1 != len(precommits) {
+			return false
+		}
+		return preC.Value() != prevote.Value() && preC.Value() != nilValue
+	}
+
+	// we have distinct aggregated precomits
 	if p.DistinctPrecommits.Len() > 0 {
 
-		allPreCommits := p.DistinctPrecommits.RoundValueSigners
+		allPreCommits := p.DistinctPrecommits.MsgSigners
 		// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
 		// check if all precommits between range (validRound, currentRound) are presented.
 		// There might have multiple precommits per round due to overlapped aggregation.

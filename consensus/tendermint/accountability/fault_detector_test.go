@@ -1023,9 +1023,9 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
 		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
 		require.Equal(t, expectedMisbehaviour.DistinctPrecommits, actualProof.DistinctPrecommits)
-		err := expectedMisbehaviour.DistinctPrecommits.PreValidate(parentHeader)
+		err := actualProof.DistinctPrecommits.PreValidate(parentHeader)
 		require.NoError(t, err)
-		err = expectedMisbehaviour.DistinctPrecommits.Validate()
+		err = actualProof.DistinctPrecommits.Validate()
 		require.NoError(t, err)
 	})
 
@@ -1064,9 +1064,9 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			require.Contains(t, actualProof.Evidences, m)
 		}
 		require.Equal(t, expectedMisbehaviour.DistinctPrecommits, actualProof.DistinctPrecommits)
-		err := expectedMisbehaviour.DistinctPrecommits.PreValidate(parentHeader)
+		err := actualProof.DistinctPrecommits.PreValidate(parentHeader)
 		require.NoError(t, err)
-		err = expectedMisbehaviour.DistinctPrecommits.Validate()
+		err = actualProof.DistinctPrecommits.Validate()
 		require.NoError(t, err)
 	})
 
@@ -1265,9 +1265,9 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
 		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
 		require.Equal(t, expectedMisbehaviour.DistinctPrecommits, actualProof.DistinctPrecommits)
-		err := expectedMisbehaviour.DistinctPrecommits.PreValidate(parentHeader)
+		err := actualProof.DistinctPrecommits.PreValidate(parentHeader)
 		require.NoError(t, err)
-		err = expectedMisbehaviour.DistinctPrecommits.Validate()
+		err = actualProof.DistinctPrecommits.Validate()
 		require.NoError(t, err)
 
 		for _, m := range expectedMisbehaviour.Evidences {
@@ -1381,9 +1381,9 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		for _, m := range expectedMisbehaviour1.Evidences {
 			require.Contains(t, actualProof.Evidences, m)
 		}
-		err := expectedMisbehaviour1.DistinctPrecommits.PreValidate(parentHeader)
+		err := actualProof.DistinctPrecommits.PreValidate(parentHeader)
 		require.NoError(t, err)
-		err = expectedMisbehaviour1.DistinctPrecommits.Validate()
+		err = actualProof.DistinctPrecommits.Validate()
 		require.NoError(t, err)
 
 		actualProof = proofs[1]
@@ -1394,9 +1394,9 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		for _, m := range expectedMisbehaviour2.Evidences {
 			require.Contains(t, actualProof.Evidences, m)
 		}
-		err = expectedMisbehaviour2.DistinctPrecommits.PreValidate(parentHeader)
+		err = actualProof.DistinctPrecommits.PreValidate(parentHeader)
 		require.NoError(t, err)
-		err = expectedMisbehaviour2.DistinctPrecommits.Validate()
+		err = actualProof.DistinctPrecommits.Validate()
 		require.NoError(t, err)
 	})
 
