@@ -46,14 +46,15 @@ func TestRLPEncodingDeconding(t *testing.T) {
 	require.NoError(t, err)
 	decodeRVS = &Signers{}
 	err = rlp.DecodeBytes(p, decodeRVS)
-	require.Error(t, ErrInvalidRound)
+	require.NotNil(t, err)
 
 	rvs.Round = constants.MaxRound
 	rvs.Signers = []int{}
 	p, err = rlp.EncodeToBytes(&rvs)
+	require.NoError(t, err)
 	decodeRVS = &Signers{}
 	err = rlp.DecodeBytes(p, decodeRVS)
-	require.Error(t, ErrNoSigners)
+	require.NotNil(t, err)
 }
 
 func TestHighlyAggregatedPrecommit(t *testing.T) {
