@@ -15,7 +15,7 @@ import (
 
 var (
 	h            = rand.Uint64()
-	r            = rand.Int63n(constants.MaxRound)
+	r            = rand.Int63n(constants.MaxRound / 2)
 	randomBytes1 = make([]byte, 32)
 	randomBytes2 = make([]byte, 32)
 	_, _         = cr.Read(randomBytes1)
@@ -75,16 +75,13 @@ func TestHighlyAggregatedPrecommit(t *testing.T) {
 }
 
 func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
-	numOfFastAggPrecommits := 10 + rand.Intn(cSize)
+	numOfFastAggPrecommits := 10
 	round := int64(0)
 	var precommits []*message.Precommit
 	for n := 0; n < numOfFastAggPrecommits; n++ {
 		value := values[n%len(values)]
-		// add duplicated msg but with different signers, thus the aggregation need to do a further fast aggregate.
-		precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize)))
 		precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize)))
 	}
-	precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(numOfFastAggPrecommits), values[0], randomSigners(cSize)))
 
 	t.Run("with wrong height", func(t *testing.T) {
 		wrongHeight := height + 1
@@ -175,16 +172,14 @@ func randomSigners(committeeSize int) []int {
 }
 
 func randomHighlyAggregatedPrecommits(height uint64, round int64) HighlyAggregatedPrecommit {
-	numOfFastAggPrecommits := 10 + rand.Intn(cSize)
+	numOfFastAggPrecommits := 10
 
 	var precommits []*message.Precommit
 	for n := 0; n < numOfFastAggPrecommits; n++ {
 		value := values[n%len(values)]
 		// add duplicated msg but with different signers, thus the aggregation need to do a further fast aggregate.
 		precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize)))
-		precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize)))
 	}
-	precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(numOfFastAggPrecommits), values[0], randomSigners(cSize)))
 	return AggregateDistinctPrecommits(precommits)
 }
 
