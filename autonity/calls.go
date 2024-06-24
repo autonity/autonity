@@ -60,6 +60,9 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployNonStakableVestingContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
 	}
+	if err := DeployOmissionAccountabilityContract(genesisConfig.OmissionAccountabilityConfig, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the ommision accountability contract: %w", err)
+	}
 	return nil
 }
 
@@ -271,6 +274,29 @@ func DeployAccountabilityContract(config *params.AccountabilityGenesis, evmContr
 	}
 
 	log.Info("Deployed Accountability contract", "address", params.AccountabilityContractAddress)
+
+	return nil
+}
+
+func DeployOmissionAccountabilityContract(config *params.OmissionAccountabilityGenesis, evmContracts *GenesisEVMContracts) error {
+	if config == nil {
+		config = params.DefaultOmissionAccountabilityConfig
+	}
+	conf := OmissionAccountabilityConfig{
+		OmissionLoopBackWindow:  new(big.Int).SetUint64(config.OmissionLoopBackWindow),
+		ActivityProofRewardRate: new(big.Int).SetUint64(config.ActivityProofRewardRate),
+		MaxCommitteeSize:        new(big.Int).SetUint64(config.MaxCommitteeSize),
+		PastPerformanceWeight:   new(big.Int).SetUint64(config.PastPerformanceWeight),
+		InitialJailingPeriod:    new(big.Int).SetUint64(config.InitialJailingPeriod),
+		InitialProbationPeriod:  new(big.Int).SetUint64(config.InitialProbationPeriod),
+		InitialSlashingRate:     new(big.Int).SetUint64(config.InitialSlashingRate),
+	}
+	err := evmContracts.DeployOmissionAccountabilityContract(params.OmissionAccountabilityContractAddress, conf, generated.OmissionAccountabilityBytecode)
+	if err != nil {
+		return fmt.Errorf("failed to deploy ommision accountability contract: %w", err)
+	}
+
+	log.Info("Deployed Omission Accountability contract", "address", params.OmissionAccountabilityContractAddress)
 
 	return nil
 }

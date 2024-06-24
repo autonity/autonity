@@ -348,7 +348,8 @@ var (
 					common.Big1)),
 			},
 		},
-		AccountabilityConfig: DefaultAccountabilityConfig,
+		AccountabilityConfig:         DefaultAccountabilityConfig,
+		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
 		NonStakableVestingConfig: &NonStakableVestingGenesis{
 			TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
 			MaxAllowedDuration: big.NewInt(3 * SecondsInYear),
@@ -514,7 +515,8 @@ var (
 				)),
 			},
 		},
-		AccountabilityConfig: DefaultAccountabilityConfig,
+		AccountabilityConfig:         DefaultAccountabilityConfig,
+		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
 	}
 
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
@@ -712,7 +714,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, false}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, nil, false}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -785,6 +787,7 @@ var (
 		},
 		DefaultNonStakableVestingGenesis,
 		DefaultStakableVestingGenesis,
+		DefaultOmissionAccountabilityConfig,
 		false,
 	}
 )
@@ -891,14 +894,15 @@ type ChainConfig struct {
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
 
 	// Various consensus engines
-	Ethash                   *EthashConfig               `json:"ethash,omitempty"`
-	AutonityContractConfig   *AutonityContractGenesis    `json:"autonity,omitempty"`
-	AccountabilityConfig     *AccountabilityGenesis      `json:"accountability,omitempty"`
-	OracleContractConfig     *OracleContractGenesis      `json:"oracle,omitempty"`
-	InflationContractConfig  *InflationControllerGenesis `json:"inflation,omitempty"`
-	ASM                      AsmConfig                   `json:"asm,omitempty"`
-	NonStakableVestingConfig *NonStakableVestingGenesis  `json:"nonStakableVesting,omitempty"`
-	StakableVestingConfig    *StakableVestingGenesis     `json:"stakableVesting,omitempty"`
+	Ethash                       *EthashConfig                  `json:"ethash,omitempty"`
+	AutonityContractConfig       *AutonityContractGenesis       `json:"autonity,omitempty"`
+	AccountabilityConfig         *AccountabilityGenesis         `json:"accountability,omitempty"`
+	OracleContractConfig         *OracleContractGenesis         `json:"oracle,omitempty"`
+	InflationContractConfig      *InflationControllerGenesis    `json:"inflation,omitempty"`
+	ASM                          AsmConfig                      `json:"asm,omitempty"`
+	NonStakableVestingConfig     *NonStakableVestingGenesis     `json:"nonStakableVesting,omitempty"`
+	StakableVestingConfig        *StakableVestingGenesis        `json:"stakableVesting,omitempty"`
+	OmissionAccountabilityConfig *OmissionAccountabilityGenesis `json:"omissionAccountability,omitempty"`
 
 	// true if run in testmode, false by default
 	TestMode bool `json:"testMode,omitempty"`

@@ -9,6 +9,7 @@ pragma solidity ^0.8.3;
 
 import "./Autonity.sol";
 import "./Accountability.sol";
+import "./OmissionAccountability.sol";
 import "./Liquid.sol";
 import "./Oracle.sol";
 import "./asm/ACU.sol";

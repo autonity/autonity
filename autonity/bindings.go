@@ -163,6 +163,17 @@ type NonStakableVestingSchedule struct {
 	LastUnlockTime            *big.Int
 }
 
+// OmissionAccountabilityConfig is an auto generated low-level Go binding around an user-defined struct.
+type OmissionAccountabilityConfig struct {
+	OmissionLoopBackWindow  *big.Int
+	ActivityProofRewardRate *big.Int
+	MaxCommitteeSize        *big.Int
+	PastPerformanceWeight   *big.Int
+	InitialJailingPeriod    *big.Int
+	InitialProbationPeriod  *big.Int
+	InitialSlashingRate     *big.Int
+}
+
 // StabilizationConfig is an auto generated low-level Go binding around an user-defined struct.
 type StabilizationConfig struct {
 	BorrowInterestRate        *big.Int
@@ -20074,6 +20085,256 @@ func (_NonStakableVesting *NonStakableVestingSession) UnlockTokens() (*types.Tra
 // Solidity: function unlockTokens() returns(uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed)
 func (_NonStakableVesting *NonStakableVestingTransactorSession) UnlockTokens() (*types.Transaction, error) {
 	return _NonStakableVesting.Contract.UnlockTokens(&_NonStakableVesting.TransactOpts)
+}
+
+// OmissionAccountabilityMetaData contains all meta data concerning the OmissionAccountability contract.
+var OmissionAccountabilityMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"internalType\":\"structOmissionAccountability.Config\",\"name\":\"_config\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"config\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"79502c55": "config()",
+	},
+	Bin: "0x608060405234801561001057600080fd5b5060405161021838038061021883398101604081905261002f91610089565b600780546001600160a01b0319166001600160a01b0393909316929092179091558051600055602081015160015560408101516002556060810151600355608081015160045560a081015160055560c0015160065561014d565b60008082840361010081121561009e57600080fd5b83516001600160a01b03811681146100b557600080fd5b925060e0601f19820112156100c957600080fd5b5060405160e081016001600160401b03811182821017156100fa57634e487b7160e01b600052604160045260246000fd5b80604052506020840151815260408401516020820152606084015160408201526080840151606082015260a0840151608082015260c084015160a082015260e084015160c0820152809150509250929050565b60bd8061015b6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806379502c5514602d575b600080fd5b600054600154600254600354600454600554600654604e9695949392919087565b604080519788526020880196909652948601939093526060850191909152608084015260a083015260c082015260e00160405180910390f3fea26469706673582212205befe6dd1a1626aaf8bbb82252ac82a433d549cc9910caba0f1def30f239439064736f6c63430008150033",
+}
+
+// OmissionAccountabilityABI is the input ABI used to generate the binding from.
+// Deprecated: Use OmissionAccountabilityMetaData.ABI instead.
+var OmissionAccountabilityABI = OmissionAccountabilityMetaData.ABI
+
+// Deprecated: Use OmissionAccountabilityMetaData.Sigs instead.
+// OmissionAccountabilityFuncSigs maps the 4-byte function signature to its string representation.
+var OmissionAccountabilityFuncSigs = OmissionAccountabilityMetaData.Sigs
+
+// OmissionAccountabilityBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use OmissionAccountabilityMetaData.Bin instead.
+var OmissionAccountabilityBin = OmissionAccountabilityMetaData.Bin
+
+// DeployOmissionAccountability deploys a new Ethereum contract, binding an instance of OmissionAccountability to it.
+func DeployOmissionAccountability(auth *bind.TransactOpts, backend bind.ContractBackend, _autonity common.Address, _config OmissionAccountabilityConfig) (common.Address, *types.Transaction, *OmissionAccountability, error) {
+	parsed, err := OmissionAccountabilityMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(OmissionAccountabilityBin), backend, _autonity, _config)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &OmissionAccountability{OmissionAccountabilityCaller: OmissionAccountabilityCaller{contract: contract}, OmissionAccountabilityTransactor: OmissionAccountabilityTransactor{contract: contract}, OmissionAccountabilityFilterer: OmissionAccountabilityFilterer{contract: contract}}, nil
+}
+
+// OmissionAccountability is an auto generated Go binding around an Ethereum contract.
+type OmissionAccountability struct {
+	OmissionAccountabilityCaller     // Read-only binding to the contract
+	OmissionAccountabilityTransactor // Write-only binding to the contract
+	OmissionAccountabilityFilterer   // Log filterer for contract events
+}
+
+// OmissionAccountabilityCaller is an auto generated read-only Go binding around an Ethereum contract.
+type OmissionAccountabilityCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// OmissionAccountabilityTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type OmissionAccountabilityTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// OmissionAccountabilityFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type OmissionAccountabilityFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// OmissionAccountabilitySession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type OmissionAccountabilitySession struct {
+	Contract     *OmissionAccountability // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts           // Call options to use throughout this session
+	TransactOpts bind.TransactOpts       // Transaction auth options to use throughout this session
+}
+
+// OmissionAccountabilityCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type OmissionAccountabilityCallerSession struct {
+	Contract *OmissionAccountabilityCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts                 // Call options to use throughout this session
+}
+
+// OmissionAccountabilityTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type OmissionAccountabilityTransactorSession struct {
+	Contract     *OmissionAccountabilityTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts                 // Transaction auth options to use throughout this session
+}
+
+// OmissionAccountabilityRaw is an auto generated low-level Go binding around an Ethereum contract.
+type OmissionAccountabilityRaw struct {
+	Contract *OmissionAccountability // Generic contract binding to access the raw methods on
+}
+
+// OmissionAccountabilityCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type OmissionAccountabilityCallerRaw struct {
+	Contract *OmissionAccountabilityCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// OmissionAccountabilityTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type OmissionAccountabilityTransactorRaw struct {
+	Contract *OmissionAccountabilityTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewOmissionAccountability creates a new instance of OmissionAccountability, bound to a specific deployed contract.
+func NewOmissionAccountability(address common.Address, backend bind.ContractBackend) (*OmissionAccountability, error) {
+	contract, err := bindOmissionAccountability(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &OmissionAccountability{OmissionAccountabilityCaller: OmissionAccountabilityCaller{contract: contract}, OmissionAccountabilityTransactor: OmissionAccountabilityTransactor{contract: contract}, OmissionAccountabilityFilterer: OmissionAccountabilityFilterer{contract: contract}}, nil
+}
+
+// NewOmissionAccountabilityCaller creates a new read-only instance of OmissionAccountability, bound to a specific deployed contract.
+func NewOmissionAccountabilityCaller(address common.Address, caller bind.ContractCaller) (*OmissionAccountabilityCaller, error) {
+	contract, err := bindOmissionAccountability(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &OmissionAccountabilityCaller{contract: contract}, nil
+}
+
+// NewOmissionAccountabilityTransactor creates a new write-only instance of OmissionAccountability, bound to a specific deployed contract.
+func NewOmissionAccountabilityTransactor(address common.Address, transactor bind.ContractTransactor) (*OmissionAccountabilityTransactor, error) {
+	contract, err := bindOmissionAccountability(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &OmissionAccountabilityTransactor{contract: contract}, nil
+}
+
+// NewOmissionAccountabilityFilterer creates a new log filterer instance of OmissionAccountability, bound to a specific deployed contract.
+func NewOmissionAccountabilityFilterer(address common.Address, filterer bind.ContractFilterer) (*OmissionAccountabilityFilterer, error) {
+	contract, err := bindOmissionAccountability(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &OmissionAccountabilityFilterer{contract: contract}, nil
+}
+
+// bindOmissionAccountability binds a generic wrapper to an already deployed contract.
+func bindOmissionAccountability(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(OmissionAccountabilityABI))
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_OmissionAccountability *OmissionAccountabilityRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _OmissionAccountability.Contract.OmissionAccountabilityCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_OmissionAccountability *OmissionAccountabilityRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _OmissionAccountability.Contract.OmissionAccountabilityTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_OmissionAccountability *OmissionAccountabilityRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _OmissionAccountability.Contract.OmissionAccountabilityTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_OmissionAccountability *OmissionAccountabilityCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _OmissionAccountability.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_OmissionAccountability *OmissionAccountabilityTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _OmissionAccountability.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_OmissionAccountability *OmissionAccountabilityTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _OmissionAccountability.Contract.contract.Transact(opts, method, params...)
+}
+
+// Config is a free data retrieval call binding the contract method 0x79502c55.
+//
+// Solidity: function config() view returns(uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
+func (_OmissionAccountability *OmissionAccountabilityCaller) Config(opts *bind.CallOpts) (struct {
+	OmissionLoopBackWindow  *big.Int
+	ActivityProofRewardRate *big.Int
+	MaxCommitteeSize        *big.Int
+	PastPerformanceWeight   *big.Int
+	InitialJailingPeriod    *big.Int
+	InitialProbationPeriod  *big.Int
+	InitialSlashingRate     *big.Int
+}, error) {
+	var out []interface{}
+	err := _OmissionAccountability.contract.Call(opts, &out, "config")
+
+	outstruct := new(struct {
+		OmissionLoopBackWindow  *big.Int
+		ActivityProofRewardRate *big.Int
+		MaxCommitteeSize        *big.Int
+		PastPerformanceWeight   *big.Int
+		InitialJailingPeriod    *big.Int
+		InitialProbationPeriod  *big.Int
+		InitialSlashingRate     *big.Int
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.OmissionLoopBackWindow = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.ActivityProofRewardRate = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.MaxCommitteeSize = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.PastPerformanceWeight = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.InitialJailingPeriod = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.InitialProbationPeriod = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	outstruct.InitialSlashingRate = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
+
+	return *outstruct, err
+
+}
+
+// Config is a free data retrieval call binding the contract method 0x79502c55.
+//
+// Solidity: function config() view returns(uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
+func (_OmissionAccountability *OmissionAccountabilitySession) Config() (struct {
+	OmissionLoopBackWindow  *big.Int
+	ActivityProofRewardRate *big.Int
+	MaxCommitteeSize        *big.Int
+	PastPerformanceWeight   *big.Int
+	InitialJailingPeriod    *big.Int
+	InitialProbationPeriod  *big.Int
+	InitialSlashingRate     *big.Int
+}, error) {
+	return _OmissionAccountability.Contract.Config(&_OmissionAccountability.CallOpts)
+}
+
+// Config is a free data retrieval call binding the contract method 0x79502c55.
+//
+// Solidity: function config() view returns(uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
+func (_OmissionAccountability *OmissionAccountabilityCallerSession) Config() (struct {
+	OmissionLoopBackWindow  *big.Int
+	ActivityProofRewardRate *big.Int
+	MaxCommitteeSize        *big.Int
+	PastPerformanceWeight   *big.Int
+	InitialJailingPeriod    *big.Int
+	InitialProbationPeriod  *big.Int
+	InitialSlashingRate     *big.Int
+}, error) {
+	return _OmissionAccountability.Contract.Config(&_OmissionAccountability.CallOpts)
 }
 
 // OracleMetaData contains all meta data concerning the Oracle contract.

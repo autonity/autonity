@@ -163,6 +163,17 @@ type NonStakableVestingSchedule struct {
 	LastUnlockTime            *big.Int
 }
 
+// OmissionAccountabilityConfig is an auto generated low-level Go binding around an user-defined struct.
+type OmissionAccountabilityConfig struct {
+	OmissionLoopBackWindow  *big.Int
+	ActivityProofRewardRate *big.Int
+	MaxCommitteeSize        *big.Int
+	PastPerformanceWeight   *big.Int
+	InitialJailingPeriod    *big.Int
+	InitialProbationPeriod  *big.Int
+	InitialSlashingRate     *big.Int
+}
+
 // StabilizationConfig is an auto generated low-level Go binding around an user-defined struct.
 type StabilizationConfig struct {
 	BorrowInterestRate        *big.Int
@@ -13275,6 +13286,91 @@ func (_NonStakableVesting *NonStakableVesting) SetTotalNominal(opts *runOptions,
 func (_NonStakableVesting *NonStakableVesting) UnlockTokens(opts *runOptions) (uint64, error) {
 	_, consumed, err := _NonStakableVesting.call(opts, "unlockTokens")
 	return consumed, err
+}
+
+/* EVENTS ARE NOT YET SUPPORTED
+
+ */
+
+// OmissionAccountabilityMetaData contains all meta data concerning the OmissionAccountability contract.
+var OmissionAccountabilityMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"internalType\":\"structOmissionAccountability.Config\",\"name\":\"_config\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"config\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"79502c55": "config()",
+	},
+	Bin: "0x608060405234801561001057600080fd5b5060405161021838038061021883398101604081905261002f91610089565b600780546001600160a01b0319166001600160a01b0393909316929092179091558051600055602081015160015560408101516002556060810151600355608081015160045560a081015160055560c0015160065561014d565b60008082840361010081121561009e57600080fd5b83516001600160a01b03811681146100b557600080fd5b925060e0601f19820112156100c957600080fd5b5060405160e081016001600160401b03811182821017156100fa57634e487b7160e01b600052604160045260246000fd5b80604052506020840151815260408401516020820152606084015160408201526080840151606082015260a0840151608082015260c084015160a082015260e084015160c0820152809150509250929050565b60bd8061015b6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806379502c5514602d575b600080fd5b600054600154600254600354600454600554600654604e9695949392919087565b604080519788526020880196909652948601939093526060850191909152608084015260a083015260c082015260e00160405180910390f3fea26469706673582212205befe6dd1a1626aaf8bbb82252ac82a433d549cc9910caba0f1def30f239439064736f6c63430008150033",
+}
+
+// OmissionAccountabilityABI is the input ABI used to generate the binding from.
+// Deprecated: Use OmissionAccountabilityMetaData.ABI instead.
+var OmissionAccountabilityABI = OmissionAccountabilityMetaData.ABI
+
+// Deprecated: Use OmissionAccountabilityMetaData.Sigs instead.
+// OmissionAccountabilityFuncSigs maps the 4-byte function signature to its string representation.
+var OmissionAccountabilityFuncSigs = OmissionAccountabilityMetaData.Sigs
+
+// OmissionAccountabilityBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use OmissionAccountabilityMetaData.Bin instead.
+var OmissionAccountabilityBin = OmissionAccountabilityMetaData.Bin
+
+// DeployOmissionAccountability deploys a new Ethereum contract, binding an instance of OmissionAccountability to it.
+func (r *runner) deployOmissionAccountability(opts *runOptions, _autonity common.Address, _config OmissionAccountabilityConfig) (common.Address, uint64, *OmissionAccountability, error) {
+	parsed, err := OmissionAccountabilityMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
+	}
+
+	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(OmissionAccountabilityBin), _autonity, _config)
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	return address, gasConsumed, &OmissionAccountability{contract: c}, nil
+}
+
+// OmissionAccountability is an auto generated Go binding around an Ethereum contract.
+type OmissionAccountability struct {
+	*contract
+}
+
+// Config is a free data retrieval call binding the contract method 0x79502c55.
+//
+// Solidity: function config() view returns(uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
+func (_OmissionAccountability *OmissionAccountability) Config(opts *runOptions) (struct {
+	OmissionLoopBackWindow  *big.Int
+	ActivityProofRewardRate *big.Int
+	MaxCommitteeSize        *big.Int
+	PastPerformanceWeight   *big.Int
+	InitialJailingPeriod    *big.Int
+	InitialProbationPeriod  *big.Int
+	InitialSlashingRate     *big.Int
+}, uint64, error) {
+	out, consumed, err := _OmissionAccountability.call(opts, "config")
+
+	outstruct := new(struct {
+		OmissionLoopBackWindow  *big.Int
+		ActivityProofRewardRate *big.Int
+		MaxCommitteeSize        *big.Int
+		PastPerformanceWeight   *big.Int
+		InitialJailingPeriod    *big.Int
+		InitialProbationPeriod  *big.Int
+		InitialSlashingRate     *big.Int
+	})
+	if err != nil {
+		return *outstruct, consumed, err
+	}
+
+	outstruct.OmissionLoopBackWindow = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.ActivityProofRewardRate = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.MaxCommitteeSize = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.PastPerformanceWeight = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.InitialJailingPeriod = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.InitialProbationPeriod = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	outstruct.InitialSlashingRate = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
+	return *outstruct, consumed, err
+
 }
 
 /* EVENTS ARE NOT YET SUPPORTED

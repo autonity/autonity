@@ -71,6 +71,17 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
+	// todo: resolve the reasonable default settings
+	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
+		OmissionLoopBackWindow:  30,   // 30 blocks
+		ActivityProofRewardRate: 1000, // 10%
+		MaxCommitteeSize:        1000,
+		PastPerformanceWeight:   5000, // 50%
+		InitialJailingPeriod:    300,  // 300 blocks
+		InitialProbationPeriod:  300,  // 300 blocks
+		InitialSlashingRate:     1000, // 10%
+	}
+
 	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
 		TotalNominal:       new(big.Int).Mul(big.NewInt(10_000_000), DecimalFactor), // 10 million NTN
 		MaxAllowedDuration: big.NewInt(3 * SecondsInYear),                           // 3 years
@@ -80,17 +91,18 @@ var (
 		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
 	}
 
-	DeployerAddress                    = common.Address{}
-	AutonityContractAddress            = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress      = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress              = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress                 = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress       = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress       = crypto.CreateAddress(DeployerAddress, 5)
-	UpgradeManagerContractAddress      = crypto.CreateAddress(DeployerAddress, 6)
-	InflationControllerContractAddress = crypto.CreateAddress(DeployerAddress, 7)
-	StakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 8)
-	NonStakableVestingContractAddress  = crypto.CreateAddress(DeployerAddress, 9)
+	DeployerAddress                       = common.Address{}
+	AutonityContractAddress               = crypto.CreateAddress(DeployerAddress, 0)
+	AccountabilityContractAddress         = crypto.CreateAddress(DeployerAddress, 1)
+	OracleContractAddress                 = crypto.CreateAddress(DeployerAddress, 2)
+	ACUContractAddress                    = crypto.CreateAddress(DeployerAddress, 3)
+	SupplyControlContractAddress          = crypto.CreateAddress(DeployerAddress, 4)
+	StabilizationContractAddress          = crypto.CreateAddress(DeployerAddress, 5)
+	UpgradeManagerContractAddress         = crypto.CreateAddress(DeployerAddress, 6)
+	InflationControllerContractAddress    = crypto.CreateAddress(DeployerAddress, 7)
+	StakableVestingContractAddress        = crypto.CreateAddress(DeployerAddress, 8)
+	NonStakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
+	OmissionAccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 10)
 )
 
 type AutonityContractGenesis struct {
@@ -121,7 +133,7 @@ type AccountabilityGenesis struct {
 	SlashingRatePrecision uint64 `json:"slashingRatePrecision"`
 }
 
-type OmissionFaultAccountabilityGenesis struct {
+type OmissionAccountabilityGenesis struct {
 	// Omission fault detection parameters
 	OmissionLoopBackWindow  uint64 `json:"omissionLoopBackWindow"`
 	ActivityProofRewardRate uint64 `json:"activityProofRewardRate"`

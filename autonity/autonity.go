@@ -487,6 +487,10 @@ type NonStakableVestingContract struct {
 	EVMContract
 }
 
+type OmissionAccountabilityContract struct {
+	EVMContract
+}
+
 func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
 	evmProvider := func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		if header != nil {
@@ -508,6 +512,14 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 			EVMContract: EVMContract{
 				evmProvider: evmProvider,
 				contractABI: &generated.AccountabilityAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
+		OmissionAccountabilityContract: OmissionAccountabilityContract{
+			EVMContract: EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.OmissionAccountabilityAbi,
 				db:          db,
 				chainConfig: chainConfig,
 			},
@@ -590,7 +602,7 @@ type GenesisEVMContracts struct {
 	InflationControllerContract
 	StakableVestingContract
 	NonStakableVestingContract
-
+	OmissionAccountabilityContract
 	statedb vm.StateDB
 }
 
@@ -600,6 +612,10 @@ func (c *GenesisEVMContracts) DeployAutonityContract(bytecode []byte, validators
 
 func (c *GenesisEVMContracts) DeployAccountabilityContract(autonityAddress common.Address, config AccountabilityConfig, bytecode []byte) error {
 	return c.AccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
+}
+
+func (c *GenesisEVMContracts) DeployOmissionAccountabilityContract(autonityAddress common.Address, config OmissionAccountabilityConfig, bytecode []byte) error {
+	return c.OmissionAccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
 }
 
 func (c *GenesisEVMContracts) Mint(address common.Address, amount *big.Int) error {
