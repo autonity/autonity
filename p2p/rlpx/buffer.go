@@ -18,6 +18,7 @@ package rlpx
 
 import (
 	"io"
+	"sync"
 )
 
 // readBuffer implements buffering for network reads. This type is similar to bufio.Reader,
@@ -31,13 +32,24 @@ import (
 // through b.read() until the end of the packet is reached. The complete packet data is
 // now available in b.data.
 type readBuffer struct {
-	data []byte
-	end  int
+	data          []byte
+	end           int
+	done          chan error
+	dataAvailable chan struct{}
+	sync.Mutex
+	once sync.Once
 }
 
 // reset removes all processed data which was read since the last call to reset.
 // After reset, len(b.data) is zero.
 func (b *readBuffer) reset() {
+	b.once.Do(func() {
+		b.done = make(chan error, 1)
+		b.dataAvailable = make(chan struct{}, 10000)
+	})
+
+	b.Lock()
+	defer b.Unlock()
 	unprocessed := b.end - len(b.data)
 	copy(b.data[:unprocessed], b.data[len(b.data):b.end])
 	b.end = unprocessed
@@ -46,7 +58,7 @@ func (b *readBuffer) reset() {
 
 // read reads at least n bytes from r, returning the bytes.
 // The returned slice is valid until the next call to reset.
-func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
+func (b *readBuffer) readOld(r io.Reader, n int) ([]byte, error) {
 	offset := len(b.data)
 	have := b.end - len(b.data)
 
@@ -70,8 +82,45 @@ func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
 	return b.data[offset : offset+n], nil
 }
 
+// read reads at least n bytes from r, returning the bytes.
+// The returned slice is valid until the next call to reset.
+func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
+
+	readBytes := func() []byte {
+		b.Lock()
+		defer b.Unlock()
+		offset := len(b.data)
+		have := b.end - len(b.data)
+
+		// If n bytes are available in the buffer, there is no need to read from r at all.
+		if have >= n {
+			b.data = b.data[:offset+n]
+			return b.data[offset : offset+n]
+		}
+		return []byte{}
+	}
+	data := readBytes()
+	if len(data) >= n {
+		return data, nil
+	}
+	for {
+		select {
+		case err := <-b.done:
+			return nil, err // Return the error that occurred
+		case <-b.dataAvailable:
+			data := readBytes()
+			if len(data) >= n {
+				return data, nil
+			}
+		}
+	}
+
+}
+
 // grow ensures the buffer has at least n bytes of unused space.
 func (b *readBuffer) grow(n int) {
+	b.Lock()
+	defer b.Unlock()
 	if cap(b.data)-b.end >= n {
 		return
 	}
@@ -79,6 +128,20 @@ func (b *readBuffer) grow(n int) {
 	offset := len(b.data)
 	b.data = append(b.data[:cap(b.data)], make([]byte, need)...)
 	b.data = b.data[:offset]
+}
+
+// update adds more data into the input buffer to be read
+func (b *readBuffer) update(buf []byte, n int) {
+	b.grow(n)
+	b.Lock()
+	defer b.Unlock()
+	copied := copy(b.data[b.end:b.end+n], buf[:n])
+	b.end += copied
+	//log.Info("read buffer update", "unread", b.end)
+
+	//now := time.Now()
+	b.dataAvailable <- struct{}{}
+	//log.Info("signal to actual read", "time taken", time.Since(now).Nanoseconds())
 }
 
 // writeBuffer implements buffering for network writes. This is essentially

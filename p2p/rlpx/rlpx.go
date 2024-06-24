@@ -32,13 +32,16 @@ import (
 	"io"
 	mrand "math/rand"
 	"net"
+	"sync"
 	"time"
+
+	"github.com/golang/snappy"
+	"golang.org/x/crypto/sha3"
 
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/ecies"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"github.com/golang/snappy"
-	"golang.org/x/crypto/sha3"
 )
 
 // Conn is an RLPx network connection. It wraps a low-level network connection. The
@@ -67,6 +70,7 @@ type sessionState struct {
 	ingressMAC hashMAC
 	rbuf       readBuffer
 	wbuf       writeBuffer
+	once       sync.Once
 }
 
 // hashMAC holds the state of the RLPx v4 MAC contraption.
@@ -133,6 +137,7 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 		panic("can't ReadMsg before handshake")
 	}
 
+	c.session.once.Do(func() { go c.session.ReadLoop(c.conn) })
 	frame, snappyByte, err := c.session.readFrame(c.conn)
 	if err != nil {
 		return 0, nil, 0, err
@@ -157,6 +162,30 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 		data, err = snappy.Decode(c.snappyReadBuffer, data)
 	}
 	return code, data, wireSize, err
+}
+
+func (s *sessionState) ReadLoop(conn net.Conn) {
+
+	// trying 65k byte read
+	buf := make([]byte, 1024*1024)
+
+	//lastRead := time.Now()
+	for {
+		//runtime.Gosched()
+		// Read.
+		//log.Info("time between subsequent reads", "duration", time.Since(lastRead).Nanoseconds())
+		rn, err := conn.Read(buf)
+		//lastRead = time.Now()
+		if err != nil {
+			if rn > 0 {
+				s.rbuf.update(buf, rn)
+			}
+			s.rbuf.done <- err
+			break
+		}
+		//log.Info("Read bytes", "num:", rn)
+		s.rbuf.update(buf, rn)
+	}
 }
 
 func (h *sessionState) readFrame(conn io.Reader) ([]byte, byte, error) {
@@ -262,7 +291,9 @@ func (h *sessionState) writeFrame(conn io.Writer, code uint64, snappyByte byte, 
 	// Write frame MAC.
 	h.wbuf.Write(h.egressMAC.computeFrame(framedata))
 
+	now := time.Now()
 	_, err := conn.Write(h.wbuf.data)
+	log.Info("conn write", "length", len(h.wbuf.data), "time taken", time.Since(now).Nanoseconds())
 	return err
 }
 
@@ -314,6 +345,7 @@ func (c *Conn) Handshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
 		sec, err = h.runRecipient(c.conn, prv)
 	}
 	if err != nil {
+		log.Error("handshake failed", "error", err)
 		return nil, err
 	}
 	c.InitWithSecrets(sec)
@@ -606,14 +638,14 @@ func (h *handshakeState) readMsg(msg interface{}, prv *ecdsa.PrivateKey, r io.Re
 	h.rbuf.grow(512)
 
 	// Read the size prefix.
-	prefix, err := h.rbuf.read(r, 2)
+	prefix, err := h.rbuf.readOld(r, 2)
 	if err != nil {
 		return nil, err
 	}
 	size := binary.BigEndian.Uint16(prefix)
 
 	// Read the handshake packet.
-	packet, err := h.rbuf.read(r, int(size))
+	packet, err := h.rbuf.readOld(r, int(size))
 	if err != nil {
 		return nil, err
 	}
@@ -625,7 +657,10 @@ func (h *handshakeState) readMsg(msg interface{}, prv *ecdsa.PrivateKey, r io.Re
 	// trailing data (forward-compatibility).
 	s := rlp.NewStream(bytes.NewReader(dec), 0)
 	err = s.Decode(msg)
-	return h.rbuf.data[:len(prefix)+len(packet)], err
+	h.rbuf.Lock()
+	data := h.rbuf.data[:len(prefix)+len(packet)]
+	h.rbuf.Unlock()
+	return data, err
 }
 
 // sealEIP8 encrypts a handshake message.

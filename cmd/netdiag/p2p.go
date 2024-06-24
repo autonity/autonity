@@ -172,6 +172,7 @@ func (p *Peer) sendData(data []byte) (uint64, time.Duration, error) {
 	fmt.Println("[DATAPACKET] >> ", id)
 	req, err := p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 	if err != nil {
+		log.Error("Unable to dispatch request", "error", err)
 		return 0, 0, err
 	}
 	dispatchDuration := time.Now().Sub(startTime)
@@ -229,7 +230,7 @@ func handleUpdateTcpSocket(_ *Engine, p *Peer, msg io.Reader) error {
 	log.Info("received handle update")
 	var opts TCPOptionsPacket
 	if err := rlp.Decode(msg, &opts); err != nil {
-
+		log.Error("update tcp socket failure", "error", err)
 		return err
 	}
 	p.UpdateSocketOptions(int(opts.BufferSize), opts.NoDelay)

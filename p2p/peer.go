@@ -246,11 +246,20 @@ func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 }
 
 func (p *Peer) UpdateSocketOptions(bufferSize int, noDelay bool) {
+
 	if tcp, ok := p.rw.fd.(*net.TCPConn); ok {
-		tcp.SetWriteBuffer(bufferSize)
-		tcp.SetReadBuffer(bufferSize)
-		tcp.SetNoDelay(noDelay)
-		log.Info("Socket options updated")
+		err := tcp.SetWriteBuffer(bufferSize)
+		if err != nil {
+			p.Log().Error("set write buffer", "error", err)
+		}
+		err = tcp.SetReadBuffer(bufferSize)
+		if err != nil {
+			p.Log().Error("set read buffer", "error", err)
+		}
+		//tcp.SetNoDelay(noDelay)
+		p.Log().Info("Socket options updated", "writeBuffer", bufferSize, "readbuffer", bufferSize)
+	} else {
+		p.Log().Info("not a TCP socket, buffer update is not possible")
 	}
 }
 

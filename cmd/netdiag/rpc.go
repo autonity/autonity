@@ -417,11 +417,12 @@ func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandom
 }
 
 type ResultTCPSocketTuning struct {
-	Target      int
-	MinDuration time.Duration
-	NoDelay     bool
-	BufferSize  int
-	Durations   []time.Duration
+	Target         int
+	MinDuration    time.Duration
+	NoDelay        bool
+	BufferSize     int
+	SizeToDuration map[int]time.Duration
+	Durations      []time.Duration
 }
 
 func (r *ResultTCPSocketTuning) String() string {
@@ -430,66 +431,86 @@ func (r *ResultTCPSocketTuning) String() string {
 	fmt.Fprintf(&builder, "Duration: %s\n", r.MinDuration)
 	fmt.Fprintf(&builder, "NoDelay: %v\n", r.NoDelay)
 	fmt.Fprintf(&builder, "BufferSize: %d\n", r.BufferSize)
+	for size, Duration := range r.SizeToDuration {
+		fmt.Fprintf(&builder, "Size %d: %s\n", size, Duration)
+	}
 	for i := range r.Durations {
-		fmt.Fprintf(&builder, "Delay %s: %s\n", time.Duration(i)*500*time.Millisecond, r.Durations[i])
+		fmt.Fprintf(&builder, "Delay %s: %s\n", 500*time.Millisecond, r.Durations[i])
 	}
 	return builder.String()
 }
 
 func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) error {
-	peer, err := checkPeer(args.Target, p.engine.peers)
+	_, err := checkPeer(args.Target, p.engine.peers)
 	if err != nil {
 		return err
 	}
-	bufferSizes := []int{1024, 2 * 1024, 4 * 1024, 8 * 1024, 16 * 1024, 32 * 1024, 64 * 1024, 128 * 1024, 256 * 1024, 512 * 1024, 1024 * 1024}
+	bufferSizes := []int{16 * 1024, 32 * 1024, 64 * 1024, 128 * 1024,
+		256 * 1024, 512 * 1024, 1024 * 1024,
+		2 * 1024 * 1024, 4 * 1024 * 1024, 10 * 1024 * 1024}
 	minDuration := 99 * time.Second
 	minNoDelay := false
+	noDelay := minNoDelay
 	minBufferSize := 0
-	for _, noDelay := range []bool{false, true} {
-		for _, buffSize := range bufferSizes {
-			if err := peer.sendUpdateTcpSocket(buffSize, noDelay); err != nil {
-				log.Error("error sending update", "err", err)
-			}
-			peer.UpdateSocketOptions(buffSize, noDelay)
-			// warmup
+
+	sizeToDuration := make(map[int]time.Duration, len(bufferSizes))
+	//peer.UpdateSocketOptions(4*1024*1024, noDelay)
+	//if err := peer.sendUpdateTcpSocket(4*1024*1024, noDelay); err != nil {
+	//	log.Error("error sending update", "err", err)
+	//}
+	//for _, noDelay := range []bool{true} {
+	now := time.Now()
+	//for i := 0; i < 100; i++ {
+	// warmup
+	//res := &ResultSendRandomData{}
+	//_ = p.SendRandomData(&ArgTargetSizeCount{
+	//	ArgTarget: ArgTarget{args.Target},
+	//	ArgCount:  ArgCount{10},
+	//	ArgSize:   ArgSize{1024},
+	//}, res)
+	//time.Sleep(2 * time.Second)
+	// measure
+	res2 := &ResultSendRandomData{}
+	err = p.SendRandomData(&ArgTargetSizeCount{
+		ArgTarget: ArgTarget{args.Target},
+		ArgCount:  ArgCount{100},
+		ArgSize:   ArgSize{1000000},
+	}, res2)
+	if err != nil {
+		log.Error("error sending random data", "err", err)
+	}
+	log.Info("total duration to finish the test", "time to finish", time.Since(now).Nanoseconds())
+	duration := res2.ReceiverReceptionTime.Sub(res2.RequestTime)
+	//sizeToDuration[buffSize] = duration
+	if duration < minDuration {
+		minDuration = duration
+		minNoDelay = noDelay
+		//minBufferSize = buffSize
+	}
+	//}
+	//}
+	*reply = ResultTCPSocketTuning{
+		Target:         args.Target,
+		MinDuration:    minDuration,
+		NoDelay:        minNoDelay,
+		BufferSize:     minBufferSize,
+		Durations:      make([]time.Duration, 10),
+		SizeToDuration: sizeToDuration,
+	}
+	size := 200000
+	for index, factor := range []int{1, 2, 4, 8} {
+		var totalTime time.Duration
+		for i := 0; i < factor; i++ {
 			res := &ResultSendRandomData{}
 			_ = p.SendRandomData(&ArgTargetSizeCount{
 				ArgTarget: ArgTarget{args.Target},
-				ArgCount:  ArgCount{10},
-				ArgSize:   ArgSize{1024},
-			}, res)
-			time.Sleep(2 * time.Second)
-			// measure
-			res2 := &ResultSendRandomData{}
-			_ = p.SendRandomData(&ArgTargetSizeCount{
-				ArgTarget: ArgTarget{args.Target},
 				ArgCount:  ArgCount{1},
-				ArgSize:   ArgSize{200000},
-			}, res2)
-			duration := res2.ReceiverReceptionTime.Sub(res2.RequestTime)
-			if duration < minDuration {
-				minDuration = duration
-				minNoDelay = noDelay
-				minBufferSize = buffSize
-			}
+				ArgSize:   ArgSize{size / factor},
+			}, res)
+			totalTime += res.ReceiverReceptionTime.Sub(res.RequestTime)
 		}
-	}
-	*reply = ResultTCPSocketTuning{
-		Target:      args.Target,
-		MinDuration: minDuration,
-		NoDelay:     minNoDelay,
-		BufferSize:  minBufferSize,
-		Durations:   make([]time.Duration, 10),
-	}
-	for i := 0; i < 10; i++ {
-		res := &ResultSendRandomData{}
-		_ = p.SendRandomData(&ArgTargetSizeCount{
-			ArgTarget: ArgTarget{args.Target},
-			ArgCount:  ArgCount{1},
-			ArgSize:   ArgSize{200000},
-		}, res)
-		reply.Durations[i] = res.ReceiverReceptionTime.Sub(res.RequestTime)
-		time.Sleep(time.Duration(i) * 500 * time.Millisecond)
+		reply.Durations[index] = totalTime
+		//time.Sleep(500 * time.Millisecond)
 	}
 	return nil
 }
@@ -553,10 +574,15 @@ func (r *ResultDissemination) String() string {
 	var results []strats.IndividualDisseminateResult
 	for i, res := range r.IndividualResults {
 		if res.ErrorTimeout {
+			fmt.Println("Error time out")
 			continue
 		}
 		results = append(results, r.IndividualResults[i])
 		fmt.Fprintf(&builder, "Peer %d Duration: %s Hops: %d Relay: %d\n", i, res.ReceptionTime.Sub(r.StartTime), res.Hop, res.Relay)
+	}
+	if len(results) == 0 {
+		fmt.Fprintf(&builder, "Dissemination failed")
+		return builder.String()
 	}
 	sort.Slice(results, func(a, b int) bool {
 		return results[a].ReceptionTime.Before(results[b].ReceptionTime)

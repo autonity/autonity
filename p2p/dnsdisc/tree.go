@@ -25,12 +25,13 @@ import (
 	"io"
 	"strings"
 
+	"golang.org/x/crypto/sha3"
+	"golang.org/x/exp/slices"
+
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/enr"
 	"github.com/autonity/autonity/rlp"
-	"golang.org/x/crypto/sha3"
-	"golang.org/x/exp/slices"
 )
 
 // Tree is a merkle tree of node records.
@@ -214,8 +215,8 @@ func (t *Tree) build(entries []entry) entry {
 }
 
 func sortByID(nodes []*enode.Node) []*enode.Node {
-	slices.SortFunc(nodes, func(a, b *enode.Node) bool {
-		return bytes.Compare(a.ID().Bytes(), b.ID().Bytes()) < 0
+	slices.SortFunc(nodes, func(a, b *enode.Node) int {
+		return bytes.Compare(a.ID().Bytes(), b.ID().Bytes())
 	})
 	return nodes
 }

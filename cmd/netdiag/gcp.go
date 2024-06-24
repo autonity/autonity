@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"google.golang.org/api/iterator"
 
@@ -54,14 +55,20 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 	if !skipConfigDeploy {
 		log.Info("Transferring config file to the VM...", "id", vm.id)
 		// Send the binary to the VM
-		cmd := exec.Command("scp", configFileName, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, configFileName))
-		if debug {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
-		if err := cmd.Run(); err != nil {
-			log.Error("command failure", "err", err, "cmd", cmd.String())
-			return err
+		for i := 0; i < 10; i++ {
+			cmd := exec.Command("scp", "-o StrictHostKeyChecking='no'", configFileName, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, configFileName))
+			if debug {
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+			}
+			if err := cmd.Run(); err != nil {
+				log.Error("command failure", "err", err, "cmd", cmd.String())
+				if i == 9 {
+					return err
+				}
+				time.Sleep(10 * time.Second)
+				continue
+			}
 		}
 	}
 	log.Info("Transferring the binary to the VM...", "id", vm.id)
@@ -69,7 +76,7 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("scp", exePath, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, binaryName))
+	cmd := exec.Command("scp", "-o StrictHostKeyChecking='no'", exePath, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, binaryName))
 	if debug {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -81,11 +88,21 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 }
 
 func (vm *vm) startRunner(configFileName, networkMode string, optFlags string) error {
+	// enable groupids for icmp ping
+	cmd := "sudo sysctl -w net.ipv4.ping_group_range='0 2147483647'"
+	execCmd := exec.Command("ssh", "-o StrictHostKeyChecking='no'", fmt.Sprintf("%s@%s", vm.user, vm.ip), cmd)
+	err := execCmd.Run()
+	log.Info("group id command", "cmd", execCmd)
+	if err != nil {
+		log.Error("Failed to set net.ipv4.ping_group_range ", "error", err)
+	}
 	// Execute the binary on the VM
 	log.Info("Executing the runner on the VM...", "id", vm.id)
 	flags := fmt.Sprintf("run --config %s --id %d --network %s %s", configFileName, vm.id, networkMode, optFlags)
 	localCommand := fmt.Sprintf("chmod +x ~/%s && sudo -b ./%s %s > %s 2>&1 ", binaryName, binaryName, flags, logFileName)
-	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
+	log.Info("local command", "cmd", localCommand)
+	execCmd = exec.Command("ssh", "-o StrictHostKeyChecking='no'", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
+	log.Info("execution command", "cmd", execCmd)
 	if err := execCmd.Start(); err != nil {
 		log.Error("Error executing binary: %v", err, "id", vm.id)
 	}

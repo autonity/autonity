@@ -45,7 +45,7 @@ func (p *Random) Execute(packetId uint64, data []byte, maxPeers int) error {
 
 func (p *BaseStrategy) randomDissemination(randomPc int, packetId uint64, data []byte, maxPeers int, originalSender uint64, hop int) error {
 	sent := map[int]struct{}{}
-	numRecipients := (maxPeers * randomPc) / 100
+	numRecipients := min(1, (maxPeers*randomPc)/100)
 	for i := 0; i < numRecipients; i++ {
 		var (
 			target Peer

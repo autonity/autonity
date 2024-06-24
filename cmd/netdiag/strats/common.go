@@ -52,7 +52,7 @@ func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDissem
 	recipients := maxPeers
 	if s.Id < uint64(recipients) {
 		// local node is dismissed during propagation
-		individualResults[s.Id]
+		//individualResults[s.Id]
 		recipients--
 	}
 

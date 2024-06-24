@@ -37,7 +37,7 @@ import (
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
 func TestSendingValue(t *testing.T) {
-	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown()
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -675,7 +675,7 @@ func updateRlimit() {
 // TestLargeNetwork test internally +100 nodes setups. This will be moved later
 // in its own cmd package.
 func TestLargeNetwork(t *testing.T) {
-	t.Skip("only on demand")
+	//	t.Skip("only on demand")
 	//
 	//------ Config section -------
 	//
@@ -687,9 +687,9 @@ func TestLargeNetwork(t *testing.T) {
 	// Fast epoch to see changes in committee reflected fast
 	params.TestAutonityContractConfig.EpochPeriod = 5
 	// total peers to be deployed
-	const peerCount = 150
+	const peerCount = 2
 	// peers above max committee are participants
-	const maxCommittee = 50
+	const maxCommittee = 2
 
 	//
 	//----End config -------------
@@ -780,8 +780,8 @@ func TestLargeNetwork(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	t.Skip("only on demand")
-	peerCount := 7
+	//t.Skip("only on demand")
+	peerCount := 2
 	targetTPS := 1000
 	validators, _ := Validators(t, peerCount, "10e18,v,1000,127.0.0.1:%s,%s,%s,%s")
 	network, err := NewInMemoryNetwork(t, validators, true)

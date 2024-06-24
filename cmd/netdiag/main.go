@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -11,8 +12,10 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"os/exec"
 	"os/signal"
 	"os/user"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime/pprof"
@@ -23,6 +26,7 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/ssh"
 	"gopkg.in/urfave/cli.v1"
 
 	"github.com/autonity/autonity/crypto"
@@ -421,9 +425,15 @@ func setup(c *cli.Context) error {
 		log.Error("can't encode config to file", "err", err)
 		return err
 	}
-	log.Info("Config generated")
-	log.Info("Waiting 1 min")
-	time.Sleep(60 * time.Second)
+	log.Info("Config generated, wait 30 seconds")
+
+	time.Sleep(30 * time.Second)
+	//for i := 0; i < n; i++ {
+	//	if err := waitSSH(vms[i].ip, 30, 5*time.Second); err != nil {
+	//		log.Error("Error connecting to SSH server:", err, "ip", vms[i].ip)
+	//		return err
+	//	}
+	//}
 	// deploy runners
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -454,6 +464,41 @@ func setup(c *cli.Context) error {
 	return nil
 }
 
+func cleanup(c *cli.Context) error {
+	log.Info("Updating cluster")
+	cfg := readConfigFile(c.String(configFlag.Name))
+	vms := make([]*vm, len(cfg.Nodes))
+	var wg sync.WaitGroup
+	now := time.Now()
+	for i, n := range cfg.Nodes {
+		wg.Add(1)
+		vms[i] = newVM(i, n.Ip, n.InstanceName, n.Zone, cfg.GcpUsername)
+		go func(id int) {
+			log.Info("Killing runner", "id", id)
+			if err := vms[id].killRunner(c.String(configFlag.Name)); err != nil {
+				log.Crit("error starting runner", "id", id, "err", err)
+			}
+			time.Sleep(time.Second)
+			if !c.Bool(restartOnlyFlag.Name) {
+				if err := vms[id].deployRunner(c.String(configFlag.Name), false, true); err != nil {
+					log.Crit("error deploying runner", "id", id, "err", err)
+				}
+				log.Info("Runner binary deployed", "id", id)
+			}
+			optFlag := ""
+			if c.Bool(pprofFlag.Name) {
+				optFlag += "--pprof"
+			}
+			if err := vms[id].startRunner(c.String(configFlag.Name), c.String(networkModeFlag.Name), optFlag); err != nil {
+				log.Crit("error starting runner", "id", id, "err", err)
+			}
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	log.Info("Cluster deployed and running!", "duration(s)", time.Now().Sub(now).Seconds())
+	return nil
+}
 func update(c *cli.Context) error {
 	log.Info("Updating cluster")
 	cfg := readConfigFile(c.String(configFlag.Name))
@@ -487,5 +532,71 @@ func update(c *cli.Context) error {
 	}
 	wg.Wait()
 	log.Info("Cluster deployed and running!", "duration(s)", time.Now().Sub(now).Seconds())
+	return nil
+}
+func waitSSH(instanceName string, maxRetries int, retryInterval time.Duration) error {
+	for i := 0; i < maxRetries; i++ {
+		err := checkSSH(instanceName)
+		if err == nil {
+			return nil
+		}
+		log.Info("SSH connection failed", "Retrying", i+1, "error", err)
+		time.Sleep(retryInterval)
+	}
+	return fmt.Errorf("failed to connect to SSH server after %d attempts", maxRetries)
+}
+
+func addKeyToAgent() error {
+	// Build the command
+	cmd := exec.Command("ssh-add", "~/.ssh/id_rsa")
+
+	// Capture output and errors
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	var errBuf bytes.Buffer
+	cmd.Stderr = &errBuf
+
+	// Run the command
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error adding key to agent: %w\n%s", err, errBuf.String())
+	}
+
+	fmt.Println(out.String()) // Optional: Print output from ssh-add
+	return nil
+}
+
+func checkSSH(instanceName string) error {
+	// Set a short timeout for connection attempt
+	timeout := time.Second * 5
+	key, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
+	if err != nil {
+		log.Error("Failed to read ssh file, err:", err)
+		return err
+	}
+	log.Info("key", "k", key)
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		log.Error("Failed to parse private key", "err:", err)
+		return err
+	}
+
+	userName := os.Getenv("USER")
+	config := &ssh.ClientConfig{
+		User: userName,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         timeout,
+	}
+
+	// Connect to SSH server
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", instanceName), config)
+	if err != nil {
+		return err
+	}
+
+	defer client.Close()
+
 	return nil
 }
