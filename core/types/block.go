@@ -99,7 +99,8 @@ type Header struct {
 	once              sync.Once
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	ActivityProof     AggregateSignature `json:"activityProof"`
 }
 
 type AggregateSignature struct {
@@ -182,7 +183,8 @@ type headerExtra struct {
 	Committee         Committee          `json:"committee"           gencodec:"required"`
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	ActivityProof     AggregateSignature `json:"activityProof"       gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -269,6 +271,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 			return err
 		}
 		h.QuorumCertificate = hExtra.QuorumCertificate
+		h.ActivityProof = hExtra.ActivityProof
 		h.Committee = hExtra.Committee
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
@@ -315,6 +318,7 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 		ProposerSeal:      h.ProposerSeal,
 		Round:             h.Round,
 		QuorumCertificate: h.QuorumCertificate,
+		ActivityProof:     h.ActivityProof,
 	}
 
 	original := h.original()
@@ -490,6 +494,11 @@ func CopyHeader(h *Header) *Header {
 		quorumCertificate = h.QuorumCertificate.Copy()
 	}
 
+	activityProof := AggregateSignature{}
+	if h.ActivityProof.Signature != nil && h.ActivityProof.Signers != nil {
+		activityProof = h.ActivityProof.Copy()
+	}
+
 	cpy := &Header{
 		ParentHash:        h.ParentHash,
 		UncleHash:         h.UncleHash,
@@ -511,6 +520,7 @@ func CopyHeader(h *Header) *Header {
 		BaseFee:           baseFee,
 		Round:             h.Round,
 		QuorumCertificate: quorumCertificate,
+		ActivityProof:     activityProof,
 	}
 	return cpy
 }

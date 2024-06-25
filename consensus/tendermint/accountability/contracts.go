@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"math/big"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -79,7 +80,7 @@ func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64
 	accusationHeight := m.H()
 
 	// has to be at least DeltaBlocks old
-	if currentHeight <= (DeltaBlocks+1) || accusationHeight >= currentHeight-DeltaBlocks {
+	if currentHeight <= (tendermint.DeltaBlocks+1) || accusationHeight >= currentHeight-tendermint.DeltaBlocks {
 		return errTooRecentAccusation
 	}
 	// cannot be too old. Otherwise this could be exploited by a malicious peer to raise an undefendable accusation.

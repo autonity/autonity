@@ -1,6 +1,7 @@
 package accountability
 
 import (
+	"github.com/autonity/autonity/consensus/tendermint"
 	"math/big"
 	"testing"
 	"time"
@@ -261,7 +262,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		msgHeight := uint64(10)
 		msgRound := int64(1)
 		validRound := int64(0)
-		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
+		currentHeight := msgHeight + tendermint.DeltaBlocks + offChainAccusationProofWindow + 1
 		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			OffenderIndex: proposerIdx,
@@ -302,7 +303,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		msgHeight := uint64(10)
 		msgRound := int64(1)
 		validRound := int64(0)
-		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
+		currentHeight := msgHeight + tendermint.DeltaBlocks + offChainAccusationProofWindow + 1
 		lastHeader := newBlockHeader(msgHeight-1, committee)
 		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
@@ -346,7 +347,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 	sender := committee[1].Address
 	height := uint64(100)
-	accusationHeight := height - DeltaBlocks
+	accusationHeight := height - tendermint.DeltaBlocks
 	round := int64(1)
 	validRound := int64(0)
 
@@ -418,7 +419,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 
 func TestHandleOffChainAccusation(t *testing.T) {
 	height := uint64(100)
-	accusationHeight := height - DeltaBlocks
+	accusationHeight := height - tendermint.DeltaBlocks
 	round := int64(1)
 	validRound := int64(0)
 	currentHeader := newBlockHeader(height, committee)

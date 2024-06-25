@@ -35,7 +35,8 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		Committee         Committee          `json:"committee"           gencodec:"required"`
 		ProposerSeal      hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             hexutil.Uint64     `json:"round"               gencodec:"required"`
-		QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+		QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		ActivityProof     AggregateSignature `json:"activityProof"       gencodec:"required"`
 		Hash              common.Hash        `json:"hash"`
 	}
 	var enc Header
@@ -59,6 +60,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.ProposerSeal = h.ProposerSeal
 	enc.Round = hexutil.Uint64(h.Round)
 	enc.QuorumCertificate = h.QuorumCertificate
+	enc.ActivityProof = h.ActivityProof
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -85,7 +87,8 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		Committee         *Committee          `json:"committee"           gencodec:"required"`
 		ProposerSeal      *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             *hexutil.Uint64     `json:"round"               gencodec:"required"`
-		QuorumCertificate *AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
+		QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		ActivityProof     *AggregateSignature `json:"activityProof"       gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -169,6 +172,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.QuorumCertificate = *dec.QuorumCertificate
 
+	if dec.ActivityProof == nil {
+		return errors.New("missing required field 'activityProof' for Header")
+	}
+	h.ActivityProof = *dec.ActivityProof
 	//TODO(lorenzo) Added this manually to make the e2e test work. Fix it properly.
 	if err := h.Committee.Enrich(); err != nil {
 		return err

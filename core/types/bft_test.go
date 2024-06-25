@@ -30,7 +30,7 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0xebec6824a0f6a3870d987f61c23909c0e0248b4fbc46ef64457a7011fd761a61")
+	posHeaderHash := common.HexToHash("0x91b069ade9f4a7b7554542563405d05532aacca75e61bbbfe100f23f20527d00")
 
 	quorumCertificate := AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
@@ -84,13 +84,13 @@ func TestHeaderHash(t *testing.T) {
 					},
 				},
 			}),
-			common.HexToHash("0xe81df587da3150a831fa0f13f9386ef3abd962f880251e65963547dbba84a703"),
+			common.HexToHash("0xade28e29f3161459ca780f5d2c4e0e809973029166148c3f91613fb8c25bec2a"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0xebec6824a0f6a3870d987f61c23909c0e0248b4fbc46ef64457a7011fd761a61"),
+			posHeaderHash,
 		},
 		{
 			setExtra(PosHeader, headerExtra{

@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint"
 
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
@@ -314,7 +315,7 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 	for _, proof := range fd.offChainAccusations {
 		// NOTE: accusations for message at height h is generated at height h + delta by the fault detector
 		// then we have up to h + delta + offchainWindow to resolve it offchain
-		if currentChainHeight-proof.Message.H() > (DeltaBlocks + offChainAccusationProofWindow) {
+		if currentChainHeight-proof.Message.H() > (tendermint.DeltaBlocks + offChainAccusationProofWindow) {
 			expiredOnes = append(expiredOnes, proof)
 		}
 	}

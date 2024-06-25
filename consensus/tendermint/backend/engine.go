@@ -285,6 +285,13 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())
 	}
+
+	// assemble nodes' activity proof of height h from the height of h-delta
+	proof, err := sb.assembleActivityProof(number)
+	if err != nil {
+		return err
+	}
+	types.WriteActivityProof(header, proof)
 	return nil
 }
 
@@ -327,6 +334,10 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	txs []*types.Transaction, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
+
+	parent := chain.GetHeaderByNumber(header.Number.Uint64() - 1)
+	activityReport := sb.validateActivityProof(header, parent)
+	// todo: report submission!
 
 	committeeSet, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"github.com/autonity/autonity/consensus/tendermint"
 	"math/big"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestAccusation(t *testing.T) {
 
 	// TODO(lorenzo) add similar tests for PVO and C1
 	r.run("PVN accusation with prevote nil should revert", func(r *runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
+		accusationHeight := lastCommittedHeight - tendermint.DeltaBlocks
 
 		chainMock.EXPECT().GetBlock(common.Hash{}, accusationHeight).Return(nil)
 
@@ -84,7 +85,7 @@ func TestAccusation(t *testing.T) {
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("accusation for committed value should revert", func(r *runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
+		accusationHeight := lastCommittedHeight - tendermint.DeltaBlocks
 
 		chainMock.EXPECT().GetBlock(common.Hash{0xca, 0xfe}, accusationHeight).Return(&types.Block{})
 
@@ -116,13 +117,13 @@ func TestAccusationTiming(t *testing.T) {
 	lastCommittedHeight := currentHeight - 1 // height of last committed block
 
 	r.run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
+		accusationHeight := lastCommittedHeight - tendermint.DeltaBlocks
 
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})
 	r.run("submit accusation at height = lastCommittedHeight - delta + 1 (too recent)", func(r *runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks + 1
+		accusationHeight := lastCommittedHeight - tendermint.DeltaBlocks + 1
 
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)

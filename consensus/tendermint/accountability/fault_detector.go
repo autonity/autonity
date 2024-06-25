@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"math"
 	"math/big"
 	"sort"
@@ -47,7 +48,7 @@ const (
 	reportingSlotPeriod           = 20                           // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
 	//NOTE: update to below constants might require a chain fork to upgrade clients, since they impact the Accountability Event execution result. They should be turned into protocol parameters https://github.com/autonity/autonity/issues/949
 	HeightRange = 256 // Default msg buffer range for AFD.
-	DeltaBlocks = 10  // Wait until the GST + delta blocks to start accounting.
+
 )
 
 var (
@@ -280,8 +281,8 @@ loop:
 			fd.escalateExpiredAccusations(ev.Block.NumberU64())
 
 			// run rule engine over a specific height.
-			if ev.Block.NumberU64() > uint64(DeltaBlocks) {
-				checkpoint := ev.Block.NumberU64() - uint64(DeltaBlocks)
+			if ev.Block.NumberU64() > uint64(tendermint.DeltaBlocks) {
+				checkpoint := ev.Block.NumberU64() - uint64(tendermint.DeltaBlocks)
 				if events := fd.runRuleEngine(checkpoint); len(events) > 0 {
 					fd.pendingEvents = append(fd.pendingEvents, events...)
 				}

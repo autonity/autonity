@@ -3,6 +3,7 @@ package accountability
 import (
 	"crypto/ecdsa"
 	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/stretchr/testify/assert"
@@ -127,7 +128,7 @@ func TestRunRuleEngine(t *testing.T) {
 	round := int64(3)
 	t.Run("test run rules with malicious behaviour should be detected", func(t *testing.T) {
 		chainHead := uint64(100)
-		checkPointHeight := chainHead - uint64(DeltaBlocks)
+		checkPointHeight := chainHead - uint64(tendermint.DeltaBlocks)
 		lastHeader := &types.Header{Number: new(big.Int).SetUint64(checkPointHeight - 1), Committee: committee}
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
