@@ -764,7 +764,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
-        config.contracts.omissionAccountabilityContract.finalize(isProposerOmissionFaulty, ids);
+
+        // todo: forward activity report to omission accountability contract.
+        //config.contracts.omissionAccountabilityContract.finalize(isProposerOmissionFaulty, ids);
         if (epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
             uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(

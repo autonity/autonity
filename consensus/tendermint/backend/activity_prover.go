@@ -29,8 +29,7 @@ func (sb *Backend) assembleActivityProof(header *types.Header) (types.AggregateS
 	if header.IsGenesis() {
 		return defaultProof, nil
 	}
-	// todo: without depends on the epoch boundary, the timing checker can be done by on-chain contract. However,
-	//  in client side, it would do useless assembling and verification for the 1st delta blocks.
+
 	lastEpochBlock, err := sb.lastEpochBlockOfHeight(header.Number)
 	if err != nil {
 		panic(err)
@@ -54,6 +53,11 @@ func (sb *Backend) assembleActivityProof(header *types.Header) (types.AggregateS
 	for i, p := range precommits {
 		votes[i] = p
 	}
+
+	if len(votes) == 0 {
+		return defaultProof, nil
+	}
+
 	aggregate := message.AggregatePrecommits(votes)
 	defaultProof.Signature = aggregate.Signature().(*blst.BlsSignature)
 	defaultProof.Signers = aggregate.Signers()
@@ -75,44 +79,36 @@ func (sb *Backend) validateActivityProof(curHeader, parent *types.Header) (bool,
 	if err != nil {
 		panic(err)
 	}
-	// todo: without depends on the epoch boundary, the timing checker can be done by on-chain contract. However,
-	//  in client side, it would do useless assembling and verification for the 1st delta blocks.
+
 	if h <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
 		sb.logger.Debug("Skip to validate activity proof for the 1st delta blocks of epoch",
 			"height", h, "lastEpochBlock", lastEpochBlock)
 		return false, []*big.Int{}
 	}
 
-	proposer, err := types.ECRecover(curHeader)
-	if err != nil {
-		panic(err) // as at this phase, the block proposer/signer was verified.
-	}
+	// at block finalization phase, the coinbase was checked already, thus take it as the proposer of the block.
+	proposer := curHeader.Coinbase
 
 	// after the 1st delta blocks, the proposer is accountable for not assembling valid activity proof.
-	if err = sb.verifyActivityProof(curHeader, parent); err != nil {
+	signers, err := sb.verifyActivityProof(curHeader, parent)
+	if err != nil {
 		sb.logger.Info("Faulty activity proof addressed", "proposer", proposer)
 		return true, []*big.Int{new(big.Int).SetUint64(parent.CommitteeMember(proposer).Index)}
 	}
 
-	// todo: (Jason) double check if the flattenUniq() is deterministic?
-	signers := curHeader.ActivityProof.Signers.FlattenUniq()
-	IDs := make([]*big.Int, len(signers))
-	for i, id := range signers {
-		IDs[i] = new(big.Int).SetInt64(int64(id))
-	}
-	return false, IDs
+	return false, signers
 }
 
 // verifyActivityProof validates that the activity proof for header come from committee members and
 // that the voting power constitute a quorum.
-func (sb *Backend) verifyActivityProof(header, parent *types.Header) error {
+func (sb *Backend) verifyActivityProof(header, parent *types.Header) ([]*big.Int, error) {
 	// un-finalized proposals will have these fields set to nil
 	if header.ActivityProof.Signature == nil || header.ActivityProof.Signers == nil {
-		return ErrEmptyActivityProof
+		return nil, ErrEmptyActivityProof
 	}
 	activityProof := header.ActivityProof.Copy() // copy so that we do not modify the header when doing Signers.Validate()
 	if err := activityProof.Signers.Validate(len(parent.Committee)); err != nil {
-		return fmt.Errorf("Invalid activity proof signers information: %w", err)
+		return nil, fmt.Errorf("Invalid activity proof signers information: %w", err)
 	}
 
 	// todo: replace by committee.TotalVotingPower()
@@ -122,12 +118,19 @@ func (sb *Backend) verifyActivityProof(header, parent *types.Header) error {
 		committeeVotingPower.Add(committeeVotingPower, member.VotingPower)
 	}
 
+	targetHeight := header.Number.Uint64() - tendermint.DeltaBlocks
+	targetHeader := sb.BlockChain().GetHeaderByNumber(targetHeight)
+
 	// The data that was signed over for this block
-	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
+	headerSeal := message.PrepareCommittedSeal(targetHeader.Hash(), int64(targetHeader.Round), targetHeader.Number)
 
 	// Total assembled voting power for the activity proof
 	power := new(big.Int)
-	for _, index := range activityProof.Signers.FlattenUniq() {
+	// todo: (Jason) double check if the flattenUniq() is deterministic?
+	signers := activityProof.Signers.FlattenUniq()
+	IDs := make([]*big.Int, len(signers))
+	for i, index := range signers {
+		IDs[i] = new(big.Int).SetInt64(int64(index))
 		power.Add(power, parent.Committee[index].VotingPower)
 	}
 
@@ -142,16 +145,16 @@ func (sb *Backend) verifyActivityProof(header, parent *types.Header) error {
 	}
 	valid := activityProof.Signature.Verify(aggregatedKey, headerSeal[:])
 	if !valid {
-		sb.logger.Error("block had invalid committed seal")
-		return ErrInvalidActivityProofSignature
+		sb.logger.Error("block had invalid activity proof signature")
+		return nil, ErrInvalidActivityProofSignature
 	}
 
 	// We need at least a quorum for the activity proof.
 	if power.Cmp(bft.Quorum(committeeVotingPower)) < 0 {
-		return ErrInsufficientActivityProof
+		return nil, ErrInsufficientActivityProof
 	}
 
-	return nil
+	return IDs, nil
 }
 
 // lastEpochBlockOfHeight get the last epoch block of height from AC contract.
