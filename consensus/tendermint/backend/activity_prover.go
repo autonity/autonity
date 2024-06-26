@@ -3,7 +3,6 @@ package backend
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -21,37 +20,34 @@ var (
 	ErrInsufficientActivityProof = errors.New("insufficient power for activity proof")
 )
 
-type ActivityReport struct {
-	FaultyProposer common.Address
-	Signers        []int
-}
-
 // assembleActivityProof assembles the nodes' activity proof of height: h with the aggregated precommit
 // of height: h-dela. Proposer is incentivised to assemble proof as much as possible, however due to the
 // timing of GST + Delta, assembling proof for the first delta blocks in an epoch is not required.
-func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, error) {
+func (sb *Backend) assembleActivityProof(header *types.Header) (types.AggregateSignature, error) {
 	var defaultProof types.AggregateSignature
 	// for the 1st delta blocks, the proposer does not have to prove.
-	if h == 0 {
+	if header.IsGenesis() {
 		return defaultProof, nil
 	}
-	lastEpochBlock, err := sb.lastEpochBlockOfHeight(h)
+	// todo: without depends on the epoch boundary, the timing checker can be done by on-chain contract. However,
+	//  in client side, it would do useless assembling and verification for the 1st delta blocks.
+	lastEpochBlock, err := sb.lastEpochBlockOfHeight(header.Number)
 	if err != nil {
 		panic(err)
 	}
-	if h <= lastEpochBlock+tendermint.DeltaBlocks {
+	if header.Number.Uint64() <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
 		sb.logger.Debug("Skip to assemble activity proof at the starting of epoch",
-			"height", h, "lastEpochBlock", lastEpochBlock)
+			"height", header.Number.Uint64(), "lastEpochBlock", lastEpochBlock)
 		return defaultProof, nil
 	}
 
 	// after delta blocks, get quorum certificates from height h-delta.
-	targetHeight := h - tendermint.DeltaBlocks
-	header := sb.BlockChain().GetHeaderByNumber(targetHeight)
+	targetHeight := header.Number.Uint64() - tendermint.DeltaBlocks
+	targetHeader := sb.BlockChain().GetHeaderByNumber(targetHeight)
 
 	// get precommits for the same value of the height h-delta, aggregate the missing ones of the
 	precommits := sb.MsgStore.GetPrecommits(targetHeight, func(m *message.Precommit) bool {
-		return m.R() == int64(header.Round) && m.Value() == header.Hash()
+		return m.R() == int64(targetHeader.Round) && m.Value() == targetHeader.Hash()
 	})
 
 	votes := make([]message.Vote, len(precommits))
@@ -68,23 +64,23 @@ func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, er
 // an invalid activity proof as omission faulty node of the height, it also returns the signers of a valid
 // activity proof which will be submitted to the omission accountability contract. Note: The proposer is innocence
 // to provide no proof for the 1st delta blocks, thus, the 1st delta blocks of an epoch is not accountable.
-func (sb *Backend) validateActivityProof(curHeader, parent *types.Header) *ActivityReport {
-	report := &ActivityReport{}
+func (sb *Backend) validateActivityProof(curHeader, parent *types.Header) (bool, []*big.Int) {
 	// for the 1st delta blocks, return nothing.
 	if curHeader.IsGenesis() {
-		return report
+		return false, []*big.Int{}
 	}
 
 	h := curHeader.Number.Uint64()
-	lastEpochBlock, err := sb.lastEpochBlockOfHeight(h)
+	lastEpochBlock, err := sb.lastEpochBlockOfHeight(curHeader.Number)
 	if err != nil {
 		panic(err)
 	}
-
-	if h <= lastEpochBlock+tendermint.DeltaBlocks {
+	// todo: without depends on the epoch boundary, the timing checker can be done by on-chain contract. However,
+	//  in client side, it would do useless assembling and verification for the 1st delta blocks.
+	if h <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
 		sb.logger.Debug("Skip to validate activity proof for the 1st delta blocks of epoch",
 			"height", h, "lastEpochBlock", lastEpochBlock)
-		return report
+		return false, []*big.Int{}
 	}
 
 	proposer, err := types.ECRecover(curHeader)
@@ -95,13 +91,16 @@ func (sb *Backend) validateActivityProof(curHeader, parent *types.Header) *Activ
 	// after the 1st delta blocks, the proposer is accountable for not assembling valid activity proof.
 	if err = sb.verifyActivityProof(curHeader, parent); err != nil {
 		sb.logger.Info("Faulty activity proof addressed", "proposer", proposer)
-		report.FaultyProposer = proposer
-		return report
+		return true, []*big.Int{new(big.Int).SetUint64(parent.CommitteeMember(proposer).Index)}
 	}
 
 	// todo: (Jason) double check if the flattenUniq() is deterministic?
-	report.Signers = curHeader.ActivityProof.Signers.FlattenUniq()
-	return report
+	signers := curHeader.ActivityProof.Signers.FlattenUniq()
+	IDs := make([]*big.Int, len(signers))
+	for i, id := range signers {
+		IDs[i] = new(big.Int).SetInt64(int64(id))
+	}
+	return false, IDs
 }
 
 // verifyActivityProof validates that the activity proof for header come from committee members and
@@ -157,6 +156,11 @@ func (sb *Backend) verifyActivityProof(header, parent *types.Header) error {
 
 // lastEpochBlockOfHeight get the last epoch block of height from AC contract.
 // todo(Jason) replace this by query from the header chain when epoch-header feature is merged.
-func (sb *Backend) lastEpochBlockOfHeight(height uint64) (uint64, error) {
-	return uint64(0), nil
+func (sb *Backend) lastEpochBlockOfHeight(height *big.Int) (*big.Int, error) {
+	header := sb.BlockChain().CurrentBlock().Header()
+	state, err := sb.BlockChain().State()
+	if err != nil {
+		return nil, err
+	}
+	return sb.BlockChain().ProtocolContracts().AutonityContract.GetLastEpochBlockOfHeight(header, state, height)
 }

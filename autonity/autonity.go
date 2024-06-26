@@ -233,6 +233,10 @@ func (c *AutonityContract) Committee(header *types.Header, db vm.StateDB) ([]typ
 	return c.callGetCommittee(db, header)
 }
 
+func (c *AutonityContract) GetLastEpochBlockOfHeight(header *types.Header, db vm.StateDB, height *big.Int) (*big.Int, error) {
+	return c.callGetLastEpochBlockOfHeight(db, header, height)
+}
+
 func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*big.Int, error) {
 	if block.Number.Uint64() <= 1 {
 		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.MinBaseFee), nil
@@ -327,7 +331,7 @@ func (c *AutonityContract) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (types.Committee, *types.Receipt, error) {
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB, isProposerFaulty bool, IDs []*big.Int) (types.Committee, *types.Receipt, error) {
 	if header.Number.Uint64() == 0 {
 		return nil, nil, nil
 	}
@@ -336,7 +340,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 		"balance", statedb.GetBalance(params.AutonityContractAddress),
 		"block", header.Number.Uint64())
 
-	upgradeContract, committee, err := c.callFinalize(statedb, header)
+	upgradeContract, committee, err := c.callFinalize(statedb, header, isProposerFaulty, IDs)
 
 	if err != nil {
 		return nil, nil, err

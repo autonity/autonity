@@ -163,5 +163,7 @@
   "0fe50109": "setMaxBondAppliedGas(uint256)",
   "7e660ac9": "setMaxRewardsDistributionGas(uint256)",
   "0b21fb1d": "setMaxUnbondAppliedGas(uint256)",
-  "ee7ff28d": "setMaxUnbondReleasedGas(uint256)"
+  "ee7ff28d": "setMaxUnbondReleasedGas(uint256)",
+  "7516f580": "finalize(bool,uint256[])",
+  "e4469437": "getLastEpochBlockOfHeight(uint256)"
 }

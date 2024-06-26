@@ -312,14 +312,15 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			TreasuryAccount:         genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract:      params.AccountabilityContractAddress,
-			OracleContract:              params.OracleContractAddress,
-			AcuContract:                 params.ACUContractAddress,
-			SupplyControlContract:       params.SupplyControlContractAddress,
-			StabilizationContract:       params.StabilizationContractAddress,
-			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
-			InflationControllerContract: params.InflationControllerContractAddress,
-			NonStakableVestingContract:  params.NonStakableVestingContractAddress,
+			AccountabilityContract:         params.AccountabilityContractAddress,
+			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			OracleContract:                 params.OracleContractAddress,
+			AcuContract:                    params.ACUContractAddress,
+			SupplyControlContract:          params.SupplyControlContractAddress,
+			StabilizationContract:          params.StabilizationContractAddress,
+			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
+			InflationControllerContract:    params.InflationControllerContractAddress,
+			NonStakableVestingContract:     params.NonStakableVestingContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: genesisConfig.Operator,
@@ -599,6 +600,15 @@ func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Head
 	return committee, nil
 }
 
+func (c *AutonityContract) callGetLastEpochBlockOfHeight(state vm.StateDB, header *types.Header, height *big.Int) (*big.Int, error) {
+	lastEpochBlock := new(big.Int)
+	if err := c.AutonityContractCall(state, header, "getLastEpochBlockOfHeight", &lastEpochBlock, height); err != nil {
+		return nil, err
+	}
+
+	return lastEpochBlock, nil
+}
+
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	minBaseFee := new(big.Int)
 	err := c.AutonityContractCall(state, header, "getMinimumBaseFee", &minBaseFee)
@@ -617,10 +627,10 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 	return epochPeriod, nil
 }
 
-func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, types.Committee, error) {
+func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header, isProposerFaulty bool, IDs []*big.Int) (bool, types.Committee, error) {
 	var updateReady bool
 	var committee types.Committee
-	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}); err != nil {
+	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}, isProposerFaulty, IDs); err != nil {
 		return false, nil, err
 	}
 

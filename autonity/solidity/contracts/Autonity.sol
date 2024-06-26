@@ -15,6 +15,7 @@ import "./asm/IACU.sol";
 import "./asm/ISupplyControl.sol";
 import "./asm/IStabilization.sol";
 import "./interfaces/IAccountability.sol";
+import "./interfaces/IOmissionAccountability.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import "./interfaces/IInflationController.sol";
@@ -126,6 +127,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**************************************************/
     struct Contracts {
         IAccountability accountabilityContract;
+        IOmissionAccountability omissionAccountabilityContract;
         IOracle oracleContract;
         IACU acuContract;
         ISupplyControl supplyControlContract;
@@ -164,6 +166,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     // Stake token state transitions happen every epoch.
     uint256 public epochID;
     mapping(uint256 => uint256) internal blockEpochMap;
+    mapping(uint256 => uint256) internal epochBoundaryMap;
     uint256 public lastEpochBlock;
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
@@ -301,6 +304,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
+        blockEpochMap[block.number] = epochID;
+        epochBoundaryMap[epochID] = lastEpochBlock;
     }
 
     /**
@@ -747,15 +752,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
+    * @param isProposerOmissionFaulty is true when the proposer provides invalid activity proof of current height.
+    * @param ids stores faulty proposer's ID when isProposerOmissionFaulty is true, otherwise it carries current height
+    * activity proof which is the signers of precommit of current height - dela.
+    *
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next block consensus committee.
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
+    function finalize(bool isProposerOmissionFaulty, uint256[] memory ids) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
-
+        config.contracts.omissionAccountabilityContract.finalize(isProposerOmissionFaulty, ids);
         if (epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
             uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(
@@ -794,6 +803,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             lastEpochBlock = block.number;
             lastEpochTime = block.timestamp;
             epochID += 1;
+            epochBoundaryMap[epochID] = lastEpochBlock;
             emit NewEpoch(epochID);
         }
 
@@ -884,6 +894,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function getLastEpochBlock() external view virtual returns (uint256) {
         return lastEpochBlock;
+    }
+
+    /**
+    * @notice Returns the last epoch's end block height of a specific height.
+    */
+    function getLastEpochBlockOfHeight(uint256 height) external view virtual returns (uint256) {
+        return epochBoundaryMap[blockEpochMap[height]];
     }
 
     /**

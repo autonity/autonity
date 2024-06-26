@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 import "./Autonity.sol";
-contract OmissionAccountability {
+contract OmissionAccountability is IOmissionAccountability {
 
     struct Config {
         uint256 omissionLoopBackWindow;
@@ -20,5 +20,21 @@ contract OmissionAccountability {
         config = _config;
     }
 
-    // todo: implement D4's protocol contract
+    /**
+    * @notice called by the Autonity Contract at block finalization, it receives activity report.
+    * @param isProposerOmissionFaulty is true when the proposer provides invalid activity proof of current height.
+    * @param ids stores faulty proposer's ID when isProposerOmissionFaulty is true, otherwise it carries current height
+    * activity proof which is the signers of precommit of current height - dela.
+    */
+    function finalize(bool isProposerOmissionFaulty, uint256[] memory ids) external onlyAutonity {
+        // todo, fill the look-back window by the input data.
+    }
+
+    /**
+    * @dev Modifier that checks if the caller is the slashing contract.
+    */
+    modifier onlyAutonity {
+        require(msg.sender == address(autonity) , "function restricted to the autonity");
+        _;
+    }
 }

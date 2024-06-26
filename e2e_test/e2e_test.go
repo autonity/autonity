@@ -68,6 +68,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.TestAutonityContractConfig.UnbondingPeriod, autonityConfig.Policy.UnbondingPeriod.Uint64())
 	require.Equal(t, params.UpgradeManagerContractAddress, autonityConfig.Contracts.UpgradeManagerContract)
 	require.Equal(t, params.AccountabilityContractAddress, autonityConfig.Contracts.AccountabilityContract)
+	require.Equal(t, params.OmissionAccountabilityContractAddress, autonityConfig.Contracts.OmissionAccountabilityContract)
 	require.Equal(t, params.ACUContractAddress, autonityConfig.Contracts.AcuContract)
 	require.Equal(t, params.StabilizationContractAddress, autonityConfig.Contracts.StabilizationContract)
 	require.Equal(t, params.OracleContractAddress, autonityConfig.Contracts.OracleContract)
