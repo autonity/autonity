@@ -64,6 +64,8 @@ func PublicKeyFromBytes(pubKey []byte) (PublicKey, error) {
 }
 
 // AggregateRawPublicKeys aggregates the provided raw public keys into a single key.
+// NOTE: This function should be used only on individual keys, since the deserializing will reject infinite/zero public keys.
+// if used to aggregate aggregated public keys, it can give conflicting results wrt `AggregatePublicKeys`
 func AggregateRawPublicKeys(pubs [][]byte) (PublicKey, error) {
 	if len(pubs) == 0 {
 		return nil, fmt.Errorf("empty pub-key set for key aggregation")

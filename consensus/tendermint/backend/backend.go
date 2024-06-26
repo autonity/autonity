@@ -403,18 +403,3 @@ func (sb *Backend) SyncPeer(address common.Address) {
 		go peer.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
-
-// called by tendermint core to dump core state
-func (sb *Backend) FutureMsgs() []message.Msg {
-	sb.futureLock.RLock()
-	defer sb.futureLock.RUnlock()
-
-	var msgs []message.Msg
-	for _, evs := range sb.future {
-		for _, ev := range evs {
-			msgs = append(msgs, ev.Message)
-		}
-	}
-
-	return msgs
-}

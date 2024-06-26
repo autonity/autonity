@@ -23,6 +23,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
 	"math/big"
@@ -39,7 +40,16 @@ func (api *API) GetCommittee(number *rpc.BlockNumber) (*types.Committee, error) 
 	if number == nil {
 		return nil, fmt.Errorf("block number cannot be nil")
 	}
-	return api.tendermint.GetCommitteeByHeight(new(big.Int).SetUint64(uint64(*number)))
+	numberBig := new(big.Int)
+	switch *number {
+	case rpc.LatestBlockNumber:
+		numberBig.Set(api.chain.CurrentHeader().Number)
+	case rpc.PendingBlockNumber:
+		numberBig.SetUint64(api.chain.CurrentHeader().Number.Uint64() + 1)
+	default:
+		numberBig.SetUint64(uint64(*number))
+	}
+	return api.tendermint.GetCommitteeByHeight(numberBig)
 }
 
 // GetCommitteeAtHash retrieves the state snapshot at a given block.
@@ -69,4 +79,20 @@ func (api *API) GetCommitteeEnodes() []string {
 // Get current tendermint's core state
 func (api *API) GetCoreState() interfaces.CoreState {
 	return api.tendermint.CoreState()
+}
+
+// PrivateAPI is an internal API meant for testing.
+// it allows the gossiping of arbitrary payloads. It SHOULD NOT be activated on production nodes.
+type PrivateAPI struct {
+	chain    consensus.ChainReader
+	gossiper interfaces.Gossiper
+}
+
+func (api *PrivateAPI) Gossip(code uint8, payload []byte) error {
+	committee, _, _, _, err := api.chain.LatestEpoch()
+	if err != nil {
+		return err
+	}
+	api.gossiper.GossipPayload(committee, code, crypto.Hash(payload), payload)
+	return nil
 }

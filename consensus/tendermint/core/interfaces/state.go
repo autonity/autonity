@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 )
 
@@ -23,13 +22,25 @@ type RoundState struct {
 	PrecommitState []VoteState
 }
 
-// MsgWithHash save the msg and extra field to be marshal to JSON.
+// MsgForDump publicly exports the key fields of a message, to allow for json serialization
 type MsgForDump struct {
-	message.Msg
-	Hash   common.Hash
-	Power  *big.Int
-	Height *big.Int
-	Round  int64
+	Code           uint8
+	Hash           common.Hash
+	Payload        []byte
+	Height         uint64
+	Round          int64
+	SignatureInput common.Hash
+	Signature      []byte
+	Power          *big.Int
+
+	// only for votes
+	Signers *types.Signers
+	Value   common.Hash
+
+	// only for proposals
+	Block      *types.Block
+	ValidRound int64
+	Signer     common.Address
 }
 
 // TendermintState save an instant status for the tendermint consensus engine.
@@ -67,12 +78,10 @@ type CoreState struct {
 	PrevoteTimerStarted   bool
 	PrecommitTimerStarted bool
 
-	// current height messages.
-	CurHeightMessages []*MsgForDump
-	// backlog msgs
-	FutureRoundMessages []*MsgForDump
-	// backlog of future height msgs.
-	FutureHeightMessages []*MsgForDump
+	// current height messages payloads
+	CurHeightMessages []MsgForDump
+	// future round messages payloads
+	FutureRoundMessages []MsgForDump
 	// Known msg of gossip.
 	KnownMsgHash []common.Hash
 }

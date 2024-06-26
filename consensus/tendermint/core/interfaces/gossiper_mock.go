@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 //
+
 // Package interfaces is a generated GoMock package.
 package interfaces
 
@@ -92,6 +93,18 @@ func (m *MockGossiper) Gossip(committee *types.Committee, message message.Msg) {
 func (mr *MockGossiperMockRecorder) Gossip(committee, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, message)
+}
+
+// GossipPayload mocks base method.
+func (m *MockGossiper) GossipPayload(committee *types.Committee, code uint8, hash common.Hash, payload []byte) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "GossipPayload", committee, code, hash, payload)
+}
+
+// GossipPayload indicates an expected call of GossipPayload.
+func (mr *MockGossiperMockRecorder) GossipPayload(committee, code, hash, payload any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GossipPayload", reflect.TypeOf((*MockGossiper)(nil).GossipPayload), committee, code, hash, payload)
 }
 
 // KnownMessages mocks base method.

@@ -79,9 +79,6 @@ type Backend interface {
 	// re-injects buffered future height messages
 	ProcessFutureMsgs(height uint64)
 
-	// returns future height buffered messages. Called by core for tendermint state dump
-	FutureMsgs() []message.Msg
-
 	// returns the channel used to pass messages between peer sessions and the aggregator
 	MessageCh() <-chan events.UnverifiedMessageEvent
 }
