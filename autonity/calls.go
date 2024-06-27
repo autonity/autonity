@@ -313,7 +313,6 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 		},
 		Contracts: AutonityContracts{
 			AccountabilityContract:         params.AccountabilityContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 			OracleContract:                 params.OracleContractAddress,
 			AcuContract:                    params.ACUContractAddress,
 			SupplyControlContract:          params.SupplyControlContractAddress,
@@ -321,6 +320,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			NonStakableVestingContract:     params.NonStakableVestingContractAddress,
+			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: genesisConfig.Operator,

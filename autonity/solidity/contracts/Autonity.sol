@@ -127,7 +127,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**************************************************/
     struct Contracts {
         IAccountability accountabilityContract;
-        IOmissionAccountability omissionAccountabilityContract;
         IOracle oracleContract;
         IACU acuContract;
         ISupplyControl supplyControlContract;
@@ -135,6 +134,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
         INonStakableVestingVault nonStakableVestingContract;
+        IOmissionAccountability omissionAccountabilityContract;
     }
 
     struct Policy {
@@ -766,7 +766,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         config.contracts.accountabilityContract.finalize(epochEnded);
 
         // todo: forward activity report to omission accountability contract.
-        //config.contracts.omissionAccountabilityContract.finalize(isProposerOmissionFaulty, ids);
+        // config.contracts.omissionAccountabilityContract.finalize(isProposerOmissionFaulty, ids);
         if (epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
             uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(
