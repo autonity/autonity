@@ -1090,7 +1090,7 @@ contract('Autonity', function (accounts) {
 
       it('test finalize with not deployer account, exception should rise.', async function () {
           await truffleAssert.fails(
-            token.finalize({from: anyAccount}),
+            token.finalize(false, [], {from: anyAccount}),
             truffleAssert.ErrorType.REVERT,
             "function restricted to the protocol",
           );
