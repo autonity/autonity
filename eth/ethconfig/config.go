@@ -18,6 +18,7 @@
 package ethconfig
 
 import (
+	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core/vm"
@@ -242,5 +243,5 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
 	noGossip := ctx.Config().NoGossip
-	return tendermintBackend.New(nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger(), noGossip)
+	return tendermintBackend.New(nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger(), noGossip, accountability.IsHeightExpired)
 }
