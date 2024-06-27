@@ -490,7 +490,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	err = highlyAggPrecommitPVN.Validate()
 	require.NoError(t, err)
 
-	validHighlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, commit1, aggPrecomitR1PVN, preCommitR2PVN})
+	validHighlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, aggPrecomitR1PVN, preCommitR2PVN})
 	err = validHighlyAggPrecommitPVN.PreValidate(parentHeader)
 	require.NoError(t, err)
 	err = validHighlyAggPrecommitPVN.Validate()

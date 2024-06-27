@@ -76,11 +76,10 @@ func TestHighlyAggregatedPrecommit(t *testing.T) {
 
 func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 	numOfFastAggPrecommits := 10
-	round := int64(0)
 	var precommits []*message.Precommit
 	for n := 0; n < numOfFastAggPrecommits; n++ {
 		value := values[n%len(values)]
-		precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize)))
+		precommits = append(precommits, fastAggregatedPrecommit(height, int64(n), value, randomSigners(cSize)))
 	}
 
 	t.Run("with wrong height", func(t *testing.T) {
@@ -99,7 +98,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 	})
 
 	t.Run("with wrong round", func(t *testing.T) {
-		wrongRound := int64(0)
+		wrongRound := int64(19)
 		aggPrecommits := maliciousAggregatePrecommits(precommits, nil, &wrongRound, nil, nil)
 		payload, err := rlp.EncodeToBytes(aggPrecommits)
 		require.NoError(t, err)
@@ -192,19 +191,20 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 		defaultHeight = *wrongHeight
 	}
 
-	var precommitsToBeAggregated []*message.Precommit
+	presentedMsgs := make(map[int64]map[common.Hash]struct{})
 
+	var precommitsToBeAggregated []*message.Precommit
 	precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[0])
 
 	for i := 1; i < len(precommits); i++ {
-
 		// skip duplicated msg.
-		lastPrecommit := precommitsToBeAggregated[len(precommitsToBeAggregated)-1]
-		if lastPrecommit.R() == precommits[i].R() &&
-			lastPrecommit.Value() == precommits[i].Value() {
-			continue
+		if _, ok := presentedMsgs[precommits[i].R()]; !ok {
+			presentedMsgs[precommits[i].R()] = make(map[common.Hash]struct{})
 		}
-		precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
+		if _, ok := presentedMsgs[precommits[i].R()][precommits[i].Value()]; !ok {
+			presentedMsgs[precommits[i].R()][precommits[i].Value()] = struct{}{}
+			precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
+		}
 	}
 
 	result := HighlyAggregatedPrecommit{}
@@ -214,7 +214,7 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 		defaultValue := m.Value()
 		defaultSingers := m.Signers().Flatten()
 		if wrongRound != nil {
-			defaultRound = *wrongRound
+			defaultRound += *wrongRound
 		}
 		if wrongValue != nil {
 			defaultValue = *wrongValue

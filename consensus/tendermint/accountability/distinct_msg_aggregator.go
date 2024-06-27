@@ -151,19 +151,21 @@ func (h *HighlyAggregatedPrecommit) PreValidate(parentHeader *types.Header) erro
 	// check there are no duplicated precommits
 	presentedMsgs := make(map[int64]map[common.Hash]struct{})
 	for _, m := range h.MsgSigners {
-
-		if value, ok := presentedMsgs[m.Round]; ok {
-			if _, ok = value[m.Value]; ok {
-				return ErrDuplicatedPrecommits
-			}
+		roundMap, ok := presentedMsgs[m.Round]
+		if !ok {
+			roundMap = make(map[common.Hash]struct{})
+			presentedMsgs[m.Round] = roundMap
 		}
+
+		if _, ok = roundMap[m.Value]; ok {
+			return ErrDuplicatedPrecommits
+		}
+
+		roundMap[m.Value] = struct{}{}
 
 		if err := m.PreValidate(parentHeader); err != nil {
 			return err
 		}
-
-		presentedMsgs[m.Round] = make(map[common.Hash]struct{})
-		presentedMsgs[m.Round][m.Value] = struct{}{}
 	}
 
 	signature, err := blst.SignatureFromBytes(h.Signature)
@@ -201,19 +203,20 @@ func (h *HighlyAggregatedPrecommit) Validate() error {
 func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregatedPrecommit {
 	var precommitsToBeAggregated []*message.Precommit
 
+	presentedMsgs := make(map[int64]map[common.Hash]struct{})
+
 	precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[0])
 	height := precommits[0].H()
 
 	for i := 1; i < len(precommits); i++ {
-
 		// skip duplicated msg.
-		lastPrecommit := precommitsToBeAggregated[len(precommitsToBeAggregated)-1]
-		if lastPrecommit.R() == precommits[i].R() &&
-			lastPrecommit.Value() == precommits[i].Value() {
-			continue
+		if _, ok := presentedMsgs[precommits[i].R()]; !ok {
+			presentedMsgs[precommits[i].R()] = make(map[common.Hash]struct{})
 		}
-
-		precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
+		if _, ok := presentedMsgs[precommits[i].R()][precommits[i].Value()]; !ok {
+			presentedMsgs[precommits[i].R()][precommits[i].Value()] = struct{}{}
+			precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
+		}
 	}
 
 	result := HighlyAggregatedPrecommit{}
