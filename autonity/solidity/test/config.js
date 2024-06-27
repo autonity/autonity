@@ -23,6 +23,16 @@ const ACCOUNTABILITY_CONFIG = {
         "slashingRatePrecision": 10000
     };
 
+const OMISSION_ACCOUNTABILITY_CONFIG = {
+    "omissionLoopBackWindow":  30,   // 30 blocks
+    "activityProofRewardRate": 1000, // 10%
+    "maxCommitteeSize":        1000,
+    "pastPerformanceWeight":   5000, // 50%
+    "initialJailingPeriod":    300,  // 300 blocks
+    "initialProbationPeriod":  300,  // 300 blocks
+    "initialSlashingRate":     1000, // 10%
+}
+
 const GENESIS_ENODES = [
         "enode://d73b857969c86415c0c000371bcebd9ed3cca6c376032b3f65e58e9e2b79276fbc6f59eb1e22fcd6356ab95f42a666f70afd4985933bd8f3e05beb1a2bf8fdde@172.25.0.11:30303",
         "enode://1f207dfb3bcbbd338fbc991ec13e40d204b58fe7275cea48cfeb53c2c24e1071e1b4ef2959325fe48a5893de8ff37c73a24a412f367e505e5dec832813da546a@172.25.0.12:30303",
@@ -154,6 +164,7 @@ module.exports = {
     COMMITTEE_SIZE: COMMITTEE_SIZE,
     VERSION: VERSION,
     ACCOUNTABILITY_CONFIG: ACCOUNTABILITY_CONFIG,
+    OMISSION_ACCOUNTABILITY_CONFIG: OMISSION_ACCOUNTABILITY_CONFIG,
     GENESIS_ENODES: GENESIS_ENODES,
     GENESIS_NODE_ADDRESSES: GENESIS_NODE_ADDRESSES,
     BASE_VALIDATOR: BASE_VALIDATOR,
