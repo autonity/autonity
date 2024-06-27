@@ -287,10 +287,7 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	}
 
 	// assemble nodes' activity proof of height h from the height of h-delta
-	proof, err := sb.assembleActivityProof(header)
-	if err != nil {
-		return err
-	}
+	proof := sb.assembleActivityProof(header)
 	types.WriteActivityProof(header, proof)
 	return nil
 }

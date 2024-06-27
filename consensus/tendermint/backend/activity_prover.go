@@ -23,11 +23,11 @@ var (
 // assembleActivityProof assembles the nodes' activity proof of height: h with the aggregated precommit
 // of height: h-dela. Proposer is incentivised to assemble proof as much as possible, however due to the
 // timing of GST + Delta, assembling proof for the first delta blocks in an epoch is not required.
-func (sb *Backend) assembleActivityProof(header *types.Header) (types.AggregateSignature, error) {
+func (sb *Backend) assembleActivityProof(header *types.Header) types.AggregateSignature {
 	var defaultProof types.AggregateSignature
 	// for the 1st delta blocks, the proposer does not have to prove.
 	if header.IsGenesis() {
-		return defaultProof, nil
+		return defaultProof
 	}
 
 	lastEpochBlock, err := sb.lastEpochBlockOfHeight(header.Number)
@@ -37,7 +37,7 @@ func (sb *Backend) assembleActivityProof(header *types.Header) (types.AggregateS
 	if header.Number.Uint64() <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
 		sb.logger.Debug("Skip to assemble activity proof at the starting of epoch",
 			"height", header.Number.Uint64(), "lastEpochBlock", lastEpochBlock)
-		return defaultProof, nil
+		return defaultProof
 	}
 
 	// after delta blocks, get quorum certificates from height h-delta.
@@ -55,13 +55,13 @@ func (sb *Backend) assembleActivityProof(header *types.Header) (types.AggregateS
 	}
 
 	if len(votes) == 0 {
-		return defaultProof, nil
+		return defaultProof
 	}
 
 	aggregate := message.AggregatePrecommits(votes)
 	defaultProof.Signature = aggregate.Signature().(*blst.BlsSignature)
 	defaultProof.Signers = aggregate.Signers()
-	return defaultProof, nil
+	return defaultProof
 }
 
 // validateActivityProof validates the validity of the activity proof, and returns the proposer who provides

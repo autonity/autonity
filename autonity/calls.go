@@ -61,7 +61,7 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
 	}
 	if err := DeployOmissionAccountabilityContract(genesisConfig.OmissionAccountabilityConfig, evmContracts); err != nil {
-		return fmt.Errorf("error when deploying the ommision accountability contract: %w", err)
+		return fmt.Errorf("error when deploying the ommission accountability contract: %w", err)
 	}
 	return nil
 }
@@ -291,9 +291,9 @@ func DeployOmissionAccountabilityContract(config *params.OmissionAccountabilityG
 		InitialProbationPeriod:  new(big.Int).SetUint64(config.InitialProbationPeriod),
 		InitialSlashingRate:     new(big.Int).SetUint64(config.InitialSlashingRate),
 	}
-	err := evmContracts.DeployOmissionAccountabilityContract(params.OmissionAccountabilityContractAddress, conf, generated.OmissionAccountabilityBytecode)
+	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, conf, generated.OmissionAccountabilityBytecode)
 	if err != nil {
-		return fmt.Errorf("failed to deploy ommision accountability contract: %w", err)
+		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
 	}
 
 	log.Info("Deployed Omission Accountability contract", "address", params.OmissionAccountabilityContractAddress)
