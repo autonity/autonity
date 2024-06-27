@@ -332,6 +332,7 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
+	// if the proposer is faulty, the IDs carries proposer's ID only, otherwise it carries all the active signers.
 	isProposerFaulty, IDs := sb.validateActivityProof(header)
 	committeeSet, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state, isProposerFaulty, IDs)
 	if err != nil {

@@ -76,6 +76,7 @@ func (sb *Backend) validateActivityProof(curHeader *types.Header) (bool, []*big.
 		return false, []*big.Int{}
 	}
 
+	// todo: could be refined by on top of the epoch header PR.
 	lastHeight := new(big.Int).Sub(curHeader.Number, common.Big1)
 	lastEpochBlock, committee, err := sb.consensusViewOfHeight(lastHeight)
 	if err != nil {

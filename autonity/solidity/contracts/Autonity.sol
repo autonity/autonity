@@ -917,6 +917,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the last epoch block and the committee of a specific height.
     */
     function getConsensusViewOfHeight(uint256 _height) external view virtual returns (uint256, CommitteeMember[] memory) {
+        // todo: un-comment this once epoch header PR get merged.
         //require(_height <= block.number, "cannot get committee for a future height");
 
         uint256 boundary = epochBoundaryMap[blockEpochMap[_height]];
