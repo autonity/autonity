@@ -332,13 +332,7 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	parent := chain.GetHeaderByNumber(header.Number.Uint64() - 1)
-	// to experience a clean shutdown in e2e test context.
-	if parent == nil {
-		return nil, nil, consensus.ErrUnknownAncestor
-	}
-
-	isProposerFaulty, IDs := sb.validateActivityProof(header, parent)
+	isProposerFaulty, IDs := sb.validateActivityProof(header)
 	committeeSet, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state, isProposerFaulty, IDs)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)

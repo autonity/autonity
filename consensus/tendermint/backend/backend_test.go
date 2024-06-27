@@ -639,6 +639,8 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		nonce++
 		receipts = append(receipts, receipt)
 	}
+
+	// todo: rewrite this helper, since block assembling now dependence last block to be presented on the blockchain.
 	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
 	if err != nil {
 		return nil, err

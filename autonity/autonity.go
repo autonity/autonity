@@ -233,8 +233,8 @@ func (c *AutonityContract) Committee(header *types.Header, db vm.StateDB) ([]typ
 	return c.callGetCommittee(db, header)
 }
 
-func (c *AutonityContract) GetLastEpochBlockOfHeight(header *types.Header, db vm.StateDB, height *big.Int) (*big.Int, error) {
-	return c.callGetLastEpochBlockOfHeight(db, header, height)
+func (c *AutonityContract) GetConsensusViewOfHeight(header *types.Header, db vm.StateDB, height *big.Int) (*big.Int, types.Committee, error) {
+	return c.callGetConsensusViewOfHeight(db, header, height)
 }
 
 func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*big.Int, error) {

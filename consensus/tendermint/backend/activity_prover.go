@@ -3,6 +3,7 @@ package backend
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -30,7 +31,8 @@ func (sb *Backend) assembleActivityProof(header *types.Header) types.AggregateSi
 		return defaultProof
 	}
 
-	lastEpochBlock, err := sb.lastEpochBlockOfHeight(header.Number)
+	lastHeight := new(big.Int).Sub(header.Number, common.Big1)
+	lastEpochBlock, _, err := sb.consensusViewOfHeight(lastHeight)
 	if err != nil {
 		panic(err)
 	}
@@ -68,21 +70,21 @@ func (sb *Backend) assembleActivityProof(header *types.Header) types.AggregateSi
 // an invalid activity proof as omission faulty node of the height, it also returns the signers of a valid
 // activity proof which will be submitted to the omission accountability contract. Note: The proposer is innocence
 // to provide no proof for the 1st delta blocks, thus, the 1st delta blocks of an epoch is not accountable.
-func (sb *Backend) validateActivityProof(curHeader, parent *types.Header) (bool, []*big.Int) {
+func (sb *Backend) validateActivityProof(curHeader *types.Header) (bool, []*big.Int) {
 	// for the 1st delta blocks, return nothing.
 	if curHeader.IsGenesis() {
 		return false, []*big.Int{}
 	}
 
-	h := curHeader.Number.Uint64()
-	lastEpochBlock, err := sb.lastEpochBlockOfHeight(curHeader.Number)
+	lastHeight := new(big.Int).Sub(curHeader.Number, common.Big1)
+	lastEpochBlock, committee, err := sb.consensusViewOfHeight(lastHeight)
 	if err != nil {
 		panic(err)
 	}
 
-	if h <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
+	if curHeader.Number.Uint64() <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
 		sb.logger.Debug("Skip to validate activity proof for the 1st delta blocks of epoch",
-			"height", h, "lastEpochBlock", lastEpochBlock)
+			"height", curHeader.Number.Uint64(), "lastEpochBlock", lastEpochBlock)
 		return false, []*big.Int{}
 	}
 
@@ -90,32 +92,42 @@ func (sb *Backend) validateActivityProof(curHeader, parent *types.Header) (bool,
 	proposer := curHeader.Coinbase
 
 	// after the 1st delta blocks, the proposer is accountable for not assembling valid activity proof.
-	signers, err := sb.verifyActivityProof(curHeader, parent)
+	signers, err := sb.verifyActivityProof(curHeader, committee, proposer)
 	if err != nil {
-		sb.logger.Info("Faulty activity proof addressed", "proposer", proposer)
-		return true, []*big.Int{new(big.Int).SetUint64(parent.CommitteeMember(proposer).Index)}
+		sb.logger.Info("Faulty activity proof addressed, proposer is omission faulty", "proposer", proposer)
+		return true, signers
 	}
 
 	return false, signers
 }
 
-// verifyActivityProof validates that the activity proof for header come from committee members and
-// that the voting power constitute a quorum.
-func (sb *Backend) verifyActivityProof(header, parent *types.Header) ([]*big.Int, error) {
-	// un-finalized proposals will have these fields set to nil
-	if header.ActivityProof.Signature == nil || header.ActivityProof.Signers == nil {
-		return nil, ErrEmptyActivityProof
-	}
-	activityProof := header.ActivityProof.Copy() // copy so that we do not modify the header when doing Signers.Validate()
-	if err := activityProof.Signers.Validate(len(parent.Committee)); err != nil {
-		return nil, fmt.Errorf("Invalid activity proof signers information: %w", err)
-	}
+// verifyActivityProof validates that the activity proof for header come from committee members and that the voting
+// power constitute a quorum, it returns the node IDs to be submitted to omission accountability contract. Any error
+// in this function will cause the proposer to be faulty for omission accountability.
+func (sb *Backend) verifyActivityProof(header *types.Header, committee types.Committee, proposer common.Address) ([]*big.Int, error) {
 
-	// todo: replace by committee.TotalVotingPower()
+	// todo: replace by committee.Member() once epoch header PR is merged.
+	// todo: replace by committee.TotalVotingPower() once epoch header PR is merged.
+	// todo: if we submit the address of nodes to omission accountability contract, since ID could changes on committee
+	//  reshuffling.
 	// Calculate total voting power of committee
 	committeeVotingPower := new(big.Int)
-	for _, member := range parent.Committee {
+	proposerID := new(big.Int)
+	for _, member := range committee {
+		if member.Address == proposer {
+			proposerID.SetUint64(member.Index)
+		}
 		committeeVotingPower.Add(committeeVotingPower, member.VotingPower)
+	}
+
+	// un-finalized proposals will have these fields set to nil
+	if header.ActivityProof.Signature == nil || header.ActivityProof.Signers == nil {
+		return []*big.Int{proposerID}, ErrEmptyActivityProof
+	}
+
+	activityProof := header.ActivityProof.Copy() // copy so that we do not modify the header when doing Signers.Validate()
+	if err := activityProof.Signers.Validate(len(committee)); err != nil {
+		return []*big.Int{proposerID}, fmt.Errorf("Invalid activity proof signers information: %w", err)
 	}
 
 	targetHeight := header.Number.Uint64() - tendermint.DeltaBlocks
@@ -126,18 +138,17 @@ func (sb *Backend) verifyActivityProof(header, parent *types.Header) ([]*big.Int
 
 	// Total assembled voting power for the activity proof
 	power := new(big.Int)
-	// todo: (Jason) double check if the flattenUniq() is deterministic?
 	signers := activityProof.Signers.FlattenUniq()
 	IDs := make([]*big.Int, len(signers))
 	for i, index := range signers {
 		IDs[i] = new(big.Int).SetInt64(int64(index))
-		power.Add(power, parent.Committee[index].VotingPower)
+		power.Add(power, committee[index].VotingPower)
 	}
 
 	// verify signature
 	var keys [][]byte //nolint
 	for _, index := range activityProof.Signers.Flatten() {
-		keys = append(keys, parent.Committee[index].ConsensusKeyBytes)
+		keys = append(keys, committee[index].ConsensusKeyBytes)
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
@@ -146,24 +157,24 @@ func (sb *Backend) verifyActivityProof(header, parent *types.Header) ([]*big.Int
 	valid := activityProof.Signature.Verify(aggregatedKey, headerSeal[:])
 	if !valid {
 		sb.logger.Error("block had invalid activity proof signature")
-		return nil, ErrInvalidActivityProofSignature
+		return []*big.Int{proposerID}, ErrInvalidActivityProofSignature
 	}
 
 	// We need at least a quorum for the activity proof.
 	if power.Cmp(bft.Quorum(committeeVotingPower)) < 0 {
-		return nil, ErrInsufficientActivityProof
+		return []*big.Int{proposerID}, ErrInsufficientActivityProof
 	}
 
 	return IDs, nil
 }
 
-// lastEpochBlockOfHeight get the last epoch block of height from AC contract.
-// todo(Jason) replace this by query from the header chain when epoch-header feature is merged.
-func (sb *Backend) lastEpochBlockOfHeight(height *big.Int) (*big.Int, error) {
+// consensusViewOfHeight returns the last epoch block and the corresponding committee of a specific height, it removes
+// the dependence of blockchain.
+func (sb *Backend) consensusViewOfHeight(height *big.Int) (*big.Int, types.Committee, error) {
 	header := sb.BlockChain().CurrentBlock().Header()
 	state, err := sb.BlockChain().State()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return sb.BlockChain().ProtocolContracts().AutonityContract.GetLastEpochBlockOfHeight(header, state, height)
+	return sb.BlockChain().ProtocolContracts().AutonityContract.GetConsensusViewOfHeight(header, state, height)
 }

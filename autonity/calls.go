@@ -600,13 +600,18 @@ func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Head
 	return committee, nil
 }
 
-func (c *AutonityContract) callGetLastEpochBlockOfHeight(state vm.StateDB, header *types.Header, height *big.Int) (*big.Int, error) {
+func (c *AutonityContract) callGetConsensusViewOfHeight(state vm.StateDB, header *types.Header, height *big.Int) (*big.Int, types.Committee, error) {
 	lastEpochBlock := new(big.Int)
-	if err := c.AutonityContractCall(state, header, "getLastEpochBlockOfHeight", &lastEpochBlock, height); err != nil {
-		return nil, err
+	var committee types.Committee
+	if err := c.AutonityContractCall(state, header, "getConsensusViewOfHeight", &[]any{&lastEpochBlock, &committee}, height); err != nil {
+		return nil, nil, err
 	}
 
-	return lastEpochBlock, nil
+	if err := committee.Enrich(); err != nil {
+		panic("Committee member has invalid consensus key: " + err.Error())
+	}
+
+	return lastEpochBlock, committee, nil
 }
 
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {

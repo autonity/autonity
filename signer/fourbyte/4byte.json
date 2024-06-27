@@ -166,5 +166,7 @@
   "ee7ff28d": "setMaxUnbondReleasedGas(uint256)",
   "7516f580": "finalize(bool,uint256[])",
   "e4469437": "getLastEpochBlockOfHeight(uint256)",
-  "b47c3eaa": "setOmissionAccountabilityContract(address)"
+  "b47c3eaa": "setOmissionAccountabilityContract(address)",
+  "070e720a": "getCommitteeByHeight(uint256)",
+  "b45e2675": "getConsensusViewOfHeight(uint256)"
 }

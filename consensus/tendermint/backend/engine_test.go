@@ -201,9 +201,7 @@ func TestVerifyHeaders(t *testing.T) {
 	var headers []*types.Header
 	var blocks []*types.Block
 
-	// todo: rewrite the test helper makeBlockWithoutSeal(), since the assembling of new block requires the its
-	//  parent block to be presented in the chain context to get the committee.
-	size := 10
+	size := 100
 
 	var err error
 	for i := 0; i < size; i++ {
@@ -260,9 +258,7 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 	// success case
 	var headers []*types.Header
 	var blocks []*types.Block
-	// todo: rewrite the test helper makeBlockWithoutSeal(), since the assembling of new block requires the its
-	//  parent block to be presented in the chain context to get the committee.
-	size := 10
+	size := 100
 
 	var err error
 	for i := 0; i < size; i++ {
@@ -323,9 +319,7 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	// success case
 	var headers []*types.Header
 	var blocks []*types.Block
-	// todo: rewrite the test helper makeBlockWithoutSeal(), since the assembling of new block requires the its
-	//  parent block to be presented in the chain context to get the committee.
-	size := 10
+	size := 100
 
 	var err error
 	for i := 0; i < size; i++ {
