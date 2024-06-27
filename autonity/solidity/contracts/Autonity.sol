@@ -617,6 +617,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /*
+     * @notice Set the omission accountability contract address. Restricted to the Operator account.
+     * @param _address the contract address
+     */
+    function setOmissionAccountabilityContract(IOmissionAccountability _address) public virtual onlyOperator {
+        config.contracts.omissionAccountabilityContract = _address;
+    }
+
+    /*
     * @notice Set the oracle contract address. Restricted to the Operator account.
     * @param _address the contract address
     */

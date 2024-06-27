@@ -35,13 +35,14 @@ var (
 			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract:      params.AccountabilityContractAddress,
-			OracleContract:              params.OracleContractAddress,
-			AcuContract:                 params.ACUContractAddress,
-			SupplyControlContract:       params.SupplyControlContractAddress,
-			StabilizationContract:       params.StabilizationContractAddress,
-			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
-			InflationControllerContract: params.InflationControllerContractAddress,
+			AccountabilityContract:         params.AccountabilityContractAddress,
+			OracleContract:                 params.OracleContractAddress,
+			AcuContract:                    params.ACUContractAddress,
+			SupplyControlContract:          params.SupplyControlContractAddress,
+			StabilizationContract:          params.StabilizationContractAddress,
+			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
+			InflationControllerContract:    params.InflationControllerContractAddress,
+			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: params.TestAutonityContractConfig.Operator,
@@ -101,16 +102,17 @@ type runner struct {
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	autonity            *Autonity
-	accountability      *Accountability
-	oracle              *Oracle
-	acu                 *ACU
-	supplyControl       *SupplyControl
-	stabilization       *Stabilization
-	upgradeManager      *UpgradeManager
-	inflationController *InflationController
-	stakableVesting     *StakableVesting
-	nonStakableVesting  *NonStakableVesting
+	autonity               *Autonity
+	accountability         *Accountability
+	oracle                 *Oracle
+	acu                    *ACU
+	supplyControl          *SupplyControl
+	stabilization          *Stabilization
+	upgradeManager         *UpgradeManager
+	inflationController    *InflationController
+	stakableVesting        *StakableVesting
+	nonStakableVesting     *NonStakableVesting
+	omissionAccountability *OmissionAccountability
 
 	committee Committee // genesis validators for easy access
 }
@@ -445,6 +447,21 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 		r.nonStakableVesting.SetMaxAllowedDuration(operator, params.DefaultNonStakableVestingGenesis.MaxAllowedDuration),
 	)
 
+	//
+	// Step 11: Omission Accountability Contract Deployment
+	//
+	_, _, r.omissionAccountability, err = r.deployOmissionAccountability(nil, r.autonity.address, OmissionAccountabilityConfig{
+		OmissionLoopBackWindow:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.OmissionLoopBackWindow)),
+		ActivityProofRewardRate: big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.ActivityProofRewardRate)),
+		MaxCommitteeSize:        big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.MaxCommitteeSize)),
+		PastPerformanceWeight:   big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.PastPerformanceWeight)),
+		InitialJailingPeriod:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialJailingPeriod)),
+		InitialProbationPeriod:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialProbationPeriod)),
+		InitialSlashingRate:     big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialSlashingRate)),
+	})
+	require.NoError(t, err)
+	require.Equal(t, r.omissionAccountability.address, params.OmissionAccountabilityContractAddress)
+
 	// set protocol contracts
 	r.NoError(
 		r.autonity.SetAccountabilityContract(operator, r.accountability.address),
@@ -469,6 +486,9 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	)
 	r.NoError(
 		r.autonity.SetNonStakableVestingContract(operator, r.nonStakableVesting.address),
+	)
+	r.NoError(
+		r.autonity.SetOmissionAccountabilityContract(operator, r.omissionAccountability.address),
 	)
 
 	r.evm.Context.BlockNumber = common.Big1
