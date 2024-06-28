@@ -48,8 +48,8 @@ func NewState(id uint64, peers int) *State {
 }
 
 func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDisseminateResult {
-	individualResults := make([]IndividualDisseminateResult, maxPeers)
 	recipients := maxPeers
+	individualResults := make([]IndividualDisseminateResult, recipients)
 	if s.Id < uint64(recipients) {
 		// local node is dismissed during propagation
 		//individualResults[s.Id]

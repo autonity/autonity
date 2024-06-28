@@ -454,9 +454,9 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 	minBufferSize := 0
 
 	sizeToDuration := make(map[int]time.Duration, len(bufferSizes))
-	//peer.UpdateSocketOptions(4*1024*1024, noDelay)
+	//peer.UpdateSocketOptions(4 * 1024 * 1024)
 	//if err := peer.sendUpdateTcpSocket(4*1024*1024, noDelay); err != nil {
-	//	log.Error("error sending update", "err", err)
+	//	log.Error("error sending socket update", "err", err)
 	//}
 	//for _, noDelay := range []bool{true} {
 	now := time.Now()
@@ -473,8 +473,8 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 	res2 := &ResultSendRandomData{}
 	err = p.SendRandomData(&ArgTargetSizeCount{
 		ArgTarget: ArgTarget{args.Target},
-		ArgCount:  ArgCount{100},
-		ArgSize:   ArgSize{1000000},
+		ArgCount:  ArgCount{1},
+		ArgSize:   ArgSize{100000},
 	}, res2)
 	if err != nil {
 		log.Error("error sending random data", "err", err)
@@ -497,21 +497,20 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 		Durations:      make([]time.Duration, 10),
 		SizeToDuration: sizeToDuration,
 	}
+
 	size := 200000
-	for index, factor := range []int{1, 2, 4, 8} {
-		var totalTime time.Duration
-		for i := 0; i < factor; i++ {
-			res := &ResultSendRandomData{}
-			_ = p.SendRandomData(&ArgTargetSizeCount{
-				ArgTarget: ArgTarget{args.Target},
-				ArgCount:  ArgCount{1},
-				ArgSize:   ArgSize{size / factor},
-			}, res)
-			totalTime += res.ReceiverReceptionTime.Sub(res.RequestTime)
-		}
-		reply.Durations[index] = totalTime
-		//time.Sleep(500 * time.Millisecond)
+	var totalTime time.Duration
+	for i := 0; i < 5; i++ {
+		res := &ResultSendRandomData{}
+		_ = p.SendRandomData(&ArgTargetSizeCount{
+			ArgTarget: ArgTarget{args.Target},
+			ArgCount:  ArgCount{1},
+			ArgSize:   ArgSize{size},
+		}, res)
+		totalTime = res.ReceiverReceptionTime.Sub(res.RequestTime)
+		reply.Durations[i] = totalTime
 	}
+	//time.Sleep(500 * time.Millisecond)
 	return nil
 }
 
@@ -697,7 +696,23 @@ func (a *ArgDisseminate) AskUserInput() error {
 	return nil
 }
 
-func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultDissemination) error {
+type ArgWarmUp struct {
+	ArgMaxPeers
+	ArgSize
+}
+
+func (a *ArgWarmUp) AskUserInput() error {
+	if err := a.ArgMaxPeers.AskUserInput(); err != nil {
+		return err
+	}
+	if err := a.ArgSize.AskUserInput(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *P2POp) WarmUp(args *ArgWarmUp, reply *ResultDissemination) error {
+	// Warm up - tcp slow start
 	buff := make([]byte, args.Size)
 	if _, err := rand.Read(buff); err != nil {
 		return err
@@ -712,6 +727,33 @@ func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultDissemination) er
 	packetId := rand2.Uint64()
 	p.engine.state.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
 	log.Info("Started Dissemination", "size", reply.Size, "peers", recipients, "packetId", packetId)
+
+	// broadcast strategy
+	if err := p.engine.strategies[0].Execute(packetId, buff, recipients); err != nil {
+		return err
+	}
+	reply.IndividualResults = p.engine.state.CollectReports(packetId, recipients)
+	return nil
+}
+
+func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultDissemination) error {
+
+	buff := make([]byte, args.Size)
+	if _, err := rand.Read(buff); err != nil {
+		return err
+	}
+	reply.StartTime = time.Now()
+	reply.Size = args.Size
+	recipients := args.MaxPeers
+	if args.MaxPeers == 0 {
+		recipients = len(p.engine.peers)
+	}
+	reply.MaxPeers = recipients
+	packetId := rand2.Uint64()
+	p.engine.state.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
+	log.Info("Started Dissemination", "size", reply.Size, "peers", recipients, "packetId", packetId)
+
+	// actual dissemination
 	if err := p.engine.strategies[args.Strategy].Execute(packetId, buff, recipients); err != nil {
 		return err
 	}

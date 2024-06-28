@@ -76,7 +76,14 @@ func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, orig
 		log.Error("p is nil ??")
 	}
 	fmt.Println("[DISSEMINATE] >>", p.ip, "|", "maxPeers", maxPeers, "originalSender", originalSender)
-	return p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
+	go func() {
+		err := p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
+		if err != nil {
+			log.Error("Disseminate Request", "err", err)
+		}
+	}()
+
+	return nil
 }
 
 func (p *Peer) dispatchResponse(requestId uint64, packet any) error {
@@ -233,7 +240,7 @@ func handleUpdateTcpSocket(_ *Engine, p *Peer, msg io.Reader) error {
 		log.Error("update tcp socket failure", "error", err)
 		return err
 	}
-	p.UpdateSocketOptions(int(opts.BufferSize), opts.NoDelay)
+	p.UpdateSocketOptions(int(opts.BufferSize))
 	return nil
 }
 

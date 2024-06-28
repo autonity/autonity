@@ -78,6 +78,10 @@ var (
 		Name: "pprof",
 	}
 
+	logDownloadFlag = cli.BoolFlag{
+		Name: "log-download",
+	}
+
 	setupCommand = cli.Command{
 		Action:    setup,
 		Name:      "setup",
@@ -121,6 +125,19 @@ Update a cluster with current binary.`,
 The control command starts the netdiag command center.`,
 	}
 	// cleanup command
+	// run command is to start a runner
+	cleanupCommand = cli.Command{
+		Action:    cleanup,
+		Name:      "cleanup",
+		Usage:     "clean up runners",
+		ArgsUsage: "",
+		Flags: []cli.Flag{
+			configFlag,
+			logDownloadFlag,
+		},
+		Description: `
+The cleanup command deletes all runners`,
+	}
 
 	// run command is to start a runner
 	runCommand = cli.Command{
@@ -154,6 +171,7 @@ func init() {
 		runCommand,
 		controlCommand,
 		updateCommand,
+		cleanupCommand,
 		// run flag
 	}
 }
@@ -359,6 +377,11 @@ func setup(c *cli.Context) error {
 	if err != nil {
 		log.Crit("can't retrieve available zone list", "err", err)
 	}
+	temp, err := getInstanceTemplate(projectId, instanceTemplate)
+	if err != nil {
+		log.Crit("can't retrieve templates", "err", err)
+	}
+	zones = filterZones(zones, temp.GetProperties().GetMachineType())
 	log.Info("Deploying new runner network", "count", n, "template", instanceTemplate, "project-id", projectId)
 	ctx := context.Background()
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
@@ -377,7 +400,7 @@ func setup(c *cli.Context) error {
 			attempts := 0
 			for {
 				zone := zones[(6*id+attempts)%len(zones)]
-				vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zone, instanceTemplate, c.String(gcpUsernameFlag.Name))
+				vms[id], err = deployVM(ctx, instancesClient, id, projectId, name, zone.GetName(), instanceTemplate, c.String(gcpUsernameFlag.Name))
 				if err == nil || attempts == 10 {
 					break
 				}
@@ -398,6 +421,9 @@ func setup(c *cli.Context) error {
 		GcpUsername:  c.String(gcpUsernameFlag.Name),
 	}
 	for i := 0; i < n; i++ {
+		if vms[i] == nil {
+			continue
+		}
 		key, err := crypto.GenerateKey()
 		if err != nil {
 			return err
@@ -428,14 +454,11 @@ func setup(c *cli.Context) error {
 	log.Info("Config generated, wait 30 seconds")
 
 	time.Sleep(30 * time.Second)
-	//for i := 0; i < n; i++ {
-	//	if err := waitSSH(vms[i].ip, 30, 5*time.Second); err != nil {
-	//		log.Error("Error connecting to SSH server:", err, "ip", vms[i].ip)
-	//		return err
-	//	}
-	//}
 	// deploy runners
 	for i := 0; i < n; i++ {
+		if vms[i] == nil {
+			continue
+		}
 		wg.Add(1)
 		go func(id int) {
 			if err := vms[id].deployRunner(configFileName, false, false); err != nil {
@@ -448,6 +471,9 @@ func setup(c *cli.Context) error {
 
 	// start runners
 	for i := 0; i < n; i++ {
+		if vms[i] == nil {
+			continue
+		}
 		wg.Add(1)
 		go func(id int) {
 			if err := vms[id].startRunner(configFileName, "tcp", ""); err != nil {
@@ -465,40 +491,36 @@ func setup(c *cli.Context) error {
 }
 
 func cleanup(c *cli.Context) error {
-	log.Info("Updating cluster")
+	log.Info("cleaning up cluster")
+
 	cfg := readConfigFile(c.String(configFlag.Name))
 	vms := make([]*vm, len(cfg.Nodes))
 	var wg sync.WaitGroup
 	now := time.Now()
+	ctx := context.Background()
+	instancesClient, err := compute.NewInstancesRESTClient(ctx)
+	if err != nil {
+		log.Error("NewInstancesRESTClient: %v", err)
+		return err
+	}
 	for i, n := range cfg.Nodes {
+		n := n
 		wg.Add(1)
-		vms[i] = newVM(i, n.Ip, n.InstanceName, n.Zone, cfg.GcpUsername)
 		go func(id int) {
-			log.Info("Killing runner", "id", id)
-			if err := vms[id].killRunner(c.String(configFlag.Name)); err != nil {
-				log.Crit("error starting runner", "id", id, "err", err)
+			defer wg.Done()
+			vms[id] = newVM(id, n.Ip, n.InstanceName, n.Zone, cfg.GcpUsername)
+			if c.Bool(logDownloadFlag.Name) {
+				vms[id].downloadLogs()
 			}
-			time.Sleep(time.Second)
-			if !c.Bool(restartOnlyFlag.Name) {
-				if err := vms[id].deployRunner(c.String(configFlag.Name), false, true); err != nil {
-					log.Crit("error deploying runner", "id", id, "err", err)
-				}
-				log.Info("Runner binary deployed", "id", id)
-			}
-			optFlag := ""
-			if c.Bool(pprofFlag.Name) {
-				optFlag += "--pprof"
-			}
-			if err := vms[id].startRunner(c.String(configFlag.Name), c.String(networkModeFlag.Name), optFlag); err != nil {
-				log.Crit("error starting runner", "id", id, "err", err)
-			}
-			wg.Done()
+			vms[id].deleteRunner(ctx, instancesClient, cfg.GcpProjectId)
 		}(i)
 	}
+
 	wg.Wait()
-	log.Info("Cluster deployed and running!", "duration(s)", time.Now().Sub(now).Seconds())
+	log.Info("Cluster cleaned up", "duration(s)", time.Now().Sub(now).Seconds())
 	return nil
 }
+
 func update(c *cli.Context) error {
 	log.Info("Updating cluster")
 	cfg := readConfigFile(c.String(configFlag.Name))
