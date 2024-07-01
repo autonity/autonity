@@ -37,8 +37,13 @@ type committeeMemberMarshaling struct {
 }
 
 type Committee struct {
+	// todo: implement helpers for this new fields.
+	// LastEpochBlock points to the last epoch block number for backward searching of epoch header.
+	LastEpochBlock *big.Int `json:"lastEpochBlock"`
+	// NextEpochBlock ponits to the next epoch block number for forward searching of epoch header.
+	NextEpochBlock *big.Int `json:"nextEpochBlock"`
+	// Current committee members.
 	Members []CommitteeMember `json:"members"`
-
 	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
 	// mutex to protect internal cached fields of committee from race condition.
 	lock sync.RWMutex `json:"-" rlp:"-"`

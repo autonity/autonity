@@ -62,8 +62,10 @@ type HeaderChain struct {
 	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
-	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
-	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
+	// todo: implement this epoch header cache and saving and loading to/from raw db.
+	currentEpochHeader atomic.Value // Current epoch head of the header chain.
+	currentHeader      atomic.Value // Current head of the header chain (may be above the block chain!)
+	currentHeaderHash  common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
 	headerCache    *lru.Cache // Cache for the most recent block headers
 	tdCache        *lru.Cache // Cache for the most recent block total difficulties

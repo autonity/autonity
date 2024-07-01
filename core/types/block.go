@@ -91,11 +91,14 @@ type Header struct {
 		PoS header fields, round & quorumCertificate not taken into account
 		for computing the sigHash.
 	*/
-	Committee         *Committee         `json:"committee"           gencodec:"required"`
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
 	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
 	// Used for epoch head lookup as an indexing.
+	EpochExtra []byte `json:"epochExtraData" gencodec:"required"`
+	// todo: rename Committee to private `committee`
+	Committee *Committee `json:"-" rlp:"-"`
+	// todo: remove this field, it is now placed inside Committee.
 	LastEpochBlock *big.Int `json:"lastEpochBlock"      gencodec:"required"`
 }
 
