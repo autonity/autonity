@@ -451,6 +451,7 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	// Step 11: Omission Accountability Contract Deployment
 	//
 	_, _, r.omissionAccountability, err = r.deployOmissionAccountability(nil, r.autonity.address, OmissionAccountabilityConfig{
+		NegligibleThreshold:     big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.NegligibleThreshold)),
 		OmissionLoopBackWindow:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.OmissionLoopBackWindow)),
 		ActivityProofRewardRate: big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.ActivityProofRewardRate)),
 		MaxCommitteeSize:        big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.MaxCommitteeSize)),

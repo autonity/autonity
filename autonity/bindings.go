@@ -166,6 +166,7 @@ type NonStakableVestingSchedule struct {
 
 // OmissionAccountabilityConfig is an auto generated low-level Go binding around an user-defined struct.
 type OmissionAccountabilityConfig struct {
+	NegligibleThreshold     *big.Int
 	OmissionLoopBackWindow  *big.Int
 	ActivityProofRewardRate *big.Int
 	MaxCommitteeSize        *big.Int
@@ -20379,19 +20380,20 @@ func (_NonStakableVesting *NonStakableVestingTransactorSession) UnlockTokens() (
 
 // OmissionAccountabilityMetaData contains all meta data concerning the OmissionAccountability contract.
 var OmissionAccountabilityMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"internalType\":\"structOmissionAccountability.Config\",\"name\":\"_config\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"activityPercentage\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"config\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochCollusionDegree\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochInactivityScores\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"startEpochID\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochProverEfforts\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"totalAccumulatedEfforts\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"isProposerOmissionFaulty\",\"type\":\"bool\"},{\"internalType\":\"uint256[]\",\"name\":\"ids\",\"type\":\"uint256[]\"}],\"name\":\"finalize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lookBackWindow\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"overallFaultyBlocks\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"repeatedOffences\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"negligibleThreshold\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"internalType\":\"structOmissionAccountability.Config\",\"name\":\"_config\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"activityPercentage\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"config\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"negligibleThreshold\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"omissionLoopBackWindow\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"activityProofRewardRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCommitteeSize\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"pastPerformanceWeight\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialJailingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialProbationPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialSlashingRate\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"currentEpochInactivityScores\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"epochInactiveBlocks\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochProverEfforts\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"totalAccumulatedEfforts\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"isProposerOmissionFaulty\",\"type\":\"bool\"},{\"internalType\":\"uint256[]\",\"name\":\"ids\",\"type\":\"uint256[]\"}],\"name\":\"finalize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"lastEpochInactivityScores\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lookBackWindow\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"start\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"overallFaultyBlocks\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"repeatedOffences\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 	Sigs: map[string]string{
 		"00d049f3": "activityPercentage(address)",
 		"79502c55": "config()",
-		"8d0f2bf7": "epochCollusionDegree()",
-		"f2d3f970": "epochInactivityScores()",
+		"8d0c2a31": "currentEpochInactivityScores(address)",
+		"048a620c": "epochInactiveBlocks(address)",
 		"8c80e31d": "epochProverEfforts()",
 		"7516f580": "finalize(bool,uint256[])",
+		"fd806677": "lastEpochInactivityScores(address)",
 		"37c3a9b1": "lookBackWindow()",
 		"904383d1": "overallFaultyBlocks(address)",
 		"eb231a1a": "repeatedOffences(address)",
 	},
-	Bin: "0x608060405234801561001057600080fd5b506040516104c43803806104c483398101604081905261002f91610089565b601280546001600160a01b0319166001600160a01b0393909316929092179091558051600b556020810151600c556040810151600d556060810151600e556080810151600f5560a081015160105560c0015160115561014d565b60008082840361010081121561009e57600080fd5b83516001600160a01b03811681146100b557600080fd5b925060e0601f19820112156100c957600080fd5b5060405160e081016001600160401b03811182821017156100fa57634e487b7160e01b600052604160045260246000fd5b80604052506020840151815260408401516020820152606084015160408201526080840151606082015260a0840151608082015260c084015160a082015260e084015160c0820152809150509250929050565b6103688061015c6000396000f3fe608060405234801561001057600080fd5b50600436106100925760003560e01c80638c80e31d116100665780638c80e31d146101405780638d0f2bf71461014a578063904383d114610153578063eb231a1a14610173578063f2d3f9701461019357600080fd5b8062d049f31461009757806337c3a9b1146100ca5780637516f580146100d457806379502c55146100e9575b600080fd5b6100b76100a5366004610214565b60096020526000908152604090205481565b6040519081526020015b60405180910390f35b6000546100b79081565b6100e76100e236600461025a565b61019d565b005b600b54600c54600d54600e54600f5460105460115461010b9695949392919087565b604080519788526020880196909652948601939093526060850191909152608084015260a083015260c082015260e0016100c1565b6002546100b79081565b6100b760045481565b6100b7610161366004610214565b600a6020526000908152604090205481565b6100b7610181366004610214565b60086020526000908152604090205481565b6005546100b79081565b6012546001600160a01b031633146102105760405162461bcd60e51b815260206004820152602c60248201527f66756e6374696f6e207265737472696374656420746f20746865204175746f6e60448201526b1a5d1e4810dbdb9d1c9858dd60a21b606482015260840160405180910390fd5b5050565b60006020828403121561022657600080fd5b81356001600160a01b038116811461023d57600080fd5b9392505050565b634e487b7160e01b600052604160045260246000fd5b6000806040838503121561026d57600080fd5b8235801515811461027d57600080fd5b915060208381013567ffffffffffffffff8082111561029b57600080fd5b818601915086601f8301126102af57600080fd5b8135818111156102c1576102c1610244565b8060051b604051601f19603f830116810181811085821117156102e6576102e6610244565b60405291825284820192508381018501918983111561030457600080fd5b938501935b8285101561032257843584529385019392850192610309565b809650505050505050925092905056fea26469706673582212203a0840d84b5c022f45e65983b728ea1beebc03057a450034408f7f2daaab3dab64736f6c63430008150033",
+	Bin: "0x608060405234801561001057600080fd5b5060405161053a38038061053a83398101604081905261002f91610091565b601280546001600160a01b0319166001600160a01b0393909316929092179091558051600a556020810151600b556040810151600c556060810151600d556080810151600e5560a0810151600f5560c081015160105560e00151601155610161565b6000808284036101208112156100a657600080fd5b83516001600160a01b03811681146100bd57600080fd5b9250610100601f1982018113156100d357600080fd5b60405191508082016001600160401b038111838210171561010457634e487b7160e01b600052604160045260246000fd5b80604052506020850151825260408501516020830152606085015160408301526080850151606083015260a0850151608083015260c085015160a083015260e085015160c08301528085015160e083015250809150509250929050565b6103ca806101706000396000f3fe608060405234801561001057600080fd5b506004361061009d5760003560e01c80638c80e31d116100665780638c80e31d146101755780638d0c2a311461017f578063904383d11461019f578063eb231a1a146101bf578063fd806677146101df57600080fd5b8062d049f3146100a2578063048a620c146100d557806337c3a9b1146100f55780637516f580146100ff57806379502c5514610114575b600080fd5b6100c26100b0366004610276565b60086020526000908152604090205481565b6040519081526020015b60405180910390f35b6100c26100e3366004610276565b60046020526000908152604090205481565b6000546100c29081565b61011261010d3660046102bc565b6101ff565b005b600a54600b54600c54600d54600e54600f5460105460115461013a979695949392919088565b604080519889526020890197909752958701949094526060860192909252608085015260a084015260c083015260e0820152610100016100cc565b6002546100c29081565b6100c261018d366004610276565b60066020526000908152604090205481565b6100c26101ad366004610276565b60096020526000908152604090205481565b6100c26101cd366004610276565b60076020526000908152604090205481565b6100c26101ed366004610276565b60056020526000908152604090205481565b6012546001600160a01b031633146102725760405162461bcd60e51b815260206004820152602c60248201527f66756e6374696f6e207265737472696374656420746f20746865204175746f6e60448201526b1a5d1e4810dbdb9d1c9858dd60a21b606482015260840160405180910390fd5b5050565b60006020828403121561028857600080fd5b81356001600160a01b038116811461029f57600080fd5b9392505050565b634e487b7160e01b600052604160045260246000fd5b600080604083850312156102cf57600080fd5b823580151581146102df57600080fd5b915060208381013567ffffffffffffffff808211156102fd57600080fd5b818601915086601f83011261031157600080fd5b813581811115610323576103236102a6565b8060051b604051601f19603f83011681018181108582111715610348576103486102a6565b60405291825284820192508381018501918983111561036657600080fd5b938501935b828510156103845784358452938501939285019261036b565b809650505050505050925092905056fea2646970667358221220998924892bcd319407e10ed1a33a777b9351ecb71f7f3ef3be94c9047f23fc7764736f6c63430008150033",
 }
 
 // OmissionAccountabilityABI is the input ABI used to generate the binding from.
@@ -20598,8 +20600,9 @@ func (_OmissionAccountability *OmissionAccountabilityCallerSession) ActivityPerc
 
 // Config is a free data retrieval call binding the contract method 0x79502c55.
 //
-// Solidity: function config() view returns(uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
+// Solidity: function config() view returns(uint256 negligibleThreshold, uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
 func (_OmissionAccountability *OmissionAccountabilityCaller) Config(opts *bind.CallOpts) (struct {
+	NegligibleThreshold     *big.Int
 	OmissionLoopBackWindow  *big.Int
 	ActivityProofRewardRate *big.Int
 	MaxCommitteeSize        *big.Int
@@ -20612,6 +20615,7 @@ func (_OmissionAccountability *OmissionAccountabilityCaller) Config(opts *bind.C
 	err := _OmissionAccountability.contract.Call(opts, &out, "config")
 
 	outstruct := new(struct {
+		NegligibleThreshold     *big.Int
 		OmissionLoopBackWindow  *big.Int
 		ActivityProofRewardRate *big.Int
 		MaxCommitteeSize        *big.Int
@@ -20624,13 +20628,14 @@ func (_OmissionAccountability *OmissionAccountabilityCaller) Config(opts *bind.C
 		return *outstruct, err
 	}
 
-	outstruct.OmissionLoopBackWindow = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.ActivityProofRewardRate = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
-	outstruct.MaxCommitteeSize = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
-	outstruct.PastPerformanceWeight = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	outstruct.InitialJailingPeriod = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
-	outstruct.InitialProbationPeriod = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
-	outstruct.InitialSlashingRate = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
+	outstruct.NegligibleThreshold = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.OmissionLoopBackWindow = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.ActivityProofRewardRate = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.MaxCommitteeSize = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.PastPerformanceWeight = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.InitialJailingPeriod = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	outstruct.InitialProbationPeriod = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
+	outstruct.InitialSlashingRate = *abi.ConvertType(out[7], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -20638,8 +20643,9 @@ func (_OmissionAccountability *OmissionAccountabilityCaller) Config(opts *bind.C
 
 // Config is a free data retrieval call binding the contract method 0x79502c55.
 //
-// Solidity: function config() view returns(uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
+// Solidity: function config() view returns(uint256 negligibleThreshold, uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
 func (_OmissionAccountability *OmissionAccountabilitySession) Config() (struct {
+	NegligibleThreshold     *big.Int
 	OmissionLoopBackWindow  *big.Int
 	ActivityProofRewardRate *big.Int
 	MaxCommitteeSize        *big.Int
@@ -20653,8 +20659,9 @@ func (_OmissionAccountability *OmissionAccountabilitySession) Config() (struct {
 
 // Config is a free data retrieval call binding the contract method 0x79502c55.
 //
-// Solidity: function config() view returns(uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
+// Solidity: function config() view returns(uint256 negligibleThreshold, uint256 omissionLoopBackWindow, uint256 activityProofRewardRate, uint256 maxCommitteeSize, uint256 pastPerformanceWeight, uint256 initialJailingPeriod, uint256 initialProbationPeriod, uint256 initialSlashingRate)
 func (_OmissionAccountability *OmissionAccountabilityCallerSession) Config() (struct {
+	NegligibleThreshold     *big.Int
 	OmissionLoopBackWindow  *big.Int
 	ActivityProofRewardRate *big.Int
 	MaxCommitteeSize        *big.Int
@@ -20666,12 +20673,12 @@ func (_OmissionAccountability *OmissionAccountabilityCallerSession) Config() (st
 	return _OmissionAccountability.Contract.Config(&_OmissionAccountability.CallOpts)
 }
 
-// EpochCollusionDegree is a free data retrieval call binding the contract method 0x8d0f2bf7.
+// CurrentEpochInactivityScores is a free data retrieval call binding the contract method 0x8d0c2a31.
 //
-// Solidity: function epochCollusionDegree() view returns(uint256)
-func (_OmissionAccountability *OmissionAccountabilityCaller) EpochCollusionDegree(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function currentEpochInactivityScores(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilityCaller) CurrentEpochInactivityScores(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _OmissionAccountability.contract.Call(opts, &out, "epochCollusionDegree")
+	err := _OmissionAccountability.contract.Call(opts, &out, "currentEpochInactivityScores", arg0)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -20683,26 +20690,26 @@ func (_OmissionAccountability *OmissionAccountabilityCaller) EpochCollusionDegre
 
 }
 
-// EpochCollusionDegree is a free data retrieval call binding the contract method 0x8d0f2bf7.
+// CurrentEpochInactivityScores is a free data retrieval call binding the contract method 0x8d0c2a31.
 //
-// Solidity: function epochCollusionDegree() view returns(uint256)
-func (_OmissionAccountability *OmissionAccountabilitySession) EpochCollusionDegree() (*big.Int, error) {
-	return _OmissionAccountability.Contract.EpochCollusionDegree(&_OmissionAccountability.CallOpts)
+// Solidity: function currentEpochInactivityScores(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilitySession) CurrentEpochInactivityScores(arg0 common.Address) (*big.Int, error) {
+	return _OmissionAccountability.Contract.CurrentEpochInactivityScores(&_OmissionAccountability.CallOpts, arg0)
 }
 
-// EpochCollusionDegree is a free data retrieval call binding the contract method 0x8d0f2bf7.
+// CurrentEpochInactivityScores is a free data retrieval call binding the contract method 0x8d0c2a31.
 //
-// Solidity: function epochCollusionDegree() view returns(uint256)
-func (_OmissionAccountability *OmissionAccountabilityCallerSession) EpochCollusionDegree() (*big.Int, error) {
-	return _OmissionAccountability.Contract.EpochCollusionDegree(&_OmissionAccountability.CallOpts)
+// Solidity: function currentEpochInactivityScores(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilityCallerSession) CurrentEpochInactivityScores(arg0 common.Address) (*big.Int, error) {
+	return _OmissionAccountability.Contract.CurrentEpochInactivityScores(&_OmissionAccountability.CallOpts, arg0)
 }
 
-// EpochInactivityScores is a free data retrieval call binding the contract method 0xf2d3f970.
+// EpochInactiveBlocks is a free data retrieval call binding the contract method 0x048a620c.
 //
-// Solidity: function epochInactivityScores() view returns(uint256 startEpochID)
-func (_OmissionAccountability *OmissionAccountabilityCaller) EpochInactivityScores(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function epochInactiveBlocks(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilityCaller) EpochInactiveBlocks(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _OmissionAccountability.contract.Call(opts, &out, "epochInactivityScores")
+	err := _OmissionAccountability.contract.Call(opts, &out, "epochInactiveBlocks", arg0)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -20714,18 +20721,18 @@ func (_OmissionAccountability *OmissionAccountabilityCaller) EpochInactivityScor
 
 }
 
-// EpochInactivityScores is a free data retrieval call binding the contract method 0xf2d3f970.
+// EpochInactiveBlocks is a free data retrieval call binding the contract method 0x048a620c.
 //
-// Solidity: function epochInactivityScores() view returns(uint256 startEpochID)
-func (_OmissionAccountability *OmissionAccountabilitySession) EpochInactivityScores() (*big.Int, error) {
-	return _OmissionAccountability.Contract.EpochInactivityScores(&_OmissionAccountability.CallOpts)
+// Solidity: function epochInactiveBlocks(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilitySession) EpochInactiveBlocks(arg0 common.Address) (*big.Int, error) {
+	return _OmissionAccountability.Contract.EpochInactiveBlocks(&_OmissionAccountability.CallOpts, arg0)
 }
 
-// EpochInactivityScores is a free data retrieval call binding the contract method 0xf2d3f970.
+// EpochInactiveBlocks is a free data retrieval call binding the contract method 0x048a620c.
 //
-// Solidity: function epochInactivityScores() view returns(uint256 startEpochID)
-func (_OmissionAccountability *OmissionAccountabilityCallerSession) EpochInactivityScores() (*big.Int, error) {
-	return _OmissionAccountability.Contract.EpochInactivityScores(&_OmissionAccountability.CallOpts)
+// Solidity: function epochInactiveBlocks(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilityCallerSession) EpochInactiveBlocks(arg0 common.Address) (*big.Int, error) {
+	return _OmissionAccountability.Contract.EpochInactiveBlocks(&_OmissionAccountability.CallOpts, arg0)
 }
 
 // EpochProverEfforts is a free data retrieval call binding the contract method 0x8c80e31d.
@@ -20757,6 +20764,37 @@ func (_OmissionAccountability *OmissionAccountabilitySession) EpochProverEfforts
 // Solidity: function epochProverEfforts() view returns(uint256 totalAccumulatedEfforts)
 func (_OmissionAccountability *OmissionAccountabilityCallerSession) EpochProverEfforts() (*big.Int, error) {
 	return _OmissionAccountability.Contract.EpochProverEfforts(&_OmissionAccountability.CallOpts)
+}
+
+// LastEpochInactivityScores is a free data retrieval call binding the contract method 0xfd806677.
+//
+// Solidity: function lastEpochInactivityScores(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilityCaller) LastEpochInactivityScores(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _OmissionAccountability.contract.Call(opts, &out, "lastEpochInactivityScores", arg0)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// LastEpochInactivityScores is a free data retrieval call binding the contract method 0xfd806677.
+//
+// Solidity: function lastEpochInactivityScores(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilitySession) LastEpochInactivityScores(arg0 common.Address) (*big.Int, error) {
+	return _OmissionAccountability.Contract.LastEpochInactivityScores(&_OmissionAccountability.CallOpts, arg0)
+}
+
+// LastEpochInactivityScores is a free data retrieval call binding the contract method 0xfd806677.
+//
+// Solidity: function lastEpochInactivityScores(address ) view returns(uint256)
+func (_OmissionAccountability *OmissionAccountabilityCallerSession) LastEpochInactivityScores(arg0 common.Address) (*big.Int, error) {
+	return _OmissionAccountability.Contract.LastEpochInactivityScores(&_OmissionAccountability.CallOpts, arg0)
 }
 
 // LookBackWindow is a free data retrieval call binding the contract method 0x37c3a9b1.

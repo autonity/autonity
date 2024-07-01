@@ -283,6 +283,7 @@ func DeployOmissionAccountabilityContract(config *params.OmissionAccountabilityG
 		config = params.DefaultOmissionAccountabilityConfig
 	}
 	conf := OmissionAccountabilityConfig{
+		NegligibleThreshold:     new(big.Int).SetUint64(config.NegligibleThreshold),
 		OmissionLoopBackWindow:  new(big.Int).SetUint64(config.OmissionLoopBackWindow),
 		ActivityProofRewardRate: new(big.Int).SetUint64(config.ActivityProofRewardRate),
 		MaxCommitteeSize:        new(big.Int).SetUint64(config.MaxCommitteeSize),

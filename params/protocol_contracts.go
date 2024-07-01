@@ -73,6 +73,7 @@ var (
 
 	// todo: resolve the reasonable default settings
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
+		NegligibleThreshold:     1000, // 10%
 		OmissionLoopBackWindow:  30,   // 30 blocks
 		ActivityProofRewardRate: 1000, // 10%
 		MaxCommitteeSize:        1000,
@@ -135,6 +136,7 @@ type AccountabilityGenesis struct {
 
 type OmissionAccountabilityGenesis struct {
 	// Omission fault detection parameters
+	NegligibleThreshold     uint64 `json:"negligibleThreshold"`
 	OmissionLoopBackWindow  uint64 `json:"omissionLoopBackWindow"`
 	ActivityProofRewardRate uint64 `json:"activityProofRewardRate"`
 	MaxCommitteeSize        uint64 `json:"maxCommitteeSize"`

@@ -6,6 +6,7 @@ contract OmissionAccountability is IOmissionAccountability {
     // please follow the design doc: https://github.com/clearmatics/autonity-protocol/discussions/248 to understand the
     // omission fault detection protocol.
     struct Config {
+        uint256 negligibleThreshold;        // a threshold ratio to address if a validator is an offencer at the end of epoch.
         uint256 omissionLoopBackWindow;
         uint256 activityProofRewardRate;
         uint256 maxCommitteeSize;
@@ -15,17 +16,15 @@ contract OmissionAccountability is IOmissionAccountability {
         uint256 initialSlashingRate;
     }
 
-    // todo: review this look back window.
     struct HeightInactiveNodes {
         // counter for the number of distinct voting power in the activity proof, set to 0 for invalid activity proof.
         uint256 proverEffort;
         mapping(address => bool) inactiveNodes;
     }
-
+    // todo: if we can have a ring buffer for look-back window?
     struct LookBackWindow {
         // start height of the look back window.
         uint256 start;
-
         // mapping height to its corresponding inactive nodes.
         mapping(uint256 => HeightInactiveNodes) lookBackWindow;
     }
@@ -33,7 +32,7 @@ contract OmissionAccountability is IOmissionAccountability {
     // mapping height to its corresponding inactive nodes.
     LookBackWindow public lookBackWindow;
 
-    // todo: review this prover effort counter of an epoch, it reset on epoch rotation.
+    // todo: to get the voting power from AC committee, or we save a shadow of it in this contract.
     struct EpochProverEfforts {
         uint256 totalAccumulatedEfforts;
         mapping(address => uint256) proverEfforts;
@@ -41,28 +40,19 @@ contract OmissionAccountability is IOmissionAccountability {
 
     EpochProverEfforts public epochProverEfforts;
 
-    // todo: review this epoch inactivity score, we need to save at least two epoch as we have different weights for each.
-    struct EpochInactivityScores {
-        uint256 startEpochID;
+    // EpochInactivityScores
+    mapping(address => uint256) public epochInactiveBlocks;
+    mapping(address => uint256) public lastEpochInactivityScores;
+    mapping(address => uint256) public currentEpochInactivityScores;
 
-        mapping(address => uint256) accumulatedInactiveBlocks;
+    // epochCollusionDegree can be computed
+    // the number of omission faulty nodes that are addressed on current epoch
+    // uint256 public epochCollusionDegree;
 
-        // mapping epochID => (address => score);
-        mapping(uint256 => mapping(address => uint256)) scores;
-    }
-
-    // todo: review the collusion degree data structure
-    uint256 public epochCollusionDegree; // the number of omission faulty nodes that are addressed on current epoch.
-
-    EpochInactivityScores public epochInactivityScores;
-
-    // todo: review the jailing and probation metrics.
     mapping(address => uint256) public repeatedOffences; // reset as soon as an entire probation period is completed without offences.
 
-    // todo: review the average activity percentage.
     mapping(address => uint256) public activityPercentage;
 
-    // todo: review the overall omission faulty heights
     mapping(address => uint256) public overallFaultyBlocks;
 
     Config public config;
