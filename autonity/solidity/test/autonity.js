@@ -3,7 +3,7 @@ const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
 const config = require("./config");
-const liquidContract = artifacts.require("Liquid")
+const liquidStateContract = artifacts.require("LiquidState")
 const toBN = web3.utils.toBN;
 
 async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond) {
@@ -11,7 +11,7 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   let balanceLNTN = [];
   let balanceLockedLNTN = [];
   let balanceNTN = [];
-  let valLiquidContract = [];
+  let valliquidStateContract = [];
   let tokenUnbondArray = [];
   for (let i = 0; i < treasuryAddresses.length; i++) {
     balanceNTN.push((await autonity.balanceOf(treasuryAddresses[i])).toNumber());
@@ -19,8 +19,8 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   }
   for (let i = 0; i < delegatee.length; i++) {
     let validatorInfo = await autonity.getValidator(delegatee[i]);
-    const valLiquid = await liquidContract.at(validatorInfo.liquidContract);
-    valLiquidContract.push(valLiquid);
+    const valLiquid = await liquidStateContract.at(validatorInfo.liquidStateContract);
+    valliquidStateContract.push(valLiquid);
     let valLiquidBalance = [];
     let valLiquidBalanceLocked = [];
     for (let j = 0; j < treasuryAddresses.length; j++) {
@@ -36,7 +36,7 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   let expectedValInfo = await utils.validatorState(autonity, delegatee);
   // check if LNTN balance is locked
   for (let i = 0; i < delegatee.length; i++) {
-    const valLiquid = valLiquidContract[i];
+    const valLiquid = valliquidStateContract[i];
     for (let j = 0; j < treasuryAddresses.length; j++) {
       if (i != j) balanceLockedLNTN[i][j] += tokenUnbond;
       assert.equal((await valLiquid.balanceOf(treasuryAddresses[j])).toNumber(), balanceLNTN[i][j], "LNTN balance unexpected");
@@ -57,7 +57,7 @@ async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddress
   let valInfo = await utils.validatorState(autonity, delegatee);
   for (let i = 0; i < delegatee.length; i++) {
     checkValInfoAfterUnbonding(valInfo[i], expectedValInfo[i], tokenUnbond, totalUnbonded);
-    const valLiquid = valLiquidContract[i];
+    const valLiquid = valliquidStateContract[i];
     for (let j = 0; j < treasuryAddresses.length; j++) {
       if (i != j) {
         balanceLNTN[i][j] -= tokenUnbond;
@@ -179,6 +179,16 @@ contract('Autonity', function (accounts) {
   ];
 
   let autonity;
+
+  describe('test', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
+    });
+
+    it('nothing', async function () {
+
+    })
+  })
 
   describe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
@@ -669,7 +679,7 @@ contract('Autonity', function (accounts) {
 
       // LNTN is minted to delegator at epoch end
       let validatorInfo = await autonity.getValidator(validators[0].nodeAddress);
-      const valLiquid = await liquidContract.at(validatorInfo.liquidContract);
+      const valLiquid = await liquidStateContract.at(validatorInfo.liquidStateContract);
       balance = (await valLiquid.balanceOf(newAccount)).toNumber();
       assert.equal(balance, 0, "LNTN minted before epoch end");
       await utils.endEpoch(autonity, operator, deployer);
@@ -712,7 +722,7 @@ contract('Autonity', function (accounts) {
       // for selfBonded, no LNTN is minted to delegator at epoch end
       await utils.endEpoch(autonity, operator, deployer);
       let validatorInfo = await autonity.getValidator(validator);
-      const valLiquid = await liquidContract.at(validatorInfo.liquidContract);
+      const valLiquid = await liquidStateContract.at(validatorInfo.liquidStateContract);
       balance = (await valLiquid.balanceOf(treasury)).toNumber();
       assert.equal(balance, 0, "LNTN minted for selfBonded");
     });
@@ -826,7 +836,7 @@ contract('Autonity', function (accounts) {
       // check effects of unbond (non-self-bonded):
       // LNTN is locked
       let validatorInfo = await autonity.getValidator(validator);
-      const valLiquid = await liquidContract.at(validatorInfo.liquidContract);
+      const valLiquid = await liquidStateContract.at(validatorInfo.liquidStateContract);
       assert.equal((await valLiquid.lockedBalanceOf(newAccount)).toNumber(), tokenUnBond);
 
       // LNTN burned at the end of the epoch. Unbonding request becomes unlocked.
@@ -1250,7 +1260,7 @@ contract('Autonity', function (accounts) {
           // check delegators unclaimed reward
           const fee_factor_unit_recip = toBN(1000000000)
 
-          let val0Liquid = await liquidContract.at(val0.liquidContract)
+          let val0Liquid = await liquidStateContract.at(val0.liquidStateContract)
           let data = await val0Liquid.unclaimedRewards(alice)
           let unclaimedRewardsV0 = data._unclaimedATN
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
@@ -1264,7 +1274,7 @@ contract('Autonity', function (accounts) {
           let _unclaimedRewardsV0 = _rewardV0.mul(fee_factor_unit_recip).div(supplyV0).mul(toBN(120)).div(fee_factor_unit_recip)
           assert.equal(unclaimedRewardsV0.toString(),_unclaimedRewardsV0.toString())
           
-          let val1Liquid = await liquidContract.at(val1.liquidContract)
+          let val1Liquid = await liquidStateContract.at(val1.liquidStateContract)
           data = await val1Liquid.unclaimedRewards(bob)
           let unclaimedRewardsV1 = data._unclaimedATN
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
@@ -1278,7 +1288,7 @@ contract('Autonity', function (accounts) {
           let _unclaimedRewardsV1 = _rewardV1.mul(fee_factor_unit_recip).div(supplyV1).mul(toBN(150)).div(fee_factor_unit_recip)
           assert.equal(unclaimedRewardsV1.toString(),_unclaimedRewardsV1.toString())
 
-          let val2Liquid = await liquidContract.at(val2.liquidContract)
+          let val2Liquid = await liquidStateContract.at(val2.liquidStateContract)
           data = await val2Liquid.unclaimedRewards(alice)
           let unclaimedRewardsV2 = data._unclaimedATN
           assert.equal(unclaimedRewardsV2.toString(),delegatorRewardV2.sub(commissionIncomeV2).toString())
@@ -1290,7 +1300,7 @@ contract('Autonity', function (accounts) {
           let _unclaimedRewardsV2 = _rewardV2.mul(fee_factor_unit_recip).div(supplyV2).mul(toBN(80)).div(fee_factor_unit_recip)
           assert.equal(unclaimedRewardsV2.toString(),_unclaimedRewardsV2.toString())
           
-          let val3Liquid = await liquidContract.at(val3.liquidContract)
+          let val3Liquid = await liquidStateContract.at(val3.liquidStateContract)
           data = await val3Liquid.unclaimedRewards(bob)
           let unclaimedRewardsV3 = data._unclaimedATN
           assert.equal(unclaimedRewardsV3.toString(),delegatorRewardV3.sub(commissionIncomeV3).toString())

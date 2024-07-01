@@ -1,11 +1,13 @@
 const truffleAssert = require('truffle-assertions');
-const ValidatorLNEW = artifacts.require("Liquid")
+const ValidatorLNEW = artifacts.require("LiquidStateTest")
+const LiquidLogic = artifacts.require("LiquidLogic")
 
 const toWei = web3.utils.toWei;
 const toBN = web3.utils.toBN;
 
 const burnAddress = "0x0000000000000000000000000000000000000000";
 
+// TODO (tariq): move all the following tests in golang
 // Note, tokens are denominted in Wei in this example, but it may not
 // be possible to use such small units, depending on how the division
 // is implemented in the LiquidNewtonPullFees contract.
@@ -18,15 +20,23 @@ contract("Liquid", accounts => {
   let delegatorA = accounts[3];
   let delegatorB = accounts[4];
   let delegatorC = accounts[5];
+  let liquidLogic;
+  let deployer = accounts[0];
 
   // Contract - deployed for each test here
   async function deployLNEW(commissionPercent = 0) {
     // Cannot extract this from the ABI, so have to hard-code it.
     let FEE_FACTOR_UNIT_RECIP = toBN("10000");
-    let commission =
-      FEE_FACTOR_UNIT_RECIP.mul(toBN(commissionPercent)).div(toBN("100"));
-    let lnew = await ValidatorLNEW.new(validator, treasury, commission, "27");
-    await lnew.mint(validator, toWei("10000", "ether"));
+    let commission = FEE_FACTOR_UNIT_RECIP.mul(toBN(commissionPercent)).div(toBN("100"));
+    liquidLogic = await LiquidLogic.new({from: deployer});
+    let lnew = await ValidatorLNEW.new(validator, treasury, commission, "27", liquidLogic.address, {from: deployer});
+    let addr = await lnew.getAutonity();
+    console.log(addr);
+    console.log(`actual addr ${liquidLogic.address}`)
+    addr = await lnew.liquidLogicAddress()
+    console.log(addr);
+    let request = await liquidLogic.mint.request(validator, toWei("10000", "ether"))
+    await web3.eth.sendTransaction({from:deployer, to: lnew.address, data: request.data});
     return lnew;
   };
 
@@ -377,4 +387,5 @@ contract("Liquid", accounts => {
     assert.equal((await liquid.balanceOf(delegatorA)).toString(), totalBalance.toString(), "unexpected balance");
 
   });
+  // });
 });
