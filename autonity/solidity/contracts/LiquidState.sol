@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
-import "./interfaces/IERC20.sol";
-import "./interfaces/IStakeProxy.sol";
 import "./LiquidLogic.sol";
 import "./Autonity.sol";
-import {DECIMALS} from "./Autonity.sol";
 
-contract LiquidState {
+contract LiquidState is Upgradeable {
 
     // storage layout - this must be compatible with LiquidLogic
     mapping(address => uint256) private balances;
@@ -23,8 +20,8 @@ contract LiquidState {
     mapping(address => uint256) private ntnUnrealisedFeeFactors;
     uint256 private ntnLastUnrealisedFeeFactor;
 
-    string private name;
-    string private symbol;
+    string public name;
+    string public symbol;
 
     address public validator;
     address payable public treasury;
@@ -32,8 +29,6 @@ contract LiquidState {
 
     uint256 public treasuryUnclaimedATN;
 
-    // this must be always last, since logic is delegated to LiquidLogic and
-    // they must use same storage layout
     Autonity private autonityContract; //not hardcoded for testing purposes
 
 
@@ -45,7 +40,7 @@ contract LiquidState {
         address _liquidLogicAddress
     ) {
         // commissionRate <= 1.0
-        require(_commissionRate <= LiquidLogic(_liquidLogicAddress).COMMISSION_RATE_PRECISION());
+        require(_commissionRate <= LiquidLogic(payable(_liquidLogicAddress)).COMMISSION_RATE_PRECISION());
 
         validator = _validator;
         treasury = _treasury;
@@ -87,11 +82,13 @@ contract LiquidState {
      * @notice Fetch liquid logic contract address from autonity
      */
     function _liquidLogicContract() internal view returns (address) {
-        return autonityContract.liquidLogicContract();
+        address _address = autonityContract.liquidLogicContract();
+        require(_address != address(0), "liquid logic contract not set");
+        return _address;
     }
 
     /**
-     * @dev Do a static call to `_contractAddress`. Use for view only functions.
+     * @dev Do a static call to `_contractAddress`. Use for pure functions.
      */
     function _static(address _contractAddress, bytes memory _data) internal view returns (bytes memory) {
         (bool _success, bytes memory _returnData) = _contractAddress.staticcall(_data);
@@ -132,28 +129,24 @@ contract LiquidState {
      ============================================================
      */
 
-    // /**
-    //  * @notice returns the name of this Liquid Newton contract
-    //  */
-    // function name() external view returns (string memory){
-    //     return name;
-    // }
-
-    // /**
-    //  * @notice returns the symbol of this Liquid Newton contract
-    //  */
-    // function symbol() external view returns (string memory){
-    //     return symbol;
-    // }
-
     /**
      * @notice Returns the total claimable fees (AUT) earned by the delegator to-date.
+     * @dev The logic to compute claimable rewards are in LiquidLogic.sol. A static call is done to LiquidLogic contract
+     * to fetch the claimable rewards. The function unclaimedRewards() in LiquidLogic is a pure function so that we can
+     * make a static call and compute the rewards. Otherwise it will view state from LiquidLogic contract instead of
+     * Liquidstate contract. And we cannot do a delegate call from a view function. So we need unclaimedRewards() in
+     * LiquidLogic to be a pure function and make a static call.
      * @param _account the delegator account.
      */
     function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
         bytes memory _returnData = _static(
             _liquidLogicContract(),
-            abi.encodeWithSignature("unclaimedRewards(address)",_account)
+            abi.encodeWithSignature(
+                "unclaimedRewards(uint256,uint256,uint256,uint256,uint256,uint256,uint256)",
+                balances[_account], atnRealisedFees[_account], ntnRealisedFees[_account],
+                atnUnrealisedFeeFactors[_account], ntnUnrealisedFeeFactors[_account],
+                atnLastUnrealisedFeeFactor, ntnLastUnrealisedFeeFactor
+            )
         );
 
         require(_returnData.length >= 64, "not enough return data");

@@ -41,7 +41,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public maxBondAppliedGas = 50_000;
     uint256 public maxUnbondAppliedGas = 50_000;
     uint256 public maxUnbondReleasedGas = 50_000;
-    uint256 public maxRewardsDistributionGas = 10_000;
+    uint256 public maxRewardsDistributionGas = 20_000;
 
 
     struct Validator {
@@ -245,7 +245,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
     event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
 
-    event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidContract);
+    event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract);
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
@@ -290,7 +290,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
            it avoids us adding more complexity to the contract and running into
            stack limit issues.
          */
-        liquidLogicContract = address(new LiquidLogic(config.protocol.operatorAccount));
+        liquidLogicContract = address(new LiquidLogic());
         for (uint256 i = 0; i < _validators.length; i++) {
             uint256 _bondedStake = _validators[i].bondedStake;
 

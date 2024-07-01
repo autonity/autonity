@@ -56,14 +56,16 @@ contract LiquidLogic is IERC20, Upgradeable {
     mapping(address => uint256) private ntnUnrealisedFeeFactors;
     uint256 private ntnLastUnrealisedFeeFactor;
 
-    string private name;
-    string private symbol;
+    string public name;
+    string public symbol;
 
     address public validator;
     address payable public treasury;
     uint256 public commissionRate;
 
     uint256 public treasuryUnclaimedATN;
+
+    IERC20 private autonityContract; //not hardcoded for testing purposes
 
     // this must be always last, since logic is delegated to LiquidLogic and
     // they must use same storage layout
@@ -76,22 +78,8 @@ contract LiquidLogic is IERC20, Upgradeable {
     uint256 public constant FEE_FACTOR_UNIT_RECIP = 1_000_000_000;
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
-    address public operator;
-
-    IERC20 internal autonityContract; //not hardcoded for testing purposes
-
-    constructor(address _operator) {
-        operator = _operator;
+    constructor() {
         autonityContract = IERC20(msg.sender);
-    }
-
-    /**
-     * @notice Sets the operator account.
-     * @param _account new operator account
-     * @custom:restricted-to operator account
-     */
-    function setOperatorAccount(address _account) external onlyOperator {
-        operator = _account;
     }
 
     /**
@@ -158,6 +146,7 @@ contract LiquidLogic is IERC20, Upgradeable {
         require(msg.sender == treasury, "only treasury can claim his reward");
         (bool _sent, ) = treasury.call{value: treasuryUnclaimedATN}("");
         require(_sent, "failed to send ATN");
+        treasuryUnclaimedATN = 0;
     }
 
     /**
@@ -264,6 +253,18 @@ contract LiquidLogic is IERC20, Upgradeable {
     }
 
     /**
+     * @dev It is not expected to fall into the fallback function. Implemeted fallback() to get a reverting message.
+     */
+    fallback() payable external {
+        revert("fallback not implemented for LiquidLogic");
+    }
+
+    /**
+     * @dev To receive ATN.
+     */
+    receive() payable external {}
+
+    /**
      ============================================================
 
         Internals
@@ -309,28 +310,33 @@ contract LiquidLogic is IERC20, Upgradeable {
      * the delegator is entitled to withdraw.
      */
     function _realiseFees(address _delegator) private returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) {
-        (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) = _computeUnrealisedFees(_delegator);
+        uint256 _balance = balances[_delegator];
+        uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, atnLastUnrealisedFeeFactor, atnUnrealisedFeeFactors[_delegator]);
 
         _atnRealisedFees = atnRealisedFees[_delegator] + _atnUnrealisedFee;
         atnRealisedFees[_delegator] = _atnRealisedFees;
         atnUnrealisedFeeFactors[_delegator] = atnLastUnrealisedFeeFactor;
 
+        uint256 _ntnUnrealisedFee = _computeUnrealisedFees(_balance, ntnLastUnrealisedFeeFactor, ntnUnrealisedFeeFactors[_delegator]);
         _ntnRealisedFees = ntnRealisedFees[_delegator] + _ntnUnrealisedFee;
         ntnRealisedFees[_delegator] = _ntnRealisedFees;
         ntnUnrealisedFeeFactors[_delegator] = ntnLastUnrealisedFeeFactor;
     }
 
-    function _computeUnrealisedFees(address _delegator)
-        private view returns (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) {
-        // TODO: save looking up the LNEW balance multiple times by passing it
-        // in here.
+    /**
+     * @dev Computes atn or ntn unrealised fees.
+     * @param _balance LNTN balance
+     * @param _lastUnrealisedFeeFactor last unrealised fee factor for atn or ntn
+     * @param _unrealisedFeeFactors unrealised fee factor for atn or ntn
+     * @return uint256 atn or ntn unrealised fee.
+     */
+    function _computeUnrealisedFees(uint256 _balance, uint256 _lastUnrealisedFeeFactor, uint256 _unrealisedFeeFactors)
+        private pure returns (uint256) {
 
-         uint256 _stakerBalance = balances[_delegator];
-
-         // Early out if _lnewBalance == 0
-         if (_stakerBalance == 0) {
-             return (0,0);
-         }
+        // Early out if _lnewBalance == 0
+        if (_balance == 0) {
+            return 0;
+        }
 
         // If the delegator has a non-zero balance, there should
         // be a valid _unrealisedFeeFactors entry.  Currently can't
@@ -340,14 +346,8 @@ contract LiquidLogic is IERC20, Upgradeable {
         // Unrealised fees are:
         //     balance x (f_{last_epoch} - f_{deposit_epoch})
 
-        uint256 _atnUnrealisedFeeFactor =
-            atnLastUnrealisedFeeFactor - atnUnrealisedFeeFactors[_delegator];
-        uint256 _ntnUnrealisedFeeFactor =
-            ntnLastUnrealisedFeeFactor - ntnUnrealisedFeeFactors[_delegator];
-
         // FEE_FACTOR_UNIT_RECIP = 10^9 won't cause overflow
-        _atnUnrealisedFee = (_atnUnrealisedFeeFactor * _stakerBalance) / FEE_FACTOR_UNIT_RECIP;
-        _ntnUnrealisedFee = (_ntnUnrealisedFeeFactor * _stakerBalance) / FEE_FACTOR_UNIT_RECIP;
+        return ((_lastUnrealisedFeeFactor - _unrealisedFeeFactors) * _balance) / FEE_FACTOR_UNIT_RECIP;
     }
 
     /**
@@ -383,13 +383,22 @@ contract LiquidLogic is IERC20, Upgradeable {
      */
 
     /**
-     * @notice Returns the total claimable fees (ATN and NTN) earned by the delegator to-date.
-     * @param _account the delegator account.
+     * @notice Calculates the total claimable fees (ATN and NTN) earned by the delegator to-date.
+     * @param _balance LNTN balance of the delegator account.
      */
-    function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
-        (uint256 _atnUnrealisedFee, uint256 _ntnUnrealisedFee) = _computeUnrealisedFees(_account);
-        _unclaimedATN =  atnRealisedFees[_account] + _atnUnrealisedFee;
-        _unclaimedNTN =  ntnRealisedFees[_account] + _ntnUnrealisedFee;
+    function unclaimedRewards(
+        uint256 _balance,
+        uint256 _atnRealisedFees,
+        uint256 _ntnRealisedFees,
+        uint256 _atnUnrealisedFeeFactor,
+        uint256 _ntnUnrealisedFeeFactor,
+        uint256 _atnLastUnrealisedFeeFactor,
+        uint256 _ntnLastUnrealisedFeeFactor
+    ) external pure returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
+        uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, _atnLastUnrealisedFeeFactor, _atnUnrealisedFeeFactor);
+        _unclaimedATN = _atnRealisedFees + _atnUnrealisedFee;
+        uint256 _ntnUnrealisedFee = _computeUnrealisedFees(_balance, _ntnLastUnrealisedFeeFactor, _ntnUnrealisedFeeFactor);
+        _unclaimedNTN = _ntnRealisedFees + _ntnUnrealisedFee;
     }
 
     /**
@@ -415,14 +424,6 @@ contract LiquidLogic is IERC20, Upgradeable {
 
      ============================================================
      */
-
-    modifier onlyOperator override {
-        require(
-            operator == msg.sender,
-            "Caller restricted to the operator account"
-        );
-        _;
-    }
 
     modifier onlyAutonity {
         require(
