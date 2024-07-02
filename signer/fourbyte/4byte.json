@@ -163,5 +163,10 @@
   "0fe50109": "setMaxBondAppliedGas(uint256)",
   "7e660ac9": "setMaxRewardsDistributionGas(uint256)",
   "0b21fb1d": "setMaxUnbondAppliedGas(uint256)",
-  "ee7ff28d": "setMaxUnbondReleasedGas(uint256)"
+  "ee7ff28d": "setMaxUnbondReleasedGas(uint256)",
+  "f1d592a7": "SetLiquidLogicContract(address)",
+  "96f18a32": "liquidLogicContract()",
+  "bd96102f": "claimTreasuryATN()",
+  "2d804308": "treasuryUnclaimedATN()",
+  "b05cd6c9": "unclaimedRewards(uint256,uint256,uint256,uint256,uint256,uint256,uint256)"
 }
