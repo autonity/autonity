@@ -88,9 +88,44 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, 
 	return res, consumed, nil
 }
 
+// call a contract function and then revert. helpful to get output of the function without changing state.
+// similar to making a method.call() in truffle
+func (c *contract) SimulateCall(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+	snap := c.r.snapshot()
+	out, consumed, err := c.CallMethod(methodHouse, opts, method, params...)
+	c.r.revertSnapshot(snap)
+	return out, consumed, err
+}
+
+// call a method that does not belong to the contract, `c`.
+// instead the method can be found in the contract, `methodHouse`.
+func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+	var tracer tracers.Tracer
+	if c.r.tracing {
+		tracer, _ = tracers.New("callTracer", new(tracers.Context))
+		c.r.evm.Config = vm.Config{Debug: true, Tracer: tracer}
+	}
+	input, err := methodHouse.abi.Pack(method, params...)
+	require.NoError(c.r.t, err)
+	out, consumed, err := c.r.call(opts, c.address, input)
+	if c.r.tracing {
+		traceResult, err := tracer.GetResult()
+		require.NoError(c.r.t, err)
+		pretty, _ := json.MarshalIndent(traceResult, "", "    ")
+		fmt.Println(string(pretty))
+	}
+	if err != nil {
+		reason, _ := abi.UnpackRevert(out)
+		return nil, 0, fmt.Errorf("%w: %s", err, reason)
+	}
+	res, err := methodHouse.abi.Unpack(method, out)
+	require.NoError(c.r.t, err)
+	return res, consumed, nil
+}
+
 type Committee struct {
-	validators      []AutonityValidator
-	liquidContracts []*Liquid
+	validators           []AutonityValidator
+	liquidStateContracts []*LiquidState
 }
 
 type runner struct {
@@ -115,15 +150,34 @@ type runner struct {
 	committee Committee // genesis validators for easy access
 }
 
+func (r *runner) CallNoError(output []any, gasConsumed uint64, err error) ([]any, uint64) {
+	require.NoError(r.t, err)
+	return output, gasConsumed
+}
+
 func (r *runner) NoError(gasConsumed uint64, err error) uint64 {
 	require.NoError(r.t, err)
 	return gasConsumed
 }
 
-func (r *runner) liquidContract(v AutonityValidator) *Liquid {
-	abi, err := LiquidMetaData.GetAbi()
+// returns an object of LiquidLogic contract with address set to 0
+func (r *runner) LiquidLogicContractObject() *LiquidLogic {
+	parsed, err := LiquidLogicMetaData.GetAbi()
 	require.NoError(r.t, err)
-	return &Liquid{&contract{v.LiquidContract, abi, r}}
+	require.NotEqual(r.t, nil, parsed)
+	return &LiquidLogic{
+		contract: &contract{
+			common.Address{},
+			parsed,
+			r,
+		},
+	}
+}
+
+func (r *runner) liquidStateContract(v AutonityValidator) *LiquidState {
+	abi, err := LiquidStateMetaData.GetAbi()
+	require.NoError(r.t, err)
+	return &LiquidState{&contract{v.LiquidStateContract, abi, r}}
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -225,12 +279,12 @@ func (r *runner) generateNewCommittee() {
 	committeeMembers, _, err := r.autonity.GetCommittee(nil)
 	require.NoError(r.t, err)
 	r.committee.validators = make([]AutonityValidator, len(committeeMembers))
-	r.committee.liquidContracts = make([]*Liquid, len(committeeMembers))
+	r.committee.liquidStateContracts = make([]*LiquidState, len(committeeMembers))
 	for i, member := range committeeMembers {
 		validator, _, err := r.autonity.GetValidator(nil, member.Addr)
 		require.NoError(r.t, err)
 		r.committee.validators[i] = validator
-		r.committee.liquidContracts[i] = r.liquidContract(validator)
+		r.committee.liquidStateContracts[i] = r.liquidStateContract(validator)
 	}
 }
 
@@ -308,11 +362,11 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	require.Equal(t, r.autonity.address, params.AutonityContractAddress)
 	_, err = r.autonity.FinalizeInitialization(nil)
 	require.NoError(t, err)
-	r.committee.liquidContracts = make([]*Liquid, 0, len(params.TestAutonityContractConfig.Validators))
+	r.committee.liquidStateContracts = make([]*LiquidState, 0, len(params.TestAutonityContractConfig.Validators))
 	for _, v := range params.TestAutonityContractConfig.Validators {
 		validator, _, err := r.autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.t, err)
-		r.committee.liquidContracts = append(r.committee.liquidContracts, r.liquidContract(validator))
+		r.committee.liquidStateContracts = append(r.committee.liquidStateContracts, r.liquidStateContract(validator))
 	}
 	//
 	// Step 2: Accountability Contract Deployment
@@ -491,7 +545,7 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 		SelfUnbondingStake:       v.SelfUnbondingStake,
 		SelfUnbondingShares:      v.SelfUnbondingShares,
 		SelfUnbondingStakeLocked: v.SelfUnbondingStakeLocked,
-		LiquidContract:           *v.LiquidContract,
+		LiquidStateContract:      *v.LiquidStateContract,
 		LiquidSupply:             v.LiquidSupply,
 		RegistrationBlock:        v.RegistrationBlock,
 		TotalSlashed:             v.TotalSlashed,

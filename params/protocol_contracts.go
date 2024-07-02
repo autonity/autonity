@@ -157,7 +157,7 @@ type Validator struct {
 	SelfUnbondingStake       *big.Int
 	SelfUnbondingShares      *big.Int
 	SelfUnbondingStakeLocked *big.Int
-	LiquidContract           *common.Address
+	LiquidStateContract      *common.Address
 	LiquidSupply             *big.Int
 	RegistrationBlock        *big.Int
 	TotalSlashed             *big.Int
@@ -183,7 +183,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 		SelfUnbondingStake       *big.Int        `json:"selfUnbondingStake"`
 		SelfUnbondingShares      *big.Int        `json:"selfUnbondingShares"`
 		SelfUnbondingStakeLocked *big.Int        `json:"selfUnbondingStakeLocked"`
-		LiquidContract           *common.Address `json:"liquidContract"`
+		LiquidStateContract      *common.Address `json:"liquidStateContract"`
 		LiquidSupply             *big.Int        `json:"liquidSupply"`
 		RegistrationBlock        *big.Int        `json:"registrationBlock"`
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
@@ -209,7 +209,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 	v.SelfUnbondingStake = dec.SelfUnbondingStake
 	v.SelfUnbondingShares = dec.SelfUnbondingShares
 	v.SelfUnbondingStakeLocked = dec.SelfUnbondingStakeLocked
-	v.LiquidContract = dec.LiquidContract
+	v.LiquidStateContract = dec.LiquidStateContract
 	v.LiquidSupply = dec.LiquidSupply
 	v.RegistrationBlock = dec.RegistrationBlock
 	v.TotalSlashed = dec.TotalSlashed
@@ -235,7 +235,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 		SelfUnbondingStake       *big.Int        `json:"selfUnbondingStake"`
 		SelfUnbondingShares      *big.Int        `json:"selfUnbondingShares"`
 		SelfUnbondingStakeLocked *big.Int        `json:"selfUnbondingStakeLocked"`
-		LiquidContract           *common.Address `json:"liquidContract"`
+		LiquidStateContract      *common.Address `json:"liquidStateContract"`
 		LiquidSupply             *big.Int        `json:"liquidSupply"`
 		RegistrationBlock        *big.Int        `json:"registrationBlock"`
 		TotalSlashed             *big.Int        `json:"totalSlashed"`
@@ -258,7 +258,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 	enc.SelfUnbondingStake = v.SelfUnbondingStake
 	enc.SelfUnbondingShares = v.SelfUnbondingShares
 	enc.SelfUnbondingStakeLocked = v.SelfUnbondingStakeLocked
-	enc.LiquidContract = v.LiquidContract
+	enc.LiquidStateContract = v.LiquidStateContract
 	enc.LiquidSupply = v.LiquidSupply
 	enc.RegistrationBlock = v.RegistrationBlock
 	enc.TotalSlashed = v.TotalSlashed
@@ -312,8 +312,8 @@ func (v *Validator) Validate() error {
 	if v.RegistrationBlock == nil {
 		v.RegistrationBlock = new(big.Int)
 	}
-	if v.LiquidContract == nil {
-		v.LiquidContract = new(common.Address)
+	if v.LiquidStateContract == nil {
+		v.LiquidStateContract = new(common.Address)
 	}
 	if v.State == nil {
 		v.State = new(uint8)

@@ -45,16 +45,19 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// Setup Bindings
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidContracts := make([]*autonity.Liquid, len(valAddrs))
+	liquidStateContracts := make([]*autonity.LiquidState, len(valAddrs))
 	validators := make([]autonity.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidContracts[i], _ = autonity.NewLiquid(validators[i].LiquidContract, n.WsClient)
+		liquidStateContracts[i], _ = autonity.NewLiquidState(validators[i].LiquidStateContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
-	tx, err := liquidContracts[0].Transfer(
+	input, err := e2e.MakeCallData(autonity.LiquidLogicABI, "transfer", common.Address{66, 66}, big.NewInt(1337))
+	require.NoError(t, err)
+	tx, err := liquidStateContracts[0].Fallback(
 		transactor,
-		common.Address{66, 66}, big.NewInt(1337))
+		input,
+	)
 
 	require.NoError(t, err)
 	_ = network.WaitToMineNBlocks(2, 20, false)
@@ -63,8 +66,8 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	err = network.AwaitTransactions(ctx, tx, tx2)
 	require.NoError(t, err)
 	// claimable fees should be 0 before epoch
-	for i := range liquidContracts {
-		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
+	for i := range liquidStateContracts {
+		unclaimed, _ := liquidStateContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
 		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedATN.Bytes())
 		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedNTN.Bytes())
 	}
@@ -100,8 +103,8 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	stake := []int64{10000 - 1337, 10000, 25000}
 	epochStake := []int64{10000, 10000, 25000}
 	totalStake := int64(45000)
-	for i := range liquidContracts {
-		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
+	for i := range liquidStateContracts {
+		unclaimed, _ := liquidStateContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
 		totalValRewards := new(big.Int).Div(new(big.Int).Mul(totalRewards, big.NewInt(epochStake[i])), big.NewInt(totalStake))
 		valCommission := new(big.Int).Div(new(big.Int).Mul(totalValRewards, big.NewInt(12)), big.NewInt(100))
 		stakerReward := new(big.Int).Sub(totalValRewards, valCommission)
