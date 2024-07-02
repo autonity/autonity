@@ -189,7 +189,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			case i == 0:
 				parent = chain.GetHeaderByHash(header.ParentHash)
 			}
-
+			// todo: fix this
 			// get epoch head from chain first.
 			epochHead := chain.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
 			if epochHead == nil {
@@ -314,14 +314,14 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
 // Finaize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	_ []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error) {
+	_ []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
 
-	committeeSet, receipt, lastEpochBlock, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
+	committee, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	return committeeSet, receipt, lastEpochBlock, nil
+	return committee, receipt, nil
 }
 
 // FinalizeAndAssemble call Finaize to compute post transacation state modifications
@@ -330,7 +330,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 
 	statedb.Prepare(common.ACHash(header.Number), len(txs))
-	committee, receipt, lastEpochBlock, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
+	committee, receipt, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -339,25 +339,30 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
-	// add committee to extraData's committee section
-	header.Committee = committee
-	header.LastEpochBlock = lastEpochBlock
+	if err = types.WriteEpochExtra(header, committee); err != nil {
+		panic(err)
+	}
+
+	if err = header.EnrichCommittee(); err != nil {
+		panic(err)
+	}
+
 	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
 }
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
 // committee field containaining the list of committee members allowed to participate in consensus for the next block.
 func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
-	_ []*types.Transaction, _ []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, error) {
+	_ []*types.Transaction, _ []*types.Receipt) (*types.Committee, *types.Receipt, error) {
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	committee, receipt, lastEpochBlock, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
+	committee, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return committee, receipt, lastEpochBlock, nil
+	return committee, receipt, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's

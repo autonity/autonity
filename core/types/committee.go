@@ -1,11 +1,11 @@
 package types
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"slices"
 	"sync"
@@ -38,9 +38,9 @@ type committeeMemberMarshaling struct {
 
 type Committee struct {
 	// todo: implement helpers for this new fields.
-	// LastEpochBlock points to the last epoch block number for backward searching of epoch header.
-	LastEpochBlock *big.Int `json:"lastEpochBlock"`
-	// NextEpochBlock ponits to the next epoch block number for forward searching of epoch header.
+	// ParentEpochBlock points to the parent epoch block number for backward searching of epoch header.
+	ParentEpochBlock *big.Int `json:"parentEpochBlock"`
+	// NextEpochBlock points to the next epoch block number for forward searching of epoch header.
 	NextEpochBlock *big.Int `json:"nextEpochBlock"`
 	// Current committee members.
 	Members []CommitteeMember `json:"members"`
@@ -49,8 +49,6 @@ type Committee struct {
 	lock sync.RWMutex `json:"-" rlp:"-"`
 	// cached total voting power.
 	totalVotingPower *big.Int `json:"-" rlp:"-"`
-	// cached aggregated consensus key of all committee members
-	aggConsensusKey []byte `json:"-" rlp:"-"`
 	// cached indexing of committee for member lookup
 	membersMap map[common.Address]*CommitteeMember `json:"-" rlp:"-"`
 }
@@ -83,14 +81,16 @@ func (c *Committee) Copy() *Committee {
 		}
 	}
 
+	if c.ParentEpochBlock != nil {
+		clone.ParentEpochBlock = new(big.Int).SetUint64(c.ParentEpochBlock.Uint64())
+	}
+	if c.NextEpochBlock != nil {
+		clone.NextEpochBlock = new(big.Int).SetUint64(c.NextEpochBlock.Uint64())
+	}
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if c.totalVotingPower != nil {
 		clone.totalVotingPower = new(big.Int).Set(c.totalVotingPower)
-	}
-
-	if c.aggConsensusKey != nil {
-		clone.aggConsensusKey = append(clone.aggConsensusKey, c.aggConsensusKey...)
 	}
 
 	if c.membersMap != nil {
@@ -101,6 +101,41 @@ func (c *Committee) Copy() *Committee {
 	}
 
 	return clone
+}
+
+func (c *Committee) Equal(other *Committee) bool {
+	if c == nil && other == nil {
+		return true
+	}
+	if c == nil || other == nil {
+		return false
+	}
+
+	if (c.ParentEpochBlock == nil && other.ParentEpochBlock != nil) ||
+		(c.ParentEpochBlock != nil && other.ParentEpochBlock == nil) ||
+		(c.ParentEpochBlock != nil && other.ParentEpochBlock != nil && c.ParentEpochBlock.Cmp(other.ParentEpochBlock) != 0) {
+		return false
+	}
+
+	if (c.NextEpochBlock == nil && other.NextEpochBlock != nil) ||
+		(c.NextEpochBlock != nil && other.NextEpochBlock == nil) ||
+		(c.NextEpochBlock != nil && other.NextEpochBlock != nil && c.NextEpochBlock.Cmp(other.NextEpochBlock) != 0) {
+		return false
+	}
+
+	if len(c.Members) != len(other.Members) {
+		return false
+	}
+	for i := range c.Members {
+		if c.Members[i].Address != other.Members[i].Address ||
+			c.Members[i].VotingPower.Cmp(other.Members[i].VotingPower) != 0 ||
+			!bytes.Equal(c.Members[i].ConsensusKeyBytes, other.Members[i].ConsensusKeyBytes) ||
+			!bytes.Equal(c.Members[i].ConsensusKey.Marshal(), other.Members[i].ConsensusKey.Marshal()) ||
+			c.Members[i].Index != other.Members[i].Index {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Committee) MemberByIndex(index int) *CommitteeMember {
@@ -123,28 +158,6 @@ func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
 		}
 	}
 	return c.membersMap[address]
-}
-
-func (c *Committee) AggregatedValidatorKey() []byte {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.aggConsensusKey == nil {
-		// collect bls keys of committee members in bytes
-		rawKeys := make([][]byte, len(c.Members))
-		for index, member := range c.Members {
-			rawKeys[index] = member.ConsensusKeyBytes
-		}
-
-		aggKey, err := blst.AggregatePublicKeys(rawKeys)
-		if err != nil {
-			// this shouldn't happen as all validator keys are validity checked before they are inserted into the AC
-			log.Crit("invalid BLS key in header")
-		}
-		c.aggConsensusKey = aggKey.Marshal()
-	}
-	copyKey := make([]byte, len(c.aggConsensusKey))
-	copy(copyKey, c.aggConsensusKey)
-	return copyKey
 }
 
 // TotalVotingPower returns the total voting power contained in the committee.

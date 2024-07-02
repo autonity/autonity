@@ -45,7 +45,4 @@ var (
 	// ErrUnknownEpoch is returned when validating a block requires an epoch header
 	// that is unknown.
 	ErrUnknownEpoch = errors.New("unknown epoch header")
-
-	// ErrInconsistentLastEpochBlock is returned if the lastEpochBlock is inconsistent
-	ErrInconsistentLastEpochBlock = errors.New("inconsistent lastEpochBlock value")
 )

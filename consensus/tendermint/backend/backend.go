@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"math"
@@ -311,7 +310,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		}
 
 		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
-		committee, receipt, lastEpochBlock, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
+		committee, receipt, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
 		if err != nil {
 			return 0, err
 		}
@@ -322,48 +321,16 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, err
 		}
 
-		// Verify if LastEpochBlock is correct
-		if header.LastEpochBlock.Cmp(lastEpochBlock) != 0 {
-			sb.logger.Error("wrong lastEpochBlock",
-				"proposalNumber", proposalNumber,
-				"lastEpochBlock", header.LastEpochBlock,
-				"current", lastEpochBlock,
-			)
-			return 0, consensus.ErrInconsistentLastEpochBlock
-		}
-
-		// Perform the actual comparison
-		if header.Committee.Len() != committee.Len() {
+		if !committee.Equal(header.Committee()) {
 			sb.logger.Error("wrong committee set",
+				"currentVerifier", sb.address.String(),
 				"proposalNumber", proposalNumber,
-				"extraLen", header.Committee.Len(),
-				"currentLen", committee.Len(),
-				"committee", header.Committee,
-				"current", committee,
+				"headerCommittee", header.Committee(),
+				"computedCommittee", committee,
 			)
 			return 0, consensus.ErrInconsistentCommitteeSet
 		}
-
-		for i := range committee.Members {
-			if header.Committee.Members[i].Address != committee.Members[i].Address ||
-				header.Committee.Members[i].VotingPower.Cmp(committee.Members[i].VotingPower) != 0 ||
-				!bytes.Equal(header.Committee.Members[i].ConsensusKeyBytes, committee.Members[i].ConsensusKeyBytes) ||
-				!bytes.Equal(header.Committee.Members[i].ConsensusKey.Marshal(), committee.Members[i].ConsensusKey.Marshal()) ||
-				header.Committee.Members[i].Index != committee.Members[i].Index {
-				sb.logger.Error("wrong committee member in the set",
-					"index", i,
-					"currentVerifier", sb.address.String(),
-					"proposalNumber", proposalNumber,
-					"headerCommittee", header.Committee.Members[i],
-					"computedCommittee", committee.Members[i],
-					"fullHeader", header.Committee,
-					"fullComputed", committee,
-				)
-				return 0, consensus.ErrInconsistentCommitteeSet
-			}
-		}
 		// At this stage committee field is consistent with the validator list returned by Soma-contract
-
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock

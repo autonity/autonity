@@ -111,3 +111,13 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 	h.QuorumCertificate = quorumCertificate.Copy()
 	return nil
 }
+
+func WriteEpochExtra(h *Header, committee *Committee) error {
+	// add committee to header's EpochExtra.
+	epochExtra, err := rlp.EncodeToBytes(committee)
+	if err != nil {
+		return err
+	}
+	h.EpochExtra = epochExtra
+	return err
+}

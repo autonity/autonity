@@ -349,22 +349,25 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
-		Number:         new(big.Int).SetUint64(g.Number),
-		Nonce:          types.EncodeNonce(g.Nonce),
-		Time:           g.Timestamp,
-		ParentHash:     g.ParentHash,
-		Extra:          g.ExtraData,
-		GasLimit:       g.GasLimit,
-		GasUsed:        g.GasUsed,
-		BaseFee:        g.BaseFee,
-		Difficulty:     g.Difficulty,
-		MixDigest:      g.Mixhash,
-		Coinbase:       g.Coinbase,
-		Root:           root,
-		Round:          0,
-		Committee:      committee,
-		LastEpochBlock: common.Big0,
+		Number:     new(big.Int).SetUint64(g.Number),
+		Nonce:      types.EncodeNonce(g.Nonce),
+		Time:       g.Timestamp,
+		ParentHash: g.ParentHash,
+		Extra:      g.ExtraData,
+		GasLimit:   g.GasLimit,
+		GasUsed:    g.GasUsed,
+		BaseFee:    g.BaseFee,
+		Difficulty: g.Difficulty,
+		MixDigest:  g.Mixhash,
+		Coinbase:   g.Coinbase,
+		Root:       root,
+		Round:      0,
 	}
+
+	if err = types.WriteEpochExtra(head, committee); err != nil {
+		return nil, err
+	}
+
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
@@ -429,7 +432,9 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
-
+	// todo: check if we need to write a head epoch block number into DB?
+	// todo: check if we need to write a head epoch header number into DB?
+	// rawdb.WriteHeadEpochHeaderHash(db, block.Hash())
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }

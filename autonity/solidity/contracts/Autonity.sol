@@ -164,6 +164,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     // Stake token state transitions happen every epoch.
     uint256 public epochID;
     mapping(uint256 => uint256) internal blockEpochMap;
+
+    uint256 public parentEpochBlock;
+    uint256 public nextEpochBlock;
+
     uint256 public lastEpochBlock;
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
@@ -301,6 +305,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
+        parentEpochBlock = 0;
+        nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
     }
 
     /**
@@ -749,9 +755,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     *
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
-    * @return lastEpochBlock The last epoch block number.
+    * @return parentEpochBlock The parent epoch block number.
+    * @return nextEpochBlock The next epoch block number.
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory, uint256) {
+    function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory, uint256, uint256) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
@@ -792,7 +799,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _applyNewCommissionRates();
             address[] memory _voters = computeCommittee();
             config.contracts.oracleContract.setVoters(_voters);
+            parentEpochBlock = lastEpochBlock;
             lastEpochBlock = block.number;
+            // todo: apply the changes of epoch period before this!
+            nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
             epochID += 1;
             emit NewEpoch(epochID);
@@ -807,10 +817,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // return newly elected committee set on epoch rotation,
         // otherwise return empty committee set for no changes.
         if (epochEnded) {
-            return (contractUpgradeReady, committee, lastEpochBlock);
+            return (contractUpgradeReady, committee, parentEpochBlock, nextEpochBlock);
         }
         CommitteeMember[] memory emptySet;
-        return (contractUpgradeReady, emptySet, lastEpochBlock);
+        return (contractUpgradeReady, emptySet, parentEpochBlock, nextEpochBlock);
     }
 
     /**
@@ -903,10 +913,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     /**
      * @notice Returns the block committee.
-     * @dev Current block committee if called before finalize(), next block if called after.
+     * @return Current block committee if called before finalize(), next block if called after.
+     * @return parentEpochBlock The parent epoch block number.
+     * @return nextEpochBlock The next epoch block number.
      */
-    function getCommittee() external view virtual returns (CommitteeMember[] memory) {
-        return committee;
+    function getCommittee() external view virtual returns (CommitteeMember[] memory, uint256, uint256) {
+        return (committee, parentEpochBlock, nextEpochBlock);
     }
 
     /**
