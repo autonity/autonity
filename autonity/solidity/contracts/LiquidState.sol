@@ -51,22 +51,22 @@ contract LiquidState is Upgradeable {
     }
 
     /**
-     * @dev Fallback function that delegates calls to the address returned by `_liquidLogicContract()`. Will run if no other
+     * @dev Fallback function that delegates calls to the address returned by `liquidLogicContract()`. Will run if no other
      * function in the contract matches the call data.
      */
     fallback() payable external {
         _delegate(
-            _liquidLogicContract()
+            liquidLogicContract()
         );
     }
 
     /**
-     * @dev Fallback function that delegates calls to the address returned by `_liquidLogicContract()`. Will run if call data
+     * @dev Fallback function that delegates calls to the address returned by `liquidLogicContract()`. Will run if call data
      * is empty.
      */
     receive() payable external {
         _delegate(
-            _liquidLogicContract()
+            liquidLogicContract()
         );
     }
 
@@ -81,7 +81,7 @@ contract LiquidState is Upgradeable {
     /**
      * @notice Fetch liquid logic contract address from autonity
      */
-    function _liquidLogicContract() internal view returns (address) {
+    function liquidLogicContract() public view returns (address) {
         address _address = autonityContract.liquidLogicContract();
         require(_address != address(0), "liquid logic contract not set");
         return _address;
@@ -140,7 +140,7 @@ contract LiquidState is Upgradeable {
      */
     function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
         bytes memory _returnData = _static(
-            _liquidLogicContract(),
+            liquidLogicContract(),
             abi.encodeWithSignature(
                 "unclaimedRewards(uint256,uint256,uint256,uint256,uint256,uint256,uint256)",
                 balances[_account], atnRealisedFees[_account], ntnRealisedFees[_account],
