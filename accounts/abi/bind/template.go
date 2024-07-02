@@ -692,6 +692,39 @@ var (
 	{{end}}
 
 	{{range .Transacts}}
+		// {{.Normalized.Name}} is a free data retrieval call for a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
+		// Similar to eth_call, it reverts the state after the call and returns the output.
+		// Solidity: {{.Original.String}}
+		func (_{{$contract.Type}} *{{$contract.Type}}) Call{{.Normalized.Name}}(r *runner, opts *runOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
+			snap := r.snapshot()
+			{{if not .Normalized.Outputs}}
+			_, consumed, err := _{{$contract.Type}}.call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
+			r.revertSnapshot(snap)
+			return consumed, err
+			{{else}}
+			out, consumed, err := _{{$contract.Type}}.call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
+			r.revertSnapshot(snap)
+			{{if .Structured}}
+			outstruct := new(struct{ {{range .Normalized.Outputs}} {{.Name}} {{bindtype .Type $structs}}; {{end}} })
+			if err != nil {
+				return *outstruct, consumed, err
+			}
+			{{range $i, $t := .Normalized.Outputs}} 
+			outstruct.{{.Name}} = *abi.ConvertType(out[{{$i}}], new({{bindtype .Type $structs}})).(*{{bindtype .Type $structs}}){{end}}
+			return *outstruct, consumed, err
+			{{else}}
+			if err != nil {
+				return {{range $i, $_ := .Normalized.Outputs}}*new({{bindtype .Type $structs}}), {{end}} consumed, err
+			}
+			{{range $i, $t := .Normalized.Outputs}}
+			out{{$i}} := *abi.ConvertType(out[{{$i}}], new({{bindtype .Type $structs}})).(*{{bindtype .Type $structs}}){{end}}	
+			return {{range $i, $t := .Normalized.Outputs}}out{{$i}}, {{end}} consumed, err
+			{{end}}
+			{{end}}
+		}
+	{{end}}
+
+	{{range .Transacts}}
 		// {{.Normalized.Name}} is a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
