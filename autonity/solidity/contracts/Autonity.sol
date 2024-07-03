@@ -828,13 +828,17 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
 
     /**
-     * @notice Returns the release state of the unbonding request
+     * @notice Returns if the unbonding is released yet.
+     * @return bool true if released, false otherwise
      */
 
     function isUnbondingReleased(uint256 _unbondingID) external view returns (bool) {
         return unbondingMap[_unbondingID].released;
     }
 
+    /**
+     * @notice Returns the amount of NTN released for the corresponding unbonding request.
+     */
     function getReleasedStake(uint256 _unbondingID) external view returns (uint256) {
         return unbondingMap[_unbondingID].releasedStake;
     }
@@ -1017,19 +1021,32 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         return epochID;
     }
 
+    /**
+     * @notice Returns if the corresponding bonding request is rejected or not.
+     * @return bool true if rejected, false otherwise
+     */
     function isBondingRejected(uint256 _bondingID) external view returns (bool) {
         return bondingMap[_bondingID].rejected;
     }
 
+    /**
+     * @notice Returns the amount of LNTN minted for the corresponding bonding request.
+     */
     function getBondedLiquid(uint256 _bondingID) external view virtual returns (uint256) {
         return bondingMap[_bondingID].liquidMinted;
     }
 
+    /**
+     * @notice Returns the total unclaimed rewards at the time of applying the bonding request.
+     */
     function getRewardsTillBonding(uint256 _bondingID) external view returns (uint256, uint256) {
         BondingRequest storage _bonding = bondingMap[_bondingID];
         return (_bonding.atnRewardsTillBonding, _bonding.ntnRewardsTillBonding);
     }
 
+    /**
+     * @notice Returns the total unclaimed rewards at the time of applying the unbonding request.
+     */
     function getRewardsTillUnbonding(uint256 _bondingID) external view returns (uint256, uint256) {
         UnbondingRequest storage _unbonding = unbondingMap[_bondingID];
         return (_unbonding.atnRewardsTillUnbonding, _unbonding.ntnRewardsTillUnbonding);
