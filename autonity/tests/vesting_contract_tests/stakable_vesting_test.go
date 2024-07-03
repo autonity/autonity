@@ -57,7 +57,7 @@ func TestReleaseFromStakableContract(t *testing.T) {
 
 	r.Run("release calculation follows epoch based linear function in time", func(r *tests.Runner) {
 		currentTime := r.WaitSomeEpoch(cliff + 1)
-		require.True(r.T, currentTime <= end, "release is not linear after end")
+		require.True(r.T, currentTime <= end+1, "release is not linear after end")
 		// contract has the context of last block, so time is 1s less than currentTime
 		unlocked := currentTime - 1 - start
 		require.True(r.T, contractTotalAmount > unlocked, "cannot test if all funds unlocked")
@@ -80,7 +80,7 @@ func TestReleaseFromStakableContract(t *testing.T) {
 
 	r.Run("can release in chunks", func(r *tests.Runner) {
 		currentTime := r.WaitSomeEpoch(cliff + 1)
-		require.True(r.T, currentTime <= end, "cannot test, release is not linear after end")
+		require.True(r.T, currentTime <= end+1, "cannot test, release is not linear after end")
 		totalUnlocked, _, err := r.StakableVesting.UnlockedFunds(nil, user, contractID)
 		require.NoError(r.T, err)
 		require.True(r.T, totalUnlocked.IsInt64(), "invalid data")
@@ -260,7 +260,27 @@ func TestBonding(t *testing.T) {
 	})
 
 	r.Run("can release LNTN", func(r *tests.Runner) {
-		// TODO (tariq): complete
+		bondingAmount := big.NewInt(contractTotalAmount)
+		bondAndFinalize(r, []StakingRequest{{beneficiary, bondingAmount, contractID, validator, "", true}})
+
+		currentTime := r.WaitSomeEpoch(cliff + 1)
+		unlocked := currentTime - 1 - start
+		if unlocked > contractTotalAmount {
+			unlocked = contractTotalAmount
+		}
+
+		unlockedToken, _, err := r.StakableVesting.UnlockedFunds(nil, beneficiary, contractID)
+		require.NoError(r.T, err)
+		require.Equal(r.T, big.NewInt(unlocked), unlockedToken)
+
+		require.True(r.T, unlocked > 1, "cannot test")
+		r.RunAndRevert(func(r *tests.Runner) {
+			checkReleaseAllLNTN(r, beneficiary, validator, contractID, unlockedToken)
+		})
+
+		currentUnlocked := big.NewInt(unlocked / 2)
+		checkReleaseLNTN(r, beneficiary, validator, contractID, currentUnlocked)
+		checkReleaseLNTN(r, beneficiary, validator, contractID, new(big.Int).Sub(unlockedToken, currentUnlocked))
 	})
 
 	r.Run("can release LNTN from any validator", func(r *tests.Runner) {
@@ -715,15 +735,18 @@ func TestChangeContractBeneficiary(t *testing.T) {
 	user := tests.User
 	createContract(r, user, contractTotalAmount, start, cliff, end)
 	contractID := common.Big0
+	newUser := common.HexToAddress("0x88")
+	require.NotEqual(r.T, user, newUser)
 
 	r.Run("beneficiary changes", func(r *tests.Runner) {
 		_, _, err := r.StakableVesting.GetContract(nil, user, contractID)
 		require.NoError(r.T, err)
-		newUser := common.HexToAddress("0x88")
 		_, _, err = r.StakableVesting.GetContract(nil, newUser, contractID)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid contract id", err.Error())
-		r.StakableVesting.ChangeContractBeneficiary(operator, user, contractID, newUser)
+		r.NoError(
+			r.StakableVesting.ChangeContractBeneficiary(operator, user, contractID, newUser),
+		)
 		_, _, err = r.StakableVesting.GetContract(nil, newUser, contractID)
 		require.NoError(r.T, err)
 		_, _, err = r.StakableVesting.GetContract(nil, user, contractID)
@@ -732,7 +755,30 @@ func TestChangeContractBeneficiary(t *testing.T) {
 	})
 
 	r.Run("beneficiary does not lose claim to rewards", func(_ *tests.Runner) {
-		// TODO (tariq): complete
+		bondingAmount := big.NewInt(contractTotalAmount)
+		validator := r.Committee.Validators[0].NodeAddress
+		r.WaitSomeBlock(start + 1)
+		r.NoError(
+			r.StakableVesting.Bond(
+				tests.FromSender(user, nil), contractID, validator, bondingAmount,
+			),
+		)
+		r.WaitNextEpoch()
+		r.GiveMeSomeMoney(r.Autonity.Address(), reward)
+		r.WaitNextEpoch()
+		totalReward, _, err := r.StakableVesting.UnclaimedRewards0(nil, user)
+		require.NoError(r.T, err)
+		rewards, _, err := r.StakableVesting.UnclaimedRewards(nil, user, contractID, validator)
+		require.NoError(r.T, err)
+		require.Equal(r.T, rewards, totalReward)
+
+		// change beneficiary
+		r.NoError(
+			r.StakableVesting.ChangeContractBeneficiary(operator, user, contractID, newUser),
+		)
+		totalReward, _, err = r.StakableVesting.UnclaimedRewards0(nil, user)
+		require.NoError(r.T, err)
+		require.Equal(r.T, rewards, totalReward)
 	})
 }
 
@@ -1178,6 +1224,81 @@ func checkReleaseAllNTN(r *tests.Runner, user common.Address, contractID, unlock
 		r.T,
 		new(big.Int).Add(withdrawn, unlockAmount).Cmp(contract.WithdrawnValue) == 0,
 		"contract WithdrawnValue not updated properly",
+	)
+}
+
+func checkReleaseAllLNTN(r *tests.Runner, user, validator common.Address, contractID, unlockAmount *big.Int) {
+	totalUnlocked, _, err := r.StakableVesting.UnlockedFunds(nil, user, contractID)
+	require.NoError(r.T, err)
+	require.True(r.T, unlockAmount.Cmp(totalUnlocked) == 0, "unlocked amount mismatch")
+
+	var liquidContract *tests.Liquid
+	for i, v := range r.Committee.Validators {
+		if v.NodeAddress == validator {
+			liquidContract = r.Committee.LiquidContracts[i]
+			break
+		}
+	}
+
+	liquidBalance, _, err := liquidContract.BalanceOf(nil, user)
+	require.NoError(r.T, err)
+
+	liquidInVesting, _, err := r.StakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
+	require.NoError(r.T, err)
+
+	r.NoError(
+		r.StakableVesting.ReleaseAllLNTN(tests.FromSender(user, nil), contractID),
+	)
+
+	newLiquidBalance, _, err := liquidContract.BalanceOf(nil, user)
+	require.NoError(r.T, err)
+	require.Equal(
+		r.T,
+		new(big.Int).Add(liquidBalance, unlockAmount),
+		newLiquidBalance,
+	)
+
+	newLiquidInVesting, _, err := r.StakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
+	require.NoError(r.T, err)
+	require.True(
+		r.T,
+		newLiquidInVesting.Cmp(new(big.Int).Sub(liquidInVesting, unlockAmount)) == 0,
+	)
+}
+
+func checkReleaseLNTN(r *tests.Runner, user, validator common.Address, contractID, unlockAmount *big.Int) {
+
+	var liquidContract *tests.Liquid
+	for i, v := range r.Committee.Validators {
+		if v.NodeAddress == validator {
+			liquidContract = r.Committee.LiquidContracts[i]
+			break
+		}
+	}
+
+	liquidBalance, _, err := liquidContract.BalanceOf(nil, user)
+	require.NoError(r.T, err)
+
+	liquidInVesting, _, err := r.StakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
+	require.NoError(r.T, err)
+
+	r.NoError(
+		r.StakableVesting.ReleaseLNTN(tests.FromSender(user, nil), contractID, validator, unlockAmount),
+	)
+
+	newLiquidBalance, _, err := liquidContract.BalanceOf(nil, user)
+	require.NoError(r.T, err)
+	require.Equal(
+		r.T,
+		new(big.Int).Add(liquidBalance, unlockAmount),
+		newLiquidBalance,
+	)
+
+	newLiquidInVesting, _, err := r.StakableVesting.LiquidBalanceOf(nil, user, contractID, validator)
+	require.NoError(r.T, err)
+	require.True(
+		r.T,
+		newLiquidInVesting.Cmp(new(big.Int).Sub(liquidInVesting, unlockAmount)) == 0,
 	)
 }
 
