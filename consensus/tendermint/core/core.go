@@ -358,7 +358,9 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 	c.processFuture(previousRound, round)
+	start := time.Now()
 	c.backend.Post(events.RoundChangeEvent{Height: c.Height().Uint64(), Round: round})
+	BackendPostBg.Add(time.Since(start).Nanoseconds())
 }
 
 func (c *Core) setInitialState(r int64) {
