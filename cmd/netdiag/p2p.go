@@ -223,24 +223,35 @@ func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
 
 type TCPOptionsPacket struct {
 	BufferSize uint64
-	NoDelay    bool
+	Reset      bool
 }
 
-func (p *Peer) sendUpdateTcpSocket(bufferSize int, noDelay bool) error {
+func (p *Peer) sendUpdateTcpSocket(bufferSize int, reset bool) error {
 	id := rand.Uint64()
 	log.Info("sending update")
-	_, err := p.dispatchRequest(id, UpdateTCPSocket, TCPOptionsPacket{uint64(bufferSize), noDelay}) // this will leak for now
+	_, err := p.dispatchRequest(id, UpdateTCPSocket, TCPOptionsPacket{uint64(bufferSize), reset}) // this will leak for now
 	return err
 }
 
-func handleUpdateTcpSocket(_ *Engine, p *Peer, msg io.Reader) error {
+func handleUpdateTcpSocket(e *Engine, p *Peer, msg io.Reader) error {
 	log.Info("received handle update")
 	var opts TCPOptionsPacket
 	if err := rlp.Decode(msg, &opts); err != nil {
 		log.Error("update tcp socket failure", "error", err)
 		return err
 	}
-	p.UpdateSocketOptions(int(opts.BufferSize))
+	if opts.Reset {
+		p2p.ResetSocketOptions()
+	} else {
+		p2p.UpdateSystemSocketOptions(int(opts.BufferSize))
+	}
+	for i, _ := range e.peers {
+		peer, err := checkPeer(i, e.peers)
+		if err != nil {
+			continue
+		}
+		peer.UpdateAppSocketBuffers(int(opts.BufferSize))
+	}
 	return nil
 }
 

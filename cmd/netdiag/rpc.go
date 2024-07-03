@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	rand2 "math/rand"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,6 +21,7 @@ import (
 
 	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 )
 
 const (
@@ -40,7 +43,7 @@ type ArgTarget struct {
 
 func (a *ArgTarget) AskUserInput() error {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter target peer index: ")
+	fmt.Print("Enter target peer index, 0 for all:")
 	input, _ := reader.ReadString('\n')
 	targetIndex, err := strconv.Atoi(strings.TrimSpace(input))
 	if err != nil {
@@ -416,10 +419,41 @@ func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandom
 	return nil
 }
 
+type ResultTCPSocketUpdate struct {
+	Reset bool
+}
+
+func (r *ResultTCPSocketUpdate) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "Reset: %v\n", r.Reset)
+
+	commands := []string{
+		fmt.Sprintf("net.ipv4.tcp_window_scaling=1"),
+		fmt.Sprintf("net.core.rmem_max"),
+		fmt.Sprintf("net.core.wmem_max"),
+		fmt.Sprintf("net.ipv4.tcp_rmem"),
+		fmt.Sprintf("net.ipv4.tcp_wmem"),
+		fmt.Sprintf("net.ipv4.tcp_slow_start_after_idle"),
+	}
+
+	for _, l := range commands {
+		localCommand := l
+		var out bytes.Buffer
+		execCmd := exec.Command("sysctl", localCommand)
+		execCmd.Stdout = &out
+		err := execCmd.Run()
+		if err != nil {
+			log.Error(" command failure ", "err", err, "cmd", execCmd)
+		}
+		builder.WriteString(out.String())
+	}
+	return builder.String()
+}
+
 type ResultTCPSocketTuning struct {
 	Target         int
 	MinDuration    time.Duration
-	NoDelay        bool
+	Reset          bool
 	BufferSize     int
 	SizeToDuration map[int]time.Duration
 	Durations      []time.Duration
@@ -427,90 +461,71 @@ type ResultTCPSocketTuning struct {
 
 func (r *ResultTCPSocketTuning) String() string {
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "DevP2P TCP tuning for target %d 200kB:\n", r.Target)
-	fmt.Fprintf(&builder, "Duration: %s\n", r.MinDuration)
-	fmt.Fprintf(&builder, "NoDelay: %v\n", r.NoDelay)
-	fmt.Fprintf(&builder, "BufferSize: %d\n", r.BufferSize)
-	for size, Duration := range r.SizeToDuration {
-		fmt.Fprintf(&builder, "Size %d: %s\n", size, Duration)
-	}
-	for i := range r.Durations {
-		fmt.Fprintf(&builder, "Delay %s: %s\n", 500*time.Millisecond, r.Durations[i])
-	}
+	//fmt.Fprintf(&builder, "DevP2P TCP tuning for target %d 200kB:\n", r.Target)
+	//fmt.Fprintf(&builder, "Duration: %s\n", r.MinDuration)
+	fmt.Fprintf(&builder, "Reset: %v\n", r.Reset)
+	//fmt.Fprintf(&builder, "BufferSize: %d\n", r.BufferSize)
+	//for size, Duration := range r.SizeToDuration {
+	//	fmt.Fprintf(&builder, "Size %d: %s\n", size, Duration)
+	//}
+	//for i := range r.Durations {
+	//	fmt.Fprintf(&builder, "Delay %s: %s\n", 500*time.Millisecond, r.Durations[i])
+	//}
 	return builder.String()
 }
 
 func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) error {
-	_, err := checkPeer(args.Target, p.engine.peers)
-	if err != nil {
-		return err
-	}
-	bufferSizes := []int{16 * 1024, 32 * 1024, 64 * 1024, 128 * 1024,
-		256 * 1024, 512 * 1024, 1024 * 1024,
-		2 * 1024 * 1024, 4 * 1024 * 1024, 10 * 1024 * 1024}
-	minDuration := 99 * time.Second
-	minNoDelay := false
-	noDelay := minNoDelay
-	minBufferSize := 0
-
-	sizeToDuration := make(map[int]time.Duration, len(bufferSizes))
-	//peer.UpdateSocketOptions(4 * 1024 * 1024)
-	//if err := peer.sendUpdateTcpSocket(4*1024*1024, noDelay); err != nil {
-	//	log.Error("error sending socket update", "err", err)
-	//}
-	//for _, noDelay := range []bool{true} {
-	now := time.Now()
-	//for i := 0; i < 100; i++ {
-	// warmup
-	//res := &ResultSendRandomData{}
-	//_ = p.SendRandomData(&ArgTargetSizeCount{
-	//	ArgTarget: ArgTarget{args.Target},
-	//	ArgCount:  ArgCount{10},
-	//	ArgSize:   ArgSize{1024},
-	//}, res)
-	//time.Sleep(2 * time.Second)
-	// measure
-	res2 := &ResultSendRandomData{}
-	err = p.SendRandomData(&ArgTargetSizeCount{
-		ArgTarget: ArgTarget{args.Target},
-		ArgCount:  ArgCount{1},
-		ArgSize:   ArgSize{100000},
-	}, res2)
-	if err != nil {
-		log.Error("error sending random data", "err", err)
-	}
-	log.Info("total duration to finish the test", "time to finish", time.Since(now).Nanoseconds())
-	duration := res2.ReceiverReceptionTime.Sub(res2.RequestTime)
-	//sizeToDuration[buffSize] = duration
-	if duration < minDuration {
-		minDuration = duration
-		minNoDelay = noDelay
-		//minBufferSize = buffSize
-	}
-	//}
-	//}
-	*reply = ResultTCPSocketTuning{
-		Target:         args.Target,
-		MinDuration:    minDuration,
-		NoDelay:        minNoDelay,
-		BufferSize:     minBufferSize,
-		Durations:      make([]time.Duration, 10),
-		SizeToDuration: sizeToDuration,
+	bufferSize := 80 * 1024 * 1024
+	peers := make([]*Peer, 0)
+	if args.Target == 0 {
+		peers = p.engine.peers
+	} else {
+		peer, err := checkPeer(args.Target, p.engine.peers)
+		if err != nil {
+			return err
+		}
+		peers = append(peers, peer)
 	}
 
-	size := 200000
-	var totalTime time.Duration
-	for i := 0; i < 5; i++ {
-		res := &ResultSendRandomData{}
-		_ = p.SendRandomData(&ArgTargetSizeCount{
-			ArgTarget: ArgTarget{args.Target},
-			ArgCount:  ArgCount{1},
-			ArgSize:   ArgSize{size},
-		}, res)
-		totalTime = res.ReceiverReceptionTime.Sub(res.RequestTime)
-		reply.Durations[i] = totalTime
+	p2p.UpdateSystemSocketOptions(bufferSize)
+	for i, _ := range peers {
+		peer, err := checkPeer(i, p.engine.peers)
+		if err != nil {
+			continue
+		}
+		peer.UpdateAppSocketBuffers(bufferSize)
+		if err := peer.sendUpdateTcpSocket(bufferSize, false); err != nil {
+			log.Error("error sending socket update", "err", err)
+		}
 	}
-	//time.Sleep(500 * time.Millisecond)
+	reply = &ResultTCPSocketTuning{Reset: false}
+	return nil
+}
+
+func (p *P2POp) ResetTCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) error {
+	var peers []*Peer
+
+	if args.Target == 0 {
+		peers = p.engine.peers
+	} else {
+		peer, err := checkPeer(args.Target, p.engine.peers)
+		if err != nil {
+			return err
+		}
+		peers = append(peers, peer)
+	}
+	p2p.ResetSocketOptions()
+	bufferSize := 40 * 1024 * 1024
+	for i, _ := range peers {
+		peer, err := checkPeer(i, p.engine.peers)
+		if err != nil {
+			continue
+		}
+		if err := peer.sendUpdateTcpSocket(bufferSize, true); err != nil {
+			log.Error("error sending socket update", "err", err)
+		}
+	}
+	reply = &ResultTCPSocketTuning{Reset: true}
 	return nil
 }
 

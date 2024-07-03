@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"os/user"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -377,7 +378,7 @@ func setup(c *cli.Context) error {
 	if err != nil {
 		log.Crit("can't retrieve available zone list", "err", err)
 	}
-	temp, err := getInstanceTemplate(projectId, instanceTemplate)
+	temp, err := getInstanceTemplate(projectId, path.Base(instanceTemplate))
 	if err != nil {
 		log.Crit("can't retrieve templates", "err", err)
 	}
@@ -485,6 +486,9 @@ func setup(c *cli.Context) error {
 	wg.Wait()
 	log.Info("Finished!")
 	for i := range vms {
+		if vms[i] == nil {
+			continue
+		}
 		log.Info("Netdiag runner deployed", "id", i, "ip", vms[i].ip)
 	}
 	return nil
@@ -533,7 +537,7 @@ func update(c *cli.Context) error {
 		go func(id int) {
 			log.Info("Killing runner", "id", id)
 			if err := vms[id].killRunner(c.String(configFlag.Name)); err != nil {
-				log.Crit("error starting runner", "id", id, "err", err)
+				log.Crit("error Killing runner", "id", id, "err", err)
 			}
 			time.Sleep(time.Second)
 			if !c.Bool(restartOnlyFlag.Name) {

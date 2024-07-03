@@ -5,11 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"time"
 
 	"google.golang.org/api/iterator"
 
+	"github.com/autonity/autonity/cmd/netdiag/ssh"
 	"github.com/autonity/autonity/log"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -226,112 +225,88 @@ func deployVM(ctx context.Context, client *compute.InstancesClient, id int, proj
 }
 
 func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy bool) error {
-
-	// delete known host entry
-	//cmd := exec.Command("ssh-keygen", "-f", "/home/piyush/.ssh/known_hosts", "-R", vm.ip)
-	//err := cmd.Run()
-	//if err != nil {
-	//	log.Error("command failure", "err", err, "id", vm.id, "cmd", cmd)
-	//}
-
-	//bufferSize := 40 * 1024 * 1024 //40 mb
-	//sockWg := sync.WaitGroup{}
-	//commands := []string{
-	//	fmt.Sprintf("sudo sysctl -w net.ipv4.tcp_window_scaling=1; sudo sysctl -w net.core.rmem_max=%d", bufferSize),
-	//	fmt.Sprintf("sudo sysctl -w net.core.wmem_max=%d", bufferSize),
-	//	fmt.Sprintf("sudo sysctl -w net.ipv4.tcp_rmem='65536        %d    %d'", bufferSize, bufferSize),
-	//	fmt.Sprintf("sudo sysctl -w net.ipv4.tcp_wmem='65536        2048576    %d'", bufferSize),
-	//	fmt.Sprintf("sudo sysctl -w net.ipv4.route.flush=1; sudo sysctl -w net.ipv4.tcp_slow_start_after_idle=0"),
-	//	fmt.Sprintf(""),
-	//}
-	//for _, l := range commands {
-	//	localCommand := l
-	//	//sockWg.Add(1)
-	//	//go func() {
-	//	//	defer sockWg.Done()
-	//	execCmd := exec.Command("ssh", "-o StrictHostKeyChecking='no'", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
-	//	err := execCmd.Run()
-	//	if err != nil {
-	//		log.Error("command failure", "err", err, "id", vm.id, "cmd", execCmd)
-	//	}
-	//	//}()
-	//}
-	//sockWg.Wait()
+	client := ssh.Manager(vm.ip)
+	if client == nil {
+		log.Error("ssh client not found", "ip", vm.ip)
+		return nil
+	}
 
 	if !skipConfigDeploy {
 		log.Info("Transferring config file to the VM...", "id", vm.id)
 		// Send the binary to the VM
-		for i := 0; i < 10; i++ {
-			cmd := exec.Command("scp", "-o StrictHostKeyChecking='no'", configFileName, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, configFileName))
-			if debug {
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-			}
-			if err := cmd.Run(); err != nil {
-				log.Error("command failure", "err", err, "cmd", cmd.String())
-				if i == 9 {
-					return err
-				}
-				time.Sleep(10 * time.Second)
-				continue
-			}
+		err := client.Upload(configFileName, configFileName, true)
+		if err != nil {
+			log.Error("upload failure", "err", err, "file", configFileName)
+			return err
 		}
 	}
-	log.Info("Transferring the binary to the VM...", "id", vm.id)
 	exePath, err := os.Executable()
 	if err != nil {
+		log.Error("os executable", "err", err)
 		return err
 	}
-	cmd := exec.Command("scp", "-o StrictHostKeyChecking='no'", exePath, fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, binaryName))
-	if debug {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+	err = client.Upload(exePath, binaryName, true)
+	if err != nil {
+		log.Error("upload failure", "err", err, "file", configFileName)
+		return err
 	}
-	if err := cmd.Run(); err != nil {
-		log.Error("command failure", "err", err, "id", vm.id, "cmd", cmd.String())
-	}
-	return err
+	return nil
 }
 
 func (vm *vm) startRunner(configFileName, networkMode string, optFlags string) error {
+	client := ssh.Manager(vm.ip)
+	if client == nil {
+		log.Error("ssh client not found", "ip", vm.ip)
+		return nil
+	}
+
 	// enable groupids for icmp ping
 	cmd := "sudo sysctl -w net.ipv4.ping_group_range='0 2147483647'"
-	execCmd := exec.Command("ssh", "-o StrictHostKeyChecking='no'", fmt.Sprintf("%s@%s", vm.user, vm.ip), cmd)
-	err := execCmd.Run()
-	log.Info("group id command", "cmd", execCmd)
+	_, err := client.RunCommand(cmd)
 	if err != nil {
-		log.Error("Failed to set net.ipv4.ping_group_range ", "error", err)
+		log.Error("run failure", "err", err, "cmd", cmd)
+		return err
 	}
 	// Execute the binary on the VM
 	log.Info("Executing the runner on the VM...", "id", vm.id)
+
 	flags := fmt.Sprintf("run --config %s --id %d --network %s %s", configFileName, vm.id, networkMode, optFlags)
 	localCommand := fmt.Sprintf("chmod +x ~/%s && sudo -b ./%s %s > %s 2>&1 ", binaryName, binaryName, flags, logFileName)
 	log.Info("local command", "cmd", localCommand)
-	execCmd = exec.Command("ssh", "-o StrictHostKeyChecking='no'", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
-	log.Info("execution command", "cmd", execCmd)
-	if err := execCmd.Start(); err != nil {
-		log.Error("Error executing binary: %v", err, "id", vm.id)
+
+	_, err = client.RunCommand(localCommand)
+	if err != nil {
+		log.Error("run failure", "err", err, "cmd", cmd)
+		return err
 	}
 	return nil
 }
 
 func (vm *vm) killRunner(configFileName string) error {
+	client := ssh.Manager(vm.ip)
+	if client == nil {
+		log.Error("ssh client not found", "ip", vm.ip)
+		return nil
+	}
 	// Execute the binary on the VM
 	log.Info("Killing the runner on the VM...", "id", vm.id)
 	localCommand := fmt.Sprintf("sudo killall -9 %s", binaryName)
-	execCmd := exec.Command("ssh", fmt.Sprintf("%s@%s", vm.user, vm.ip), localCommand)
-	if err := execCmd.Start(); err != nil {
-		log.Error("Error killing binary: %v", err, "id", vm.id)
+	_, err := client.RunCommand(localCommand)
+	if err != nil {
+		log.Error("run failure", "err", err, "cmd", localCommand)
 	}
 	return nil
 }
 
 func (vm *vm) downloadLogs() {
 	log.Info("Downloading the log file...", "id", vm.id)
-	scpLogCmd := exec.Command("scp", "-o StrictHostKeyChecking='no'", fmt.Sprintf("%s@%s:~/%s", vm.user, vm.ip, logFileName), ".")
-	scpLogCmd.Stdout = os.Stdout
-	scpLogCmd.Stderr = os.Stderr
-	if err := scpLogCmd.Run(); err != nil {
+	client := ssh.Manager(vm.ip)
+	if client == nil {
+		log.Error("ssh client not found", "ip", vm.ip)
+		return
+	}
+	err := client.Download(logFileName, ".", true)
+	if err != nil {
 		log.Info("Error downloading log file", "error ", err)
 	}
 }
@@ -456,7 +431,6 @@ func filterZones(zones []*computepb.Zone, machine string) []*computepb.Zone {
 }
 func getInstanceTemplate(projectID, templateName string) (*computepb.InstanceTemplate, error) {
 	ctx := context.Background()
-	templateName = "autonity-c2-s4-ubuntu23-10-default-20240607-101106"
 	instTemplateCl, err := compute.NewInstanceTemplatesRESTClient(ctx)
 	if err != nil {
 		log.Error("New Instance Rest Client error", "err", err)
