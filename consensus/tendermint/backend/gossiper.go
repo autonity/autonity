@@ -8,6 +8,7 @@ import (
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
@@ -53,6 +54,10 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 }
 
 func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
+	now := time.Now()
+	defer func() {
+		core.GossipBg.Add(time.Since(now).Nanoseconds())
+	}()
 	hash := message.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)

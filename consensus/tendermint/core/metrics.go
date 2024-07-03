@@ -79,4 +79,9 @@ var (
 
 	// temporary metrics to evaluate whether core.roundChangeMu is causing lock contention issues
 	RoundChangeMuBg = metrics.NewRegisteredBufferedGauge("tendermint/roundchangemu.bg", nil, nil)
+
+	// temporary metrics to identify cause of spikes in msg processing time
+	BackendPostBg     = metrics.NewRegisteredBufferedGauge("temporary/backend/post", nil, metrics.GetIntPointer(1024))
+	FutureRoundLockBg = metrics.NewRegisteredBufferedGauge("temporary/future/round", nil, metrics.GetIntPointer(1024))
+	GossipBg          = metrics.NewRegisteredBufferedGauge("temporary/gossip", nil, metrics.GetIntPointer(1024))
 )

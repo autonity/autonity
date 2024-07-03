@@ -55,7 +55,9 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		// in this old round.
 		roundMessages := c.messages.GetOrCreate(precommit.R())
 		roundMessages.AddPrecommit(precommit)
+		start := time.Now()
 		c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
+		BackendPostBg.Add(time.Since(start).Nanoseconds())
 
 		oldRoundProposal := roundMessages.Proposal()
 		if oldRoundProposal == nil {
@@ -71,7 +73,9 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
 	c.curRoundMessages.AddPrecommit(precommit)
+	start := time.Now()
 	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
+	BackendPostBg.Add(time.Since(start).Nanoseconds())
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit)
 
 	c.currentPrecommitChecks(ctx)

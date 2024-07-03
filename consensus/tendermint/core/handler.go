@@ -360,7 +360,9 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		c.logger.Debug("Storing future round message")
 
 		r := msg.R()
+		start := time.Now()
 		c.futureRoundLock.Lock()
+		FutureRoundLockBg.Add(time.Since(start).Nanoseconds())
 		c.futureRound[r] = append(c.futureRound[r], msg)
 
 		// update future power
@@ -378,7 +380,9 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		}
 		c.futureRoundLock.Unlock()
 
+		start = time.Now()
 		c.backend.Post(events.FuturePowerChangeEvent{Height: c.Height().Uint64(), Round: r})
+		BackendPostBg.Add(time.Since(start).Nanoseconds())
 
 		c.roundSkipCheck(ctx, r)
 	}
