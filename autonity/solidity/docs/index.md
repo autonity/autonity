@@ -11,8 +11,8 @@ mapping(address => uint256[]) beneficiaryContracts
 _Stores the unique ids of contracts assigned to a beneficiary, but beneficiary does not need to know the id
 beneficiary will number his contracts as: 0 for first contract, 1 for 2nd and so on.
 We can get the unique contract id from beneficiaryContracts as follows:
-beneficiaryContracts[beneficiary][0] is the unique id of his first contract
-beneficiaryContracts[beneficiary][1] is the unique id of his 2nd contract and so on_
+`beneficiaryContracts[beneficiary][0]` is the unique id of his first contract
+`beneficiaryContracts[beneficiary][1]` is the unique id of his 2nd contract and so on_
 
 ### contracts
 
@@ -60,7 +60,7 @@ _Returns a unique id for each contract._
 function _updateAndTransferNTN(uint256 _contractID, address _to, uint256 _amount) internal
 ```
 
-_Updates the contract with contractID and transfers NTN._
+_Updates the contract with `contractID` and transfers NTN._
 
 ### getContract
 
@@ -132,9 +132,14 @@ _Modifier that checks if the caller is the governance operator account._
 
 ### RewardEvent
 
-_This structure tracks the activity to update rewards. Any activity like increase or decrease of liquid balances
-or claiming rewards require updating rewards before the activity is applied. This structure tracks those activities,
-when such activity is requested._
+_This structure tracks the activity that requires to update rewards. Any activity like increase or decrease of liquid balances
+or claiming rewards require updating rewards before the activity is applied. This structure tracks those activities, when such
+activity is requested.
+
+There are two types of reward event:
+Pending Reward Event: A reward event that cannot be applied yet. Bonding or unbonding request creates such reward event.
+Last Reward Event: A reward event that can be applied. When a pending reward event can be applied, after the epcoh is finalized,
+it becomes last reward event. If there already exists a last reward event, then it is applied before being replaced by a pending reward event._
 
 ```solidity
 struct RewardEvent {
@@ -161,12 +166,13 @@ struct RewardTracker {
   struct LiquidRewardManager.RewardEvent pendingRewardEvent;
   mapping(uint256 => uint256) atnLastUnrealisedFeeFactor;
   mapping(uint256 => uint256) ntnLastUnrealisedFeeFactor;
+  mapping(uint256 => bool) unrealisedFeeFactorUpdated;
 }
 ```
 
 ### Account
 
-_Each account represents a bonding from some contract, id to some validator, v and stored in mapping accounts[id][v].
+_Each account represents a bonding from some contract, `id` to some validator, `v` and stored in mapping `accounts[id][v]`.
 Multiple bonding and unbonding for the same pair is aggregated, so there is at most one account for each pair._
 
 ```solidity
@@ -204,9 +210,9 @@ function _burnLiquid(uint256 _id, address _validator, uint256 _amount, uint256 _
 ```
 
 _Burns some liquid tokens that represents liquid bonded to some validator from some contract.
-The following functions: burnLiquid, mintLiquid, realiseFees follow the same logic as done in Liquid.sol.
-The only difference is that the liquid is not updated immediately. The liquid update reflects the changes after
-the staking operations of epochID are applied._
+The following functions: `burnLiquid`, `mintLiquid`, `realiseFees` follow the same logic as done in Liquid.sol.
+The only difference is that the liquid is not updated immediately. The updating of liquid reflects the changes after
+the staking operations of `epochID` are applied in Autonity.sol._
 
 ### _mintLiquid
 
@@ -222,7 +228,7 @@ _Mints some liquid tokens that represents liquid bonded to some validator from s
 function _claimRewards(uint256 _id) internal returns (uint256 _atnTotalFees, uint256 _ntnTotalFees)
 ```
 
-_Calculates total rewards for a contract and resets realisedFees[id][validator] as rewards are claimed_
+_Calculates total rewards for a contract and resets `realisedFees[id][validator]` as rewards are claimed_
 
 ### _clearValidators
 
@@ -276,10 +282,10 @@ function _newPendingRewardEvent(address _validator, uint256 _stakingRequestID, b
 
 _Adds a new reward event which is pending because the rewards distribution will happen at epoch end._
 
-### _updatePendingEvent
+### _updatePendingEventLiquid
 
 ```solidity
-function _updatePendingEvent(address _validator) internal
+function _updatePendingEventLiquid(address _validator) internal
 ```
 
 _In case a transfer of liquid token happens, it will affect the total rewards distribution at epoch end,
@@ -330,7 +336,7 @@ The total amount of funds to create new locked non-stakable schedules.
 The balance is not immediately available at the vault.
 Rather the unlocked amount of schedules is minted at epoch end.
 The balance tells us the max size of a newly created schedule.
-See createSchedule()
+See `createSchedule()`
 
 ### maxAllowedDuration
 
@@ -349,7 +355,7 @@ function createSchedule(uint256 _amount, uint256 _startTime, uint256 _cliffDurat
 Creates a new schedule.
 
 _The schedule has unsubscribedAmount = amount initially. As new contracts are subscribed to the schedule, its unsubscribedAmount decreases.
-At any point, subscribedAmount of schedule is amount - unsubscribedAmount._
+At any point, `subscribedAmount of schedule = amount - unsubscribedAmount`._
 
 #### Parameters
 
@@ -386,7 +392,7 @@ be unlocked in future will be entitled to beneficiary._
 function setTotalNominal(uint256 _totalNominal) external virtual
 ```
 
-Sets the totalNominal to create new contract.
+Sets the `totalNominal` value.
 
 ### setMaxAllowedDuration
 
@@ -452,9 +458,9 @@ Unlock tokens of all schedules upto current time.
 _It calculates the newly unlocked tokens upto current time and also updates the amount
 of total unlocked tokens and the time of unlock for each schedule
 Autonity must mint new unlocked tokens, because this contract knows that for each schedule,
-schedule.totalUnlocked tokens are now unlocked and available to release
-newUnlockedSubscribed goes to the balance of address(this) and newUnlockedUnsubscribed goes to the treasury address.
-See finalize() in Autonity.sol_
+`schedule.totalUnlocked` tokens are now unlocked and available to release
+`newUnlockedSubscribed` goes to the balance of address(this) and `newUnlockedUnsubscribed` goes to the treasury address.
+See `finalize()` in Autonity.sol_
 
 #### Return Values
 
@@ -494,9 +500,47 @@ uint256 totalNominal
 ```
 
 Sum of total amount of contracts that can be created.
-Each time a new contract is created, totalNominal is decreased.
-Address(this) should have totalNominal amount of NTN availabe at genesis,
+Each time a new contract is created, `totalNominal` is decreased.
+Address(this) should have `totalNominal` amount of NTN availabe at genesis,
 otherwise withdrawing or bonding from a contract is not possible
+
+### contractToBonding
+
+```solidity
+mapping(uint256 => uint256[]) contractToBonding
+```
+
+_We put all the bonding request id of past epoch in `contractToBonding[contractID]` array and apply them whenever needed.
+All bonding requests are applied at epoch end, so we can process all of them (failed or successful) together.
+See `bond` and `_handlePendingBondingRequest` for more clarity_
+
+### contractToUnbonding
+
+```solidity
+mapping(uint256 => mapping(uint256 => uint256)) contractToUnbonding
+```
+
+_We put all the unbonding request id of past epoch in contractToUnbonding mapping. All requests from past epoch
+can be applied together. But not all requests are released together at epoch end. So we need to put them in map
+and use `tailPendingUnbondingID` and `headPendingUnbondingID` to keep track of contractToUnbonding.
+See `unbond` and `_handlePendingUnbondingRequest` for more clarity_
+
+### atnRewards
+
+```solidity
+mapping(address => uint256) atnRewards
+```
+
+_ATN rewards entitled to some beneficiary for bonding from some contract before it has been cancelled.
+See cancelContract for more clarity._
+
+### ntnRewards
+
+```solidity
+mapping(address => uint256) ntnRewards
+```
+
+_Same as atnRewards for NTN rewards_
 
 ### newContract
 
@@ -643,7 +687,7 @@ contracts will not have funds to withdraw or bond. See newContract()
 ### bond
 
 ```solidity
-function bond(uint256 _id, address _validator, uint256 _amount) public payable virtual returns (uint256)
+function bond(uint256 _id, address _validator, uint256 _amount) public virtual returns (uint256)
 ```
 
 Used by beneficiary to bond some NTN of some contract.
@@ -660,7 +704,7 @@ All bondings are delegated, as vesting manager cannot own a validator.
 ### unbond
 
 ```solidity
-function unbond(uint256 _id, address _validator, uint256 _amount) public payable virtual returns (uint256)
+function unbond(uint256 _id, address _validator, uint256 _amount) public virtual returns (uint256)
 ```
 
 Used by beneficiary to unbond some LNTN of some contract.
@@ -676,7 +720,7 @@ Used by beneficiary to unbond some LNTN of some contract.
 ### claimRewards
 
 ```solidity
-function claimRewards(uint256 _id, address _validator) external virtual
+function claimRewards(uint256 _id, address _validator) external virtual returns (uint256 _atnRewards, uint256 _ntnRewards)
 ```
 
 Used by beneficiary to claim rewards from bonding some contract to validator.
@@ -691,7 +735,7 @@ Used by beneficiary to claim rewards from bonding some contract to validator.
 ### claimRewards
 
 ```solidity
-function claimRewards(uint256 _id) external virtual
+function claimRewards(uint256 _id) external virtual returns (uint256 _atnRewards, uint256 _ntnRewards)
 ```
 
 Used by beneficiary to claim rewards from bonding some contract to validator.
@@ -699,7 +743,7 @@ Used by beneficiary to claim rewards from bonding some contract to validator.
 ### claimRewards
 
 ```solidity
-function claimRewards() external virtual
+function claimRewards() external virtual returns (uint256 _atnRewards, uint256 _ntnRewards)
 ```
 
 Used by beneficiary to claim all rewards which is entitled from bonding
@@ -715,10 +759,151 @@ receive() external payable
 
 _Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function_
 
+### _calculateLNTNValue
+
+```solidity
+function _calculateLNTNValue(address _validator, uint256 _amount) internal view returns (uint256)
+```
+
+_Returns equivalent amount of NTN using the current ratio._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _validator | address | validator address |
+| _amount | uint256 | amount of LNTN to be converted |
+
+### _getLiquidFromNTN
+
+```solidity
+function _getLiquidFromNTN(address _validator, uint256 _amount) internal view returns (uint256)
+```
+
+_Returns equivalent amount of LNTN using the current ratio._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _validator | address | validator address |
+| _amount | uint256 | amount of NTN to be converted |
+
+### _calculateTotalValue
+
+```solidity
+function _calculateTotalValue(uint256 _contractID) internal view returns (uint256)
+```
+
+_Calculates the total value of the contract, which can vary if the contract has some LNTN.
+`totalValue = currentNTN + withdrawnValue + (the value of LNTN converted to NTN using current ratio)`_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _contractID | uint256 | unique global id of the contract |
+
+### _releaseAllUnlockedLNTN
+
+```solidity
+function _releaseAllUnlockedLNTN(uint256 _contractID, uint256 _availableUnlockedFunds) internal returns (uint256 _remaining)
+```
+
+_Transfers some LNTN equivalent to beneficiary address. The amount of unlocked funds is calculated in NTN
+and then converted to LNTN using the current ratio.
+In case the contract has LNTN to multiple validators, we pick one validator and try to transfer
+as much LNTN as possible. If there still remains some more uncloked funds, then we pick another validator.
+There is no particular order in which validator should be picked first._
+
+### _unlockedFunds
+
+```solidity
+function _unlockedFunds(uint256 _contractID) internal view returns (uint256)
+```
+
+_Calculates the amount of unlocked funds in NTN until last epoch time._
+
+### _updateFunds
+
+```solidity
+function _updateFunds(uint256 _contractID) internal
+```
+
+_Updates the funds by applying the staking requests._
+
+### _cleanup
+
+```solidity
+function _cleanup(uint256 _contractID) internal
+```
+
+_Updates the funds and removes any unnecessary validator from the list._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _contractID | uint256 | unique global contract id |
+
+### _handlePendingBondingRequest
+
+```solidity
+function _handlePendingBondingRequest(uint256 _contractID) internal
+```
+
+_Handles all the pending bonding requests.
+All the requests from past epoch can be handled as the bonding requests are
+applied at epoch end immediately. Requests from current epoch are not handled._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _contractID | uint256 | unique global id of the contract |
+
+### _handlePendingUnbondingRequest
+
+```solidity
+function _handlePendingUnbondingRequest(uint256 _contractID) internal
+```
+
+_Handles all the pending unbonding requests. All unbonding requests from past epoch are applied.
+Unbonding request that are released in Autonity are released._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _contractID | uint256 | unique global id of the contract |
+
+### _balanceChangeFromStakingRequest
+
+```solidity
+function _balanceChangeFromStakingRequest(uint256 _contractID, address _validator) internal view returns (int256 _balanceChange, uint256 _lastRequestEpoch)
+```
+
+_Calculates the balance changes for the pending staking requests to some validator.
+If the requests are from current epoch, then they are not taken into account._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _contractID | uint256 | unique contract ID |
+| _validator | address | validator address |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _balanceChange | int256 | balance change, positive if balance increases, negative otherwise |
+| _lastRequestEpoch | uint256 | epochID, offset by 1, of the requests (all requests should be from the same epoch) |
+
 ### unclaimedRewards
 
 ```solidity
-function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) external view virtual returns (uint256 _atnReward, uint256 _ntnReward)
+function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) external view virtual returns (uint256 _atnRewards, uint256 _ntnRewards)
 ```
 
 Returns unclaimed rewards from some contract entitled to beneficiary from bonding to validator.
@@ -735,13 +920,13 @@ Returns unclaimed rewards from some contract entitled to beneficiary from bondin
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _atnReward | uint256 | unclaimed ATN rewards |
-| _ntnReward | uint256 | unclaimed NTN rewards |
+| _atnRewards | uint256 | unclaimed ATN rewards |
+| _ntnRewards | uint256 | unclaimed NTN rewards |
 
 ### unclaimedRewards
 
 ```solidity
-function unclaimedRewards(address _beneficiary, uint256 _id) public view virtual returns (uint256 _atnReward, uint256 _ntnReward)
+function unclaimedRewards(address _beneficiary, uint256 _id) public view virtual returns (uint256 _atnRewards, uint256 _ntnRewards)
 ```
 
 Returns unclaimed rewards from some contract entitled to beneficiary from bonding.
@@ -749,7 +934,7 @@ Returns unclaimed rewards from some contract entitled to beneficiary from bondin
 ### unclaimedRewards
 
 ```solidity
-function unclaimedRewards(address _beneficiary) external view virtual returns (uint256 _atnReward, uint256 _ntnReward)
+function unclaimedRewards(address _beneficiary) external view virtual returns (uint256 _atnRewards, uint256 _ntnRewards)
 ```
 
 Returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to beneficiary.
