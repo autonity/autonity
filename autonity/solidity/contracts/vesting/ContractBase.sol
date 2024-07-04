@@ -18,8 +18,8 @@ contract ContractBase {
      * @dev Stores the unique ids of contracts assigned to a beneficiary, but beneficiary does not need to know the id
      * beneficiary will number his contracts as: 0 for first contract, 1 for 2nd and so on.
      * We can get the unique contract id from beneficiaryContracts as follows:
-     * beneficiaryContracts[beneficiary][0] is the unique id of his first contract
-     * beneficiaryContracts[beneficiary][1] is the unique id of his 2nd contract and so on
+     * `beneficiaryContracts[beneficiary][0]` is the unique id of his first contract
+     * `beneficiaryContracts[beneficiary][1]` is the unique id of his 2nd contract and so on
      */
     mapping(address => uint256[]) internal beneficiaryContracts;
 
@@ -123,7 +123,7 @@ contract ContractBase {
     }
 
     /**
-     * @dev Updates the contract with contractID and transfers NTN.
+     * @dev Updates the contract with `contractID` and transfers NTN.
      */
     function _updateAndTransferNTN(uint256 _contractID, address _to, uint256 _amount) internal {
         Contract storage _contract = contracts[_contractID];

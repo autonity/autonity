@@ -47,7 +47,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Each account represents a bonding from some contract, id to some validator, v and stored in mapping accounts[id][v].
+     * @dev Each account represents a bonding from some contract, `id` to some validator, `v` and stored in mapping `accounts[id][v]`.
      * Multiple bonding and unbonding for the same pair is aggregated, so there is at most one account for each pair.
      */
     struct Account {
@@ -61,14 +61,17 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Stores unclaimedRewards and lastUnrealisedFeeFactor for each validator,
-     * lastUnrealisedFeeFactor is used to calculate unrealised rewards for contracts with the same logic as done in Liquid.sol
+     * @dev Stores `unclaimedRewards` and `lastUnrealisedFeeFactor` for each validator,
+     * `lastUnrealisedFeeFactor` is used to calculate unrealised rewards for contracts with the same logic as done in Liquid.sol
      */
     mapping(address => RewardTracker) private rewardTracker;
 
     /** @dev Stores the array of validators bonded to a contract. */
     mapping(uint256 => address[]) private bondedValidators;
-    /** @dev validatorIdx[_id][_validator] stores the (index+1) of validator in bondedValidators[_id] array */
+    /** 
+     * @dev `validatorIdx[id][validator]` stores the `index+1` of validator in `bondedValidators[id]` array
+     * where `id` is the unique global id of a contract.
+     */
     mapping(uint256 => mapping(address => uint256)) private validatorIdx;
 
     mapping(uint256 => mapping(address => Account)) private accounts;
@@ -106,9 +109,9 @@ contract LiquidRewardManager {
 
     /**
      * @dev Burns some liquid tokens that represents liquid bonded to some validator from some contract.
-     * The following functions: burnLiquid, mintLiquid, realiseFees follow the same logic as done in Liquid.sol.
-     * The only difference is that the liquid is not updated immediately. The liquid update reflects the changes after
-     * the staking operations of epochID are applied.
+     * The following functions: `burnLiquid`, `mintLiquid`, `realiseFees` follow the same logic as done in Liquid.sol.
+     * The only difference is that the liquid is not updated immediately. The updating of liquid reflects the changes after
+     * the staking operations of `epochID` are applied in Autonity.sol.
      */
     function _burnLiquid(uint256 _id, address _validator, uint256 _amount, uint256 _epochID) internal {
         _realiseFees(_id, _validator, _epochID);
@@ -126,7 +129,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Realise fees until epochID. Must update rewards before realising fees.
+     * @dev Realise fees until `epochID`. Must update rewards before realising fees.
      */
     function _realiseFees(uint256 _id, address _validator, uint256 _epochID) private returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) {
         _updateUnclaimedReward(_validator, _epochID);
@@ -181,7 +184,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Calculates total rewards for a contract and resets realisedFees[id][validator] as rewards are claimed
+     * @dev Calculates total rewards for a contract and resets `realisedFees[id][validator]` as rewards are claimed
      */ 
     function _claimRewards(uint256 _id) internal returns (uint256 _atnTotalFees, uint256 _ntnTotalFees) {
         address[] memory _validators = bondedValidators[_id];
@@ -205,7 +208,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Adds validator in bondedValidators[_id] array.
+     * @dev Adds validator in `bondedValidators` array.
      */
     function _addValidator(uint256 _id, address _validator) private {
         if (validatorIdx[_id][_validator] > 0) return;
@@ -393,15 +396,15 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Updates the unclaimed rewards from validator and the lastUnrealisedFeeFactor which is used
-     * to compute unrealised fees for accounts. Both is updated until given epoch id. The lastUnrealisedFeeFactor
-     * is kept with history, so we have a mapping(epochID => value) of lastUnrealisedFeeFactor instead of a single variable.
+     * @dev Updates the unclaimed rewards from validator and the `lastUnrealisedFeeFactor` which is used
+     * to compute unrealised fees for accounts. Both is updated until given epoch id. The `lastUnrealisedFeeFactor`
+     * is kept with history, so we have a `mapping(epochID => value)` of `lastUnrealisedFeeFactor` instead of a single variable.
      * The history is needed because the liquid balance of some account is not updated immediately, instead it can be updated
      * some time later, whenever the related account sends some transaction that will require the updated liquid balance.
      * @param _validator validator address, from which we will claim rewards
      * @param _epochID the epochID untill which we need to fetch rewards
      * 
-     * To update unclaimed rewards, first we need to apply the last reward event (see: struct RewardEvent). Then if there is a
+     * To update unclaimed rewards, first we need to apply the last reward event (see: struct `RewardEvent`). Then if there is a
      * pending reward event from some past epoch, it replaces the current last reward event. Then we apply the new last reward
      * event again. After that, if we are still behind the input epochID, then we fetch the last updated rewards.
      */
@@ -434,7 +437,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Fetches the unclaimedRewards from liquid contract and calculates the changes in lastUnrealisedFeeFactor
+     * @dev Fetches the `unclaimedRewards` from liquid contract and calculates the changes in `lastUnrealisedFeeFactor`
      * but does not update any state variable. This function helps to calculate unclaimed rewards.
      */
     function _unfetchedFeeFactor(
@@ -489,7 +492,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Generates unrealised fee factor for validator till the rewards for epochID have been distributed.
+     * @dev Generates unrealised fee factor for validator till the rewards for `epochID` have been distributed.
      * This function helps to calculate unclaimed rewards.
      * @param _validator validator address
      * @param _epochID epochID

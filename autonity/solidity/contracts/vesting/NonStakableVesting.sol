@@ -11,7 +11,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * The balance is not immediately available at the vault.
      * Rather the unlocked amount of schedules is minted at epoch end.
      * The balance tells us the max size of a newly created schedule.
-     * See createSchedule()
+     * See `createSchedule()`
      */
     uint256 public totalNominal;
 
@@ -33,7 +33,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
 
     /**
      * @dev Stores all the schedules, there should not be too many of them, for the sake of efficiency
-     * of unlockTokens() function
+     * of `unlockTokens()` function
      */
     Schedule[] private schedules;
 
@@ -47,7 +47,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     /**
      * @notice Creates a new schedule.
      * @dev The schedule has unsubscribedAmount = amount initially. As new contracts are subscribed to the schedule, its unsubscribedAmount decreases.
-     * At any point, subscribedAmount of schedule is amount - unsubscribedAmount.
+     * At any point, `subscribedAmount of schedule = amount - unsubscribedAmount`.
      * @param _amount total amount of the schedule
      * @param _startTime start time
      * @param _cliffDuration cliff period, after _cliffDuration + _startTime, the schedule will have claimables
@@ -117,7 +117,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @notice Sets the totalNominal to create new contract.
+     * @notice Sets the `totalNominal` value.
      * @custom:restricted-to operator account
      */
     function setTotalNominal(uint256 _totalNominal) virtual external onlyOperator {
@@ -176,11 +176,11 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * @dev It calculates the newly unlocked tokens upto current time and also updates the amount
      * of total unlocked tokens and the time of unlock for each schedule
      * Autonity must mint new unlocked tokens, because this contract knows that for each schedule,
-     * schedule.totalUnlocked tokens are now unlocked and available to release
+     * `schedule.totalUnlocked` tokens are now unlocked and available to release
      * @return _newUnlockedSubscribed tokens unlocked from contract subscribed to some schedule
      * @return _newUnlockedUnsubscribed tokens unlocked from schedule.unsubscribedAmount, which is not subscribed by any contract
-     * @dev newUnlockedSubscribed goes to the balance of address(this) and newUnlockedUnsubscribed goes to the treasury address.
-     * See finalize() in Autonity.sol
+     * @dev `newUnlockedSubscribed` goes to the balance of address(this) and `newUnlockedUnsubscribed` goes to the treasury address.
+     * See `finalize()` in Autonity.sol
      * @custom:restricted-to Autonity contract
      */
     function unlockTokens() external onlyAutonity returns (uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed) {
@@ -225,10 +225,10 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @dev Calculates the amount of withdrawable funds upto schedule.lastUnlockTime, which is the last epoch time.
+     * @dev Calculates the amount of withdrawable funds upto `schedule.lastUnlockTime`, which is the last epoch time.
      * where schedule = schedule subsribed by the contract.
-     * The unlock mechanism is epoch based, but instead of taking time from autonity.lastEpochBlock(), we take the time
-     * from schedule.lastUnlockTime. Because the locked tokens are not minted from genesis. This way it is ensured that
+     * The unlock mechanism is epoch based, but instead of taking time from `autonity.lastEpochBlock()`, we take the time
+     * from `schedule.lastUnlockTime`. Because the locked tokens are not minted from genesis. This way it is ensured that
      * the unlocked tokens are minted at epoch end.
      */
     function _unlockedFunds(uint256 _contractID) private view returns (uint256) {
