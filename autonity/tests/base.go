@@ -192,7 +192,7 @@ func (r *Runner) LiquidLogicContractObject() *LiquidLogic {
 	}
 }
 
-func (r *Runner) liquidStateContract(v AutonityValidator) *ILiquidLogic {
+func (r *Runner) LiquidStateContract(v AutonityValidator) *ILiquidLogic {
 	abi, err := ILiquidLogicMetaData.GetAbi()
 	require.NoError(r.T, err)
 	return &ILiquidLogic{&contract{v.LiquidStateContract, abi, r}}
@@ -309,7 +309,7 @@ func (r *Runner) generateNewCommittee() {
 		validator, _, err := r.Autonity.GetValidator(nil, member.Addr)
 		require.NoError(r.T, err)
 		r.Committee.Validators[i] = validator
-		r.Committee.LiquidStateContracts[i] = r.liquidStateContract(validator)
+		r.Committee.LiquidStateContracts[i] = r.LiquidStateContract(validator)
 	}
 }
 
@@ -496,7 +496,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	for _, v := range params.TestAutonityContractConfig.Validators {
 		validator, _, err := r.Autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.T, err)
-		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.liquidStateContract(validator))
+		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.LiquidStateContract(validator))
 	}
 	//
 	// Step 2: Accountability Contract Deployment
