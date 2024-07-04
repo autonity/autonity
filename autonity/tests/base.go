@@ -138,10 +138,12 @@ func (r *Runner) NoError(gasConsumed uint64, err error) uint64 {
 	return gasConsumed
 }
 
-func (r *Runner) liquidContract(v AutonityValidator) *Liquid {
+func (r *Runner) LiquidContract(validatorAddress common.Address) *Liquid {
+	validator, _, err := r.Autonity.GetValidator(nil, validatorAddress)
+	require.NoError(r.T, err)
 	abi, err := LiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
-	return &Liquid{&contract{v.LiquidContract, abi, r}}
+	return &Liquid{&contract{validator.LiquidContract, abi, r}}
 }
 
 func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -259,7 +261,7 @@ func (r *Runner) generateNewCommittee() {
 		validator, _, err := r.Autonity.GetValidator(nil, member.Addr)
 		require.NoError(r.T, err)
 		r.Committee.Validators[i] = validator
-		r.Committee.LiquidContracts[i] = r.liquidContract(validator)
+		r.Committee.LiquidContracts[i] = r.LiquidContract(validator.NodeAddress)
 	}
 }
 
@@ -446,7 +448,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	for _, v := range params.TestAutonityContractConfig.Validators {
 		validator, _, err := r.Autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.T, err)
-		r.Committee.LiquidContracts = append(r.Committee.LiquidContracts, r.liquidContract(validator))
+		r.Committee.LiquidContracts = append(r.Committee.LiquidContracts, r.LiquidContract(validator.NodeAddress))
 	}
 	//
 	// Step 2: Accountability Contract Deployment
