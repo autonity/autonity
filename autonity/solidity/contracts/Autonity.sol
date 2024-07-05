@@ -59,7 +59,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 selfUnbondingStake;
         uint256 selfUnbondingShares; // not effective - used for accounting purposes
         uint256 selfUnbondingStakeLocked;
-        LiquidState liquidStateContract;
+        address payable liquidStateContract;
         uint256 liquidSupply;
         uint256 registrationBlock;
         uint256 totalSlashed;
@@ -296,7 +296,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
-            _validators[i].liquidStateContract = LiquidState(payable(0));
+            _validators[i].liquidStateContract = payable(0);
             _validators[i].bondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.policy.delegationRate;
@@ -388,7 +388,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             0,                       // self unbonding stake
             0,                       // self unbonding shares
             0,                       // self unbonding stake locked
-            LiquidState(payable(0)), // liquid token contract
+            payable(0), // liquid token contract
             0,                       // liquid token supply
             block.number,            // registration block
             0,                       // total slashed
@@ -399,7 +399,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         );
 
         _verifyAndRegisterValidator(_val, _signatures);
-        emit RegisteredValidator(msg.sender, _val.nodeAddress, _oracleAddress, _enode, address(_val.liquidStateContract));
+        emit RegisteredValidator(msg.sender, _val.nodeAddress, _oracleAddress, _enode, _val.liquidStateContract);
     }
 
     /**
@@ -1145,12 +1145,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
                 uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
-                    _transfer(address(this), address(_val.liquidStateContract), _ntnDelegationReward);
-                    (bool _success, bytes memory _returnData) = address(_val.liquidStateContract).call{value: _atnDelegationReward}(
+                    _transfer(address(this), _val.liquidStateContract, _ntnDelegationReward);
+                    (bool _success, bytes memory _returnData) = _val.liquidStateContract.call{value: _atnDelegationReward}(
                         abi.encodeWithSignature("redistribute(uint256)", _ntnDelegationReward)
                     );
                     if (_success == false) {
-                        emit CallFailed(address(_val.liquidStateContract), "redistribute(uint256)", _returnData);
+                        emit CallFailed(_val.liquidStateContract, "redistribute(uint256)", _returnData);
                     }
                 }
                 // TODO: This has to be reconsidered - I feel it is too expensive
@@ -1203,15 +1203,17 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     function _deployLiquidStateContract(Validator memory _validator) internal virtual {
-        if (address(_validator.liquidStateContract) == address(0)) {
+        if (_validator.liquidStateContract == address(0)) {
             require(liquidLogicContract != address(0), "liquid logic contract not deployed");
             string memory stringLength = Helpers.toString(validatorList.length);
-            _validator.liquidStateContract = new LiquidState(
-                _validator.nodeAddress,
-                _validator.treasury,
-                _validator.commissionRate,
-                stringLength,
-                liquidLogicContract
+            _validator.liquidStateContract = payable(
+                new LiquidState(
+                    _validator.nodeAddress,
+                    _validator.treasury,
+                    _validator.commissionRate,
+                    stringLength,
+                    liquidLogicContract
+                )
             );
         }
         validatorList.push(_validator.nodeAddress);
@@ -1359,11 +1361,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // delegatedStake cannot be 0 because the bonding was applied successfully
             // calculate LNTN using current ratio of NTN:LNTN
             uint256 _liquidAmount = _validator.liquidSupply * _bonding.amount / (_validator.bondedStake - _validator.selfBondedStake);
-            (bool _success, bytes memory _returnData) = address(_validator.liquidStateContract).call(
+            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
                 abi.encodeWithSignature("burn(address,uint256)", _bonding.delegator, _liquidAmount)
             );
             if (_success == false) {
-                emit CallFailed(address(_validator.liquidStateContract), "burn(address,uint256)", _returnData);
+                emit CallFailed(_validator.liquidStateContract, "burn(address,uint256)", _returnData);
             }
             else {
                 _validator.liquidSupply -= _liquidAmount;
@@ -1403,7 +1405,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 abi.encodeWithSignature("mint(address,uint256)", _bonding.delegator, _liquidAmount)
             );
             if (_success == false) {
-                emit CallFailed(address(_validator.liquidStateContract), "mint(address,uint256)", _returnData);
+                emit CallFailed(_validator.liquidStateContract, "mint(address,uint256)", _returnData);
                 _notifyBondingApplied(id, 0, false, true);
                 return;
             }
@@ -1423,9 +1425,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         bool selfDelegation = _recipient == _validator.treasury;
         if(!selfDelegation) {
             // Lock LNTN if it was issued (non self-delegated stake case)
-            uint256 liqBalance = _validator.liquidStateContract.unlockedBalanceOf(_recipient);
+            uint256 liqBalance = LiquidState(payable(_validator.liquidStateContract)).unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
-            (bool _success, ) = address(_validator.liquidStateContract).call(
+            (bool _success, ) = _validator.liquidStateContract.call(
                 abi.encodeWithSignature("lock(address,uint256)", _recipient, _amount)
             );
             require(_success, "Failed to lock LNTN");
@@ -1503,11 +1505,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             } else {
                 _liquidAmount = (_validator.liquidSupply * _amount) / _delegatedStake;
             }
-            (bool _success, bytes memory _returnData) = address(_validator.liquidStateContract).call(
+            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
                 abi.encodeWithSignature("mint(address,uint256)", _unbonding.delegator, _liquidAmount)
             );
             if (_success == false) {
-                emit CallFailed(address(_validator.liquidStateContract), "mint(address,uint256)", _returnData);
+                emit CallFailed(_validator.liquidStateContract, "mint(address,uint256)", _returnData);
                 return;
             }
             _validator.liquidSupply += _liquidAmount;
@@ -1591,11 +1593,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 _newtonAmount;
         if (!_unbonding.selfDelegation){
             uint256 _liquidAmount = _unbonding.amount;
-            (bool _success, bytes memory _returnData) = address(_validator.liquidStateContract).call(
+            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
                 abi.encodeWithSignature("mint(address,uint256)", _unbonding.delegator, _liquidAmount)
             );
             if (_success == false) {
-                emit CallFailed(address(_validator.liquidStateContract), "mint(address,uint256)", _returnData);
+                emit CallFailed(_validator.liquidStateContract, "mint(address,uint256)", _returnData);
                 return;
             }
             _validator.liquidSupply += _liquidAmount;
@@ -1632,20 +1634,20 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         if (!_unbonding.selfDelegation){
             // Step 1: Unlock and burn requested liquid newtons
             uint256 _liquidAmount = _unbonding.amount;
-            (bool _success, bytes memory _returnData) = address(_validator.liquidStateContract).call(
+            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
                 abi.encodeWithSignature("unlock(address,uint256)", _unbonding.delegator, _liquidAmount)
             );
             if (_success == false) {
-                emit CallFailed(address(_validator.liquidStateContract), "unlock(address,uint256)", _returnData);
+                emit CallFailed(_validator.liquidStateContract, "unlock(address,uint256)", _returnData);
                 _notifyUnbondingApplied(_id, true);
                 return;
             }
 
-            (_success, _returnData) = address(_validator.liquidStateContract).call(
+            (_success, _returnData) = _validator.liquidStateContract.call(
                 abi.encodeWithSignature("burn(address,uint256)", _unbonding.delegator, _liquidAmount)
             );
             if (_success == false) {
-                emit CallFailed(address(_validator.liquidStateContract), "burn(address,uint256)", _returnData);
+                emit CallFailed(_validator.liquidStateContract, "burn(address,uint256)", _returnData);
                 _notifyUnbondingApplied(_id, true);
                 return;
             }
@@ -1699,11 +1701,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
             // change commission rate for liquid staking accounts
             validators[_curRequest.validator].commissionRate = _curRequest.rate;
-            (bool _success, bytes memory _returnData) = address(validators[_curRequest.validator].liquidStateContract).call(
+            (bool _success, bytes memory _returnData) = validators[_curRequest.validator].liquidStateContract.call(
                 abi.encodeWithSignature("setCommissionRate(uint256)", _curRequest.rate)
             );
             if (_success == false) {
-                emit CallFailed(address(validators[_curRequest.validator].liquidStateContract), "setCommissionRate(uint256)", _returnData);
+                emit CallFailed(validators[_curRequest.validator].liquidStateContract, "setCommissionRate(uint256)", _returnData);
             }
 
             delete commissionRateChangeQueue[commissionRateChangeQueueFirst];

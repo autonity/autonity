@@ -19,7 +19,7 @@ contract LiquidRewardManager {
         uint256 atnUnclaimedRewards;
         uint256 ntnLastUnrealisedFeeFactor;
         uint256 ntnUnclaimedRewards;
-        LiquidState liquidStateContract;
+        address payable liquidStateContract;
     }
 
     struct Account {
@@ -148,7 +148,7 @@ contract LiquidRewardManager {
         // offset by 1
         _liquidInfo.atnUnclaimedRewards = OFFSET;
         _liquidInfo.ntnUnclaimedRewards = OFFSET;
-        (bool _success, ) = address(_liquidInfo.liquidStateContract).call(
+        (bool _success, ) = _liquidInfo.liquidStateContract.call(
             abi.encodeWithSignature("claimRewards()")
         );
         require(_success, "claimRewards() from liquid state contract reverted");
@@ -178,9 +178,11 @@ contract LiquidRewardManager {
     }
 
     function _initiateValidator(address _validator) private {
-        LiquidState _contract = autonity.getValidator(_validator).liquidStateContract;
         // offset by 1
-        liquidInfo[_validator] = LiquidInfo(OFFSET, OFFSET, OFFSET, OFFSET, _contract);
+        liquidInfo[_validator] = LiquidInfo(
+            OFFSET, OFFSET, OFFSET, OFFSET,
+            autonity.getValidator(_validator).liquidStateContract
+        );
     }
 
     /**
@@ -192,7 +194,7 @@ contract LiquidRewardManager {
         _validators.push(_validator);
         // offset by 1 to handle empty value
         validatorIdx[_id][_validator] = _validators.length;
-        if (address(liquidInfo[_validator].liquidStateContract) == address(0)) {
+        if (liquidInfo[_validator].liquidStateContract == payable(0)) {
             _initiateValidator(_validator);
         }
     }
@@ -251,7 +253,7 @@ contract LiquidRewardManager {
      */
     function _updateUnclaimedReward(address _validator) internal {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        LiquidState _contract = _liquidInfo.liquidStateContract;
+        LiquidState _contract = LiquidState(_liquidInfo.liquidStateContract);
         uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid == 0) {
             return;
@@ -273,7 +275,7 @@ contract LiquidRewardManager {
      */
     function _unfetchedFeeFactor(address _validator) private view returns (uint256 _atnFeeFactor, uint256 _ntnFeeFactor) {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        LiquidState _contract = _liquidInfo.liquidStateContract;
+        LiquidState _contract = LiquidState(_liquidInfo.liquidStateContract);
         uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid > 0) {
             // reward is increased by  OFFSET
@@ -357,7 +359,7 @@ contract LiquidRewardManager {
         return bondedValidators[_id];
     }
 
-    function _liquidStateContract(address _validator) internal view returns (LiquidState) {
+    function _liquidStateContract(address _validator) internal view returns (address) {
         return liquidInfo[_validator].liquidStateContract;
     }
 

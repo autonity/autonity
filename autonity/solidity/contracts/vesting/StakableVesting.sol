@@ -442,7 +442,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
     }
 
     function _transferLNTN(address _to, uint256 _amount, address _validator) private {
-        (bool _sent, ) = address(_liquidStateContract(_validator)).call(
+        (bool _sent, ) = _liquidStateContract(_validator).call(
             abi.encodeWithSignature("transfer(address,uint256)", _to, _amount)
         );
         require(_sent, "LNTN transfer failed");
