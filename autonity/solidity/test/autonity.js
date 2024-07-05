@@ -180,16 +180,6 @@ contract('Autonity', function (accounts) {
 
   let autonity;
 
-  describe('test', function () {
-    beforeEach(async function () {
-      autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, deployer, operator, false);
-    });
-
-    it('nothing', async function () {
-
-    })
-  })
-
   describe('Contract initial state', function () {
     /* TODO(tariq) low priority change, leave for last
      * add getter tests for:
