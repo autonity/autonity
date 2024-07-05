@@ -2,6 +2,8 @@ package accountability
 
 import (
 	"errors"
+	"github.com/autonity/autonity/params/generated"
+	"math"
 	"math/big"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -29,7 +31,6 @@ var (
 	errBadHeight           = errors.New("height invalid")
 	errTooRecentAccusation = errors.New("accusation is too recent")
 	errTooOldAccusation    = errors.New("accusation is too old")
-	errValueCommitted      = errors.New("accusation is for a committed value")
 	errProofOffender       = errors.New("accountability proof contains invalid offender")
 	errProofMsgCode        = errors.New("accountability proof contains invalid msg code")
 	errMaxEvidences        = errors.New("above max evidence threshold")
@@ -37,20 +38,13 @@ var (
 
 const KB = 1024
 
-/* TODO: This function subtly breaks the accusation, misbehavior and innocence e2e test.
-* This is because since the Precompiled maps are global variables, all nodes in the e2e test
-* end up using the same precompiled contracts, which contain the same chain reference.
-* I.E. all nodes will use the chain of the last started node when executing precompiled contracts.
-* We decided not to fix this issue since it does not affect a standalone client in a production test.
-* The real fix here is to remove the chain dependency from precompiled contracts.
- */
 // LoadPrecompiles init the instances of Fault Detector contracts, and register them into EVM's context
-func LoadPrecompiles(chain ChainContext) {
+func LoadPrecompiles() {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
-	pv := InnocenceVerifier{chain: chain}
-	cv := MisbehaviourVerifier{chain: chain}
-	av := AccusationVerifier{chain: chain}
+	pv := InnocenceVerifier{}
+	cv := MisbehaviourVerifier{}
+	av := AccusationVerifier{}
 	setPrecompiles := func(set map[common.Address]vm.PrecompiledContract) {
 		set[checkInnocenceAddress] = &pv
 		set[checkMisbehaviourAddress] = &cv
@@ -65,7 +59,6 @@ func LoadPrecompiles(chain ChainContext) {
 
 // AccusationVerifier implemented as a native contract to validate if an accusation is valid
 type AccusationVerifier struct {
-	chain ChainContext
 }
 
 // RequiredGas the gas cost to execute AccusationVerifier contract, weighted by input data size.
@@ -75,7 +68,7 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 }
 
 // executes checks that can be done before even verifying signatures
-func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64) error {
+func preVerifyAccusation(m message.Msg, currentHeight uint64) error {
 	accusationHeight := m.H()
 
 	// has to be at least DeltaBlocks old
@@ -89,16 +82,12 @@ func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64
 		return errTooOldAccusation
 	}
 
-	// if the suspicious message is for a value that got committed in the same height --> reject accusation
-	if chain.GetBlock(m.Value(), m.H()) != nil {
-		return errValueCommitted
-	}
 	return nil
 }
 
 // Run take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg signer is returned.
-func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
+func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
 	}
@@ -111,11 +100,17 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 	// Do preliminary checks that do not rely on signature correctness
 	// NOTE: We do not have guarantees that: a.chain.CurrentBlock().NumberU64() == blockNumber - 1
 	// This is because the chain head can change while we are executing this tx, therefore the blockNumber might become obsolete.
-	if err = preVerifyAccusation(a.chain, p.Message, blockNumber); err != nil {
+	if err = preVerifyAccusation(p.Message, blockNumber); err != nil {
 		return failureReturn, nil
 	}
 
-	committee, err := a.chain.CommitteeOfHeight(p.Message.H())
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation
+	hash := e.Context.GetHash(p.Message.H())
+	if hash == p.Message.Value() {
+		return failureReturn, nil
+	}
+
+	committee, err := committeeOfHeight(p.Message.H(), e)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -217,7 +212,6 @@ func verifyAccusation(p *Proof, committee *types.Committee) bool {
 
 // MisbehaviourVerifier implemented as a native contract to validate if misbehaviour is valid
 type MisbehaviourVerifier struct {
-	chain ChainContext
 }
 
 // RequiredGas the gas cost to execute MisbehaviourVerifier contract, weighted by input data size.
@@ -228,7 +222,7 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 
 // Run take the rlp encoded Proof of challenge in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg signer is returned as the valid identity for Proof management.
-func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
+func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
 	}
@@ -238,7 +232,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.A
 		return failureReturn, nil
 	}
 
-	committee, err := c.chain.CommitteeOfHeight(p.Message.H())
+	committee, err := committeeOfHeight(p.Message.H(), e)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -267,11 +261,7 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee *types.Committe
 		valid = c.validMisbehaviourOfC(p, committee)
 	case autonity.InvalidProposer:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
-			proposer, err := getProposer(c.chain, lightProposal.H(), lightProposal.R())
-			if err != nil {
-				break
-			}
-
+			proposer := committee.Proposer(lightProposal.H()-1, lightProposal.R())
 			valid = proposer != lightProposal.Signer() && committee.Members[p.OffenderIndex].Address == lightProposal.Signer()
 		}
 	case autonity.Equivocation:
@@ -599,7 +589,6 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee *types.C
 
 // InnocenceVerifier implemented as a native contract to validate an innocence Proof.
 type InnocenceVerifier struct {
-	chain ChainContext
 }
 
 // RequiredGas the gas cost to execute this Proof validator contract, weighted by input data size.
@@ -611,7 +600,7 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 // Run InnocenceVerifier, take the rlp encoded Proof of innocence, decode it and validate it, if the Proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg signer as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
-func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
+func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 || blockNumber == 0 {
 		return failureReturn, nil
 	}
@@ -621,7 +610,7 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ c
 		return failureReturn, nil
 	}
 
-	committee, err := c.chain.CommitteeOfHeight(p.Message.H())
+	committee, err := committeeOfHeight(p.Message.H(), e)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -948,4 +937,43 @@ func maxEvidenceMessages(committeeSize int) int {
 		return committeeSize + 1
 	}
 	return constants.MaxRound + 1
+}
+
+func committeeOfHeight(height uint64, evm *vm.EVM) (*types.Committee, error) {
+	var committeeSet []types.CommitteeMember
+	err := acCall(evm, "getCommitteeByHeight", &committeeSet, new(big.Int).SetUint64(height))
+	if err != nil {
+		return nil, err
+	}
+	committee := &types.Committee{}
+	if len(committeeSet) != 0 {
+		committee.Members = make([]types.CommitteeMember, len(committeeSet))
+		for i, m := range committeeSet {
+			c := m
+			committee.Members[i] = c
+		}
+		// As the committee is already sorted by the contract, thus we don't need sort again.
+	}
+
+	if err = committee.Enrich(); err != nil {
+		return nil, err
+	}
+
+	return committee, err
+}
+
+func acCall(evm *vm.EVM, function string, result any, args ...any) error {
+	packedArgs, err := generated.AutonityAbi.Pack(function, args...)
+	if err != nil {
+		return err
+	}
+	gas := uint64(math.MaxUint64)
+	ret, _, err := evm.Call(vm.AccountRef(params.DeployerAddress), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
+	if err != nil {
+		return err
+	}
+	if err = generated.AutonityAbi.UnpackIntoInterface(result, function, ret); err != nil {
+		return err
+	}
+	return nil
 }

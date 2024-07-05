@@ -186,7 +186,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if the proof does not come from a committee member
 	msgHeight := proof.Message.H()
-	committee, err := fd.blockchain.CommitteeOfHeight(msgHeight)
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(msgHeight)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	}
 
 	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
 		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
 		return nil
 	}
@@ -325,7 +325,7 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
 	escalatedOnes := fd.getExpiredOffChainAccusation(currentChainHeight)
 	for _, accusation := range escalatedOnes {
-		committee, err := fd.blockchain.CommitteeOfHeight(accusation.Message.H())
+		committee, err := fd.blockchain.CommitteeForConsensusMsg(accusation.Message.H())
 		if err != nil {
 			fd.logger.Error("escalateExpiredAccusations", "cannot find committee", "height", accusation.Message.H(), "err", err)
 			continue

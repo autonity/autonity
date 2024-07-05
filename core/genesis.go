@@ -364,7 +364,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Round:      0,
 	}
 
-	if err = types.WriteEpochExtra(head, committee); err != nil {
+	epoch := &types.Epoch{
+		Committee:        committee,
+		ParentEpochBlock: common.Big0,
+		NextEpochBlock:   new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
+	}
+
+	if err = types.WriteEpochExtra(head, epoch); err != nil {
 		return nil, err
 	}
 
@@ -432,9 +438,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
-	// todo: check if we need to write a head epoch block number into DB?
-	// todo: check if we need to write a head epoch header number into DB?
-	// rawdb.WriteHeadEpochHeaderHash(db, block.Hash())
+	rawdb.WriteHeadEpochHeaderHash(db, block.Hash())
+	rawdb.WriteHeadEpochBlockHash(db, block.Hash())
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }

@@ -45,4 +45,10 @@ var (
 	// ErrUnknownEpoch is returned when validating a block requires an epoch header
 	// that is unknown.
 	ErrUnknownEpoch = errors.New("unknown epoch header")
+
+	// ErrInvalidParentEpochHead is returned if the parent epoch number is wrong
+	ErrInvalidParentEpochHead = errors.New("invalid parent epoch head number")
+
+	// ErrInvalidEpochBoundary is returned if the epoch boundary is wrong
+	ErrInvalidEpochBoundary = errors.New("invalid epoch boundary")
 )

@@ -82,12 +82,12 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return consensus.ErrUnknownAncestor
 	}
 
-	committee, err := chain.CommitteeOfHeight(number)
-	if err != nil {
-		return err
+	// todo: (Jason) a node runs from a snap sync mode might have an nil epoch returned.
+	epoch := chain.LatestEpoch()
+	if epoch == nil {
+		return fmt.Errorf("epoch head is nil, your blockchain might be corrupted")
 	}
-
-	return sb.verifyHeader(chain, header, parent, committee)
+	return sb.verifyHeader(chain, header, parent, epoch.Committee())
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It
@@ -176,12 +176,8 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 	go func() {
-		// A buffer to save the incoming processed epoch headers.
-		epochHeaders := make(map[uint64]*types.Header)
+		epochHead := chain.LatestEpoch()
 		for i, header := range headers {
-			if header.IsEpochHeader() {
-				epochHeaders[header.Number.Uint64()] = header
-			}
 			var parent *types.Header
 			switch {
 			case i > 0:
@@ -189,22 +185,19 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			case i == 0:
 				parent = chain.GetHeaderByHash(header.ParentHash)
 			}
-			// todo: fix this
-			// get epoch head from chain first.
-			epochHead := chain.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
-			if epochHead == nil {
-				// if it is missing from current chain view, then get epoch head from buffered incoming epoch headers.
-				epochHead = epochHeaders[parent.LastEpochBlock.Uint64()]
-			}
 
 			var err error
 			if epochHead == nil {
-				// if the epoch header is not find from both the blockchain and the incoming headers,
-				// stop the processing, it could be a synchronization DOS attack.
-				err = consensus.ErrUnknownAncestor
+				err = fmt.Errorf("missing epoch head from db, your db might be corrupted")
 			} else {
-				err = sb.verifyHeader(chain, header, parent, epochHead.Committee)
+				err = sb.verifyHeader(chain, header, parent, epochHead.Committee())
 			}
+
+			// if the processed header is a new epoch header, set the epoch header for the processing of left headers.
+			if header.IsEpochHeader() {
+				epochHead = header
+			}
+
 			select {
 			case <-abort:
 				return
@@ -212,6 +205,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			}
 		}
 	}()
+
 	return abort, results
 }
 
@@ -314,14 +308,14 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
 // Finaize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	_ []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
+	_ []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, *big.Int, error) {
 
-	committee, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
+	committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	return committee, receipt, nil
+	return committee, receipt, parentEpochBlock, nextEpochBlock, nil
 }
 
 // FinalizeAndAssemble call Finaize to compute post transacation state modifications
@@ -330,7 +324,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 
 	statedb.Prepare(common.ACHash(header.Number), len(txs))
-	committee, receipt, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
+	committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -339,11 +333,28 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 
-	if err = types.WriteEpochExtra(header, committee); err != nil {
+	var epoch types.Epoch
+
+	// check if the bi-direction link in between the two epoch header are matched.
+	if committee.Len() > 0 {
+		if parentEpochBlock == nil || nextEpochBlock == nil {
+			panic(consensus.ErrInvalidEpochBoundary)
+		}
+		parentEpochHead := sb.BlockChain().GetBlockByNumber(parentEpochBlock.Uint64())
+		if !parentEpochHead.IsEpochHead() ||
+			parentEpochHead.Header().NextEpochBlock().Uint64() != header.Number.Uint64() {
+			panic(consensus.ErrInvalidParentEpochHead)
+		}
+		epoch.Committee = committee
+		epoch.ParentEpochBlock = parentEpochBlock
+		epoch.NextEpochBlock = nextEpochBlock
+	}
+
+	if err = types.WriteEpochExtra(header, &epoch); err != nil {
 		panic(err)
 	}
 
-	if err = header.EnrichCommittee(); err != nil {
+	if err = header.EnrichEpochInfo(); err != nil {
 		panic(err)
 	}
 
@@ -353,16 +364,27 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
 // committee field containaining the list of committee members allowed to participate in consensus for the next block.
 func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
-	_ []*types.Transaction, _ []*types.Receipt) (*types.Committee, *types.Receipt, error) {
+	_ []*types.Transaction, _ []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, *big.Int, error) {
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	committee, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
+	committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return committee, receipt, nil
+	return committee, receipt, parentEpochBlock, nextEpochBlock, nil
+}
+
+func (sb *Backend) GetCommitteeByHeight(height *big.Int) (*types.Committee, error) {
+	sb.contractsMu.Lock()
+	defer sb.contractsMu.Unlock()
+	header := sb.BlockChain().CurrentHeader()
+	state, err := sb.blockchain.State()
+	if err != nil {
+		return nil, err
+	}
+	return sb.BlockChain().ProtocolContracts().GetCommitteeByHeight(header, state, height)
 }
 
 // Seal generates a new block for the given input block with the local miner's
@@ -372,19 +394,18 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 		return ErrStoppedEngine
 	}
 	// update the block header and signature and propose the block to core engine
-	header := block.Header()
-	committee, err := chain.CommitteeOfHeight(header.Number.Uint64())
-	if err != nil {
-		sb.logger.Error("Error ancestor", "error", err.Error())
-		return err
+	epoch := chain.LatestEpoch()
+	if epoch == nil {
+		return fmt.Errorf("epoch block is nil, your blockchain might be corrupted")
 	}
+
 	nodeAddress := sb.Address()
-	if committee.MemberByAddress(nodeAddress) == nil {
+	if epoch.Committee().MemberByAddress(nodeAddress) == nil {
 		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
 		return errUnauthorized
 	}
 
-	block, err = sb.AddSeal(block)
+	block, err := sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("sealing error", "err", err.Error())
 		return err

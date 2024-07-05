@@ -112,9 +112,9 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 	return nil
 }
 
-func WriteEpochExtra(h *Header, committee *Committee) error {
+func WriteEpochExtra(h *Header, epoch *Epoch) error {
 	// add committee to header's EpochExtra.
-	epochExtra, err := rlp.EncodeToBytes(committee)
+	epochExtra, err := rlp.EncodeToBytes(epoch)
 	if err != nil {
 		return err
 	}

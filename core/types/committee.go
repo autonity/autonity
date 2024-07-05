@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"slices"
@@ -12,6 +14,12 @@ import (
 )
 
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
+
+type Epoch struct {
+	ParentEpochBlock *big.Int   `rlp:"nil"`
+	NextEpochBlock   *big.Int   `rlp:"nil"`
+	Committee        *Committee `rlp:"nil"`
+}
 
 type CommitteeMember struct {
 	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
@@ -37,11 +45,6 @@ type committeeMemberMarshaling struct {
 }
 
 type Committee struct {
-	// todo: implement helpers for this new fields.
-	// ParentEpochBlock points to the parent epoch block number for backward searching of epoch header.
-	ParentEpochBlock *big.Int `json:"parentEpochBlock"`
-	// NextEpochBlock points to the next epoch block number for forward searching of epoch header.
-	NextEpochBlock *big.Int `json:"nextEpochBlock"`
 	// Current committee members.
 	Members []CommitteeMember `json:"members"`
 	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
@@ -81,12 +84,6 @@ func (c *Committee) Copy() *Committee {
 		}
 	}
 
-	if c.ParentEpochBlock != nil {
-		clone.ParentEpochBlock = new(big.Int).SetUint64(c.ParentEpochBlock.Uint64())
-	}
-	if c.NextEpochBlock != nil {
-		clone.NextEpochBlock = new(big.Int).SetUint64(c.NextEpochBlock.Uint64())
-	}
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if c.totalVotingPower != nil {
@@ -108,18 +105,6 @@ func (c *Committee) Equal(other *Committee) bool {
 		return true
 	}
 	if c == nil || other == nil {
-		return false
-	}
-
-	if (c.ParentEpochBlock == nil && other.ParentEpochBlock != nil) ||
-		(c.ParentEpochBlock != nil && other.ParentEpochBlock == nil) ||
-		(c.ParentEpochBlock != nil && other.ParentEpochBlock != nil && c.ParentEpochBlock.Cmp(other.ParentEpochBlock) != 0) {
-		return false
-	}
-
-	if (c.NextEpochBlock == nil && other.NextEpochBlock != nil) ||
-		(c.NextEpochBlock != nil && other.NextEpochBlock == nil) ||
-		(c.NextEpochBlock != nil && other.NextEpochBlock != nil && c.NextEpochBlock.Cmp(other.NextEpochBlock) != 0) {
 		return false
 	}
 
@@ -200,4 +185,38 @@ func (c *Committee) Enrich() error {
 		c.Members[i].Index = uint64(i)
 	}
 	return nil
+}
+
+// Proposer elects a proposer from the committee for the height and round.
+func (c *Committee) Proposer(height uint64, round int64) common.Address {
+	totalVotingPower := c.TotalVotingPower()
+	seed := big.NewInt(constants.MaxRound)
+	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
+	h := new(big.Int).SetUint64(height)
+	r := new(big.Int).SetInt64(round)
+	key := r.Add(r, h.Mul(h, seed))
+	value := new(big.Int).SetBytes(crypto.Keccak256(key.Bytes()))
+	index := value.Mod(value, totalVotingPower)
+	// find the index hit which committee member which line up in the committee list.
+	// we assume there is no 0 stake/power validators.
+	counter := new(big.Int).SetUint64(0)
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for _, member := range c.Members {
+		counter.Add(counter, member.VotingPower)
+		if index.Cmp(counter) == -1 {
+			return member.Address
+		}
+	}
+
+	// otherwise, we elect with round-robin.
+	return c.Members[round%int64(len(c.Members))].Address
+}
+
+// SortCommitteeMembers sort validators according to their voting power in descending order
+// stable sort keeps the original order of equal elements
+func SortCommitteeMembers(members []*CommitteeMember) {
+	slices.SortStableFunc(members, func(a, b *CommitteeMember) int {
+		return b.VotingPower.Cmp(a.VotingPower)
+	})
 }

@@ -20,7 +20,9 @@ const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
-	committee, chainHead := c.backend.BlockChain().LatestConsensusView()
+	committee := c.backend.BlockChain().LatestEpoch().Committee()
+	chainHead := c.backend.BlockChain().CurrentBlock().Header()
+
 	c.protocolContracts = contract
 	committeeSet := com.NewWeightedRandomSamplingCommittee(chainHead, committee, c.protocolContracts)
 	c.setCommitteeSet(committeeSet)

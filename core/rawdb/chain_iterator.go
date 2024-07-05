@@ -77,7 +77,7 @@ func InitDatabaseFromFreezer(db ethdb.Database) {
 		log.Crit("Failed to write data to db", "err", err)
 	}
 	batch.Reset()
-
+	// todo: double check if we need to set the epoch header.
 	WriteHeadHeaderHash(db, hash)
 	WriteHeadFastBlockHash(db, hash)
 	log.Info("Initialized database from freezer", "blocks", frozen, "elapsed", common.PrettyDuration(time.Since(start)))

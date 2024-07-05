@@ -166,7 +166,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	}
 	h.EpochExtra = *dec.EpochExtra
 	//TODO(lorenzo) Added this manually to make the e2e test work. Fix it properly.
-	if err := h.EnrichCommittee(); err != nil {
+	if err := h.EnrichEpochInfo(); err != nil {
 		return err
 	}
 	return nil

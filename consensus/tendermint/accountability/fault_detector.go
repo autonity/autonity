@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -36,6 +35,7 @@ type ChainContext interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 	HasBadBlock(hash common.Hash) bool
 	Validator() core.Validator
+	CommitteeForConsensusMsg(height uint64) (*types.Committee, error)
 }
 
 const (
@@ -304,9 +304,9 @@ loop:
 			}
 
 			h := decodedProof.Message.H()
-			committee, err := fd.blockchain.CommitteeOfHeight(h)
+			committee, err := fd.blockchain.CommitteeForConsensusMsg(h)
 			if err != nil {
-				fd.logger.Error("Can't get committee from chain", "height", h)
+				fd.logger.Error("Can't retrieve committee for message", "err", err, "height", h)
 				break
 			}
 
@@ -353,9 +353,10 @@ loop:
 // todo(youssef): this needs to be thoroughly verified accounting for edge cases scenarios at
 // the epoch limit. Also the contract side enforcement is missing.
 func (fd *FaultDetector) canReport(height uint64) bool {
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(height)
 	if err != nil {
-		panic("must not happen, height:" + strconv.Itoa(int(height)))
+		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
+		return false
 	}
 
 	// each reporting slot contains reportingSlotPeriod block period that a unique and deterministic validator is asked to
@@ -435,10 +436,12 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 	height := precommit.H()
 
 	// compute quorum
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(height)
 	if err != nil {
+		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
 		return nil, err
 	}
+
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V
@@ -475,8 +478,9 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 	validRound := liteProposal.(*message.LightProposal).ValidRound()
 
 	// compute quorum
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(height)
 	if err != nil {
+		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
 		return nil, err
 	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
@@ -542,10 +546,12 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 	validRound := oldProposal.(*message.LightProposal).ValidRound()
 
 	// compute quorum
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(height)
 	if err != nil {
+		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
 		return nil, err
 	}
+
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	// check if we have quorum voting power for V at validRound
@@ -605,9 +611,9 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 		return nil
 	}
 
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(height)
 	if err != nil {
-		// youssef: is that even possible?
+		fd.logger.Error("runRuleEngine", "err", err, "height", height)
 		return nil
 	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
@@ -1280,7 +1286,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 
 	// account for equivocation for votes.
 	var err error
-	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(m.H())
 	if err != nil {
 		return err
 	}
@@ -1312,7 +1318,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 
 	// account for equivocation for votes.
 	var err error
-	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
+	committee, err := fd.blockchain.CommitteeForConsensusMsg(m.H())
 	if err != nil {
 		return err
 	}
@@ -1349,7 +1355,7 @@ func errorToRule(err error) autonity.Rule {
 // it would be better to use that function but it requires sharing the CommitteeSet between Core and the FD.
 // It would reduce code repetition, however the proposer cache is already shared so it would not improve performance.
 func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
-	committee, err := chain.CommitteeOfHeight(h)
+	committee, err := chain.CommitteeForConsensusMsg(h)
 	if err != nil {
 		return common.Address{}, err
 	}

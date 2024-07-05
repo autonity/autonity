@@ -95,7 +95,9 @@ type Header struct {
 	Round             uint64             `json:"round"               gencodec:"required"`
 	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
 	EpochExtra        []byte             `json:"epochExtra" gencodec:"required"` // this field contains committee and epoch boundary in rlp bytes,
-	committee         *Committee         `json:"-" rlp:"-"`                      // skipped for rlp and rlpHash(), it is built from EpochExtra.
+	parentEpochBlock  *big.Int           `rlp:"-"`
+	nextEpochBlock    *big.Int           `rlp:"-"`
+	committee         *Committee         `rlp:"-"`
 }
 
 type AggregateSignature struct {
@@ -193,17 +195,31 @@ func (h *Header) IsEpochHeader() bool {
 	return len(h.EpochExtra) > 0 && h.committee != nil && h.committee.Len() > 0
 }
 
-func (h *Header) EnrichCommittee() error {
-	var committee Committee
+func (h *Header) ParentEpochBlock() *big.Int {
+	return h.parentEpochBlock
+}
+
+func (h *Header) NextEpochBlock() *big.Int {
+	return h.nextEpochBlock
+}
+
+func (h *Header) EnrichEpochInfo() error {
+	var epoch Epoch
 	if len(h.EpochExtra) > 0 {
-		if err := rlp.DecodeBytes(h.EpochExtra, &committee); err != nil {
+		if err := rlp.DecodeBytes(h.EpochExtra, &epoch); err != nil {
 			return err
 		}
-		if err := committee.Enrich(); err != nil {
-			return fmt.Errorf("Error while deserializing consensus keys: %w", err)
+		if err := epoch.Committee.Enrich(); err != nil {
+			return fmt.Errorf("error while deserializing consensus keys: %w", err)
+		}
+
+		if epoch.Committee.Len() > 0 && (epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil) {
+			return fmt.Errorf("invalid epoch boundary")
 		}
 	}
-	h.committee = &committee
+	h.committee = epoch.Committee
+	h.parentEpochBlock = epoch.ParentEpochBlock
+	h.nextEpochBlock = epoch.NextEpochBlock
 	return nil
 }
 
@@ -261,7 +277,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Round = hExtra.Round
 		h.EpochExtra = hExtra.EpochExtra
 
-		if err := h.EnrichCommittee(); err != nil {
+		if err := h.EnrichEpochInfo(); err != nil {
 			return err
 		}
 	} else {

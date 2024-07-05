@@ -31,7 +31,12 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	}
 
 	wasValidating := false
-	committee, currentHead := acn.chain.LatestConsensusView()
+	epoch := acn.chain.LatestEpoch()
+	if epoch == nil {
+		acn.log.Crit("Could not retrieve latest epoch, chain db might be corrupted")
+	}
+	committee := epoch.Committee()
+	currentHead := acn.chain.CurrentHeader()
 	if committee.MemberByAddress(acn.address) != nil {
 		updateConsensusEnodes(currentHead)
 		wasValidating = true
@@ -46,7 +51,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 			case ev := <-chainHeadCh:
 				acn.server.SetCurrentBlockNumber(ev.Block.NumberU64())
 			case ev := <-epochHeadCh:
-				committee = ev.Header.Committee
+				committee = ev.Header.Committee()
 				// check if the local node belongs to the consensus committee.
 				if committee.MemberByAddress(acn.address) == nil {
 					// if the local node was part of the committee set for the previous block

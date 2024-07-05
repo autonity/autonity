@@ -716,9 +716,9 @@ loop:
 				break
 			}
 
-			committee, err := a.backend.BlockChain().CommitteeOfHeight(msg.H())
+			committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(msg.H())
 			if err != nil {
-				a.logger.Crit("cannot get committee for non-future message", "headerHeight", msg.H()-1, "coreHeight", coreHeight)
+				a.logger.Crit("cannot find epoch head for height", "height", msg.H(), "err", err)
 			}
 			quorum := bft.Quorum(committee.TotalVotingPower())
 
@@ -783,9 +783,10 @@ loop:
 				}
 				//clean up
 				roundInfo.proposals = make([]events.UnverifiedMessageEvent, 0)
-				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
-				if err != nil { //nolint
-					a.logger.Crit("cannot fetch committee for non-future height", "height", height-1)
+
+				committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(height)
+				if err != nil {
+					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
 				quorum := bft.Quorum(committee.TotalVotingPower())
 
@@ -819,9 +820,14 @@ loop:
 
 				roundInfo := a.messages[height][round]
 
-				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				epoch := a.backend.BlockChain().LatestEpoch()
+				if epoch == nil {
+					a.logger.Crit("Missing epoch head block")
+				}
+
+				committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(height)
 				if err != nil {
-					panic("cannot fetch committee for non-future message")
+					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
 				quorum := bft.Quorum(committee.TotalVotingPower())
 
@@ -849,9 +855,9 @@ loop:
 				height := e.Height
 				round := e.Round
 
-				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(height)
 				if err != nil {
-					a.logger.Crit("cannot fetch committee for non-future message", "height", height-1)
+					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
 
 				// check in future round messages power, check again for round skip

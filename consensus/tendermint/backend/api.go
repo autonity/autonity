@@ -24,6 +24,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
+	"math/big"
 )
 
 // API is a user facing RPC API to dump BFT state
@@ -34,7 +35,7 @@ type API struct {
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
 func (api *API) GetCommittee(number *rpc.BlockNumber) (*types.Committee, error) {
-	return api.chain.CommitteeOfHeight(uint64(*number))
+	return api.tendermint.GetCommitteeByHeight(new(big.Int).SetUint64(uint64(*number)))
 }
 
 // GetCommitteeAtHash retrieves the state snapshot at a given block.
@@ -43,8 +44,7 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (*types.Committee, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-
-	return api.chain.CommitteeOfHeight(header.Number.Uint64())
+	return api.tendermint.GetCommitteeByHeight(header.Number)
 }
 
 // Get Autonity contract address

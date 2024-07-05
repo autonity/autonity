@@ -31,14 +31,10 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-// CommitteeOfHeight retrieves the committee of a given block number.
-func (bc *BlockChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
-	return bc.hc.CommitteeOfHeight(number)
-}
-
-// LatestConsensusView retrieves the latest committee and chain head of current chain.
-func (bc *BlockChain) LatestConsensusView() (*types.Committee, *types.Header) {
-	return bc.hc.LatestConsensusView()
+// LatestEpoch retrieves the latest epoch header of the blockchain, it can be lower than the epoch head of header chain.
+func (bc *BlockChain) LatestEpoch() *types.Header {
+	// return bc.hc.LatestEpoch()
+	return bc.currentEpochBlock.Load().(*types.Block).Header()
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

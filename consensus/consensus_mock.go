@@ -1194,62 +1194,30 @@ func (mr *MockPeerMockRecorder) SendRaw(msgcode, data any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRaw", reflect.TypeOf((*MockPeer)(nil).SendRaw), msgcode, data)
 }
 
-// LatestConsensusView mocks base method
-func (m *MockChainHeaderReader) LatestConsensusView() (*types.Committee, *types.Header) {
+// LatestEpoch mocks base method
+func (m *MockChainHeaderReader) LatestEpoch() (*types.Header) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestConsensusView")
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(*types.Header)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "LatestEpoch")
+	ret0, _ := ret[0].(*types.Header)
+	return ret0
 }
 
-// LatestConsensusView indicates an expected call of LatestConsensusView
-func (mr *MockChainHeaderReaderMockRecorder) LatestConsensusView() *gomock.Call {
+// LatestEpoch indicates an expected call of LatestEpoch
+func (mr *MockChainHeaderReaderMockRecorder) LatestEpoch() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestConsensusView", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestConsensusView))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestEpoch))
 }
 
-// CommitteeOfHeight mocks base method.
-func (m *MockChainHeaderReader) CommitteeOfHeight(number uint64) (*types.Committee, error) {
+// LatestEpoch mocks base method
+func (m *MockChainReader) LatestEpoch() (*types.Header) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitteeOfHeight", number)
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "LatestEpoch")
+	ret0, _ := ret[0].(*types.Header)
+	return ret0
 }
 
-// CommitteeOfHeight indicates an expected call of CommitteeOfHeight.
-func (mr *MockChainHeaderReaderMockRecorder) CommitteeOfHeight(number interface{}) *gomock.Call {
+// LatestEpoch indicates an expected call of LatestEpoch
+func (mr *MockChainReaderMockRecorder) LatestEpoch() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).CommitteeOfHeight), number)
-}
-
-// LatestConsensusView mocks base method
-func (m *MockChainReader) LatestConsensusView() (*types.Committee, *types.Header) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestConsensusView")
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(*types.Header)
-	return ret0, ret1
-}
-
-// LatestConsensusView indicates an expected call of LatestConsensusView
-func (mr *MockChainReaderMockRecorder) LatestConsensusView() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestConsensusView", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestConsensusView))
-}
-
-// CommitteeOfHeight mocks base method.
-func (m *MockChainReader) CommitteeOfHeight(number uint64) (*types.Committee, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitteeOfHeight", number)
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CommitteeOfHeight indicates an expected call of CommitteeOfHeight.
-func (mr *MockChainReaderMockRecorder) CommitteeOfHeight(number interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).CommitteeOfHeight), number)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestEpoch))
 }

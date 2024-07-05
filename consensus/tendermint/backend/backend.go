@@ -310,7 +310,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		}
 
 		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
-		committee, receipt, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
+		committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
 		if err != nil {
 			return 0, err
 		}
@@ -319,6 +319,19 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, *usedGas); err != nil {
 			sb.logger.Error("proposal proposed, bad root state", err)
 			return 0, err
+		}
+
+		// check if the bi-direction link in between the two epoch header are matched.
+		if committee.Len() > 0 {
+			if parentEpochBlock == nil || nextEpochBlock == nil {
+				return 0, consensus.ErrInvalidEpochBoundary
+			}
+
+			parentEpochHead := sb.BlockChain().GetBlockByNumber(parentEpochBlock.Uint64())
+			if !parentEpochHead.IsEpochHead() ||
+				parentEpochHead.Header().NextEpochBlock().Uint64() != proposalNumber {
+				return 0, consensus.ErrInvalidParentEpochHead
+			}
 		}
 
 		if !committee.Equal(header.Committee()) {

@@ -14,11 +14,9 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
@@ -229,6 +227,10 @@ func (c *AutonityContract) CommitteeEnodes(header *types.Header, db vm.StateDB, 
 	return c.callGetCommitteeEnodes(db, header, asACN)
 }
 
+func (c *AutonityContract) GetCommitteeByHeight(header *types.Header, db vm.StateDB, height *big.Int) (*types.Committee, error) {
+	return c.callGetCommitteeByHeight(db, header, height)
+}
+
 func (c *AutonityContract) Committee(header *types.Header, db vm.StateDB) (*types.Committee, error) {
 	return c.callGetCommittee(db, header)
 }
@@ -262,7 +264,7 @@ func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, he
 
 	proposer, ok = c.proposers[height][round]
 	if !ok {
-		proposer = c.electProposer(committee, height, round)
+		proposer = committee.Proposer(height, round)
 		c.proposers[height][round] = proposer
 	}
 
@@ -273,33 +275,6 @@ func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, he
 	}
 
 	return proposer
-}
-
-// electProposer is a part of consensus, that it elect proposer from parent header's committee list which was returned
-// from autonity contract stable ordered by voting power in evm context.
-func (c *AutonityContract) electProposer(committee *types.Committee, height uint64, round int64) common.Address {
-	seed := big.NewInt(constants.MaxRound)
-	totalVotingPower := committee.TotalVotingPower()
-
-	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
-	h := new(big.Int).SetUint64(height)
-	r := new(big.Int).SetInt64(round)
-	key := r.Add(r, h.Mul(h, seed))
-	value := new(big.Int).SetBytes(crypto.Keccak256(key.Bytes()))
-	index := value.Mod(value, totalVotingPower)
-
-	// find the index hit which committee member which line up in the committee list.
-	// we assume there is no 0 stake/power validators.
-	counter := new(big.Int).SetUint64(0)
-	for _, val := range committee.Members {
-		counter.Add(counter, val.VotingPower)
-		if index.Cmp(counter) == -1 {
-			return val.Address
-		}
-	}
-
-	// otherwise, we elect with round-robin.
-	return committee.Members[round%int64(committee.Len())].Address
 }
 
 /* the Proposer election function is called from core and from the fault detector.
@@ -325,19 +300,19 @@ func (c *AutonityContract) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (*types.Committee, *types.Receipt, error) {
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (*types.Committee, *types.Receipt, *big.Int, *big.Int, error) {
 	// todo: (Jason) check if we need this? GenesisToBlock() does not call this function.
 	if header.Number.Uint64() == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil, nil
 	}
 
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(params.AutonityContractAddress),
 		"block", header.Number.Uint64())
 
-	upgradeContract, committee, err := c.callFinalize(statedb, header)
+	upgradeContract, committee, parentEpochBlock, nextEpochBlock, err := c.callFinalize(statedb, header)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	// Create a new receipt for the finalize call
@@ -357,7 +332,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 			log.Warn("Autonity Contracts Upgrade Failed", "err", err)
 		}
 	}
-	return committee, receipt, nil
+	return committee, receipt, parentEpochBlock, nextEpochBlock, nil
 }
 
 func (c *AutonityContract) upgradeAutonityContract(statedb vm.StateDB, header *types.Header) error {

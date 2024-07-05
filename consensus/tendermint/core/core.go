@@ -375,7 +375,7 @@ func (c *Core) setInitialState(r int64) {
 		// on epoch rotation, update committee.
 		if lastBlockMined.IsEpochHead() {
 			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
-			c.committee.SetCommittee(lastBlockMined.Header().Committee)
+			c.committee.SetCommittee(lastBlockMined.Header().Committee())
 		}
 
 		c.lockedRound = -1

@@ -172,6 +172,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
+    // epochInfos, saves epoch info for per epoch in the history.
+    // k: epochID, value: object of EpochInfo
+    mapping(uint256=>CommitteeMember[]) internal epochCommittees;
     CommitteeMember[] internal committee;
     uint256 public atnTotalRedistributed;
     uint256 public epochReward;
@@ -305,8 +308,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
+        // init epoch info for genesis deployment of contract.
         parentEpochBlock = 0;
         nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
+        epochCommittees[epochID] = committee;
     }
 
     /**
@@ -797,6 +802,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _stakingOperations();
             _removeContractAddresses();
             _applyNewCommissionRates();
+
             address[] memory _voters = computeCommittee();
             config.contracts.oracleContract.setVoters(_voters);
             parentEpochBlock = lastEpochBlock;
@@ -805,6 +811,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
             epochID += 1;
+            epochCommittees[epochID] = committee; // save new committee with its new epoch id.
             emit NewEpoch(epochID);
         }
 
@@ -914,11 +921,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
      * @notice Returns the block committee.
      * @return Current block committee if called before finalize(), next block if called after.
-     * @return parentEpochBlock The parent epoch block number.
-     * @return nextEpochBlock The next epoch block number.
      */
-    function getCommittee() external view virtual returns (CommitteeMember[] memory, uint256, uint256) {
-        return (committee, parentEpochBlock, nextEpochBlock);
+    function getCommittee() external view virtual returns (CommitteeMember[] memory) {
+        return committee;
     }
 
     /**
@@ -1002,6 +1007,27 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
+     * @notice Returns the committee of a specific height.
+     * @param _height the input block number
+     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
+     */
+    function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
+        require(_height <= block.number, "cannot get committee for a future height");
+        if (_height == 0) {
+            return epochCommittees[0];
+        }
+        uint256 eID = blockEpochMap[_height];
+
+        // if current epoch haven't been ended, then return current committee.
+        CommitteeMember[] memory members = epochCommittees[eID];
+        if (members.length == 0) {
+            return committee;
+        }
+        // return finalized epoch's committee
+        return members;
+    }
+
+    /**
     * @notice getProposer returns the address of the proposer for the given height and
     * round. The proposer is selected from the committee via weighted random
     * sampling, with selection probability determined by the voting power of
@@ -1010,10 +1036,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * state.
     */
     function getProposer(uint256 height, uint256 round) external view virtual returns (address) {
-        // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
+        CommitteeMember[] memory members = getCommitteeByHeight(height);
+
+        // calculate total voting power from the corresponding committee, the system does not allow validator with 0 stake/power.
         uint256 total_voting_power = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            total_voting_power += committee[i].votingPower;
+        for (uint256 i = 0; i < members.length; i++) {
+            total_voting_power += members[i].votingPower;
         }
 
         require(total_voting_power != 0, "The committee is not staking");
@@ -1026,10 +1054,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // find the index hit which committee member which line up in the committee list.
         // we assume there is no 0 stake/power validators.
         uint256 counter = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            counter += committee[i].votingPower;
+        for (uint256 i = 0; i < members.length; i++) {
+            counter += members[i].votingPower;
             if (index <= counter - 1) {
-                return committee[i].addr;
+                return members[i].addr;
             }
         }
         revert("There is no validator left in the network");

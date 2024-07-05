@@ -62,8 +62,7 @@ type HeaderChain struct {
 	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
-	// todo: implement this epoch header cache and saving and loading to/from raw db.
-	currentEpochHeader atomic.Value // Current epoch head of the header chain.
+	currentEpochHeader atomic.Value // Current epoch header of the header chain.
 	currentHeader      atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash  common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
@@ -112,6 +111,15 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 			hc.currentHeader.Store(chead)
 		}
 	}
+
+	// load head epoch header from db on start up.
+	hc.currentEpochHeader.Store(hc.genesisHeader)
+	if eHead := rawdb.ReadHeadEpochHeaderHash(chainDb); eHead != (common.Hash{}) {
+		if cEHead := hc.GetHeaderByHash(eHead); cEHead != nil {
+			hc.currentEpochHeader.Store(cEHead)
+		}
+	}
+	headEpochHeaderGauge.Update(hc.CurrentHeadEpochHeader().Number.Int64())
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
 	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 	return hc, nil
@@ -161,6 +169,8 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 		batch = hc.chainDb.NewBatch()
 	)
 	if first.ParentHash != hc.currentHeaderHash {
+		// todo: (Jason) check if this reorg context happens for instant BFT consensus? Or is it possible for fork?
+		//  we might need rollback the head epoch header as well.
 		// Delete any canonical number assignments above the new head
 		for i := last.Number.Uint64() + 1; ; i++ {
 			hash := rawdb.ReadCanonicalHash(hc.chainDb, i)
@@ -189,26 +199,44 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 			}
 		}
 	}
-	// Extend the canonical chain with the new headers
+
+	// Extend the canonical chain in db with the new headers
+	var headEpochHeader *types.Header
 	for i := 0; i < len(headers)-1; i++ {
 		hash := headers[i+1].ParentHash // Save some extra hashing
 		num := headers[i].Number.Uint64()
 		rawdb.WriteCanonicalHash(batch, hash, num)
 		rawdb.WriteHeadHeaderHash(batch, hash)
+		// if the new header is an epoch header, mark the new epoch header hash in db.
+		if headers[i].IsEpochHeader() {
+			headEpochHeader = headers[i]
+			rawdb.WriteHeadEpochHeaderHash(batch, hash)
+		}
 	}
 	// Write the last header
 	hash := headers[len(headers)-1].Hash()
 	num := headers[len(headers)-1].Number.Uint64()
 	rawdb.WriteCanonicalHash(batch, hash, num)
 	rawdb.WriteHeadHeaderHash(batch, hash)
+	// if the last header is an epoch header, mark it too in db.
+	if headers[len(headers)-1].IsEpochHeader() {
+		headEpochHeader = headers[len(headers)-1]
+		rawdb.WriteHeadEpochHeaderHash(batch, hash)
+	}
 
 	if err := batch.Write(); err != nil {
 		return err
 	}
+
 	// Last step update all in-memory head header markers
 	hc.currentHeaderHash = last.Hash()
 	hc.currentHeader.Store(types.CopyHeader(last))
 	headHeaderGauge.Update(last.Number.Int64())
+	// mark in-memory epoch header if there is any epoch header been store in db.
+	if headEpochHeader != nil {
+		hc.currentEpochHeader.Store(types.CopyHeader(headEpochHeader))
+		headEpochHeaderGauge.Update(hc.CurrentHeadEpochHeader().Number.Int64())
+	}
 	return nil
 }
 
@@ -509,51 +537,9 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	return hc.GetHeader(hash, number)
 }
 
-// LatestConsensusView retrieves the latest committee and the current chain head of chain.
-func (hc *HeaderChain) LatestConsensusView() (*types.Committee, *types.Header) {
-	currentHead := hc.CurrentHeader()
-
-	if currentHead.IsEpochHeader() {
-		return currentHead.Committee, currentHead
-	}
-
-	return hc.GetHeaderByNumber(currentHead.LastEpochBlock.Uint64()).Committee, currentHead
-}
-
-// CommitteeOfHeight retrieves the committee of a given block number.
-func (hc *HeaderChain) CommitteeOfHeight(number uint64) (*types.Committee, error) {
-	if committee, ok := hc.committeeCache.Get(number); ok {
-		return committee.(*types.Committee), nil
-	}
-
-	if number == 0 {
-		hc.committeeCache.Add(number, hc.genesisHeader.Committee)
-		return hc.genesisHeader.Committee, nil
-	}
-
-	parent := hc.GetHeaderByNumber(number - 1)
-	if parent == nil {
-		return nil, consensus.ErrUnknownAncestor
-	}
-
-	if parent.IsGenesis() {
-		hc.committeeCache.Add(number, hc.genesisHeader.Committee)
-		return hc.genesisHeader.Committee, nil
-	}
-
-	// if parent is an epoch head, return its committee.
-	if parent.IsEpochHeader() {
-		hc.committeeCache.Add(number, parent.Committee)
-		return parent.Committee, nil
-	}
-
-	// otherwise, query the committee with the index saved in the parent header.
-	epoch := hc.GetHeaderByNumber(parent.LastEpochBlock.Uint64())
-	if epoch == nil {
-		return nil, consensus.ErrUnknownEpoch
-	}
-	hc.committeeCache.Add(number, epoch.Committee)
-	return epoch.Committee, nil
+// LatestEpoch retrieves the latest epoch header of the header chain, it can be ahead of blockchain's epoch header.
+func (hc *HeaderChain) LatestEpoch() *types.Header {
+	return hc.CurrentHeadEpochHeader()
 }
 
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going
@@ -604,6 +590,18 @@ func (hc *HeaderChain) GetCanonicalHash(number uint64) common.Hash {
 // header is retrieved from the HeaderChain's internal cache.
 func (hc *HeaderChain) CurrentHeader() *types.Header {
 	return hc.currentHeader.Load().(*types.Header)
+}
+
+// CurrentHeadEpochHeader retrieves the current head epoch header of the canonical chain. The
+// header is retrieved from the HeaderChain's internal cache.
+func (hc *HeaderChain) CurrentHeadEpochHeader() *types.Header {
+	return hc.currentEpochHeader.Load().(*types.Header)
+}
+
+// SetCurrentHeadEpochHeader sets the in-memory head epoch header marker of the canonical chan
+// as the given header.
+func (hc *HeaderChain) SetCurrentHeadEpochHeader(head *types.Header) {
+	hc.currentEpochHeader.Store(head)
 }
 
 // SetCurrentHeader sets the in-memory head header marker of the canonical chan
@@ -659,6 +657,18 @@ func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, d
 				head = newHead
 			}
 		}
+
+		// if the rollback one is an epoch header, then update the epoch head with the parent epoch head.
+		if hdr.IsEpochHeader() {
+			newHeadEpochHeader := hc.GetHeaderByNumber(hdr.ParentEpochBlock().Uint64())
+			if newHeadEpochHeader == nil {
+				log.Crit("cannot find parent epoch header from header chain", "num", hdr.ParentEpochBlock().Uint64())
+			}
+			rawdb.WriteHeadEpochHeaderHash(markerBatch, newHeadEpochHeader.Hash())
+			hc.currentEpochHeader.Store(newHeadEpochHeader)
+			headEpochHeaderGauge.Update(newHeadEpochHeader.Number.Int64())
+		}
+
 		// Update head header then.
 		rawdb.WriteHeadHeaderHash(markerBatch, parentHash)
 		if err := markerBatch.Write(); err != nil {

@@ -282,7 +282,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
-	accountability.LoadPrecompiles(eth.blockchain)
+	accountability.LoadPrecompiles()
 	// Create Fault Detector for each full node for the time being.
 	//TODO: I think it would make more sense to move this into the tendermint backend if possible
 	eth.accountability = accountability.NewFaultDetector(
@@ -616,7 +616,13 @@ func (s *Ethereum) validatorController() {
 	}
 	wasValidating := false
 
-	committee, currentHead := s.blockchain.LatestConsensusView()
+	epoch := s.blockchain.LatestEpoch()
+	if epoch == nil {
+		s.log.Crit("missing epoch head, chain db might corrupted")
+	}
+
+	committee := epoch.Committee()
+	currentHead := s.blockchain.CurrentHeader()
 	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)
 		s.miner.Start()
@@ -631,7 +637,7 @@ func (s *Ethereum) validatorController() {
 			s.p2pServer.SetCurrentBlockNumber(ev.Block.NumberU64())
 		case ev := <-epochHeadCh:
 			// epoch head change comes with the committee rotation:
-			committee = ev.Header.Committee
+			committee = ev.Header.Committee()
 			// check if the local node belongs to the consensus committee.
 			if committee.MemberByAddress(s.address) == nil {
 				// if the local node was part of the committee set for the previous block
@@ -690,7 +696,7 @@ func (s *Ethereum) Stop() error {
 func (s *Ethereum) genesisCountdown() {
 	genesisTime := time.Unix(int64(s.blockchain.Genesis().Time()), 0)
 	s.log.Info(fmt.Sprintf("Chain genesis time: %v", genesisTime))
-	committee := s.blockchain.Genesis().Header().Committee
+	committee := s.blockchain.Genesis().Header().Committee()
 	if committee.MemberByAddress(s.address) != nil {
 		s.log.Warn("**************************************************************")
 		s.log.Warn("Local node is detected GENESIS VALIDATOR")

@@ -225,7 +225,9 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	var committee *types.Committee
 	if config.AutonityContractConfig != nil {
 		validators := config.AutonityContractConfig.Validators
-		committee = &types.Committee{Members: make([]types.CommitteeMember, len(validators))}
+		committee = &types.Committee{
+			Members: make([]types.CommitteeMember, len(validators)),
+		}
 		for i, val := range validators {
 			committee.Members[i] = types.CommitteeMember{
 				Address:           *val.NodeAddress,
@@ -371,7 +373,8 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
 	if cr.committee == nil {
 		return nil
 	}
-	return &types.Header{Committee: cr.committee}
+	header := &types.Header{Number: new(big.Int).SetUint64(number)}
+	return header
 }
 func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
@@ -381,9 +384,6 @@ func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int      
 func (cr *fakeChainReader) MinBaseFee() *big.Int {
 	return big.NewInt(0)
 }
-func (cr *fakeChainReader) CommitteeOfHeight(_ uint64) (*types.Committee, error) {
-	return nil, nil
-}
-func (cr *fakeChainReader) LatestConsensusView() (*types.Committee, *types.Header) {
-	return nil, nil
+func (cr *fakeChainReader) LatestEpoch() *types.Header {
+	return nil
 }
