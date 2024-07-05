@@ -168,5 +168,8 @@
   "e4469437": "getLastEpochBlockOfHeight(uint256)",
   "b47c3eaa": "setOmissionAccountabilityContract(address)",
   "070e720a": "getCommitteeByHeight(uint256)",
-  "b45e2675": "getConsensusViewOfHeight(uint256)"
+  "b45e2675": "getConsensusViewOfHeight(uint256)",
+  "8aeb51c5": "finalize(address[],address,uint256,uint256,bool)",
+  "54a2f945": "finalize(address[],address,uint256,bool,uint256,uint256,bool)",
+  "e08b14ed": "setCommittee(address[])"
 }

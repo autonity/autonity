@@ -760,24 +760,30 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         return allowances[owner][spender];
     }
 
-    /** @dev finalize is the block state finalisation function. It is called
+    /** //TODO(lorenzo) restore documentation tags (at symbol before dev, param and return)
+    /** dev finalize is the block state finalisation function. It is called
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
-    * @param isProposerOmissionFaulty is true when the proposer provides invalid activity proof of current height.
-    * @param ids stores faulty proposer's ID when isProposerOmissionFaulty is true, otherwise it carries current height
+    * param isProposerOmissionFaulty is true when the proposer provides invalid activity proof of current height.
+    * param ids stores faulty proposer's ID when isProposerOmissionFaulty is true, otherwise it carries current height
     * activity proof which is the signers of precommit of current height - dela.
     *
-    * @return upgrade Set to true if an autonity contract upgrade is available.
-    * @return committee The next block consensus committee.
+    * return upgrade Set to true if an autonity contract upgrade is available.
+    * return committee The next block consensus committee.
     */
-    function finalize(bool isProposerOmissionFaulty, uint256[] memory ids) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
+    // TODO(lorenzo) instead of passing delta, make it a protocol parameter as it should be
+    function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, uint256 delta, bool isProposerOmissionFaulty) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
-        config.contracts.omissionAccountabilityContract.finalize(isProposerOmissionFaulty, ids);
+        // TODO(lorenzo) a bunch of possible off-by-one errors here to double check
+        // if height is accountable, call the omission accountability contract
+        if(block.number > lastEpochBlock + delta) {
+            config.contracts.omissionAccountabilityContract.finalize(absentees, proposer, proposerEffort, isProposerOmissionFaulty, lastEpochBlock, delta, epochEnded);
+        }
         if (epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
             uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(
@@ -815,8 +821,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // save history committee.
             epochCommittees[epochID] = committee;
 
-            address[] memory _voters = computeCommittee();
+            address[] memory _voters;
+            address[] memory _nodeAddresses;
+            (_voters,_nodeAddresses) = computeCommittee();
             config.contracts.oracleContract.setVoters(_voters);
+            config.contracts.omissionAccountabilityContract.setCommittee(_nodeAddresses);
             lastEpochBlock = block.number;
             lastEpochTime = block.timestamp;
             epochID += 1;
@@ -836,7 +845,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice update the current committee by selecting top staking validators.
     * Restricted to the protocol.
     */
-    function computeCommittee() public virtual onlyProtocol returns (address[] memory){
+    function computeCommittee() public virtual onlyProtocol returns (address[] memory, address[] memory){
         // Left public for testing purposes.
         require(validatorList.length > 0, "There must be validators");
         uint256[5] memory input;
@@ -854,12 +863,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 committeeSize = committee.length;
         require(committeeSize > 0, "committee is empty");
         address[] memory _voters = new address[](committeeSize);
+        address[] memory _nodeAddresses = new address[](committeeSize);
         for (uint i = 0; i < committeeSize; i++) {
             Validator storage _member = validators[committee[i].addr];
             committeeNodes.push(_member.enode);
             _voters[i] = _member.oracleAddress;
+            _nodeAddresses[i] = _member.nodeAddress;
         }
-        return _voters;
+        return (_voters, _nodeAddresses);
     }
 
     /*
@@ -922,6 +933,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         uint256 boundary = epochBoundaryMap[blockEpochMap[_height]];
         if (_height == 0) {
+            // TODO(lorenzo) this seems wrong, we return the current committee if _height == 0?
+            // we should return the genesis one
             return (boundary, committee);
         }
         uint256 eID = blockEpochMap[_height];

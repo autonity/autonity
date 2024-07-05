@@ -25,7 +25,7 @@ const ACCOUNTABILITY_CONFIG = {
 
 const OMISSION_ACCOUNTABILITY_CONFIG = {
     "negligibleThreshold": 1000,     // 10%
-    "omissionLoopBackWindow":  30,   // 30 blocks
+    "omissionLookBackWindow":  30,   // 30 blocks
     "activityProofRewardRate": 1000, // 10%
     "maxCommitteeSize":        1000,
     "pastPerformanceWeight":   5000, // 50%

@@ -286,7 +286,7 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 		header.Time = uint64(time.Now().Unix())
 	}
 
-	// assemble nodes' activity proof of height h from the height of h-delta
+	// assemble nodes' activity proof of height h from the msgs of h-delta
 	proof := sb.assembleActivityProof(header)
 	types.WriteActivityProof(header, proof)
 	return nil
@@ -332,9 +332,11 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
+	// TODO(lorenzo) update comment
+	// TODO(lornezo) it would be better to have a function to validate and verify, then extract the data separately
 	// if the proposer is faulty, the IDs carries proposer's ID only, otherwise it carries all the active signers.
-	isProposerFaulty, IDs := sb.validateActivityProof(header)
-	committeeSet, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state, isProposerFaulty, IDs)
+	isProposerFaulty, proposer, proposerEffort, absentees := sb.validateActivityProof(header)
+	committeeSet, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state, absentees, proposer, proposerEffort, isProposerFaulty)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)
 		return nil, nil, err
