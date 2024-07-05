@@ -1146,12 +1146,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
                     _transfer(address(this), _val.liquidStateContract, _ntnDelegationReward);
-                    (bool _success, bytes memory _returnData) = _val.liquidStateContract.call{value: _atnDelegationReward}(
+                    (bool _success, ) = _val.liquidStateContract.call{value: _atnDelegationReward}(
                         abi.encodeWithSignature("redistribute(uint256)", _ntnDelegationReward)
                     );
-                    if (_success == false) {
-                        emit CallFailed(_val.liquidStateContract, "redistribute(uint256)", _returnData);
-                    }
+                    require(_success == true, "failed to distribute rewards");
                 }
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
@@ -1354,7 +1352,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     function _revertBonding(uint256 _id) internal virtual {
         BondingRequest storage _bonding = bondingMap[_id];
-        accounts[_bonding.delegator] += _bonding.amount;
         Validator storage _validator = validators[_bonding.delegatee];
         // assuming that the bonding request was applied successfully, so the validator must be active
         if (_bonding.delegator != _validator.treasury) {
@@ -1366,15 +1363,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             );
             if (_success == false) {
                 emit CallFailed(_validator.liquidStateContract, "burn(address,uint256)", _returnData);
+                return;
             }
-            else {
-                _validator.liquidSupply -= _liquidAmount;
-                _validator.bondedStake -= _bonding.amount;
-            }
+            _validator.liquidSupply -= _liquidAmount;
         } else {
             _validator.selfBondedStake -= _bonding.amount;
-            _validator.bondedStake -= _bonding.amount;
         }
+        accounts[_bonding.delegator] += _bonding.amount;
+        _validator.bondedStake -= _bonding.amount;
         emit BondingReverted(_bonding.delegatee, _bonding.delegator, _bonding.amount);
     }
 
@@ -1489,13 +1485,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     function _revertReleasedUnbonding(uint256 _id, uint256 _amount) private {
         UnbondingRequest storage _unbonding = unbondingMap[_id];
-        _unbonding.state = UnbondingReleaseState.reverted;
-        emit ReleasedUnbondingReverted(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _amount);
         if (_amount == 0) {
+            _unbonding.state = UnbondingReleaseState.reverted;
+            emit ReleasedUnbondingReverted(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _amount);
             return;
         }
         Validator storage _validator = validators[_unbonding.delegatee];
-        accounts[_unbonding.delegator] -= _amount;
         if (!_unbonding.selfDelegation) {
             // calculate LNTN amount
             uint256 _liquidAmount;
@@ -1518,7 +1513,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _unbonding.revertingAmount = _amount;
             _validator.selfBondedStake += _amount;
         }
+        _unbonding.state = UnbondingReleaseState.reverted;
+        accounts[_unbonding.delegator] -= _amount;
         _validator.bondedStake += _amount;
+        emit ReleasedUnbondingReverted(_unbonding.delegatee, _unbonding.delegator, _unbonding.selfDelegation, _amount);
     }
 
     function _releaseUnbondingStake(uint256 _id) internal virtual {
