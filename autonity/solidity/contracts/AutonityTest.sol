@@ -55,7 +55,9 @@ contract AutonityTest is Autonity {
 
    function testComputeCommittee() public {
       _stakingOperations();
-      address[] memory voters = computeCommittee();
+       // TODO(lorenzo) fix properly
+       address[] memory voters;
+       (voters,,) = computeCommittee();
       address[] memory addresses = new address[](voters.length);
       uint256 totalStake = 0;
       uint256 lastStake = 0;

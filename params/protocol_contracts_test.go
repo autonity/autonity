@@ -1,16 +1,18 @@
 package params
 
 import (
-	"github.com/autonity/autonity/crypto/blst"
 	"math/big"
 	"net"
 	"testing"
 
+	"github.com/autonity/autonity/crypto/blst"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPrepareAutonityContract(t *testing.T) {
@@ -18,6 +20,7 @@ func TestPrepareAutonityContract(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
 		Operator:         common.HexToAddress("0xff"),
 		MaxCommitteeSize: uint64(committeeSize),
+		EpochPeriod:      40,
 	}
 
 	for i := 0; i < committeeSize; i++ {
@@ -39,13 +42,14 @@ func TestPrepareAutonityContract(t *testing.T) {
 		}
 		contractConfig.Validators = append(contractConfig.Validators, validator)
 	}
-	assert.NoError(t, contractConfig.Prepare())
+	assert.NoError(t, contractConfig.Prepare(30))
 }
 
 func TestPrepareAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
 		Operator:         common.HexToAddress("0xff"),
 		MaxCommitteeSize: 21,
+		EpochPeriod:      40,
 		Validators: []*Validator{
 			{
 				Treasury: common.Address{},
@@ -53,7 +57,7 @@ func TestPrepareAutonityContract_ParticipantHaveStake_Fail(t *testing.T) {
 			},
 		},
 	}
-	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
+	assert.Error(t, contractConfig.Prepare(30), "Expecting Prepare to return error")
 }
 
 func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
@@ -62,6 +66,7 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
 		Operator:         common.HexToAddress("0xff"),
 		MaxCommitteeSize: 21,
+		EpochPeriod:      40,
 		Validators: []*Validator{
 			{
 				NodeAddress: &address,
@@ -71,16 +76,53 @@ func TestPrepareAutonityContract_InvalidAddrOrEnode_Fail(t *testing.T) {
 			},
 		},
 	}
-	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
+	assert.Error(t, contractConfig.Prepare(30), "Expecting Prepare to return error")
 }
 
 func TestPrepareAutonityContract_GovernanceOperatorNotExisted_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
 		MaxCommitteeSize: 21,
+		EpochPeriod:      40,
 		Validators:       []*Validator{},
 	}
-	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
+	assert.Error(t, contractConfig.Prepare(30), "Expecting Prepare to return error")
 }
+
+func TestPrepareAutonityContract_EpochPeriod(t *testing.T) {
+	committeeSize := 21
+	contractConfig := AutonityContractGenesis{
+		Operator:         common.HexToAddress("0xff"),
+		MaxCommitteeSize: uint64(committeeSize),
+		EpochPeriod:      30,
+	}
+
+	for i := 0; i < committeeSize; i++ {
+		treasury, _ := crypto.GenerateKey()
+		nodeKey, _ := crypto.GenerateKey()
+		oracleKey, _ := crypto.GenerateKey()
+		nodeAddr := crypto.PubkeyToAddress(nodeKey.PublicKey)
+		enode := enode.NewV4(&nodeKey.PublicKey, net.ParseIP("127.0.0.1"), 30303, 0)
+		consensusKey, err := blst.RandKey()
+		require.NoError(t, err)
+
+		validator := &Validator{
+			Treasury:      crypto.PubkeyToAddress(treasury.PublicKey),
+			Enode:         enode.String(),
+			NodeAddress:   &nodeAddr,
+			OracleAddress: crypto.PubkeyToAddress(oracleKey.PublicKey),
+			BondedStake:   big.NewInt(1),
+			ConsensusKey:  consensusKey.PublicKey().Marshal(),
+		}
+		contractConfig.Validators = append(contractConfig.Validators, validator)
+	}
+	assert.Error(t, contractConfig.Prepare(30), "Expecting Prepare to return error")
+	assert.NoError(t, contractConfig.Prepare(20))
+	contractConfig.EpochPeriod = 40
+	assert.NoError(t, contractConfig.Prepare(30))
+	contractConfig.EpochPeriod = 400
+	assert.NoError(t, contractConfig.Prepare(30))
+}
+
 func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	treasury, _ := crypto.GenerateKey()
 	nodeKey, _ := crypto.GenerateKey()
@@ -91,6 +133,7 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 
 	contractConfig := &AutonityContractGenesis{
 		MaxCommitteeSize: 21,
+		EpochPeriod:      40,
 		Validators: []*Validator{
 			{
 				Treasury:      crypto.PubkeyToAddress(treasury.PublicKey),
@@ -101,14 +144,15 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, contractConfig.Prepare())
+	require.NoError(t, contractConfig.Prepare(30))
 	assert.NotNil(t, contractConfig.Validators[0].NodeAddress, "Failed to add user address")
 }
 
 func TestPrepareAutonityContract_CommitteSizeNotProvided_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Operator:   common.HexToAddress("0xff"),
-		Validators: []*Validator{},
+		Operator:    common.HexToAddress("0xff"),
+		EpochPeriod: 40,
+		Validators:  []*Validator{},
 	}
-	assert.Error(t, contractConfig.Prepare(), "Expecting Prepare to return error")
+	assert.Error(t, contractConfig.Prepare(30), "Expecting Prepare to return error")
 }

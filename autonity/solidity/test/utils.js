@@ -51,10 +51,16 @@ async function endEpoch(contract,operator,deployer){
 
   assert.equal(epochPeriod,(await contract.getEpochPeriod()).toNumber())
 
+  // TODO: a better solution would be to set the actual proposer for the height,
+  // but rn the proposer election code is outside the contracts.
+  // So for now, use first validator as proposer for the rewards computation
+  let committee = await contract.getCommittee()
+  let proposer = committee[0].nodeAddress
+
   // close epoch
   for (let i=0;i<(lastEpochBlock + epochPeriod) - currentHeight;i++) {
     let height = await web3.eth.getBlockNumber()
-    contract.finalize(false, [], {from: deployer})
+    contract.finalize([],proposer,web3.utils.toBN("1"),false, {from: deployer})
     await waitForNewBlock(height);
   }
   let newEpoch = (await contract.epochID()).toNumber()
@@ -248,7 +254,9 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   const nonStakableVesting = await NonStakableVesting.new(autonity.address, operator, {from: deployer})
 
   // omission accountability contract
-  const omissionAccountability = await OmissionAccountability.new(autonity.address, omissionAccountabilityConfig, {from:deployer})
+  let nodeAddresses = validators.map((item, index) => (item.nodeAddress));
+  let treasuries = validators.map((item, index) => (item.treasury));
+  const omissionAccountability = await OmissionAccountability.new(autonity.address, nodeAddresses, treasuries, omissionAccountabilityConfig, {from:deployer})
 
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});

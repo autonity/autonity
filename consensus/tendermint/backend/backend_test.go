@@ -541,7 +541,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 	genesis.Timestamp = 1
 
 	AppendValidators(genesis, nodeKeys, consensusKeys)
-	err := genesis.Config.AutonityContractConfig.Prepare()
+	err := genesis.Config.AutonityContractConfig.Prepare(genesis.Config.OmissionAccountabilityConfig.LookbackWindow)
 	if err != nil {
 		panic(err)
 	}

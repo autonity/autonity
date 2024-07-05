@@ -168,5 +168,22 @@
   "e4469437": "getLastEpochBlockOfHeight(uint256)",
   "b47c3eaa": "setOmissionAccountabilityContract(address)",
   "070e720a": "getCommitteeByHeight(uint256)",
-  "b45e2675": "getConsensusViewOfHeight(uint256)"
+  "b45e2675": "getConsensusViewOfHeight(uint256)",
+  "8aeb51c5": "finalize(address[],address,uint256,uint256,bool)",
+  "54a2f945": "finalize(address[],address,uint256,bool,uint256,uint256,bool)",
+  "e08b14ed": "setCommittee(address[])",
+  "9a11e0e6": "getInactivityScore(address)",
+  "7f5e2f11": "getScaleFactor()",
+  "05a1c767": "distributeProposerRewards()",
+  "dca23b41": "getProposerRewardsRate()",
+  "3b2f2fac": "finalize(address[],address,uint256,bool)",
+  "1400b437": "finalize(address[],address,uint256,bool,uint256,bool)",
+  "c1a48245": "finalize(address[],address,uint256,bool,bool)",
+  "e1e8cac6": "setLastEpochBlock(uint256)",
+  "a5980637": "getProposerRewardRate()",
+  "f56b5615": "COMMITTEE_FRACTION_PRECISION()",
+  "5115840b": "PROPOSER_REWARD_RATE_PRECISION()",
+  "eeb92233": "distributeProposerRewards(uint256)",
+  "d5baf908": "setCommittee(address[],address[])",
+  "5ca1809c": "getLookbackWindow()"
 }

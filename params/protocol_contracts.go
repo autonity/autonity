@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/p2p/enode"
@@ -72,15 +73,14 @@ var (
 	}
 
 	// todo: resolve the reasonable default settings
+	// values assume 10_000 as scaling factor
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
-		NegligibleThreshold:     1000, // 10%
-		OmissionLoopBackWindow:  30,   // 30 blocks
-		ActivityProofRewardRate: 1000, // 10%
-		MaxCommitteeSize:        1000,
-		PastPerformanceWeight:   5000, // 50%
-		InitialJailingPeriod:    300,  // 300 blocks
-		InitialProbationPeriod:  300,  // 300 blocks
-		InitialSlashingRate:     1000, // 10%
+		InactivityThreshold:    1000, // 10%
+		LookbackWindow:         30,   // 30 blocks
+		PastPerformanceWeight:  1000, // 10% // TODO(lorenzo) this has to be set so that if you do 100% offline in epoch x and 0% offline in epoch y, you still do not get slashed in epoch y
+		InitialJailingPeriod:   300,  // 300 blocks
+		InitialProbationPeriod: 300,  // 300 blocks // TODO(lorenzo) it is easier to express this in epochs
+		InitialSlashingRate:    1000, // 10%
 	}
 
 	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
@@ -118,6 +118,7 @@ type AutonityContractGenesis struct {
 	Treasury                common.Address        `json:"treasury"`
 	TreasuryFee             uint64                `json:"treasuryFee"`
 	DelegationRate          uint64                `json:"delegationRate"`
+	ProposerRewardRate      uint64                `json:"proposerRewardRate"`
 	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 }
@@ -136,25 +137,26 @@ type AccountabilityGenesis struct {
 
 type OmissionAccountabilityGenesis struct {
 	// Omission fault detection parameters
-	NegligibleThreshold     uint64 `json:"negligibleThreshold"`
-	OmissionLoopBackWindow  uint64 `json:"omissionLoopBackWindow"`
-	ActivityProofRewardRate uint64 `json:"activityProofRewardRate"`
-	MaxCommitteeSize        uint64 `json:"maxCommitteeSize"`
-	PastPerformanceWeight   uint64 `json:"pastPerformanceWeight"` // k belong to [0, ), we need precision field in contract.
-	InitialJailingPeriod    uint64 `json:"initialJailingPeriod"`
-	InitialProbationPeriod  uint64 `json:"initialProbationPeriod"`
-	InitialSlashingRate     uint64 `json:"initialSlashingRate"`
+	InactivityThreshold    uint64 `json:"inactivityThreshold"`
+	LookbackWindow         uint64 `json:"LookbackWindow"`
+	PastPerformanceWeight  uint64 `json:"pastPerformanceWeight"` // k belong to [0, 1), after scaling in the contract
+	InitialJailingPeriod   uint64 `json:"initialJailingPeriod"`
+	InitialProbationPeriod uint64 `json:"initialProbationPeriod"`
+	InitialSlashingRate    uint64 `json:"initialSlashingRate"`
 }
 
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.
 // It returns an error if the configuration is invalid.
-func (g *AutonityContractGenesis) Prepare() error {
+func (g *AutonityContractGenesis) Prepare(lookbackWindow uint64) error {
 	if g.Bytecode == nil && g.ABI != nil || g.Bytecode != nil && g.ABI == nil {
 		return errors.New("autonity contract abi or bytecode missing")
 	}
 	if g.Bytecode == nil && g.ABI == nil {
 		g.ABI = &generated.AutonityAbi
 		g.Bytecode = generated.AutonityBytecode
+	}
+	if g.EpochPeriod <= tendermint.DeltaBlocks+lookbackWindow-1 {
+		return errors.New("Epoch period cannot be lower or equal than DELTA+lookbackWindow-1")
 	}
 	if g.MaxCommitteeSize == 0 {
 		return errors.New("invalid max committee size")

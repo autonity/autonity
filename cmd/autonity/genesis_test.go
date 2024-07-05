@@ -75,6 +75,15 @@ var genesisTest = struct {
 					  "jailFactor": 60,
 					  "slashingRatePrecision": 10000
 				},
+				"omissionAccountability": {
+                      "inactivityThreshold": 1000,
+                      "lookbackWindow": 20,  
+					  "pastPerformanceWeight": 1000,
+					  "initialJailingPeriod": 300, 
+					  "initialProbationPeriod": 300, 
+					  "initialSlashingRate": 1000,
+					  "slashingRatePrecision": 10000
+				},
 				"chainId" : 1
 			}
 		}`,

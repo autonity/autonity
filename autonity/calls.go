@@ -60,7 +60,7 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployNonStakableVestingContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
 	}
-	if err := DeployOmissionAccountabilityContract(genesisConfig.OmissionAccountabilityConfig, evmContracts); err != nil {
+	if err := DeployOmissionAccountabilityContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the ommission accountability contract: %w", err)
 	}
 	return nil
@@ -278,21 +278,29 @@ func DeployAccountabilityContract(config *params.AccountabilityGenesis, evmContr
 	return nil
 }
 
-func DeployOmissionAccountabilityContract(config *params.OmissionAccountabilityGenesis, evmContracts *GenesisEVMContracts) error {
+func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	config := genesisConfig.OmissionAccountabilityConfig
 	if config == nil {
 		config = params.DefaultOmissionAccountabilityConfig
 	}
 	conf := OmissionAccountabilityConfig{
-		NegligibleThreshold:     new(big.Int).SetUint64(config.NegligibleThreshold),
-		OmissionLoopBackWindow:  new(big.Int).SetUint64(config.OmissionLoopBackWindow),
-		ActivityProofRewardRate: new(big.Int).SetUint64(config.ActivityProofRewardRate),
-		MaxCommitteeSize:        new(big.Int).SetUint64(config.MaxCommitteeSize),
-		PastPerformanceWeight:   new(big.Int).SetUint64(config.PastPerformanceWeight),
-		InitialJailingPeriod:    new(big.Int).SetUint64(config.InitialJailingPeriod),
-		InitialProbationPeriod:  new(big.Int).SetUint64(config.InitialProbationPeriod),
-		InitialSlashingRate:     new(big.Int).SetUint64(config.InitialSlashingRate),
+		InactivityThreshold:    new(big.Int).SetUint64(config.InactivityThreshold),
+		LookbackWindow:         new(big.Int).SetUint64(config.LookbackWindow),
+		PastPerformanceWeight:  new(big.Int).SetUint64(config.PastPerformanceWeight),
+		InitialJailingPeriod:   new(big.Int).SetUint64(config.InitialJailingPeriod),
+		InitialProbationPeriod: new(big.Int).SetUint64(config.InitialProbationPeriod),
+		InitialSlashingRate:    new(big.Int).SetUint64(config.InitialSlashingRate),
+		SlashingRatePrecision:  new(big.Int).SetUint64(genesisConfig.AccountabilityConfig.SlashingRatePrecision), // same as accountability
 	}
-	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, conf, generated.OmissionAccountabilityBytecode)
+
+	nodeAddresses := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+	treasuries := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+	for _, val := range genesisConfig.AutonityContractConfig.Validators {
+		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
+		treasuries = append(treasuries, val.Treasury)
+	}
+
+	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, nodeAddresses, treasuries, conf, generated.OmissionAccountabilityBytecode)
 	if err != nil {
 		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
 	}
@@ -310,6 +318,8 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			DelegationRate:          new(big.Int).SetUint64(genesisConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(genesisConfig.InitialInflationReserve),
+			ProposerRewardRate:      new(big.Int).SetUint64(genesisConfig.ProposerRewardRate),
+			WithheldRewardsPool:     genesisConfig.Treasury, //TODO(lorenzo) decide if fine
 			TreasuryAccount:         genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
@@ -633,10 +643,10 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 	return epochPeriod, nil
 }
 
-func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header, isProposerFaulty bool, IDs []*big.Int) (bool, types.Committee, error) {
+func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header, absentees []common.Address, proposer common.Address, proposerEffort *big.Int, isProposerFaulty bool) (bool, types.Committee, error) {
 	var updateReady bool
 	var committee types.Committee
-	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}, isProposerFaulty, IDs); err != nil {
+	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}, absentees, proposer, proposerEffort, isProposerFaulty); err != nil {
 		return false, nil, err
 	}
 

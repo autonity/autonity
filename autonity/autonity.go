@@ -331,7 +331,7 @@ func (c *AutonityContract) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB, isProposerFaulty bool, IDs []*big.Int) (types.Committee, *types.Receipt, error) {
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB, absentees []common.Address, proposer common.Address, proposerEffort *big.Int, isProposerFaulty bool) (types.Committee, *types.Receipt, error) {
 	if header.Number.Uint64() == 0 {
 		return nil, nil, nil
 	}
@@ -339,8 +339,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(params.AutonityContractAddress),
 		"block", header.Number.Uint64())
-
-	upgradeContract, committee, err := c.callFinalize(statedb, header, isProposerFaulty, IDs)
+	upgradeContract, committee, err := c.callFinalize(statedb, header, absentees, proposer, proposerEffort, isProposerFaulty)
 
 	if err != nil {
 		return nil, nil, err
@@ -618,8 +617,8 @@ func (c *GenesisEVMContracts) DeployAccountabilityContract(autonityAddress commo
 	return c.AccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
 }
 
-func (c *GenesisEVMContracts) DeployOmissionAccountabilityContract(autonityAddress common.Address, config OmissionAccountabilityConfig, bytecode []byte) error {
-	return c.OmissionAccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
+func (c *GenesisEVMContracts) DeployOmissionAccountabilityContract(autonityAddress common.Address, nodeAddresses []common.Address, treasuries []common.Address, config OmissionAccountabilityConfig, bytecode []byte) error {
+	return c.OmissionAccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, nodeAddresses, treasuries, config)
 }
 
 func (c *GenesisEVMContracts) Mint(address common.Address, amount *big.Int) error {

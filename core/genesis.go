@@ -308,7 +308,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		return nil, fmt.Errorf("autonity config section missing in genesis")
 	}
 	g.setDefaultHardforks()
-	if err := g.Config.AutonityContractConfig.Prepare(); err != nil {
+	if err := g.Config.AutonityContractConfig.Prepare(g.Config.OmissionAccountabilityConfig.LookbackWindow); err != nil {
 		return nil, err
 	}
 	if g.Difficulty == nil {
@@ -615,8 +615,9 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		MaxCommitteeSize:        1,
 		BlockPeriod:             1,
 		UnbondingPeriod:         120,
-		EpochPeriod:             30,               //seconds
+		EpochPeriod:             60,               //seconds
 		DelegationRate:          1200,             // 12%
+		ProposerRewardRate:      1000,             // 10%
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              10000000000,
 		Operator:                faucet.Address,
@@ -632,7 +633,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 			},
 		},
 	}
-	if err := testAutonityContractConfig.Prepare(); err != nil {
+	if err := testAutonityContractConfig.Prepare(params.DefaultOmissionAccountabilityConfig.LookbackWindow); err != nil {
 		log.Error("Error preparing contract, err:", err)
 	}
 

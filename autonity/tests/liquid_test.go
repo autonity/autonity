@@ -18,9 +18,9 @@ func TestClaimRewards(t *testing.T) {
 	// Test 1 validator 1 staker
 	r := setup(t, nil)
 	// Mint Newton to some few accounts
-	r.autonity.Mint(operator, staker1, params.Ntn10000)
-	r.autonity.Mint(operator, staker2, params.Ntn10000)
-	r.autonity.Mint(operator, staker3, params.Ntn10000)
+	r.autonity.Mint(r.operator, staker1, params.Ntn10000)
+	r.autonity.Mint(r.operator, staker2, params.Ntn10000)
+	r.autonity.Mint(r.operator, staker3, params.Ntn10000)
 	r.autonity.Bond(&runOptions{origin: staker1}, r.committee.validators[0].NodeAddress, params.Ntn10000)
 	r.autonity.Bond(&runOptions{origin: staker2}, r.committee.validators[1].NodeAddress, params.Ntn10000)
 	r.autonity.Bond(&runOptions{origin: staker3}, r.committee.validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))

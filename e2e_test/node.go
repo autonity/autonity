@@ -844,7 +844,7 @@ func Genesis(users []*gengen.Validator, options ...gengen.GenesisOption) (*core.
 		return nil, err
 	}
 	// Make the tests fast
-	if err := g.Config.AutonityContractConfig.Prepare(); err != nil {
+	if err := g.Config.AutonityContractConfig.Prepare(g.Config.OmissionAccountabilityConfig.LookbackWindow); err != nil {
 		return nil, err
 	}
 	return g, nil

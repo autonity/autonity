@@ -102,6 +102,7 @@ var (
 			Treasury:                common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
 			TreasuryFee:             10_000_000_000_000_000,
 			DelegationRate:          1000,
+			ProposerRewardRate:      1000, // 10% TODO(lorenzo) fix correct value
 			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			Validators: []*Validator{
 				// Ctl-1
@@ -462,6 +463,7 @@ var (
 			TreasuryFee:             10_000_000_000_000_000,
 			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			DelegationRate:          1000,
+			ProposerRewardRate:      1000, // 10% TODO(lorenzo) fix correct value
 			Validators: []*Validator{{
 				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
 				OracleAddress: common.HexToAddress("0x4D8387E38F42084aa24CE7DA137222786fF23A3E"),
@@ -737,8 +739,9 @@ var (
 		MaxCommitteeSize:        21,
 		BlockPeriod:             1,
 		UnbondingPeriod:         120,
-		EpochPeriod:             30,
+		EpochPeriod:             40,   // needs to be > DELTA+lookback-1
 		DelegationRate:          1200, // 12%
+		ProposerRewardRate:      1000, // 10%
 		Treasury:                common.Address{120},
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              InitialBaseFee,
@@ -806,9 +809,9 @@ func init() {
 		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)
 	}
-	TestAutonityContractConfig.Prepare()
-	PiccadillyChainConfig.AutonityContractConfig.Prepare()
-	BakerlooChainConfig.AutonityContractConfig.Prepare()
+	TestAutonityContractConfig.Prepare(DefaultOmissionAccountabilityConfig.LookbackWindow)
+	PiccadillyChainConfig.AutonityContractConfig.Prepare(PiccadillyChainConfig.OmissionAccountabilityConfig.LookbackWindow)
+	BakerlooChainConfig.AutonityContractConfig.Prepare(BakerlooChainConfig.OmissionAccountabilityConfig.LookbackWindow)
 }
 
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and

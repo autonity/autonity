@@ -20,17 +20,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/common/hexutil"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/ethdb"
-	"github.com/autonity/autonity/metrics"
-	"github.com/autonity/autonity/node"
-	"github.com/davecgh/go-spew/spew"
 	"os"
 	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/node"
+
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
@@ -39,7 +43,6 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -181,7 +184,7 @@ func initGenesis(ctx *cli.Context) error {
 		utils.Fatalf("No Oracle Contract config section in genesis.json")
 	}
 
-	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
+	if err := genesis.Config.AutonityContractConfig.Prepare(genesis.Config.OmissionAccountabilityConfig.LookbackWindow); err != nil {
 		spew.Dump(genesis.Config.AutonityContractConfig)
 		utils.Fatalf("autonity contract section is invalid. error:%v", err.Error())
 	}

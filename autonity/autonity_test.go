@@ -459,6 +459,8 @@ func autonityTestConfig() AutonityConfig {
 			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
+			ProposerRewardRate:      new(big.Int).SetUint64(params.TestAutonityContractConfig.ProposerRewardRate),
+			WithheldRewardsPool:     params.TestAutonityContractConfig.Operator,
 			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
 		},
 		Contracts: AutonityContracts{
@@ -529,7 +531,10 @@ func benchmarkWithGas(
 	b.Log(1.0 * gasUsed / uint64(b.N))
 }
 
-func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, enodes []string, totalStake *big.Int) error {
+func isSorted(voters []common.Address, nodeAddresses []common.Address, treasuries []common.Address, committeeMembers []types.CommitteeMember, validators []params.Validator, enodes []string, totalStake *big.Int) error {
+	if len(voters) != len(nodeAddresses) || len(voters) != len(treasuries) {
+		return fmt.Errorf("Mismatch between addresses length")
+	}
 	if len(voters) > len(validators) {
 		return fmt.Errorf("More voters than validators")
 	}
@@ -574,6 +579,12 @@ func isVotersSorted(voters []common.Address, committeeMembers []types.CommitteeM
 		if voters[i] != validators[idx].OracleAddress {
 			return fmt.Errorf("Oracle address mismatch")
 		}
+		if nodeAddresses[i] != *validators[idx].NodeAddress {
+			return fmt.Errorf("Node address mismatch")
+		}
+		if treasuries[i] != validators[idx].Treasury {
+			return fmt.Errorf("Treasury account mismatch")
+		}
 		if *validators[idx].State != uint8(0) {
 			return fmt.Errorf("Committee member not active")
 		}
@@ -609,8 +620,10 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	require.NoError(t, err)
 	res, err := callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
 	require.NoError(t, err)
-	voters := make([]common.Address, committeeSize)
-	err = contractAbi.UnpackIntoInterface(&voters, "computeCommittee", res)
+	addresses, err := contractAbi.Unpack("computeCommittee", res)
+	voters := addresses[0].([]common.Address)
+	nodeAddresses := addresses[1].([]common.Address)
+	treasuries := addresses[2].([]common.Address)
 	require.NoError(t, err)
 	res, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "getCommittee")
 	require.NoError(t, err)
@@ -633,6 +646,6 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	totalStake := big.NewInt(0)
 	err = contractAbi.UnpackIntoInterface(&totalStake, "getEpochTotalBondedStake", res)
 	require.NoError(t, err)
-	err = isVotersSorted(voters, members, validators, enodes, totalStake)
+	err = isSorted(voters, nodeAddresses, treasuries, members, validators, enodes, totalStake)
 	require.NoError(t, err)
 }

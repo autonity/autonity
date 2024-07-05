@@ -141,7 +141,7 @@ func loadChain(chainfile string, genesis string) (*Chain, error) {
 	if err != nil {
 		return nil, err
 	}
-	gen.Config.AutonityContractConfig.Prepare()
+	gen.Config.AutonityContractConfig.Prepare(gen.Config.OmissionAccountabilityConfig.LookbackWindow)
 	gblock, err := gen.ToBlock(nil)
 	if err != nil {
 		return nil, err
