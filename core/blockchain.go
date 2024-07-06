@@ -100,14 +100,15 @@ var (
 )
 
 const (
-	backwardEpochLimit  = 10
-	bodyCacheLimit      = 256
-	blockCacheLimit     = 256
-	receiptsCacheLimit  = 32
-	txLookupCacheLimit  = 1024
-	maxFutureBlocks     = 256
-	maxTimeFutureBlocks = 30
-	TriesInMemory       = 128
+	backwardEpochLimit   = 10
+	bodyCacheLimit       = 256
+	epochBlockCacheLimit = 1024
+	blockCacheLimit      = 256
+	receiptsCacheLimit   = 32
+	txLookupCacheLimit   = 1024
+	maxFutureBlocks      = 256
+	maxTimeFutureBlocks  = 30
+	TriesInMemory        = 128
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
@@ -210,13 +211,14 @@ type BlockChain struct {
 	currentBlock      atomic.Value // Current head of the block chain
 	currentFastBlock  atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache    state.Database // State database to reuse between imports (contains state cache)
-	bodyCache     *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache  *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	receiptsCache *lru.Cache     // Cache for the most recent receipts per block
-	blockCache    *lru.Cache     // Cache for the most recent entire blocks
-	txLookupCache *lru.Cache     // Cache for the most recent transaction lookup data.
-	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
+	stateCache      state.Database // State database to reuse between imports (contains state cache)
+	bodyCache       *lru.Cache     // Cache for the most recent block bodies
+	bodyRLPCache    *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
+	receiptsCache   *lru.Cache     // Cache for the most recent receipts per block
+	blockCache      *lru.Cache     // Cache for the most recent entire blocks
+	epochBlockCache *lru.Cache     // Cache for the most recent height's epoch block
+	txLookupCache   *lru.Cache     // Cache for the most recent transaction lookup data.
+	futureBlocks    *lru.Cache     // future blocks are blocks added for later processing
 
 	wg            sync.WaitGroup //
 	quit          chan struct{}  // shutdown signal, closed in Stop.
@@ -257,6 +259,7 @@ func NewBlockChain(db ethdb.Database,
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	receiptsCache, _ := lru.New(receiptsCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
+	epochBlockCache, _ := lru.New(epochBlockCacheLimit)
 	txLookupCache, _ := lru.New(txLookupCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 
@@ -270,18 +273,19 @@ func NewBlockChain(db ethdb.Database,
 			Journal:   cacheConfig.TrieCleanJournal,
 			Preimages: cacheConfig.Preimages,
 		}),
-		quit:          make(chan struct{}),
-		chainmu:       syncx.NewClosableMutex(),
-		bodyCache:     bodyCache,
-		bodyRLPCache:  bodyRLPCache,
-		receiptsCache: receiptsCache,
-		blockCache:    blockCache,
-		txLookupCache: txLookupCache,
-		futureBlocks:  futureBlocks,
-		engine:        engine,
-		vmConfig:      vmConfig,
-		senderCacher:  senderCacher,
-		log:           log,
+		quit:            make(chan struct{}),
+		chainmu:         syncx.NewClosableMutex(),
+		bodyCache:       bodyCache,
+		bodyRLPCache:    bodyRLPCache,
+		receiptsCache:   receiptsCache,
+		epochBlockCache: epochBlockCache,
+		blockCache:      blockCache,
+		txLookupCache:   txLookupCache,
+		futureBlocks:    futureBlocks,
+		engine:          engine,
+		vmConfig:        vmConfig,
+		senderCacher:    senderCacher,
+		log:             log,
 	}
 	bc.forker = NewForkChoice(bc, shouldPreserve)
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
@@ -734,6 +738,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 	bc.bodyRLPCache.Purge()
 	bc.receiptsCache.Purge()
 	bc.blockCache.Purge()
+	bc.epochBlockCache.Purge()
 	bc.txLookupCache.Purge()
 	bc.futureBlocks.Purge()
 
@@ -2467,12 +2472,17 @@ func (bc *BlockChain) ProtocolContracts() *autonity.ProtocolContracts {
 // Accountability module. We need to resolve message's committee by height as delays happens in the network on
 // epoch rotation.
 func (bc *BlockChain) CommitteeForConsensusMsg(height uint64) (*types.Committee, error) {
+	if epochHead, ok := bc.epochBlockCache.Get(height); ok {
+		return epochHead.(*types.Header).Committee(), nil
+	}
+
 	epochHead := bc.LatestEpoch()
 	if epochHead == nil {
 		panic("missing epoch head, chain DB might corrupted.")
 	}
 
 	if height > epochHead.Number.Uint64() && height <= epochHead.NextEpochBlock().Uint64() { //nolint
+		bc.epochBlockCache.Add(height, epochHead)
 		return epochHead.Committee(), nil
 	}
 
@@ -2483,13 +2493,14 @@ func (bc *BlockChain) CommitteeForConsensusMsg(height uint64) (*types.Committee,
 	if height <= epochHead.Number.Uint64() {
 		// do a backward search for committee.
 		curEpoch := epochHead
-		for i := 0; i < backwardEpochLimit; i++ {
+		for i := 0; i < backwardEpochLimit && !curEpoch.IsGenesis(); i++ {
 			lastEpoch := bc.GetHeaderByNumber(curEpoch.ParentEpochBlock().Uint64())
 			if lastEpoch == nil {
 				return nil, ErrHeightTooOld
 			}
 
 			if height > lastEpoch.Number.Uint64() && height <= lastEpoch.NextEpochBlock().Uint64() {
+				bc.epochBlockCache.Add(height, lastEpoch)
 				return lastEpoch.Committee(), nil
 			}
 			curEpoch = lastEpoch
