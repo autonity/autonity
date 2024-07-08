@@ -31,7 +31,7 @@ func (p *Broadcast) Execute(packetId uint64, data []byte, maxPeers int) error {
 		}
 		wg.Add(1)
 		go func() {
-			err := peer.DisseminateRequest(p.Code, packetId, 0, p.State.Id, uint64(maxPeers), data)
+			err := peer.DisseminateRequest(p.Code, packetId, 0, p.State.Id, uint64(maxPeers), data, false, 0, 0)
 			if err != nil {
 				log.Error("DisseminateRequest err:", err)
 			}
@@ -43,7 +43,7 @@ func (p *Broadcast) Execute(packetId uint64, data []byte, maxPeers int) error {
 	return nil
 }
 
-func (p *Broadcast) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
+func (p *Broadcast) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	// Simple broadcast - nothing to propagate.
 	return nil
 }
@@ -54,7 +54,7 @@ func (p *BroadcastBlocking) Execute(packetId uint64, data []byte, maxPeers int) 
 		if peer == nil {
 			continue
 		}
-		err := peer.DisseminateRequest(p.Code, packetId, 0, p.State.Id, uint64(maxPeers), data)
+		err := peer.DisseminateRequest(p.Code, packetId, 0, p.State.Id, uint64(maxPeers), data, false, 0, 0)
 		if err != nil {
 			log.Error("DisseminateRequest err:", err)
 		}
@@ -62,6 +62,6 @@ func (p *BroadcastBlocking) Execute(packetId uint64, data []byte, maxPeers int) 
 	return nil
 }
 
-func (p *BroadcastBlocking) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
+func (p *BroadcastBlocking) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	return nil
 }

@@ -33,7 +33,7 @@ func (l *LowRTT) Execute(packetId uint64, data []byte, maxPeers int) error {
 	})
 
 	for _, p := range sortedPeers {
-		err := p.DisseminateRequest(l.Code, packetId, 0, l.State.Id, uint64(maxPeers), data)
+		err := p.DisseminateRequest(l.Code, packetId, 0, l.State.Id, uint64(maxPeers), data, false, 0, 0)
 		if err != nil {
 			log.Error("DisseminateRequest err:", err)
 		}
@@ -41,7 +41,7 @@ func (l *LowRTT) Execute(packetId uint64, data []byte, maxPeers int) error {
 	return nil
 }
 
-func (l *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
+func (l *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	// randomDissemination is defined in random.go
-	return l.randomDissemination(l.RandomRatio, requestId, data, int(maxPeers), originalSender, int(hop+1))
+	return l.randomDissemination(l.RandomRatio, requestId, data, int(maxPeers), originalSender, int(hop+1), partial, seqNum, total)
 }

@@ -347,6 +347,9 @@ func control(c *cli.Context) error {
 func setup(c *cli.Context) error {
 	log.Info("New network setup")
 	configFileName := c.String(configFlag.Name)
+	if _, err := os.Stat(configFileName); err == nil {
+		return fmt.Errorf("config file:%s exists, remove old config and retry setup", configFileName)
+	}
 	n := c.Int(peersFlag.Name)
 	if n <= 0 {
 		fmt.Printf("--%s flag not provided or invalid.\n", peersFlag.Name)
@@ -521,6 +524,11 @@ func cleanup(c *cli.Context) error {
 	}
 
 	wg.Wait()
+	err = os.Remove(c.String(configFlag.Name))
+	if err != nil {
+		log.Error("config removal failed", "error", err)
+	}
+	log.Info("removed config", "file", c.String(configFlag.Name))
 	log.Info("Cluster cleaned up", "duration(s)", time.Now().Sub(now).Seconds())
 	return nil
 }

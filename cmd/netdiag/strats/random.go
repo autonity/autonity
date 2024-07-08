@@ -40,10 +40,10 @@ func init() {
 }
 
 func (p *Random) Execute(packetId uint64, data []byte, maxPeers int) error {
-	return p.randomDissemination(p.RandomPC, packetId, data, maxPeers, uint64(p.State.Id), 1)
+	return p.randomDissemination(p.RandomPC, packetId, data, maxPeers, uint64(p.State.Id), 1, false, 0, 0)
 }
 
-func (p *BaseStrategy) randomDissemination(randomPc int, packetId uint64, data []byte, maxPeers int, originalSender uint64, hop int) error {
+func (p *BaseStrategy) randomDissemination(randomPc int, packetId uint64, data []byte, maxPeers int, originalSender uint64, hop int, partial bool, seqNum, total uint16) error {
 	sent := map[int]struct{}{}
 	numRecipients := min(1, (maxPeers*randomPc)/100)
 	for i := 0; i < numRecipients; i++ {
@@ -60,19 +60,19 @@ func (p *BaseStrategy) randomDissemination(randomPc int, packetId uint64, data [
 		}
 		sent[peerId] = struct{}{}
 		// TODO : test async!
-		if err := target.DisseminateRequest(p.Code, packetId, uint8(hop), originalSender, uint64(maxPeers), data); err != nil {
+		if err := target.DisseminateRequest(p.Code, packetId, uint8(hop), originalSender, uint64(maxPeers), data, partial, seqNum, total); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *Random) HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
+func (p *Random) HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	if hop == 1 {
-		return p.randomDissemination(p.RandomPC, packetId, data, int(maxPeers), originalSender, 0)
+		return p.randomDissemination(p.RandomPC, packetId, data, int(maxPeers), originalSender, 0, partial, seqNum, total)
 	}
 	if hop == 0 && p.Hop0 {
-		return p.randomDissemination(p.RandomPC, packetId, data, int(maxPeers), originalSender, 0)
+		return p.randomDissemination(p.RandomPC, packetId, data, int(maxPeers), originalSender, 0, partial, seqNum, total)
 	}
 	return nil
 }

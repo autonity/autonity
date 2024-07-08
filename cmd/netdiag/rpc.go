@@ -603,6 +603,7 @@ func (r *ResultDissemination) String() string {
 	})
 	n := len(results)
 	fmt.Fprintf(&builder, "min: %s, median:%s 2/3rd:%s max: %s\n", results[0].ReceptionTime.Sub(r.StartTime), results[n/2].ReceptionTime.Sub(r.StartTime), results[(2*n)/3].ReceptionTime.Sub(r.StartTime), results[n-1].ReceptionTime.Sub(r.StartTime))
+	fmt.Fprintf(&builder, "total reports collected: %d\n ", len(results))
 
 	return builder.String()
 }
@@ -739,7 +740,8 @@ func (p *P2POp) WarmUp(args *ArgWarmUp, reply *ResultDissemination) error {
 		recipients = len(p.engine.peers)
 	}
 	reply.MaxPeers = recipients
-	packetId := rand2.Uint64()
+	rnd := rand2.New(rand2.NewSource(time.Now().UnixNano()))
+	packetId := rnd.Uint64()
 	p.engine.state.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
 	log.Info("Started Dissemination", "size", reply.Size, "peers", recipients, "packetId", packetId)
 
@@ -764,7 +766,8 @@ func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultDissemination) er
 		recipients = len(p.engine.peers)
 	}
 	reply.MaxPeers = recipients
-	packetId := rand2.Uint64()
+	rnd := rand2.New(rand2.NewSource(time.Now().UnixNano()))
+	packetId := rnd.Uint64()
 	p.engine.state.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
 	log.Info("Started Dissemination", "size", reply.Size, "peers", recipients, "packetId", packetId)
 

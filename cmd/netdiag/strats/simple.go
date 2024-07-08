@@ -45,7 +45,7 @@ func (p *Simple) Execute(packetId uint64, data []byte, maxPeers int) error {
 			// - no suitable target found in the group to deal with
 			// - last group size
 		}
-		err := target.DisseminateRequest(p.Code, packetId, 1, uint64(p.State.Id), uint64(maxPeers), data)
+		err := target.DisseminateRequest(p.Code, packetId, 1, uint64(p.State.Id), uint64(maxPeers), data, false, 0, 0)
 		if err != nil {
 			return err
 		}
@@ -53,7 +53,7 @@ func (p *Simple) Execute(packetId uint64, data []byte, maxPeers int) error {
 	return nil
 }
 
-func (p *Simple) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
+func (p *Simple) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	if hop == 1 {
 		// need to disseminate in the group
 		allPeers := make([]Peer, maxPeers)
@@ -65,7 +65,7 @@ func (p *Simple) HandlePacket(requestId uint64, hop uint8, originalSender uint64
 			if group[i] == nil {
 				continue
 			}
-			err := group[i].DisseminateRequest(p.Code, requestId, 0, originalSender, maxPeers, data)
+			err := group[i].DisseminateRequest(p.Code, requestId, 0, originalSender, maxPeers, data, partial, seqNum, total)
 			if err != nil {
 				return err
 			}

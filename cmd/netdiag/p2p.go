@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -60,28 +61,65 @@ type DisseminatePacket struct {
 	OriginalSender uint64
 	MaxPeers       uint64
 	Hop            uint8
+	Partial        bool
+	Seq            uint16
+	Total          uint16
 	Data           []byte
 }
 
-func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error {
-	packet := DisseminatePacket{
-		StrategyCode:   code,
-		RequestId:      requestId,
-		OriginalSender: originalSender,
-		MaxPeers:       maxPeers,
-		Hop:            hop,
-		Data:           data,
+func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
+	var chunks []DisseminatePacket
+	maxSize := 50_000
+	if p.IsUDP() && len(data) > maxSize {
+		snum := 0
+		total := len(data) / maxSize
+		if len(data)%maxSize > 0 {
+			total++
+		}
+		for i := 0; i < len(data); i += maxSize {
+			packet := DisseminatePacket{
+				StrategyCode:   code,
+				RequestId:      requestId,
+				OriginalSender: originalSender,
+				MaxPeers:       maxPeers,
+				Hop:            hop,
+				Data:           data[i:min(i+maxSize, len(data))],
+				Partial:        true,
+				Seq:            uint16(snum),
+				Total:          uint16(total),
+			}
+			snum++
+			chunks = append(chunks, packet)
+		}
+	} else {
+		packet := DisseminatePacket{
+			StrategyCode:   code,
+			RequestId:      requestId,
+			OriginalSender: originalSender,
+			MaxPeers:       maxPeers,
+			Hop:            hop,
+			Data:           data,
+			Partial:        partial,
+			Seq:            seqNum,
+			Total:          total,
+		}
+		chunks = append(chunks, packet)
 	}
+
 	if p == nil {
 		log.Error("p is nil ??")
 	}
-	fmt.Println("[DISSEMINATE] >>", p.ip, "|", "maxPeers", maxPeers, "originalSender", originalSender)
-	go func() {
-		err := p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
-		if err != nil {
-			log.Error("Disseminate Request", "err", err)
-		}
-	}()
+
+	for _, chunk := range chunks {
+		packet := chunk
+		fmt.Println("[DISSEMINATE] >>", p.ip, "|", "maxPeers", maxPeers, "originalSender", originalSender, "chunkID", chunk.Seq)
+		go func() {
+			err := p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
+			if err != nil {
+				log.Error("Disseminate Request", "err", err)
+			}
+		}()
+	}
 
 	return nil
 }
@@ -262,33 +300,74 @@ type DisseminateReportPacket struct {
 	Time      uint64
 }
 
+func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
+
+	chunkInfo, ok := e.state.ReceivedPackets[packet.RequestId]
+	if ok {
+		chunkInfo.SeqNum[packet.Seq] = math.MaxInt
+		chunkInfo.Partial = false
+		for _, num := range chunkInfo.SeqNum {
+			if num != math.MaxInt { // none of the slots in seqNum array should be empty, for a complete packet reception
+				chunkInfo.Partial = true
+				break
+			}
+		}
+		e.state.ReceivedPackets[packet.RequestId] = chunkInfo
+	} else {
+		chunkInfo := strats.ChunkInfo{Total: int(packet.Total),
+			Partial: packet.Partial,
+			SeqNum:  make([]int, max(packet.Total, 1)),
+		}
+		// use max.Int to mark the seq as received
+		chunkInfo.SeqNum[packet.Seq] = math.MaxInt
+		e.state.ReceivedPackets[packet.RequestId] = chunkInfo
+	}
+	return nil
+}
+
 func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	var packet DisseminatePacket
 	if err := rlp.Decode(data, &packet); err != nil {
 		return err
 	}
+
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "ORIGIN", packet.OriginalSender, "HOP", packet.Hop)
 	// check if first time received.
-	if _, ok := e.state.ReceivedPackets[packet.RequestId]; ok {
-		// do nothing
-		return nil
-	}
-	e.state.ReceivedPackets[packet.RequestId] = struct{}{}
+	if pktInfo, ok := e.state.ReceivedPackets[packet.RequestId]; ok {
+		// check if the seqNum is already received
+		if len(pktInfo.SeqNum) <= int(packet.Seq) {
+			log.Crit("invalid seqNum", "packet Info", pktInfo, "received packet", packet)
+		}
 
-	if err := e.strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.MaxPeers, packet.Data); err != nil {
+		if !packet.Partial || (packet.Partial && pktInfo.SeqNum[packet.Seq] == math.MaxInt) {
+			// do nothing
+			return nil
+		}
+	}
+	cacheDisseminatePacket(e, &packet)
+
+	if err := e.strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.MaxPeers, packet.Data, packet.Partial, packet.Seq, packet.Total); err != nil {
 		log.Error("Error handling packet: ", err)
 	}
 	if e.peers[packet.OriginalSender] == nil {
 		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
 		return nil
 	}
-	return p2p.Send(e.peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
-		RequestId: packet.RequestId,
-		Sender:    uint64(e.peerToId(p)),
-		Hop:       packet.Hop,
-		Time:      now,
-	}) // should we ask for ACK?
+	pktInfo := e.state.ReceivedPackets[packet.RequestId]
+	// all packets related to this requestID has been received
+	if !pktInfo.Partial {
+		log.Info("complete packet received, sending report", "total chunks", len(pktInfo.SeqNum))
+		return p2p.Send(e.peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
+			RequestId: packet.RequestId,
+			Sender:    uint64(e.peerToId(p)),
+			Hop:       packet.Hop,
+			Time:      now,
+		}) // should we ask for ACK?
+	} else {
+		log.Info("partial packet received", "chunks", pktInfo.SeqNum, "current chunk", packet.Seq)
+	}
+	return nil
 }
 
 func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {

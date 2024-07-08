@@ -29,11 +29,17 @@ func registerStrategy(name string, newFn func(base BaseStrategy) Strategy) {
 	StrategyRegistry = append(StrategyRegistry, newRegistration)
 }
 
+type ChunkInfo struct {
+	Partial bool
+	Total   int
+	SeqNum  []int
+}
+
 // State is a shared object amongst strategies.
 type State struct {
 	Id uint64
 	// Those need to be protected
-	ReceivedPackets map[uint64]struct{}
+	ReceivedPackets map[uint64]ChunkInfo
 	ReceivedReports map[uint64]chan *IndividualDisseminateResult
 	AverageRTT      []time.Duration
 }
@@ -41,7 +47,7 @@ type State struct {
 func NewState(id uint64, peers int) *State {
 	return &State{
 		Id:              id,
-		ReceivedPackets: make(map[uint64]struct{}),
+		ReceivedPackets: make(map[uint64]ChunkInfo),
 		ReceivedReports: make(map[uint64]chan *IndividualDisseminateResult),
 		AverageRTT:      make([]time.Duration, peers),
 	}
@@ -56,7 +62,7 @@ func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDissem
 		recipients--
 	}
 
-	timer := time.NewTimer(5 * time.Second)
+	timer := time.NewTimer(10 * time.Second)
 
 LOOP:
 	for i := 0; i < recipients; i++ {
@@ -88,11 +94,11 @@ type Strategy interface {
 	// The strategy should disseminate packets with recipient from id = 0 to id = maxPeers-1
 	Execute(packetId uint64, data []byte, maxPeers int) error
 	// HandlePacket has the logic when receiving a packet.
-	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error
+	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error
 }
 
 type Peer interface {
-	DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte) error
+	DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error
 	RTT() time.Duration
 }
 
