@@ -223,7 +223,6 @@ func (lc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 	rawdb.WriteHeadHeaderHash(batch, genesis.Hash())
 	// as genesis block is an epoch block, thus we always mark it for header chain and blockchain.
 	rawdb.WriteHeadEpochHeaderHash(batch, genesis.Hash())
-	rawdb.WriteHeadEpochBlockHash(batch, genesis.Hash())
 	if err := batch.Write(); err != nil {
 		log.Crit("Failed to reset genesis block", "err", err)
 	}
@@ -499,7 +498,7 @@ func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
 }
 
 // LatestEpoch retrieves the latest epoch header of the light chain.
-func (lc *LightChain) LatestEpoch() *types.Header {
+func (lc *LightChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
 	return lc.hc.LatestEpoch()
 }
 

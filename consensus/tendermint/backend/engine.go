@@ -82,12 +82,12 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return consensus.ErrUnknownAncestor
 	}
 
-	// todo: (Jason) a node runs from a snap sync mode might have an nil epoch returned.
-	epoch := chain.LatestEpoch()
-	if epoch == nil {
-		return fmt.Errorf("epoch head is nil, your blockchain might be corrupted")
+	committee, _, _, _, err := chain.LatestEpoch()
+	if err != nil {
+		return err
 	}
-	return sb.verifyHeader(chain, header, parent, epoch.Committee())
+
+	return sb.verifyHeader(chain, header, parent, committee)
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It
@@ -176,7 +176,10 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 	go func() {
-		epochHead := chain.LatestEpoch()
+		committee, _, _, _, err := chain.LatestEpoch()
+		if err != nil {
+			panic(err)
+		}
 		for i, header := range headers {
 			var parent *types.Header
 			switch {
@@ -186,16 +189,11 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				parent = chain.GetHeaderByHash(header.ParentHash)
 			}
 
-			var err error
-			if epochHead == nil {
-				err = fmt.Errorf("missing epoch head from db, your db might be corrupted")
-			} else {
-				err = sb.verifyHeader(chain, header, parent, epochHead.Committee())
-			}
+			err = sb.verifyHeader(chain, header, parent, committee)
 
 			// if the processed header is a new epoch header, set the epoch header for the processing of left headers.
 			if header.IsEpochHeader() {
-				epochHead = header
+				committee = header.Committee()
 			}
 
 			select {
@@ -394,18 +392,19 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 		return ErrStoppedEngine
 	}
 	// update the block header and signature and propose the block to core engine
-	epoch := chain.LatestEpoch()
-	if epoch == nil {
-		return fmt.Errorf("epoch block is nil, your blockchain might be corrupted")
+	committee, _, _, _, err := chain.LatestEpoch()
+	if err != nil {
+		sb.logger.Error("misssing epoch header", "err", err)
+		return err
 	}
 
 	nodeAddress := sb.Address()
-	if epoch.Committee().MemberByAddress(nodeAddress) == nil {
+	if committee.MemberByAddress(nodeAddress) == nil {
 		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
 		return errUnauthorized
 	}
 
-	block, err := sb.AddSeal(block)
+	block, err = sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("sealing error", "err", err.Error())
 		return err

@@ -166,5 +166,6 @@
   "ee7ff28d": "setMaxUnbondReleasedGas(uint256)",
   "00640c2e": "nextEpochBlock()",
   "d7ea9592": "parentEpochBlock()",
-  "070e720a": "getCommitteeByHeight(uint256)"
+  "070e720a": "getCommitteeByHeight(uint256)",
+  "a9fd1a8f": "getEpochInfo()"
 }

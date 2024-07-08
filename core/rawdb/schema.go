@@ -30,10 +30,7 @@ var (
 	// databaseVersionKey tracks the current database version.
 	databaseVersionKey = []byte("DatabaseVersion")
 
-	// headEpochBlockKey tracks the latest epoch block's hash on blockchain.
-	headEpochBlockKey = []byte("HeadEpochBlock")
-
-	// headEpochHeaderKey tracks the latest epoch header's hash on header chain which could be faster than blockchain.
+	// headEpochHeaderKey tracks the latest epoch header's hash.
 	headEpochHeaderKey = []byte("HeadEpochHeader")
 
 	// headHeaderKey tracks the latest known header's hash.

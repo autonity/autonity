@@ -158,6 +158,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 contractVersion;
     }
 
+    struct EpochBoundary{
+        uint256 parentEpochBlock;
+        uint256 epochBlock;
+        uint256 nextEpochBlock;
+    }
+
     Config public config;
     address[] internal validatorList;
 
@@ -172,9 +178,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
-    // epochInfos, saves epoch info for per epoch in the history.
-    // k: epochID, value: object of EpochInfo
+    // epochCommittees, saves committee for per epoch in the history.
+    // k: epochID, value: committee members
     mapping(uint256=>CommitteeMember[]) internal epochCommittees;
+    // epochBoundaries, save epoch boundaries for per epoch
+    // k: epochID, value: EpochBoundary.
+    mapping(uint256=>EpochBoundary) internal epochBoundaries;
+
     CommitteeMember[] internal committee;
     uint256 public atnTotalRedistributed;
     uint256 public epochReward;
@@ -312,6 +322,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         parentEpochBlock = 0;
         nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
         epochCommittees[epochID] = committee;
+        epochBoundaries[epochID] = EpochBoundary(parentEpochBlock, block.number, nextEpochBlock);
     }
 
     /**
@@ -812,6 +823,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             lastEpochTime = block.timestamp;
             epochID += 1;
             epochCommittees[epochID] = committee; // save new committee with its new epoch id.
+            epochBoundaries[epochID] = EpochBoundary(parentEpochBlock, block.number, nextEpochBlock);
             emit NewEpoch(epochID);
         }
 
@@ -916,6 +928,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function getVersion() external view virtual returns (uint256) {
         return config.contractVersion;
+    }
+
+    /**
+    * @notice Returns the current epoch info.
+    */
+    function getEpochInfo() external view virtual returns (CommitteeMember[]memory, EpochBoundary memory) {
+        return (epochCommittees[epochID], epochBoundaries[epochID]);
     }
 
     /**

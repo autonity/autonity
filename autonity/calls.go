@@ -573,6 +573,25 @@ func (c *AutonityContract) callGetCommitteeByHeight(state vm.StateDB, header *ty
 	return committee, nil
 }
 
+func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Header) (*types.Committee, uint64, uint64, uint64, error) {
+	type EpochInfo struct {
+		parentEpochBlock  *big.Int
+		currentEpochBlock *big.Int
+		nextEpochBlock    *big.Int
+	}
+	var committeeMembers []types.CommitteeMember
+	var epochInfo EpochInfo
+	if err := c.AutonityContractCall(state, header, "getEpochInfo", &committeeMembers, &epochInfo); err != nil {
+		return nil, 0, 0, 0, err
+	}
+	committee := &types.Committee{}
+	committee.Members = committeeMembers
+	if err := committee.Enrich(); err != nil {
+		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
+	}
+	return committee, epochInfo.parentEpochBlock.Uint64(), epochInfo.currentEpochBlock.Uint64(), epochInfo.nextEpochBlock.Uint64(), nil
+}
+
 func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) (*types.Committee, error) {
 	var committeeMembers []types.CommitteeMember
 	if err := c.AutonityContractCall(state, header, "getCommittee", &committeeMembers); err != nil {

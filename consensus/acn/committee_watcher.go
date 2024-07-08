@@ -31,13 +31,12 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	}
 
 	wasValidating := false
-	epoch := acn.chain.LatestEpoch()
-	if epoch == nil {
+	committee, _, _, _, err := acn.chain.LatestEpoch()
+	if err != nil {
 		acn.log.Crit("Could not retrieve latest epoch, chain db might be corrupted")
 	}
-	committee := epoch.Committee()
 	currentHead := acn.chain.CurrentHeader()
-	if committee.MemberByAddress(acn.address) != nil {
+	if committee.MemberByAddress(acn.address) != nil { //nolint
 		updateConsensusEnodes(currentHead)
 		wasValidating = true
 	}

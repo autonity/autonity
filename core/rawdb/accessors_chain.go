@@ -189,22 +189,6 @@ func DeleteHeaderNumber(db ethdb.KeyValueWriter, hash common.Hash) {
 	}
 }
 
-// ReadHeadEpochBlockHash retrieves the hash of the current canonical head epoch block.
-func ReadHeadEpochBlockHash(db ethdb.KeyValueReader) common.Hash {
-	data, _ := db.Get(headEpochBlockKey)
-	if len(data) == 0 {
-		return common.Hash{}
-	}
-	return common.BytesToHash(data)
-}
-
-// WriteHeadEpochBlockHash stores the hash of the current canonical head epoch block.
-func WriteHeadEpochBlockHash(db ethdb.KeyValueWriter, hash common.Hash) {
-	if err := db.Put(headEpochBlockKey, hash.Bytes()); err != nil {
-		log.Crit("Failed to store last epoch block's hash", "err", err)
-	}
-}
-
 // ReadHeadEpochHeaderHash retrieves the hash of the current canonical head epoch header.
 func ReadHeadEpochHeaderHash(db ethdb.KeyValueReader) common.Hash {
 	data, _ := db.Get(headEpochHeaderKey)

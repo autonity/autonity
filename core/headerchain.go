@@ -43,6 +43,8 @@ const (
 	numberCacheLimit = 2048
 )
 
+var ErrMissingEpochHeader = errors.New("missing epoch header")
+
 // HeaderChain implements the basic block header chain logic that is shared by
 // core.BlockChain and light.LightChain. It is not usable in itself, only as
 // a part of either structure.
@@ -534,8 +536,13 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 }
 
 // LatestEpoch retrieves the latest epoch header of the header chain, it can be ahead of blockchain's epoch header.
-func (hc *HeaderChain) LatestEpoch() *types.Header {
-	return hc.CurrentHeadEpochHeader()
+func (hc *HeaderChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+	head := hc.CurrentHeadEpochHeader()
+	if head == nil {
+		return nil, 0, 0, 0, ErrMissingEpochHeader
+	}
+
+	return head.Committee(), head.ParentEpochBlock().Uint64(), head.Number.Uint64(), head.NextEpochBlock().Uint64(), nil
 }
 
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going
@@ -591,7 +598,11 @@ func (hc *HeaderChain) CurrentHeader() *types.Header {
 // CurrentHeadEpochHeader retrieves the current head epoch header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
 func (hc *HeaderChain) CurrentHeadEpochHeader() *types.Header {
-	return hc.currentEpochHeader.Load().(*types.Header)
+	header, ok := hc.currentEpochHeader.Load().(*types.Header)
+	if !ok {
+		return nil
+	}
+	return header
 }
 
 // SetCurrentHeadEpochHeader sets the in-memory head epoch header marker of the canonical chan

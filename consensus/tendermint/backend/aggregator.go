@@ -716,7 +716,7 @@ loop:
 				break
 			}
 
-			committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(msg.H())
+			committee, err := a.backend.BlockChain().CommitteeOfHeight(msg.H())
 			if err != nil {
 				a.logger.Crit("cannot find epoch head for height", "height", msg.H(), "err", err)
 			}
@@ -784,7 +784,7 @@ loop:
 				//clean up
 				roundInfo.proposals = make([]events.UnverifiedMessageEvent, 0)
 
-				committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(height)
+				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
 				if err != nil {
 					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
@@ -820,12 +820,7 @@ loop:
 
 				roundInfo := a.messages[height][round]
 
-				epoch := a.backend.BlockChain().LatestEpoch()
-				if epoch == nil {
-					a.logger.Crit("Missing epoch head block")
-				}
-
-				committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(height)
+				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
 				if err != nil {
 					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
@@ -855,7 +850,7 @@ loop:
 				height := e.Height
 				round := e.Round
 
-				committee, err := a.backend.BlockChain().CommitteeForConsensusMsg(height)
+				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
 				if err != nil {
 					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}

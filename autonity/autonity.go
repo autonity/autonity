@@ -231,6 +231,10 @@ func (c *AutonityContract) GetCommitteeByHeight(header *types.Header, db vm.Stat
 	return c.callGetCommitteeByHeight(db, header, height)
 }
 
+func (c *AutonityContract) EpochInfo(header *types.Header, db vm.StateDB) (*types.Committee, uint64, uint64, uint64, error) {
+	return c.callGetEpochInfo(db, header)
+}
+
 func (c *AutonityContract) Committee(header *types.Header, db vm.StateDB) (*types.Committee, error) {
 	return c.callGetCommittee(db, header)
 }

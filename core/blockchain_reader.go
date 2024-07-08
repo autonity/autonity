@@ -31,10 +31,80 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
+// CommitteeOfHeight resolve committee of height, it is used by consensus engine and AFD modules only.
+// It get committee from LRU cache first, otherwise it trys to search backward epoch with limited hops, if the
+// committee of the height cannot be find still, then it try to query it from the state DB.
+func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
+	// always get it from LRU cache first
+	if committee, ok := bc.committeeCache.Get(height); ok {
+		return committee.(*types.Committee), nil
+	}
+
+	// the latest epoch head should be in the most case.
+	committee, parentEHead, curEHead, nextEHead, err := bc.LatestEpoch()
+	if err != nil {
+		panic("missing epoch head, chain DB might corrupted.")
+	}
+
+	if height > curEHead && height <= nextEHead {
+		bc.committeeCache.Add(height, committee)
+		return committee, nil
+	}
+
+	if height > nextEHead {
+		return nil, ErrHeightTooFuture
+	}
+
+	// the height belongs to an old epoch, try to search limited hops backward to find the epoch.
+	if height <= curEHead {
+		for i := 0; i < backwardEpochSearchLimit; i++ {
+			lastEpoch := bc.GetHeaderByNumber(parentEHead)
+			if lastEpoch == nil {
+				bc.log.Warn("cannot find parent epoch header, trying to get committee from state DB", "epoch block", parentEHead)
+				break
+			}
+
+			if height > lastEpoch.Number.Uint64() && height <= lastEpoch.NextEpochBlock().Uint64() {
+				bc.committeeCache.Add(height, lastEpoch.Committee())
+				return lastEpoch.Committee(), nil
+			}
+			parentEHead = lastEpoch.ParentEpochBlock().Uint64()
+		}
+	}
+
+	// otherwise try to get committee from state db of the height.
+	// get the latest epoch info from state db, a snap sync node need to get latest epoch from state.
+	currentBLock := bc.CurrentBlock()
+	state, err := bc.State()
+	if err != nil {
+		return nil, err
+	}
+	committee, err = bc.protocolContracts.GetCommitteeByHeight(currentBLock.Header(), state, new(big.Int).SetUint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	bc.committeeCache.Add(height, committee)
+	return committee, nil
+}
+
 // LatestEpoch retrieves the latest epoch header of the blockchain, it can be lower than the epoch head of header chain.
-func (bc *BlockChain) LatestEpoch() *types.Header {
-	// return bc.hc.LatestEpoch()
-	return bc.currentEpochBlock.Load().(*types.Block).Header()
+func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+	// get epoch from header chain, if it can not be found from header, then we try to load it from state db as
+	// snap sync mode might miss the latest epoch block of the pivot block, thus, we can load it from state db as sync
+	// sync dumps and replicates the entire world state of the pivot block.
+	if committee, parent, cur, next, err := bc.hc.LatestEpoch(); err == nil {
+		return committee, parent, cur, next, nil
+	}
+
+	// get the latest epoch info from state db, a snap sync node need to get latest epoch from state.
+	currentBLock := bc.CurrentBlock()
+	state, err := bc.State()
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+
+	return bc.protocolContracts.EpochInfo(currentBLock.Header(), state)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

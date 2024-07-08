@@ -53,7 +53,6 @@ import (
 var (
 	headBlockGauge       = metrics.NewRegisteredGauge("chain/head/block", nil)
 	headHeaderGauge      = metrics.NewRegisteredGauge("chain/head/header", nil)
-	headEpochBlockGauge  = metrics.NewRegisteredGauge("chain/head/epoch-block", nil)
 	headEpochHeaderGauge = metrics.NewRegisteredGauge("chain/head/epoch-header", nil)
 	headFastBlockGauge   = metrics.NewRegisteredGauge("chain/head/receipt", nil)
 
@@ -100,15 +99,15 @@ var (
 )
 
 const (
-	backwardEpochLimit   = 10
-	bodyCacheLimit       = 256
-	epochBlockCacheLimit = 1024
-	blockCacheLimit      = 256
-	receiptsCacheLimit   = 32
-	txLookupCacheLimit   = 1024
-	maxFutureBlocks      = 256
-	maxTimeFutureBlocks  = 30
-	TriesInMemory        = 128
+	backwardEpochSearchLimit = 4
+	bodyCacheLimit           = 256
+	blockCacheLimit          = 256
+	receiptsCacheLimit       = 32
+	txLookupCacheLimit       = 1024
+	maxFutureBlocks          = 256
+	maxTimeFutureBlocks      = 30
+	TriesInMemory            = 128
+	committeeCacheLimit      = 1024
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
@@ -207,18 +206,17 @@ type BlockChain struct {
 	// Readers don't need to take it, they can just read the database.
 	chainmu *syncx.ClosableMutex
 
-	currentEpochBlock atomic.Value // Current head of the epoch chain
-	currentBlock      atomic.Value // Current head of the block chain
-	currentFastBlock  atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
+	currentBlock     atomic.Value // Current head of the block chain
+	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache      state.Database // State database to reuse between imports (contains state cache)
-	bodyCache       *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache    *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	receiptsCache   *lru.Cache     // Cache for the most recent receipts per block
-	blockCache      *lru.Cache     // Cache for the most recent entire blocks
-	epochBlockCache *lru.Cache     // Cache for the most recent height's epoch block
-	txLookupCache   *lru.Cache     // Cache for the most recent transaction lookup data.
-	futureBlocks    *lru.Cache     // future blocks are blocks added for later processing
+	stateCache     state.Database // State database to reuse between imports (contains state cache)
+	bodyCache      *lru.Cache     // Cache for the most recent block bodies
+	bodyRLPCache   *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
+	receiptsCache  *lru.Cache     // Cache for the most recent receipts per block
+	blockCache     *lru.Cache     // Cache for the most recent entire blocks
+	committeeCache *lru.Cache     // Cache for the most recent height's committee
+	txLookupCache  *lru.Cache     // Cache for the most recent transaction lookup data.
+	futureBlocks   *lru.Cache     // future blocks are blocks added for later processing
 
 	wg            sync.WaitGroup //
 	quit          chan struct{}  // shutdown signal, closed in Stop.
@@ -259,9 +257,9 @@ func NewBlockChain(db ethdb.Database,
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	receiptsCache, _ := lru.New(receiptsCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
-	epochBlockCache, _ := lru.New(epochBlockCacheLimit)
 	txLookupCache, _ := lru.New(txLookupCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
+	committeeCache, _ := lru.New(committeeCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig: chainConfig,
@@ -273,19 +271,19 @@ func NewBlockChain(db ethdb.Database,
 			Journal:   cacheConfig.TrieCleanJournal,
 			Preimages: cacheConfig.Preimages,
 		}),
-		quit:            make(chan struct{}),
-		chainmu:         syncx.NewClosableMutex(),
-		bodyCache:       bodyCache,
-		bodyRLPCache:    bodyRLPCache,
-		receiptsCache:   receiptsCache,
-		epochBlockCache: epochBlockCache,
-		blockCache:      blockCache,
-		txLookupCache:   txLookupCache,
-		futureBlocks:    futureBlocks,
-		engine:          engine,
-		vmConfig:        vmConfig,
-		senderCacher:    senderCacher,
-		log:             log,
+		quit:           make(chan struct{}),
+		chainmu:        syncx.NewClosableMutex(),
+		bodyCache:      bodyCache,
+		bodyRLPCache:   bodyRLPCache,
+		receiptsCache:  receiptsCache,
+		blockCache:     blockCache,
+		txLookupCache:  txLookupCache,
+		committeeCache: committeeCache,
+		futureBlocks:   futureBlocks,
+		engine:         engine,
+		vmConfig:       vmConfig,
+		senderCacher:   senderCacher,
+		log:            log,
 	}
 	bc.forker = NewForkChoice(bc, shouldPreserve)
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
@@ -303,7 +301,6 @@ func NewBlockChain(db ethdb.Database,
 
 	var nilBlock *types.Block
 	bc.currentBlock.Store(nilBlock)
-	bc.currentEpochBlock.Store(nilBlock)
 	bc.currentFastBlock.Store(nilBlock)
 
 	// Initialize the chain with ancient data if it isn't empty.
@@ -501,23 +498,6 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	bc.hc.SetCurrentHeader(currentHeader)
 
-	// Restore the last known head epoch block
-	epochHash := rawdb.ReadHeadEpochBlockHash(bc.db)
-	if epochHash == (common.Hash{}) {
-		bc.log.Warn("Head epoch block missing, resetting chain")
-		return bc.Reset()
-	}
-	// Make sure the entire head epoch block is available
-	epochBlock := bc.GetBlockByHash(epochHash)
-	if epochBlock == nil {
-		bc.log.Warn("Head epoch block missing, resetting chain", "hash", epochHash)
-		return bc.Reset()
-	}
-
-	// The epoch block is fine, set as the head epoch block
-	bc.currentEpochBlock.Store(epochBlock)
-	headEpochBlockGauge.Update(int64(epochBlock.NumberU64()))
-
 	// Restore the last known head fast block
 	bc.currentFastBlock.Store(currentBlock)
 	headFastBlockGauge.Update(int64(currentBlock.NumberU64()))
@@ -535,7 +515,6 @@ func (bc *BlockChain) loadLastState() error {
 	blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
-	bc.log.Info("Loaded most recent local epoch block", "epoch head", epochBlock.Number(), "hash", epochBlock.Hash())
 	bc.log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(int64(currentHeader.Time), 0)))
 	bc.log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd, "age", common.PrettyAge(time.Unix(int64(currentBlock.Time()), 0)))
 	bc.log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd, "age", common.PrettyAge(time.Unix(int64(currentFastBlock.Time()), 0)))
@@ -579,7 +558,6 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 		// chain reparation mechanism without deleting any data!
 		if currentBlock := bc.CurrentBlock(); currentBlock != nil && header.Number.Uint64() <= currentBlock.NumberU64() {
 			newHeadBlock := bc.GetBlock(header.Hash(), header.Number.Uint64())
-			var newEpochBlock *types.Block
 			if newHeadBlock == nil {
 				bc.log.Error("Gap in the chain, rewinding to genesis", "number", header.Number, "hash", header.Hash())
 				newHeadBlock = bc.genesisBlock
@@ -588,16 +566,6 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 				// keeping rewinding until we exceed the optional threshold
 				// root hash
 				beyondRoot := (root == common.Hash{}) // Flag whether we're beyond the requested root (no root, always true)
-
-				if currentBlock.IsEpochHead() {
-					if newEpochBlock = bc.GetBlockByNumber(currentBlock.Header().ParentEpochBlock().Uint64()); newEpochBlock == nil {
-						// todo: (Jason) discuss with team for the solution of snap sync with missing epoch head.
-						// this might happens for corrupted db or for the client who start from a snap sync mode,
-						// where the epoch block is behind the pivot block.
-						bc.log.Error("Cannot find parent epoch block, rewinding to genesis", "number", header.Number, "hash", header.Hash())
-						newHeadBlock = bc.genesisBlock
-					}
-				}
 
 				for {
 					// If a root threshold was requested but not yet crossed, check
@@ -610,17 +578,6 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 							parent := bc.GetBlock(newHeadBlock.ParentHash(), newHeadBlock.NumberU64()-1)
 							if parent != nil {
 								newHeadBlock = parent
-								if parent.IsEpochHead() {
-									if newEpochBlock = bc.GetBlockByNumber(parent.Header().ParentEpochBlock().Uint64()); newEpochBlock == nil {
-										// todo: (Jason) discuss with team for the solution of snap sync with missing epoch head.
-										//  this might happens for corrupted db or for the client who start from a snap sync mode,
-										//  where the epoch block is behind the pivot block.
-										bc.log.Error("Cannot find parent epoch block, rewinding to genesis", "number",
-											parent.Header().Number, "hash", parent.Header().Hash())
-										newHeadBlock = bc.genesisBlock
-										break
-									}
-								}
 								continue
 							}
 							bc.log.Error("Missing block in the middle, aiming genesis", "number", newHeadBlock.NumberU64()-1, "hash", newHeadBlock.ParentHash())
@@ -636,30 +593,6 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 					}
 					bc.log.Debug("Skipping block with threshold state", "number", newHeadBlock.NumberU64(), "hash", newHeadBlock.Hash(), "root", newHeadBlock.Root())
 					newHeadBlock = bc.GetBlock(newHeadBlock.ParentHash(), newHeadBlock.NumberU64()-1) // Keep rewinding
-					if newHeadBlock.IsEpochHead() {
-						if newEpochBlock = bc.GetBlockByNumber(newHeadBlock.Header().ParentEpochBlock().Uint64()); newEpochBlock == nil {
-							// todo: (Jason) discuss with team for the solution of snap sync with missing epoch head.
-							//  this might happens for corrupted db or for the client who start from a snap sync mode,
-							//  where the epoch block is behind the pivot block.
-							bc.log.Error("Cannot find parent epoch block, rewinding to genesis", "number",
-								newHeadBlock.Header().Number, "hash", newHeadBlock.Header().Hash())
-							newHeadBlock = bc.genesisBlock
-							break
-						}
-					}
-				}
-			}
-
-			// write new epoch head hash in DB, and update in-memory markers.
-			if newHeadBlock.IsEpochHead() {
-				rawdb.WriteHeadEpochBlockHash(db, newHeadBlock.Hash())
-				bc.currentEpochBlock.Store(newHeadBlock)
-				headEpochBlockGauge.Update(int64(newHeadBlock.NumberU64()))
-			} else {
-				if newEpochBlock != nil {
-					rawdb.WriteHeadEpochBlockHash(db, newEpochBlock.Hash())
-					bc.currentEpochBlock.Store(newEpochBlock)
-					headEpochBlockGauge.Update(int64(newEpochBlock.NumberU64()))
 				}
 			}
 
@@ -738,7 +671,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 	bc.bodyRLPCache.Purge()
 	bc.receiptsCache.Purge()
 	bc.blockCache.Purge()
-	bc.epochBlockCache.Purge()
+	bc.committeeCache.Purge() // on chain reorg or block rollback, reset committee cache as well.
 	bc.txLookupCache.Purge()
 	bc.futureBlocks.Purge()
 
@@ -757,21 +690,26 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 		return err
 	}
 
-	// TODO: (Jason) fix the snap sync mode with resolving the epoch head block. The reason is:
-	// As snap sync mode can download the chain start from the pivot block and the world state via compact snapshot,
-	// then it uses this function to set the pivot block as the head block. Thus we have to address the corresponding
-	// epoch block which is behind the pivot block to make block/header verification works.
-
-	// option 1: get committee from the snapshot's autonity contract to work with headers and block verification.
-	// option 2: in the snapshot sync protocol, we always set the pivots with epoch head blocks.
-	// option 3: resolve pivot block's epoch head from remote peer.
-
 	// If all checks out, manually set the head block.
 	if !bc.chainmu.TryLock() {
 		return errChainStopped
 	}
 	bc.currentBlock.Store(block)
 	headBlockGauge.Update(int64(block.NumberU64()))
+	// On snap sync mode, this function commits a pivot block as the current chain head, if the pivot is an epoch block,
+	// we need to update the markers in DB and in-memory. Note that as pivot block cannot always be an epoch block,
+	// thus the pivot's corresponding epoch block could be missing from the snap sync, which could causes header verification
+	// failure after pivot. In this scenario, the epoch info will be fetched from the state DB as snap sync dumps and
+	// replicates the entire world state of pivot block.
+	if block.IsEpochHead() {
+		batch := bc.db.NewBatch()
+		rawdb.WriteHeadEpochHeaderHash(batch, block.Hash())
+		if err := batch.Write(); err != nil {
+			bc.log.Crit("Failed to update epoch header markers", "err", err)
+		}
+		bc.hc.SetCurrentHeadEpochHeader(block.Header())
+		headEpochHeaderGauge.Update(int64(block.NumberU64()))
+	}
 	bc.chainmu.Unlock()
 
 	// Destroy any existing state snapshot and regenerate it in the background,
@@ -813,8 +751,6 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	bc.genesisBlock = genesis
 	bc.currentBlock.Store(bc.genesisBlock)
 	headBlockGauge.Update(int64(bc.genesisBlock.NumberU64()))
-	bc.currentEpochBlock.Store(bc.genesisBlock)
-	headEpochBlockGauge.Update(int64(bc.genesisBlock.NumberU64()))
 	bc.hc.SetGenesis(bc.genesisBlock.Header())
 	bc.hc.SetCurrentHeader(bc.genesisBlock.Header())
 	bc.hc.SetCurrentHeadEpochHeader(bc.genesisBlock.Header())
@@ -866,10 +802,9 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	// Add the block to the canonical chain number scheme and mark as the head
 	batch := bc.db.NewBatch()
-	// update head epoch hash in DB.
+	// update head epoch header hash in DB.
 	if block.IsEpochHead() {
 		rawdb.WriteHeadEpochHeaderHash(batch, block.Hash())
-		rawdb.WriteHeadEpochBlockHash(batch, block.Hash())
 	}
 	rawdb.WriteHeadHeaderHash(batch, block.Hash())
 	rawdb.WriteHeadFastBlockHash(batch, block.Hash())
@@ -886,8 +821,7 @@ func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	bc.hc.SetCurrentHeader(block.Header())
 	if block.IsEpochHead() {
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
-		bc.currentEpochBlock.Store(block)
-		headEpochBlockGauge.Update(int64(block.NumberU64()))
+		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}
 
 	bc.currentFastBlock.Store(block)
@@ -2466,45 +2400,4 @@ func (bc *BlockChain) HasBadBlock(hash common.Hash) bool {
 
 func (bc *BlockChain) ProtocolContracts() *autonity.ProtocolContracts {
 	return bc.protocolContracts
-}
-
-// CommitteeForConsensusMsg resolve committee for consensus messages, it is used by consensus engine and its
-// Accountability module. We need to resolve message's committee by height as delays happens in the network on
-// epoch rotation.
-func (bc *BlockChain) CommitteeForConsensusMsg(height uint64) (*types.Committee, error) {
-	if epochHead, ok := bc.epochBlockCache.Get(height); ok {
-		return epochHead.(*types.Header).Committee(), nil
-	}
-
-	epochHead := bc.LatestEpoch()
-	if epochHead == nil {
-		panic("missing epoch head, chain DB might corrupted.")
-	}
-
-	if height > epochHead.Number.Uint64() && height <= epochHead.NextEpochBlock().Uint64() { //nolint
-		bc.epochBlockCache.Add(height, epochHead)
-		return epochHead.Committee(), nil
-	}
-
-	if height > epochHead.NextEpochBlock().Uint64() {
-		return nil, ErrHeightTooFuture
-	}
-
-	if height <= epochHead.Number.Uint64() {
-		// do a backward search for committee.
-		curEpoch := epochHead
-		for i := 0; i < backwardEpochLimit && !curEpoch.IsGenesis(); i++ {
-			lastEpoch := bc.GetHeaderByNumber(curEpoch.ParentEpochBlock().Uint64())
-			if lastEpoch == nil {
-				return nil, ErrHeightTooOld
-			}
-
-			if height > lastEpoch.Number.Uint64() && height <= lastEpoch.NextEpochBlock().Uint64() {
-				bc.epochBlockCache.Add(height, lastEpoch)
-				return lastEpoch.Committee(), nil
-			}
-			curEpoch = lastEpoch
-		}
-	}
-	return nil, ErrHeightTooOld
 }

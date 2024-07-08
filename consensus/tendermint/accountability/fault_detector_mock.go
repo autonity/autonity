@@ -229,17 +229,17 @@ func (mr *MockChainContextMockRecorder) State() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockChainContext)(nil).State))
 }
 
-func (m *MockChainContext) CommitteeForConsensusMsg(height uint64) (*types.Committee, error) {
+func (m *MockChainContext) CommitteeOfHeight(height uint64) (*types.Committee, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitteeForConsensusMsg", height)
+	ret := m.ctrl.Call(m, "CommitteeOfHeight", height)
 	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (mr *MockChainContextMockRecorder) CommitteeForConsensusMsg(height any) *gomock.Call {
+func (mr *MockChainContextMockRecorder) CommitteeOfHeight(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeForConsensusMsg", reflect.TypeOf((*MockChainContext)(nil).CommitteeForConsensusMsg), height)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainContext)(nil).CommitteeOfHeight), height)
 }
 
 // StateAt mocks base method.
@@ -286,11 +286,15 @@ func (mr *MockChainContextMockRecorder) Validator() *gomock.Call {
 }
 
 // LatestEpoch mocks base method
-func (m *MockChainContext) LatestEpoch() (*types.Header) {
+func (m *MockChainContext) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.Header)
-	return ret0
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(uint64)
+	ret3, _ := ret[3].(uint64)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
 }
 
 // LatestEpoch indicates an expected call of LatestEpoch

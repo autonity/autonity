@@ -616,12 +616,12 @@ func (s *Ethereum) validatorController() {
 	}
 	wasValidating := false
 
-	epoch := s.blockchain.LatestEpoch()
-	if epoch == nil {
-		s.log.Crit("missing epoch head, chain db might corrupted")
+	committee, _, _, _, err := s.blockchain.LatestEpoch()
+	if err != nil {
+		s.log.Error("missing epoch head, chain db might be corrupted", "err", err)
+		return
 	}
 
-	committee := epoch.Committee()
 	currentHead := s.blockchain.CurrentHeader()
 	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)

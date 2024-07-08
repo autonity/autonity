@@ -180,7 +180,7 @@ func handleConsensusMsg[T any, PT interface {
 
 func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender common.Address) (bool, error) {
 
-	committee, err := sb.BlockChain().CommitteeForConsensusMsg(msg.H())
+	committee, err := sb.BlockChain().CommitteeOfHeight(msg.H())
 	if err != nil {
 		sb.logger.Error("handleDecodedMsg", "err", err)
 		return true, err

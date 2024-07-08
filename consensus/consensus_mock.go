@@ -1195,11 +1195,15 @@ func (mr *MockPeerMockRecorder) SendRaw(msgcode, data any) *gomock.Call {
 }
 
 // LatestEpoch mocks base method
-func (m *MockChainHeaderReader) LatestEpoch() (*types.Header) {
+func (m *MockChainHeaderReader) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.Header)
-	return ret0
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(uint64)
+	ret3, _ := ret[3].(uint64)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
 }
 
 // LatestEpoch indicates an expected call of LatestEpoch
@@ -1209,11 +1213,15 @@ func (mr *MockChainHeaderReaderMockRecorder) LatestEpoch() *gomock.Call {
 }
 
 // LatestEpoch mocks base method
-func (m *MockChainReader) LatestEpoch() (*types.Header) {
+func (m *MockChainReader) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.Header)
-	return ret0
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(uint64)
+	ret3, _ := ret[3].(uint64)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
 }
 
 // LatestEpoch indicates an expected call of LatestEpoch
