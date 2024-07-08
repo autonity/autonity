@@ -174,6 +174,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public parentEpochBlock;
     uint256 public nextEpochBlock;
 
+    // save new epoch period on epoch period update,
+    // it is applied to the protocol right after the end of current epoch.
+    uint256 public newEpochPeriod;
+
     uint256 public lastEpochBlock;
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
@@ -581,8 +585,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 revert("current chain head exceed the window: lastBlockEpoch + _newPeriod, try again latter on.");
             }
         }
-        config.protocol.epochPeriod = _period;
-        config.contracts.accountabilityContract.setEpochPeriod(_period);
+
+        newEpochPeriod = _period;
         emit EpochPeriodUpdated(_period);
     }
 
@@ -818,7 +822,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             config.contracts.oracleContract.setVoters(_voters);
             parentEpochBlock = lastEpochBlock;
             lastEpochBlock = block.number;
-            // todo: apply the changes of epoch period before this!
+
+            // apply new epoch period.
+            if (config.protocol.epochPeriod != newEpochPeriod && newEpochPeriod != 0) {
+                config.protocol.epochPeriod = newEpochPeriod;
+                config.contracts.accountabilityContract.setEpochPeriod(newEpochPeriod);
+            }
+
             nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
             epochID += 1;
@@ -931,7 +941,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @notice Returns the current epoch info.
+    * @notice Returns the current epoch info: its commitee and the responding epoch boundary.
     */
     function getEpochInfo() external view virtual returns (CommitteeMember[]memory, EpochBoundary memory) {
         return (epochCommittees[epochID], epochBoundaries[epochID]);

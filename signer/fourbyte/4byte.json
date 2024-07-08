@@ -167,5 +167,6 @@
   "00640c2e": "nextEpochBlock()",
   "d7ea9592": "parentEpochBlock()",
   "070e720a": "getCommitteeByHeight(uint256)",
-  "a9fd1a8f": "getEpochInfo()"
+  "a9fd1a8f": "getEpochInfo()",
+  "241ed650": "newEpochPeriod()"
 }
