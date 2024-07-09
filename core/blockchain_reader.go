@@ -73,7 +73,8 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	}
 
 	// otherwise try to get committee from state db of the height.
-	// get the latest epoch info from state db, as snap sync node might miss the epoch header below pivot block.
+	// get the latest epoch info from state db, as snap sync/fast sync
+	// node might miss the epoch header below pivot block.
 	currentBLock := bc.CurrentBlock()
 	state, err := bc.State()
 	if err != nil {
@@ -95,9 +96,10 @@ func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, e
 		return committee, parent, cur, next, nil
 	}
 
-	// For snap sync case we need to get epoch info from state DB: as snap sync mode
-	// might miss the latest epoch block before the pivot block, thus, for header
-	// verification after pivot block, we can load it from state db.
+	// For snap sync or fast sync case we need to get epoch info from state DB:
+	// as snap sync/fast sync mode might miss the latest epoch block before the
+	// pivot block, thus, for header verification after pivot block, we can load
+	// it from state db.
 	currentBLock := bc.CurrentBlock()
 	state, err := bc.State()
 	if err != nil {
