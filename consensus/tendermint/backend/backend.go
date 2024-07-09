@@ -321,7 +321,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		}
 
 		// check if the bi-direction link in between the two epoch header are matched.
-		if committee.Len() > 0 {
+		if committee != nil && committee.Len() > 0 {
 			if parentEpochBlock == nil || nextEpochBlock == nil {
 				return 0, consensus.ErrInvalidEpochBoundary
 			}

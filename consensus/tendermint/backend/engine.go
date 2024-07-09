@@ -334,13 +334,13 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	var epoch types.Epoch
 
 	// check if the bi-direction link in between the two epoch header are matched.
-	if committee.Len() > 0 {
+	if committee != nil && committee.Len() > 0 {
 		if parentEpochBlock == nil || nextEpochBlock == nil {
 			panic(consensus.ErrInvalidEpochBoundary)
 		}
-		parentEpochHead := sb.BlockChain().GetBlockByNumber(parentEpochBlock.Uint64())
-		if !parentEpochHead.IsEpochHead() ||
-			parentEpochHead.Header().NextEpochBlock().Uint64() != header.Number.Uint64() {
+		parentEpochHead := sb.BlockChain().GetHeaderByNumber(parentEpochBlock.Uint64())
+		if !parentEpochHead.IsEpochHeader() ||
+			parentEpochHead.NextEpochBlock().Uint64() != header.Number.Uint64() {
 			panic(consensus.ErrInvalidParentEpochHead)
 		}
 		epoch.Committee = committee

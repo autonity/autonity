@@ -821,7 +821,7 @@ func TestLargeNetwork(t *testing.T) {
 			nodeHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 			if nodeHeight > height {
 				height = nodeHeight
-				committee, _ = n.Eth.BlockChain().LatestConsensusView()
+				committee, _, _, _, _ = n.Eth.BlockChain().LatestEpoch()
 			}
 		}
 		return

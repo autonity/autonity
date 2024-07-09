@@ -209,12 +209,15 @@ func (h *Header) EnrichEpochInfo() error {
 		if err := rlp.DecodeBytes(h.EpochExtra, &epoch); err != nil {
 			return err
 		}
-		if err := epoch.Committee.Enrich(); err != nil {
-			return fmt.Errorf("error while deserializing consensus keys: %w", err)
-		}
 
-		if epoch.Committee.Len() > 0 && (epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil) {
-			return fmt.Errorf("invalid epoch boundary")
+		if epoch.Committee != nil {
+			if err := epoch.Committee.Enrich(); err != nil {
+				return fmt.Errorf("error while deserializing consensus keys: %w", err)
+			}
+
+			if epoch.Committee.Len() > 0 && (epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil) {
+				return fmt.Errorf("invalid epoch boundary")
+			}
 		}
 	}
 	h.committee = epoch.Committee
@@ -489,6 +492,16 @@ func CopyHeader(h *Header) *Header {
 		copyCommittee = h.committee.Copy()
 	}
 
+	var parentEpochBlock *big.Int
+	if h.parentEpochBlock != nil {
+		parentEpochBlock = new(big.Int).SetUint64(h.parentEpochBlock.Uint64())
+	}
+
+	var nextEpochBlock *big.Int
+	if h.nextEpochBlock != nil {
+		nextEpochBlock = new(big.Int).SetUint64(h.nextEpochBlock.Uint64())
+	}
+
 	quorumCertificate := AggregateSignature{}
 	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Signers != nil {
 		quorumCertificate = h.QuorumCertificate.Copy()
@@ -516,6 +529,8 @@ func CopyHeader(h *Header) *Header {
 		QuorumCertificate: quorumCertificate,
 		EpochExtra:        epochExtra,
 		committee:         copyCommittee,
+		parentEpochBlock:  parentEpochBlock,
+		nextEpochBlock:    nextEpochBlock,
 	}
 	return cpy
 }
