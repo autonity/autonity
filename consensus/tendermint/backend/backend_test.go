@@ -43,6 +43,11 @@ var (
 		signature := testKey.Sign(data[:])
 		return signature
 	}
+	testInvalidSigner = func(data common.Hash) blst.Signature {
+		data[0] = ^data[0]
+		signature := testKey.Sign(data[:])
+		return signature
+	}
 	testCommitteeMember = &types.CommitteeMember{Address: testAddress, VotingPower: common.Big1, ConsensusKeyBytes: testKey.PublicKey().Marshal(), ConsensusKey: testKey.PublicKey(), Index: 0}
 	testSignatureBytes  = common.Hex2Bytes("8ff38c5915e56029ace231f12e6911587fac4b5618077f3dfe8068138ff1dc7a7ea45a5e0d6a51747cc5f4d990c9d4de1242f4efa93d8165936bfe111f86aaafeea5eda0c38fa3dc2f854576dde63214d7438ea398e48072bc6a0c8e6c2830ef")
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
@@ -527,7 +532,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 
 	// generate genesis block
 
-	genesis.Config = params.TestChainConfig
+	genesis.Config = params.TestChainConfig.Copy()
 	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Config.Ethash = nil
 	genesis.GasLimit = 10000000

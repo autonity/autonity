@@ -634,8 +634,8 @@ func TestAggregateVotesSimple(t *testing.T) {
 	// check that public keys and signatures have been aggregated correctly
 	sig0 := blst.Aggregate([]blst.Signature{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize).Signature()})
 	sig1 := blst.Aggregate([]blst.Signature{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize).Signature()})
-	agg0, _ := blst.AggregatePublicKeys([][]byte{testCommittee.Members[0].ConsensusKeyBytes, testCommittee.Members[1].ConsensusKeyBytes, testCommittee.Members[3].ConsensusKeyBytes})
-	agg1, _ := blst.AggregatePublicKeys([][]byte{testCommittee.Members[0].ConsensusKeyBytes, testCommittee.Members[2].ConsensusKeyBytes})
+	agg0, _ := blst.AggregatePublicKeys([]blst.PublicKey{testCommittee.Members[0].ConsensusKey, testCommittee.Members[1].ConsensusKey, testCommittee.Members[3].ConsensusKey})
+	agg1, _ := blst.AggregatePublicKeys([]blst.PublicKey{testCommittee.Members[0].ConsensusKey, testCommittee.Members[2].ConsensusKey})
 
 	require.Equal(t, aggregates5[0].Signature().Marshal(), sig0.Marshal())
 	require.Equal(t, aggregates5[1].Signature().Marshal(), sig1.Marshal())

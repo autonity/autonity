@@ -86,7 +86,6 @@ type Core struct {
 	//
 
 	// used to ensure that the aggregator can get the correct power values by calling Power, VotesPower, VotesPowerFor
-	// TODO(lorenzo) can this be a performance problem? (aggregator blocking round change in Core)
 	roundChangeMu sync.Mutex
 	stateMu       sync.RWMutex
 	height        *big.Int
@@ -604,14 +603,9 @@ func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *mess
 	return power
 }
 
+// TODO: when we sync a peer, should we send him also the future round messages?
 func (c *Core) CurrentHeightMessages() []message.Msg {
-	c.futureRoundLock.RLock()
-	var future []message.Msg
-	for _, msgs := range c.futureRound {
-		future = append(future, msgs...)
-	}
-	c.futureRoundLock.RUnlock()
-	return append(c.messages.All(), future...)
+	return c.messages.All()
 }
 
 func (c *Core) Backend() interfaces.Backend {

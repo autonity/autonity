@@ -541,15 +541,30 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			// at least one of the signatures is invalid, find at which index
 			invalids = blst.FindInvalid(signatures, publicKeys, hash)
 
-			// remove invalid messages and sent the rest of the batch
-			// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
-			j := 0
-			for i, msg := range messages {
-				if j < len(invalids) && uint(i) == invalids[j] {
-					j++
-					continue
+			if len(invalids) == 0 {
+				// NOTE: it is possible that the aggregated signature is invalid, but individually verified signatures are valid.
+				// This is due to the infinite public key and splitting zero bug. Check out TestBlsAttacks for more information.
+				a.logger.Error("Splitting zero attack detected!!!")
+				a.logger.Error("Please report the following data to the Autonity team!")
+				for i, msg := range messages {
+					a.logger.Error("Message", "i", i, "hash", msg.Hash(), "signers", msg.Signers().String())
 				}
-				validVotes = append(validVotes, msg)
+
+				// consider all messages as valid since single signatures are valid.
+				// other nodes might already have considered them as valid depending on how they were aggregated.
+				// so this choice maximizes coherence across the network.
+				validVotes = messages
+			} else {
+				// remove invalid messages and sent the rest of the batch
+				// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
+				j := 0
+				for i, msg := range messages {
+					if j < len(invalids) && uint(i) == invalids[j] {
+						j++
+						continue
+					}
+					validVotes = append(validVotes, msg)
+				}
 			}
 		} else {
 			// all messages are valid
@@ -560,19 +575,19 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 		if len(validVotes) > 0 {
 			// dispatch messages to core and FD
-			// repetitive code but I didn't find a way to declare aggregateVotes so that it works both with prevote and preccomit
+			// repetitive code but I didn't find a way to declare aggregateVotes so that it works both with prevote and precommit
 			switch validVotes[0].(type) {
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.Post(eventer(aggregateVote, nil))  //TODO(lorenzo) refinements, do we add an errCh here?
+					go a.backend.Post(eventer(aggregateVote, nil))
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.Post(eventer(aggregateVote, nil))  //TODO(lorenzo) refinements, do we add an errCh here?
+					go a.backend.Post(eventer(aggregateVote, nil))
 				}
 			default:
 				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
@@ -626,7 +641,6 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 		return
 	}
 
-	// we are processing an individual vote or a simple aggregate vote
 	if add {
 		a.saveMessage(voteEvent)
 	}
@@ -649,24 +663,65 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	}
 }
 
-// checks if a message is already in core
-// TODO(lorenzo) performance, do something more efficient without iterating over all messages of Core
-// Depending on how implemented, it might be possible to remove core.futureRoundLock
-func (a *aggregator) alreadyProcessed(msg message.Msg) bool {
-	for _, m := range a.core.CurrentHeightMessages() {
-		if msg.Hash() == m.Hash() {
-			return true
-		}
-	}
-	return false
-}
-
 func (a *aggregator) toSkip(msg message.Msg) bool {
 	_, ignore := a.toIgnore[msg.Hash()]
-	if ignore || a.alreadyProcessed(msg) {
-		return true
+	return ignore
+}
+
+func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
+	start := time.Now()
+	msg := event.Message
+	sender := event.Sender
+
+	a.messagesFrom[sender] = append(a.messagesFrom[sender], msg.Hash())
+
+	// NOTE: Aggregator and Core run asynchronously. The code needs to take into account that Core can change state at any point here.
+	// This also implies that height checks still needs to be done in Core.
+	coreHeight := a.core.Height().Uint64()
+	if msg.H() < coreHeight {
+		a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
+		signatureInput := msg.SignatureInput()
+		a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
+		return
 	}
-	return false
+	if msg.H() > coreHeight {
+		// future messages are dealt with at backend peer handler level
+		a.logger.Crit("future message in aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
+	}
+
+	committee, err := a.backend.BlockChain().CommitteeOfHeight(msg.H())
+	if err != nil {
+		a.logger.Crit("cannot find epoch head for height", "height", msg.H(), "err", err)
+	}
+	quorum := bft.Quorum(committee.TotalVotingPower())
+
+	coreRound := a.core.Round()
+	if msg.R() > coreRound {
+		// NOTE: here we could be buffering a proposal for future round, or a complex vote aggregate.
+		a.saveMessage(event)
+		// check if power is enough for a round skip
+		aggregatorPower := a.power(msg.H(), msg.R())
+		corePower := a.core.Power(msg.H(), msg.R())
+		contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
+		if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
+			a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
+			a.processRound(msg.H(), msg.R())
+		}
+		recordMessageProcessingTime(msg.Code(), start)
+		return
+	}
+
+	// current or old round here
+	switch msg.(type) {
+	// if proposal, verify right away
+	case *message.Propose:
+		a.processProposal(event, currentHeightEventBuilder)
+	case *message.Prevote, *message.Precommit:
+		a.handleVote(event, committee, quorum, true)
+	default:
+		a.logger.Crit("unknown message type arrived in aggregator")
+	}
+	recordMessageProcessingTime(msg.Code(), start)
 }
 
 func (a *aggregator) loop(ctx context.Context) {
@@ -684,71 +739,13 @@ loop:
 	for {
 		select {
 		case event, ok := <-messageCh:
-			start := time.Now()
 			if !ok {
 				break loop
 			}
 			if metrics.Enabled {
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
-			msg := event.Message
-			sender := event.Sender
-
-			a.messagesFrom[sender] = append(a.messagesFrom[sender], msg.Hash())
-
-			// NOTE: Aggregator and Core run asynchronously. The code needs to take into account that Core can change state at any point here.
-			// This also implies that height checks still needs to be done in Core.
-			coreHeight := a.core.Height().Uint64()
-			if msg.H() < coreHeight {
-				a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
-				signatureInput := msg.SignatureInput()
-				a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
-				break
-			}
-			if msg.H() > coreHeight {
-				// future messages are dealt with at backend peer handler level
-				a.logger.Crit("future message in aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
-			}
-
-			// if message already in Core, drop it
-			if a.alreadyProcessed(msg) {
-				a.logger.Debug("Discarding msg, already processed in Core")
-				break
-			}
-
-			committee, err := a.backend.BlockChain().CommitteeOfHeight(msg.H())
-			if err != nil {
-				a.logger.Crit("cannot find epoch head for height", "height", msg.H(), "err", err)
-			}
-			quorum := bft.Quorum(committee.TotalVotingPower())
-
-			coreRound := a.core.Round()
-			if msg.R() > coreRound {
-				// NOTE: here we could be buffering a proposal for future round, or a complex vote aggregate.
-				a.saveMessage(event)
-				// check if power is enough for a round skip
-				aggregatorPower := a.power(msg.H(), msg.R())
-				corePower := a.core.Power(msg.H(), msg.R())
-				contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
-				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
-					a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
-					a.processRound(msg.H(), msg.R())
-				}
-				recordMessageProcessingTime(msg.Code(), start)
-				break
-			}
-
-			// current or old round here
-			switch msg.(type) {
-			// if proposal, verify right away
-			case *message.Propose:
-				a.processProposal(event, currentHeightEventBuilder)
-			case *message.Prevote, *message.Precommit:
-				a.handleVote(event, committee, quorum, true)
-			default:
-				a.logger.Crit("unknown message type arrived in aggregator")
-			}
-			recordMessageProcessingTime(msg.Code(), start)
+			a.handleEvent(event)
 		case ev, ok := <-a.coreSub.Chan():
 			start := time.Now()
 			if !ok {
@@ -764,7 +761,6 @@ loop:
 				* Note: we cannot have complex aggregates, as if we receive a complex aggregate for a future round,
 				* we would instantly process it and move to that future round
 				 */
-				//TODO(lorenzo) possibly I can also move messages that became old to the oldMessages map. However not really sure if worth it.
 				height := e.Height
 				round := e.Round
 
@@ -906,6 +902,7 @@ loop:
 			a.messagesFrom = make(map[common.Address][]common.Hash)
 			a.toIgnore = make(map[common.Hash]struct{})
 		case <-oldMessagesTicker.C:
+			a.logger.Trace("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent
 			for _, batch := range a.staleMessages {
 				// if batch of proposals, validate them individually

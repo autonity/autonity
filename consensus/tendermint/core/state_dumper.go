@@ -25,11 +25,12 @@ func (c *Core) CoreState() interfaces.CoreState {
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
 func (c *Core) handleStateDump(e StateRequestEvent) {
 	state := interfaces.CoreState{
-		Client:            c.address,
-		BlockPeriod:       c.blockPeriod,
-		CurHeightMessages: msgForDump(c.messages.All()),
-		BacklogMessages:   getBacklogMsgs(c),                  // TODO(lorenzo) rename, it is not called backlog anymore
-		FutureMsgs:        msgForDump(c.backend.FutureMsgs()), //TODO(lorenzo) refinements, still needed?
+		Client:              c.address,
+		BlockPeriod:         c.blockPeriod,
+		CurHeightMessages:   msgForDump(c.messages.All()),
+		FutureRoundMessages: getFutureRoundMsgs(c),
+		// future height msgs are not really a part of core anymore, but we include them in the state dump for completeness sake
+		FutureHeightMessages: msgForDump(c.backend.FutureMsgs()),
 		// tendermint Core state:
 		Height:      c.Height(),
 		Round:       c.Round(),
@@ -66,10 +67,7 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 	close(e.StateChan)
 }
 
-// getBacklogUncheckedMsgs and getBacklogMsgs are kind of redundant code,
-// don't know how to write it via golang like template in C++, since the only
-// difference is the type of the data it operate on.
-func getBacklogMsgs(c *Core) []*interfaces.MsgForDump {
+func getFutureRoundMsgs(c *Core) []*interfaces.MsgForDump {
 	c.futureRoundLock.RLock()
 	defer c.futureRoundLock.RUnlock()
 	result := make([]*interfaces.MsgForDump, 0)

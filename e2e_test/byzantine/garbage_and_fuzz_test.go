@@ -3,13 +3,11 @@ package byzantine
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"math/big"
 	"math/rand"
 	"testing"
 
 	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/crypto/blst"
 
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
@@ -83,23 +81,13 @@ type garbageMessageBroadcaster struct {
 
 func (s *garbageMessageBroadcaster) Broadcast(_ message.Msg) {
 	logger := s.Logger().New("step", s.Step())
-	var fMsg message.Fake
-	//TODO(lorenzo) properly define custom fuzzing functions for signature and signerkey
-	f := fuzz.New().Funcs(
-		func(sig *blst.Signature, c fuzz.Continue) {
-			sigHex := "0x98759b81f6595ac857dbf0a51df26c6b9bb05ada93be66a4dfff5cb7aa5b0a43cd5cf37eb7f5cdfa67df9080a4e406921484edc9596f71eb55323ec79c62a73128524db2ad3eac9d2bb2db74676a21c1b280613e574bbfd54cbd220c552b518d"
-			b, _ := hex.DecodeString(sigHex[2:])
-			*sig, _ = blst.SignatureFromBytes(b)
-		},
-		func(key *blst.PublicKey, c fuzz.Continue) {
-			keyHex := "0x9324e32ed1739ae1283888dd91a17b13881f989e94fc1b572d678392e0e0df8fa7e5dec44b8cf378000d68ecca5e36eb"
-			b, _ := hex.DecodeString(keyHex[2:])
-			*key, _ = blst.PublicKeyFromBytes(b)
-		},
-	)
-	f.Fuzz(&fMsg)
+	// only payload and hash matter when gossiping garbage messages
+	fMsg := &message.Fake{}
+	f := fuzz.New()
+	f.Fuzz(&fMsg.FakePayload)
+	f.Fuzz(&fMsg.FakeHash)
 	logger.Info("Broadcasting random bytes")
-	s.Backend().Gossip(s.CommitteeSet().Committee(), &fMsg)
+	s.Backend().Gossip(s.CommitteeSet().Committee(), fMsg)
 }
 
 // TestGarbageMessageBroadcaster broadcasts a garbage Messages in the network,
@@ -139,12 +127,15 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 	var precommit *message.Precommit
 	r := rand.Int63()
 	h := rand.Uint64()
-	//TODO(lorenzo) we should probably also fuzz this (it influences the Signers object)
-	self, csize := selfAndCsize(c.Core, 1) // since we fuzz the height, let's take our CommitteeMember object from genesis
+	csize := rand.Intn((1 << 16))
+	self := &types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1} // other fields are compute locally by the remote peer
 	if isNil {
 		precommit = message.NewPrecommit(r, h, common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
 		precommit = message.NewPrecommit(r, h, randHash(), c.Backend().Sign, self, csize)
+	}
+	for i := 0; i < rand.Intn(10); i++ {
+		precommit.Signers().Increment(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
 	}
 	c.SetSentPrecommit(true)
 	c.Backend().Gossip(c.CommitteeSet().Committee(), precommit)
@@ -186,12 +177,15 @@ func (c *fuzzPrevoter) SendPrevote(_ context.Context, isNil bool) {
 	var prevote *message.Prevote
 	r := rand.Int63()
 	h := rand.Uint64()
-	//TODO(lorenzo) we should probably also fuzz this (it influences the Signers object)
-	self, csize := selfAndCsize(c.Core, 1) // since we fuzz the height, let's take our CommitteeMember object from genesis
+	csize := rand.Intn((1 << 16))
+	self := &types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1} // other fields are compute locally by the remote peer
 	if isNil {
 		prevote = message.NewPrevote(r, h, common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
 		prevote = message.NewPrevote(r, h, randHash(), c.Backend().Sign, self, csize)
+	}
+	for i := 0; i < rand.Intn(10); i++ {
+		prevote.Signers().Increment(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
 	}
 	c.SetSentPrevote(true)
 	c.Backend().Gossip(c.CommitteeSet().Committee(), prevote)

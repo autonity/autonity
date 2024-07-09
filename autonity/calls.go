@@ -497,9 +497,9 @@ func (c *NonStakableVestingContract) NewContract(header *types.Header, statedb v
 		return fmt.Errorf("error while generating call data for newContract: %w", err)
 	}
 
-	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	ret, err := c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
 	if err != nil {
-		return fmt.Errorf("error while calling newContract: %w", err)
+		return fmt.Errorf("error while calling newContract: %w, returned %s", err, string(ret))
 	}
 
 	return nil
@@ -525,9 +525,9 @@ func (c *StakableVestingContract) NewContract(header *types.Header, statedb vm.S
 		return fmt.Errorf("error while generating call data for newContract: %w", err)
 	}
 
-	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
+	ret, err := c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
 	if err != nil {
-		return fmt.Errorf("error while calling newContract: %w", err)
+		return fmt.Errorf("error while calling newContract: %w, %s", err, string(ret))
 	}
 
 	return nil

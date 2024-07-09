@@ -73,10 +73,6 @@ func (c *Core) unsubscribeEvents() {
 
 func shouldDisconnectSender(err error) bool {
 	switch {
-	/* //TODO(lorenzo) refinements2, double check. Also this is kinda broken due to aggregator not sending an ErrCh
-	case errors.Is(err, constants.ErrFutureHeightMessage):
-		fallthrough
-	*/
 	case errors.Is(err, constants.ErrOldHeightMessage):
 		fallthrough
 	case errors.Is(err, constants.ErrOldRoundMessage):
@@ -132,10 +128,9 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	return quorum
 }
 
-// TODO(lorenzo) Can I just substitute all the msgs in the c.messages with the complex aggregate?
-//
-//	I think it might cause message loss if we have multiple complex aggregates (see logic of AggregateVotes). To double check.
 func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
+	// We re-add the complex aggregate to the prevote set. If we would substitute the entire set with the complex aggregate, there is a possibility of message loss (if we had multiple un-mergeable complex aggregates in the `messages`). This loss would not harm consensus (we would still have quorum voting power), however it is better to keep all messages in case we have to sync another peer.
+	// We can consider changing it only if it considerably harms performance.
 	switch code {
 	case message.PrevoteCode:
 		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
@@ -209,8 +204,8 @@ eventLoop:
 					recordMessageProcessingTime(msg.Code(), start)
 				}
 			case backlogMessageEvent:
-				// TODO(lorenzo) refinements, should we check for disconnection also here?
-				// I am not sure we can get the error ch though
+				// TODO: should we check for disconnection also here for future round msgs?
+				// need probably to store the errCh? verify if possible.
 
 				msg := e.msg
 
@@ -333,7 +328,8 @@ func (c *Core) SendEvent(ev any) {
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	// These checks need to be repeated here due to backlogged messages being re-injected
 	if c.Height().Uint64() > msg.H() {
-		// TODO(lorenzo) should we gossip old height messages?
+		// TODO: should we gossip old height messages?
+		// and what about old round and future round msgs?
 		c.logger.Debug("ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
 		return constants.ErrOldHeightMessage
 	}
@@ -395,8 +391,10 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 }
 
 func tryDisconnect(errorCh chan<- error, err error) {
-	//TODO(lorenzo) refinements2, if aggregated vote or local message, we will have no error channel.
-	// maybe I can send back the error to the aggregator so the he can do the disconnection and the removal of messages
+	// errorCh can be nil in case the message is:
+	// 1. an aggregated vote (non-complex)
+	// 2. a locally created message
+	// In both cases no error that causes disconnection can be raised anyways.
 	if errorCh == nil {
 		return
 	}

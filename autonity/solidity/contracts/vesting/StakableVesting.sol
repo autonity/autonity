@@ -89,7 +89,7 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
         uint256 _cliffDuration,
         uint256 _totalDuration
     ) virtual onlyOperator public {
-        require(_startTime + _cliffDuration > autonity.lastEpochTime(), "contract cliff duration is past");
+        require(_startTime + _cliffDuration >= autonity.lastEpochTime(), "contract cliff duration is past");
         require(totalNominal >= _amount, "not enough stake reserved to create a new contract");
 
         _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);

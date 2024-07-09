@@ -33,7 +33,9 @@ type UnhandledMsg struct {
 var (
 	// errDecodeFailed is returned when decode message fails
 	errDecodeFailed = errors.New("fail to decode tendermint message")
-	NetworkCodes    = map[uint8]uint64{
+	// errDecodeFailed is returned when a consensus message is discarded because the signer is jailed
+	ErrJailed    = errors.New("signer is jailed")
+	NetworkCodes = map[uint8]uint64{
 		message.ProposalCode:  ProposeNetworkMsg,
 		message.PrevoteCode:   PrevoteNetworkMsg,
 		message.PrecommitCode: PrecommitNetworkMsg,
@@ -198,11 +200,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	case *message.Propose:
 		if sb.IsJailed(m.Signer()) {
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
-			// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
-			// really assume that all the other committee members have the same view on the
-			// jailed validator list before gossip, that is risking then to disconnect honest nodes.
-			// This needs to verified though. Returning nil for the time being.
-			return true, nil
+			return true, ErrJailed
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
@@ -210,8 +208,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			signer := committee.Members[signerIndex].Address
 			if sb.IsJailed(signer) {
 				sb.logger.Debug("Vote message contains signature from jailed validator, ignoring message", "address", signer)
-				// same
-				return true, nil
+				return true, ErrJailed
 			}
 		}
 	default:
@@ -255,7 +252,6 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, sender com
 		if ok {
 			sb.futureSize -= uint64(len(maxHeightEvs))
 			// remove messages from knowMessages cache so they can be received again
-			//TODO(lorenzo) refinements, not sure whether it is really worth it to do in a go routine
 			go func(evs []*events.UnverifiedMessageEvent) {
 				for _, e := range evs {
 					sb.knownMessages.Remove(e.Message.Hash())
@@ -267,7 +263,7 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, sender com
 		// however it is always going to be >= actualMaximum, so it is fine
 		sb.futureMaxHeight--
 
-		// TODO(lorenzo) refinements, might want to remove this once we are sure everything works as intended
+		// TODO: might want to remove this once we are sure everything works as intended
 		if sb.futureMaxHeight < sb.futureMinHeight-1 {
 			log.Crit("inconsistent state in future message buffer")
 		}

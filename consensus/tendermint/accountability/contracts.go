@@ -483,7 +483,6 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee *types
 }
 
 // check if the Proof of challenge of PVO12 is valid.
-// TODO(lorenzo) remove the committee? we probably do not need it
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	if len(p.Evidences) < 2 {
 		return false

@@ -68,9 +68,10 @@ var (
 	Ntn10000     = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
 	Ntn40000     = new(big.Int).Mul(big.NewInt(40_000), NtnPrecision)
 
-	PiccadillyGenesisTime, _       = time.Parse(time.RFC3339, "2024-06-13T14:30:00Z")
+	PiccadillyGenesisTime, _       = time.Parse(time.RFC3339, "2024-06-21T14:00:00Z")
 	PiccadillyGenesisUnixTimestamp = PiccadillyGenesisTime.Unix()
-	// PiccadillyChainConfig contains the chain parameters to run a node on the Piccaddilly test network.
+
+	// PiccadillyChainConfig contains the chain parameters to run a node on the Piccadilly test network.
 	PiccadillyChainConfig = &ChainConfig{
 		ChainID:                 big.NewInt(65_100_003),
 		HomesteadBlock:          common.Big0,
@@ -1144,6 +1145,21 @@ func (c *ChainConfig) Copy() *ChainConfig {
 	}
 	if c.AutonityContractConfig != nil {
 		cfg.AutonityContractConfig = &(*c.AutonityContractConfig)
+		cfg.AutonityContractConfig = &AutonityContractGenesis{
+			Bytecode:                c.AutonityContractConfig.Bytecode, // no deep copy needed
+			ABI:                     c.AutonityContractConfig.ABI,      // no deep copy needed
+			MinBaseFee:              c.AutonityContractConfig.MinBaseFee,
+			EpochPeriod:             c.AutonityContractConfig.EpochPeriod,
+			UnbondingPeriod:         c.AutonityContractConfig.UnbondingPeriod,
+			BlockPeriod:             c.AutonityContractConfig.BlockPeriod,
+			MaxCommitteeSize:        c.AutonityContractConfig.MaxCommitteeSize,
+			Operator:                c.AutonityContractConfig.Operator,
+			Treasury:                c.AutonityContractConfig.Treasury,
+			TreasuryFee:             c.AutonityContractConfig.TreasuryFee,
+			DelegationRate:          c.AutonityContractConfig.DelegationRate,
+			InitialInflationReserve: c.AutonityContractConfig.InitialInflationReserve,                                          // no deep copy needed
+			Validators:              append(c.AutonityContractConfig.Validators[:0:0], c.AutonityContractConfig.Validators...), // NEED DEEP COPY HERE
+		}
 	}
 	if c.OracleContractConfig != nil {
 		cfg.OracleContractConfig = c.OracleContractConfig

@@ -431,14 +431,14 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 
 	// compute aggregated key and auxiliary data structures
 	indexes := v.signers.Flatten()
-	keys := make([][]byte, len(indexes))
+	keys := make([]blst.PublicKey, len(indexes))
 	powers := make(map[int]*big.Int)
 	power := new(big.Int)
 
 	for i, index := range indexes {
 		member := committee.Members[index]
 
-		keys[i] = member.ConsensusKeyBytes
+		keys[i] = member.ConsensusKey
 		_, alreadyPresent := powers[index]
 		if !alreadyPresent {
 			powers[index] = member.VotingPower
@@ -584,7 +584,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 
 	// compute new aggregated signature and related signers information
 	var signatures []blst.Signature
-	var publicKeys [][]byte
+	var publicKeys []blst.PublicKey
 	for _, vote := range votes {
 		// do not aggregate votes if they do not add any useful information
 		// e.g. signers contains already at least 1 signature for all signers of vote.Signers()
@@ -594,7 +594,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 		if signers.AddsInformation(vote.Signers()) && signers.RespectsBoundaries(vote.Signers()) {
 			signers.Merge(vote.Signers())
 			signatures = append(signatures, vote.Signature())
-			publicKeys = append(publicKeys, vote.SignerKey().Marshal())
+			publicKeys = append(publicKeys, vote.SignerKey())
 		}
 	}
 	aggregatedSignature := blst.Aggregate(signatures)
@@ -667,7 +667,7 @@ func AggregateVotesSimple[
 	skip := make([]bool, len(votes))
 	var signersList []*types.Signers      //nolint
 	var signaturesList [][]blst.Signature //nolint
-	var publicKeysList [][][]byte         //nolint
+	var publicKeysList [][]blst.PublicKey //nolint
 
 	// order votes by decreasing number of distinct signers.
 	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
@@ -683,7 +683,7 @@ func AggregateVotesSimple[
 		signers := types.NewSigners(csize)
 		signers.Merge(vote.Signers())
 		signatures := []blst.Signature{vote.Signature()}
-		publicKeys := [][]byte{vote.SignerKey().Marshal()}
+		publicKeys := []blst.PublicKey{vote.SignerKey()}
 		for j := i + 1; j < len(votes); j++ {
 			if skip[j] {
 				continue
@@ -700,7 +700,7 @@ func AggregateVotesSimple[
 			}
 			signers.Merge(other.Signers())
 			signatures = append(signatures, other.Signature())
-			publicKeys = append(publicKeys, other.SignerKey().Marshal())
+			publicKeys = append(publicKeys, other.SignerKey())
 			skip[j] = true
 		}
 		signersList = append(signersList, signers)
@@ -723,7 +723,7 @@ func AggregateVotesSimple[
 		var err error
 		if len(signaturesList[i]) == 1 {
 			aggregatedSignature = signaturesList[i][0]
-			aggregatedPublicKey, _ = blst.PublicKeyFromBytes(publicKeysList[i][0])
+			aggregatedPublicKey = publicKeysList[i][0]
 		} else {
 			aggregatedSignature = blst.Aggregate(signaturesList[i])
 			aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeysList[i])
@@ -888,9 +888,17 @@ type Fake struct {
 	FakeHash           common.Hash
 	FakeSigners        *types.Signers
 	FakeSignature      blst.Signature
-	FakePower          *big.Int
 	FakeSignatureInput common.Hash
 	FakeSignerKey      blst.PublicKey
+
+	// used only for proposal
+	FakeBlock         *types.Block
+	FakeValidRound    uint64
+	FakeValidRoundNil bool
+	FakeSigner        common.Address
+	FakeSignerIndex   uint64
+	FakePower         *big.Int
+	FakeVerified      bool // for prevote and precommits this is set to true by default for now
 }
 
 func (f Fake) Code() uint8                          { return f.FakeCode }
@@ -908,6 +916,33 @@ func (f Fake) SignatureInput() common.Hash          { return f.FakeSignatureInpu
 func (f Fake) SignerKey() blst.PublicKey            { return f.FakeSignerKey }
 func (f Fake) Verified() bool                       { return true }
 func (f Fake) PreVerified() bool                    { return true }
+
+func NewFakePropose(f Fake) *Propose {
+	var vr int64
+	if f.FakeValidRoundNil {
+		vr = -1
+	} else {
+		vr = int64(f.FakeValidRound)
+	}
+	return &Propose{
+		block:       f.FakeBlock,
+		validRound:  vr,
+		signer:      f.FakeSigner,
+		signerIndex: int(f.FakeSignerIndex),
+		power:       f.FakePower,
+		base: base{
+			round:          int64(f.FakeRound),
+			height:         f.FakeHeight,
+			signatureInput: f.FakeSignatureInput,
+			signature:      f.FakeSignature,
+			payload:        f.FakePayload,
+			hash:           f.FakeHash,
+			signerKey:      f.FakeSignerKey,
+			preverified:    true,
+			verified:       f.FakeVerified,
+		},
+	}
+}
 
 func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{

@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestPublicKeyFromBytes(t *testing.T) {
@@ -124,4 +125,44 @@ func TestAggregatePublicKey(t *testing.T) {
 
 	_, err = priv1.PublicKey().Aggregate(priv2.PublicKey())
 	require.NoError(t, err)
+}
+
+func TestAggregateRawPublicKeys(t *testing.T) {
+	priv1, err := RandKey()
+	require.NoError(t, err)
+
+	priv2, err := RandKey()
+	require.NoError(t, err)
+
+	expectedKey, err := priv1.PublicKey().Aggregate(priv2.PublicKey())
+	require.NoError(t, err)
+
+	aggregatedKey, err := AggregateRawPublicKeys([][]byte{priv1.PublicKey().Marshal(), priv2.PublicKey().Marshal()})
+	require.NoError(t, err)
+
+	require.Equal(t, expectedKey.Marshal(), aggregatedKey.Marshal())
+}
+
+func TestAggregatePublicKeys(t *testing.T) {
+	priv1, err := RandKey()
+	require.NoError(t, err)
+	pub1 := priv1.PublicKey()
+	pub1Bytes := pub1.Marshal()
+
+	priv2, err := RandKey()
+	require.NoError(t, err)
+	pub2 := priv2.PublicKey()
+	pub2Bytes := pub2.Marshal()
+
+	expectedKey, err := priv1.PublicKey().Aggregate(pub2)
+	require.NoError(t, err)
+
+	aggregatedKey, err := AggregatePublicKeys([]PublicKey{pub1, pub2})
+	require.NoError(t, err)
+
+	require.Equal(t, expectedKey.Marshal(), aggregatedKey.Marshal())
+
+	// check no changes to the original pubkeys
+	require.Equal(t, pub1Bytes, pub1.Marshal())
+	require.Equal(t, pub2Bytes, pub2.Marshal())
 }
