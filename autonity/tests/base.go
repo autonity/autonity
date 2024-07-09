@@ -497,6 +497,7 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 		TotalSlashed:             v.TotalSlashed,
 		JailReleaseBlock:         v.JailReleaseBlock,
 		ProvableFaultCount:       v.ProvableFaultCount,
+		ConsensusKey:             v.ConsensusKey,
 		State:                    *v.State,
 	}
 }
