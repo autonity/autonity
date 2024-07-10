@@ -326,9 +326,10 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 				return 0, consensus.ErrInvalidEpochBoundary
 			}
 
-			parentEpochHead := sb.BlockChain().GetBlockByNumber(parentEpochBlock.Uint64())
-			if !parentEpochHead.IsEpochHead() ||
-				parentEpochHead.Header().NextEpochBlock().Uint64() != proposalNumber {
+			// as consensus participants run in full node mode, thus they should have all the headers in DB.
+			parentEpochHead := sb.BlockChain().GetHeaderByNumber(parentEpochBlock.Uint64())
+			if !parentEpochHead.IsEpochHeader() ||
+				parentEpochHead.NextEpochBlock().Uint64() != proposalNumber {
 				return 0, consensus.ErrInvalidParentEpochHead
 			}
 		}

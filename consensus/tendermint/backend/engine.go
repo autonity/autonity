@@ -338,6 +338,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 		if parentEpochBlock == nil || nextEpochBlock == nil {
 			panic(consensus.ErrInvalidEpochBoundary)
 		}
+		// note that miner node runs in full node mode, thus miner node should have the full block headers.
 		parentEpochHead := sb.BlockChain().GetHeaderByNumber(parentEpochBlock.Uint64())
 		if !parentEpochHead.IsEpochHeader() ||
 			parentEpochHead.NextEpochBlock().Uint64() != header.Number.Uint64() {
