@@ -1,29 +1,23 @@
 package backend
 
 import (
-	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 	"github.com/autonity/autonity/rpc"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCommittee(t *testing.T) {
-	want := &types.Committee{}
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	bn := rpc.BlockNumber(1)
-	c := consensus.NewMockChainReader(ctrl)
-	c.EXPECT().CommitteeOfHeight(uint64(bn.Int64())).Return(want, nil)
+	chain, engine := newBlockChain(1)
+	want := chain.Genesis().Header().Committee()
+	bn := rpc.BlockNumber(0)
 	api := &API{
-		chain: c,
+		chain:      chain,
+		tendermint: engine,
 	}
 	got, err := api.GetCommittee(&bn)
 	assert.NoError(t, err)
@@ -32,18 +26,12 @@ func TestGetCommittee(t *testing.T) {
 
 func TestGetCommitteeAtHash(t *testing.T) {
 	t.Run("unknown block given, error returned", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
 		hash := common.HexToHash("0x0123456789")
-
-		chain := consensus.NewMockChainReader(ctrl)
-		chain.EXPECT().GetHeaderByHash(hash).Return(nil)
-
+		chain, engine := newBlockChain(1)
 		api := &API{
-			chain: chain,
+			chain:      chain,
+			tendermint: engine,
 		}
-
 		_, err := api.GetCommitteeAtHash(hash)
 		if err != errUnknownBlock {
 			t.Fatalf("expected %v, got %v", errUnknownBlock, err)
@@ -51,20 +39,14 @@ func TestGetCommitteeAtHash(t *testing.T) {
 	})
 
 	t.Run("valid block given, committee returned", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		hash := common.HexToHash("0x0123456789")
-		want := &types.Committee{}
-
-		c := consensus.NewMockChainReader(ctrl)
-		h := &types.Header{Number: big.NewInt(1)}
-		c.EXPECT().GetHeaderByHash(hash).Return(h)
-		c.EXPECT().CommitteeOfHeight(h.Number.Uint64()).Return(want, nil)
+		chain, engine := newBlockChain(1)
 		api := &API{
-			chain: c,
+			chain:      chain,
+			tendermint: engine,
 		}
 
+		hash := chain.Genesis().Hash()
+		want := chain.Genesis().Header().Committee()
 		got, err := api.GetCommitteeAtHash(hash)
 		assert.NoError(t, err)
 		assert.Equal(t, want, got)

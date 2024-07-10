@@ -350,12 +350,17 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 		if parentEpochBlock == nil || nextEpochBlock == nil {
 			panic(consensus.ErrInvalidEpochBoundary)
 		}
-		// note that miner node runs in full node mode, thus miner node should have the full block headers.
-		parentEpochHead := sb.BlockChain().GetHeaderByNumber(parentEpochBlock.Uint64())
-		if !parentEpochHead.IsEpochHeader() ||
-			parentEpochHead.NextEpochBlock().Uint64() != header.Number.Uint64() {
-			panic(consensus.ErrInvalidParentEpochHead)
-		}
+		// todo: (Jason) do we need to check this in the block mining context? It would make engine.go be hard
+		//  to be tested since the prepared blocks haven't been saved on chain, and the GetHeaderByNumber of
+		//  parentEpochBlock will return nil. This checker is enabled in proposal verification and the headers
+		//  verification.
+		/*
+			// note that miner node runs in full node mode, thus miner node should have the full block headers.
+			parentEpochHead := sb.BlockChain().GetHeaderByNumber(parentEpochBlock.Uint64())
+			if !parentEpochHead.IsEpochHeader() ||
+				parentEpochHead.NextEpochBlock().Uint64() != header.Number.Uint64() {
+				panic(consensus.ErrInvalidParentEpochHead)
+			}*/
 		epoch.Committee = committee
 		epoch.ParentEpochBlock = parentEpochBlock
 		epoch.NextEpochBlock = nextEpochBlock
