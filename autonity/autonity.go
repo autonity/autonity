@@ -617,8 +617,8 @@ func (c *GenesisEVMContracts) DeployAccountabilityContract(autonityAddress commo
 	return c.AccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
 }
 
-func (c *GenesisEVMContracts) DeployOmissionAccountabilityContract(autonityAddress common.Address, nodeAddresses []common.Address, config OmissionAccountabilityConfig, bytecode []byte) error {
-	return c.OmissionAccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, nodeAddresses, config)
+func (c *GenesisEVMContracts) DeployOmissionAccountabilityContract(autonityAddress common.Address, committeeMembers []common.Address, config OmissionAccountabilityConfig, bytecode []byte) error {
+	return c.OmissionAccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, committeeMembers, config)
 }
 
 func (c *GenesisEVMContracts) Mint(address common.Address, amount *big.Int) error {

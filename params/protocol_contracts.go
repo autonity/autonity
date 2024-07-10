@@ -73,14 +73,13 @@ var (
 
 	// todo: resolve the reasonable default settings
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
-		NegligibleThreshold:     1000, // 10%
-		OmissionLookBackWindow:  30,   // 30 blocks
-		ActivityProofRewardRate: 1000, // 10%
-		MaxCommitteeSize:        1000,
-		PastPerformanceWeight:   5000, // 50%
-		InitialJailingPeriod:    300,  // 300 blocks
-		InitialProbationPeriod:  300,  // 300 blocks
-		InitialSlashingRate:     1000, // 10%
+		InactivityThreshold:    1000, // 10%
+		LookbackWindow:         30,   // 30 blocks
+		ProposerRewardRate:     1000, // 10%
+		PastPerformanceWeight:  5000, // 50%
+		InitialJailingPeriod:   300,  // 300 blocks
+		InitialProbationPeriod: 300,  // 300 blocks
+		InitialSlashingRate:    1000, // 10%
 	}
 
 	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{
@@ -136,14 +135,13 @@ type AccountabilityGenesis struct {
 
 type OmissionAccountabilityGenesis struct {
 	// Omission fault detection parameters
-	NegligibleThreshold     uint64 `json:"negligibleThreshold"`
-	OmissionLookBackWindow  uint64 `json:"omissionLookBackWindow"`
-	ActivityProofRewardRate uint64 `json:"activityProofRewardRate"`
-	MaxCommitteeSize        uint64 `json:"maxCommitteeSize"`
-	PastPerformanceWeight   uint64 `json:"pastPerformanceWeight"` // k belong to [0, ), we need precision field in contract.
-	InitialJailingPeriod    uint64 `json:"initialJailingPeriod"`
-	InitialProbationPeriod  uint64 `json:"initialProbationPeriod"`
-	InitialSlashingRate     uint64 `json:"initialSlashingRate"`
+	InactivityThreshold    uint64 `json:"inactivityThreshold"`
+	LookbackWindow         uint64 `json:"LookbackWindow"`
+	ProposerRewardRate     uint64 `json:"proposerRewardRate"`
+	PastPerformanceWeight  uint64 `json:"pastPerformanceWeight"` // k belong to [0, ), we need precision field in contract.
+	InitialJailingPeriod   uint64 `json:"initialJailingPeriod"`
+	InitialProbationPeriod uint64 `json:"initialProbationPeriod"`
+	InitialSlashingRate    uint64 `json:"initialSlashingRate"`
 }
 
 // Prepare prepares the AutonityContractGenesis by filling in missing fields.

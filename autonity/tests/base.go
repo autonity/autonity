@@ -457,14 +457,13 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
 	}
 	_, _, r.omissionAccountability, err = r.deployOmissionAccountability(nil, r.autonity.address, nodeAddresses, OmissionAccountabilityConfig{
-		NegligibleThreshold:     big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.NegligibleThreshold)),
-		OmissionLookBackWindow:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.OmissionLookBackWindow)),
-		ActivityProofRewardRate: big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.ActivityProofRewardRate)),
-		MaxCommitteeSize:        big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.MaxCommitteeSize)),
-		PastPerformanceWeight:   big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.PastPerformanceWeight)),
-		InitialJailingPeriod:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialJailingPeriod)),
-		InitialProbationPeriod:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialProbationPeriod)),
-		InitialSlashingRate:     big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialSlashingRate)),
+		InactivityThreshold:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InactivityThreshold)),
+		LookbackWindow:         big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.LookbackWindow)),
+		ProposerRewardRate:     big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.ProposerRewardRate)),
+		PastPerformanceWeight:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.PastPerformanceWeight)),
+		InitialJailingPeriod:   big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialJailingPeriod)),
+		InitialProbationPeriod: big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialProbationPeriod)),
+		InitialSlashingRate:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialSlashingRate)),
 	})
 	require.NoError(t, err)
 	require.Equal(t, r.omissionAccountability.address, params.OmissionAccountabilityContractAddress)

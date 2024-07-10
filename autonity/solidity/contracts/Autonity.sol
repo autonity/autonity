@@ -776,7 +776,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * return upgrade Set to true if an autonity contract upgrade is available.
     * return committee The next block consensus committee.
     */
-    // TODO(lorenzo) instead of passing delta, make it a protocol parameter as it should be
+    // TODO(lorenzo) divide into two functions
     function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, bool isProposerOmissionFaulty) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
@@ -1161,7 +1161,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // proposer fees redistribution
         //TODO(lorenzo) distribute also NTN to proposers?
         // TODO(lorenzo) not sure if scaling are correct
-        uint256 proposerIncentivizationRewards = _atn * config.contracts.omissionAccountabilityContract.getProposerRewardsRate() * (committee.length *100 / config.protocol.committeeSize) / 1000 /100;
+        uint256 proposerIncentivizationRewards = _atn * config.contracts.omissionAccountabilityContract.getProposerRewardRate() * (committee.length *100 / config.protocol.committeeSize) / 1000 /100;
         config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: proposerIncentivizationRewards}();
         _atn -= proposerIncentivizationRewards;
 

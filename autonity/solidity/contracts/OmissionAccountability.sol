@@ -2,14 +2,12 @@
 pragma solidity ^0.8.19;
 import "./Autonity.sol";
 contract OmissionAccountability is IOmissionAccountability {
-    // TODO(lorenzo) should this be in the config?
     uint256 public constant SCALE_FACTOR = 10_000;
 
     struct Config {
-        uint256 negligibleThreshold;        // threshold to determine if a validator is an offender at the end of epoch.
-        uint256 omissionLookBackWindow;
-        uint256 activityProofRewardRate; //TODO(lorenzo) this is actually needed only in  autonity
-        uint256 maxCommitteeSize; // TODO(lorenzo) this as welll
+        uint256 inactivityThreshold;        // threshold to determine if a validator is an offender at the end of epoch.
+        uint256 lookbackWindow;
+        uint256 proposerRewardRate; //TODO(lorenzo) this is actually needed only in  autonity
         uint256 pastPerformanceWeight;
         uint256 initialJailingPeriod;       // initial number of epoch an offender will be jailed for
         uint256 initialProbationPeriod;     // initial number of epoch an offender will be set under probation for
@@ -56,6 +54,14 @@ contract OmissionAccountability is IOmissionAccountability {
     * activity proof, which are the signers of precommit of current height - delta.
     */
     function finalize(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty, bool _epochEnded) external onlyAutonity {
+        _recordAbsents(_absentees,_proposer,_proposerEffort,_isProposerOmissionFaulty);
+        if(_epochEnded){
+            uint256 collusionDegree = _computeInactivityScoresAndCollusionDegree();
+            _punishInactiveValidators(collusionDegree);
+        }
+    }
+
+    function _recordAbsents(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty) internal {
         uint256 targetHeight = block.number - DELTA;
 
         if (_isProposerOmissionFaulty) {
@@ -68,11 +74,11 @@ contract OmissionAccountability is IOmissionAccountability {
 
             inactiveValidators[targetHeight] = _absentees;
             //TODO(lorenzo) check for off by one error
-            if(targetHeight > lastEpochBlock + config.omissionLookBackWindow) {
+            if(targetHeight > lastEpochBlock + config.lookbackWindow) {
                 // for each absent of target height, check the lookback window to see if he was online at some point
                 for(uint256 i=0; i < _absentees.length; i++) {
                     bool confirmedAbsent = true;
-                    uint256 initialLookBackWindow = config.omissionLookBackWindow;
+                    uint256 initialLookBackWindow = config.lookbackWindow;
                     for(uint256 j=targetHeight-1;j>=targetHeight-initialLookBackWindow;j--) {
                         if(faultyProposers[j]) {
                             // if we do not have data for a certain height, extend the window
@@ -109,69 +115,75 @@ contract OmissionAccountability is IOmissionAccountability {
             }
         }
 
-        if(_epochEnded){
-            uint256 epochPeriod = autonity.getEpochPeriod(); //TODO(lorenzo) not sure if better to shadow copy it + deal with changes in it
-            uint256 collusionDegree = 0;
+    }
 
-            // compute aggregated scores + collusion degree
-            for(uint256 i=0;i<committee.length;i++){
-                //TODO(lorenzo) use some kind of SCALE FACTOR?
-                uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / epochPeriod);
-                // TODO(lorenzo) properly scale the past performance weight to avoid underflow
-                //uint256 aggregatedInactivityScore =  inactivityScore*(1-config.pastPerformanceWeight) + currentEpochInactivityScores[committee[i]] * config.pastPerformanceWeight;
-                uint256 aggregatedInactivityScore = inactivityScore;
-                pastEpochInactivityScores[committee[i]] = currentEpochInactivityScores[committee[i]];
-                currentEpochInactivityScores[committee[i]] =  aggregatedInactivityScore;
-                if(aggregatedInactivityScore > config.negligibleThreshold){
-                    collusionDegree++;
+    // returns collusion degree
+    // TODO(lorenzo) better naming?
+    function _computeInactivityScoresAndCollusionDegree() internal returns (uint256) {
+        uint256 epochPeriod = autonity.getEpochPeriod(); //TODO(lorenzo) not sure if better to shadow copy it + deal with changes in it
+        uint256 collusionDegree = 0;
+
+        // compute aggregated scores + collusion degree
+        for(uint256 i=0;i<committee.length;i++){
+            //TODO(lorenzo) use some kind of SCALE FACTOR?
+            uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / epochPeriod);
+            // TODO(lorenzo) properly scale the past performance weight to avoid underflow
+            //uint256 aggregatedInactivityScore =  inactivityScore*(1-config.pastPerformanceWeight) + currentEpochInactivityScores[committee[i]] * config.pastPerformanceWeight;
+            uint256 aggregatedInactivityScore = inactivityScore;
+            pastEpochInactivityScores[committee[i]] = currentEpochInactivityScores[committee[i]];
+            currentEpochInactivityScores[committee[i]] =  aggregatedInactivityScore;
+            if(aggregatedInactivityScore > config.inactivityThreshold){
+                collusionDegree++;
+            }
+        }
+        return collusionDegree;
+    }
+
+    function _punishInactiveValidators(uint256 collusionDegree) internal{
+        // reduce probation periods + dish out punishment
+        for(uint256 i=0;i<committee.length;i++){
+            Autonity.Validator memory _val = autonity.getValidator(committee[i]);
+
+            // if the validator has already been slashed by accountability in this epoch,
+            // do not punish him for omission too. It would be unfair since peer ignore msgs from jailed vals.
+            if(_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound){
+                continue;
+            }
+
+            // TODO(lorenzo) this way probation period decreases only if the val is part of the committee. Is it what we want?
+            if(_val.state == ValidatorState.active && probationPeriods[committee[i]] > 0){
+                probationPeriods[committee[i]]--;
+                // if decreased to zero, then zero out also the offences counter
+                if(probationPeriods[committee[i]] == 0){
+                    repeatedOffences[committee[i]] = 0;
                 }
             }
 
-            // reduce probation periods + dish out punishment
-            for(uint256 i=0;i<committee.length;i++){
-                Autonity.Validator memory _val = autonity.getValidator(committee[i]);
+            // punish validator if his inactivity is greater than threshold
+            if(currentEpochInactivityScores[committee[i]] > config.inactivityThreshold){
+                repeatedOffences[committee[i]]++;
+                uint256 offenceSquared = repeatedOffences[committee[i]]*repeatedOffences[committee[i]];
+                uint256 jailingPeriod = config.initialJailingPeriod * offenceSquared;
+                uint256 probationPeriod = config.initialProbationPeriod * offenceSquared;
 
-                // if the validator has already been slashed by accountability in this epoch,
-                // do not punish him for omission too. It would be unfair since peer ignore msgs from jailed vals.
-                if(_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound){
-                    continue;
+                _val.jailReleaseBlock = block.number + jailingPeriod;
+                _val.state = ValidatorState.jailed;
+
+                if(probationPeriods[committee[i]] > 0){
+                    _slash(_val,config.initialSlashingRate*offenceSquared*collusionDegree);
+                }else{
+                    // TODO(lorenzo) should be fine even if we are not slashing,but double check
+                    autonity.updateValidatorAndTransferSlashedFunds(_val);
                 }
 
-                // TODO(lorenzo) this way probation period decreases only if the val is part of the committee. Is it what we want?
-                if(_val.state == ValidatorState.active && probationPeriods[committee[i]] > 0){
-                    probationPeriods[committee[i]]--;
-                    // if decreased to zero, then zero out also the offences counter
-                    if(probationPeriods[committee[i]] == 0){
-                       repeatedOffences[committee[i]] = 0;
-                    }
-                }
-
-                // punish validator if his inactivity is greater than threshold
-                if(currentEpochInactivityScores[committee[i]] > config.negligibleThreshold){
-                    repeatedOffences[committee[i]]++;
-                    uint256 offenceSquared = repeatedOffences[committee[i]]*repeatedOffences[committee[i]];
-                    uint256 jailingPeriod = config.initialJailingPeriod * offenceSquared;
-                    uint256 probationPeriod = config.initialProbationPeriod * offenceSquared;
-
-                    _val.jailReleaseBlock = block.number + jailingPeriod;
-                    _val.state = ValidatorState.jailed;
-
-                    if(probationPeriods[committee[i]] > 0){
-                        _slash(_val,config.initialSlashingRate*offenceSquared*collusionDegree);
-                    }else{
-                        // TODO(lorenzo) should be fine even if we are not slashing,but double check
-                        autonity.updateValidatorAndTransferSlashedFunds(_val);
-                    }
-
-                    // whether slashed or not, update the probation period
-                    probationPeriods[committee[i]] += probationPeriod;
-                }
+                // whether slashed or not, update the probation period
+                probationPeriods[committee[i]] += probationPeriod;
             }
-
         }
     }
 
     // TODO(Lorenzo) the code is copied from the accountability contract, would be good to make it a func.
+    // TODO(lorenzo) is it fair that slashing here uses a difference scale factor wrt d3
     // OR defer the slashing to the accountability contract
     function _slash(Autonity.Validator memory _val, uint256 _slashingRate) internal{
         if(_slashingRate > SCALE_FACTOR) {
@@ -274,8 +286,8 @@ contract OmissionAccountability is IOmissionAccountability {
         return SCALE_FACTOR;
     }
 
-    function getProposerRewardsRate() external view returns (uint256) {
-        return config.activityProofRewardRate;
+    function getProposerRewardRate() external view returns (uint256) {
+        return config.proposerRewardRate;
     }
 
     function setCommittee(address[] memory _committee) external onlyAutonity {

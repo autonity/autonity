@@ -179,5 +179,6 @@
   "3b2f2fac": "finalize(address[],address,uint256,bool)",
   "1400b437": "finalize(address[],address,uint256,bool,uint256,bool)",
   "c1a48245": "finalize(address[],address,uint256,bool,bool)",
-  "e1e8cac6": "setLastEpochBlock(uint256)"
+  "e1e8cac6": "setLastEpochBlock(uint256)",
+  "a5980637": "getProposerRewardRate()"
 }

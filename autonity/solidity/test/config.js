@@ -24,10 +24,9 @@ const ACCOUNTABILITY_CONFIG = {
     };
 
 const OMISSION_ACCOUNTABILITY_CONFIG = {
-    "negligibleThreshold": 1000,     // 10%
-    "omissionLookBackWindow":  30,   // 30 blocks
-    "activityProofRewardRate": 1000, // 10%
-    "maxCommitteeSize":        1000,
+    "inactivityThreshold": 1000,     // 10%
+    "lookbackWindow":  30,   // 30 blocks
+    "proposerRewardRate": 1000, // 10%
     "pastPerformanceWeight":   5000, // 50%
     "initialJailingPeriod":    300,  // 300 blocks
     "initialProbationPeriod":  300,  // 300 blocks

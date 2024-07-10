@@ -285,22 +285,21 @@ func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evm
 		config = params.DefaultOmissionAccountabilityConfig
 	}
 	conf := OmissionAccountabilityConfig{
-		NegligibleThreshold:     new(big.Int).SetUint64(config.NegligibleThreshold),
-		OmissionLookBackWindow:  new(big.Int).SetUint64(config.OmissionLookBackWindow),
-		ActivityProofRewardRate: new(big.Int).SetUint64(config.ActivityProofRewardRate),
-		MaxCommitteeSize:        new(big.Int).SetUint64(config.MaxCommitteeSize),
-		PastPerformanceWeight:   new(big.Int).SetUint64(config.PastPerformanceWeight),
-		InitialJailingPeriod:    new(big.Int).SetUint64(config.InitialJailingPeriod),
-		InitialProbationPeriod:  new(big.Int).SetUint64(config.InitialProbationPeriod),
-		InitialSlashingRate:     new(big.Int).SetUint64(config.InitialSlashingRate),
+		InactivityThreshold:    new(big.Int).SetUint64(config.InactivityThreshold),
+		LookbackWindow:         new(big.Int).SetUint64(config.LookbackWindow),
+		ProposerRewardRate:     new(big.Int).SetUint64(config.ProposerRewardRate),
+		PastPerformanceWeight:  new(big.Int).SetUint64(config.PastPerformanceWeight),
+		InitialJailingPeriod:   new(big.Int).SetUint64(config.InitialJailingPeriod),
+		InitialProbationPeriod: new(big.Int).SetUint64(config.InitialProbationPeriod),
+		InitialSlashingRate:    new(big.Int).SetUint64(config.InitialSlashingRate),
 	}
 
-	nodeAddresses := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+	committeeMembers := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
 	for _, val := range genesisConfig.AutonityContractConfig.Validators {
-		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
+		committeeMembers = append(committeeMembers, *val.NodeAddress)
 	}
 
-	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, nodeAddresses, conf, generated.OmissionAccountabilityBytecode)
+	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, committeeMembers, conf, generated.OmissionAccountabilityBytecode)
 	if err != nil {
 		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
 	}
