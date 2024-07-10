@@ -25,6 +25,10 @@ import "./ReentrancyGuard.sol";
 enum ValidatorState {active, paused, jailed, jailbound}
 uint8 constant DECIMALS = 18;
 
+// TODO(lorenzo) turn this into a protocol parameter? It is needed also by the omission contract
+// IMPORTANT: this value must match the one of `DeltaBlocks` in consensus/tendermint/params.go
+uint8 constant DELTA = 10;
+
 contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
     uint256 internal constant CONSENSUS_KEY_LEN = 48;
@@ -773,7 +777,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * return committee The next block consensus committee.
     */
     // TODO(lorenzo) instead of passing delta, make it a protocol parameter as it should be
-    function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, uint256 delta, bool isProposerOmissionFaulty) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
+    function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, bool isProposerOmissionFaulty) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
@@ -781,8 +785,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         // TODO(lorenzo) a bunch of possible off-by-one errors here to double check
         // if height is accountable, call the omission accountability contract
-        if(block.number > lastEpochBlock + delta) {
-            config.contracts.omissionAccountabilityContract.finalize(absentees, proposer, proposerEffort, isProposerOmissionFaulty, lastEpochBlock, delta, epochEnded);
+        if(block.number > lastEpochBlock + DELTA) {
+            config.contracts.omissionAccountabilityContract.finalize(absentees, proposer, proposerEffort, isProposerOmissionFaulty, epochEnded);
         }
         if (epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
@@ -827,6 +831,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             config.contracts.oracleContract.setVoters(_voters);
             config.contracts.omissionAccountabilityContract.setCommittee(_nodeAddresses);
             lastEpochBlock = block.number;
+            config.contracts.omissionAccountabilityContract.setLastEpochBlock(lastEpochBlock);
             lastEpochTime = block.timestamp;
             epochID += 1;
             epochBoundaryMap[epochID] = lastEpochBlock;

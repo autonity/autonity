@@ -9,8 +9,10 @@ interface IOmissionAccountability {
     * activity proof which is the signers of precommit of current height - dela.
     * param epochEnded signals whether we are finalizing the epoch
     */
-    function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, bool isProposerOmissionFaulty, uint256 lastEpochBlock, uint256 delta, bool epochEnded) external;
+    function finalize(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty, bool _epochEnded) external;
+
     function setCommittee(address[] memory _committee) external;
+    function setLastEpochBlock(uint256 _lastEpochBlock) external;
     function getInactivityScore(address _validator) external view returns (uint256);
     function getScaleFactor() external pure returns (uint256);
     function getProposerRewardsRate() external view returns (uint256);
