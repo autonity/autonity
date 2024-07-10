@@ -376,7 +376,6 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 
 		currentHeader := newBlockHeader(height, committee)
 		chainMock.EXPECT().CurrentBlock().Return(types.NewBlockWithHeader(currentHeader))
-		chainMock.EXPECT().GetBlock(proposal.Value(), proposal.H()).Return(nil)
 
 		for i := range committee.Members {
 			preVote := newValidatedPrevote(validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee.Members[i], cSize)
@@ -442,7 +441,6 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		payload, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
 		hash := crypto.Hash(payload)
-		chainMock.EXPECT().GetBlock(invalidProposal.Value(), invalidProposal.H()).Return(nil)
 
 		err = fd.handleOffChainAccusation(&p, common.Address{}, hash, committee)
 		require.Equal(t, errInvalidAccusation, err)
@@ -479,7 +477,6 @@ func TestHandleOffChainAccusation(t *testing.T) {
 			preVote := newValidatedPrevote(validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee.Members[i], cSize)
 			mStore.Save(preVote)
 		}
-		chainMock.EXPECT().GetBlock(proposal.Value(), proposal.H()).Return(nil)
 		chainMock.EXPECT().CommitteeOfHeight(accusationHeight).Return(committee, nil)
 		err = fd.handleOffChainAccusation(&accusationPO, remotePeer, hash, committee)
 		require.NoError(t, err)

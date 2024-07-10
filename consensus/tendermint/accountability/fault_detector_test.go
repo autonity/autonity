@@ -76,11 +76,26 @@ func newBlockHeader(height uint64, committee *types.Committee) *types.Header {
 	for i := 0; i < len(nonce); i++ {
 		nonce[i] = byte(rand.Intn(256)) //nolint
 	}
-	return &types.Header{
-		Number:    new(big.Int).SetUint64(height),
-		Nonce:     nonce,
-		Committee: committee,
+
+	var epoch types.Epoch
+	epoch.Committee = committee
+	epoch.ParentEpochBlock = common.Big0
+	epoch.NextEpochBlock = new(big.Int).SetUint64(height + 30)
+
+	header := &types.Header{
+		Number: new(big.Int).SetUint64(height),
+		Nonce:  nonce,
 	}
+
+	err := types.WriteEpochExtra(header, &epoch)
+	if err != nil {
+		panic(err)
+	}
+	if err = header.EnrichEpochInfo(); err != nil {
+		panic(err)
+	}
+
+	return header
 }
 
 // new proposal with metadata, if the withValue is not nil, it will use the value as proposal, otherwise a
