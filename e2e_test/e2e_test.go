@@ -46,7 +46,7 @@ func TestSendingValue(t *testing.T) {
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
-	_ = network.WaitToMineNBlocks(100, 100, false)
+	_ = network.WaitToMineNBlocks(300, 300, false)
 }
 
 func TestProtocolContractsDeployment(t *testing.T) {

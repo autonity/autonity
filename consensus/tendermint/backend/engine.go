@@ -52,6 +52,8 @@ var (
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidRound is returned if the round exceed maximum round number.
 	errInvalidRound = errors.New("invalid round")
+	// errInvalidEpochBoundary is returned if the bi-direction of epoch headers pointers cannot match.
+	errInvalidEpochBoundary = errors.New("invalid epoch boundary")
 )
 var (
 	defaultDifficulty             = big.NewInt(1)
@@ -82,19 +84,18 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return consensus.ErrUnknownAncestor
 	}
 
-	committee, _, _, _, err := chain.LatestEpoch()
+	committee, _, curEHead, nexEHead, err := chain.LatestEpoch()
 	if err != nil {
 		return err
 	}
 
-	return sb.verifyHeader(chain, header, parent, committee)
+	return sb.verifyHeader(chain, header, parent, committee, curEHead, nexEHead)
 }
 
-// verifyHeader checks whether a header conforms to the consensus rules. It
-// expects the parent header to be provided unless header is the genesis
-// header.
+// verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
+// to be provided unless header is the genesis header, it expects the epoch header chain to be linked correctly as well.
 func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
-	committee *types.Committee) error {
+	committee *types.Committee, curEpochHead, nextEHead uint64) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -143,6 +144,14 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	if header.IsGenesis() {
 		return nil
 	}
+
+	// Check the bi-direction links of epoch headers
+	if header.IsEpochHeader() {
+		if nextEHead != header.Number.Uint64() || header.ParentEpochBlock().Uint64() != curEpochHead {
+			return errInvalidEpochBoundary
+		}
+	}
+
 	// We expect the parent to be non nil when header is not the genesis header.
 	if parent == nil {
 		return errUnknownBlock
@@ -176,7 +185,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 	go func() {
-		committee, _, _, _, err := chain.LatestEpoch()
+		committee, _, curEHead, nextEHead, err := chain.LatestEpoch()
 		if err != nil {
 			panic(err)
 		}
@@ -189,11 +198,14 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				parent = chain.GetHeaderByHash(header.ParentHash)
 			}
 
-			err = sb.verifyHeader(chain, header, parent, committee)
+			// check header against parent and parent epoch head.
+			err = sb.verifyHeader(chain, header, parent, committee, curEHead, nextEHead)
 
-			// if the processed header is a new epoch header, set the epoch header for the processing of left headers.
+			// if the processing header is a new epoch header, update the epoch info for un-processed headers .
 			if header.IsEpochHeader() {
 				committee = header.Committee()
+				curEHead = header.Number.Uint64()
+				nextEHead = header.NextEpochBlock().Uint64()
 			}
 
 			select {
