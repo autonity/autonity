@@ -12,6 +12,7 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
@@ -199,7 +200,8 @@ func (r *runner) waitNBlocks(n int) { //nolint
 	for i := 0; i < n; i++ {
 		// Finalize is not the only block closing operation - fee redistribution is missing and prob
 		// other stuff. Left as todo.
-		_, err := r.autonity.Finalize(&runOptions{origin: common.Address{}}, false, []*big.Int{})
+		// we set the validator #0 as proposer all the time in these blocks
+		_, err := r.autonity.Finalize(&runOptions{origin: common.Address{}}, []common.Address{}, r.committee.validators[0].NodeAddress, common.Big1, new(big.Int).SetInt64(tendermint.DeltaBlocks), false)
 		// consider monitoring gas cost here and fail if it's too much
 		require.NoError(r.t, err, "finalize function error in waitNblocks", i)
 		r.evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
@@ -450,7 +452,11 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	//
 	// Step 11: Omission Accountability Contract Deployment
 	//
-	_, _, r.omissionAccountability, err = r.deployOmissionAccountability(nil, r.autonity.address, OmissionAccountabilityConfig{
+	nodeAddresses := make([]common.Address, len(params.TestAutonityContractConfig.Validators))
+	for _, val := range params.TestAutonityContractConfig.Validators {
+		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
+	}
+	_, _, r.omissionAccountability, err = r.deployOmissionAccountability(nil, r.autonity.address, nodeAddresses, OmissionAccountabilityConfig{
 		NegligibleThreshold:     big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.NegligibleThreshold)),
 		OmissionLookBackWindow:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.OmissionLookBackWindow)),
 		ActivityProofRewardRate: big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.ActivityProofRewardRate)),

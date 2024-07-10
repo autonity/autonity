@@ -99,7 +99,7 @@ func (sb *Backend) validateActivityProof(curHeader *types.Header) (bool, common.
 	signers, proposerEffort, err := sb.verifyActivityProof(curHeader, committee, proposer)
 	if err != nil {
 		sb.logger.Info("Faulty activity proof addressed, proposer is omission faulty", "proposer", proposer)
-		return true, proposer, new(big.Int), []common.Address{}
+		return true, proposer, proposerEffort, []common.Address{}
 	}
 
 	// we have got the signers, let's compute the absentees and return them

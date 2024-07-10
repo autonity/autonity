@@ -1113,11 +1113,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @dev Modifier that checks if the caller is the governance operator account.
+    * @dev Modifier that checks if the caller is the accountability contract or the omission accountability contract
     * This should be abstracted by a separate smart-contract.
     */
     modifier onlyAccountability {
-        require(address(config.contracts.accountabilityContract) == msg.sender, "caller is not the slashing contract");
+        require(address(config.contracts.accountabilityContract) == msg.sender || address(config.contracts.omissionAccountabilityContract) == msg.sender, "caller is not an accountability contract");
         _;
     }
 
@@ -1152,6 +1152,17 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 _atn -= _atnTreasuryReward;
             }
         }
+
+        // proposer fees redistribution
+        //TODO(lorenzo) distribute also NTN to proposers?
+        // TODO(lorenzo) not sure if scaling are correct
+        uint256 proposerIncentivizationRewards = _atn * config.contracts.omissionAccountabilityContract.getProposerRewardsRate() * (committee.length *100 / config.protocol.committeeSize) / 1000 /100;
+        config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: proposerIncentivizationRewards}();
+        _atn -= proposerIncentivizationRewards;
+
+        // TODO(lorenzo) maybe this could be a protocol contract param
+        uint256 omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
+
         // Redistribute fees through the Liquid Newton contract
         atnTotalRedistributed += _atn;
         for (uint256 i = 0; i < committee.length; i++) {
@@ -1167,6 +1178,17 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                     config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[i].addr, _ntnReward);
                     continue;
                 }
+                // TODO(lorenzo) too much gas / time? Use an array?
+                // rewards withholding based on omission accountability
+                uint256 inactivityScore = config.contracts.omissionAccountabilityContract.getInactivityScore(_val.nodeAddress);
+                if(inactivityScore > 0) {
+                    uint256 _atnWithhold = _atnReward * inactivityScore / omissionScaleFactor;
+                    uint256 _ntnWithhold = _ntnReward * inactivityScore / omissionScaleFactor;
+                    // TODO(Lorenzo) should withholded amount of atn stay at the AC or go to the treasury?
+                    _atnReward -= _atnWithhold;
+                    _ntnReward -= _ntnWithhold;
+                }
+
                 // non-jailed validators have a strict amount of bonded newton.
                 // the distribution account for the PAS ratio post-slashing.
                 uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;

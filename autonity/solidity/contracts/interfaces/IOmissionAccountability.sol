@@ -11,4 +11,8 @@ interface IOmissionAccountability {
     */
     function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, bool isProposerOmissionFaulty, uint256 lastEpochBlock, uint256 delta, bool epochEnded) external;
     function setCommittee(address[] memory _committee) external;
+    function getInactivityScore(address _validator) external view returns (uint256);
+    function getScaleFactor() external pure returns (uint256);
+    function getProposerRewardsRate() external view returns (uint256);
+    function distributeProposerRewards() external payable;
 }

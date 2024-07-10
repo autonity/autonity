@@ -171,5 +171,9 @@
   "b45e2675": "getConsensusViewOfHeight(uint256)",
   "8aeb51c5": "finalize(address[],address,uint256,uint256,bool)",
   "54a2f945": "finalize(address[],address,uint256,bool,uint256,uint256,bool)",
-  "e08b14ed": "setCommittee(address[])"
+  "e08b14ed": "setCommittee(address[])",
+  "9a11e0e6": "getInactivityScore(address)",
+  "7f5e2f11": "getScaleFactor()",
+  "05a1c767": "distributeProposerRewards()",
+  "dca23b41": "getProposerRewardsRate()"
 }
