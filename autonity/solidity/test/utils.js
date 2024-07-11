@@ -292,7 +292,7 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 // set shortenEpoch = false if no need to call utils.endEpoch
-const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
+const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = false) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
