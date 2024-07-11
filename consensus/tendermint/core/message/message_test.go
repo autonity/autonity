@@ -169,7 +169,7 @@ func TestValidate(t *testing.T) {
 	committee.Members = []types.CommitteeMember{*member1, *member2}
 	csize := committee.Len()
 
-	header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: committee}
+	header := newHeader(25, committee)
 
 	t.Run("invalid signature, error returned", func(t *testing.T) {
 		msg := newUnverifiedPrevote(1, 25, header.Hash(), func(hash common.Hash) blst.Signature {
@@ -242,7 +242,7 @@ func TestPreValidate(t *testing.T) {
 		committee := new(types.Committee)
 		committee.Members = []types.CommitteeMember{otherCommitteeMember}
 
-		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: committee}
+		header := newHeader(25, committee)
 		messages := []Msg{
 			newUnverifiedPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
 			newUnverifiedLightPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
@@ -256,7 +256,7 @@ func TestPreValidate(t *testing.T) {
 	t.Run("proposals from a committee member, no error", func(t *testing.T) {
 		committee := new(types.Committee)
 		committee.Members = []types.CommitteeMember{*testCommitteeMember}
-		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: committee}
+		header := newHeader(25, committee)
 		messages := []Msg{
 			newUnverifiedPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
 			newUnverifiedLightPropose(1, 25, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
@@ -271,7 +271,7 @@ func TestPreValidate(t *testing.T) {
 	t.Run("votes with correct signers information, no error", func(t *testing.T) {
 		committee := new(types.Committee)
 		committee.Members = []types.CommitteeMember{*testCommitteeMember}
-		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: committee}
+		header := newHeader(25, committee)
 		messages := []Msg{
 			newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
 			newUnverifiedPrecommit(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
@@ -286,7 +286,7 @@ func TestPreValidate(t *testing.T) {
 	t.Run("votes with incorrect signers information, error is returned", func(t *testing.T) {
 		committee := new(types.Committee)
 		committee.Members = []types.CommitteeMember{*testCommitteeMember}
-		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: committee}
+		header := newHeader(25, committee)
 		messages := []Vote{
 			newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
 			newUnverifiedPrecommit(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 1),
@@ -304,7 +304,7 @@ func TestPreValidate(t *testing.T) {
 	t.Run("votes is complex aggregate but does not carry quorum, error is returned", func(t *testing.T) {
 		committee := new(types.Committee)
 		committee.Members = []types.CommitteeMember{*testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember}
-		header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: committee}
+		header := newHeader(25, committee)
 		vote := newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 5)
 
 		// let's make this vote complex by tweaking the signers (NOTE: this will not pass validate since the signature doesn't actually match the signers)
@@ -320,7 +320,7 @@ func TestPreValidate(t *testing.T) {
 func TestMessageEncodeDecode(t *testing.T) {
 	committee := new(types.Committee)
 	committee.Members = []types.CommitteeMember{*testCommitteeMember}
-	header := &types.Header{Number: new(big.Int).SetUint64(2), Committee: committee}
+	header := newHeader(2, committee)
 	messages := []Msg{
 		NewPropose(1, 2, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
 		NewPrevote(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1),
@@ -359,7 +359,7 @@ func TestMessageHash(t *testing.T) {
 	csize := testCommittee.Len()
 	err := testCommittee.Enrich()
 	require.NoError(t, err)
-	header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: &testCommittee}
+	header := newHeader(25, &testCommittee)
 	block := types.NewBlockWithHeader(header)
 
 	t.Run("Aggregating same votes in different orders yields same hash", func(t *testing.T) {
@@ -691,7 +691,7 @@ func TestPower(t *testing.T) {
 	h := uint64(1)
 	err := testCommittee.Enrich()
 	require.NoError(t, err)
-	header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: &testCommittee}
+	header := newHeader(25, &testCommittee)
 	block := types.NewBlockWithHeader(header)
 	csize := testCommittee.Len()
 
@@ -733,7 +733,7 @@ func TestOverQuorumVotes(t *testing.T) {
 	h := uint64(1)
 	err := testCommittee.Enrich()
 	require.NoError(t, err)
-	header := &types.Header{Number: new(big.Int).SetUint64(25), Committee: &testCommittee}
+	header := newHeader(25, &testCommittee)
 	block := types.NewBlockWithHeader(header)
 	csize := testCommittee.Len()
 	quorum := bft.Quorum(testCommittee.TotalVotingPower())
@@ -783,4 +783,22 @@ func BenchmarkDecodeVote(b *testing.B) {
 		p2pPrevote.Payload = bytes.NewReader(payload)
 		b.StartTimer()
 	}
+}
+
+func newHeader(number uint64, c *types.Committee) *types.Header {
+	header := &types.Header{Number: new(big.Int).SetUint64(number)}
+
+	var epoch types.Epoch
+	epoch.Committee = c
+	epoch.ParentEpochBlock = common.Big0
+	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
+	err := types.WriteEpochExtra(header, &epoch)
+	if err != nil {
+		panic(err)
+	}
+	if err = header.EnrichEpochInfo(); err != nil {
+		panic(err)
+	}
+
+	return header
 }

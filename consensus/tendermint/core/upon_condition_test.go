@@ -1232,7 +1232,18 @@ func TestFutureRoundChange(t *testing.T) {
 
 func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c interfaces.Committee, keys AddressKeyMap, signerIndex int) {
 	h := b.Header()
-	h.Committee = c.Committee()
+	var epoch types.Epoch
+	epoch.Committee = c.Committee()
+	epoch.ParentEpochBlock = common.Big0
+	epoch.NextEpochBlock = new(big.Int).SetUint64(h.Number.Uint64() + 30)
+	err := types.WriteEpochExtra(h, &epoch)
+	if err != nil {
+		panic(err)
+	}
+	if err = h.EnrichEpochInfo(); err != nil {
+		panic(err)
+	}
+
 	hashData := types.SigHash(h)
 	signature, err := crypto.Sign(hashData[:], keys[c.Committee().Members[signerIndex].Address].node)
 	require.NoError(t, err)

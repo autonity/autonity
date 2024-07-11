@@ -162,18 +162,18 @@ func TestMsgStore(t *testing.T) {
 	})
 	t.Run("SearchQuorum correctly detects quorum of prevotes", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
 		require.Equal(t, 0, len(ms.SearchQuorum(height, round, NilValue, common.Big1)))
 
-		preVoteNotNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNotNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNotNil)
 
 		require.Equal(t, 1, len(ms.SearchQuorum(height, round, NilValue, common.Big1)))
 		require.Equal(t, preVoteNotNil.Hash(), ms.SearchQuorum(height, round, NilValue, common.Big1)[0].Hash())
 
-		preVoteNotNil = message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[indexBob], cSize)
+		preVoteNotNil = message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[indexBob], cSize)
 		ms.Save(preVoteNotNil)
 
 		require.Equal(t, 2, len(ms.SearchQuorum(height, round, NilValue, common.Big1)))
