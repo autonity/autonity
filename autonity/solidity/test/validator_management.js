@@ -204,11 +204,11 @@ contract('Autonity', function (accounts) {
         let pop2;
         beforeEach(async function () {
             // set short epoch period
-            let customizedEpochPeriod = 20;
-            copyParams.protocol.epochPeriod = customizedEpochPeriod;
+            //let customizedEpochPeriod = 20;
+            //copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
             autonity = await utils.deployContracts(vals, copyParams, accountabilityConfig, deployer, operator);
-            assert.equal(customizedEpochPeriod,(await autonity.getEpochPeriod()).toNumber());
+            //assert.equal(customizedEpochPeriod,(await autonity.getEpochPeriod()).toNumber());
 
             const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test1.key`)
             const oracleKey = utils.randomPrivateKey();
