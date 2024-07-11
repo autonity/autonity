@@ -49,16 +49,9 @@ async function endEpoch(contract,operator,deployer){
   let delta = currentHeight - lastEpochBlock;
 
   let newEpochPeriod = delta + 5
-  //await contract.setEpochPeriod(newEpochPeriod,{from: operator})
-  let txn = await contract.setEpochPeriod(newEpochPeriod, { from: operator });
-  // Wait for the transaction receipt
-  let receipt = await txn.wait();
-  // Check the status of the transaction
-  if (receipt.status === 1) {
-    console.log("Transaction setEpochPeriod successful!");
-  } else {
-    console.log("Transaction setEpochPeriod failed.");
-  }
+  await contract.setEpochPeriod(newEpochPeriod,{from: operator})
+  // todo: a better way to wait for the TXN being mined.
+  await timeout(2000);
 
   // close epoch
   console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
