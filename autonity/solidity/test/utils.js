@@ -53,12 +53,13 @@ async function endEpoch(contract,operator,deployer){
   // close epoch
   for (let i=currentHeight;i<=nexEpochBlock+1;i++) {
     let height = await web3.eth.getBlockNumber()
+    console.log("current height of blockchain", "height", height)
     contract.finalize({from: deployer})
     await waitForNewBlock(height);
   }
 
   let newEpoch = (await contract.epochID()).toNumber()
-  assert.equal(currentEpoch+1,newEpoch)
+  assert.equal(currentEpoch+1, newEpoch)
   // new epoch period is going to be taken at the end of epoch, thus we check it here:
   assert.equal(newEpochPeriod,(await contract.getEpochPeriod()).toNumber())
 }
