@@ -54,10 +54,14 @@ async function endEpoch(contract,operator,deployer){
   // close epoch
   console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
       lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
-  for (let i=currentHeight;i<=nextEpochBlock+1;i++) {
-    let height = await web3.eth.getBlockNumber()
+  if (currentHeight > nextEpochBlock) {
     contract.finalize({from: deployer})
-    await waitForNewBlock(height);
+  } else {
+    for (let i=currentHeight;i<=nextEpochBlock;i++) {
+      let height = await web3.eth.getBlockNumber()
+      contract.finalize({from: deployer})
+      await waitForNewBlock(height);
+    }
   }
 
   let newEpoch = (await contract.epochID()).toNumber()
