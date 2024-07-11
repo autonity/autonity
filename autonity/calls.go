@@ -574,7 +574,7 @@ func (c *AutonityContract) callGetCommitteeByHeight(state vm.StateDB, header *ty
 }
 
 // callGetEpochInfo get the committee and the corresponding epoch boundary base on the input header's state.
-// it returns the commitee, parentEpochBlock, curEpochBlock, and the nextEpochBlock.
+// it returns the committee, parentEpochBlock, curEpochBlock, and the nextEpochBlock.
 func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Header) (*types.Committee, uint64, uint64, uint64, error) {
 	type EpochInfo struct {
 		parentEpochBlock  *big.Int
