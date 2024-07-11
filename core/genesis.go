@@ -503,6 +503,7 @@ func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big
 		Alloc:   GenesisAlloc{addr: {Balance: balance}},
 		Config:  params.TestChainConfig,
 		BaseFee: big.NewInt(params.InitialBaseFee),
+		Mixhash: types.BFTDigest,
 	}
 	return g.MustCommit(db)
 }
