@@ -42,6 +42,7 @@ async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
 async function endEpoch(contract,operator,deployer){
   let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
   let oldEpochPeriod = (await contract.getEpochPeriod()).toNumber();
+  let nexEpochBlock = lastEpochBlock+oldEpochPeriod;
   let currentHeight = await web3.eth.getBlockNumber();
   let currentEpoch = (await contract.epochID()).toNumber()
   let delta = currentHeight - lastEpochBlock
@@ -50,7 +51,7 @@ async function endEpoch(contract,operator,deployer){
   await contract.setEpochPeriod(newEpochPeriod,{from: operator})
 
   // close epoch
-  for (let i=currentHeight;i<=(lastEpochBlock + oldEpochPeriod);i++) {
+  for (let i=currentHeight;i<=nexEpochBlock+1;i++) {
     let height = await web3.eth.getBlockNumber()
     contract.finalize({from: deployer})
     await waitForNewBlock(height);

@@ -414,6 +414,7 @@ contract('Autonity', function (accounts) {
 
     it('test extend epoch period by operator', async function () {
       await autonity.setEpochPeriod(98, {from: operator});
+      await utils.endEpoch(autonity, operator, deployer);
       let eP = await autonity.getEpochPeriod({from: operator});
       assert.equal("98",eP.toString())
     });
