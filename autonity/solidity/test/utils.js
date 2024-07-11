@@ -42,16 +42,18 @@ async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
 async function endEpoch(contract,operator,deployer){
   let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
   let oldEpochPeriod = (await contract.getEpochPeriod()).toNumber();
-  let nexEpochBlock = lastEpochBlock+oldEpochPeriod;
+  let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
   let currentHeight = await web3.eth.getBlockNumber();
-  let currentEpoch = (await contract.epochID()).toNumber()
-  let delta = currentHeight - lastEpochBlock
+  let currentEpoch = (await contract.epochID()).toNumber();
+  let delta = currentHeight - lastEpochBlock;
 
   let newEpochPeriod = delta + 5
   await contract.setEpochPeriod(newEpochPeriod,{from: operator})
 
   // close epoch
-  for (let i=currentHeight;i<=nexEpochBlock+1;i++) {
+  console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
+      lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
+  for (let i=currentHeight;i<=nextEpochBlock+1;i++) {
     let height = await web3.eth.getBlockNumber()
     console.log("current height of blockchain", "height", height)
     contract.finalize({from: deployer})
