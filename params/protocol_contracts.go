@@ -72,10 +72,10 @@ var (
 	}
 
 	// todo: resolve the reasonable default settings
+	// values assume 10_000 as scaling factor
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
 		InactivityThreshold:    1000, // 10%
 		LookbackWindow:         30,   // 30 blocks
-		ProposerRewardRate:     1000, // 10%
 		PastPerformanceWeight:  5000, // 50%
 		InitialJailingPeriod:   300,  // 300 blocks
 		InitialProbationPeriod: 300,  // 300 blocks
@@ -117,6 +117,7 @@ type AutonityContractGenesis struct {
 	Treasury                common.Address        `json:"treasury"`
 	TreasuryFee             uint64                `json:"treasuryFee"`
 	DelegationRate          uint64                `json:"delegationRate"`
+	ProposerRewardRate      uint64                `json:"proposerRewardRate"`
 	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 }
@@ -137,8 +138,7 @@ type OmissionAccountabilityGenesis struct {
 	// Omission fault detection parameters
 	InactivityThreshold    uint64 `json:"inactivityThreshold"`
 	LookbackWindow         uint64 `json:"LookbackWindow"`
-	ProposerRewardRate     uint64 `json:"proposerRewardRate"`
-	PastPerformanceWeight  uint64 `json:"pastPerformanceWeight"` // k belong to [0, ), we need precision field in contract.
+	PastPerformanceWeight  uint64 `json:"pastPerformanceWeight"` // k belong to [0, 1), after scaling in the contract
 	InitialJailingPeriod   uint64 `json:"initialJailingPeriod"`
 	InitialProbationPeriod uint64 `json:"initialProbationPeriod"`
 	InitialSlashingRate    uint64 `json:"initialSlashingRate"`

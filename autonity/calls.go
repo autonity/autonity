@@ -7,7 +7,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
-	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
@@ -287,7 +286,6 @@ func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evm
 	conf := OmissionAccountabilityConfig{
 		InactivityThreshold:    new(big.Int).SetUint64(config.InactivityThreshold),
 		LookbackWindow:         new(big.Int).SetUint64(config.LookbackWindow),
-		ProposerRewardRate:     new(big.Int).SetUint64(config.ProposerRewardRate),
 		PastPerformanceWeight:  new(big.Int).SetUint64(config.PastPerformanceWeight),
 		InitialJailingPeriod:   new(big.Int).SetUint64(config.InitialJailingPeriod),
 		InitialProbationPeriod: new(big.Int).SetUint64(config.InitialProbationPeriod),
@@ -317,6 +315,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			DelegationRate:          new(big.Int).SetUint64(genesisConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(genesisConfig.InitialInflationReserve),
+			ProposerRewardRate:      new(big.Int).SetUint64(genesisConfig.ProposerRewardRate),
 			TreasuryAccount:         genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
@@ -643,7 +642,7 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header, absentees []common.Address, proposer common.Address, proposerEffort *big.Int, isProposerFaulty bool) (bool, types.Committee, error) {
 	var updateReady bool
 	var committee types.Committee
-	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}, absentees, proposer, proposerEffort, new(big.Int).SetUint64(uint64(tendermint.DeltaBlocks)), isProposerFaulty); err != nil {
+	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &committee}, absentees, proposer, proposerEffort, isProposerFaulty); err != nil {
 		return false, nil, err
 	}
 

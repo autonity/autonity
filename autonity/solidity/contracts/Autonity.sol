@@ -37,6 +37,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 internal constant POP_LEN = 226; // Proof of possession length in bytes. (Enode, OracleNode, ValidatorNode)
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
+    uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
+    uint256 public constant COMMITTEE_FRACTION_PRECISION = 1000;
 
     // TODO (tariq): review the values [already tested from stakable-vesting-contract]
     /**
@@ -147,6 +149,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 delegationRate;
         uint256 unbondingPeriod;
         uint256 initialInflationReserve;
+        uint256 proposerRewardRate; // fraction of epoch fees allocated for proposer rewarding based on activity proof
         address payable treasuryAccount;
     }
 
@@ -776,14 +779,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * return upgrade Set to true if an autonity contract upgrade is available.
     * return committee The next block consensus committee.
     */
-    // TODO(lorenzo) divide into two functions
     function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, bool isProposerOmissionFaulty) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;
         bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
-        // TODO(lorenzo) a bunch of possible off-by-one errors here to double check
         // if height is accountable, call the omission accountability contract
         if(block.number > lastEpochBlock + DELTA) {
             config.contracts.omissionAccountabilityContract.finalize(absentees, proposer, proposerEffort, isProposerOmissionFaulty, epochEnded);
@@ -1160,12 +1161,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         // proposer fees redistribution
         //TODO(lorenzo) distribute also NTN to proposers?
-        // TODO(lorenzo) not sure if scaling are correct
-        uint256 proposerIncentivizationRewards = _atn * config.contracts.omissionAccountabilityContract.getProposerRewardRate() * (committee.length *100 / config.protocol.committeeSize) / 1000 /100;
+        uint256 committeeFactor = (committee.length*COMMITTEE_FRACTION_PRECISION)/config.protocol.committeeSize;
+        // TODO(lorenzo) not sure if operation order is the best (balance between precision loss and overflow)
+        uint256 proposerIncentivizationRewards = (_atn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
         config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: proposerIncentivizationRewards}();
         _atn -= proposerIncentivizationRewards;
 
-        // TODO(lorenzo) maybe this could be a protocol contract param
         uint256 omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
 
         // Redistribute fees through the Liquid Newton contract
@@ -1176,6 +1177,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             uint256 _atnReward = (committee[i].votingPower * _atn) / epochTotalBondedStake;
             uint256 _ntnReward = (committee[i].votingPower * _ntn) / epochTotalBondedStake;
             if (_atnReward > 0 || _ntnReward > 0) {
+                // TODO(lorenzo) BUG: jailed validators could be because of inactivity (no beneficiary)
                 // committee members in the jailed state were just found guilty in the current epoch.
                 // committee members in jailbound state are permanently jailed
                 if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
@@ -1311,7 +1313,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @dev Internal function pausing the specified validator. Paused validators
     * can no longer be delegated stake and can no longer be part of the consensus committe.
     * Warning: no checks are done here.
-    * Emit {DisabledValidator} event.
+    * Emit {PausedValidator} event.
     */
     function _pauseValidator(address _address) internal virtual {
         Validator storage val = validators[_address];

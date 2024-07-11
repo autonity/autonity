@@ -15,6 +15,5 @@ interface IOmissionAccountability {
     function setLastEpochBlock(uint256 _lastEpochBlock) external;
     function getInactivityScore(address _validator) external view returns (uint256);
     function getScaleFactor() external pure returns (uint256);
-    function getProposerRewardRate() external view returns (uint256);
     function distributeProposerRewards() external payable;
 }

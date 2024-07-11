@@ -180,5 +180,7 @@
   "1400b437": "finalize(address[],address,uint256,bool,uint256,bool)",
   "c1a48245": "finalize(address[],address,uint256,bool,bool)",
   "e1e8cac6": "setLastEpochBlock(uint256)",
-  "a5980637": "getProposerRewardRate()"
+  "a5980637": "getProposerRewardRate()",
+  "f56b5615": "COMMITTEE_FRACTION_PRECISION()",
+  "5115840b": "PROPOSER_REWARD_RATE_PRECISION()"
 }

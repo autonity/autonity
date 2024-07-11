@@ -7,39 +7,34 @@ contract OmissionAccountability is IOmissionAccountability {
     struct Config {
         uint256 inactivityThreshold;        // threshold to determine if a validator is an offender at the end of epoch.
         uint256 lookbackWindow;
-        uint256 proposerRewardRate; //TODO(lorenzo) this is actually needed only in  autonity
         uint256 pastPerformanceWeight;
         uint256 initialJailingPeriod;       // initial number of epoch an offender will be jailed for
         uint256 initialProbationPeriod;     // initial number of epoch an offender will be set under probation for
         uint256 initialSlashingRate;
     }
 
-    // shadow copies of variables in Autonity.sol
+    // shadow copies of variables in Autonity.sol, updated once a epoch
     address[] private committee;
     uint256 private lastEpochBlock;
 
     mapping(uint256 => bool) public faultyProposers;            // marks height where proposer is faulty
     mapping(uint256 => address[]) public inactiveValidators;    // list of inactive validators for each height
-    mapping(address => uint256) public inactivityCounter;       // counter of inactive blocks for each validator (considering lookback window)
+    // counter of inactive blocks for each validator (considering lookback window). It is reset at the end of the epoch.
+    mapping(address => uint256) public inactivityCounter;
 
-    // net (total - quorum) proposer effort included in the activity proof
+    // net (total - quorum) proposer effort included in the activity proof. Reset at epoch end.
     uint256 public totalAccumulatedEffort;
     mapping(address => uint256) public proposerEffort;
 
-    mapping(address => uint256) public pastEpochInactivityScores;
-    mapping(address => uint256) public currentEpochInactivityScores;
+    // epoch inactivity score for each committee member. Updated at every epoch.
+    mapping(address => uint256) public inactivityScores;
 
     mapping(address => uint256) public probationPeriods;
     mapping(address => uint256) public repeatedOffences; // reset as soon as an entire probation period is completed without offences.
 
-    // TODO(lorenzo) implement this
-    //mapping(address => uint256) public activityPercentage;
-    //mapping(address => uint256) public overallFaultyBlocks;
-
     Config public config;
     Autonity internal autonity; // for access control in setters function.
 
-    // TODO(Lorenzo) Memory or storage as data location for committee?
     constructor(address payable _autonity, address[] memory _committee, Config memory _config) {
         autonity = Autonity(_autonity);
         config = _config;
@@ -54,14 +49,6 @@ contract OmissionAccountability is IOmissionAccountability {
     * activity proof, which are the signers of precommit of current height - delta.
     */
     function finalize(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty, bool _epochEnded) external onlyAutonity {
-        _recordAbsents(_absentees,_proposer,_proposerEffort,_isProposerOmissionFaulty);
-        if(_epochEnded){
-            uint256 collusionDegree = _computeInactivityScoresAndCollusionDegree();
-            _punishInactiveValidators(collusionDegree);
-        }
-    }
-
-    function _recordAbsents(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty) internal {
         uint256 targetHeight = block.number - DELTA;
 
         if (_isProposerOmissionFaulty) {
@@ -72,69 +59,83 @@ contract OmissionAccountability is IOmissionAccountability {
             proposerEffort[_proposer] += _proposerEffort;
             totalAccumulatedEffort += _proposerEffort;
 
-            inactiveValidators[targetHeight] = _absentees;
-            //TODO(lorenzo) check for off by one error
-            if(targetHeight > lastEpochBlock + config.lookbackWindow) {
-                // for each absent of target height, check the lookback window to see if he was online at some point
-                for(uint256 i=0; i < _absentees.length; i++) {
-                    bool confirmedAbsent = true;
-                    uint256 initialLookBackWindow = config.lookbackWindow;
-                    for(uint256 j=targetHeight-1;j>=targetHeight-initialLookBackWindow;j--) {
-                        if(faultyProposers[j]) {
-                            // if we do not have data for a certain height, extend the window
-                            initialLookBackWindow++;
-                            continue;
-                        }
-                        if(j == lastEpochBlock){
-                            // if we end up here it means that we extended the lookback window too much and arrive at the start at the epoch
-                            // we do not have enough information, so let's just consider the validator as not absent
-                            confirmedAbsent=false;
-                            break;
-                        }
-
-                        // if the validator is active even just once in the lookback window, then we consider him as not absent
-                        // TODO(lorenzo) maybe too much complexity here
-                        bool found = false;
-                        for (uint256 k=0; k<inactiveValidators[j].length;k++){
-                            if(_absentees[i] == inactiveValidators[j][k]){
-                                found = true;
-                            }
-                        }
-
-                        // if the validator is not found in even only one of the inactive lists, it is not considered offline
-                        if(!found){
-                            confirmedAbsent = false;
-                            break;
-                        }
-                    }
-                    // if the absentee was absent for the entirety of the lookback period, increment his inactivity counter
-                    if (confirmedAbsent) {
-                        inactivityCounter[_absentees[i]]++;
-                    }
-                }
-            }
+            _recordAbsentees(_absentees,targetHeight);
         }
 
+        if(_epochEnded){
+            uint256 collusionDegree = _computeInactivityScoresAndCollusionDegree();
+            _punishInactiveValidators(collusionDegree);
+
+            // reset inactivity counters
+            for(uint256 i=0;i<committee.length;i++) {
+                inactivityCounter[committee[i]] = 0;
+            }
+        }
+    }
+
+    function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal {
+        inactiveValidators[targetHeight] = _absentees;
+
+        if(targetHeight < lastEpochBlock + config.lookbackWindow) {
+            return;
+        }
+
+        // for each absent of target height, check the lookback window to see if he was online at some point
+        // if online even once in the lookback window, consider him online for this block
+        for(uint256 i=0; i < _absentees.length; i++) {
+            bool confirmedAbsent = true;
+            uint256 initialLookBackWindow = config.lookbackWindow;
+            for(uint256 j=targetHeight-1;j>targetHeight-initialLookBackWindow;j--) {
+                if(faultyProposers[j]) {
+                    // if we do not have data for a certain height, extend the window
+                    initialLookBackWindow++;
+                    continue;
+                }
+                if(j == lastEpochBlock){
+                    // if we end up here it means that we extended the lookback window too much and arrive at the start at the epoch
+                    // we do not have enough information, so let's just consider the validator as not absent
+                    confirmedAbsent=false;
+                    break;
+                }
+
+                // if the validator is active even just once in the lookback window, then we consider him as not absent
+                // TODO(lorenzo) maybe too much complexity here
+                bool found = false;
+                for (uint256 k=0; k<inactiveValidators[j].length;k++){
+                    if(_absentees[i] == inactiveValidators[j][k]){
+                        found = true;
+                        break;
+                    }
+                }
+
+                // if the validator is not found in even only one of the inactive lists, it is not considered offline
+                if(!found){
+                    confirmedAbsent = false;
+                    break;
+                }
+            }
+            // if the absentee was absent for the entirety of the lookback period, increment his inactivity counter
+            if (confirmedAbsent) {
+                inactivityCounter[_absentees[i]]++;
+            }
+        }
     }
 
     // returns collusion degree
-    // TODO(lorenzo) better naming?
     function _computeInactivityScoresAndCollusionDegree() internal returns (uint256) {
         uint256 epochPeriod = autonity.getEpochPeriod(); //TODO(lorenzo) not sure if better to shadow copy it + deal with changes in it
         uint256 collusionDegree = 0;
 
         // compute aggregated scores + collusion degree
         for(uint256 i=0;i<committee.length;i++){
-            //TODO(lorenzo) use some kind of SCALE FACTOR?
-            uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / epochPeriod);
-            // TODO(lorenzo) properly scale the past performance weight to avoid underflow
-            //uint256 aggregatedInactivityScore =  inactivityScore*(1-config.pastPerformanceWeight) + currentEpochInactivityScores[committee[i]] * config.pastPerformanceWeight;
-            uint256 aggregatedInactivityScore = inactivityScore;
-            pastEpochInactivityScores[committee[i]] = currentEpochInactivityScores[committee[i]];
-            currentEpochInactivityScores[committee[i]] =  aggregatedInactivityScore;
+            // last DELTA blocks of the epoch are not accountable due to committee change
+            uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / (epochPeriod-DELTA));
+            // TODO(lorenzo) divide sum result?
+            uint256 aggregatedInactivityScore =  ((inactivityScore*(SCALE_FACTOR-config.pastPerformanceWeight))/SCALE_FACTOR) + ((inactivityScores[committee[i]] * config.pastPerformanceWeight)/SCALE_FACTOR);
             if(aggregatedInactivityScore > config.inactivityThreshold){
                 collusionDegree++;
             }
+            inactivityScores[committee[i]] =  aggregatedInactivityScore;
         }
         return collusionDegree;
     }
@@ -146,21 +147,24 @@ contract OmissionAccountability is IOmissionAccountability {
 
             // if the validator has already been slashed by accountability in this epoch,
             // do not punish him for omission too. It would be unfair since peer ignore msgs from jailed vals.
+            // However, do not decrease his probation since he was not fully honest
             if(_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound){
                 continue;
             }
 
-            // TODO(lorenzo) this way probation period decreases only if the val is part of the committee. Is it what we want?
-            if(_val.state == ValidatorState.active && probationPeriods[committee[i]] > 0){
-                probationPeriods[committee[i]]--;
-                // if decreased to zero, then zero out also the offences counter
-                if(probationPeriods[committee[i]] == 0){
-                    repeatedOffences[committee[i]] = 0;
-                }
-            }
+            // here validator is either active or has been paused in the current epoch (but still participated to consensus)
 
-            // punish validator if his inactivity is greater than threshold
-            if(currentEpochInactivityScores[committee[i]] > config.inactivityThreshold){
+            if(inactivityScores[committee[i]] <= config.inactivityThreshold){
+                // TODO(lorenzo) this way probation period decreases only if the val is part of the committee. Is it what we want?
+                if(probationPeriods[committee[i]] > 0){
+                    probationPeriods[committee[i]]--;
+                    // if decreased to zero, then zero out also the offences counter
+                    if(probationPeriods[committee[i]] == 0){
+                        repeatedOffences[committee[i]] = 0;
+                    }
+                }
+            }else{
+                // punish validator if his inactivity is greater than threshold
                 repeatedOffences[committee[i]]++;
                 uint256 offenceSquared = repeatedOffences[committee[i]]*repeatedOffences[committee[i]];
                 uint256 jailingPeriod = config.initialJailingPeriod * offenceSquared;
@@ -169,6 +173,7 @@ contract OmissionAccountability is IOmissionAccountability {
                 _val.jailReleaseBlock = block.number + jailingPeriod;
                 _val.state = ValidatorState.jailed;
 
+                // if already on probation, slash
                 if(probationPeriods[committee[i]] > 0){
                     _slash(_val,config.initialSlashingRate*offenceSquared*collusionDegree);
                 }else{
@@ -176,15 +181,15 @@ contract OmissionAccountability is IOmissionAccountability {
                     autonity.updateValidatorAndTransferSlashedFunds(_val);
                 }
 
-                // whether slashed or not, update the probation period
+                // whether slashed or not, update the probation period (cumulatively)
                 probationPeriods[committee[i]] += probationPeriod;
             }
         }
     }
 
-    // TODO(Lorenzo) the code is copied from the accountability contract, would be good to make it a func.
-    // TODO(lorenzo) is it fair that slashing here uses a difference scale factor wrt d3
+    // TODO(lorenzo) is it fair that slashing here uses a difference scale factor wrt d3 (even though value is same)
     // OR defer the slashing to the accountability contract
+    // + clean up commented lines
     function _slash(Autonity.Validator memory _val, uint256 _slashingRate) internal{
         if(_slashingRate > SCALE_FACTOR) {
             _slashingRate = SCALE_FACTOR;
@@ -271,23 +276,25 @@ contract OmissionAccountability is IOmissionAccountability {
         for(uint256 i=0; i < committee.length; i++) {
            if(proposerEffort[committee[i]] > 0){
                //TODO(lorenzo) send it to the treasury?
-               // TODO(lorenzo) needs scaling?
+               // TODO(lorenzo) can it be a problem if numerator is very small
                uint256 proposerReward = (proposerEffort[committee[i]] * _atnReward) / totalAccumulatedEffort;
+               // TODO(lorenzo) why use call and not send or transfer
                committee[i].call{value: proposerReward, gas: 2300}("");
+
+               // reset after usage
+               proposerEffort[committee[i]] = 0;
            }
         }
+
+        totalAccumulatedEffort = 0;
     }
 
     function getInactivityScore(address _validator) external view returns (uint256) {
-        return currentEpochInactivityScores[_validator];
+        return inactivityScores[_validator];
     }
 
     function getScaleFactor() external pure returns (uint256) {
         return SCALE_FACTOR;
-    }
-
-    function getProposerRewardRate() external view returns (uint256) {
-        return config.proposerRewardRate;
     }
 
     function setCommittee(address[] memory _committee) external onlyAutonity {
