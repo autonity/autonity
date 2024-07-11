@@ -780,7 +780,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory, uint256, uint256) {
         blockEpochMap[block.number] = epochID;
-        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
+        // while truffle testing, we might ran into situations were currentHeight > lastEpochBlock + epochPeriod, thus
+        // making it have no chance to end the epoch as we apply epoch period at the end of epoch. Thus, we change the
+        // condition of epochEnded with: lastEpochBlock + config.protocol.epochPeriod <= block.number; to let the
+        // endEpoch() have a chance to manipulate the finalize of epoch at the test contract of Autonity.
+        // bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number; Change this condition does
+        // not impact the protocol since blocks are finalized one by one.
+        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod <= block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
