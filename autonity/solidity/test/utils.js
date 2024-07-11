@@ -55,11 +55,14 @@ async function endEpoch(contract,operator,deployer){
   console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
       lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
   if (currentHeight > nextEpochBlock) {
-    contract.finalize({from: deployer})
+    console.log("current height is higher than the next epoch block, finalize epoch at once");
+    await contract.finalize({from: deployer})
   } else {
+    console.log("current height is lower than the next epoch block, try to finalize epoch");
     for (let i=currentHeight;i<=nextEpochBlock;i++) {
       let height = await web3.eth.getBlockNumber()
-      contract.finalize({from: deployer})
+      console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
+      await contract.finalize({from: deployer})
       await waitForNewBlock(height);
     }
   }
