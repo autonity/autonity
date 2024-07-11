@@ -41,39 +41,6 @@ async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
 // also we need to take into account that if we are running against autonity, the network will
 // keep mining as we do these operations
 async function endEpoch(contract,operator,deployer){
-
-
-
-
-  let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
-  let currentHeight = await web3.eth.getBlockNumber();
-  let currentEpoch = (await contract.epochID()).toNumber()
-  let delta = currentHeight - lastEpochBlock
-  let epochPeriod = delta + 5
-
-  await contract.setEpochPeriod(epochPeriod,{from: operator})
-
-  assert.equal(epochPeriod,(await contract.getEpochPeriod()).toNumber())
-
-  // close epoch
-  for (let i=0;i<(lastEpochBlock + epochPeriod) - currentHeight;i++) {
-    let height = await web3.eth.getBlockNumber()
-    contract.finalize({from: deployer})
-    await waitForNewBlock(height);
-  }
-  let newEpoch = (await contract.epochID()).toNumber()
-  assert.equal(currentEpoch+1,newEpoch)
-
-
-
-
-
-
-
-
-
-
-
   let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
   let oldEpochPeriod = (await contract.getEpochPeriod()).toNumber();
   let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
@@ -89,7 +56,6 @@ async function endEpoch(contract,operator,deployer){
       lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
   for (let i=currentHeight;i<=nextEpochBlock+1;i++) {
     let height = await web3.eth.getBlockNumber()
-    console.log("current height of blockchain", "height", height)
     contract.finalize({from: deployer})
     await waitForNewBlock(height);
   }
