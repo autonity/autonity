@@ -41,23 +41,25 @@ async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
 // also we need to take into account that if we are running against autonity, the network will keep mining as we do these operations
 async function endEpoch(contract,operator,deployer){
   let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
+  let oldEpochPeriod = (await contract.getEpochPeriod()).toNumber();
   let currentHeight = await web3.eth.getBlockNumber();
   let currentEpoch = (await contract.epochID()).toNumber()
   let delta = currentHeight - lastEpochBlock
-  let epochPeriod = delta + 5
 
-  await contract.setEpochPeriod(epochPeriod,{from: operator})
-
-  assert.equal(epochPeriod,(await contract.getEpochPeriod()).toNumber())
+  let newEpochPeriod = delta + 5
+  await contract.setEpochPeriod(newEpochPeriod,{from: operator})
 
   // close epoch
-  for (let i=0;i<(lastEpochBlock + epochPeriod) - currentHeight;i++) {
+  for (let i=0;i<(lastEpochBlock + oldEpochPeriod) - currentHeight;i++) {
     let height = await web3.eth.getBlockNumber()
     contract.finalize({from: deployer})
     await waitForNewBlock(height);
   }
+
   let newEpoch = (await contract.epochID()).toNumber()
   assert.equal(currentEpoch+1,newEpoch)
+  // new epoch period is going to be taken at the end of epoch, thus we check it here:
+  assert.equal(newEpochPeriod,(await contract.getEpochPeriod()).toNumber())
 }
 
 async function validatorState(autonity, validatorAddresses) {
