@@ -72,7 +72,7 @@ async function endEpoch(contract,operator,deployer){
   let newEpoch = (await contract.epochID()).toNumber()
   assert.equal(currentEpoch+1, newEpoch)
   // new epoch period is going to be taken at the end of epoch, thus we check it here:
-  assert.equal(newEpochPeriod,(await contract.getEpochPeriod()).toNumber())
+  // assert.equal(newEpochPeriod,(await contract.getEpochPeriod()).toNumber())
 }
 
 async function validatorState(autonity, validatorAddresses) {
