@@ -96,7 +96,7 @@ func (sb *Backend) validateActivityProof(curHeader *types.Header) (bool, common.
 	proposer := curHeader.Coinbase
 
 	// after the 1st delta blocks, the proposer is accountable for not assembling valid activity proof.
-	signers, proposerEffort, err := sb.verifyActivityProof(curHeader, committee, proposer)
+	signers, proposerEffort, err := sb.verifyActivityProof(curHeader, committee)
 	if err != nil {
 		sb.logger.Info("Faulty activity proof addressed, proposer is omission faulty", "proposer", proposer)
 		return true, proposer, proposerEffort, []common.Address{}
@@ -123,7 +123,7 @@ func (sb *Backend) validateActivityProof(curHeader *types.Header) (bool, common.
 // verifyActivityProof validates that the activity proof for header come from committee members and that the voting
 // power constitute a quorum, it returns the node IDs to be submitted to omission accountability contract. Any error
 // in this function will cause the proposer to be faulty for omission accountability.
-func (sb *Backend) verifyActivityProof(header *types.Header, committee types.Committee, proposer common.Address) ([]common.Address, *big.Int, error) {
+func (sb *Backend) verifyActivityProof(header *types.Header, committee types.Committee) ([]common.Address, *big.Int, error) {
 	// todo: replace by committee.Member() once epoch header PR is merged.
 	// todo: replace by committee.TotalVotingPower() once epoch header PR is merged.
 	// todo: if we submit the address of nodes to omission accountability contract, since ID could changes on committee
