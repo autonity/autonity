@@ -19,7 +19,6 @@ const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
 const ethers = require('ethers');
 const truffleAssert = require('truffle-assertions');
-const web3 = require("web3/src/web3");
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
