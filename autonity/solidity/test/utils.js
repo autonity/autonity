@@ -293,13 +293,16 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // at this point, to make the deployed contract have a chance to finalize the 1st epoch, and then apply the default
     // 30 blocks epoch period for the testing.
     let currentHeight = await web3.eth.getBlockNumber();
-    let firstEpochEndBlock = currentHeight+10;
+    let firstEpochEndBlock = currentHeight+20;
     let copyAutonityConfig = autonityConfig;
     copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
 
     const autonity = await createAutonityContract(validators, copyAutonityConfig, {from: deployer});
     // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
     await autonity.setEpochPeriod(autonityConfig.protocol.epochPeriod, {from: operator})
+    // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
+    await autonity.setInflationControllerContract(inflationController.address, {from:operator});
+    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
 
     // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
     for (let i=currentHeight;i<=firstEpochEndBlock;i++) {
@@ -314,9 +317,6 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
       await waitForNewBlock(height);
     }
 
-    await autonity.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
-
     return autonity;
 };
 
@@ -330,13 +330,16 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
     // at this point, to make the deployed contract have a chance to finalize the 1st epoch, and then apply the default
     // 30 blocks epoch period for the testing.
     let currentHeight = await web3.eth.getBlockNumber();
-    let firstEpochEndBlock = currentHeight+10;
+    let firstEpochEndBlock = currentHeight+20;
     let copyAutonityConfig = autonityConfig;
     copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
 
     const autonityTest = await createAutonityTestContract(validators, copyAutonityConfig, {from: deployer});
     // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
     await autonityTest.setEpochPeriod(autonityConfig.protocol.epochPeriod, {from: operator})
+    // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
+    await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
+    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
 
     // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
     for (let i=currentHeight;i<=firstEpochEndBlock;i++) {
@@ -351,8 +354,6 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
       await waitForNewBlock(height);
     }
 
-    await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
 };
 
