@@ -308,6 +308,8 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
     // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
     for (let i=currentHeight;i<=firstEpochEndBlock;i++) {
+      // todo: (Jason) this can be improved with checking if current height is higher than the next epoch block to
+      //  break the loop and redeploy an new contract instance.
       let height = await web3.eth.getBlockNumber()
       console.log("try to finalize 1st epoch after AC deployment, ", "height: ", height, "next epoch block: ", firstEpochEndBlock);
       autonity.finalize({from: deployer})
@@ -346,6 +348,8 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
     // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
     for (let i=currentHeight;i<=firstEpochEndBlock;i++) {
       let height = await web3.eth.getBlockNumber()
+      // todo: (Jason) this can be improved with checking if current height is higher than the next epoch block to
+      //  break the loop and redeploy an new contract instance.
       console.log("try to finalize 1st epoch after testAC deployment, ", "height: ", height, "next epoch block: ", firstEpochEndBlock);
       autonityTest.finalize({from: deployer})
       let epochID = (await autonityTest.epochID()).toNumber()
