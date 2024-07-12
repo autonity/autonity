@@ -1081,12 +1081,12 @@ contract('Autonity', function (accounts) {
       let copyParams = autonityConfig;
       let token;
       beforeEach(async function () {
-          // set short epoch period 
-          // let customizedEpochPeriod = 20;
-          // copyParams.protocol.epochPeriod = customizedEpochPeriod;
+          // set short epoch period
+          let customizedEpochPeriod = 20;
+          copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
           token = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator);
-          //assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
+          assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
       });
 
       it('test finalize with not deployer account, exception should rise.', async function () {
@@ -1313,11 +1313,11 @@ contract('Autonity', function (accounts) {
       let token;
       beforeEach(async function () {
           // set short epoch period 
-          //let customizedEpochPeriod = 20;
-          //copyParams.protocol.epochPeriod = customizedEpochPeriod;
+          let customizedEpochPeriod = 20;
+          copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
           token = await utils.deployContracts(validators, copyParams, accountabilityConfig, deployer, operator, false);
-          //assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
+          assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
       });
       it('test epochid and lastEpochBlock', async function () {
         //TODO(tariq) low priority change, leave for last

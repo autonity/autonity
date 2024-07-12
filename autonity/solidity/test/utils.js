@@ -34,6 +34,32 @@ const ValidatorState = {
 async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
   await endEpoch(autonity, operator, deployer);
   await autonity.setEpochPeriod(epochPeriod, {from: operator});
+
+  let currentEpoch = (await contract.epochID()).toNumber();
+  let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
+  let oldEpochPeriod = (await autonity.getEpochPeriod()).toNumber();
+  let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
+  let currentHeight = await web3.eth.getBlockNumber();
+
+  // close epoch to take the shorten epoch into active state.
+  console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
+      lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
+  if (currentHeight > nextEpochBlock) {
+    console.log("current height is higher than the next epoch block, finalize epoch at once");
+    await contract.finalize({from: deployer})
+  } else {
+    console.log("current height is lower than the next epoch block, try to finalize epoch");
+    for (let i=currentHeight;i<=nextEpochBlock;i++) {
+      let height = await web3.eth.getBlockNumber()
+      console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
+      contract.finalize({from: deployer})
+      let epochID = (await contract.epochID()).toNumber()
+      if (epochID === currentEpoch+1) {
+        break;
+      }
+      await waitForNewBlock(height);
+    }
+  }
 }
 
 // while testing we might ran into situations were currentHeight > lastEpochBlock + epochPeriod
@@ -50,8 +76,6 @@ async function endEpoch(contract,operator,deployer){
 
   let newEpochPeriod = delta + 5
   await contract.setEpochPeriod(newEpochPeriod,{from: operator})
-  // todo: a better way to wait for the TXN being mined.
-  await timeout(2000);
 
   // close epoch
   console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
@@ -65,14 +89,18 @@ async function endEpoch(contract,operator,deployer){
       let height = await web3.eth.getBlockNumber()
       console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
       contract.finalize({from: deployer})
+      let epochID = (await contract.epochID()).toNumber()
+      if (epochID === currentEpoch+1) {
+        break;
+      }
       await waitForNewBlock(height);
     }
   }
 
   let newEpoch = (await contract.epochID()).toNumber()
-  assert.equal(currentEpoch+1, newEpoch)
+  assert.equal(newEpoch, currentEpoch+1)
   // new epoch period is going to be taken at the end of epoch, thus we check it here:
-  // assert.equal(newEpochPeriod,(await contract.getEpochPeriod()).toNumber())
+  assert.equal((await contract.getEpochPeriod()).toNumber(), newEpochPeriod)
 }
 
 async function validatorState(autonity, validatorAddresses) {
@@ -209,7 +237,7 @@ async function waitForNewBlock(height){
     if (newHeight > height){
       break
     }
-    timeout(100)
+    timeout(50)
   }
 }
 
@@ -292,7 +320,7 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
 // deploys AutonityTest, a contract inheriting Autonity and exposing the "_applyNewCommissionRates" function
 // set shortenEpoch = false if no need to call utils.endEpoch
-const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = false) => {
+const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
