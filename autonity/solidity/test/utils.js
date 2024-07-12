@@ -30,60 +30,20 @@ const ValidatorState = {
 
 const ACSetupBuffer = 50 // to have 50 blocks period for the setup of AC and its sub contracts in CI environment.
 
-// todo: remove this function?
-// end epoch so the LastEpochBlock is closer
-// then set epoch period 
-async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
-  await endEpoch(autonity, operator, deployer);
-  await autonity.setEpochPeriod(epochPeriod, {from: operator});
-
-  let currentEpoch = (await autonity.epochID()).toNumber();
-  let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
-  let oldEpochPeriod = (await autonity.getEpochPeriod()).toNumber();
-  let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
-  let currentHeight = await web3.eth.getBlockNumber();
-
-  // close epoch to take the shorten epoch into active state.
-  console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
-      lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
-  if (currentHeight > nextEpochBlock) {
-    console.log("current height is higher than the next epoch block, finalize epoch at once");
-    await autonity.finalize({from: deployer})
-  } else {
-    console.log("current height is lower than the next epoch block, try to finalize epoch");
-    for (let i=currentHeight;i<=nextEpochBlock;i++) {
-      let height = await web3.eth.getBlockNumber()
-      console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
-      autonity.finalize({from: deployer})
-      let epochID = (await autonity.epochID()).toNumber()
-      if (epochID === currentEpoch+1) {
-        break;
-      }
-      await waitForNewBlock(height);
-    }
-  }
-}
-
 async function endEpoch(contract,operator,deployer){
-    let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
-    let oldEpochPeriod = (await contract.getEpochPeriod()).toNumber();
-    let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
-    let currentHeight = await web3.eth.getBlockNumber();
-    let currentEpoch = (await contract.epochID()).toNumber();
+  let epochPeriod = (await contract.getEpochPeriod()).toNumber();
+  let currentEpoch = (await contract.epochID()).toNumber();
 
-    for (let i=currentHeight;i<=nextEpochBlock;i++) {
-      let height = await web3.eth.getBlockNumber()
-      console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
+    for (let i=0;i<=epochPeriod;i++) {
       contract.finalize({from: deployer})
-      let epochID = (await contract.epochID()).toNumber()
-      if (epochID === currentEpoch+1) {
+      let newEpochID = (await contract.epochID()).toNumber()
+      if (newEpochID === currentEpoch+1) {
         break;
       }
+      let height = await web3.eth.getBlockNumber()
+      console.log("end epoch for tester AC contract, ", "height: ", height);
       await waitForNewBlock(height);
     }
-
-    let newEpoch = (await contract.epochID()).toNumber()
-    assert.equal(newEpoch, currentEpoch+1)
 }
 
 async function validatorState(autonity, validatorAddresses) {

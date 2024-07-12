@@ -772,7 +772,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory, uint256, uint256) {
         blockEpochMap[block.number] = epochID;
-        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
+        // todo, add comment for this change.
+        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod <= block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
@@ -966,6 +967,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     function getTreasuryFee() external view virtual returns (uint256) {
         return config.policy.treasuryFee;
+    }
+
+    /**
+     * @notice Returns the next epoch block.
+     */
+    function getNextEpochBlock() external view virtual returns(uint256) {
+        return nextEpochBlock;
     }
 
     /**
