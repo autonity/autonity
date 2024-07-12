@@ -33,15 +33,18 @@ const ACSetupBuffer = 50 // to have 50 blocks period for the setup of AC and its
 async function endEpoch(contract,operator,deployer){
   let epochPeriod = (await contract.getEpochPeriod()).toNumber();
   let currentEpoch = (await contract.epochID()).toNumber();
+  let nextEpochBlock = (await contract.getNextEpochBlockf()).toNumber();
 
     for (let i=0;i<=epochPeriod;i++) {
       contract.finalize({from: deployer})
       let newEpochID = (await contract.epochID()).toNumber()
       if (newEpochID === currentEpoch+1) {
+        console.log("epoch ended successfully", "new epoch ID: ", newEpochID)
         break;
       }
       let height = await web3.eth.getBlockNumber()
-      console.log("end epoch for tester AC contract, ", "height: ", height);
+      console.log("end epoch for AC contract, ", "current height: ", height, "epoch ID: ",
+          newEpochID, "nextEpochBlock", nextEpochBlock, "epoch period: ", epochPeriod);
       await waitForNewBlock(height);
     }
 }
@@ -180,7 +183,7 @@ async function waitForNewBlock(height){
     if (newHeight > height){
       break
     }
-    timeout(50)
+    timeout(100)
   }
 }
 
