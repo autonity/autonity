@@ -2,6 +2,8 @@ package backend
 
 import (
 	"math/big"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -19,17 +21,19 @@ type Gossiper struct {
 	broadcaster        consensus.Broadcaster
 	logger             log.Logger
 	stopped            chan struct{}
-	concurrencyLimiter chan struct{}
+	concurrencyLimiter chan messageInfo
 }
 
 func NewGossiper(knownMessages *fixsizecache.Cache[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
-	return &Gossiper{
+	g := &Gossiper{
 		knownMessages:      knownMessages,
 		address:            address,
 		logger:             logger,
 		stopped:            stopped,
-		concurrencyLimiter: make(chan struct{}, 64),
+		concurrencyLimiter: make(chan messageInfo, 64),
 	}
+	go g.checkConcurrencyLimiter()
+	return g
 }
 
 func (g *Gossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
@@ -72,7 +76,12 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 				continue
 			}
 			p.Cache().Add(hash, true)
-			g.concurrencyLimiter <- struct{}{}
+			g.concurrencyLimiter <- messageInfo{
+				sender: val.Address,
+				height: message.H(),
+				round:  message.R(),
+				code:   message.Code(),
+			}
 			go func() {
 				defer func() {
 					<-g.concurrencyLimiter
@@ -81,6 +90,44 @@ func (g *Gossiper) Gossip(committee types.Committee, message message.Msg) {
 			}()
 		}
 	}
+}
+
+type messageInfo struct {
+	sender common.Address
+	height uint64
+	round  int64
+	code   uint8
+}
+
+func (g *Gossiper) checkConcurrencyLimiter() {
+	t := time.NewTicker(30 * time.Second)
+	b := make([]messageInfo, 64)
+	for range t.C {
+		i := 0
+	LOOP:
+		for {
+			select {
+			case msg := <-g.concurrencyLimiter:
+				b[i] = msg
+				i++
+			default:
+				break LOOP
+			}
+		}
+
+		sb := strings.Builder{}
+		for k := 0; k < i; k++ {
+			sb.WriteString(
+				b[k].sender.String() + "|" +
+					strconv.Itoa(int(b[k].height)) + "|" +
+					strconv.Itoa(int(b[k].round)) + "|" +
+					strconv.Itoa(int(b[k].code)) + " - ",
+			)
+			g.concurrencyLimiter <- b[k]
+		}
+		g.logger.Warn("CCLSTATE", "size", i, "buf", sb.String())
+	}
+
 }
 
 func (g *Gossiper) AskSync(header *types.Header) {
