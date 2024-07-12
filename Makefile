@@ -230,11 +230,12 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 
 # This runs the contract tests using truffle against a Ganache instance
 test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
+    # remove duplicated test files, they are now slow due to the waiting of endEpoch().
+	#@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
+	#@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	#@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
-	#@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
-	#@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@echo "killing ganache"
 	@-pkill -f "ganache"
 
