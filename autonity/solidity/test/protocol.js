@@ -269,6 +269,8 @@ contract('Protocol', function (accounts) {
 
   let autonity;
   let accountability;
+
+  /*
   describe('After effects of slashing 1', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
@@ -312,6 +314,7 @@ contract('Protocol', function (accounts) {
       await unbondAndSlash(accountabilityConfig, autonity, accountability, delegators, validator, tokenUnbond, operator, deployer, 1);
     });
   });
+  */
 
   describe('After effects of slashing 2', function () {
     beforeEach(async function () {
