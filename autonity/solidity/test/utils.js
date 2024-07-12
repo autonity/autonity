@@ -33,7 +33,7 @@ const ACSetupBuffer = 50 // to have 50 blocks period for the setup of AC and its
 async function endEpoch(contract,operator,deployer){
   let epochPeriod = (await contract.getEpochPeriod()).toNumber();
   let currentEpoch = (await contract.epochID()).toNumber();
-  let nextEpochBlock = (await contract.getNextEpochBlockf()).toNumber();
+  let nextEpochBlock = (await contract.getNextEpochBlock()).toNumber();
 
     for (let i=0;i<=epochPeriod;i++) {
       contract.finalize({from: deployer})
