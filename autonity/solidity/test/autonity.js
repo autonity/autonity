@@ -797,7 +797,6 @@ contract('Autonity', function (accounts) {
      
     });
 
-     */
 
     it('un-bond from a valid validator (non-self-bonded)', async function () {
       const tokenUnBond = 10;
@@ -859,6 +858,7 @@ contract('Autonity', function (accounts) {
      
     });
   });
+  */
 
   describe('Bonding and unbonding requests - 3', function () {
     beforeEach(async function () {
