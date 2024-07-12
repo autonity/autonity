@@ -11,9 +11,15 @@ interface IOmissionAccountability {
     */
     function finalize(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty, bool _epochEnded) external;
 
-    function setCommittee(address[] memory _committee) external;
+    function setCommittee(address[] memory _nodeAddresses, address[] memory _treasuries) external;
     function setLastEpochBlock(uint256 _lastEpochBlock) external;
     function getInactivityScore(address _validator) external view returns (uint256);
     function getScaleFactor() external pure returns (uint256);
-    function distributeProposerRewards() external payable;
+    function distributeProposerRewards(uint256 _ntnReward) external payable;
+
+
+    /**
+    * @dev Event emitted after a successful slashing.
+    */
+    event InactivitySlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound);
 }

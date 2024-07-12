@@ -57,7 +57,7 @@ contract AutonityTest is Autonity {
       _stakingOperations();
        // TODO(lorenzo) fix properly
        address[] memory voters;
-       (voters,) = computeCommittee();
+       (voters,,) = computeCommittee();
       address[] memory addresses = new address[](voters.length);
       uint256 totalStake = 0;
       uint256 lastStake = 0;

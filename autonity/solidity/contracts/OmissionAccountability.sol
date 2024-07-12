@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 import "./Autonity.sol";
 contract OmissionAccountability is IOmissionAccountability {
+    // Used for fixed-point arithmetic during computation of inactivity score
     uint256 public constant SCALE_FACTOR = 10_000;
 
     struct Config {
@@ -11,14 +12,16 @@ contract OmissionAccountability is IOmissionAccountability {
         uint256 initialJailingPeriod;       // initial number of epoch an offender will be jailed for
         uint256 initialProbationPeriod;     // initial number of epoch an offender will be set under probation for
         uint256 initialSlashingRate;
+        uint256 slashingRatePrecision;      // should be the same one used in Accountability.sol
     }
 
     // shadow copies of variables in Autonity.sol, updated once a epoch
     address[] private committee;
+    address[] private treasuries;
     uint256 private lastEpochBlock;
 
-    mapping(uint256 => bool) public faultyProposers;            // marks height where proposer is faulty
-    mapping(uint256 => address[]) public inactiveValidators;    // list of inactive validators for each height
+    mapping(uint256 => bool) public faultyProposers;                         // marks height where proposer is faulty
+    mapping(uint256 => mapping(address=>bool)) public inactiveValidators;    // inactive validators for each height
     // counter of inactive blocks for each validator (considering lookback window). It is reset at the end of the epoch.
     mapping(address => uint256) public inactivityCounter;
 
@@ -35,10 +38,11 @@ contract OmissionAccountability is IOmissionAccountability {
     Config public config;
     Autonity internal autonity; // for access control in setters function.
 
-    constructor(address payable _autonity, address[] memory _committee, Config memory _config) {
+    constructor(address payable _autonity, address[] memory _nodeAddresses, address[] memory _treasuries, Config memory _config) {
         autonity = Autonity(_autonity);
         config = _config;
-        committee = _committee;
+        committee = _nodeAddresses;
+        treasuries = _treasuries;
     }
 
     //TODO(lorenzo): update comments and interface. Restore at symbol in front of notice and param
@@ -74,7 +78,9 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal {
-        inactiveValidators[targetHeight] = _absentees;
+        for(uint256 i=0; i < _absentees.length; i++) {
+            inactiveValidators[targetHeight][_absentees[i]] = true;
+        }
 
         if(targetHeight < lastEpochBlock + config.lookbackWindow) {
             return;
@@ -85,31 +91,21 @@ contract OmissionAccountability is IOmissionAccountability {
         for(uint256 i=0; i < _absentees.length; i++) {
             bool confirmedAbsent = true;
             uint256 initialLookBackWindow = config.lookbackWindow;
-            for(uint256 j=targetHeight-1;j>targetHeight-initialLookBackWindow;j--) {
-                if(faultyProposers[j]) {
+            for(uint256 h =targetHeight-1; h >targetHeight-initialLookBackWindow; h--) {
+                if(faultyProposers[h]) {
                     // if we do not have data for a certain height, extend the window
                     initialLookBackWindow++;
                     continue;
                 }
-                if(j == lastEpochBlock){
+                if(h == lastEpochBlock){
                     // if we end up here it means that we extended the lookback window too much and arrive at the start at the epoch
                     // we do not have enough information, so let's just consider the validator as not absent
                     confirmedAbsent=false;
                     break;
                 }
 
-                // if the validator is active even just once in the lookback window, then we consider him as not absent
-                // TODO(lorenzo) maybe too much complexity here
-                bool found = false;
-                for (uint256 k=0; k<inactiveValidators[j].length;k++){
-                    if(_absentees[i] == inactiveValidators[j][k]){
-                        found = true;
-                        break;
-                    }
-                }
-
                 // if the validator is not found in even only one of the inactive lists, it is not considered offline
-                if(!found){
+                if(!inactiveValidators[h][_absentees[i]]){
                     confirmedAbsent = false;
                     break;
                 }
@@ -123,14 +119,15 @@ contract OmissionAccountability is IOmissionAccountability {
 
     // returns collusion degree
     function _computeInactivityScoresAndCollusionDegree() internal returns (uint256) {
-        uint256 epochPeriod = autonity.getEpochPeriod(); //TODO(lorenzo) not sure if better to shadow copy it + deal with changes in it
+        uint256 epochPeriod = autonity.getEpochPeriod();
         uint256 collusionDegree = 0;
 
         // compute aggregated scores + collusion degree
         for(uint256 i=0;i<committee.length;i++){
             // last DELTA blocks of the epoch are not accountable due to committee change
             uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / (epochPeriod-DELTA));
-            // TODO(lorenzo) divide sum result?
+            // TODO(lorenzo) After writing tests try to divide the complete sum by SCALE_FACTOR (instead of the two separate addends)
+                // it should lead to lower precision loss
             uint256 aggregatedInactivityScore =  ((inactivityScore*(SCALE_FACTOR-config.pastPerformanceWeight))/SCALE_FACTOR) + ((inactivityScores[committee[i]] * config.pastPerformanceWeight)/SCALE_FACTOR);
             if(aggregatedInactivityScore > config.inactivityThreshold){
                 collusionDegree++;
@@ -155,7 +152,7 @@ contract OmissionAccountability is IOmissionAccountability {
             // here validator is either active or has been paused in the current epoch (but still participated to consensus)
 
             if(inactivityScores[committee[i]] <= config.inactivityThreshold){
-                // TODO(lorenzo) this way probation period decreases only if the val is part of the committee. Is it what we want?
+                // NOTE: probation period of a validator gets decreased only if he is part of the committee
                 if(probationPeriods[committee[i]] > 0){
                     probationPeriods[committee[i]]--;
                     // if decreased to zero, then zero out also the offences counter
@@ -175,9 +172,8 @@ contract OmissionAccountability is IOmissionAccountability {
 
                 // if already on probation, slash
                 if(probationPeriods[committee[i]] > 0){
-                    _slash(_val,config.initialSlashingRate*offenceSquared*collusionDegree);
+                    _slash(_val, config.initialSlashingRate*offenceSquared*collusionDegree);
                 }else{
-                    // TODO(lorenzo) should be fine even if we are not slashing,but double check
                     autonity.updateValidatorAndTransferSlashedFunds(_val);
                 }
 
@@ -187,16 +183,15 @@ contract OmissionAccountability is IOmissionAccountability {
         }
     }
 
-    // TODO(lorenzo) is it fair that slashing here uses a difference scale factor wrt d3 (even though value is same)
-    // OR defer the slashing to the accountability contract
-    // + clean up commented lines
+    // similar logic as Accountability.sol _slash function, with a few tweaks.
+    // If updating this func, probably makes sense to update the one in Accountability.sol as well.
     function _slash(Autonity.Validator memory _val, uint256 _slashingRate) internal{
-        if(_slashingRate > SCALE_FACTOR) {
-            _slashingRate = SCALE_FACTOR;
+        if(_slashingRate > config.slashingRatePrecision) {
+            _slashingRate = config.slashingRatePrecision;
         }
 
         uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
-        uint256 _slashingAmount =  (_slashingRate * _availableFunds)/SCALE_FACTOR;
+        uint256 _slashingAmount =  (_slashingRate * _availableFunds)/config.slashingRatePrecision;
 
         // in case of 100% slash, we jailbound the validator
         if (_slashingAmount > 0 && _slashingAmount == _availableFunds) {
@@ -205,11 +200,10 @@ contract OmissionAccountability is IOmissionAccountability {
             _val.selfUnbondingStake = 0;
             _val.unbondingStake = 0;
             _val.totalSlashed += _slashingAmount;
-            //_val.provableFaultCount += 1;
             _val.state = ValidatorState.jailbound;
             _val.jailReleaseBlock = 0;
             autonity.updateValidatorAndTransferSlashedFunds(_val);
-            //emit SlashingEvent(_val.nodeAddress, _slashingAmount, 0, true, _event.id);
+            emit InactivitySlashingEvent(_val.nodeAddress, _slashingAmount, 0, true);
             return;
         }
         uint256 _remaining = _slashingAmount;
@@ -255,31 +249,29 @@ contract OmissionAccountability is IOmissionAccountability {
             _val.unbondingStake -= _unbondingSlash;
             _val.bondedStake -= _delegatedSlash;
             _remaining -= _unbondingSlash + _delegatedSlash;
-
         }
 
         // if positive amount remains
         _slashingAmount -= _remaining;
         _val.totalSlashed += _slashingAmount;
-        //_val.provableFaultCount += 1;
-        //_val.jailReleaseBlock = block.number + config.jailFactor * _val.provableFaultCount * epochPeriod;
-        //_val.state = ValidatorState.jailed; // jailed validators can't participate in consensus
 
         autonity.updateValidatorAndTransferSlashedFunds(_val);
 
-        //emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false, _event.id);
+        emit InactivitySlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false);
     }
 
-    function distributeProposerRewards() external payable onlyAutonity {
-        uint256 _atnReward = msg.value;
+    function distributeProposerRewards(uint256 _ntnReward) external payable onlyAutonity {
+        uint256 atnReward = msg.value;
 
         for(uint256 i=0; i < committee.length; i++) {
            if(proposerEffort[committee[i]] > 0){
-               //TODO(lorenzo) send it to the treasury?
-               // TODO(lorenzo) can it be a problem if numerator is very small
-               uint256 proposerReward = (proposerEffort[committee[i]] * _atnReward) / totalAccumulatedEffort;
-               // TODO(lorenzo) why use call and not send or transfer
-               committee[i].call{value: proposerReward, gas: 2300}("");
+               // TODO(lorenzo) is it possible that numerator is always too small and therefore rewards = 0 all the time?
+                    // write a test for it
+               uint256 atnProposerReward = (proposerEffort[committee[i]] * atnReward) / totalAccumulatedEffort;
+               uint256 ntnProposerReward = (proposerEffort[committee[i]] * _ntnReward) / totalAccumulatedEffort;
+               // TODO(lorenzo): handle failure
+               treasuries[i].call{value: atnProposerReward, gas: 2300}("");
+               autonity.transfer(treasuries[i],ntnProposerReward);
 
                // reset after usage
                proposerEffort[committee[i]] = 0;
@@ -297,8 +289,9 @@ contract OmissionAccountability is IOmissionAccountability {
         return SCALE_FACTOR;
     }
 
-    function setCommittee(address[] memory _committee) external onlyAutonity {
-        committee = _committee;
+    function setCommittee(address[] memory _nodeAddresses, address[] memory _treasuries) external onlyAutonity{
+        committee = _nodeAddresses;
+        treasuries = _treasuries;
     }
 
     function setLastEpochBlock(uint256 _lastEpochBlock) external onlyAutonity {

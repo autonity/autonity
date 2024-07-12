@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/p2p/enode"
@@ -153,6 +154,9 @@ func (g *AutonityContractGenesis) Prepare() error {
 	if g.Bytecode == nil && g.ABI == nil {
 		g.ABI = &generated.AutonityAbi
 		g.Bytecode = generated.AutonityBytecode
+	}
+	if g.EpochPeriod <= tendermint.DeltaBlocks {
+		return errors.New("Epoch period cannot be lower or equal than DELTA")
 	}
 	if g.MaxCommitteeSize == 0 {
 		return errors.New("invalid max committee size")

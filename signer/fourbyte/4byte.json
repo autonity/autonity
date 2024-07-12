@@ -182,5 +182,7 @@
   "e1e8cac6": "setLastEpochBlock(uint256)",
   "a5980637": "getProposerRewardRate()",
   "f56b5615": "COMMITTEE_FRACTION_PRECISION()",
-  "5115840b": "PROPOSER_REWARD_RATE_PRECISION()"
+  "5115840b": "PROPOSER_REWARD_RATE_PRECISION()",
+  "eeb92233": "distributeProposerRewards(uint256)",
+  "d5baf908": "setCommittee(address[],address[])"
 }

@@ -290,14 +290,17 @@ func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evm
 		InitialJailingPeriod:   new(big.Int).SetUint64(config.InitialJailingPeriod),
 		InitialProbationPeriod: new(big.Int).SetUint64(config.InitialProbationPeriod),
 		InitialSlashingRate:    new(big.Int).SetUint64(config.InitialSlashingRate),
+		SlashingRatePrecision:  new(big.Int).SetUint64(genesisConfig.AccountabilityConfig.SlashingRatePrecision), // same as accountability
 	}
 
-	committeeMembers := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+	nodeAddresses := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+	treasuries := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
 	for _, val := range genesisConfig.AutonityContractConfig.Validators {
-		committeeMembers = append(committeeMembers, *val.NodeAddress)
+		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
+		treasuries = append(treasuries, val.Treasury)
 	}
 
-	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, committeeMembers, conf, generated.OmissionAccountabilityBytecode)
+	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, nodeAddresses, treasuries, conf, generated.OmissionAccountabilityBytecode)
 	if err != nil {
 		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
 	}
@@ -316,6 +319,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			UnbondingPeriod:         new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(genesisConfig.InitialInflationReserve),
 			ProposerRewardRate:      new(big.Int).SetUint64(genesisConfig.ProposerRewardRate),
+			WithheldRewardsPool:     genesisConfig.Treasury, //TODO(lorenzo) decide if fine
 			TreasuryAccount:         genesisConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
