@@ -438,7 +438,7 @@ contract('Autonity', function (accounts) {
           if (epochID === currentEpoch+1) {
             break;
           }
-          await waitForNewBlock(height);
+          await utils.waitForNewBlock(height);
         }
       }
 
