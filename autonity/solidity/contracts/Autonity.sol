@@ -577,15 +577,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @param _period Positive integer.
     */
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
-        // to decrease the epoch period, we need to check if current chain head already exceed the window:
-        // lastBlockEpoch + _newPeriod, if so, the _newPeriod cannot be applied since the finalization of current epoch
-        // at finalize function will never be triggered, in such case, operator need to find better timing to do so.
-        if (_period < config.protocol.epochPeriod) {
-            if (block.number >= lastEpochBlock + _period) {
-                revert("current chain head exceed the window: lastBlockEpoch + _newPeriod, try again latter on.");
-            }
-        }
-
+        // the new epoch period will be activated until current epoch ends.
         newEpochPeriod = _period;
         emit EpochPeriodUpdated(_period);
     }
