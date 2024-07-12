@@ -857,8 +857,10 @@ contract('Autonity', function (accounts) {
 
      
     });
+
+     */
   });
-  */
+
 
   describe('Bonding and unbonding requests - 3', function () {
     beforeEach(async function () {
