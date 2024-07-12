@@ -16,7 +16,7 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     // shadow copies of variables in Autonity.sol, updated once a epoch
-    address[] private committee;
+    address[] private committee; // node addresses
     address[] private treasuries;
     uint256 private lastEpochBlock;
 
@@ -52,7 +52,7 @@ contract OmissionAccountability is IOmissionAccountability {
     * param ids stores faulty proposer's ID when isProposerOmissionFaulty is true, otherwise it carries current height
     * activity proof, which are the signers of precommit of current height - delta.
     */
-    function finalize(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty, bool _epochEnded) external onlyAutonity {
+    function finalize(address[] memory _absentees, address _proposer, uint256 _proposerEffort, bool _isProposerOmissionFaulty, bool _epochEnded) external virtual onlyAutonity {
         uint256 targetHeight = block.number - DELTA;
 
         if (_isProposerOmissionFaulty) {
@@ -77,7 +77,7 @@ contract OmissionAccountability is IOmissionAccountability {
         }
     }
 
-    function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal {
+    function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal virtual {
         for(uint256 i=0; i < _absentees.length; i++) {
             inactiveValidators[targetHeight][_absentees[i]] = true;
         }
@@ -118,7 +118,7 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     // returns collusion degree
-    function _computeInactivityScoresAndCollusionDegree() internal returns (uint256) {
+    function _computeInactivityScoresAndCollusionDegree() internal virtual returns (uint256) {
         uint256 epochPeriod = autonity.getEpochPeriod();
         uint256 collusionDegree = 0;
 
@@ -137,7 +137,7 @@ contract OmissionAccountability is IOmissionAccountability {
         return collusionDegree;
     }
 
-    function _punishInactiveValidators(uint256 collusionDegree) internal{
+    function _punishInactiveValidators(uint256 collusionDegree) internal virtual {
         // reduce probation periods + dish out punishment
         for(uint256 i=0;i<committee.length;i++){
             Autonity.Validator memory _val = autonity.getValidator(committee[i]);
@@ -185,7 +185,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
     // similar logic as Accountability.sol _slash function, with a few tweaks.
     // If updating this func, probably makes sense to update the one in Accountability.sol as well.
-    function _slash(Autonity.Validator memory _val, uint256 _slashingRate) internal{
+    function _slash(Autonity.Validator memory _val, uint256 _slashingRate) internal virtual {
         if(_slashingRate > config.slashingRatePrecision) {
             _slashingRate = config.slashingRatePrecision;
         }
@@ -260,7 +260,7 @@ contract OmissionAccountability is IOmissionAccountability {
         emit InactivitySlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false);
     }
 
-    function distributeProposerRewards(uint256 _ntnReward) external payable onlyAutonity {
+    function distributeProposerRewards(uint256 _ntnReward) external payable virtual onlyAutonity {
         uint256 atnReward = msg.value;
 
         for(uint256 i=0; i < committee.length; i++) {
@@ -281,20 +281,20 @@ contract OmissionAccountability is IOmissionAccountability {
         totalAccumulatedEffort = 0;
     }
 
-    function getInactivityScore(address _validator) external view returns (uint256) {
+    function getInactivityScore(address _validator) external view virtual returns (uint256) {
         return inactivityScores[_validator];
     }
 
-    function getScaleFactor() external pure returns (uint256) {
+    function getScaleFactor() external pure virtual returns (uint256) {
         return SCALE_FACTOR;
     }
 
-    function setCommittee(address[] memory _nodeAddresses, address[] memory _treasuries) external onlyAutonity{
+    function setCommittee(address[] memory _nodeAddresses, address[] memory _treasuries) external virtual onlyAutonity{
         committee = _nodeAddresses;
         treasuries = _treasuries;
     }
 
-    function setLastEpochBlock(uint256 _lastEpochBlock) external onlyAutonity {
+    function setLastEpochBlock(uint256 _lastEpochBlock) external virtual onlyAutonity {
         lastEpochBlock = _lastEpochBlock;
     }
 

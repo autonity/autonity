@@ -206,7 +206,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     mapping(address => uint256) internal gasLeft;
 
-    mapping(address => bool) jailedDueToOmission;
+    mapping(address => bool) internal jailedDueToOmission;
 
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;

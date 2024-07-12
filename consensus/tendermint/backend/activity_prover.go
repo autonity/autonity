@@ -129,14 +129,16 @@ func (sb *Backend) verifyActivityProof(header *types.Header, committee types.Com
 	// todo: if we submit the address of nodes to omission accountability contract, since ID could changes on committee
 	//  reshuffling.
 
+	// TODO(lorenzo) double check return values in case of error
+
 	// un-finalized proposals will have these fields set to nil
 	if header.ActivityProof.Signature == nil || header.ActivityProof.Signers == nil {
-		return nil, nil, ErrEmptyActivityProof
+		return []common.Address{}, new(big.Int), ErrEmptyActivityProof
 	}
 
 	activityProof := header.ActivityProof.Copy() // copy so that we do not modify the header when doing Signers.Validate()
 	if err := activityProof.Signers.Validate(len(committee)); err != nil {
-		return nil, nil, fmt.Errorf("Invalid activity proof signers information: %w", err)
+		return []common.Address{}, new(big.Int), fmt.Errorf("Invalid activity proof signers information: %w", err)
 	}
 
 	targetHeight := header.Number.Uint64() - tendermint.DeltaBlocks
@@ -167,13 +169,13 @@ func (sb *Backend) verifyActivityProof(header *types.Header, committee types.Com
 	valid := activityProof.Signature.Verify(aggregatedKey, headerSeal[:])
 	if !valid {
 		sb.logger.Error("block had invalid activity proof signature")
-		return nil, nil, ErrInvalidActivityProofSignature
+		return []common.Address{}, new(big.Int), ErrInvalidActivityProofSignature
 	}
 
 	// We need at least a quorum for the activity proof.
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	if power.Cmp(quorum) < 0 {
-		return nil, nil, ErrInsufficientActivityProof
+		return []common.Address{}, new(big.Int), ErrInsufficientActivityProof
 	}
 
 	proposerEffort := new(big.Int).Set(power)
