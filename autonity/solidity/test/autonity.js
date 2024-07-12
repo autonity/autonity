@@ -413,40 +413,12 @@ contract('Autonity', function (accounts) {
     });
 
     it('test extend epoch period by operator', async function () {
-      await utils.endEpoch(autonity, operator, deployer);
       await autonity.setEpochPeriod(98, {from: operator});
-
-      let currentEpoch = (await autonity.epochID()).toNumber();
-      let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
-      let oldEpochPeriod = (await autonity.getEpochPeriod()).toNumber();
-      let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
-      let currentHeight = await web3.eth.getBlockNumber();
-
-      // close epoch to take the shorten epoch into active state.
-      console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
-          lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
-      if (currentHeight > nextEpochBlock) {
-        console.log("current height is higher than the next epoch block, finalize epoch at once");
-        await autonity.finalize({from: deployer})
-      } else {
-        console.log("current height is lower than the next epoch block, try to finalize epoch");
-        for (let i=currentHeight;i<=nextEpochBlock;i++) {
-          let height = await web3.eth.getBlockNumber()
-          console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
-          autonity.finalize({from: deployer})
-          let epochID = (await autonity.epochID()).toNumber()
-          if (epochID === currentEpoch+1) {
-            break;
-          }
-          await utils.waitForNewBlock(height);
-        }
-      }
-
-
+      await utils.endEpoch(autonity, operator, deployer);
       let eP = await autonity.getEpochPeriod({from: operator});
       assert.equal("98",eP.toString())
     });
-    
+
     it('test regular validator cannot extend epoch period', async function () {
       let initEP = await autonity.getEpochPeriod({from: operator});
       

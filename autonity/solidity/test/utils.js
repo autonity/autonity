@@ -19,6 +19,7 @@ const ec = new EC('secp256k1');
 const keccak256 = require('keccak256');
 const ethers = require('ethers');
 const truffleAssert = require('truffle-assertions');
+const web3 = require("web3/src/web3");
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
@@ -28,7 +29,7 @@ const ValidatorState = {
   jailbound : 3
 }
 
-
+// todo: remove this function?
 // end epoch so the LastEpochBlock is closer
 // then set epoch period 
 async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
@@ -62,29 +63,13 @@ async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
   }
 }
 
-// while testing we might ran into situations were currentHeight > lastEpochBlock + epochPeriod
-// in this case in order to be able to finalize we need to setEpochPeriod to a bigger value
-// also we need to take into account that if we are running against autonity, the network will
-// keep mining as we do these operations
 async function endEpoch(contract,operator,deployer){
-  let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
-  let oldEpochPeriod = (await contract.getEpochPeriod()).toNumber();
-  let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
-  let currentHeight = await web3.eth.getBlockNumber();
-  let currentEpoch = (await contract.epochID()).toNumber();
-  let delta = currentHeight - lastEpochBlock;
+    let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
+    let oldEpochPeriod = (await contract.getEpochPeriod()).toNumber();
+    let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
+    let currentHeight = await web3.eth.getBlockNumber();
+    let currentEpoch = (await contract.epochID()).toNumber();
 
-  let newEpochPeriod = delta + 5
-  await contract.setEpochPeriod(newEpochPeriod,{from: operator})
-
-  // close epoch
-  console.log("currentHeight: ", currentHeight, "lastEpochBlock: ",
-      lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
-  if (currentHeight > nextEpochBlock) {
-    console.log("current height is higher than the next epoch block, finalize epoch at once");
-    await contract.finalize({from: deployer})
-  } else {
-    console.log("current height is lower than the next epoch block, try to finalize epoch");
     for (let i=currentHeight;i<=nextEpochBlock;i++) {
       let height = await web3.eth.getBlockNumber()
       console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
@@ -95,12 +80,9 @@ async function endEpoch(contract,operator,deployer){
       }
       await waitForNewBlock(height);
     }
-  }
 
-  let newEpoch = (await contract.epochID()).toNumber()
-  assert.equal(newEpoch, currentEpoch+1)
-  // new epoch period is going to be taken at the end of epoch, thus we check it here:
-  assert.equal((await contract.getEpochPeriod()).toNumber(), newEpochPeriod)
+    let newEpoch = (await contract.epochID()).toNumber()
+    assert.equal(newEpoch, currentEpoch+1)
 }
 
 async function validatorState(autonity, validatorAddresses) {
@@ -263,7 +245,7 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
   return AutonityTest.new(validators, autonityConfig, deployer);
 }
 
-async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch) {
+async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator) {
   await autonity.finalizeInitialization({from: deployer});
 
   // accountability contract
@@ -296,10 +278,6 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await autonity.setNonStakableVestingContract(nonStakableVesting.address, {from: operator})
-
-  if (shortenEpoch) {
-    await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
-  }
 }
 
 // deploys protocol contracts
@@ -311,9 +289,34 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // regarding the inflation rate will be wrong here which should be tested using the native go framework.
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG ,{from:deployer})
     // autonity contract
-    const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
+    // As the chain height might exceed the lastEpochBlock(0)+EpochPeriod(30) of the newly deployed AC with a lots of
+    // blocks, it makes the AC impossible to finalize an epoch, thus we resolved a correct boundary of the 1st epoch
+    // at this point, to make the deployed contract have a chance to finalize the 1st epoch, and then apply the default
+    // 30 blocks epoch period for the testing.
+    let currentHeight = await web3.eth.getBlockNumber();
+    let firstEpochEndBlock = currentHeight+10;
+    let copyAutonityConfig = autonityConfig;
+    copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
+
+    const autonity = await createAutonityContract(validators, copyAutonityConfig, {from: deployer});
+    // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
+    await autonity.setEpochPeriod(autonityConfig.protocol.epochPeriod, {from: operator})
+
+    // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
+    for (let i=currentHeight;i<=firstEpochEndBlock;i++) {
+      let height = await web3.eth.getBlockNumber()
+      console.log("try to finalize 1st epoch after AC deployment", "height: ", height, "next epoch block: ", firstEpochEndBlock);
+      autonity.finalize({from: deployer})
+      let epochID = (await contract.epochID()).toNumber()
+      // if the epoch rotates from 0 to 1, then we have done the setup.
+      if (epochID === 1) {
+        break;
+      }
+      await waitForNewBlock(height);
+    }
+
     await autonity.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch);
+    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
 
     return autonity;
 };
@@ -322,9 +325,35 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 // set shortenEpoch = false if no need to call utils.endEpoch
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
-    const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
+
+    // As the chain height might exceed the lastEpochBlock(0)+EpochPeriod(30) of the newly deployed AC with a lots of
+    // blocks, it makes the AC impossible to finalize an epoch, thus we resolved a correct boundary of the 1st epoch
+    // at this point, to make the deployed contract have a chance to finalize the 1st epoch, and then apply the default
+    // 30 blocks epoch period for the testing.
+    let currentHeight = await web3.eth.getBlockNumber();
+    let firstEpochEndBlock = currentHeight+10;
+    let copyAutonityConfig = autonityConfig;
+    copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
+
+    const autonityTest = await createAutonityTestContract(validators, copyAutonityConfig, {from: deployer});
+    // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
+    await autonityTest.setEpochPeriod(autonityConfig.protocol.epochPeriod, {from: operator})
+
+    // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
+    for (let i=currentHeight;i<=firstEpochEndBlock;i++) {
+      let height = await web3.eth.getBlockNumber()
+      console.log("try to finalize 1st epoch after testAC deployment", "height: ", height, "next epoch block: ", firstEpochEndBlock);
+      autonityTest.finalize({from: deployer})
+      let epochID = (await contract.epochID()).toNumber()
+      // if the epoch rotates from 0 to 1, then we have done the setup.
+      if (epochID === 1) {
+        break;
+      }
+      await waitForNewBlock(height);
+    }
+
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch);
+    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
 };
 

@@ -269,8 +269,7 @@ contract('Protocol', function (accounts) {
 
   let autonity;
   let accountability;
-  //todo: (Jason) Fix this test, it may because the timing of the ending of epoch was changed.
-  /*
+
   describe('After effects of slashing 1', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
@@ -314,7 +313,6 @@ contract('Protocol', function (accounts) {
       await unbondAndSlash(accountabilityConfig, autonity, accountability, delegators, validator, tokenUnbond, operator, deployer, 1);
     });
   });
-  */
 
   describe('After effects of slashing 2', function () {
     beforeEach(async function () {
@@ -387,8 +385,6 @@ contract('Protocol', function (accounts) {
     });
   });
 
-  //todo: (Jason) Fix this test, it may because the timing of the ending of epoch was changed.
-  /*
   describe('After effects of slashing 4', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,  deployer, operator);
@@ -433,7 +429,6 @@ contract('Protocol', function (accounts) {
       await bondSlashUnbond(accountabilityConfig, autonity, accountability, delegators, validator, tokenBond * roundingFactor, tokenUnbond, operator, deployer);
     });
   });
-   */
 
   describe('After effects of slashing 5', function () {
     beforeEach(async function () {
