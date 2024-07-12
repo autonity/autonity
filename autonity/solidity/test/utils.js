@@ -306,7 +306,7 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
       let height = await web3.eth.getBlockNumber()
       console.log("try to finalize 1st epoch after AC deployment", "height: ", height, "next epoch block: ", firstEpochEndBlock);
       autonity.finalize({from: deployer})
-      let epochID = (await contract.epochID()).toNumber()
+      let epochID = (await autonity.epochID()).toNumber()
       // if the epoch rotates from 0 to 1, then we have done the setup.
       if (epochID === 1) {
         break;
@@ -343,7 +343,7 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
       let height = await web3.eth.getBlockNumber()
       console.log("try to finalize 1st epoch after testAC deployment", "height: ", height, "next epoch block: ", firstEpochEndBlock);
       autonityTest.finalize({from: deployer})
-      let epochID = (await contract.epochID()).toNumber()
+      let epochID = (await autonityTest.epochID()).toNumber()
       // if the epoch rotates from 0 to 1, then we have done the setup.
       if (epochID === 1) {
         break;
