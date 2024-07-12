@@ -300,8 +300,11 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
 
     const autonity = await createAutonityContract(validators, copyAutonityConfig, {from: deployer});
+
     // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
+    console.log("setting epoch period after contract deployment", "epoch period", autonityConfig.protocol.epochPeriod);
     await autonity.setEpochPeriod(autonityConfig.protocol.epochPeriod, {from: operator})
+
     // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
     await autonity.setInflationControllerContract(inflationController.address, {from:operator});
     await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
@@ -339,8 +342,11 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
     copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
 
     const autonityTest = await createAutonityTestContract(validators, copyAutonityConfig, {from: deployer});
+
     // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
+    console.log("setting epoch period after contract deployment", "epoch period", autonityConfig.protocol.epochPeriod);
     await autonityTest.setEpochPeriod(autonityConfig.protocol.epochPeriod, {from: operator})
+
     // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
