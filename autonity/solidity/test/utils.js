@@ -35,7 +35,7 @@ async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
   await endEpoch(autonity, operator, deployer);
   await autonity.setEpochPeriod(epochPeriod, {from: operator});
 
-  let currentEpoch = (await contract.epochID()).toNumber();
+  let currentEpoch = (await autonity.epochID()).toNumber();
   let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
   let oldEpochPeriod = (await autonity.getEpochPeriod()).toNumber();
   let nextEpochBlock = lastEpochBlock+oldEpochPeriod;
@@ -46,14 +46,14 @@ async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
       lastEpochBlock, "oldEPeriod: ", oldEpochPeriod, "nextEpochBlock: ", nextEpochBlock);
   if (currentHeight > nextEpochBlock) {
     console.log("current height is higher than the next epoch block, finalize epoch at once");
-    await contract.finalize({from: deployer})
+    await autonity.finalize({from: deployer})
   } else {
     console.log("current height is lower than the next epoch block, try to finalize epoch");
     for (let i=currentHeight;i<=nextEpochBlock;i++) {
       let height = await web3.eth.getBlockNumber()
       console.log("try to finalize epoch", "height: ", height, "next epoch block: ", nextEpochBlock);
-      contract.finalize({from: deployer})
-      let epochID = (await contract.epochID()).toNumber()
+      autonity.finalize({from: deployer})
+      let epochID = (await autonity.epochID()).toNumber()
       if (epochID === currentEpoch+1) {
         break;
       }
