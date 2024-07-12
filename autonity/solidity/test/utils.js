@@ -259,11 +259,12 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // 30 blocks epoch period for the testing.
     let currentHeight = await web3.eth.getBlockNumber();
     let firstEpochEndBlock = currentHeight+ACSetupBuffer;
+    // save the original epoch period.
     let originalEpochPeriod = autonityConfig.protocol.epochPeriod;
-    let copyAutonityConfig = autonityConfig;
-    copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
 
-    const autonity = await createAutonityContract(validators, copyAutonityConfig, {from: deployer});
+    // apply the recomputed epoch period.
+    autonityConfig.protocol.epochPeriod = firstEpochEndBlock;
+    const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
 
     // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
     console.log("setting epoch period after contract deployment", "oringinal epoch period", originalEpochPeriod);
@@ -271,6 +272,8 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 
     // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
     await autonity.setInflationControllerContract(inflationController.address, {from:operator});
+    // recover the original epoch period.
+    autonityConfig.protocol.epochPeriod = originalEpochPeriod;
     await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
 
     // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
@@ -295,6 +298,7 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 // set shortenEpoch = false if no need to call utils.endEpoch
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
+    // save the original epoch period.
     let originalEpochPeriod = autonityConfig.protocol.epochPeriod;
     // As the chain height might exceed the lastEpochBlock(0)+EpochPeriod(30) of the newly deployed AC with a lots of
     // blocks, it makes the AC impossible to finalize an epoch, thus we resolved a correct boundary of the 1st epoch
@@ -302,10 +306,10 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
     // 30 blocks epoch period for the testing.
     let currentHeight = await web3.eth.getBlockNumber();
     let firstEpochEndBlock = currentHeight+ACSetupBuffer;
-    let copyAutonityConfig = autonityConfig;
-    copyAutonityConfig.protocol.epochPeriod = firstEpochEndBlock;
 
-    const autonityTest = await createAutonityTestContract(validators, copyAutonityConfig, {from: deployer});
+    // apply the recomputed period.
+    autonityConfig.protocol.epochPeriod = firstEpochEndBlock;
+    const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
 
     // now apply the correct epoch period, and wait it to be applied at the end of the 1st epoch finalization.
     console.log("setting epoch period after contract deployment", "original epoch period", originalEpochPeriod);
@@ -313,6 +317,9 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
 
     // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
+
+    // recover the original epoch period.
+    autonityConfig.protocol.epochPeriod = originalEpochPeriod;
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
 
     // wait for the firstEpochEndBlock, and try to finalize it until the epoch rotation happens.
