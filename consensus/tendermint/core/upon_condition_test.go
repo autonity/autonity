@@ -108,7 +108,6 @@ func TestStartRoundVariables(t *testing.T) {
 func TestStartRound(t *testing.T) {
 
 	t.Run("client is the proposer and valid value is nil", func(t *testing.T) {
-		t.Skip("todo: (Jason) fix this test: mock of Broadcast cannot compare the committee correctly")
 		ctrl := gomock.NewController(t)
 		defer waitForExpects(ctrl)
 
@@ -1233,18 +1232,6 @@ func TestFutureRoundChange(t *testing.T) {
 
 func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c interfaces.Committee, keys AddressKeyMap, signerIndex int) {
 	h := b.Header()
-	var epoch types.Epoch
-	epoch.Committee = c.Committee()
-	epoch.ParentEpochBlock = common.Big0
-	epoch.NextEpochBlock = new(big.Int).SetUint64(h.Number.Uint64() + 30)
-	err := types.WriteEpochExtra(h, &epoch)
-	if err != nil {
-		panic(err)
-	}
-	if err = h.EnrichEpochInfo(); err != nil {
-		panic(err)
-	}
-
 	hashData := types.SigHash(h)
 	signature, err := crypto.Sign(hashData[:], keys[c.Committee().Members[signerIndex].Address].node)
 	require.NoError(t, err)
