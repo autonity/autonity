@@ -749,7 +749,7 @@ contract('Autonity', function (accounts) {
     });
 
     // todo: Jason, rewrite this test, it might failed due to the timing of the ending of an epoch.
-    /*
+
     it('un-bond from a valid validator (selfBonded)', async function () {
       let tokenUnBond = 10;
       let from = validators[0].treasury;
@@ -796,7 +796,6 @@ contract('Autonity', function (accounts) {
 
      
     });
-
 
     it('un-bond from a valid validator (non-self-bonded)', async function () {
       const tokenUnBond = 10;
@@ -858,7 +857,6 @@ contract('Autonity', function (accounts) {
      
     });
 
-     */
   });
 
 
