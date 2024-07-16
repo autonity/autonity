@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/eth/downloader"
 	"math/big"
 	"math/rand"
 	"os"
@@ -33,8 +34,31 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-// TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
-//  simple and stable than the legacy one.
+func TestSnapSyncMode(t *testing.T) {
+	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	defer network.Shutdown(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
+	require.NoError(t, err)
+	_ = network.WaitToMineNBlocks(300, 300, false)
+
+	snapSyncClients, err := Validators(t, 1, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	for i, n := range snapSyncClients {
+		node, err := NewNoneValidatorNode(n, network[0].EthConfig.Genesis, len(network)+i, downloader.SnapSync)
+		require.NoError(t, err)
+		network = append(network, node)
+		err = node.Start()
+		require.NoError(t, err)
+	}
+	_ = network.WaitToMineNBlocks(300, 300, false)
+	require.Equal(t, true, network[len(network)-1].IsSyncComplete())
+}
 
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
