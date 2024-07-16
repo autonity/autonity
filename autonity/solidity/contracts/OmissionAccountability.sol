@@ -26,7 +26,7 @@ contract OmissionAccountability is IOmissionAccountability {
     mapping(address => uint256) public inactivityCounter;
 
     // net (total - quorum) proposer effort included in the activity proof. Reset at epoch end.
-    uint256 public totalAccumulatedEffort;
+    uint256 public totalEffort;
     mapping(address => uint256) public proposerEffort;
 
     // epoch inactivity score for each committee member. Updated at every epoch.
@@ -46,6 +46,7 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     //TODO(lorenzo): update comments and interface. Restore at symbol in front of notice and param
+    // shouldn't be called with block.number < delta
     /**
     * notice called by the Autonity Contract at block finalization, it receives activity report.
     * param isProposerOmissionFaulty is true when the proposer provides invalid activity proof of current height.
@@ -60,13 +61,15 @@ contract OmissionAccountability is IOmissionAccountability {
             inactivityCounter[_proposer]++;
         }else{
             faultyProposers[targetHeight] = false;
+            // TODO(lorenzo) what if we overflow? check also other parts of the code
             proposerEffort[_proposer] += _proposerEffort;
-            totalAccumulatedEffort += _proposerEffort;
+            totalEffort += _proposerEffort;
 
-            _recordAbsentees(_absentees,targetHeight);
+            _recordAbsentees(_absentees, targetHeight);
         }
 
         if(_epochEnded){
+            //TODO(lorenzo) is it fine that collusion degree is not stored in state
             uint256 collusionDegree = _computeInactivityScoresAndCollusionDegree();
             _punishInactiveValidators(collusionDegree);
 
@@ -91,17 +94,17 @@ contract OmissionAccountability is IOmissionAccountability {
         for(uint256 i=0; i < _absentees.length; i++) {
             bool confirmedAbsent = true;
             uint256 initialLookBackWindow = config.lookbackWindow;
-            for(uint256 h =targetHeight-1; h >targetHeight-initialLookBackWindow; h--) {
+            for(uint256 h = targetHeight-1; h >targetHeight-initialLookBackWindow; h--) {
                 if(faultyProposers[h]) {
-                    // if we do not have data for a certain height, extend the window
+                    // we do not have data for h, extend the lookback window if possible
+                    if(targetHeight-lastEpochBlock <= initialLookBackWindow) {
+                        // we do not have enough blocks to extend the window. let's consider the validator not absent.
+                        confirmedAbsent=false;
+                        break;
+                    }
+                    // we can extend the window
                     initialLookBackWindow++;
                     continue;
-                }
-                if(h == lastEpochBlock){
-                    // if we end up here it means that we extended the lookback window too much and arrive at the start at the epoch
-                    // we do not have enough information, so let's just consider the validator as not absent
-                    confirmedAbsent=false;
-                    break;
                 }
 
                 // if the validator is not found in even only one of the inactive lists, it is not considered offline
@@ -124,11 +127,10 @@ contract OmissionAccountability is IOmissionAccountability {
 
         // compute aggregated scores + collusion degree
         for(uint256 i=0;i<committee.length;i++){
+            // first config.lookbackWindow-1 blocks of the epoch are accountable, but we do not have enough info to determine if a validator was offline/online
             // last DELTA blocks of the epoch are not accountable due to committee change
-            uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / (epochPeriod-DELTA));
-            // TODO(lorenzo) After writing tests try to divide the complete sum by SCALE_FACTOR (instead of the two separate addends)
-                // it should lead to lower precision loss
-            uint256 aggregatedInactivityScore =  ((inactivityScore*(SCALE_FACTOR-config.pastPerformanceWeight))/SCALE_FACTOR) + ((inactivityScores[committee[i]] * config.pastPerformanceWeight)/SCALE_FACTOR);
+            uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / (epochPeriod-config.lookbackWindow+1-DELTA));
+            uint256 aggregatedInactivityScore =  ((inactivityScore*(SCALE_FACTOR-config.pastPerformanceWeight)) + (inactivityScores[committee[i]] * config.pastPerformanceWeight))/SCALE_FACTOR;
             if(aggregatedInactivityScore > config.inactivityThreshold){
                 collusionDegree++;
             }
@@ -267,8 +269,8 @@ contract OmissionAccountability is IOmissionAccountability {
            if(proposerEffort[committee[i]] > 0){
                // TODO(lorenzo) is it possible that numerator is always too small and therefore rewards = 0 all the time?
                     // write a test for it
-               uint256 atnProposerReward = (proposerEffort[committee[i]] * atnReward) / totalAccumulatedEffort;
-               uint256 ntnProposerReward = (proposerEffort[committee[i]] * _ntnReward) / totalAccumulatedEffort;
+               uint256 atnProposerReward = (proposerEffort[committee[i]] * atnReward) / totalEffort;
+               uint256 ntnProposerReward = (proposerEffort[committee[i]] * _ntnReward) / totalEffort;
                // TODO(lorenzo): handle failure
                treasuries[i].call{value: atnProposerReward, gas: 2300}("");
                autonity.transfer(treasuries[i],ntnProposerReward);
@@ -278,7 +280,7 @@ contract OmissionAccountability is IOmissionAccountability {
            }
         }
 
-        totalAccumulatedEffort = 0;
+        totalEffort = 0;
     }
 
     function getInactivityScore(address _validator) external view virtual returns (uint256) {

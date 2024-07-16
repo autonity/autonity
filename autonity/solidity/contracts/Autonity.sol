@@ -579,7 +579,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @param _period Positive integer.
     */
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
+        // TODO(lorenzo) modify this constraint, now it should be: epochPeriod > lookback+delta-1
+            // remember to modify it also in the golang code
         require(_period > DELTA,"epoch period needs to be greater than DELTA");
+
 
         // to decrease the epoch period, we need to check if current chain head already exceed the window:
         // lastBlockEpoch + _newPeriod, if so, the _newPeriod cannot be applied since the finalization of current epoch

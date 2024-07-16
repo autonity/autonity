@@ -8,10 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/params"
 )
-
-var fromAutonity = &runOptions{origin: params.AutonityContractAddress}
 
 var reward = big.NewInt(1000_000_000)
 
@@ -50,7 +47,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	require.NoError(r.t, err)
 	bondingAmount := big.NewInt(contractTotalAmount)
 	r.NoError(
-		r.autonity.Mint(operator, user, bondingAmount),
+		r.autonity.Mint(r.operator, user, bondingAmount),
 	)
 	r.NoError(
 		r.autonity.Bond(fromSender(user, nil), validator, bondingAmount),
@@ -122,7 +119,7 @@ func TestBondingGasConsumption(t *testing.T) {
 
 	for _, validator := range r.committee.validators {
 		r.NoError(
-			r.autonity.Mint(operator, user, bondingAmount),
+			r.autonity.Mint(r.operator, user, bondingAmount),
 		)
 		r.NoError(
 			r.autonity.Bond(fromSender(user, nil), validator.NodeAddress, bondingAmount),
@@ -636,7 +633,7 @@ func TestRwardTracking(t *testing.T) {
 
 	// set commission rate = 0, so all rewards go to delegation
 	r.NoError(
-		r.autonity.SetTreasuryFee(operator, common.Big0),
+		r.autonity.SetTreasuryFee(r.operator, common.Big0),
 	)
 	// remove all bonding, so we only have bonding from contracts only
 	for _, validator := range r.committee.validators {
@@ -881,7 +878,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		newUser := common.HexToAddress("0x88")
 		_, _, err = r.stakableVesting.GetContract(nil, newUser, contractID)
 		require.Equal(r.t, "execution reverted: invalid contract id", err.Error())
-		r.stakableVesting.ChangeContractBeneficiary(operator, user, contractID, newUser)
+		r.stakableVesting.ChangeContractBeneficiary(r.operator, user, contractID, newUser)
 		_, _, err = r.stakableVesting.GetContract(nil, newUser, contractID)
 		require.NoError(r.t, err)
 		_, _, err = r.stakableVesting.GetContract(nil, user, contractID)
@@ -1290,7 +1287,7 @@ func createContract(r *runner, beneficiary common.Address, amount, startTime, cl
 	endBig := big.NewInt(endTime)
 	r.NoError(
 		r.stakableVesting.NewContract(
-			operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
+			r.operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
 			new(big.Int).Sub(cliffBig, startBig), new(big.Int).Sub(endBig, startBig),
 		),
 	)
@@ -1540,7 +1537,7 @@ func bondAndApply(
 		liquidContract := liquidContracts[key]
 		bondedValidators = append(bondedValidators, key)
 		r.giveMeSomeMoney(r.autonity.address, reward)
-		r.autonity.Mint(operator, liquidContract.address, reward)
+		r.autonity.Mint(r.operator, liquidContract.address, reward)
 		r.NoError(
 			liquidContract.Redistribute(fromSender(r.autonity.address, reward), reward),
 		)
@@ -1632,7 +1629,7 @@ func unbondAndApply(
 		liquidContract := liquidContracts[key]
 		r.giveMeSomeMoney(r.autonity.address, reward)
 		r.NoError(
-			r.autonity.Mint(operator, liquidContract.address, reward),
+			r.autonity.Mint(r.operator, liquidContract.address, reward),
 		)
 		r.NoError(
 			liquidContract.Redistribute(fromSender(r.autonity.address, reward), reward),

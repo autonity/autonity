@@ -739,7 +739,7 @@ var (
 		MaxCommitteeSize:        21,
 		BlockPeriod:             1,
 		UnbondingPeriod:         120,
-		EpochPeriod:             100,  //TODO(lorenzo) does this change affect the other tests
+		EpochPeriod:             30,
 		DelegationRate:          1200, // 12%
 		ProposerRewardRate:      1000, // 10%
 		Treasury:                common.Address{120},
