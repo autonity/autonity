@@ -773,7 +773,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory, uint256, uint256) {
         blockEpochMap[block.number] = epochID;
         // todo, add comment for this change.
-        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod <= block.number;
+        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
