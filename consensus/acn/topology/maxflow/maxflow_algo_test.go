@@ -215,3 +215,8 @@ func TestMaxFlowAlgoOnUnidirectionalGraph1(t *testing.T) {
 	flow := graph.DinitzMaxFlow(0, nodes-1)
 	require.Equal(t, 16, flow)
 }
+
+func TestMaxFlow_SameSourceSink(t *testing.T) {
+	graph := NewGraph(1)
+	require.Equal(t, inf, graph.DinitzMaxFlow(0, 0))
+}
