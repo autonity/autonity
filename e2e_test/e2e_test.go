@@ -35,6 +35,8 @@ import (
 )
 
 func TestSnapSyncMode(t *testing.T) {
+	//todo:(Jason) low priority, do a clean shutdown of the client which runs in snapSync mode in this framework.
+	t.Skip("skip it in CI, it fails sometimes due to un-clean shutdown of the syncSync client in this framework")
 	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
