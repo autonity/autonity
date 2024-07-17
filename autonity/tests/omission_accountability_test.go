@@ -16,7 +16,7 @@ import (
 var omissionEpochPeriod = 100
 var inflationAfter100Blocks = 6311834092292000000
 
-const SCALE_FACTOR = 10_000
+const ScaleFactor = 10_000
 
 // need a longer epoch for omission accountability tests
 var configOverride = func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
@@ -34,7 +34,7 @@ func omissionFinalize(r *runner, absents []common.Address, proposer common.Addre
 	r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
 }
 
-func autonityFinalize(r *runner, absents []common.Address, proposer common.Address, effort *big.Int, proposerFaulty bool) {
+func autonityFinalize(r *runner, absents []common.Address, proposer common.Address, effort *big.Int, proposerFaulty bool) { //nolint
 	_, err := r.autonity.Finalize(nil, absents, proposer, effort, proposerFaulty)
 	require.NoError(r.t, err)
 	r.t.Logf("Autonity, finalized block: %d", r.evm.Context.BlockNumber)
@@ -308,7 +308,7 @@ func TestInactivityScore(t *testing.T) {
 	config, _, err := r.omissionAccountability.Config(nil)
 	require.NoError(r.t, err)
 	lookback := int(config.LookbackWindow.Uint64())
-	pastPerformanceWeight := float64(config.PastPerformanceWeight.Uint64()) / SCALE_FACTOR
+	pastPerformanceWeight := float64(config.PastPerformanceWeight.Uint64()) / ScaleFactor
 
 	// simulate epoch
 	inactiveBlockStreak := make([]int, len(r.committee.validators))
@@ -340,10 +340,10 @@ func TestInactivityScore(t *testing.T) {
 	pastInactivityScore := make([]float64, len(r.committee.validators))
 	for i, val := range r.committee.validators {
 		score := float64(inactiveCounters[i]) / float64(omissionEpochPeriod-tendermint.DeltaBlocks-lookback+1)
-		score = math.Floor(score*SCALE_FACTOR) / SCALE_FACTOR // mimic precision loss due to fixed point arithmetic used in solidity
+		score = math.Floor(score*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
 		expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + 0*pastPerformanceWeight
 		pastInactivityScore[i] = expectedInactivityScoreFloat
-		expectedInactivityScore := int(math.Floor(expectedInactivityScoreFloat * SCALE_FACTOR))
+		expectedInactivityScore := int(math.Floor(expectedInactivityScoreFloat * ScaleFactor))
 		r.t.Logf("expectedInactivityScore %v, inactivityScore %v", expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 		require.Equal(r.t, expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 	}
@@ -373,9 +373,9 @@ func TestInactivityScore(t *testing.T) {
 	// check score computation
 	for i, val := range r.committee.validators {
 		score := float64(inactiveCounters[i]) / float64(omissionEpochPeriod-tendermint.DeltaBlocks-lookback+1)
-		score = math.Floor(score*SCALE_FACTOR) / SCALE_FACTOR // mimic precision loss due to fixed point arithmetic used in solidity
+		score = math.Floor(score*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
 		expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + pastInactivityScore[i]*pastPerformanceWeight
-		expectedInactivityScore := int(math.Floor(expectedInactivityScoreFloat * SCALE_FACTOR))
+		expectedInactivityScore := int(math.Floor(expectedInactivityScoreFloat * ScaleFactor))
 		r.t.Logf("expectedInactivityScore %v, inactivityScore %v", expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 		require.Equal(r.t, expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 	}
@@ -404,7 +404,7 @@ func TestOmissionPunishments(t *testing.T) {
 	autonityFinalize(r, absents, proposer, common.Big1, false)
 
 	// the two validators should have been jailed and be under probation + offence counter should have been incremented
-	expectedFullOfflineScore := SCALE_FACTOR - pastPerformanceWeight
+	expectedFullOfflineScore := ScaleFactor - pastPerformanceWeight
 	for _, absent := range absents {
 		require.Equal(r.t, expectedFullOfflineScore, inactivityScore(r, absent))
 		val := validator(r, absent)
@@ -430,7 +430,7 @@ func TestOmissionPunishments(t *testing.T) {
 	r.waitNextEpoch()
 	// should be decreased  now
 	for _, absent := range absents {
-		require.Equal(r.t, (expectedFullOfflineScore*pastPerformanceWeight)/SCALE_FACTOR, inactivityScore(r, absent))
+		require.Equal(r.t, (expectedFullOfflineScore*pastPerformanceWeight)/ScaleFactor, inactivityScore(r, absent))
 	}
 	r.waitNextEpoch()
 	r.waitNextEpoch()
