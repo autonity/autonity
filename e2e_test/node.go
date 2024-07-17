@@ -191,6 +191,15 @@ func NewNoneValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id
 	nodeConfig.ExecutionP2P.PrivateKey = validator.NodeKey
 	nodeConfig.ExecutionP2P.ListenAddr = fmt.Sprintf("%s:%d", localhost, validator.NodePort)
 
+	// set the eNode of validators of the core network as static nodes,
+	// thus the none validator node can discover them without connecting with bootstrap node.
+	var eNodes []string
+	for _, n := range genesis.Config.AutonityContractConfig.Validators {
+		eNodes = append(eNodes, n.Enode)
+	}
+	nodes := types.NewNodes(eNodes, false)
+	nodeConfig.ExecutionP2P.StaticNodes = nodes.List
+
 	// consensus key used by consensus engine.
 	nodeConfig.ConsensusKey = validator.ConsensusKey
 	nodeConfig.ConsensusP2P.PrivateKey = validator.NodeKey
@@ -276,11 +285,6 @@ func (n *Node) Start() error {
 	n.Interactor = Interact(n.HTTPEndpoint())
 	if n.Interactor.err != nil {
 		return n.Interactor.err
-	}
-
-	// if client is not running in validator mode, then add validator peers in the p2p server.
-	if n.EthConfig.SyncMode == downloader.SnapSync || n.EthConfig.SyncMode == downloader.LightSync {
-		n.Interactor.client.PeerCount()
 	}
 
 	err = n.Tracker.StartTracking(n.WsClient)
@@ -750,7 +754,7 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
 func (nw Network) Shutdown(t *testing.T) {
-	//defer checkGoRoutineLeak(t)
+	defer checkGoRoutineLeak(t)
 	for _, node := range nw {
 		if node != nil && node.isRunning {
 			err := node.Close(true)
