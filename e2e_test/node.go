@@ -193,9 +193,9 @@ func NewNoneValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id
 
 	// set the eNode of validators of the core network as static nodes,
 	// thus the none validator node can discover them without connecting with bootstrap node.
-	var eNodes []string
-	for _, n := range genesis.Config.AutonityContractConfig.Validators {
-		eNodes = append(eNodes, n.Enode)
+	eNodes := make([]string, len(genesis.Config.AutonityContractConfig.Validators))
+	for i, n := range genesis.Config.AutonityContractConfig.Validators {
+		eNodes[i] = n.Enode
 	}
 	nodes := types.NewNodes(eNodes, false)
 	nodeConfig.ExecutionP2P.StaticNodes = nodes.List
