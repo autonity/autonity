@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/eth/downloader"
 	"math/big"
 	"math/rand"
 	"os"
@@ -33,8 +34,39 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-// TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
-//  simple and stable than the legacy one.
+func TestSnapSyncMode(t *testing.T) {
+	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
+	require.NoError(t, err)
+
+	_ = network.WaitToMineNBlocks(300, 300, false)
+
+	// create a node which runs in snap sync mode.
+	snapSyncClients, err := Validators(t, 1, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	node, err := NewNoneValidatorNode(snapSyncClients[0], network[0].EthConfig.Genesis, len(network), downloader.SnapSync)
+	require.NoError(t, err)
+	err = node.Start()
+	require.NoError(t, err)
+	// Snap sync might take a while since it dumps and replicates entire world state.
+	_ = network.WaitToMineNBlocks(300, 300, false)
+	require.Equal(t, true, node.IsSyncComplete())
+	require.True(t, true, node.GetChainHeight() > 0)
+	_, parentEHead, curEHead, nextEHead, err := node.Eth.BlockChain().LatestEpoch()
+	require.NoError(t, err)
+	require.Greater(t, parentEHead, 0)
+	require.Greater(t, curEHead, parentEHead)
+	require.NotEqual(t, nextEHead, curEHead)
+
+	err = node.Close(true)
+	require.NoError(t, err)
+}
 
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
@@ -46,7 +78,7 @@ func TestSendingValue(t *testing.T) {
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
-	_ = network.WaitToMineNBlocks(300, 300, false)
+	_ = network.WaitToMineNBlocks(100, 100, false)
 }
 
 func TestProtocolContractsDeployment(t *testing.T) {
