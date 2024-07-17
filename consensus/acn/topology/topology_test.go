@@ -101,20 +101,98 @@ func TestGraphIsConnected(t *testing.T) {
 		for node := 0; node < nodeCount; node++ {
 			graph.edges[node] = graphTopology.RequestSubset(node)
 		}
+		graph.visited = make([]bool, nodeCount)
 		require.Equal(t, nodeCount, graph.dfs(0))
 	}
 
 	testForMultipleGraph(1, 1000, tester)
 }
 
+// Tests graph diameter for a bidirectional graph
 func TestGraphDiameter(t *testing.T) {
-	// TODO (tariq): complete
+	tester := func(nodeCount int) {
+		graphTopology, err := NewGraphTopology(nodeCount, 0, 0)
+		require.NoError(t, err)
+		graph := newGraph(nodeCount)
+		for node := 0; node < nodeCount; node++ {
+			graph.edges[node] = graphTopology.RequestSubset(node)
+		}
+		graph.targetDiameter = 2
+		graph.distance = make([][]int, nodeCount)
+		for i := 0; i < nodeCount; i++ {
+			graph.distance[i] = make([]int, nodeCount)
+			for j := 0; j < nodeCount; j++ {
+				graph.distance[i][j] = graph.targetDiameter + 1
+			}
+		}
+
+		pairsToUpdate := nodeCount * (nodeCount - 1) / 2 // we have C(n,2) unordered pairs of nodes
+		updatedPairs := make(map[int]bool)
+		for graphSize := nodeCount; graphSize > 0 && len(updatedPairs) < pairsToUpdate; graphSize-- {
+			source := graphSize - 1
+			graph.bfs(source, source, graph.distance[source])
+
+			// Now we need to determine shortest path distance for any pair of nodes `(u,v)` such that the path
+			// between `u` and `v` includes `source`. Note that we don't need to determine the shortest path distance
+			// for all pairs of nodes. We only determine the shortest path distance for some pair `(u,v)` such that
+			// `distance[u][v] <= targetDiameter`, otherwise the test will fail. Which gives us oportunity to optimize here.
+			for peer := 0; peer < source; peer++ {
+				d := graph.distance[source][peer]
+				require.True(t, d <= graph.targetDiameter, "graph diameter more than expected")
+				// assuming that the graph is bidirectional, which is tested in TestGraphIsBidirectional
+				graph.distance[peer][source] = d
+				updatedPairs[combinedIndex(peer, source, nodeCount)] = true
+			}
+			// update any pair `(nodeA,nodeB)` such that the shortest path between `nodeA` and `nodeB` includes `source`
+			// As we have `targetedDiameter = 2`, doing this operation is not very costly.
+			for nodeAIndex, nodeA := range graph.edges[source] {
+				for nodeBIndex := nodeAIndex + 1; nodeBIndex < len(graph.edges[source]); nodeBIndex++ {
+					nodeB := graph.edges[source][nodeBIndex]
+					if graph.distance[nodeA][nodeB] > 2 {
+						graph.distance[nodeA][nodeB] = 2
+						graph.distance[nodeB][nodeA] = 2
+						updatedPairs[combinedIndex(nodeA, nodeB, nodeCount)] = true
+					}
+				}
+			}
+		}
+	}
+
+	testForMultipleGraph(1, 1000, tester)
+}
+
+func TestNoDuplicateNodeInConnection(t *testing.T) {
+	tester := func(nodeCount int) {
+		tester2 := func(degreeCount int) {
+			fmt.Printf("node %v\ndegree %v\n", nodeCount, degreeCount)
+			graph, err := NewGraphTopology(nodeCount, degreeCount, 0)
+			require.NoError(t, err)
+			for node := 0; node < nodeCount; node++ {
+				edges := graph.RequestSubset(node)
+				existedPeer := make(map[int]bool)
+				existedPeer[node] = true
+				fmt.Printf("\n\n")
+				for _, peer := range edges {
+					fmt.Printf("node %v -> %v\n", node, peer)
+					require.False(t, existedPeer[peer])
+					existedPeer[peer] = true
+				}
+				fmt.Printf("\n\n")
+			}
+		}
+
+		tester2(0)
+		tester2((1 + nodeCount) / 2)
+		if nodeCount > 2 {
+			tester2((2*nodeCount + 2) / 3)
+		}
+	}
+	testForMultipleGraph(2, 100, tester)
 }
 
 func TestGraphConnectivity(t *testing.T) {
 	// TODO (tariq): need to optimize
 	tester := func(nodeCount int) {
-		fmt.Printf("node %v\n", nodeCount)
 		graphTopology, err := NewGraphTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
 		require.Equal(t, graphTopology.degreeCount, graphTopology.connectivity())
@@ -185,15 +263,6 @@ func newGraph(size int) Graph {
 
 func (g *Graph) init(size int) {
 	g.edges = make([][]int, size)
-	g.distance = make([][]int, size)
-	g.visited = make([]bool, size)
-
-	for i := 0; i < size; i++ {
-		g.distance[i] = make([]int, size)
-		for j := 0; j < size; j++ {
-			g.distance[i][j] = g.targetDiameter + 1
-		}
-	}
 }
 
 func (g *Graph) dfs(node int) int {
@@ -207,4 +276,31 @@ func (g *Graph) dfs(node int) int {
 		visited += g.dfs(peer)
 	}
 	return visited
+}
+
+// Must sort all edges.
+// The bfs is modified to determine shortest path distance from `source` to any `node < graphSize`
+// considering only the subgraph of the first `graphSize` nodes. Here we are assuming that we know shortest
+// path distance for any pair of nodes `(u,v)` such that the path between `u` and `v` includes some
+// node `w >= graphSize`. In this case, it is enough to consider the subgraph including only the first `graphSize` nodes.
+func (g *Graph) bfs(source, graphSize int, distance []int) {
+	// enque source
+	queue := make([]int, 0, graphSize)
+	queue = append(queue, source)
+	distance[source] = 0
+	for len(queue) > 0 {
+		// pop
+		node := queue[0]
+		queue = queue[1:]
+		for _, peer := range g.edges[node] {
+			if peer >= graphSize {
+				break
+			}
+			if distance[peer] > distance[node]+1 {
+				// enque adjacent nodes
+				queue = append(queue, peer)
+				distance[peer] = distance[node] + 1
+			}
+		}
+	}
 }

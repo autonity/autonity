@@ -80,6 +80,9 @@ func (g *networkTopology) isAdjacent(u, v int) bool {
 }
 
 func (g *networkTopology) RequestSubset(myIndex int) []int {
+	if g.nodeCount < 2 {
+		return nil
+	}
 	edges := make([]int, 0, g.nodeCount-1)
 	if g.nodeCount <= g.minNodes {
 		for i := 0; i < g.nodeCount; i++ {
