@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os/exec"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -120,6 +121,7 @@ type Peer struct {
 	// events receives message send / receive events if set
 	events   *event.Feed
 	testPipe *MsgPipeRW // for testing
+	ping     *time.Timer
 }
 
 // NewPeer returns a peer for testing purposes.
@@ -245,21 +247,53 @@ func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 	return p
 }
 
-func (p *Peer) UpdateSocketOptions(bufferSize int, noDelay bool) {
+func ResetSocketOptions() {
+	commands := []string{
+		fmt.Sprintf("net.ipv4.tcp_window_scaling=1"),
+		fmt.Sprintf("net.core.rmem_max=212992"),
+		fmt.Sprintf("net.core.wmem_max=212992"),
+		fmt.Sprintf("net.ipv4.tcp_rmem=4096 131072 6291456"),
+		fmt.Sprintf("net.ipv4.tcp_wmem=4096 16384 4194304"),
+		fmt.Sprintf("net.ipv4.tcp_slow_start_after_idle=1"),
+	}
+	for _, l := range commands {
+		localCommand := l
+		execCmd := exec.Command("sysctl", "-w", localCommand)
+		err := execCmd.Run()
+		if err != nil {
+			log.Error(" command failure ", "err", err, "cmd", execCmd)
+		}
+	}
+}
 
-	if tcp, ok := p.rw.fd.(*net.TCPConn); ok {
-		err := tcp.SetWriteBuffer(bufferSize)
+func (p *Peer) UpdateAppSocketBuffers(bufferSize int) {
+	//p.rw.fd.(*net.TCPConn).SetWriteBuffer(bufferSize)
+	//p.rw.fd.(*net.TCPConn).SetReadBuffer(bufferSize)
+}
+
+func (p *Peer) IsUDP() bool {
+	_, ok := p.rw.fd.(*net.UDPConn)
+	return ok
+}
+
+func UpdateSystemSocketOptions(bufferSize int) {
+
+	commands := []string{
+		fmt.Sprintf("net.ipv4.tcp_window_scaling=1"),
+		fmt.Sprintf("net.core.rmem_max=%d", bufferSize),
+		fmt.Sprintf("net.core.wmem_max=%d", bufferSize),
+		fmt.Sprintf("net.ipv4.tcp_rmem=65536        %d    %d", bufferSize, bufferSize),
+		fmt.Sprintf("net.ipv4.tcp_wmem=65536        %d    %d", bufferSize, bufferSize),
+		fmt.Sprintf("net.ipv4.route.flush=1"),
+		fmt.Sprintf("net.ipv4.tcp_slow_start_after_idle=0"),
+	}
+	for _, l := range commands {
+		localCommand := l
+		execCmd := exec.Command("sysctl", "-w", localCommand)
+		err := execCmd.Run()
 		if err != nil {
-			p.Log().Error("set write buffer", "error", err)
+			log.Error(" command failure ", "err", err, "cmd", execCmd)
 		}
-		err = tcp.SetReadBuffer(bufferSize)
-		if err != nil {
-			p.Log().Error("set read buffer", "error", err)
-		}
-		//tcp.SetNoDelay(noDelay)
-		p.Log().Info("Socket options updated", "writeBuffer", bufferSize, "readbuffer", bufferSize)
-	} else {
-		p.Log().Info("not a TCP socket, buffer update is not possible")
 	}
 }
 
@@ -318,17 +352,17 @@ loop:
 }
 
 func (p *Peer) pingLoop() {
-	ping := time.NewTimer(pingInterval)
+	p.ping = time.NewTimer(pingInterval)
 	defer p.wg.Done()
-	defer ping.Stop()
+	defer p.ping.Stop()
 	for {
 		select {
-		case <-ping.C:
+		case <-p.ping.C:
 			if err := SendItems(p.rw, pingMsg); err != nil {
 				p.protoErr <- err
 				return
 			}
-			ping.Reset(pingInterval)
+			p.ping.Reset(pingInterval)
 		case <-p.closed:
 			return
 		}
@@ -344,6 +378,7 @@ func (p *Peer) readLoop(errc chan<- error) {
 			return
 		}
 		msg.ReceivedAt = time.Now()
+		p.ping.Reset(pingInterval)
 		if err = p.handle(msg); err != nil {
 			errc <- err
 			return
@@ -560,6 +595,10 @@ func (p *Peer) Info() *PeerInfo {
 		info.Protocols[proto.Name] = protoInfo
 	}
 	return info
+}
+
+func (p *Peer) ResetPing() {
+	p.ping.Reset(pingInterval)
 }
 
 func NewTestPeer(name string, caps []Cap) (*Peer, error) {

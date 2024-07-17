@@ -58,7 +58,7 @@ func (b *readBuffer) reset() {
 
 // read reads at least n bytes from r, returning the bytes.
 // The returned slice is valid until the next call to reset.
-func (b *readBuffer) readOld(r io.Reader, n int) ([]byte, error) {
+func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
 	offset := len(b.data)
 	have := b.end - len(b.data)
 
@@ -84,7 +84,7 @@ func (b *readBuffer) readOld(r io.Reader, n int) ([]byte, error) {
 
 // read reads at least n bytes from r, returning the bytes.
 // The returned slice is valid until the next call to reset.
-func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
+func (b *readBuffer) readNew(r io.Reader, n int) ([]byte, error) {
 
 	readBytes := func() []byte {
 		b.Lock()

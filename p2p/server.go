@@ -19,7 +19,9 @@ package p2p
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -29,6 +31,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	quic2 "github.com/quic-go/quic-go"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/mclock"
@@ -40,6 +44,7 @@ import (
 	"github.com/autonity/autonity/p2p/enr"
 	"github.com/autonity/autonity/p2p/nat"
 	"github.com/autonity/autonity/p2p/netutil"
+	"github.com/autonity/autonity/p2p/quic"
 )
 
 type Network int32
@@ -53,6 +58,7 @@ const (
 const (
 	TCP Transport = iota
 	UDP
+	QUIC
 )
 
 func (ser Network) String() string {
@@ -605,6 +611,10 @@ func (srv *Server) Start() (err error) {
 			if err := srv.setupUDPListening(); err != nil {
 				return err
 			}
+		} else if srv.Transport == QUIC {
+			if err := srv.setupQUICListening(); err != nil {
+				return err
+			}
 		} else {
 			if err := srv.setupListening(); err != nil {
 				return err
@@ -768,13 +778,17 @@ func (srv *Server) setupDialScheduler() {
 	if config.dialer == nil {
 		if config.transport == UDP {
 			config.dialer = udpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
-		} else {
+		} else if config.transport == TCP {
 			config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+		} else if config.transport == QUIC {
+			config.dialer = quicDialer{}
 		}
 	}
 	setupConn := srv.SetupConn
 	if srv.Transport == UDP {
 		setupConn = srv.dialSetupUDPConn
+	} else if srv.Transport == QUIC {
+		setupConn = srv.dialSetupQuicConn
 	}
 	srv.dialsched = newDialScheduler(config, srv.discmix, setupConn)
 	for _, n := range srv.StaticNodes {
@@ -799,6 +813,94 @@ func (srv *Server) maxDialedConns() (limit int) {
 		limit = 1
 	}
 	return limit
+}
+
+func (srv *Server) setupQUICListening() error {
+	addr, err := net.ResolveUDPAddr("udp", srv.ListenAddr)
+	if err != nil {
+		return err
+	}
+	udpListener, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return err
+	}
+
+	tr := quic2.Transport{Conn: udpListener}
+
+	realaddr := udpListener.LocalAddr().(*net.UDPAddr)
+	srv.log.Debug("Consensus quic listener up", "addr", realaddr, "type", srv.Net.String())
+	if srv.NAT != nil {
+		if !realaddr.IP.IsLoopback() {
+			srv.loopWG.Add(1)
+			go func() {
+				nat.Map(srv.NAT, srv.quit, "udp", realaddr.Port, realaddr.Port, "autonity consensus")
+				srv.loopWG.Done()
+			}()
+		}
+	}
+
+	//TODO: proper tls certificates path
+	cert, err := tls.LoadX509KeyPair("./server.crt", "./server.key")
+	if err != nil {
+		log.Crit("failed to load key pair", "err", err)
+	}
+	go func() {
+		log.Info("Waiting for connection")
+
+		tlsConfig := &tls.Config{
+			Certificates:       []tls.Certificate{cert},
+			InsecureSkipVerify: true,
+		}
+		quicConfig := &quic2.Config{
+			MaxIdleTimeout:                 60 * 1e9,         // 60 seconds
+			InitialStreamReceiveWindow:     10 * 1024 * 1024, // 4 MB
+			MaxStreamReceiveWindow:         80 * 1024 * 1024,
+			InitialConnectionReceiveWindow: 10 * 1024 * 1024, // 4 MB
+			MaxConnectionReceiveWindow:     80 * 1024 * 1024,
+			MaxIncomingStreams:             15,
+		}
+
+		//Listen for connections
+		quicListener, _ := tr.Listen(tlsConfig, quicConfig)
+		for {
+			session, err := quicListener.Accept(context.Background())
+			if err != nil {
+				log.Error("failed to accept quic connection", "err", err)
+			}
+			//TODO: innound connection checks
+			qc := &quic.Conn{Session: session}
+			log.Info("Accepted connection", "from", session.RemoteAddr())
+			go srv.handleQuicConnection(qc, inboundConn, nil)
+		}
+	}()
+	return nil
+}
+
+func (srv *Server) handleQuicConnection(qc *quic.Conn, flags connFlag, dialDest *enode.Node) error {
+	stream, err := qc.Session.AcceptStream(context.Background())
+	if err != nil {
+		log.Error("error accepting quic stream", "err", err)
+		return err
+	}
+	qc.AddStream(stream)
+	log.Info("Accepted stream", "num", stream.StreamID().StreamNum())
+	go func() {
+		for {
+			log.Info("waiting for more streams to arrive")
+			stream, err := qc.Session.AcceptStream(context.Background())
+			if netutil.IsTemporaryError(err) {
+				log.Error("temporary error accepting quic stream", "err", err)
+				continue
+			}
+			if err != nil {
+				log.Error("error accepting quic stream", "err", err)
+				continue
+			}
+			log.Info("Accepted stream", "num", stream.StreamID().StreamNum())
+			qc.AddStream(stream)
+		}
+	}()
+	return srv.SetupConn(qc, flags, dialDest)
 }
 
 func (srv *Server) setupUDPListening() error {
@@ -895,6 +997,70 @@ func (srv *Server) setupUDPListening() error {
 
 func (srv *Server) dialSetupUDPConn(fd net.Conn, flags connFlag, from *enode.Node) error {
 	log.Info("dial setup called", "id", from.ID(), "Ip", from.IP())
+	return nil
+}
+
+func (srv *Server) dialSetupQuicConn(fd net.Conn, flags connFlag, from *enode.Node) error {
+	log.Info("dial setup - quic ", "id", from.ID(), "Ip", from.IP())
+	qc, ok := fd.(*quic.Conn)
+	if !ok {
+		log.Crit("illegal connection type")
+	}
+	stream, err := qc.Session.OpenStreamSync(context.Background())
+	if err != nil {
+		log.Error("error opening quic stream", "err", err)
+		return err
+	}
+	qc.AddStream(stream)
+	//qt := quic.newQuicTransport(qc)
+	go func() {
+		for i := 0; i < 10; i++ {
+			log.Info("opening new stream towards server")
+			stream, err := qc.Session.OpenStreamSync(context.Background())
+			if err != nil {
+				log.Error("error opening quic stream", "err", err)
+			}
+			qc.AddStream(stream)
+		}
+	}()
+	return srv.SetupConn(qc, flags, from)
+}
+
+func (srv *Server) setupQuicConn(c *conn, from *enode.Node) error {
+
+	// Run the RLPx handshake.
+	remotePubkey, err := c.doEncHandshake(srv.PrivateKey)
+	if err != nil {
+		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "server", srv.Net.String(), "err", err)
+		return err
+	}
+	clog := srv.log.New("id", from.ID(), "addr", from.IP().String())
+	c.node = nodeFromConn(remotePubkey, c.fd)
+	err = srv.checkpoint(c, srv.checkpointPostHandshake)
+	if err != nil {
+		clog.Trace("Rejected peer", "err", err, "server", srv.Net.String())
+		return err
+	}
+
+	// Run the capability negotiation handshake.
+	phs, err := c.doProtoHandshake(srv.ourHandshake)
+	if err != nil {
+		clog.Trace("Failed p2p handshake", "err", err, "server", srv.Net.String())
+		return err
+	}
+	if id := c.node.ID(); !bytes.Equal(crypto.Keccak256(phs.ID), id[:]) {
+		clog.Trace("Wrong devp2p handshake identity", "phsid", hex.EncodeToString(phs.ID), "server", srv.Net.String())
+		return DiscUnexpectedIdentity
+	}
+
+	c.caps, c.name = srv.ourHandshake.Caps, srv.ourHandshake.Name
+	// This actually runs the conn and returns when the conn shuts down
+	err = srv.checkpoint(c, srv.checkpointAddPeer)
+	if err != nil {
+		clog.Trace("Rejected peer", "err", err, "server", srv.Net.String())
+		return err
+	}
+	clog.Trace("Connection checkpoint passed", "from", from.IP().String())
 	return nil
 }
 

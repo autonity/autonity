@@ -19,18 +19,23 @@ package p2p
 import (
 	"context"
 	crand "crypto/rand"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	mrand "math/rand"
 	"net"
+	"strconv"
 	"sync"
 	"time"
+
+	quic2 "github.com/quic-go/quic-go"
 
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/netutil"
+	"github.com/autonity/autonity/p2p/quic"
 )
 
 const (
@@ -75,6 +80,30 @@ type udpDialer struct {
 func (t udpDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
 	updAddr := net.UDPAddr{IP: dest.IP(), Port: dest.UDP()}
 	return net.DialUDP("udp", nil, &updAddr)
+}
+
+// quicDialer implements NodeDialer using real TCP connections.
+type quicDialer struct {
+}
+
+func (t quicDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	//TODO: check dialing
+	addr := dest.IP().String() + ":" + strconv.Itoa(dest.TCP())
+	quicConfig := &quic2.Config{
+		MaxIdleTimeout:                 60 * 1e9,         // 60 seconds
+		InitialStreamReceiveWindow:     10 * 1024 * 1024, // 4 MB
+		MaxStreamReceiveWindow:         80 * 1024 * 1024,
+		InitialConnectionReceiveWindow: 10 * 1024 * 1024, // 4 MB
+		MaxConnectionReceiveWindow:     80 * 1024 * 1024,
+		MaxIncomingStreams:             15,
+	}
+	session, err := quic2.DialAddr(ctx, addr, tlsConfig, quicConfig)
+	if err != nil {
+		log.Error("quic dialing failed", "err", err, "dial address", addr)
+		return nil, err
+	}
+	return &quic.Conn{Session: session}, nil
 }
 
 func nodeAddr(n *enode.Node) net.Addr {
@@ -567,7 +596,7 @@ func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
 		d.log.Trace("Dial error", "id", t.dest.ID(), "addr", nodeAddr(t.dest), "conn", t.flags, "err", cleanupDialErr(err))
 		return &dialError{err}
 	}
-	fmt.Printf("udp dialing seens ok %v \n", fd)
+	//fmt.Printf("udp dialing seens ok %v \n", fd)
 	//mfd := newMeteredConn(fd, false, &net.TCPAddr{IP: dest.IP(), Port: dest.TCP()}, d.net)
 	return d.setupFunc(fd, t.flags, dest)
 }

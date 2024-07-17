@@ -31,7 +31,8 @@ func New(ip string) *Client {
 		return nil
 	}
 
-	userName := os.Getenv("USER")
+	//userName := os.Getenv("USER")
+	userName := "piyush"
 	log.Info("Connecting to", " host: ", ip, " user: ", userName)
 	config := &ssh.ClientConfig{
 		User: userName,

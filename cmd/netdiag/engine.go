@@ -55,6 +55,8 @@ func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *E
 	transport := p2p.TCP
 	if networkMode == "udp" {
 		transport = p2p.UDP
+	} else if networkMode == "quic" {
+		transport = p2p.QUIC
 	}
 	p2pConfig := p2p.Config{
 		PrivateKey:      key,

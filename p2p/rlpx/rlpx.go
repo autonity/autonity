@@ -41,6 +41,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/ecies"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/quic"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -91,6 +92,16 @@ func newHashMAC(cipher cipher.Block, h hash.Hash) hashMAC {
 		panic(fmt.Errorf("invalid MAC digest size %d", h.Size()))
 	}
 	return m
+}
+
+func isQuicWriter(conn io.Writer) bool {
+	_, ok := conn.(*quic.Conn)
+	return ok
+}
+
+func isQuicReader(conn io.Reader) bool {
+	_, ok := conn.(*quic.Conn)
+	return ok
 }
 
 // NewConn wraps the given network connection. If dialDest is non-nil, the connection
@@ -193,45 +204,56 @@ func (h *sessionState) readFrame(conn io.Reader) ([]byte, byte, error) {
 
 	zeroByte := byte(0)
 	// Read the frame header.
-	header, err := h.rbuf.read(conn, 32)
+	headerSize := 32
+	if isQuicReader(conn) {
+		headerSize = 16
+	}
+	header, err := h.rbuf.read(conn, headerSize)
 	if err != nil {
+		log.Error("read frame error", "err", err)
 		return nil, zeroByte, err
 	}
 
-	// Verify header MAC.
-	wantHeaderMAC := h.ingressMAC.computeHeader(header[:16])
-	if !hmac.Equal(wantHeaderMAC, header[16:]) {
-		return nil, zeroByte, errors.New("bad header MAC")
+	if !isQuicReader(conn) {
+		// Verify header MAC.
+		wantHeaderMAC := h.ingressMAC.computeHeader(header[:16])
+		if !hmac.Equal(wantHeaderMAC, header[16:]) {
+			return nil, zeroByte, errors.New("bad header MAC")
+		}
+		// Decrypt the frame header to get the frame size.
+		h.dec.XORKeyStream(header[:16], header[:16])
 	}
 
-	// Decrypt the frame header to get the frame size.
-	h.dec.XORKeyStream(header[:16], header[:16])
 	fsize := readUint24(header[:16])
 	// Frame size rounded up to 16 byte boundary for padding.
 	rsize := fsize
 	if padding := fsize % 16; padding > 0 {
 		rsize += 16 - padding
 	}
+	//log.Info("Reading frame of size", "size", fsize, "rsize", rsize)
 	snappyByte := header[3]
 
 	// Read the frame content.
 	frame, err := h.rbuf.read(conn, int(rsize))
 	if err != nil {
+		log.Error("read frame content", "err", err)
 		return nil, snappyByte, err
 	}
 
-	// Validate frame MAC.
-	frameMAC, err := h.rbuf.read(conn, 16)
-	if err != nil {
-		return nil, snappyByte, err
-	}
-	wantFrameMAC := h.ingressMAC.computeFrame(frame)
-	if !hmac.Equal(wantFrameMAC, frameMAC) {
-		return nil, snappyByte, errors.New("bad frame MAC")
-	}
+	if !isQuicReader(conn) {
+		// Validate frame MAC.
+		frameMAC, err := h.rbuf.read(conn, 16)
+		if err != nil {
+			return nil, snappyByte, err
+		}
+		wantFrameMAC := h.ingressMAC.computeFrame(frame)
+		if !hmac.Equal(wantFrameMAC, frameMAC) {
+			return nil, snappyByte, errors.New("bad frame MAC")
+		}
 
-	// Decrypt the frame data.
-	h.dec.XORKeyStream(frame, frame)
+		// Decrypt the frame data.
+		h.dec.XORKeyStream(frame, frame)
+	}
 	return frame[:fsize], snappyByte, nil
 }
 
@@ -273,10 +295,13 @@ func (h *sessionState) writeFrame(conn io.Writer, code uint64, snappyByte byte, 
 	putUint24(uint32(fsize), header)
 	header[3] = snappyByte
 	copy(header[4:], zeroHeader)
-	h.enc.XORKeyStream(header, header)
+	if !isQuicWriter(conn) {
 
-	// Write header MAC.
-	h.wbuf.Write(h.egressMAC.computeHeader(header))
+		h.enc.XORKeyStream(header, header)
+
+		// Write header MAC.
+		h.wbuf.Write(h.egressMAC.computeHeader(header))
+	}
 
 	// Encode and encrypt the frame data.
 	offset := len(h.wbuf.data)
@@ -285,15 +310,15 @@ func (h *sessionState) writeFrame(conn io.Writer, code uint64, snappyByte byte, 
 	if padding := fsize % 16; padding > 0 {
 		h.wbuf.appendZero(16 - padding)
 	}
-	framedata := h.wbuf.data[offset:]
-	h.enc.XORKeyStream(framedata, framedata)
-
-	// Write frame MAC.
-	h.wbuf.Write(h.egressMAC.computeFrame(framedata))
-
-	now := time.Now()
+	if !isQuicWriter(conn) {
+		framedata := h.wbuf.data[offset:]
+		h.enc.XORKeyStream(framedata, framedata)
+		// Write frame MAC.
+		h.wbuf.Write(h.egressMAC.computeFrame(framedata))
+	}
+	//now := time.Now()
 	_, err := conn.Write(h.wbuf.data)
-	log.Info("conn write", "length", len(h.wbuf.data), "time taken", time.Since(now).Nanoseconds())
+	//log.Info("conn write", "length", len(h.wbuf.data), "time taken", time.Since(now).Nanoseconds())
 	return err
 }
 
@@ -313,7 +338,7 @@ func (m *hashMAC) computeFrame(framedata []byte) []byte {
 // compute computes the MAC of a 16-byte 'seed'.
 //
 // To do this, it encrypts the current value of the hash state, then XORs the ciphertext
-// with seed. The obtained value is written back into the hash state and hash output is
+// with seed.conn The obtained value is written back into the hash state and hash output is
 // taken again. The first 16 bytes of the resulting sum are the MAC value.
 //
 // This MAC construction is a horrible, legacy thing.
@@ -454,6 +479,7 @@ func (h *handshakeState) runRecipient(conn io.ReadWriter, prv *ecdsa.PrivateKey)
 	authMsg := new(authMsgV4)
 	authPacket, err := h.readMsg(authMsg, prv, conn)
 	if err != nil {
+		log.Error("failed to read auth request packet", "err", err)
 		return s, err
 	}
 	if err := h.handleAuthMsg(authMsg, prv); err != nil {
@@ -469,6 +495,7 @@ func (h *handshakeState) runRecipient(conn io.ReadWriter, prv *ecdsa.PrivateKey)
 		return s, err
 	}
 	if _, err = conn.Write(authRespPacket); err != nil {
+		log.Error("failed to write auth response packet", "err", err)
 		return s, err
 	}
 
@@ -564,12 +591,14 @@ func (h *handshakeState) runInitiator(conn io.ReadWriter, prv *ecdsa.PrivateKey,
 	}
 
 	if _, err = conn.Write(authPacket); err != nil {
+		log.Error("failed to write auth packet", "err", err)
 		return s, err
 	}
 
 	authRespMsg := new(authRespV4)
 	authRespPacket, err := h.readMsg(authRespMsg, prv, conn)
 	if err != nil {
+		log.Error("failed to read auth response packet", "err", err)
 		return s, err
 	}
 	if err := h.handleAuthResp(authRespMsg); err != nil {
@@ -638,14 +667,14 @@ func (h *handshakeState) readMsg(msg interface{}, prv *ecdsa.PrivateKey, r io.Re
 	h.rbuf.grow(512)
 
 	// Read the size prefix.
-	prefix, err := h.rbuf.readOld(r, 2)
+	prefix, err := h.rbuf.read(r, 2)
 	if err != nil {
 		return nil, err
 	}
 	size := binary.BigEndian.Uint16(prefix)
 
 	// Read the handshake packet.
-	packet, err := h.rbuf.readOld(r, int(size))
+	packet, err := h.rbuf.read(r, int(size))
 	if err != nil {
 		return nil, err
 	}

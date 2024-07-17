@@ -8,24 +8,26 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/log"
 )
 
 type UdpTransport struct {
-	readPacketCh chan Msg
-	addr         *net.UDPAddr
-	conn         *net.UDPConn
-	maxSize      uint32
-	wbuf         []byte
-	wmu          sync.Mutex
+	readPacketCh   chan Msg
+	addr           *net.UDPAddr
+	conn           *net.UDPConn
+	maxSize        uint32
+	wbuf           []byte
+	wmu            sync.Mutex
 }
 
 func newUdpTransport(conn *net.UDPConn, addr *net.UDPAddr) *UdpTransport {
 	return &UdpTransport{
-		readPacketCh: make(chan Msg, 100),
-		addr:         addr,
-		conn:         conn,
-		maxSize:      65000,
-		wbuf:         make([]byte, 65001),
+		readPacketCh:   make(chan Msg, 100),
+		addr:           addr,
+		conn:           conn,
+		maxSize:        65000,
+		wbuf:           make([]byte, 65001),
 	}
 }
 
@@ -50,6 +52,7 @@ func (u *UdpTransport) doProtoHandshake(our *protoHandshake) (their *protoHandsh
 func (u *UdpTransport) ReadMsg() (Msg, error) {
 	// we need to sign the messages
 	packet := <-u.readPacketCh
+
 	//log.Trace("low level reading packet")
 	return packet, nil
 }
@@ -75,13 +78,15 @@ func (u *UdpTransport) WriteMsg(msg Msg) error {
 	u.wmu.Lock()
 	defer u.wmu.Unlock()
 	if msg.Size > u.maxSize {
-		return errors.New("message too long")
+		log.Error("message too long, abort send")
+		return nil
 	}
 	// PACKET = [ MSG_CODE, DATA ] // MSG_CODE is 1 byte.
 	u.wbuf[0] = byte(msg.Code)
 	n, err := msg.Payload.Read(u.wbuf[1:])
 	if n != int(msg.Size) {
-		return errors.New("weird message size")
+		log.Error("weird message size, abort send")
+		return nil
 	}
 	_, err = u.conn.WriteToUDP(u.wbuf[:1+n], u.addr)
 	//log.Info("ON THE WIRE", "packet", u.wbuf[:1+n], "err", err)

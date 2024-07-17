@@ -94,6 +94,7 @@ var (
 			gcpProjectIDFlag,
 			gcpInstanceTemplateFlag,
 			gcpUsernameFlag,
+			networkModeFlag,
 		},
 		Description: `
 The setup command deploys a new network of nodes.`,
@@ -346,9 +347,11 @@ func control(c *cli.Context) error {
 
 func setup(c *cli.Context) error {
 	log.Info("New network setup")
+	networkMode := c.String(networkModeFlag.Name)
+
 	configFileName := c.String(configFlag.Name)
 	if _, err := os.Stat(configFileName); err == nil {
-		return fmt.Errorf("config file:%s exists, remove old config and retry setup", configFileName)
+		return fmt.Errorf("config file:%s exists, cleanup and retry setup", configFileName)
 	}
 	n := c.Int(peersFlag.Name)
 	if n <= 0 {
@@ -480,7 +483,7 @@ func setup(c *cli.Context) error {
 		}
 		wg.Add(1)
 		go func(id int) {
-			if err := vms[id].startRunner(configFileName, "tcp", ""); err != nil {
+			if err := vms[id].startRunner(configFileName, networkMode, ""); err != nil {
 				log.Crit("error starting runner", "id", id, "err", err)
 			}
 			wg.Done()

@@ -250,6 +250,23 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 		log.Error("upload failure", "err", err, "file", configFileName)
 		return err
 	}
+
+	serverCert := "./server.crt"
+	log.Info("Transferring server certificates to the VM...", "id", vm.id)
+	// upload server certificate to the VM
+	err = client.Upload(serverCert, serverCert, true)
+	if err != nil {
+		log.Error("upload cert failure", "err", err, "file", serverCert)
+		return err
+	}
+
+	// upload server key to the VM
+	serverKey := "./server.key"
+	err = client.Upload(serverKey, serverKey, true)
+	if err != nil {
+		log.Error("upload key failure", "err", err, "file", serverKey)
+		return err
+	}
 	return nil
 }
 
@@ -279,6 +296,8 @@ func (vm *vm) startRunner(configFileName, networkMode string, optFlags string) e
 		log.Error("run failure", "err", err, "cmd", cmd)
 		return err
 	}
+
+	// copy server key files
 	return nil
 }
 

@@ -27,6 +27,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p/rlpx"
 	"github.com/autonity/autonity/rlp"
@@ -155,6 +156,7 @@ func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
 	fmt.Println("READING PROTO HANDSHAKE")
 	msg, err := rw.ReadMsg()
 	if err != nil {
+		log.Error("handshake read", "err", err)
 		return nil, err
 	}
 	if msg.Size > baseProtocolMaxMsgSize {
@@ -170,13 +172,16 @@ func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
 		return nil, reason[0]
 	}
 	if msg.Code != handshakeMsg {
+		log.Error("msg code not same", "err", err)
 		return nil, fmt.Errorf("expected handshake, got %x", msg.Code)
 	}
 	var hs protoHandshake
 	if err := msg.Decode(&hs); err != nil {
+		log.Error("handshake decode failed", "err", err)
 		return nil, err
 	}
 	if len(hs.ID) != 64 || !bitutil.TestBytes(hs.ID) {
+		log.Error("handshake invalid id", "err", err)
 		return nil, DiscInvalidIdentity
 	}
 	return &hs, nil
