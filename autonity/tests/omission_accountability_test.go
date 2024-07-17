@@ -14,6 +14,7 @@ import (
 )
 
 var omissionEpochPeriod = 100
+var inflationAfter100Blocks = 6311834092292000000
 
 const SCALE_FACTOR = 10_000
 
@@ -482,7 +483,11 @@ func TestOmissionPunishments(t *testing.T) {
 
 func TestProposerRewardDistribution(t *testing.T) {
 	t.Run("Rewards are correctly allocated based on config", func(t *testing.T) {
-		r := setup(t, configOverride)
+		r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+			config.EpochPeriod = uint64(omissionEpochPeriod)
+			config.MaxCommitteeSize = 10 // avoid having to deal with precision loss **in the golang test** (solidity side is fine)
+			return config
+		})
 
 		maxCommitteeSize, _, err := r.autonity.GetMaxCommitteeSize(nil)
 		require.NoError(r.t, err)
@@ -494,8 +499,8 @@ func TestProposerRewardDistribution(t *testing.T) {
 		require.NoError(t, err)
 		proposerRewardRatePrecision := float64(proposerRewardRatePrecisionBig.Uint64())
 
-		autonityAtns := new(big.Int).SetInt64(54644455456465)         // random amount
-		ntnRewards := new(big.Int).SetInt64(int64(63118340922920000)) // this has to match the ntn inflation unlocked NTNs
+		autonityAtns := new(big.Int).SetInt64(54644455456465)               // random amount
+		ntnRewards := new(big.Int).SetInt64(int64(inflationAfter100Blocks)) // this has to match the ntn inflation unlocked NTNs
 		r.giveMeSomeMoney(r.autonity.address, autonityAtns)
 
 		// compute actual rewards for validator (subtract treasury fee)
@@ -517,6 +522,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 		require.NoError(t, err)
 
 		r.evm.Context.BlockNumber = new(big.Int).SetInt64(int64(omissionEpochPeriod))
+		r.evm.Context.Time.Add(r.evm.Context.Time, new(big.Int).SetInt64(int64(omissionEpochPeriod-1)))
 		autonityFinalize(r, []common.Address{}, proposer, common.Big1, false)
 
 		committeeFactor := float64(len(r.committee.validators)) / float64(maxCommitteeSize.Int64())
@@ -635,12 +641,19 @@ func TestRewardWithholding(t *testing.T) {
 	})
 	r.waitNBlocks(tendermint.DeltaBlocks)
 
+	config, _, err := r.autonity.Config(nil)
+	require.NoError(t, err)
+	withheldRewardPool := config.Policy.WithheldRewardsPool
+
 	proposer := r.committee.validators[0].NodeAddress
 
 	// simulate epoch with random levels of inactivity
 	for h := tendermint.DeltaBlocks + 1; h < omissionEpochPeriod; h++ {
 		var absents []common.Address
 		for i := range r.committee.validators {
+			if i == 0 {
+				continue // let's keep at least a guy inside the committee
+			}
 			if rand.Intn(30) != 0 {
 				absents = append(absents, r.committee.validators[i].NodeAddress)
 			}
@@ -648,8 +661,8 @@ func TestRewardWithholding(t *testing.T) {
 		omissionFinalize(r, absents, proposer, common.Big1, false, false)
 	}
 
-	atnRewards := new(big.Int).SetInt64(5467879877987)              // random amount
-	ntnRewards := new(big.Int).SetInt64(int64(6311834092292000000)) // this has to match the ntn inflation unlocked NTNs
+	atnRewards := new(big.Int).SetInt64(5467879877987)                  // random amount
+	ntnRewards := new(big.Int).SetInt64(int64(inflationAfter100Blocks)) // this has to match the ntn inflation unlocked NTNs
 	r.giveMeSomeMoney(r.autonity.address, atnRewards)
 
 	atnBalancesBefore := make([]*big.Int, len(r.committee.validators))
@@ -663,9 +676,12 @@ func TestRewardWithholding(t *testing.T) {
 		ntnBalancesBefore[i] = ntnBalance(r, val.NodeAddress)
 		totalPower.Add(totalPower, validatorStruct.SelfBondedStake)
 	}
-	// TODO(lorenzo) sometimes finalize reverts, investigate
+	atnPoolBefore := r.getBalanceOf(withheldRewardPool)
+	ntnPoolBefore := ntnBalance(r, withheldRewardPool)
 	autonityFinalize(r, []common.Address{}, proposer, common.Big1, false)
 
+	atnTotalWithheld := new(big.Int)
+	ntnTotalWithheld := new(big.Int)
 	for i, val := range r.committee.validators {
 		validatorStruct := validator(r, val.NodeAddress)
 		power := validatorStruct.SelfBondedStake
@@ -683,6 +699,8 @@ func TestRewardWithholding(t *testing.T) {
 		atnWithheld.Div(atnWithheld, omissionScaleFactor(r))
 		ntnWithheld := new(big.Int).Mul(ntnFullReward, score)
 		ntnWithheld.Div(ntnWithheld, omissionScaleFactor(r))
+		atnTotalWithheld.Add(atnTotalWithheld, atnWithheld)
+		ntnTotalWithheld.Add(ntnTotalWithheld, ntnWithheld)
 
 		// check validator balance
 		atnExpectedBalance := new(big.Int).Add(atnFullReward, atnBalancesBefore[i])
@@ -692,5 +710,8 @@ func TestRewardWithholding(t *testing.T) {
 		require.Equal(t, atnExpectedBalance.String(), r.getBalanceOf(val.Treasury).String())
 		require.Equal(t, ntnExpectedBalance.String(), ntnBalance(r, val.Treasury).String())
 	}
-	//TODO: sent to treasury
+	atnExpectedPoolBalance := atnPoolBefore.Add(atnPoolBefore, atnTotalWithheld)
+	ntnExpectedPoolBalance := ntnPoolBefore.Add(ntnPoolBefore, ntnTotalWithheld)
+	require.Equal(t, atnExpectedPoolBalance.String(), r.getBalanceOf(withheldRewardPool).String())
+	require.Equal(t, ntnExpectedPoolBalance.String(), ntnBalance(r, withheldRewardPool).String())
 }
