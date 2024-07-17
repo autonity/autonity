@@ -38,7 +38,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
     uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
-    uint256 public constant COMMITTEE_FRACTION_PRECISION = 1000;
+    uint256 public constant COMMITTEE_FRACTION_PRECISION = 10 ** 18; // TODO(lorenzo) double check if needed
 
     // TODO (tariq): review the values [already tested from stakable-vesting-contract]
     /**
@@ -1184,6 +1184,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 committeeFactor = (committee.length*COMMITTEE_FRACTION_PRECISION)/config.protocol.committeeSize;
         // TODO(lorenzo) not sure if operation order is the best (balance between precision loss and overflow)
             // write tests
+            // also add case if rewards = 0 ? like for the treasury
         uint256 atnProposerRewards = (_atn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
         uint256 ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
         _transfer(address(this), address(config.contracts.omissionAccountabilityContract), ntnProposerRewards);

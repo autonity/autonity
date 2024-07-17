@@ -77,9 +77,9 @@ var (
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
 		InactivityThreshold:    1000, // 10%
 		LookbackWindow:         30,   // 30 blocks
-		PastPerformanceWeight:  5000, // 50%
+		PastPerformanceWeight:  1000, // 10% // TODO(lorenzo) this has to be set so that if you do 100% offline in epoch x and 0% offline in epoch y, you still do not get slashed in epoch y
 		InitialJailingPeriod:   300,  // 300 blocks
-		InitialProbationPeriod: 300,  // 300 blocks
+		InitialProbationPeriod: 300,  // 300 blocks // TODO(lorenzo) it is easier to express this in epochs
 		InitialSlashingRate:    1000, // 10%
 	}
 

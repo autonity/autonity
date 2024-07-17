@@ -147,6 +147,7 @@ contract OmissionAccountability is IOmissionAccountability {
             // if the validator has already been slashed by accountability in this epoch,
             // do not punish him for omission too. It would be unfair since peer ignore msgs from jailed vals.
             // However, do not decrease his probation since he was not fully honest
+            // NOTE: validator already jailed by accountability are nonetheless taken into account into the collusion degree of omission
             if(_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound){
                 continue;
             }
