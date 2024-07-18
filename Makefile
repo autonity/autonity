@@ -193,6 +193,8 @@ test-contracts-asm-pre:
 	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
 	@echo "install ape framework plugins"
 	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
+	@echo "pin version of numpy to 1.26.4"
+	@pip install --force-reinstall -v "numpy==1.26.4"	
 	@echo "dependencies installed"
 
 # start an autonity network for contract tests
