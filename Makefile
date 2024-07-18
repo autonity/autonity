@@ -183,7 +183,7 @@ test-contracts-asm-pre:
 	@echo "check and install ape framework"
 	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
 	@echo "pin version of numpy to 1.26.4"
-	@pipx inject --verbose eth-ape numpy==1.26.4
+	@pipx inject --verbose --force eth-ape numpy==1.26.4
 	@echo "check ape framework version"
 	@test $$(ape --version) = "$(APE_VERSION)" || { \
 		echo -n "error: unsupported ape version $$(ape --version) "; \
