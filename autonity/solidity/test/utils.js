@@ -248,7 +248,9 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   const nonStakableVesting = await NonStakableVesting.new(autonity.address, operator, {from: deployer})
 
   // omission accountability contract
-  const omissionAccountability = await OmissionAccountability.new(autonity.address, omissionAccountabilityConfig, {from:deployer})
+  let nodeAddresses = validators.map((item, index) => (item.nodeAddress));
+  let treasuries = validators.map((item, index) => (item.treasury));
+  const omissionAccountability = await OmissionAccountability.new(autonity.address, nodeAddresses, treasuries, omissionAccountabilityConfig, {from:deployer})
 
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});

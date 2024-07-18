@@ -8,6 +8,7 @@ const UN_BONDING_PERIOD = 60;
 const TREASURY_FEE = "10000000000000000";
 // because we cannot test inflation in truffle properly, due to the fact that its time of deployment is not same as that of autonity contract
 const INITIAL_INFLATION_RESERVE = "0";
+const PROPOSER_REWARD_RATE = 1000
 const MIN_EPOCH_PERIOD = 30;
 const VERSION = 0;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -26,11 +27,11 @@ const ACCOUNTABILITY_CONFIG = {
 const OMISSION_ACCOUNTABILITY_CONFIG = {
     "inactivityThreshold": 1000,     // 10%
     "lookbackWindow":  30,   // 30 blocks
-    "proposerRewardRate": 1000, // 10%
-    "pastPerformanceWeight":   5000, // 50%
+    "pastPerformanceWeight":   1000, // 10%
     "initialJailingPeriod":    300,  // 300 blocks
     "initialProbationPeriod":  300,  // 300 blocks
     "initialSlashingRate":     1000, // 10%
+    "slashingRatePrecision": ACCOUNTABILITY_CONFIG.slashingRatePrecision,
 }
 
 const GENESIS_ENODES = [
@@ -96,8 +97,10 @@ function autonityConfig(operator, treasuryAccount) {
             "minBaseFee": MIN_BASE_FEE,
             "delegationRate": DELEGATION_RATE,
             "unbondingPeriod" : UN_BONDING_PERIOD,
-            "treasuryAccount": treasuryAccount,
             "initialInflationReserve": INITIAL_INFLATION_RESERVE,
+            "proposerRewardRate": PROPOSER_REWARD_RATE,
+            "withheldRewardsPool": treasuryAccount, //TODO(lorenzo) decide if fine
+            "treasuryAccount": treasuryAccount,
         },
         "contracts": {
             "oracleContract" : ZERO_ADDRESS, // gets updated in deployContracts()
