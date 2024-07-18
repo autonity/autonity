@@ -184,5 +184,7 @@
   "f56b5615": "COMMITTEE_FRACTION_PRECISION()",
   "5115840b": "PROPOSER_REWARD_RATE_PRECISION()",
   "eeb92233": "distributeProposerRewards(uint256)",
-  "d5baf908": "setCommittee(address[],address[])"
+  "d5baf908": "setCommittee(address[],address[])",
+  "b8110f31": "isNodeFaultyOnHeight(address,uint256)",
+  "0c820006": "isValidatorFaultyOnHeight(address,uint256)"
 }

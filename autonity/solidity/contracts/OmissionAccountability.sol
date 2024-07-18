@@ -284,6 +284,11 @@ contract OmissionAccountability is IOmissionAccountability {
         totalEffort = 0;
     }
 
+    function isValidatorFaultyOnHeight(address _validator, uint256 _height) external view virtual returns(bool) {
+        require(_height < block.number-DELTA, "too future height from current state");
+        return inactiveValidators[_height][_validator];
+    }
+
     function getInactivityScore(address _validator) external view virtual returns (uint256) {
         return inactivityScores[_validator];
     }

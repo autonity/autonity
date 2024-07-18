@@ -13,6 +13,7 @@ interface IOmissionAccountability {
 
     function setCommittee(address[] memory _nodeAddresses, address[] memory _treasuries) external;
     function setLastEpochBlock(uint256 _lastEpochBlock) external;
+    function isValidatorFaultyOnHeight(address _validator, uint256 _height) external view returns(bool);
     function getInactivityScore(address _validator) external view returns (uint256);
     function getScaleFactor() external pure returns (uint256);
     function distributeProposerRewards(uint256 _ntnReward) external payable;

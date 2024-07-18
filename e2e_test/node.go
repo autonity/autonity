@@ -183,6 +183,16 @@ func (n *Node) Running() bool {
 	return n.isRunning
 }
 
+func (n *Node) Restart() error {
+	if err := n.Close(false); err != nil {
+		return err
+	}
+	n.Wait()
+	time.Sleep(2 * time.Second)
+
+	return n.Start()
+}
+
 func (n *Node) Start() error {
 	if n.isRunning {
 		return nil
