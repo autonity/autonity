@@ -47,6 +47,12 @@ async function endEpoch(contract,operator,deployer){
   let delta = currentHeight - lastEpochBlock
   let epochPeriod = delta + 5
 
+  // do not go lower than the minimum
+  let minimumEpochPeriod = config.TENDERMINT_DELTABLOCKS + config.OMISSION_ACCOUNTABILITY_CONFIG.lookbackWindow
+  if(epochPeriod < minimumEpochPeriod){
+    epochPeriod = minimumEpochPeriod
+  }
+
   await contract.setEpochPeriod(epochPeriod,{from: operator})
 
   assert.equal(epochPeriod,(await contract.getEpochPeriod()).toNumber())

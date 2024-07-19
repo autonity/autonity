@@ -1091,7 +1091,8 @@ contract('Autonity', function (accounts) {
 
       it('test finalize with not deployer account, exception should rise.', async function () {
           await truffleAssert.fails(
-            token.finalize(false, [], {from: anyAccount}),
+            // use autonity address as proposer, we don't really care
+            token.finalize([], token.address, toBN("1"), false, {from: anyAccount}),
             truffleAssert.ErrorType.REVERT,
             "function restricted to the protocol",
           );

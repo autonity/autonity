@@ -1,5 +1,6 @@
 'use strict';
 
+const TENDERMINT_DELTABLOCKS = 10;  // needs to match tendermint.DeltaBlocks
 const MIN_BASE_FEE = 5000;
 const COMMITTEE_SIZE = 1000;
 const EPOCH_PERIOD = 30;
@@ -26,7 +27,7 @@ const ACCOUNTABILITY_CONFIG = {
 
 const OMISSION_ACCOUNTABILITY_CONFIG = {
     "inactivityThreshold": 1000,     // 10%
-    "lookbackWindow":  10,   // 30 blocks
+    "lookbackWindow":  10,   // 10 blocks
     "pastPerformanceWeight":   1000, // 10%
     "initialJailingPeriod":    300,  // 300 blocks
     "initialProbationPeriod":  300,  // 300 blocks
@@ -174,6 +175,7 @@ module.exports = {
     GENESIS_PRIVATE_KEYS: GENESIS_PRIVATE_KEYS,
     INFLATION_CONTROLLER_CONFIG: INFLATION_CONTROLLER_CONFIG,
     STABILIZATION_CONFIG: STABILIZATION_CONFIG,
+    TENDERMINT_DELTABLOCKS: TENDERMINT_DELTABLOCKS,
     autonityConfig: autonityConfig,
     validators: validators,
 };
