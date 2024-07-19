@@ -656,7 +656,6 @@ func TestValidatorMigration(t *testing.T) {
 	vals, err := Validators(t, 4, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	params.TestChainConfig.AutonityContractConfig.EpochPeriod = 5
 	network, err := NewNetworkFromValidators(t, vals, true)
 	require.NoError(t, err)
 	defer network.Shutdown(t)
