@@ -524,6 +524,8 @@ func copyConfig(original *params.ChainConfig) *params.ChainConfig {
 	if err != nil {
 		panic("cannot unmarshal genesis config: " + err.Error())
 	}
+	// TODO(lorenzo) otherwise TestAPIGetContractABI in api_test.go fails. Not the best way to solve.
+	genesisCopy.AutonityContractConfig.ABI = original.AutonityContractConfig.ABI
 	return genesisCopy
 }
 
