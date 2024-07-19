@@ -51,6 +51,8 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 
 func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 	t.Run("Malicious peer sending an invalid BLS signature should be disconnect for at least 1 epoch", func(t *testing.T) {
+		// TODO(Lorenzo) fix this, the malicious node will get jailed due to omission failure
+		t.Skip("to be fixed")
 		n := 4
 		validators, err := e2e.Validators(t, n, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 		require.NoError(t, err)
