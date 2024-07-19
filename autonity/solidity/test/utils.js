@@ -55,7 +55,7 @@ async function endEpoch(contract,operator,deployer){
   // but rn the proposer election code is outside the contracts.
   // So for now, use first validator as proposer for the rewards computation
   let committee = await contract.getCommittee()
-  let proposer = committee[0].nodeAddress
+  let proposer = committee[0].addr
 
   // close epoch
   for (let i=0;i<(lastEpochBlock + epochPeriod) - currentHeight;i++) {

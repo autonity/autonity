@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -513,6 +514,19 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	return blockchain, b
 }
 
+func copyConfig(original *params.ChainConfig) *params.ChainConfig {
+	jsonBytes, err := json.Marshal(original)
+	if err != nil {
+		panic("cannot marshal genesis config: " + err.Error())
+	}
+	genesisCopy := &params.ChainConfig{}
+	err = json.Unmarshal(jsonBytes, genesisCopy)
+	if err != nil {
+		panic("cannot unmarshal genesis config: " + err.Error())
+	}
+	return genesisCopy
+}
+
 func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.SecretKey) {
 	genesis := core.DefaultGenesisBlock()
 	// Setup committee
@@ -532,7 +546,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 
 	// generate genesis block
 
-	genesis.Config = params.TestChainConfig.Copy()
+	genesis.Config = copyConfig(params.TestChainConfig)
 	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Config.Ethash = nil
 	genesis.GasLimit = 10000000

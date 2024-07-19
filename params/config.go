@@ -1142,65 +1142,6 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	return nil
 }
 
-func (c *ChainConfig) Copy() *ChainConfig {
-	cfg := &ChainConfig{
-		DAOForkSupport: c.DAOForkSupport,
-		EIP150Hash:     c.EIP150Hash,
-	}
-	if c.Ethash != nil {
-		cfg.Ethash = &(*c.Ethash)
-	}
-	if c.AutonityContractConfig != nil {
-		cfg.AutonityContractConfig = &(*c.AutonityContractConfig)
-		cfg.AutonityContractConfig = &AutonityContractGenesis{
-			Bytecode:                c.AutonityContractConfig.Bytecode, // no deep copy needed
-			ABI:                     c.AutonityContractConfig.ABI,      // no deep copy needed
-			MinBaseFee:              c.AutonityContractConfig.MinBaseFee,
-			EpochPeriod:             c.AutonityContractConfig.EpochPeriod,
-			UnbondingPeriod:         c.AutonityContractConfig.UnbondingPeriod,
-			BlockPeriod:             c.AutonityContractConfig.BlockPeriod,
-			MaxCommitteeSize:        c.AutonityContractConfig.MaxCommitteeSize,
-			Operator:                c.AutonityContractConfig.Operator,
-			Treasury:                c.AutonityContractConfig.Treasury,
-			TreasuryFee:             c.AutonityContractConfig.TreasuryFee,
-			DelegationRate:          c.AutonityContractConfig.DelegationRate,
-			InitialInflationReserve: c.AutonityContractConfig.InitialInflationReserve,                                          // no deep copy needed
-			Validators:              append(c.AutonityContractConfig.Validators[:0:0], c.AutonityContractConfig.Validators...), // NEED DEEP COPY HERE
-		}
-	}
-	if c.OracleContractConfig != nil {
-		cfg.OracleContractConfig = c.OracleContractConfig
-	}
-	if c.ChainID != nil {
-		cfg.ChainID = big.NewInt(0).Set(c.ChainID)
-	}
-	if c.HomesteadBlock != nil {
-		cfg.HomesteadBlock = big.NewInt(0).Set(c.HomesteadBlock)
-	}
-	if c.DAOForkBlock != nil {
-		cfg.DAOForkBlock = big.NewInt(0).Set(c.DAOForkBlock)
-	}
-	if c.EIP150Block != nil {
-		cfg.EIP150Block = big.NewInt(0).Set(c.EIP150Block)
-	}
-	if c.EIP155Block != nil {
-		cfg.EIP155Block = big.NewInt(0).Set(c.EIP155Block)
-	}
-	if c.EIP158Block != nil {
-		cfg.EIP158Block = big.NewInt(0).Set(c.EIP158Block)
-	}
-	if c.ByzantiumBlock != nil {
-		cfg.ByzantiumBlock = big.NewInt(0).Set(c.ByzantiumBlock)
-	}
-	if c.ConstantinopleBlock != nil {
-		cfg.ConstantinopleBlock = big.NewInt(0).Set(c.ConstantinopleBlock)
-	}
-	if c.PetersburgBlock != nil {
-		cfg.PetersburgBlock = big.NewInt(0).Set(c.PetersburgBlock)
-	}
-	return cfg
-}
-
 // isForkIncompatible returns true if a fork scheduled at s1 cannot be rescheduled to
 // block s2 because head is already past the fork.
 func isForkIncompatible(s1, s2, head *big.Int) bool {

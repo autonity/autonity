@@ -100,7 +100,7 @@ type Header struct {
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
 	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	ActivityProof     AggregateSignature `json:"activityProof"`
+	ActivityProof     AggregateSignature `json:"activityProof"       gencodec:"required"`
 }
 
 type AggregateSignature struct {
