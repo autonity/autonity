@@ -26,7 +26,7 @@ const ACCOUNTABILITY_CONFIG = {
 
 const OMISSION_ACCOUNTABILITY_CONFIG = {
     "inactivityThreshold": 1000,     // 10%
-    "lookbackWindow":  30,   // 30 blocks
+    "lookbackWindow":  10,   // 30 blocks
     "pastPerformanceWeight":   1000, // 10%
     "initialJailingPeriod":    300,  // 300 blocks
     "initialProbationPeriod":  300,  // 300 blocks
