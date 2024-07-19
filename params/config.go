@@ -1149,6 +1149,21 @@ func (c *ChainConfig) Copy() *ChainConfig {
 	}
 	if c.AutonityContractConfig != nil {
 		cfg.AutonityContractConfig = &(*c.AutonityContractConfig)
+		cfg.AutonityContractConfig = &AutonityContractGenesis{
+			Bytecode:                c.AutonityContractConfig.Bytecode, // no deep copy needed
+			ABI:                     c.AutonityContractConfig.ABI,      // no deep copy needed
+			MinBaseFee:              c.AutonityContractConfig.MinBaseFee,
+			EpochPeriod:             c.AutonityContractConfig.EpochPeriod,
+			UnbondingPeriod:         c.AutonityContractConfig.UnbondingPeriod,
+			BlockPeriod:             c.AutonityContractConfig.BlockPeriod,
+			MaxCommitteeSize:        c.AutonityContractConfig.MaxCommitteeSize,
+			Operator:                c.AutonityContractConfig.Operator,
+			Treasury:                c.AutonityContractConfig.Treasury,
+			TreasuryFee:             c.AutonityContractConfig.TreasuryFee,
+			DelegationRate:          c.AutonityContractConfig.DelegationRate,
+			InitialInflationReserve: c.AutonityContractConfig.InitialInflationReserve,                                          // no deep copy needed
+			Validators:              append(c.AutonityContractConfig.Validators[:0:0], c.AutonityContractConfig.Validators...), // NEED DEEP COPY HERE
+		}
 	}
 	if c.OracleContractConfig != nil {
 		cfg.OracleContractConfig = c.OracleContractConfig

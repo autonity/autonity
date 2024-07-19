@@ -266,7 +266,7 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee
 	case autonity.PVO:
 		valid = c.validMisbehaviourOfPVO(p, committee)
 	case autonity.PVO12:
-		valid = c.validMisbehaviourOfPVO12(p, committee)
+		valid = c.validMisbehaviourOfPVO12(p)
 	case autonity.C:
 		valid = c.validMisbehaviourOfC(p, committee)
 	case autonity.InvalidProposer:
@@ -497,8 +497,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 }
 
 // check if the Proof of challenge of PVO12 is valid.
-// TODO(lorenzo) remove the committee? we probably do not need it
-func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof, _ types.Committee) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	if len(p.Evidences) < 2 {
 		return false
 	}

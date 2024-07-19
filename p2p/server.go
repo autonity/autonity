@@ -1071,7 +1071,9 @@ func (srv *Server) processPeerSuspension(pd peerDrop) {
 	var p2pError *peerError
 	var protoError *ProtocolError
 	if errors.As(pd.err, &protoError) {
-		srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoError.Suspension())
+		if protoError.Suspension() > 0 {
+			srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoError.Suspension())
+		}
 	} else if errors.As(pd.err, &p2pError) {
 		switch p2pError.code {
 		case errInvalidMsgCode, errInvalidMsg:

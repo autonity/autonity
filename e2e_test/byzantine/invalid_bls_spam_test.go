@@ -19,8 +19,6 @@ import (
 
 // to test invalid bls signature spamming and related disconnection efficacy
 
-// TODO(lorenzo) Add test for malicious peer sending invalid sig and disconnecting right away. Does disconnection still work as intended?
-
 func newInvalidSignatureBroadcaster(c interfaces.Core) interfaces.Prevoter {
 	return &invalidSignatureBroadcaster{c.(*core.Core), c.Prevoter(), false}
 }

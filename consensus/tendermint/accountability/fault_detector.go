@@ -62,7 +62,6 @@ var (
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
-	errUnprovableRule   = errors.New("unprovable rule")
 
 	nilValue = common.Hash{}
 )
@@ -424,11 +423,9 @@ func (fd *FaultDetector) innocenceProof(p *Proof, committee types.Committee) (*a
 	case autonity.C1:
 		return fd.innocenceProofC1(p)
 	default:
-		// TODO(lorenzo) apply if still valid
 		// whether the accusation comes from off-chain or on-chain
 		// it always gets verified before we try to fetch the innocence proof
-		//panic("Trying to fetch innocence proof for invalid accusation")
-		return nil, errUnprovableRule
+		panic("Trying to fetch innocence proof for invalid accusation")
 	}
 }
 
@@ -1334,6 +1331,9 @@ func errorToRule(err error) autonity.Rule {
 	case errors.Is(err, errProposer):
 		rule = autonity.InvalidProposer
 	default:
+		// these 2 errors are the only ones which can be raised by a self-incriminating msg.
+		// if something else arrives here, it is a programming error.
+		// there should also be 'InvalidProposal', however we do not currently make them accountable (due to oversized proof).
 		panic("unknown error to accountability rule mapping")
 	}
 

@@ -2,16 +2,18 @@ package accountability
 
 import (
 	"crypto/ecdsa"
+	"math/big"
+	"math/rand"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-	"math/big"
-	"math/rand"
-	"testing"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
@@ -231,15 +233,6 @@ func TestAccusationProvers(t *testing.T) {
 	validRound := int64(1)
 	noneNilValue := common.Hash{0x1}
 	lastHeader := &types.Header{Number: new(big.Int).SetUint64(lastHeight), Committee: committee}
-
-	t.Run("innocenceProof with unprovable rule id", func(t *testing.T) {
-		fd := FaultDetector{}
-		var input = Proof{
-			Rule: autonity.PVO12,
-		}
-		_, err := fd.innocenceProof(&input, committee)
-		assert.NotNil(t, err)
-	})
 
 	t.Run("innocenceProofPO have quorum preVotes", func(t *testing.T) {
 

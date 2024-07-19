@@ -5,13 +5,18 @@ import (
 	"fmt"
 	"reflect"
 
-	lru "github.com/hashicorp/golang-lru"
+	farmhash "github.com/dgryski/go-farm"
 	"github.com/pkg/errors"
+
+	"github.com/autonity/autonity/common/fixsizecache"
 )
 
-var maxKeys = 10000
+func hashKey(key string) uint {
+	return uint(farmhash.Hash64([]byte(key)))
+}
 
-var PubkeyCache, _ = lru.NewARC(maxKeys)
+// parameters set assuming max committee size = 1000
+var PubkeyCache = fixsizecache.New[string, PublicKey](997, 5, hashKey)
 
 const HexPrefix = "0x"
 
@@ -35,8 +40,8 @@ func PublicKeyFromBytes(pubKey []byte) (PublicKey, error) {
 		return nil, fmt.Errorf("public key must be %d bytes", BLSPubkeyLength)
 	}
 
-	if cv, ok := PubkeyCache.Get(string(pubKey)); ok {
-		return cv.(*BlsPublicKey).Copy(), nil
+	if cachedPublicKey, ok := PubkeyCache.Get(string(pubKey)); ok {
+		return cachedPublicKey.(*BlsPublicKey).Copy(), nil
 	}
 
 	// Subgroup check NOT done when decompressing pubkey.
@@ -58,8 +63,8 @@ func PublicKeyFromBytes(pubKey []byte) (PublicKey, error) {
 	return pubKeyObj, nil
 }
 
-// AggregatePublicKeys aggregates the provided raw public keys into a single key.
-func AggregatePublicKeys(pubs [][]byte) (PublicKey, error) {
+// AggregateRawPublicKeys aggregates the provided raw public keys into a single key.
+func AggregateRawPublicKeys(pubs [][]byte) (PublicKey, error) {
 	if len(pubs) == 0 {
 		return nil, fmt.Errorf("empty pub-key set for key aggregation")
 	}
@@ -82,6 +87,25 @@ func AggregatePublicKeys(pubs [][]byte) (PublicKey, error) {
 	return nil, fmt.Errorf("cannot aggregate public keys")
 }
 
+// AggregatePublicKeys aggregates the provided deserialized public keys into a single key.
+func AggregatePublicKeys(pubs []PublicKey) (PublicKey, error) {
+	if len(pubs) == 0 {
+		return nil, fmt.Errorf("empty pub-key set for key aggregation")
+	}
+
+	mulP1 := make([]*blstPublicKey, 0, len(pubs))
+	for _, pubkey := range pubs {
+		mulP1 = append(mulP1, pubkey.(*BlsPublicKey).p)
+	}
+
+	agg := new(blstAggregatePublicKey)
+	// No group check needed here since it is done at deserialization (`PublicKeyFromBytes`)
+	if agg.Aggregate(mulP1, false) {
+		return &BlsPublicKey{p: agg.ToAffine()}, nil
+	}
+	return nil, fmt.Errorf("cannot aggregate public keys")
+}
+
 // Marshal a public key into a LittleEndian byte slice.
 func (p *BlsPublicKey) Marshal() []byte {
 	return p.p.Compress()
@@ -91,12 +115,6 @@ func (p *BlsPublicKey) Marshal() []byte {
 func (p *BlsPublicKey) Copy() PublicKey {
 	np := *p.p
 	return &BlsPublicKey{p: &np}
-}
-
-// IsInfinite checks if the public key is infinite.
-func (p *BlsPublicKey) IsInfinite() bool {
-	zeroKey := new(blstPublicKey)
-	return p.p.Equals(zeroKey)
 }
 
 // Aggregate two public keys.

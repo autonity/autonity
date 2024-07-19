@@ -63,13 +63,13 @@ func signersWithPower(index uint64, committeeSize int, requestedPower *big.Int) 
 }
 
 func waitForExpects(ctrl *gomock.Controller) {
-	for {
+	for i := 0; i < 200; i++ { // after ten second of waiting, give up and call finish() even if not satisfied
 		time.Sleep(50 * time.Millisecond)
 		if ctrl.Satisfied() {
-			ctrl.Finish()
 			break
 		}
 	}
+	ctrl.Finish()
 }
 
 type AddressKeyMap map[common.Address]Keys

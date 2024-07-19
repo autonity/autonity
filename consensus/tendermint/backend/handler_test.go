@@ -9,6 +9,8 @@ import (
 
 	"go.uber.org/mock/gomock"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
@@ -21,17 +23,10 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-func TestTendermintMessage(t *testing.T) {
-	_, backend := newBlockChain(1)
-	// generate one msg
-	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
-	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
-
+func setupMocks(backend *Backend, ctrl *gomock.Controller, t *testing.T) {
 	if err := backend.Close(); err != nil { // close engine to avoid race while updating the broadcaster
 		t.Fatalf("can't stop the engine")
 	}
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	mockedPeer := consensus.NewMockPeer(ctrl)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
@@ -42,6 +37,18 @@ func TestTendermintMessage(t *testing.T) {
 	if err := backend.Start(context.Background()); err != nil {
 		t.Fatalf("could not restart core")
 	}
+}
+
+func TestTendermintMessage(t *testing.T) {
+	_, backend := newBlockChain(1)
+	// generate one msg
+	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
+	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	setupMocks(backend, ctrl, t)
+
 	// 1. this message should not be in cache
 	// for peers
 	if peer, ok := backend.Broadcaster.FindPeer(testAddress); ok {
@@ -166,97 +173,109 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: bytes.NewReader(buff.Bytes())}
 }
 
-//TODO(lorenzo) add tests for:
-// - receiving msgs from jailed validators
-// - receiving and processing future height messages
-// - receiving msg from non-committee member
+func TestSignerJailed(t *testing.T) {
+	chain, backend := newBlockChain(1)
 
-/* TODO(lorenzo) port this tests which were in Core before. Now future height messages are in the backend
-func TestStoreUncheckedBacklog(t *testing.T) {
-	t.Run("save messages in the untrusted backlog", func(t *testing.T) {
+	member := chain.Genesis().Header().Committee[0]
+
+	// generate one msg
+	data := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
+	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	setupMocks(backend, ctrl, t)
+
+	backend.jailedLock.Lock()
+	backend.jailed[member.Address] = 0
+	backend.jailedLock.Unlock()
+
+	errCh := make(chan error, 1)
+	_, err := backend.HandleMsg(testAddress, msg, errCh)
+	require.Equal(t, ErrJailed, err)
+
+	// same should happen for an aggregate containing a single jailed signer
+
+	data = message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, testSigner, &member, 2)
+	data.Signers().Increment(makeBogusMember(1))
+	msg = p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+	errCh = make(chan error, 1)
+	_, err = backend.HandleMsg(testAddress, msg, errCh)
+	require.Equal(t, ErrJailed, err)
+}
+
+func TestFutureHeightMessage(t *testing.T) {
+	t.Run("received future height message is buffered", func(t *testing.T) {
+		chain, backend := newBlockChain(1)
+
+		member := chain.Genesis().Header().Committee[0]
+
+		// generate one msg
+		futureHeight := uint64(20)
+		data := message.NewPrevote(0, futureHeight, common.Hash{}, testSigner, &member, 1)
+		msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		backendMock := interfaces.NewMockBackend(ctrl)
-		c := &Core{
-			logger:           log.New("backend", "test", "id", 0),
-			backend:          backendMock,
-			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Msg),
-			backlogUntrusted: make(map[uint64][]message.Msg),
-			step:             Prevote,
-			round:            1,
-			height:           big.NewInt(4),
-		}
-		var messages []message.Msg
-		for i := int64(0); i < MaxSizeBacklogUnchecked; i++ {
-			msg := message.NewPrevote(
-				i%10,
-				uint64(i/(1+i%10)),
-				common.Hash{},
-				defaultSigner)
-			c.storeFutureMessage(msg)
-			messages = append(messages, msg)
-		}
-		found := 0
-		for _, msg := range messages {
-			for _, umsg := range c.backlogUntrusted[msg.H()] {
-				if deep.Equal(msg, umsg) {
-					found++
-				}
-			}
-		}
-		if found != MaxSizeBacklogUnchecked {
-			t.Fatal("unchecked messages lost")
-		}
-	})
+		setupMocks(backend, ctrl, t)
 
-	t.Run("excess messages are removed from the untrusted backlog", func(t *testing.T) {
+		errCh := make(chan error, 1)
+		_, err := backend.HandleMsg(testAddress, msg, errCh)
+		require.NoError(t, err)
+
+		backend.futureLock.RLock()
+		defer backend.futureLock.RUnlock()
+		require.Equal(t, 1, len(backend.future[futureHeight]))
+		require.Equal(t, data.Hash(), backend.future[futureHeight][0].Message.Hash())
+		require.Equal(t, futureHeight, backend.futureMaxHeight)
+		require.Equal(t, uint64(1), backend.futureSize)
+	})
+	t.Run("if future message buffer is full, messages farther in the future are dropped", func(t *testing.T) {
+		chain, backend := newBlockChain(1)
+
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		setupMocks(backend, ctrl, t)
 
-		backendMock := interfaces.NewMockBackend(ctrl)
+		member := chain.Genesis().Header().Committee[0]
 
-		c := &Core{
-			logger:           log.New("backend", "test", "id", 0),
-			backend:          backendMock,
-			address:          common.HexToAddress("0x1234567890"),
-			backlogs:         make(map[common.Address][]message.Msg),
-			backlogUntrusted: make(map[uint64][]message.Msg),
-			step:             Prevote,
-			round:            1,
-			height:           big.NewInt(4),
+		for h := maxFutureMsgs + 100; h > 0; h-- {
+			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, 1)
+			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+			errCh := make(chan error, 1)
+			_, err := backend.HandleMsg(testAddress, msg, errCh)
+			require.NoError(t, err)
 		}
 
-		var messages []message.Msg
-		uncheckedFounds := make(map[uint64]struct{})
-		backendMock.EXPECT().RemoveMessageFromLocalCache(gomock.Any()).Times(MaxSizeBacklogUnchecked).Do(func(msg message.Msg) {
-			if _, ok := uncheckedFounds[msg.H()]; ok {
-				t.Fatal("duplicate message received")
-			}
-			uncheckedFounds[msg.H()] = struct{}{}
-		})
-
-		for i := int64(2 * MaxSizeBacklogUnchecked); i > 0; i-- {
-			prevote := message.NewPrevote(i%10, uint64(i), common.Hash{}, defaultSigner)
-			c.storeFutureMessage(prevote)
-			if i < MaxSizeBacklogUnchecked {
-				messages = append(messages, prevote)
-			}
-		}
-
-		found := 0
-		for _, msg := range messages {
-			for _, umsg := range c.backlogUntrusted[msg.H()] {
-				if deep.Equal(msg, umsg) {
-					found++
-				}
-			}
-		}
-		if found != MaxSizeBacklogUnchecked-1 {
-			t.Fatal("unchecked messages lost")
-		}
-		if len(uncheckedFounds) != MaxSizeBacklogUnchecked {
-			t.Fatal("unchecked messages lost")
-		}
+		backend.futureLock.RLock()
+		defer backend.futureLock.RUnlock()
+		require.Equal(t, maxFutureMsgs, len(backend.future))
+		require.Equal(t, uint64(maxFutureMsgs), backend.futureSize) // works because we send only one message per height
 	})
-}*/
+	t.Run("When processing future height messages, future height messages are re-injected", func(t *testing.T) {
+		chain, backend := newBlockChain(1)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		setupMocks(backend, ctrl, t)
+
+		member := chain.Genesis().Header().Committee[0]
+
+		vote := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
+		errCh := make(chan error, 1)
+		backend.saveFutureMsg(vote, errCh, common.Address{})
+		backend.saveFutureMsg(vote, errCh, common.Address{})
+		backend.saveFutureMsg(vote, errCh, common.Address{})
+		backend.saveFutureMsg(vote, errCh, common.Address{})
+
+		backend.futureLock.RLock()
+		require.Equal(t, uint64(4), backend.futureSize)
+		backend.futureLock.RUnlock()
+
+		backend.ProcessFutureMsgs(1)
+
+		backend.futureLock.RLock()
+		require.Equal(t, uint64(0), backend.futureSize)
+		backend.futureLock.RUnlock()
+	})
+}

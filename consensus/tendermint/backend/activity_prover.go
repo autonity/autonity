@@ -31,6 +31,7 @@ func (sb *Backend) assembleActivityProof(header *types.Header) types.AggregateSi
 		return defaultProof
 	}
 
+	// as this block haven't been finalized, thus we query the committee with its parent height from state db.
 	lastHeight := new(big.Int).Sub(header.Number, common.Big1)
 	lastEpochBlock, _, err := sb.consensusViewOfHeight(lastHeight)
 	if err != nil {
@@ -77,6 +78,8 @@ func (sb *Backend) validateActivityProof(curHeader *types.Header) (bool, []*big.
 	}
 
 	// todo: could be refined by on top of the epoch header PR.
+	// since current block haven't been finalized at this phase,
+	// thus we query the committee with its parent height from state db.
 	lastHeight := new(big.Int).Sub(curHeader.Number, common.Big1)
 	lastEpochBlock, committee, err := sb.consensusViewOfHeight(lastHeight)
 	if err != nil {
@@ -147,9 +150,9 @@ func (sb *Backend) verifyActivityProof(header *types.Header, committee types.Com
 	}
 
 	// verify signature
-	var keys [][]byte //nolint
+	var keys []blst.PublicKey //nolint
 	for _, index := range activityProof.Signers.Flatten() {
-		keys = append(keys, committee[index].ConsensusKeyBytes)
+		keys = append(keys, committee[index].ConsensusKey)
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {

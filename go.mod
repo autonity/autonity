@@ -58,7 +58,7 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4
 	github.com/stretchr/testify v1.7.0
-	github.com/supranational/blst v0.3.11
+	github.com/supranational/blst v0.3.12
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef
 	github.com/zfjagann/golang-ring v0.0.0-20210116075443-7c86fdb43134

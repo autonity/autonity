@@ -70,10 +70,9 @@ type CoreState struct {
 	// current height messages.
 	CurHeightMessages []*MsgForDump
 	// backlog msgs
-	BacklogMessages []*MsgForDump
-	//TODO(lorenzo) refinements, is this needed?
+	FutureRoundMessages []*MsgForDump
 	// backlog of future height msgs.
-	FutureMsgs []*MsgForDump
+	FutureHeightMessages []*MsgForDump
 	// Known msg of gossip.
 	KnownMsgHash []common.Hash
 }
