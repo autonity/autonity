@@ -376,6 +376,7 @@ func TestInactivityScore(t *testing.T) {
 		score = math.Floor(score*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
 		expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + pastInactivityScore[i]*pastPerformanceWeight
 		expectedInactivityScore := int(math.Floor(expectedInactivityScoreFloat * ScaleFactor))
+		//TODO(Lorenzo) precision issue here still pops up from time to time
 		r.t.Logf("expectedInactivityScore %v, inactivityScore %v", expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 		require.Equal(r.t, expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 	}
