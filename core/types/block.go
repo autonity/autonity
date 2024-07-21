@@ -94,10 +94,7 @@ type Header struct {
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
 	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
-	EpochExtra        []byte             `json:"epochExtra" gencodec:"required"` // this field contains committee and epoch boundary in rlp bytes,
-	parentEpochBlock  *big.Int           `rlp:"-"`
-	nextEpochBlock    *big.Int           `rlp:"-"`
-	committee         *Committee         `rlp:"-"`
+	Epoch             Epoch              `json:"epoch" gencodec:"required"`
 }
 
 type AggregateSignature struct {
@@ -147,8 +144,8 @@ type originalHeader struct {
 type headerExtra struct {
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
-	EpochExtra        []byte             `json:"epochExtra" gencodec:"required"`
+	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	Epoch             Epoch              `json:"epoch"               gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -168,10 +165,8 @@ type headerMarshaling struct {
 	/*
 		PoS header fields type overrides
 	*/
-	ProposerSeal   hexutil.Bytes
-	Round          hexutil.Uint64
-	EpochExtra     hexutil.Bytes
-	LastEpochBlock *hexutil.Big
+	ProposerSeal hexutil.Bytes
+	Round        hexutil.Uint64
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -192,42 +187,31 @@ func (h *Header) Hash() common.Hash {
 }
 
 func (h *Header) IsEpochHeader() bool {
-	return len(h.EpochExtra) > 0 && h.committee != nil && h.committee.Len() > 0
+	return h.Epoch.IsEpochHeader()
 }
 
 func (h *Header) ParentEpochBlock() *big.Int {
-	return h.parentEpochBlock
+	return h.Epoch.ParentEpochBlock
 }
 
 func (h *Header) NextEpochBlock() *big.Int {
-	return h.nextEpochBlock
+	return h.Epoch.NextEpochBlock
 }
 
 func (h *Header) EnrichEpochInfo() error {
-	var epoch Epoch
-	if len(h.EpochExtra) > 0 {
-		if err := rlp.DecodeBytes(h.EpochExtra, &epoch); err != nil {
-			return err
+	if h.IsEpochHeader() {
+		if err := h.Epoch.Committee.Enrich(); err != nil {
+			return fmt.Errorf("error while deserializing consensus keys: %w", err)
 		}
-
-		if epoch.Committee != nil {
-			if err := epoch.Committee.Enrich(); err != nil {
-				return fmt.Errorf("error while deserializing consensus keys: %w", err)
-			}
-
-			if epoch.Committee.Len() > 0 && (epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil) {
-				return fmt.Errorf("invalid epoch boundary")
-			}
+		if h.Epoch.Committee.Len() > 0 && (h.Epoch.ParentEpochBlock == nil || h.Epoch.NextEpochBlock == nil) {
+			return fmt.Errorf("invalid epoch boundary")
 		}
 	}
-	h.committee = epoch.Committee
-	h.parentEpochBlock = epoch.ParentEpochBlock
-	h.nextEpochBlock = epoch.NextEpochBlock
 	return nil
 }
 
 func (h *Header) Committee() *Committee {
-	return h.committee
+	return h.Epoch.Committee
 }
 
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
@@ -278,9 +262,9 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.QuorumCertificate = hExtra.QuorumCertificate
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
-		h.EpochExtra = hExtra.EpochExtra
+		h.Epoch = hExtra.Epoch
 
-		if err := h.EnrichEpochInfo(); err != nil {
+		if err = h.EnrichEpochInfo(); err != nil {
 			return err
 		}
 	} else {
@@ -321,7 +305,7 @@ func (h *Header) EncodeRLP(w io.Writer) error {
 		ProposerSeal:      h.ProposerSeal,
 		Round:             h.Round,
 		QuorumCertificate: h.QuorumCertificate,
-		EpochExtra:        h.EpochExtra,
+		Epoch:             h.Epoch,
 	}
 
 	original := h.original()
@@ -481,27 +465,6 @@ func CopyHeader(h *Header) *Header {
 		copy(proposerSeal, h.ProposerSeal)
 	}
 
-	epochExtra := make([]byte, 0)
-	if len(h.EpochExtra) > 0 {
-		epochExtra = make([]byte, len(h.EpochExtra))
-		copy(epochExtra, h.EpochExtra)
-	}
-
-	var copyCommittee *Committee
-	if h.IsEpochHeader() {
-		copyCommittee = h.committee.Copy()
-	}
-
-	var parentEpochBlock *big.Int
-	if h.parentEpochBlock != nil {
-		parentEpochBlock = new(big.Int).SetUint64(h.parentEpochBlock.Uint64())
-	}
-
-	var nextEpochBlock *big.Int
-	if h.nextEpochBlock != nil {
-		nextEpochBlock = new(big.Int).SetUint64(h.nextEpochBlock.Uint64())
-	}
-
 	quorumCertificate := AggregateSignature{}
 	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Signers != nil {
 		quorumCertificate = h.QuorumCertificate.Copy()
@@ -527,10 +490,7 @@ func CopyHeader(h *Header) *Header {
 		BaseFee:           baseFee,
 		Round:             h.Round,
 		QuorumCertificate: quorumCertificate,
-		EpochExtra:        epochExtra,
-		committee:         copyCommittee,
-		parentEpochBlock:  parentEpochBlock,
-		nextEpochBlock:    nextEpochBlock,
+		Epoch:             h.Epoch.Copy(),
 	}
 	return cpy
 }

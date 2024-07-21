@@ -35,8 +35,8 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		ProposerSeal      hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             hexutil.Uint64     `json:"round"               gencodec:"required"`
 		QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		Epoch             Epoch              `json:"epoch"               gencodec:"required"`
 		Hash              common.Hash        `json:"hash"`
-		EpochExtra        hexutil.Bytes      `json:"epochExtra"          gencodec:"required"`
 	}
 	var enc Header
 	enc.ParentHash = h.ParentHash
@@ -59,7 +59,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.Round = hexutil.Uint64(h.Round)
 	enc.QuorumCertificate = h.QuorumCertificate
 	enc.Hash = h.Hash()
-	enc.EpochExtra = h.EpochExtra
+	enc.Epoch = h.Epoch
 	return json.Marshal(&enc)
 }
 
@@ -85,7 +85,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		ProposerSeal      *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             *hexutil.Uint64     `json:"round"               gencodec:"required"`
 		QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-		EpochExtra        *hexutil.Bytes      `json:"epochExtra"          gencodec:"required"`
+		Epoch             *Epoch              `json:"epoch"               gencodec:"required"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -161,10 +161,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'quorumCertificate' for Header")
 	}
 	h.QuorumCertificate = *dec.QuorumCertificate
-	if dec.EpochExtra == nil {
-		return errors.New("missing required field 'epochExtra' for Header")
+	if dec.Epoch == nil {
+		return errors.New("missing required field 'epoch' for Header")
 	}
-	h.EpochExtra = *dec.EpochExtra
+	h.Epoch = *dec.Epoch
 	//TODO(lorenzo) Added this manually to make the e2e test work. Fix it properly.
 	if err := h.EnrichEpochInfo(); err != nil {
 		return err

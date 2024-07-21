@@ -112,7 +112,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 
 	// load head epoch header from db on start up.
 	hc.currentEpochHeader.Store(hc.genesisHeader)
-	if eHead := rawdb.ReadHeadEpochHeaderHash(chainDb); eHead != (common.Hash{}) {
+	if eHead := rawdb.ReadEpochHeaderHash(chainDb); eHead != (common.Hash{}) {
 		if cEHead := hc.GetHeaderByHash(eHead); cEHead != nil {
 			hc.currentEpochHeader.Store(cEHead)
 		}
@@ -208,7 +208,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 		// if the new header is an epoch header, mark the new epoch header hash in db.
 		if headers[i].IsEpochHeader() {
 			headEpochHeader = headers[i]
-			rawdb.WriteHeadEpochHeaderHash(batch, hash)
+			rawdb.WriteEpochHeaderHash(batch, hash)
 		}
 	}
 	// Write the last header
@@ -219,7 +219,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	// if the last header is an epoch header, mark it too in db.
 	if headers[len(headers)-1].IsEpochHeader() {
 		headEpochHeader = headers[len(headers)-1]
-		rawdb.WriteHeadEpochHeaderHash(batch, hash)
+		rawdb.WriteEpochHeaderHash(batch, hash)
 	}
 
 	if err := batch.Write(); err != nil {
@@ -671,7 +671,7 @@ func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, d
 			if newHeadEpochHeader == nil {
 				log.Crit("cannot find parent epoch header from header chain", "num", hdr.ParentEpochBlock().Uint64())
 			}
-			rawdb.WriteHeadEpochHeaderHash(markerBatch, newHeadEpochHeader.Hash())
+			rawdb.WriteEpochHeaderHash(markerBatch, newHeadEpochHeader.Hash())
 			hc.currentEpochHeader.Store(newHeadEpochHeader)
 			headEpochHeaderGauge.Update(newHeadEpochHeader.Number.Int64())
 		}

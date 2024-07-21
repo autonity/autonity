@@ -45,7 +45,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	}
 	newHeader.QuorumCertificate = AggregateSignature{}
 	newHeader.Round = 0
-	newHeader.Extra = []byte{}
+	newHeader.Epoch = Epoch{}
 	return newHeader
 }
 
@@ -112,12 +112,6 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 	return nil
 }
 
-func WriteEpochExtra(h *Header, epoch *Epoch) error {
-	// add committee to header's EpochExtra.
-	epochExtra, err := rlp.EncodeToBytes(epoch)
-	if err != nil {
-		return err
-	}
-	h.EpochExtra = epochExtra
-	return err
+func WriteEpoch(h *Header, epoch *Epoch) {
+	h.Epoch = *epoch
 }

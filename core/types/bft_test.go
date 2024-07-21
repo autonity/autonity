@@ -1,8 +1,6 @@
 package types
 
 import (
-	"github.com/autonity/autonity/rlp"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"reflect"
 	"testing"
@@ -32,7 +30,7 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0xa289d809eb10542fc112d2030405d6d3b86a1509763d9e1d0fb1274fd330b7fe")
+	posHeaderHash := common.HexToHash("0xc8b015729f0933f2359b0e489504b8e60befce0d3320f84a85930f8f29836ad9")
 
 	quorumCertificate := AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
@@ -58,8 +56,7 @@ func TestHeaderHash(t *testing.T) {
 		},
 	}
 
-	epochExtra, err := rlp.EncodeToBytes(&Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c})
-	require.NoError(t, err)
+	epoch := Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
 
 	testCases := []struct {
 		header Header
@@ -92,15 +89,15 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				EpochExtra: epochExtra,
+				Epoch: epoch,
 			}),
-			common.HexToHash("0xa18dd36ba4abda50cab60c3beb053157374d71ed29c0876c9b42b5f6d67aa483"),
+			posHeaderHash,
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: common.Hex2Bytes("0xbebedead"),
 			}),
-			common.HexToHash("0xa289d809eb10542fc112d2030405d6d3b86a1509763d9e1d0fb1274fd330b7fe"),
+			posHeaderHash,
 		},
 		{
 			setExtra(PosHeader, headerExtra{
@@ -129,7 +126,7 @@ func TestHeaderHash(t *testing.T) {
 }
 
 func setExtra(h Header, hExtra headerExtra) Header {
-	h.EpochExtra = hExtra.EpochExtra
+	h.Epoch = hExtra.Epoch
 	h.ProposerSeal = hExtra.ProposerSeal
 	h.Round = hExtra.Round
 	h.QuorumCertificate = hExtra.QuorumCertificate

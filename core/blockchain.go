@@ -703,7 +703,7 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 	// replicates the entire world state of pivot block.
 	if block.IsEpochHead() {
 		batch := bc.db.NewBatch()
-		rawdb.WriteHeadEpochHeaderHash(batch, block.Hash())
+		rawdb.WriteEpochHeaderHash(batch, block.Hash())
 		if err := batch.Write(); err != nil {
 			bc.log.Crit("Failed to update epoch header markers", "err", err)
 		}
@@ -804,7 +804,7 @@ func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	batch := bc.db.NewBatch()
 	// update head epoch header hash in DB.
 	if block.IsEpochHead() {
-		rawdb.WriteHeadEpochHeaderHash(batch, block.Hash())
+		rawdb.WriteEpochHeaderHash(batch, block.Hash())
 	}
 	rawdb.WriteHeadHeaderHash(batch, block.Hash())
 	rawdb.WriteHeadFastBlockHash(batch, block.Hash())

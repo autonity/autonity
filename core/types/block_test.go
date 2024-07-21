@@ -98,9 +98,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		}},
 	}
 
-	epoch := &Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
-	epochExtra, err := rlp.EncodeToBytes(epoch)
-	require.NoError(t, err)
+	epoch := Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
 
 	header := &Header{
 		ParentHash:        common.HexToHash("0a5843ac1cb04865017cb35a57b50b07084e5fcee39b5acadade33149f4fff9e"),
@@ -118,13 +116,13 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		MixDigest:         common.HexToHash("0a58213121cb0486345235234564778768967853123645654649f4fff932132e"),
 		Nonce:             [8]byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07},
 		BaseFee:           big.NewInt(20000),
-		EpochExtra:        epochExtra,
+		Epoch:             epoch,
 		ProposerSeal:      bytes.Repeat([]byte("c"), 65),
 		Round:             uint64(3),
 		QuorumCertificate: AggregateSignature{},
 	}
 
-	err = header.EnrichEpochInfo()
+	err := header.EnrichEpochInfo()
 	require.NoError(t, err)
 
 	// fill in some additional fields
@@ -139,7 +137,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 	header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
 	hExtra := headerExtra{
-		EpochExtra:        epochExtra,
+		Epoch:             epoch,
 		ProposerSeal:      header.ProposerSeal,
 		Round:             header.Round,
 		QuorumCertificate: header.QuorumCertificate,

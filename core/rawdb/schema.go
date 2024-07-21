@@ -31,7 +31,7 @@ var (
 	databaseVersionKey = []byte("DatabaseVersion")
 
 	// headEpochHeaderKey tracks the latest epoch header's hash.
-	headEpochHeaderKey = []byte("HeadEpochHeader")
+	headEpochHeaderKey = []byte("LastEpochHeader")
 
 	// headHeaderKey tracks the latest known header's hash.
 	headHeaderKey = []byte("LastHeader")

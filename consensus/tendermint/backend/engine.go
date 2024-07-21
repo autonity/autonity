@@ -366,9 +366,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 		epoch.NextEpochBlock = nextEpochBlock
 	}
 
-	if err = types.WriteEpochExtra(header, &epoch); err != nil {
-		panic(err)
-	}
+	types.WriteEpoch(header, &epoch)
 
 	if err = header.EnrichEpochInfo(); err != nil {
 		panic(err)

@@ -21,6 +21,22 @@ type Epoch struct {
 	Committee        *Committee `rlp:"nil"`
 }
 
+func (e *Epoch) IsEpochHeader() bool {
+	return e.ParentEpochBlock != nil && e.NextEpochBlock != nil && e.Committee != nil && e.Committee.Len() > 0
+}
+
+func (e *Epoch) Copy() Epoch {
+	clone := Epoch{}
+
+	if e.IsEpochHeader() {
+		clone.Committee = e.Committee.Copy()
+		clone.ParentEpochBlock = new(big.Int).SetUint64(e.ParentEpochBlock.Uint64())
+		clone.NextEpochBlock = new(big.Int).SetUint64(e.NextEpochBlock.Uint64())
+	}
+
+	return clone
+}
+
 type CommitteeMember struct {
 	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
 	VotingPower       *big.Int       `json:"votingPower"        gencodec:"required"`
@@ -162,9 +178,10 @@ func (c *Committee) TotalVotingPower() *big.Int {
 	return new(big.Int).Set(c.totalVotingPower)
 }
 
+// Todo: (Jason) Remove this function? As the compute committee precompile contract did the sorting, thus we might not
+//
+//	need this anymore, however some of the unit test need this sorting.
 func (c *Committee) Sort() {
-	// Todo: (Jason) since the compute committee precompile contract did the sorting, thus we might not need this
-	//  anymore, however some of the unit test need this sorting.
 	if len(c.Members) != 0 {
 		// sort validators according to their voting power in descending order
 		// stable sort keeps the original order of equal elements

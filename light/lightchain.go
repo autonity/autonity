@@ -166,7 +166,7 @@ func (lc *LightChain) loadLastState() error {
 		}
 	}
 	// load last epoch header from db on startup, if it is missing, reset light chain.
-	if eHead := rawdb.ReadHeadEpochHeaderHash(lc.chainDb); eHead == (common.Hash{}) {
+	if eHead := rawdb.ReadEpochHeaderHash(lc.chainDb); eHead == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		lc.Reset()
 	} else {
@@ -222,7 +222,7 @@ func (lc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 	rawdb.WriteBlock(batch, genesis)
 	rawdb.WriteHeadHeaderHash(batch, genesis.Hash())
 	// as genesis block is an epoch block, thus we always mark it for header chain and blockchain.
-	rawdb.WriteHeadEpochHeaderHash(batch, genesis.Hash())
+	rawdb.WriteEpochHeaderHash(batch, genesis.Hash())
 	if err := batch.Write(); err != nil {
 		log.Crit("Failed to reset genesis block", "err", err)
 	}
@@ -376,7 +376,7 @@ func (lc *LightChain) Rollback(chain []common.Hash) {
 					log.Error("cannot find parent epoch header from header chain", "number", num)
 					panic("cannot find parent epoch header from header chain")
 				}
-				rawdb.WriteHeadEpochHeaderHash(batch, newHeadHeader.Hash())
+				rawdb.WriteEpochHeaderHash(batch, newHeadHeader.Hash())
 				lc.hc.SetCurrentHeadEpochHeader(newEpochHeader)
 			}
 		}
@@ -588,7 +588,7 @@ func (lc *LightChain) SyncCheckpoint(ctx context.Context, checkpoint *params.Tru
 			rawdb.WriteHeadHeaderHash(lc.chainDb, header.Hash())
 			lc.hc.SetCurrentHeader(header)
 			if header.IsEpochHeader() {
-				rawdb.WriteHeadEpochHeaderHash(lc.chainDb, header.Hash())
+				rawdb.WriteEpochHeaderHash(lc.chainDb, header.Hash())
 				lc.hc.SetCurrentHeadEpochHeader(header)
 			}
 			log.Info("Updated latest header based on CHT", "number", header.Number, "hash", header.Hash(),
