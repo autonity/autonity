@@ -96,11 +96,12 @@ type Header struct {
 	// used for committee member lookup, lazily initialised.
 	committeeMap map[common.Address]*CommitteeMember
 	// Used to ensure the committeeMap is created only once.
-	once              sync.Once
-	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	ActivityProof     AggregateSignature `json:"activityProof"       gencodec:"required"`
+	once               sync.Once
+	ProposerSeal       []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64             `json:"round"               gencodec:"required"`
+	QuorumCertificate  AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
+	ActivityProofRound uint64             `json:"activityProofRound"  gencodec:"required"`
 }
 
 type AggregateSignature struct {
@@ -180,11 +181,12 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	Committee         Committee          `json:"committee"           gencodec:"required"`
-	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	ActivityProof     AggregateSignature `json:"activityProof"       gencodec:"required"`
+	Committee          Committee          `json:"committee"           gencodec:"required"`
+	ProposerSeal       []byte             `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64             `json:"round"               gencodec:"required"`
+	QuorumCertificate  AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
+	ActivityProofRound uint64             `json:"activityProofRound"  gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -204,8 +206,9 @@ type headerMarshaling struct {
 	/*
 		PoS header fields type overrides
 	*/
-	ProposerSeal hexutil.Bytes
-	Round        hexutil.Uint64
+	ProposerSeal       hexutil.Bytes
+	Round              hexutil.Uint64
+	ActivityProofRound hexutil.Uint64
 }
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -272,6 +275,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		}
 		h.QuorumCertificate = hExtra.QuorumCertificate
 		h.ActivityProof = hExtra.ActivityProof
+		h.ActivityProofRound = hExtra.ActivityProofRound
 		h.Committee = hExtra.Committee
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
@@ -314,11 +318,12 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 // extra data.
 func (h *Header) EncodeRLP(w io.Writer) error {
 	hExtra := headerExtra{
-		Committee:         h.Committee,
-		ProposerSeal:      h.ProposerSeal,
-		Round:             h.Round,
-		QuorumCertificate: h.QuorumCertificate,
-		ActivityProof:     h.ActivityProof,
+		Committee:          h.Committee,
+		ProposerSeal:       h.ProposerSeal,
+		Round:              h.Round,
+		QuorumCertificate:  h.QuorumCertificate,
+		ActivityProof:      h.ActivityProof,
+		ActivityProofRound: h.ActivityProofRound,
 	}
 
 	original := h.original()
@@ -500,27 +505,28 @@ func CopyHeader(h *Header) *Header {
 	}
 
 	cpy := &Header{
-		ParentHash:        h.ParentHash,
-		UncleHash:         h.UncleHash,
-		Coinbase:          h.Coinbase,
-		Root:              h.Root,
-		TxHash:            h.TxHash,
-		ReceiptHash:       h.ReceiptHash,
-		Bloom:             h.Bloom,
-		Difficulty:        difficulty,
-		Number:            number,
-		GasLimit:          h.GasLimit,
-		GasUsed:           h.GasUsed,
-		Time:              h.Time,
-		Extra:             extra,
-		MixDigest:         h.MixDigest,
-		Nonce:             h.Nonce,
-		Committee:         committee,
-		ProposerSeal:      proposerSeal,
-		BaseFee:           baseFee,
-		Round:             h.Round,
-		QuorumCertificate: quorumCertificate,
-		ActivityProof:     activityProof,
+		ParentHash:         h.ParentHash,
+		UncleHash:          h.UncleHash,
+		Coinbase:           h.Coinbase,
+		Root:               h.Root,
+		TxHash:             h.TxHash,
+		ReceiptHash:        h.ReceiptHash,
+		Bloom:              h.Bloom,
+		Difficulty:         difficulty,
+		Number:             number,
+		GasLimit:           h.GasLimit,
+		GasUsed:            h.GasUsed,
+		Time:               h.Time,
+		Extra:              extra,
+		MixDigest:          h.MixDigest,
+		Nonce:              h.Nonce,
+		Committee:          committee,
+		ProposerSeal:       proposerSeal,
+		BaseFee:            baseFee,
+		Round:              h.Round,
+		QuorumCertificate:  quorumCertificate,
+		ActivityProof:      activityProof,
+		ActivityProofRound: h.ActivityProofRound,
 	}
 	return cpy
 }

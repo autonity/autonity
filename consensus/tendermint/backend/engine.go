@@ -265,12 +265,11 @@ func (sb *Backend) verifyQuorumCertificate(header, parent *types.Header) error {
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
 func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
-	// unused fields, force to set to empty
 	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
 	header.MixDigest = types.BFTDigest
 
-	// copy the parent extra data as the header extra data
+	// fetch the parent to correctly set the header time
 	number := header.Number.Uint64()
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
@@ -287,8 +286,11 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	}
 
 	// assemble nodes' activity proof of height h from the msgs of h-delta
-	proof := sb.assembleActivityProof(header)
-	types.WriteActivityProof(header, proof)
+	proof, round, err := sb.assembleActivityProof(number)
+	if err != nil {
+		return fmt.Errorf("Error while assembling activity proof: %w", err)
+	}
+	types.WriteActivityProof(header, proof, round)
 	return nil
 }
 
@@ -332,10 +334,15 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	// TODO(lorenzo) update comment
-	// TODO(lornezo) it would be better to have a function to validate and verify, then extract the data separately
-	// if the proposer is faulty, the IDs carries proposer's ID only, otherwise it carries all the active signers.
-	isProposerFaulty, proposer, proposerEffort, absentees := sb.validateActivityProof(header)
+	// at this point the header coinbase should match the proposer for this (h,r)
+	proposer := header.Coinbase
+
+	// TODO(lorenzo) if feasible, it would be better to have a function to validate and verify, then another one to extract the data
+	isProposerFaulty, proposerEffort, absentees, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound)
+	if err != nil {
+		sb.logger.Error("Error while validating activity proof", "err", err, "proposer", proposer)
+		return nil, nil, err
+	}
 	committeeSet, receipt, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state, absentees, proposer, proposerEffort, isProposerFaulty)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)

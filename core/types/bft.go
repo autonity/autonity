@@ -115,13 +115,13 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 }
 
 // WriteActivityProof writes the extra-data field of a block header with given activity proof
-func WriteActivityProof(h *Header, proof AggregateSignature) {
-	var defaultProof AggregateSignature
+func WriteActivityProof(h *Header, proof AggregateSignature, round uint64) {
+	// if the proof is empty, do not copy anything
 	if proof.Signature == nil || proof.Signers == nil || proof.Signers.Len() == 0 {
-		h.ActivityProof = defaultProof
 		return
 	}
 	h.ActivityProof = proof.Copy()
+	h.ActivityProofRound = round
 }
 
 func (c Committee) String() string {

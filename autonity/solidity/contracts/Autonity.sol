@@ -839,9 +839,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _removeContractAddresses();
             _applyNewCommissionRates();
 
-            // save history committee.
-            epochCommittees[epochID] = committee;
-
             address[] memory _voters;
             address[] memory _nodeAddresses;
             address[] memory _treasuries;
@@ -853,6 +850,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             lastEpochTime = block.timestamp;
             epochID += 1;
             epochBoundaryMap[epochID] = lastEpochBlock;
+            epochCommittees[epochID] = committee;
             emit NewEpoch(epochID);
         }
 
@@ -952,25 +950,22 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
     * @notice Returns the last epoch block and the committee of a specific height.
     */
+    // TODO(lorenzo) re-review this function after merging epoch-header PR
     function getConsensusViewOfHeight(uint256 _height) external view virtual returns (uint256, CommitteeMember[] memory) {
-        // todo: un-comment this once epoch header PR get merged.
-        //require(_height <= block.number, "cannot get committee for a future height");
+        // we can provide lastEpochBlock and committee information for:
+        // - all past blocks
+        // - the chain tip (block.number)
+        // - the next block we will be mining (block.number+1)
+        require(_height <= block.number+1, "cannot get committee for a future height");
 
-        uint256 boundary = epochBoundaryMap[blockEpochMap[_height]];
-        if (_height == 0) {
-            // TODO(lorenzo) this seems wrong, we return the current committee if _height == 0?
-                // import fix from epoch_header PR
-            // we should return the genesis one
-            return (boundary, committee);
+        if(_height == block.number+1){
+            return(lastEpochBlock, committee);
         }
-        uint256 eID = blockEpochMap[_height];
 
-        // if current epoch haven't been finalized, then return current committee.
-        CommitteeMember[] memory members = epochCommittees[eID];
-        if (members.length == 0) {
-            return (boundary, committee);
-        }
-        // return finalized epoch's committee
+        uint256 epoch = blockEpochMap[_height];
+        uint256 boundary = epochBoundaryMap[epoch];
+        CommitteeMember[] memory members = epochCommittees[epoch];
+
         return (boundary, members);
     }
 
