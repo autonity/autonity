@@ -85,11 +85,10 @@ func (sb *Backend) validateActivityProof(proof types.AggregateSignature, h uint6
 	// during the first delta blocks of the epoch, the proof should be empty. If not, reject proposal
 	if h <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
 		sb.logger.Debug("Validating activity proof in first delta blocks, should be empty", "height", h, "lastEpochBlock", lastEpochBlock)
-		if proof.Signature == nil && proof.Signers == nil {
-			return false, new(big.Int), []common.Address{}, nil
-		} else {
+		if proof.Signature != nil || proof.Signers != nil {
 			return false, new(big.Int), []common.Address{}, ErrNotEmptyActivityProof
 		}
+		return false, new(big.Int), []common.Address{}, nil
 	}
 
 	// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
