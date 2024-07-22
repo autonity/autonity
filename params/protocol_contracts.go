@@ -76,7 +76,7 @@ var (
 	// values assume 10_000 as scaling factor
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
 		InactivityThreshold:    1000, // 10%
-		LookbackWindow:         30,   // 30 blocks
+		LookbackWindow:         30,   // 30 blocks // TODO(jason) resolve the least of it for production network, 20 is okay base on my local test bed without TXN volume applied.
 		PastPerformanceWeight:  1000, // 10% // TODO(lorenzo) this has to be set so that if you do 100% offline in epoch x and 0% offline in epoch y, you still do not get slashed in epoch y
 		InitialJailingPeriod:   300,  // 300 blocks
 		InitialProbationPeriod: 300,  // 300 blocks // TODO(lorenzo) it is easier to express this in epochs
