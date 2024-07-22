@@ -524,8 +524,13 @@ func copyConfig(original *params.ChainConfig) *params.ChainConfig {
 	if err != nil {
 		panic("cannot unmarshal genesis config: " + err.Error())
 	}
-	// TODO(lorenzo) otherwise TestAPIGetContractABI in api_test.go fails. Not the best way to solve.
+	// deep copying through json marshaling kinda messes up the ABIs (we have `{}` instead of `nil` for empty elements)
+	// so let's just copy them from the original, we do not modify them in tests anyways for now
+	// TODO: find a better solution to deep copy also the ABIs.
+	// I suspect it is not straightforward due to how the generated ABIs are computed.
+	// See gen-contract target in Makefile and `TestAPIGetContractABI`
 	genesisCopy.AutonityContractConfig.ABI = original.AutonityContractConfig.ABI
+	genesisCopy.OracleContractConfig.ABI = original.OracleContractConfig.ABI
 	return genesisCopy
 }
 

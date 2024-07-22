@@ -275,7 +275,7 @@ contract OmissionAccountability is IOmissionAccountability {
     function distributeProposerRewards(uint256 _ntnReward) external payable virtual onlyAutonity {
         uint256 atnReward = msg.value;
 
-        // TODO(lorenzo) what if totaleffort is zero
+        // TODO(lorenzo) what if totaleffort is zero, where do we send the money? add explicit check about it to shortcircuit the method
 
         for(uint256 i=0; i < committee.length; i++) {
            if(proposerEffort[committee[i]] > 0){

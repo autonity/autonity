@@ -2,9 +2,10 @@ package tests
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/params"
 	"math/big"
 	"testing"
+
+	"github.com/autonity/autonity/params"
 
 	"github.com/stretchr/testify/require"
 
@@ -572,7 +573,8 @@ func TestStakingRevert(t *testing.T) {
 
 func TestRewardTracking(t *testing.T) {
 	r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
-		config.ProposerRewardRate = 0 //TODO(lorenzo) is this the correct way to fix it? or update computations?
+		//TODO(lorenzo) is this the correct way to fix it? or update computations? Update based on where we decide to send the proposer rewards
+		config.ProposerRewardRate = 0
 		return config
 	})
 	var contractTotalAmount int64 = 1000

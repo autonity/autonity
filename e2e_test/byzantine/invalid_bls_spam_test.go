@@ -51,8 +51,6 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 
 func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 	t.Run("Malicious peer sending an invalid BLS signature should be disconnect for at least 1 epoch", func(t *testing.T) {
-		// TODO(Lorenzo) fix this, the malicious node will get jailed due to omission failure
-		t.Skip("to be fixed")
 		n := 4
 		validators, err := e2e.Validators(t, n, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 		require.NoError(t, err)
@@ -63,7 +61,12 @@ func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 
 		// creates a network of 4 validators and starts all the nodes in it
 		// modify epoch period to ensure that it is > standard p2p suspension period (60 blocks currently)
-		network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) { genesis.Config.AutonityContractConfig.EpochPeriod = 100 })
+		// we also modify the PastPerformanceWeight to be 100%, so that validator inactivity always remain 0.
+		// We do not want omission jailing to interfere in this test.
+		network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.Config.AutonityContractConfig.EpochPeriod = 100
+			genesis.Config.OmissionAccountabilityConfig.PastPerformanceWeight = 10000
+		})
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 
