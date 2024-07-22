@@ -157,12 +157,11 @@ func TestNoQuorumWithNodeKeepsResetting(t *testing.T) {
 // 1. The amount of chain data to be downloaded to get client synced again.
 // 2. The HW ability of the client, computing power, memory, etc...
 // 3. The delays in between ACN and execution peers.
-// Base on my local test bed, 20 blocks at least is okay for the context without any TXNs volume during the test.
+// Base on my local test bed, 20 blocks at least is okay for the context without any TXNs volume been applied during the test.
 func TestNodeHasOneResetWithinEpoch(t *testing.T) {
 	numOfNodes := 5
 	epochPeriod := uint64(300)
-	// set lookBack window to 120 blocks/seconds base on my local e2e test feedback,
-	// otherwise the node still be addressed as faulty.
+	// set lookBack window to 20 blocks in the e2e test context, otherwise the node still be addressed as faulty.
 	lookBackWindow := uint64(20)
 
 	network := createNetwork(t, numOfNodes, epochPeriod, lookBackWindow, true)
