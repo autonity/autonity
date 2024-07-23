@@ -59,6 +59,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.NoError(t, err)
 
 	validators, err := autonityContract.GetValidators(nil)
+	require.NoError(t, err)
 
 	// gengen sets the operator to the address of the first validator
 	require.Equal(t, validators[0], autonityConfig.Protocol.OperatorAccount)
