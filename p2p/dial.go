@@ -25,6 +25,7 @@ import (
 	"fmt"
 	mrand "math/rand"
 	"net"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -35,7 +36,7 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/netutil"
-	"github.com/autonity/autonity/p2p/quic"
+	"github.com/autonity/autonity/p2p/rlpx"
 )
 
 const (
@@ -87,23 +88,39 @@ type quicDialer struct {
 }
 
 func (t quicDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
-	tlsConfig := &tls.Config{InsecureSkipVerify: true}
-	//TODO: check dialing
+	keyLogFile := "./sslkeylogfile_client.log"
+
+	// Open the key log file for writing
+	f, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		log.Error("failed to open key log file:", "error", err)
+	}
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		KeyLogWriter:       f,
+	}
 	addr := dest.IP().String() + ":" + strconv.Itoa(dest.TCP())
 	quicConfig := &quic2.Config{
-		MaxIdleTimeout:                 60 * 1e9,         // 60 seconds
-		InitialStreamReceiveWindow:     10 * 1024 * 1024, // 4 MB
-		MaxStreamReceiveWindow:         80 * 1024 * 1024,
-		InitialConnectionReceiveWindow: 10 * 1024 * 1024, // 4 MB
-		MaxConnectionReceiveWindow:     80 * 1024 * 1024,
-		MaxIncomingStreams:             15,
+		MaxIdleTimeout: 60 * 1e9, // 60 seconds
+		//InitialStreamReceiveWindow:     2 * 1024 * 1024, // 4 MB
+		//MaxStreamReceiveWindow:         20 * 1024 * 1024,
+		//InitialConnectionReceiveWindow: 40 * 1024 * 1024, // 4 MB
+		//MaxConnectionReceiveWindow:     200 * 1024 * 1024,
+		MaxIncomingStreams: 15,
+		KeepAlivePeriod:    30 * 1e9,
+		AllowConnectionWindowIncrease: func(conn quic2.Connection, newSize uint64) bool {
+			// Implement your logic to allow or deny connection window increase
+			// For example, allow any increase:
+			log.Info("Increasing window size - client", "new window", newSize)
+			return true
+		},
 	}
 	session, err := quic2.DialAddr(ctx, addr, tlsConfig, quicConfig)
 	if err != nil {
 		log.Error("quic dialing failed", "err", err, "dial address", addr)
 		return nil, err
 	}
-	return &quic.Conn{Session: session}, nil
+	return rlpx.NewQuicConn(session), nil
 }
 
 func nodeAddr(n *enode.Node) net.Addr {

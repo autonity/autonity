@@ -53,6 +53,13 @@ type rlpxTransport struct {
 }
 
 func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
+	//var tr transport
+	//_, ok := conn.(*quic.Conn)
+	//if ok {
+	//	tr = &rlpxTransport{conn: quic.NewConn(conn, dialDest)}
+	//} else {
+	//	tr = &rlpxTransport{conn: rlpx.NewConn(conn, dialDest)}
+	//}
 	return &rlpxTransport{conn: rlpx.NewConn(conn, dialDest)}
 }
 
@@ -91,6 +98,9 @@ func (t *rlpxTransport) WriteMsg(msg Msg) error {
 
 	// Write the message.
 	t.conn.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
+	//if msg.meterCode == handshakeMsg {
+	//log.Info("writing proto handshake", "len", msg.Size, "data", t.wbuf.Bytes())
+	//}
 	size, err := t.conn.Write(msg.Code, t.wbuf.Bytes())
 	if err != nil {
 		return err
@@ -153,7 +163,7 @@ func (t *rlpxTransport) doProtoHandshake(our *protoHandshake) (their *protoHands
 }
 
 func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
-	fmt.Println("READING PROTO HANDSHAKE")
+	log.Info("READING PROTO HANDSHAKE")
 	msg, err := rw.ReadMsg()
 	if err != nil {
 		log.Error("handshake read", "err", err)
@@ -184,5 +194,6 @@ func readProtocolHandshake(rw MsgReader) (*protoHandshake, error) {
 		log.Error("handshake invalid id", "err", err)
 		return nil, DiscInvalidIdentity
 	}
+	log.Info("reading proto handshake successful", "handshake id", hs.ID)
 	return &hs, nil
 }

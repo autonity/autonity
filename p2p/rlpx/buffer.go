@@ -21,17 +21,17 @@ import (
 	"sync"
 )
 
-// readBuffer implements buffering for network reads. This type is similar to bufio.Reader,
+// ReadBuffer implements buffering for network reads. This type is similar to bufio.Reader,
 // with two crucial differences: the buffer slice is exposed, and the buffer keeps all
 // read data available until reset.
 //
 // How to use this type:
 //
-// Keep a readBuffer b alongside the underlying network connection. When reading a packet
+// Keep a ReadBuffer b alongside the underlying network connection. When reading a packet
 // from the connection, first call b.reset(). This empties b.data. Now perform reads
 // through b.read() until the end of the packet is reached. The complete packet data is
 // now available in b.data.
-type readBuffer struct {
+type ReadBuffer struct {
 	data          []byte
 	end           int
 	done          chan error
@@ -42,7 +42,7 @@ type readBuffer struct {
 
 // reset removes all processed data which was read since the last call to reset.
 // After reset, len(b.data) is zero.
-func (b *readBuffer) reset() {
+func (b *ReadBuffer) Reset() {
 	b.once.Do(func() {
 		b.done = make(chan error, 1)
 		b.dataAvailable = make(chan struct{}, 10000)
@@ -58,7 +58,7 @@ func (b *readBuffer) reset() {
 
 // read reads at least n bytes from r, returning the bytes.
 // The returned slice is valid until the next call to reset.
-func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
+func (b *ReadBuffer) Read(r io.Reader, n int) ([]byte, error) {
 	offset := len(b.data)
 	have := b.end - len(b.data)
 
@@ -70,7 +70,7 @@ func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
 
 	// Make buffer space available.
 	need := n - have
-	b.grow(need)
+	b.grow(need * 2)
 
 	// Read.
 	rn, err := io.ReadAtLeast(r, b.data[b.end:cap(b.data)], need)
@@ -84,7 +84,7 @@ func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
 
 // read reads at least n bytes from r, returning the bytes.
 // The returned slice is valid until the next call to reset.
-func (b *readBuffer) readNew(r io.Reader, n int) ([]byte, error) {
+func (b *ReadBuffer) readNew(r io.Reader, n int) ([]byte, error) {
 
 	readBytes := func() []byte {
 		b.Lock()
@@ -118,7 +118,7 @@ func (b *readBuffer) readNew(r io.Reader, n int) ([]byte, error) {
 }
 
 // grow ensures the buffer has at least n bytes of unused space.
-func (b *readBuffer) grow(n int) {
+func (b *ReadBuffer) grow(n int) {
 	b.Lock()
 	defer b.Unlock()
 	if cap(b.data)-b.end >= n {
@@ -130,37 +130,23 @@ func (b *readBuffer) grow(n int) {
 	b.data = b.data[:offset]
 }
 
-// update adds more data into the input buffer to be read
-func (b *readBuffer) update(buf []byte, n int) {
-	b.grow(n)
-	b.Lock()
-	defer b.Unlock()
-	copied := copy(b.data[b.end:b.end+n], buf[:n])
-	b.end += copied
-	//log.Info("read buffer update", "unread", b.end)
-
-	//now := time.Now()
-	b.dataAvailable <- struct{}{}
-	//log.Info("signal to actual read", "time taken", time.Since(now).Nanoseconds())
-}
-
-// writeBuffer implements buffering for network writes. This is essentially
+// WriteBuffer implements buffering for network writes. This is essentially
 // a convenience wrapper around a byte slice.
-type writeBuffer struct {
+type WriteBuffer struct {
 	data []byte
 }
 
-func (b *writeBuffer) reset() {
+func (b *WriteBuffer) Reset() {
 	b.data = b.data[:0]
 }
 
-func (b *writeBuffer) appendZero(n int) []byte {
+func (b *WriteBuffer) AppendZero(n int) []byte {
 	offset := len(b.data)
 	b.data = append(b.data, make([]byte, n)...)
 	return b.data[offset : offset+n]
 }
 
-func (b *writeBuffer) Write(data []byte) (int, error) {
+func (b *WriteBuffer) Write(data []byte) (int, error) {
 	b.data = append(b.data, data...)
 	return len(data), nil
 }

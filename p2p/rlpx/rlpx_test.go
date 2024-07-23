@@ -163,7 +163,7 @@ func TestFrameReadWrite(t *testing.T) {
 
 	// Check writeFrame. The frame that's written should be equal to the test vector.
 	buf := new(bytes.Buffer)
-	if err := h.writeFrame(buf, msgCode, snappyByte, msgEnc); err != nil {
+	if err := h.WriteFrame(buf, msgCode, snappyByte, msgEnc); err != nil {
 		t.Fatalf("WriteMsg error: %v", err)
 	}
 	if !bytes.Equal(buf.Bytes(), golden) {
@@ -171,7 +171,7 @@ func TestFrameReadWrite(t *testing.T) {
 	}
 
 	// Check readFrame on the test vector.
-	content, snappyByte, err := h.readFrame(bytes.NewReader(golden))
+	content, snappyByte, err := h.ReadFrame(bytes.NewReader(golden))
 	if err != nil {
 		t.Fatalf("ReadMsg error: %v", err)
 	}

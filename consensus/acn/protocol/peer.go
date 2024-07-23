@@ -57,7 +57,7 @@ func (p *Peer) Send(msgcode uint64, data interface{}) error {
 }
 
 func (p *Peer) SendRaw(msgcode uint64, data []byte) error {
-	p.ResetPing()
+	//p.ResetPing()
 	return p2p.SendRaw(p.rw, msgcode, data)
 }
 

@@ -69,8 +69,9 @@ type DisseminatePacket struct {
 
 func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	var chunks []DisseminatePacket
-	maxSize := 50_000
-	if p.IsUDP() && len(data) > maxSize {
+	maxSize := 20_000
+	log.Info("Disseminate Packet")
+	if p.IsUDP() || p.IsQuic() && len(data) > maxSize {
 		snum := 0
 		total := len(data) / maxSize
 		if len(data)%maxSize > 0 {
@@ -110,16 +111,19 @@ func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, orig
 		log.Error("p is nil ??")
 	}
 
+	now := time.Now()
 	for _, chunk := range chunks {
 		packet := chunk
-		fmt.Println("[DISSEMINATE] >>", p.ip, "|", "maxPeers", maxPeers, "originalSender", originalSender, "chunkID", chunk.Seq)
-		go func() {
-			err := p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
-			if err != nil {
-				log.Error("Disseminate Request", "err", err)
-			}
-		}()
+		//go func() {
+		err := p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
+		if err != nil {
+			log.Error("Disseminate Request", "err", err)
+		} else {
+			//log.Info("[DISSEMINATE]", " ip ", p.ip, "maxPeers", maxPeers, "originalSender", originalSender, "chunkID", packet.Seq)
+		}
+		//}()
 	}
+	log.Info("Total time to send", "num chunks", len(chunks), "time taken", time.Since(now).Microseconds())
 
 	return nil
 }
@@ -332,7 +336,7 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	}
 
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "ORIGIN", packet.OriginalSender, "HOP", packet.Hop)
+	//fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "ORIGIN", packet.OriginalSender, "HOP", packet.Hop)
 	// check if first time received.
 	if pktInfo, ok := e.state.ReceivedPackets[packet.RequestId]; ok {
 		// check if the seqNum is already received
@@ -341,6 +345,7 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 		}
 
 		if !packet.Partial || (packet.Partial && pktInfo.SeqNum[packet.Seq] == math.MaxInt) {
+			//log.Info("packet has already arrived", "packet", packet.Seq)
 			// do nothing
 			return nil
 		}
@@ -365,7 +370,7 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 			Time:      now,
 		}) // should we ask for ACK?
 	} else {
-		log.Info("partial packet received", "chunks", pktInfo.SeqNum, "current chunk", packet.Seq)
+		//log.Info("partial packet received", "chunks", pktInfo.SeqNum, "current chunk", packet.Seq)
 	}
 	return nil
 }

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/p2p/rlpx"
 
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/event"
@@ -276,6 +277,11 @@ func (p *Peer) IsUDP() bool {
 	return ok
 }
 
+func (p *Peer) IsQuic() bool {
+	_, ok := p.rw.fd.(*rlpx.QuicConn)
+	return ok
+}
+
 func UpdateSystemSocketOptions(bufferSize int) {
 
 	commands := []string{
@@ -324,6 +330,7 @@ loop:
 			// A write finished. Allow the next write to start if
 			// there was no error.
 			if err != nil {
+				log.Error("write error received")
 				reason = DiscNetworkError
 				break loop
 			}
@@ -335,12 +342,15 @@ loop:
 			} else {
 				reason = DiscNetworkError
 			}
+			log.Error("read error received")
 			break loop
 		case err = <-p.protoErr:
 			reason = discReasonForError(err)
+			log.Error("proto error received")
 			break loop
 		case err = <-p.disc:
 			reason = discReasonForError(err)
+			log.Error("disc error received")
 			break loop
 		}
 	}
@@ -378,7 +388,7 @@ func (p *Peer) readLoop(errc chan<- error) {
 			return
 		}
 		msg.ReceivedAt = time.Now()
-		p.ping.Reset(pingInterval)
+		//p.ping.Reset(pingInterval)
 		if err = p.handle(msg); err != nil {
 			errc <- err
 			return

@@ -23,7 +23,6 @@ import (
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/hmac"
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
@@ -32,7 +31,6 @@ import (
 	"io"
 	mrand "math/rand"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/golang/snappy"
@@ -41,9 +39,14 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/ecies"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/p2p/quic"
 	"github.com/autonity/autonity/rlp"
 )
+
+type session interface {
+	WriteFrame(conn io.Writer, code uint64, snappyByte byte, data []byte) error
+	ReadFrame(conn io.Reader) ([]byte, byte, error)
+	Init(rbuf ReadBuffer, wbuf WriteBuffer)
+}
 
 // Conn is an RLPx network connection. It wraps a low-level network connection. The
 // underlying connection should not be used for other activity when it is wrapped by Conn.
@@ -54,54 +57,12 @@ import (
 type Conn struct {
 	dialDest *ecdsa.PublicKey
 	conn     net.Conn
-	session  *sessionState
+	session  session
 
 	// These are the buffers for snappy compression.
 	// Compression is enabled if they are non-nil.
 	snappyReadBuffer  []byte
 	snappyWriteBuffer []byte
-}
-
-// sessionState contains the session keys.
-type sessionState struct {
-	enc cipher.Stream
-	dec cipher.Stream
-
-	egressMAC  hashMAC
-	ingressMAC hashMAC
-	rbuf       readBuffer
-	wbuf       writeBuffer
-	once       sync.Once
-}
-
-// hashMAC holds the state of the RLPx v4 MAC contraption.
-type hashMAC struct {
-	cipher     cipher.Block
-	hash       hash.Hash
-	aesBuffer  [16]byte
-	hashBuffer [32]byte
-	seedBuffer [32]byte
-}
-
-func newHashMAC(cipher cipher.Block, h hash.Hash) hashMAC {
-	m := hashMAC{cipher: cipher, hash: h}
-	if cipher.BlockSize() != len(m.aesBuffer) {
-		panic(fmt.Errorf("invalid MAC cipher block size %d", cipher.BlockSize()))
-	}
-	if h.Size() != len(m.hashBuffer) {
-		panic(fmt.Errorf("invalid MAC digest size %d", h.Size()))
-	}
-	return m
-}
-
-func isQuicWriter(conn io.Writer) bool {
-	_, ok := conn.(*quic.Conn)
-	return ok
-}
-
-func isQuicReader(conn io.Reader) bool {
-	_, ok := conn.(*quic.Conn)
-	return ok
 }
 
 // NewConn wraps the given network connection. If dialDest is non-nil, the connection
@@ -147,9 +108,7 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 	if c.session == nil {
 		panic("can't ReadMsg before handshake")
 	}
-
-	c.session.once.Do(func() { go c.session.ReadLoop(c.conn) })
-	frame, snappyByte, err := c.session.readFrame(c.conn)
+	frame, snappyByte, err := c.session.ReadFrame(c.conn)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -175,88 +134,6 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 	return code, data, wireSize, err
 }
 
-func (s *sessionState) ReadLoop(conn net.Conn) {
-
-	// trying 65k byte read
-	buf := make([]byte, 1024*1024)
-
-	//lastRead := time.Now()
-	for {
-		//runtime.Gosched()
-		// Read.
-		//log.Info("time between subsequent reads", "duration", time.Since(lastRead).Nanoseconds())
-		rn, err := conn.Read(buf)
-		//lastRead = time.Now()
-		if err != nil {
-			if rn > 0 {
-				s.rbuf.update(buf, rn)
-			}
-			s.rbuf.done <- err
-			break
-		}
-		//log.Info("Read bytes", "num:", rn)
-		s.rbuf.update(buf, rn)
-	}
-}
-
-func (h *sessionState) readFrame(conn io.Reader) ([]byte, byte, error) {
-	h.rbuf.reset()
-
-	zeroByte := byte(0)
-	// Read the frame header.
-	headerSize := 32
-	if isQuicReader(conn) {
-		headerSize = 16
-	}
-	header, err := h.rbuf.read(conn, headerSize)
-	if err != nil {
-		log.Error("read frame error", "err", err)
-		return nil, zeroByte, err
-	}
-
-	if !isQuicReader(conn) {
-		// Verify header MAC.
-		wantHeaderMAC := h.ingressMAC.computeHeader(header[:16])
-		if !hmac.Equal(wantHeaderMAC, header[16:]) {
-			return nil, zeroByte, errors.New("bad header MAC")
-		}
-		// Decrypt the frame header to get the frame size.
-		h.dec.XORKeyStream(header[:16], header[:16])
-	}
-
-	fsize := readUint24(header[:16])
-	// Frame size rounded up to 16 byte boundary for padding.
-	rsize := fsize
-	if padding := fsize % 16; padding > 0 {
-		rsize += 16 - padding
-	}
-	//log.Info("Reading frame of size", "size", fsize, "rsize", rsize)
-	snappyByte := header[3]
-
-	// Read the frame content.
-	frame, err := h.rbuf.read(conn, int(rsize))
-	if err != nil {
-		log.Error("read frame content", "err", err)
-		return nil, snappyByte, err
-	}
-
-	if !isQuicReader(conn) {
-		// Validate frame MAC.
-		frameMAC, err := h.rbuf.read(conn, 16)
-		if err != nil {
-			return nil, snappyByte, err
-		}
-		wantFrameMAC := h.ingressMAC.computeFrame(frame)
-		if !hmac.Equal(wantFrameMAC, frameMAC) {
-			return nil, snappyByte, errors.New("bad frame MAC")
-		}
-
-		// Decrypt the frame data.
-		h.dec.XORKeyStream(frame, frame)
-	}
-	return frame[:fsize], snappyByte, nil
-}
-
 // Write writes a message to the connection.
 //
 // Write returns the written size of the message data. This may be less than or equal to
@@ -279,81 +156,8 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
 	}
 
 	wireSize := uint32(len(data))
-	err := c.session.writeFrame(c.conn, code, snappyByte, data)
+	err := c.session.WriteFrame(c.conn, code, snappyByte, data)
 	return wireSize, err
-}
-
-func (h *sessionState) writeFrame(conn io.Writer, code uint64, snappyByte byte, data []byte) error {
-	h.wbuf.reset()
-
-	// Write header.
-	fsize := rlp.IntSize(code) + len(data)
-	if fsize > maxUint24 {
-		return errPlainMessageTooLarge
-	}
-	header := h.wbuf.appendZero(16)
-	putUint24(uint32(fsize), header)
-	header[3] = snappyByte
-	copy(header[4:], zeroHeader)
-	if !isQuicWriter(conn) {
-
-		h.enc.XORKeyStream(header, header)
-
-		// Write header MAC.
-		h.wbuf.Write(h.egressMAC.computeHeader(header))
-	}
-
-	// Encode and encrypt the frame data.
-	offset := len(h.wbuf.data)
-	h.wbuf.data = rlp.AppendUint64(h.wbuf.data, code)
-	h.wbuf.Write(data)
-	if padding := fsize % 16; padding > 0 {
-		h.wbuf.appendZero(16 - padding)
-	}
-	if !isQuicWriter(conn) {
-		framedata := h.wbuf.data[offset:]
-		h.enc.XORKeyStream(framedata, framedata)
-		// Write frame MAC.
-		h.wbuf.Write(h.egressMAC.computeFrame(framedata))
-	}
-	//now := time.Now()
-	_, err := conn.Write(h.wbuf.data)
-	//log.Info("conn write", "length", len(h.wbuf.data), "time taken", time.Since(now).Nanoseconds())
-	return err
-}
-
-// computeHeader computes the MAC of a frame header.
-func (m *hashMAC) computeHeader(header []byte) []byte {
-	sum1 := m.hash.Sum(m.hashBuffer[:0])
-	return m.compute(sum1, header)
-}
-
-// computeFrame computes the MAC of framedata.
-func (m *hashMAC) computeFrame(framedata []byte) []byte {
-	m.hash.Write(framedata)
-	seed := m.hash.Sum(m.seedBuffer[:0])
-	return m.compute(seed, seed[:16])
-}
-
-// compute computes the MAC of a 16-byte 'seed'.
-//
-// To do this, it encrypts the current value of the hash state, then XORs the ciphertext
-// with seed.conn The obtained value is written back into the hash state and hash output is
-// taken again. The first 16 bytes of the resulting sum are the MAC value.
-//
-// This MAC construction is a horrible, legacy thing.
-func (m *hashMAC) compute(sum1, seed []byte) []byte {
-	if len(seed) != len(m.aesBuffer) {
-		panic("invalid MAC seed")
-	}
-
-	m.cipher.Encrypt(m.aesBuffer[:], sum1)
-	for i := range m.aesBuffer {
-		m.aesBuffer[i] ^= seed[i]
-	}
-	m.hash.Write(m.aesBuffer[:])
-	sum2 := m.hash.Sum(m.hashBuffer[:0])
-	return sum2[:16]
 }
 
 // Handshake performs the handshake. This must be called before any data is written
@@ -373,9 +177,13 @@ func (c *Conn) Handshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
 		log.Error("handshake failed", "error", err)
 		return nil, err
 	}
-	c.InitWithSecrets(sec)
-	c.session.rbuf = h.rbuf
-	c.session.wbuf = h.wbuf
+	_, ok := c.conn.(*QuicConn)
+	if ok {
+		c.session = NewQuicSession()
+	} else {
+		c.InitWithSecrets(sec)
+	}
+	c.session.Init(h.rbuf, h.wbuf)
 	return sec.remote, err
 }
 
@@ -396,6 +204,7 @@ func (c *Conn) InitWithSecrets(sec Secrets) {
 	// we use an all-zeroes IV for AES because the key used
 	// for encryption is ephemeral.
 	iv := make([]byte, encc.BlockSize())
+
 	c.session = &sessionState{
 		enc:        cipher.NewCTR(encc, iv),
 		dec:        cipher.NewCTR(encc, iv),
@@ -446,8 +255,8 @@ type handshakeState struct {
 	randomPrivKey        *ecies.PrivateKey // ecdhe-random
 	remoteRandomPub      *ecies.PublicKey  // ecdhe-random-pubk
 
-	rbuf readBuffer
-	wbuf writeBuffer
+	rbuf ReadBuffer
+	wbuf WriteBuffer
 }
 
 // RLPx v4 handshake auth (defined in EIP-8).
@@ -663,18 +472,18 @@ func (h *handshakeState) makeAuthResp() (msg *authRespV4, err error) {
 
 // readMsg reads an encrypted handshake message, decoding it into msg.
 func (h *handshakeState) readMsg(msg interface{}, prv *ecdsa.PrivateKey, r io.Reader) ([]byte, error) {
-	h.rbuf.reset()
+	h.rbuf.Reset()
 	h.rbuf.grow(512)
 
 	// Read the size prefix.
-	prefix, err := h.rbuf.read(r, 2)
+	prefix, err := h.rbuf.Read(r, 2)
 	if err != nil {
 		return nil, err
 	}
 	size := binary.BigEndian.Uint16(prefix)
 
 	// Read the handshake packet.
-	packet, err := h.rbuf.read(r, int(size))
+	packet, err := h.rbuf.Read(r, int(size))
 	if err != nil {
 		return nil, err
 	}
@@ -694,7 +503,7 @@ func (h *handshakeState) readMsg(msg interface{}, prv *ecdsa.PrivateKey, r io.Re
 
 // sealEIP8 encrypts a handshake message.
 func (h *handshakeState) sealEIP8(msg interface{}) ([]byte, error) {
-	h.wbuf.reset()
+	h.wbuf.Reset()
 
 	// Write the message plaintext.
 	if err := rlp.Encode(&h.wbuf, msg); err != nil {
@@ -702,7 +511,7 @@ func (h *handshakeState) sealEIP8(msg interface{}) ([]byte, error) {
 	}
 	// Pad with random amount of data. the amount needs to be at least 100 bytes to make
 	// the message distinguishable from pre-EIP-8 handshakes.
-	h.wbuf.appendZero(mrand.Intn(100) + 100)
+	h.wbuf.AppendZero(mrand.Intn(100) + 100)
 
 	prefix := make([]byte, 2)
 	binary.BigEndian.PutUint16(prefix, uint16(len(h.wbuf.data)+eciesOverhead))
