@@ -57,7 +57,11 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	autonityConfig, err := autonityContract.Config(nil)
 	require.NoError(t, err)
-	require.Equal(t, params.TestAutonityContractConfig.Operator, autonityConfig.Protocol.OperatorAccount)
+
+	validators, err := autonityContract.GetValidators(nil)
+
+	// gengen sets the operator to the address of the first validator
+	require.Equal(t, validators[0], autonityConfig.Protocol.OperatorAccount)
 	require.Equal(t, params.TestAutonityContractConfig.BlockPeriod, autonityConfig.Protocol.BlockPeriod.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.EpochPeriod, autonityConfig.Protocol.EpochPeriod.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.MaxCommitteeSize, autonityConfig.Protocol.CommitteeSize.Uint64())

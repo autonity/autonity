@@ -64,6 +64,7 @@ func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, ui
 
 	aggregatePrecommit := message.AggregatePrecommits(votes)
 	// TODO(lorenzo) maybe add a check and a warning on whether we successfully included quorum voting power
+	// 			- another option is to leave empty proof if we do not have quorum. If so, have to modify also the VerifyHeader logic
 	return types.NewAggregateSignature(aggregatePrecommit.Signature().(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil
 }
 
@@ -104,6 +105,11 @@ func (sb *Backend) validateActivityProof(proof types.AggregateSignature, h uint6
 
 	signers, proposerEffort, err := sb.verifyActivityProof(activityProof, committee, h-tendermint.DeltaBlocks, r)
 	if err != nil {
+		// if the signature is invalid, reject the proposal
+		if errors.Is(err, ErrInvalidActivityProofSignature) {
+			sb.logger.Info("Rejecting proposal with invalid activity proof signature")
+			return false, new(big.Int), []common.Address{}, err
+		}
 		sb.logger.Info("Faulty activity proof addressed, proposer is omission faulty")
 		return true, proposerEffort, []common.Address{}, nil
 	}
@@ -130,7 +136,6 @@ func (sb *Backend) validateActivityProof(proof types.AggregateSignature, h uint6
 // power is >= quorum. It returns the node addresses of the signers and the voting power that exceeds quorum.
 // Any error in this function will cause the proposer to be faulty for omission accountability.
 func (sb *Backend) verifyActivityProof(proof types.AggregateSignature, committee types.Committee, targetHeight uint64, round uint64) ([]common.Address, *big.Int, error) {
-
 	// The data that was signed over for this block
 	targetHeader := sb.BlockChain().GetHeaderByNumber(targetHeight)
 	headerSeal := message.PrepareCommittedSeal(targetHeader.Hash(), int64(round), targetHeader.Number)

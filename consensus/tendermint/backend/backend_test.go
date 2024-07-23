@@ -495,7 +495,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	genesis, nodeKeys, consensusKeys := getGenesisAndKeys(n)
 
 	memDB := rawdb.NewMemoryDatabase()
-	msgStore := new(tdmcore.MsgStore)
+	msgStore := tdmcore.NewMsgStore()
 	// Use the first key as private key
 	b := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
