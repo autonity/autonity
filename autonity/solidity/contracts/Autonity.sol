@@ -1134,6 +1134,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 if (_atnSelfReward > 0) {
                     // todo: handle failure scenario here although not critical.
                     (bool _sent, bytes memory _returnData) = _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
+                    // let the treasury know that call failed
                     if (_sent == false) {
                         emit CallFailed(_val.treasury, "", _returnData);
                     }
