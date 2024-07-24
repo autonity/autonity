@@ -151,6 +151,12 @@ type InflationControllerParams struct {
 	InflationReserveDecayRate *big.Int
 }
 
+// LatencyStorageLatency is an auto generated low-level Go binding around an user-defined struct.
+type LatencyStorageLatency struct {
+	Receiver common.Address
+	Latency  *big.Int
+}
+
 // NonStakableVestingSchedule is an auto generated low-level Go binding around an user-defined struct.
 type NonStakableVestingSchedule struct {
 	Start                     *big.Int
@@ -18083,6 +18089,335 @@ func (_InflationController *InflationControllerCallerSession) Params() (struct {
 	InflationReserveDecayRate *big.Int
 }, error) {
 	return _InflationController.Contract.Params(&_InflationController.CallOpts)
+}
+
+// LatencyStorageMetaData contains all meta data concerning the LatencyStorage contract.
+var LatencyStorageMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_receiver\",\"type\":\"address\"}],\"name\":\"getLatency\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"_receiver\",\"type\":\"address[]\"}],\"name\":\"getMultipleLatency\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"latency\",\"type\":\"uint256\"}],\"internalType\":\"structLatencyStorage.Latency[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"_receiver\",\"type\":\"address[]\"}],\"name\":\"getMultipleTotalLatency\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"latency\",\"type\":\"uint256\"}],\"internalType\":\"structLatencyStorage.Latency[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_receiver\",\"type\":\"address\"}],\"name\":\"getTotalLatency\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"latency\",\"type\":\"uint256\"}],\"internalType\":\"structLatencyStorage.Latency[]\",\"name\":\"_latency\",\"type\":\"tuple[]\"}],\"name\":\"updateLatency\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"41ed3911": "getLatency(address,address)",
+		"b07ee6e3": "getMultipleLatency(address,address[])",
+		"bb0f5556": "getMultipleTotalLatency(address,address[])",
+		"46e1e762": "getTotalLatency(address,address)",
+		"83a8123e": "updateLatency((address,uint256)[])",
+	},
+	Bin: "0x608060405234801561001057600080fd5b50610799806100206000396000f3fe608060405234801561001057600080fd5b50600436106100575760003560e01c806341ed39111461005c57806346e1e7621461008257806383a8123e14610095578063b07ee6e3146100aa578063bb0f5556146100ca575b600080fd5b61006f61006a36600461047f565b6100dd565b6040519081526020015b60405180910390f35b61006f61009036600461047f565b610108565b6100a86100a3366004610546565b610188565b005b6100bd6100b8366004610608565b610227565b60405161007991906106b3565b6100bd6100d8366004610608565b610368565b6001600160a01b03808316600090815260208181526040808320938516835292905220545b92915050565b6001600160a01b0380831660008181526020818152604080832094861683529381528382205482825284832093835292905291822054811580159061014d5750600081115b156101655761015c8183610721565b92505050610102565b81156101755761015c8280610721565b61017f8180610721565b95945050505050565b3360005b8251811015610222578281815181106101a7576101a7610734565b602002602001015160200151600080846001600160a01b03166001600160a01b0316815260200190815260200160002060008584815181106101eb576101eb610734565b602090810291909101810151516001600160a01b03168252810191909152604001600020558061021a8161074a565b91505061018c565b505050565b60606000825167ffffffffffffffff811115610245576102456104b2565b60405190808252806020026020018201604052801561028a57816020015b60408051808201909152600080825260208201528152602001906001900390816102635790505b50905060005b81518110156103605760405180604001604052808583815181106102b6576102b6610734565b60200260200101516001600160a01b03168152602001600080886001600160a01b03166001600160a01b03168152602001908152602001600020600087858151811061030457610304610734565b60200260200101516001600160a01b03166001600160a01b031681526020019081526020016000205481525082828151811061034257610342610734565b602002602001018190525080806103589061074a565b915050610290565b509392505050565b60606000825167ffffffffffffffff811115610386576103866104b2565b6040519080825280602002602001820160405280156103cb57816020015b60408051808201909152600080825260208201528152602001906001900390816103a45790505b50905060005b81518110156103605760405180604001604052808583815181106103f7576103f7610734565b60200260200101516001600160a01b031681526020016104308787858151811061042357610423610734565b6020026020010151610108565b81525082828151811061044557610445610734565b6020026020010181905250808061045b9061074a565b9150506103d1565b80356001600160a01b038116811461047a57600080fd5b919050565b6000806040838503121561049257600080fd5b61049b83610463565b91506104a960208401610463565b90509250929050565b634e487b7160e01b600052604160045260246000fd5b6040805190810167ffffffffffffffff811182821017156104eb576104eb6104b2565b60405290565b604051601f8201601f1916810167ffffffffffffffff8111828210171561051a5761051a6104b2565b604052919050565b600067ffffffffffffffff82111561053c5761053c6104b2565b5060051b60200190565b6000602080838503121561055957600080fd5b823567ffffffffffffffff81111561057057600080fd5b8301601f8101851361058157600080fd5b803561059461058f82610522565b6104f1565b81815260069190911b820183019083810190878311156105b357600080fd5b928401925b828410156105fd57604084890312156105d15760008081fd5b6105d96104c8565b6105e285610463565b815284860135868201528252604090930192908401906105b8565b979650505050505050565b6000806040838503121561061b57600080fd5b61062483610463565b915060208084013567ffffffffffffffff81111561064157600080fd5b8401601f8101861361065257600080fd5b803561066061058f82610522565b81815260059190911b8201830190838101908883111561067f57600080fd5b928401925b828410156106a45761069584610463565b82529284019290840190610684565b80955050505050509250929050565b602080825282518282018190526000919060409081850190868401855b828110156106fe57815180516001600160a01b031685528601518685015292840192908501906001016106d0565b5091979650505050505050565b634e487b7160e01b600052601160045260246000fd5b808201808211156101025761010261070b565b634e487b7160e01b600052603260045260246000fd5b60006001820161075c5761075c61070b565b506001019056fea2646970667358221220da9fe977cace1dfc4cd0119293b18f9769a8b60f22f9e0d4903506a44286538b64736f6c63430008150033",
+}
+
+// LatencyStorageABI is the input ABI used to generate the binding from.
+// Deprecated: Use LatencyStorageMetaData.ABI instead.
+var LatencyStorageABI = LatencyStorageMetaData.ABI
+
+// Deprecated: Use LatencyStorageMetaData.Sigs instead.
+// LatencyStorageFuncSigs maps the 4-byte function signature to its string representation.
+var LatencyStorageFuncSigs = LatencyStorageMetaData.Sigs
+
+// LatencyStorageBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use LatencyStorageMetaData.Bin instead.
+var LatencyStorageBin = LatencyStorageMetaData.Bin
+
+// DeployLatencyStorage deploys a new Ethereum contract, binding an instance of LatencyStorage to it.
+func DeployLatencyStorage(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *LatencyStorage, error) {
+	parsed, err := LatencyStorageMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(LatencyStorageBin), backend)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &LatencyStorage{LatencyStorageCaller: LatencyStorageCaller{contract: contract}, LatencyStorageTransactor: LatencyStorageTransactor{contract: contract}, LatencyStorageFilterer: LatencyStorageFilterer{contract: contract}}, nil
+}
+
+// LatencyStorage is an auto generated Go binding around an Ethereum contract.
+type LatencyStorage struct {
+	LatencyStorageCaller     // Read-only binding to the contract
+	LatencyStorageTransactor // Write-only binding to the contract
+	LatencyStorageFilterer   // Log filterer for contract events
+}
+
+// LatencyStorageCaller is an auto generated read-only Go binding around an Ethereum contract.
+type LatencyStorageCaller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LatencyStorageTransactor is an auto generated write-only Go binding around an Ethereum contract.
+type LatencyStorageTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LatencyStorageFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type LatencyStorageFilterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// LatencyStorageSession is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type LatencyStorageSession struct {
+	Contract     *LatencyStorage   // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts     // Call options to use throughout this session
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+}
+
+// LatencyStorageCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type LatencyStorageCallerSession struct {
+	Contract *LatencyStorageCaller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts         // Call options to use throughout this session
+}
+
+// LatencyStorageTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type LatencyStorageTransactorSession struct {
+	Contract     *LatencyStorageTransactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts         // Transaction auth options to use throughout this session
+}
+
+// LatencyStorageRaw is an auto generated low-level Go binding around an Ethereum contract.
+type LatencyStorageRaw struct {
+	Contract *LatencyStorage // Generic contract binding to access the raw methods on
+}
+
+// LatencyStorageCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type LatencyStorageCallerRaw struct {
+	Contract *LatencyStorageCaller // Generic read-only contract binding to access the raw methods on
+}
+
+// LatencyStorageTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type LatencyStorageTransactorRaw struct {
+	Contract *LatencyStorageTransactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewLatencyStorage creates a new instance of LatencyStorage, bound to a specific deployed contract.
+func NewLatencyStorage(address common.Address, backend bind.ContractBackend) (*LatencyStorage, error) {
+	contract, err := bindLatencyStorage(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &LatencyStorage{LatencyStorageCaller: LatencyStorageCaller{contract: contract}, LatencyStorageTransactor: LatencyStorageTransactor{contract: contract}, LatencyStorageFilterer: LatencyStorageFilterer{contract: contract}}, nil
+}
+
+// NewLatencyStorageCaller creates a new read-only instance of LatencyStorage, bound to a specific deployed contract.
+func NewLatencyStorageCaller(address common.Address, caller bind.ContractCaller) (*LatencyStorageCaller, error) {
+	contract, err := bindLatencyStorage(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &LatencyStorageCaller{contract: contract}, nil
+}
+
+// NewLatencyStorageTransactor creates a new write-only instance of LatencyStorage, bound to a specific deployed contract.
+func NewLatencyStorageTransactor(address common.Address, transactor bind.ContractTransactor) (*LatencyStorageTransactor, error) {
+	contract, err := bindLatencyStorage(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &LatencyStorageTransactor{contract: contract}, nil
+}
+
+// NewLatencyStorageFilterer creates a new log filterer instance of LatencyStorage, bound to a specific deployed contract.
+func NewLatencyStorageFilterer(address common.Address, filterer bind.ContractFilterer) (*LatencyStorageFilterer, error) {
+	contract, err := bindLatencyStorage(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &LatencyStorageFilterer{contract: contract}, nil
+}
+
+// bindLatencyStorage binds a generic wrapper to an already deployed contract.
+func bindLatencyStorage(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(LatencyStorageABI))
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_LatencyStorage *LatencyStorageRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _LatencyStorage.Contract.LatencyStorageCaller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_LatencyStorage *LatencyStorageRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LatencyStorage.Contract.LatencyStorageTransactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_LatencyStorage *LatencyStorageRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LatencyStorage.Contract.LatencyStorageTransactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_LatencyStorage *LatencyStorageCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _LatencyStorage.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_LatencyStorage *LatencyStorageTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _LatencyStorage.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_LatencyStorage *LatencyStorageTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _LatencyStorage.Contract.contract.Transact(opts, method, params...)
+}
+
+// GetLatency is a free data retrieval call binding the contract method 0x41ed3911.
+//
+// Solidity: function getLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorageCaller) GetLatency(opts *bind.CallOpts, _sender common.Address, _receiver common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _LatencyStorage.contract.Call(opts, &out, "getLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetLatency is a free data retrieval call binding the contract method 0x41ed3911.
+//
+// Solidity: function getLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorageSession) GetLatency(_sender common.Address, _receiver common.Address) (*big.Int, error) {
+	return _LatencyStorage.Contract.GetLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// GetLatency is a free data retrieval call binding the contract method 0x41ed3911.
+//
+// Solidity: function getLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorageCallerSession) GetLatency(_sender common.Address, _receiver common.Address) (*big.Int, error) {
+	return _LatencyStorage.Contract.GetLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// GetMultipleLatency is a free data retrieval call binding the contract method 0xb07ee6e3.
+//
+// Solidity: function getMultipleLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorageCaller) GetMultipleLatency(opts *bind.CallOpts, _sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, error) {
+	var out []interface{}
+	err := _LatencyStorage.contract.Call(opts, &out, "getMultipleLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new([]LatencyStorageLatency), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]LatencyStorageLatency)).(*[]LatencyStorageLatency)
+
+	return out0, err
+
+}
+
+// GetMultipleLatency is a free data retrieval call binding the contract method 0xb07ee6e3.
+//
+// Solidity: function getMultipleLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorageSession) GetMultipleLatency(_sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, error) {
+	return _LatencyStorage.Contract.GetMultipleLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// GetMultipleLatency is a free data retrieval call binding the contract method 0xb07ee6e3.
+//
+// Solidity: function getMultipleLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorageCallerSession) GetMultipleLatency(_sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, error) {
+	return _LatencyStorage.Contract.GetMultipleLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// GetMultipleTotalLatency is a free data retrieval call binding the contract method 0xbb0f5556.
+//
+// Solidity: function getMultipleTotalLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorageCaller) GetMultipleTotalLatency(opts *bind.CallOpts, _sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, error) {
+	var out []interface{}
+	err := _LatencyStorage.contract.Call(opts, &out, "getMultipleTotalLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new([]LatencyStorageLatency), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]LatencyStorageLatency)).(*[]LatencyStorageLatency)
+
+	return out0, err
+
+}
+
+// GetMultipleTotalLatency is a free data retrieval call binding the contract method 0xbb0f5556.
+//
+// Solidity: function getMultipleTotalLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorageSession) GetMultipleTotalLatency(_sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, error) {
+	return _LatencyStorage.Contract.GetMultipleTotalLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// GetMultipleTotalLatency is a free data retrieval call binding the contract method 0xbb0f5556.
+//
+// Solidity: function getMultipleTotalLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorageCallerSession) GetMultipleTotalLatency(_sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, error) {
+	return _LatencyStorage.Contract.GetMultipleTotalLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// GetTotalLatency is a free data retrieval call binding the contract method 0x46e1e762.
+//
+// Solidity: function getTotalLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorageCaller) GetTotalLatency(opts *bind.CallOpts, _sender common.Address, _receiver common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _LatencyStorage.contract.Call(opts, &out, "getTotalLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetTotalLatency is a free data retrieval call binding the contract method 0x46e1e762.
+//
+// Solidity: function getTotalLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorageSession) GetTotalLatency(_sender common.Address, _receiver common.Address) (*big.Int, error) {
+	return _LatencyStorage.Contract.GetTotalLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// GetTotalLatency is a free data retrieval call binding the contract method 0x46e1e762.
+//
+// Solidity: function getTotalLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorageCallerSession) GetTotalLatency(_sender common.Address, _receiver common.Address) (*big.Int, error) {
+	return _LatencyStorage.Contract.GetTotalLatency(&_LatencyStorage.CallOpts, _sender, _receiver)
+}
+
+// UpdateLatency is a paid mutator transaction binding the contract method 0x83a8123e.
+//
+// Solidity: function updateLatency((address,uint256)[] _latency) returns()
+func (_LatencyStorage *LatencyStorageTransactor) UpdateLatency(opts *bind.TransactOpts, _latency []LatencyStorageLatency) (*types.Transaction, error) {
+	return _LatencyStorage.contract.Transact(opts, "updateLatency", _latency)
+}
+
+// UpdateLatency is a paid mutator transaction binding the contract method 0x83a8123e.
+//
+// Solidity: function updateLatency((address,uint256)[] _latency) returns()
+func (_LatencyStorage *LatencyStorageSession) UpdateLatency(_latency []LatencyStorageLatency) (*types.Transaction, error) {
+	return _LatencyStorage.Contract.UpdateLatency(&_LatencyStorage.TransactOpts, _latency)
+}
+
+// UpdateLatency is a paid mutator transaction binding the contract method 0x83a8123e.
+//
+// Solidity: function updateLatency((address,uint256)[] _latency) returns()
+func (_LatencyStorage *LatencyStorageTransactorSession) UpdateLatency(_latency []LatencyStorageLatency) (*types.Transaction, error) {
+	return _LatencyStorage.Contract.UpdateLatency(&_LatencyStorage.TransactOpts, _latency)
 }
 
 // LiquidMetaData contains all meta data concerning the Liquid contract.

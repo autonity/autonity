@@ -60,6 +60,9 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployNonStakableVestingContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
 	}
+	if err := DeployLatencyStorageContract(evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the latency storage contract: %w", err)
+	}
 	return nil
 }
 
@@ -369,6 +372,15 @@ func DeployOracleContract(genesisConfig *params.ChainConfig, evmContracts *Genes
 	}
 
 	log.Info("Deployed Oracle Contract", "address", params.OracleContractAddress)
+	return nil
+}
+
+func DeployLatencyStorageContract(evmContracts *GenesisEVMContracts) error {
+	if err := evmContracts.DeployLatencyStorageContract(generated.LatencyStorageBytecode); err != nil {
+		log.Error("DeployLatencyStorageContract failed", "err", err)
+		return fmt.Errorf("failed to deploy latency storage contract: %w", err)
+	}
+	log.Info("Deployed Latency Storage contract", "address", params.LatencyStorageContractAddress)
 	return nil
 }
 

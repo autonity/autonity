@@ -93,6 +93,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,AccountabilityTest)
 	@$(call gen-contract,,UpgradeManager)
 	@$(call gen-contract,,InflationController)
+	@$(call gen-contract,,LatencyStorage)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)

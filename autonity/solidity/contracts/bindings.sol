@@ -7,16 +7,17 @@ pragma solidity ^0.8.3;
 // so in order to have separate Go bindings file for each, we would need to manually provide a list of exclusion (abigen doesn't
 // let you name a contract you want to generate, only a list of excluded types).
 
-import "./Autonity.sol";
-import "./Accountability.sol";
-import "./Liquid.sol";
-import "./Oracle.sol";
 import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";
 import "./asm/SupplyControl.sol";
-import "./AutonityUpgradeTest.sol";
-import "./Tests.sol";
-import "./UpgradeManager.sol";
-import "./InflationController.sol";
 import "./vesting/NonStakableVesting.sol";
 import "./vesting/StakableVesting.sol";
+import "./Accountability.sol";
+import "./Autonity.sol";
+import "./AutonityUpgradeTest.sol";
+import "./InflationController.sol";
+import "./LatencyStorage.sol";
+import "./Liquid.sol";
+import "./Oracle.sol";
+import "./Tests.sol";
+import "./UpgradeManager.sol";

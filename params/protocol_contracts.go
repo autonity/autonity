@@ -91,6 +91,7 @@ var (
 	InflationControllerContractAddress = crypto.CreateAddress(DeployerAddress, 7)
 	StakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 8)
 	NonStakableVestingContractAddress  = crypto.CreateAddress(DeployerAddress, 9)
+	LatencyStorageContractAddress      = crypto.CreateAddress(DeployerAddress, 10)
 )
 
 type AutonityContractGenesis struct {

@@ -479,6 +479,10 @@ type InflationControllerContract struct {
 	EVMContract
 }
 
+type LatencyStorageContract struct {
+	EVMContract
+}
+
 type StakableVestingContract struct {
 	EVMContract
 }
@@ -580,16 +584,17 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 }
 
 type GenesisEVMContracts struct {
-	AutonityContract
 	AccountabilityContract
-	OracleContract
+	AutonityContract
 	ACUContract
-	SupplyControlContract
-	StabilizationContract
-	UpgradeManagerContract
 	InflationControllerContract
-	StakableVestingContract
+	LatencyStorageContract
 	NonStakableVestingContract
+	OracleContract
+	StabilizationContract
+	StakableVestingContract
+	SupplyControlContract
+	UpgradeManagerContract
 
 	statedb vm.StateDB
 }
@@ -695,4 +700,8 @@ func (c *GenesisEVMContracts) CreateNonStakableSchedule(schedule params.NonStaka
 
 func (c *GenesisEVMContracts) NewNonStakableContract(contract params.NonStakableVestingData) error {
 	return c.NonStakableVestingContract.NewContract(nil, c.statedb, contract)
+}
+
+func (c *GenesisEVMContracts) DeployLatencyStorageContract(bytecode []byte) error {
+	return c.LatencyStorageContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode)
 }

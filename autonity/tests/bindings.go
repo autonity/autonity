@@ -151,6 +151,12 @@ type InflationControllerParams struct {
 	InflationReserveDecayRate *big.Int
 }
 
+// LatencyStorageLatency is an auto generated low-level Go binding around an user-defined struct.
+type LatencyStorageLatency struct {
+	Receiver common.Address
+	Latency  *big.Int
+}
+
 // NonStakableVestingSchedule is an auto generated low-level Go binding around an user-defined struct.
 type NonStakableVestingSchedule struct {
 	Start                     *big.Int
@@ -310,6 +316,60 @@ func (_ACU *ACU) Value(opts *runOptions) (*big.Int, uint64, error) {
 	}
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// ModifyBasket is a free data retrieval call for a paid mutator transaction binding the contract method 0x44b4708a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function modifyBasket(string[] symbols_, uint256[] quantities_, uint256 scale_) returns()
+func (_ACU *ACU) CallModifyBasket(r *runner, opts *runOptions, symbols_ []string, quantities_ []*big.Int, scale_ *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _ACU.call(opts, "modifyBasket", symbols_, quantities_, scale_)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address operator) returns()
+func (_ACU *ACU) CallSetOperator(r *runner, opts *runOptions, operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _ACU.call(opts, "setOperator", operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOracle is a free data retrieval call for a paid mutator transaction binding the contract method 0x7adbf973.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOracle(address oracle) returns()
+func (_ACU *ACU) CallSetOracle(r *runner, opts *runOptions, oracle common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _ACU.call(opts, "setOracle", oracle)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Update is a free data retrieval call for a paid mutator transaction binding the contract method 0xa2e62045.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function update() returns(bool status)
+func (_ACU *ACU) CallUpdate(r *runner, opts *runOptions) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _ACU.call(opts, "update")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 	return out0, consumed, err
 
 }
@@ -893,6 +953,54 @@ func (_Accountability *Accountability) SlashingHistory(opts *runOptions, arg0 co
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	return out0, consumed, err
+
+}
+
+// DistributeRewards is a free data retrieval call for a paid mutator transaction binding the contract method 0xa8031a1d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function distributeRewards(address _validator, uint256 _ntnReward) payable returns()
+func (_Accountability *Accountability) CallDistributeRewards(r *runner, opts *runOptions, _validator common.Address, _ntnReward *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Accountability.call(opts, "distributeRewards", _validator, _ntnReward)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Finalize is a free data retrieval call for a paid mutator transaction binding the contract method 0x6c9789b0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalize(bool _epochEnd) returns()
+func (_Accountability *Accountability) CallFinalize(r *runner, opts *runOptions, _epochEnd bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Accountability.call(opts, "finalize", _epochEnd)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// HandleEvent is a free data retrieval call for a paid mutator transaction binding the contract method 0xc50d21f0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function handleEvent((uint8,uint8,uint8,uint8,address,address,bytes,uint256,uint256,uint256,uint256,uint256) _event) returns()
+func (_Accountability *Accountability) CallHandleEvent(r *runner, opts *runOptions, _event AccountabilityEvent) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Accountability.call(opts, "handleEvent", _event)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetEpochPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x6b5f444c.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setEpochPeriod(uint256 _newPeriod) returns()
+func (_Accountability *Accountability) CallSetEpochPeriod(r *runner, opts *runOptions, _newPeriod *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Accountability.call(opts, "setEpochPeriod", _newPeriod)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -2271,6 +2379,529 @@ func (_Autonity *Autonity) TotalSupply(opts *runOptions) (*big.Int, uint64, erro
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	return out0, consumed, err
+
+}
+
+// ActivateValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb46e5520.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function activateValidator(address _address) returns()
+func (_Autonity *Autonity) CallActivateValidator(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "activateValidator", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Approve is a free data retrieval call for a paid mutator transaction binding the contract method 0x095ea7b3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_Autonity *Autonity) CallApprove(r *runner, opts *runOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Autonity.call(opts, "approve", spender, amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Bond is a free data retrieval call for a paid mutator transaction binding the contract method 0xa515366a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function bond(address _validator, uint256 _amount) payable returns(uint256)
+func (_Autonity *Autonity) CallBond(r *runner, opts *runOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Autonity.call(opts, "bond", _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Burn is a free data retrieval call for a paid mutator transaction binding the contract method 0x9dc29fac.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function burn(address _addr, uint256 _amount) returns()
+func (_Autonity *Autonity) CallBurn(r *runner, opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "burn", _addr, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ChangeCommissionRate is a free data retrieval call for a paid mutator transaction binding the contract method 0x852c4849.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function changeCommissionRate(address _validator, uint256 _rate) returns()
+func (_Autonity *Autonity) CallChangeCommissionRate(r *runner, opts *runOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "changeCommissionRate", _validator, _rate)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// CompleteContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0x872cf059.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function completeContractUpgrade() returns()
+func (_Autonity *Autonity) CallCompleteContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "completeContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ComputeCommittee is a free data retrieval call for a paid mutator transaction binding the contract method 0xae1f5fa0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function computeCommittee() returns(address[])
+func (_Autonity *Autonity) CallComputeCommittee(r *runner, opts *runOptions) ([]common.Address, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Autonity.call(opts, "computeCommittee")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new([]common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	return out0, consumed, err
+
+}
+
+// Finalize is a free data retrieval call for a paid mutator transaction binding the contract method 0x4bb278f3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalize() returns(bool, (address,uint256,bytes)[])
+func (_Autonity *Autonity) CallFinalize(r *runner, opts *runOptions) (bool, []AutonityCommitteeMember, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Autonity.call(opts, "finalize")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), *new([]AutonityCommitteeMember), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out1 := *abi.ConvertType(out[1], new([]AutonityCommitteeMember)).(*[]AutonityCommitteeMember)
+	return out0, out1, consumed, err
+
+}
+
+// FinalizeInitialization is a free data retrieval call for a paid mutator transaction binding the contract method 0xd861b0e8.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalizeInitialization() returns()
+func (_Autonity *Autonity) CallFinalizeInitialization(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "finalizeInitialization")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Mint is a free data retrieval call for a paid mutator transaction binding the contract method 0x40c10f19.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function mint(address _addr, uint256 _amount) returns()
+func (_Autonity *Autonity) CallMint(r *runner, opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "mint", _addr, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// PauseValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0x0ae65e7a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function pauseValidator(address _address) returns()
+func (_Autonity *Autonity) CallPauseValidator(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "pauseValidator", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReceiveATN is a free data retrieval call for a paid mutator transaction binding the contract method 0x161605e3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function receiveATN() payable returns()
+func (_Autonity *Autonity) CallReceiveATN(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "receiveATN")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// RegisterValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0x84467fdb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function registerValidator(string _enode, address _oracleAddress, bytes _consensusKey, bytes _signatures) returns()
+func (_Autonity *Autonity) CallRegisterValidator(r *runner, opts *runOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "registerValidator", _enode, _oracleAddress, _consensusKey, _signatures)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ResetContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0xcf9c5719.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function resetContractUpgrade() returns()
+func (_Autonity *Autonity) CallResetContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "resetContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetAccountabilityContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x1250a28d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setAccountabilityContract(address _address) returns()
+func (_Autonity *Autonity) CallSetAccountabilityContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setAccountabilityContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetAcuContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xd372c07e.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setAcuContract(address _address) returns()
+func (_Autonity *Autonity) CallSetAcuContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setAcuContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetCommitteeSize is a free data retrieval call for a paid mutator transaction binding the contract method 0x8bac7dad.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setCommitteeSize(uint256 _size) returns()
+func (_Autonity *Autonity) CallSetCommitteeSize(r *runner, opts *runOptions, _size *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setCommitteeSize", _size)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetEpochPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x6b5f444c.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setEpochPeriod(uint256 _period) returns()
+func (_Autonity *Autonity) CallSetEpochPeriod(r *runner, opts *runOptions, _period *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setEpochPeriod", _period)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetInflationControllerContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xf03b959d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setInflationControllerContract(address _address) returns()
+func (_Autonity *Autonity) CallSetInflationControllerContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setInflationControllerContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxBondAppliedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x0fe50109.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxBondAppliedGas(uint256 _gas) returns()
+func (_Autonity *Autonity) CallSetMaxBondAppliedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setMaxBondAppliedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxRewardsDistributionGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x7e660ac9.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxRewardsDistributionGas(uint256 _gas) returns()
+func (_Autonity *Autonity) CallSetMaxRewardsDistributionGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setMaxRewardsDistributionGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxUnbondAppliedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x0b21fb1d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxUnbondAppliedGas(uint256 _gas) returns()
+func (_Autonity *Autonity) CallSetMaxUnbondAppliedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setMaxUnbondAppliedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxUnbondReleasedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0xee7ff28d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxUnbondReleasedGas(uint256 _gas) returns()
+func (_Autonity *Autonity) CallSetMaxUnbondReleasedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setMaxUnbondReleasedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMinimumBaseFee is a free data retrieval call for a paid mutator transaction binding the contract method 0xcb696f54.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMinimumBaseFee(uint256 _price) returns()
+func (_Autonity *Autonity) CallSetMinimumBaseFee(r *runner, opts *runOptions, _price *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setMinimumBaseFee", _price)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetNonStakableVestingContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x1a0cf2e5.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setNonStakableVestingContract(address _address) returns()
+func (_Autonity *Autonity) CallSetNonStakableVestingContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setNonStakableVestingContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOperatorAccount is a free data retrieval call for a paid mutator transaction binding the contract method 0x520fdbbc.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperatorAccount(address _account) returns()
+func (_Autonity *Autonity) CallSetOperatorAccount(r *runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setOperatorAccount", _account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOracleContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x496ccd9b.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOracleContract(address _address) returns()
+func (_Autonity *Autonity) CallSetOracleContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setOracleContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStabilizationContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xcfd19fb9.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setStabilizationContract(address _address) returns()
+func (_Autonity *Autonity) CallSetStabilizationContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setStabilizationContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStakingGasPrice is a free data retrieval call for a paid mutator transaction binding the contract method 0x6a929cef.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setStakingGasPrice(uint256 _price) returns()
+func (_Autonity *Autonity) CallSetStakingGasPrice(r *runner, opts *runOptions, _price *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setStakingGasPrice", _price)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetSupplyControlContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ecbadd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setSupplyControlContract(address _address) returns()
+func (_Autonity *Autonity) CallSetSupplyControlContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setSupplyControlContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTreasuryAccount is a free data retrieval call for a paid mutator transaction binding the contract method 0xd886f8a2.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setTreasuryAccount(address _account) returns()
+func (_Autonity *Autonity) CallSetTreasuryAccount(r *runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setTreasuryAccount", _account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTreasuryFee is a free data retrieval call for a paid mutator transaction binding the contract method 0x77e741c7.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setTreasuryFee(uint256 _treasuryFee) returns()
+func (_Autonity *Autonity) CallSetTreasuryFee(r *runner, opts *runOptions, _treasuryFee *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setTreasuryFee", _treasuryFee)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetUnbondingPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x114eaf55.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setUnbondingPeriod(uint256 _period) returns()
+func (_Autonity *Autonity) CallSetUnbondingPeriod(r *runner, opts *runOptions, _period *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setUnbondingPeriod", _period)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetUpgradeManagerContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xceaad455.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setUpgradeManagerContract(address _address) returns()
+func (_Autonity *Autonity) CallSetUpgradeManagerContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "setUpgradeManagerContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Transfer is a free data retrieval call for a paid mutator transaction binding the contract method 0xa9059cbb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transfer(address _recipient, uint256 _amount) returns(bool)
+func (_Autonity *Autonity) CallTransfer(r *runner, opts *runOptions, _recipient common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Autonity.call(opts, "transfer", _recipient, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// TransferFrom is a free data retrieval call for a paid mutator transaction binding the contract method 0x23b872dd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transferFrom(address _sender, address _recipient, uint256 _amount) returns(bool)
+func (_Autonity *Autonity) CallTransferFrom(r *runner, opts *runOptions, _sender common.Address, _recipient common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Autonity.call(opts, "transferFrom", _sender, _recipient, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Unbond is a free data retrieval call for a paid mutator transaction binding the contract method 0xa5d059ca.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unbond(address _validator, uint256 _amount) payable returns(uint256)
+func (_Autonity *Autonity) CallUnbond(r *runner, opts *runOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Autonity.call(opts, "unbond", _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UpdateEnode is a free data retrieval call for a paid mutator transaction binding the contract method 0x784304b5.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function updateEnode(address _nodeAddress, string _enode) returns()
+func (_Autonity *Autonity) CallUpdateEnode(r *runner, opts *runOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "updateEnode", _nodeAddress, _enode)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpdateValidatorAndTransferSlashedFunds is a free data retrieval call for a paid mutator transaction binding the contract method 0x35be16e0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8) _val) returns()
+func (_Autonity *Autonity) CallUpdateValidatorAndTransferSlashedFunds(r *runner, opts *runOptions, _val AutonityValidator) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "updateValidatorAndTransferSlashedFunds", _val)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpgradeContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xb2ea9adb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function upgradeContract(bytes _bytecode, string _abi) returns()
+func (_Autonity *Autonity) CallUpgradeContract(r *runner, opts *runOptions, _bytecode []byte, _abi string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Autonity.call(opts, "upgradeContract", _bytecode, _abi)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -6354,6 +6985,529 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) TotalSupply(opts *runOptions) (
 
 }
 
+// ActivateValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb46e5520.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function activateValidator(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallActivateValidator(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "activateValidator", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Approve is a free data retrieval call for a paid mutator transaction binding the contract method 0x095ea7b3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallApprove(r *runner, opts *runOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "approve", spender, amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Bond is a free data retrieval call for a paid mutator transaction binding the contract method 0xa515366a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function bond(address _validator, uint256 _amount) payable returns(uint256)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallBond(r *runner, opts *runOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "bond", _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Burn is a free data retrieval call for a paid mutator transaction binding the contract method 0x9dc29fac.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function burn(address _addr, uint256 _amount) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallBurn(r *runner, opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "burn", _addr, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ChangeCommissionRate is a free data retrieval call for a paid mutator transaction binding the contract method 0x852c4849.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function changeCommissionRate(address _validator, uint256 _rate) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallChangeCommissionRate(r *runner, opts *runOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "changeCommissionRate", _validator, _rate)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// CompleteContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0x872cf059.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function completeContractUpgrade() returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallCompleteContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "completeContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ComputeCommittee is a free data retrieval call for a paid mutator transaction binding the contract method 0xae1f5fa0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function computeCommittee() returns(address[])
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallComputeCommittee(r *runner, opts *runOptions) ([]common.Address, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "computeCommittee")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new([]common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	return out0, consumed, err
+
+}
+
+// Finalize is a free data retrieval call for a paid mutator transaction binding the contract method 0x4bb278f3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalize() returns(bool, (address,uint256,bytes)[])
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallFinalize(r *runner, opts *runOptions) (bool, []AutonityCommitteeMember, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "finalize")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), *new([]AutonityCommitteeMember), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out1 := *abi.ConvertType(out[1], new([]AutonityCommitteeMember)).(*[]AutonityCommitteeMember)
+	return out0, out1, consumed, err
+
+}
+
+// FinalizeInitialization is a free data retrieval call for a paid mutator transaction binding the contract method 0xd861b0e8.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalizeInitialization() returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallFinalizeInitialization(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "finalizeInitialization")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Mint is a free data retrieval call for a paid mutator transaction binding the contract method 0x40c10f19.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function mint(address _addr, uint256 _amount) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallMint(r *runner, opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "mint", _addr, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// PauseValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0x0ae65e7a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function pauseValidator(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallPauseValidator(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "pauseValidator", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReceiveATN is a free data retrieval call for a paid mutator transaction binding the contract method 0x161605e3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function receiveATN() payable returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallReceiveATN(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "receiveATN")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// RegisterValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0x84467fdb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function registerValidator(string _enode, address _oracleAddress, bytes _consensusKey, bytes _signatures) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallRegisterValidator(r *runner, opts *runOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "registerValidator", _enode, _oracleAddress, _consensusKey, _signatures)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ResetContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0xcf9c5719.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function resetContractUpgrade() returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallResetContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "resetContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetAccountabilityContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x1250a28d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setAccountabilityContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetAccountabilityContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setAccountabilityContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetAcuContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xd372c07e.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setAcuContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetAcuContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setAcuContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetCommitteeSize is a free data retrieval call for a paid mutator transaction binding the contract method 0x8bac7dad.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setCommitteeSize(uint256 _size) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetCommitteeSize(r *runner, opts *runOptions, _size *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setCommitteeSize", _size)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetEpochPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x6b5f444c.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setEpochPeriod(uint256 _period) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetEpochPeriod(r *runner, opts *runOptions, _period *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setEpochPeriod", _period)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetInflationControllerContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xf03b959d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setInflationControllerContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetInflationControllerContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setInflationControllerContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxBondAppliedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x0fe50109.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxBondAppliedGas(uint256 _gas) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetMaxBondAppliedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setMaxBondAppliedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxRewardsDistributionGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x7e660ac9.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxRewardsDistributionGas(uint256 _gas) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetMaxRewardsDistributionGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setMaxRewardsDistributionGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxUnbondAppliedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x0b21fb1d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxUnbondAppliedGas(uint256 _gas) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetMaxUnbondAppliedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setMaxUnbondAppliedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxUnbondReleasedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0xee7ff28d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxUnbondReleasedGas(uint256 _gas) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetMaxUnbondReleasedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setMaxUnbondReleasedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMinimumBaseFee is a free data retrieval call for a paid mutator transaction binding the contract method 0xcb696f54.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMinimumBaseFee(uint256 _price) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetMinimumBaseFee(r *runner, opts *runOptions, _price *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setMinimumBaseFee", _price)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetNonStakableVestingContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x1a0cf2e5.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setNonStakableVestingContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetNonStakableVestingContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setNonStakableVestingContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOperatorAccount is a free data retrieval call for a paid mutator transaction binding the contract method 0x520fdbbc.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperatorAccount(address _account) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetOperatorAccount(r *runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setOperatorAccount", _account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOracleContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x496ccd9b.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOracleContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetOracleContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setOracleContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStabilizationContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xcfd19fb9.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setStabilizationContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetStabilizationContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setStabilizationContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStakingGasPrice is a free data retrieval call for a paid mutator transaction binding the contract method 0x6a929cef.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setStakingGasPrice(uint256 _price) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetStakingGasPrice(r *runner, opts *runOptions, _price *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setStakingGasPrice", _price)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetSupplyControlContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ecbadd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setSupplyControlContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetSupplyControlContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setSupplyControlContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTreasuryAccount is a free data retrieval call for a paid mutator transaction binding the contract method 0xd886f8a2.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setTreasuryAccount(address _account) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetTreasuryAccount(r *runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setTreasuryAccount", _account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTreasuryFee is a free data retrieval call for a paid mutator transaction binding the contract method 0x77e741c7.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setTreasuryFee(uint256 _treasuryFee) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetTreasuryFee(r *runner, opts *runOptions, _treasuryFee *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setTreasuryFee", _treasuryFee)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetUnbondingPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x114eaf55.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setUnbondingPeriod(uint256 _period) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetUnbondingPeriod(r *runner, opts *runOptions, _period *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setUnbondingPeriod", _period)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetUpgradeManagerContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xceaad455.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setUpgradeManagerContract(address _address) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetUpgradeManagerContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "setUpgradeManagerContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Transfer is a free data retrieval call for a paid mutator transaction binding the contract method 0xa9059cbb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transfer(address _recipient, uint256 _amount) returns(bool)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallTransfer(r *runner, opts *runOptions, _recipient common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "transfer", _recipient, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// TransferFrom is a free data retrieval call for a paid mutator transaction binding the contract method 0x23b872dd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transferFrom(address _sender, address _recipient, uint256 _amount) returns(bool)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallTransferFrom(r *runner, opts *runOptions, _sender common.Address, _recipient common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "transferFrom", _sender, _recipient, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Unbond is a free data retrieval call for a paid mutator transaction binding the contract method 0xa5d059ca.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unbond(address _validator, uint256 _amount) payable returns(uint256)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallUnbond(r *runner, opts *runOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityUpgradeTest.call(opts, "unbond", _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UpdateEnode is a free data retrieval call for a paid mutator transaction binding the contract method 0x784304b5.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function updateEnode(address _nodeAddress, string _enode) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallUpdateEnode(r *runner, opts *runOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "updateEnode", _nodeAddress, _enode)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpdateValidatorAndTransferSlashedFunds is a free data retrieval call for a paid mutator transaction binding the contract method 0x35be16e0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8) _val) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallUpdateValidatorAndTransferSlashedFunds(r *runner, opts *runOptions, _val AutonityValidator) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "updateValidatorAndTransferSlashedFunds", _val)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpgradeContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xb2ea9adb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function upgradeContract(bytes _bytecode, string _abi) returns()
+func (_AutonityUpgradeTest *AutonityUpgradeTest) CallUpgradeContract(r *runner, opts *runOptions, _bytecode []byte, _abi string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityUpgradeTest.call(opts, "upgradeContract", _bytecode, _abi)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
 // ActivateValidator is a paid mutator transaction binding the contract method 0xb46e5520.
 //
 // Solidity: function activateValidator(address _address) returns()
@@ -9894,6 +11048,48 @@ type IACU struct {
 	*contract
 }
 
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address operator) returns()
+func (_IACU *IACU) CallSetOperator(r *runner, opts *runOptions, operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IACU.call(opts, "setOperator", operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOracle is a free data retrieval call for a paid mutator transaction binding the contract method 0x7adbf973.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOracle(address oracle) returns()
+func (_IACU *IACU) CallSetOracle(r *runner, opts *runOptions, oracle common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IACU.call(opts, "setOracle", oracle)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Update is a free data retrieval call for a paid mutator transaction binding the contract method 0xa2e62045.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function update() returns(bool status)
+func (_IACU *IACU) CallUpdate(r *runner, opts *runOptions) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _IACU.call(opts, "update")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address operator) returns()
@@ -9943,6 +11139,42 @@ var IAccountabilityFuncSigs = IAccountabilityMetaData.Sigs
 // IAccountability is an auto generated Go binding around an Ethereum contract.
 type IAccountability struct {
 	*contract
+}
+
+// DistributeRewards is a free data retrieval call for a paid mutator transaction binding the contract method 0xa8031a1d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function distributeRewards(address _validator, uint256 _ntnReward) payable returns()
+func (_IAccountability *IAccountability) CallDistributeRewards(r *runner, opts *runOptions, _validator common.Address, _ntnReward *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IAccountability.call(opts, "distributeRewards", _validator, _ntnReward)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Finalize is a free data retrieval call for a paid mutator transaction binding the contract method 0x6c9789b0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalize(bool _epochEnd) returns()
+func (_IAccountability *IAccountability) CallFinalize(r *runner, opts *runOptions, _epochEnd bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IAccountability.call(opts, "finalize", _epochEnd)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetEpochPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x6b5f444c.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setEpochPeriod(uint256 _newPeriod) returns()
+func (_IAccountability *IAccountability) CallSetEpochPeriod(r *runner, opts *runOptions, _newPeriod *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IAccountability.call(opts, "setEpochPeriod", _newPeriod)
+	r.revertSnapshot(snap)
+	return consumed, err
+
 }
 
 // DistributeRewards is a paid mutator transaction binding the contract method 0xa8031a1d.
@@ -10689,6 +11921,60 @@ func (_IERC20 *IERC20) TotalSupply(opts *runOptions) (*big.Int, uint64, error) {
 
 }
 
+// Approve is a free data retrieval call for a paid mutator transaction binding the contract method 0x095ea7b3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_IERC20 *IERC20) CallApprove(r *runner, opts *runOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _IERC20.call(opts, "approve", spender, amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Transfer is a free data retrieval call for a paid mutator transaction binding the contract method 0xa9059cbb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transfer(address recipient, uint256 amount) returns(bool)
+func (_IERC20 *IERC20) CallTransfer(r *runner, opts *runOptions, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _IERC20.call(opts, "transfer", recipient, amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// TransferFrom is a free data retrieval call for a paid mutator transaction binding the contract method 0x23b872dd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transferFrom(address sender, address recipient, uint256 amount) returns(bool)
+func (_IERC20 *IERC20) CallTransferFrom(r *runner, opts *runOptions, sender common.Address, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _IERC20.call(opts, "transferFrom", sender, recipient, amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
 // Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
 //
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
@@ -11086,6 +12372,32 @@ type INonStakableVestingVault struct {
 	*contract
 }
 
+// UnlockTokens is a free data retrieval call for a paid mutator transaction binding the contract method 0xf968f493.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unlockTokens() returns(uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed)
+func (_INonStakableVestingVault *INonStakableVestingVault) CallUnlockTokens(r *runner, opts *runOptions) (struct {
+	NewUnlockedSubscribed   *big.Int
+	NewUnlockedUnsubscribed *big.Int
+}, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _INonStakableVestingVault.call(opts, "unlockTokens")
+	r.revertSnapshot(snap)
+
+	outstruct := new(struct {
+		NewUnlockedSubscribed   *big.Int
+		NewUnlockedUnsubscribed *big.Int
+	})
+	if err != nil {
+		return *outstruct, consumed, err
+	}
+
+	outstruct.NewUnlockedSubscribed = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.NewUnlockedUnsubscribed = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	return *outstruct, consumed, err
+
+}
+
 // UnlockTokens is a paid mutator transaction binding the contract method 0xf968f493.
 //
 // Solidity: function unlockTokens() returns(uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed)
@@ -11232,6 +12544,72 @@ func (_IOracle *IOracle) LatestRoundData(opts *runOptions, _symbol string) (IOra
 
 	out0 := *abi.ConvertType(out[0], new(IOracleRoundData)).(*IOracleRoundData)
 	return out0, consumed, err
+
+}
+
+// Finalize is a free data retrieval call for a paid mutator transaction binding the contract method 0x4bb278f3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalize() returns(bool)
+func (_IOracle *IOracle) CallFinalize(r *runner, opts *runOptions) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _IOracle.call(opts, "finalize")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address _operator) returns()
+func (_IOracle *IOracle) CallSetOperator(r *runner, opts *runOptions, _operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IOracle.call(opts, "setOperator", _operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetSymbols is a free data retrieval call for a paid mutator transaction binding the contract method 0x8d4f75d2.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setSymbols(string[] _symbols) returns()
+func (_IOracle *IOracle) CallSetSymbols(r *runner, opts *runOptions, _symbols []string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IOracle.call(opts, "setSymbols", _symbols)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetVoters is a free data retrieval call for a paid mutator transaction binding the contract method 0x845023f2.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setVoters(address[] _newVoters) returns()
+func (_IOracle *IOracle) CallSetVoters(r *runner, opts *runOptions, _newVoters []common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IOracle.call(opts, "setVoters", _newVoters)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Vote is a free data retrieval call for a paid mutator transaction binding the contract method 0x307de9b6.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function vote(uint256 _commit, int256[] _reports, uint256 _salt) returns()
+func (_IOracle *IOracle) CallVote(r *runner, opts *runOptions, _commit *big.Int, _reports []*big.Int, _salt *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IOracle.call(opts, "vote", _commit, _reports, _salt)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -11730,6 +13108,30 @@ type IStabilization struct {
 	*contract
 }
 
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address operator) returns()
+func (_IStabilization *IStabilization) CallSetOperator(r *runner, opts *runOptions, operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IStabilization.call(opts, "setOperator", operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOracle is a free data retrieval call for a paid mutator transaction binding the contract method 0x7adbf973.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOracle(address oracle) returns()
+func (_IStabilization *IStabilization) CallSetOracle(r *runner, opts *runOptions, oracle common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IStabilization.call(opts, "setOracle", oracle)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address operator) returns()
@@ -11773,6 +13175,66 @@ var IStakeProxyFuncSigs = IStakeProxyMetaData.Sigs
 // IStakeProxy is an auto generated Go binding around an Ethereum contract.
 type IStakeProxy struct {
 	*contract
+}
+
+// BondingApplied is a free data retrieval call for a paid mutator transaction binding the contract method 0x9dfd1b8e.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function bondingApplied(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) returns()
+func (_IStakeProxy *IStakeProxy) CallBondingApplied(r *runner, opts *runOptions, _bondingID *big.Int, _validator common.Address, _liquid *big.Int, _selfDelegation bool, _rejected bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IStakeProxy.call(opts, "bondingApplied", _bondingID, _validator, _liquid, _selfDelegation, _rejected)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReceiveATN is a free data retrieval call for a paid mutator transaction binding the contract method 0x161605e3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function receiveATN() payable returns()
+func (_IStakeProxy *IStakeProxy) CallReceiveATN(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IStakeProxy.call(opts, "receiveATN")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// RewardsDistributed is a free data retrieval call for a paid mutator transaction binding the contract method 0xd18736ab.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function rewardsDistributed(address[] _validators) returns()
+func (_IStakeProxy *IStakeProxy) CallRewardsDistributed(r *runner, opts *runOptions, _validators []common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IStakeProxy.call(opts, "rewardsDistributed", _validators)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UnbondingApplied is a free data retrieval call for a paid mutator transaction binding the contract method 0xa8920241.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unbondingApplied(uint256 _unbondingID, address _validator, bool _rejected) returns()
+func (_IStakeProxy *IStakeProxy) CallUnbondingApplied(r *runner, opts *runOptions, _unbondingID *big.Int, _validator common.Address, _rejected bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IStakeProxy.call(opts, "unbondingApplied", _unbondingID, _validator, _rejected)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UnbondingReleased is a free data retrieval call for a paid mutator transaction binding the contract method 0x3c54c290.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unbondingReleased(uint256 _unbondingID, uint256 _amount, bool _rejected) returns()
+func (_IStakeProxy *IStakeProxy) CallUnbondingReleased(r *runner, opts *runOptions, _unbondingID *big.Int, _amount *big.Int, _rejected bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _IStakeProxy.call(opts, "unbondingReleased", _unbondingID, _amount, _rejected)
+	r.revertSnapshot(snap)
+	return consumed, err
+
 }
 
 // BondingApplied is a paid mutator transaction binding the contract method 0x9dfd1b8e.
@@ -11888,6 +13350,54 @@ func (_ISupplyControl *ISupplyControl) TotalSupply(opts *runOptions) (*big.Int, 
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	return out0, consumed, err
+
+}
+
+// Burn is a free data retrieval call for a paid mutator transaction binding the contract method 0x44df8e70.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function burn() payable returns()
+func (_ISupplyControl *ISupplyControl) CallBurn(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _ISupplyControl.call(opts, "burn")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Mint is a free data retrieval call for a paid mutator transaction binding the contract method 0x40c10f19.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function mint(address recipient, uint256 amount) returns()
+func (_ISupplyControl *ISupplyControl) CallMint(r *runner, opts *runOptions, recipient common.Address, amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _ISupplyControl.call(opts, "mint", recipient, amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address operator) returns()
+func (_ISupplyControl *ISupplyControl) CallSetOperator(r *runner, opts *runOptions, operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _ISupplyControl.call(opts, "setOperator", operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStabilizer is a free data retrieval call for a paid mutator transaction binding the contract method 0xdb7f521a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setStabilizer(address stabilizer_) returns()
+func (_ISupplyControl *ISupplyControl) CallSetStabilizer(r *runner, opts *runOptions, stabilizer_ common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _ISupplyControl.call(opts, "setStabilizer", stabilizer_)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -12297,6 +13807,137 @@ func (_InflationController *InflationController) Params(opts *runOptions) (struc
 
  */
 
+// LatencyStorageMetaData contains all meta data concerning the LatencyStorage contract.
+var LatencyStorageMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_receiver\",\"type\":\"address\"}],\"name\":\"getLatency\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"_receiver\",\"type\":\"address[]\"}],\"name\":\"getMultipleLatency\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"latency\",\"type\":\"uint256\"}],\"internalType\":\"structLatencyStorage.Latency[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"_receiver\",\"type\":\"address[]\"}],\"name\":\"getMultipleTotalLatency\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"latency\",\"type\":\"uint256\"}],\"internalType\":\"structLatencyStorage.Latency[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_receiver\",\"type\":\"address\"}],\"name\":\"getTotalLatency\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"latency\",\"type\":\"uint256\"}],\"internalType\":\"structLatencyStorage.Latency[]\",\"name\":\"_latency\",\"type\":\"tuple[]\"}],\"name\":\"updateLatency\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"41ed3911": "getLatency(address,address)",
+		"b07ee6e3": "getMultipleLatency(address,address[])",
+		"bb0f5556": "getMultipleTotalLatency(address,address[])",
+		"46e1e762": "getTotalLatency(address,address)",
+		"83a8123e": "updateLatency((address,uint256)[])",
+	},
+	Bin: "0x608060405234801561001057600080fd5b50610799806100206000396000f3fe608060405234801561001057600080fd5b50600436106100575760003560e01c806341ed39111461005c57806346e1e7621461008257806383a8123e14610095578063b07ee6e3146100aa578063bb0f5556146100ca575b600080fd5b61006f61006a36600461047f565b6100dd565b6040519081526020015b60405180910390f35b61006f61009036600461047f565b610108565b6100a86100a3366004610546565b610188565b005b6100bd6100b8366004610608565b610227565b60405161007991906106b3565b6100bd6100d8366004610608565b610368565b6001600160a01b03808316600090815260208181526040808320938516835292905220545b92915050565b6001600160a01b0380831660008181526020818152604080832094861683529381528382205482825284832093835292905291822054811580159061014d5750600081115b156101655761015c8183610721565b92505050610102565b81156101755761015c8280610721565b61017f8180610721565b95945050505050565b3360005b8251811015610222578281815181106101a7576101a7610734565b602002602001015160200151600080846001600160a01b03166001600160a01b0316815260200190815260200160002060008584815181106101eb576101eb610734565b602090810291909101810151516001600160a01b03168252810191909152604001600020558061021a8161074a565b91505061018c565b505050565b60606000825167ffffffffffffffff811115610245576102456104b2565b60405190808252806020026020018201604052801561028a57816020015b60408051808201909152600080825260208201528152602001906001900390816102635790505b50905060005b81518110156103605760405180604001604052808583815181106102b6576102b6610734565b60200260200101516001600160a01b03168152602001600080886001600160a01b03166001600160a01b03168152602001908152602001600020600087858151811061030457610304610734565b60200260200101516001600160a01b03166001600160a01b031681526020019081526020016000205481525082828151811061034257610342610734565b602002602001018190525080806103589061074a565b915050610290565b509392505050565b60606000825167ffffffffffffffff811115610386576103866104b2565b6040519080825280602002602001820160405280156103cb57816020015b60408051808201909152600080825260208201528152602001906001900390816103a45790505b50905060005b81518110156103605760405180604001604052808583815181106103f7576103f7610734565b60200260200101516001600160a01b031681526020016104308787858151811061042357610423610734565b6020026020010151610108565b81525082828151811061044557610445610734565b6020026020010181905250808061045b9061074a565b9150506103d1565b80356001600160a01b038116811461047a57600080fd5b919050565b6000806040838503121561049257600080fd5b61049b83610463565b91506104a960208401610463565b90509250929050565b634e487b7160e01b600052604160045260246000fd5b6040805190810167ffffffffffffffff811182821017156104eb576104eb6104b2565b60405290565b604051601f8201601f1916810167ffffffffffffffff8111828210171561051a5761051a6104b2565b604052919050565b600067ffffffffffffffff82111561053c5761053c6104b2565b5060051b60200190565b6000602080838503121561055957600080fd5b823567ffffffffffffffff81111561057057600080fd5b8301601f8101851361058157600080fd5b803561059461058f82610522565b6104f1565b81815260069190911b820183019083810190878311156105b357600080fd5b928401925b828410156105fd57604084890312156105d15760008081fd5b6105d96104c8565b6105e285610463565b815284860135868201528252604090930192908401906105b8565b979650505050505050565b6000806040838503121561061b57600080fd5b61062483610463565b915060208084013567ffffffffffffffff81111561064157600080fd5b8401601f8101861361065257600080fd5b803561066061058f82610522565b81815260059190911b8201830190838101908883111561067f57600080fd5b928401925b828410156106a45761069584610463565b82529284019290840190610684565b80955050505050509250929050565b602080825282518282018190526000919060409081850190868401855b828110156106fe57815180516001600160a01b031685528601518685015292840192908501906001016106d0565b5091979650505050505050565b634e487b7160e01b600052601160045260246000fd5b808201808211156101025761010261070b565b634e487b7160e01b600052603260045260246000fd5b60006001820161075c5761075c61070b565b506001019056fea2646970667358221220da9fe977cace1dfc4cd0119293b18f9769a8b60f22f9e0d4903506a44286538b64736f6c63430008150033",
+}
+
+// LatencyStorageABI is the input ABI used to generate the binding from.
+// Deprecated: Use LatencyStorageMetaData.ABI instead.
+var LatencyStorageABI = LatencyStorageMetaData.ABI
+
+// Deprecated: Use LatencyStorageMetaData.Sigs instead.
+// LatencyStorageFuncSigs maps the 4-byte function signature to its string representation.
+var LatencyStorageFuncSigs = LatencyStorageMetaData.Sigs
+
+// LatencyStorageBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use LatencyStorageMetaData.Bin instead.
+var LatencyStorageBin = LatencyStorageMetaData.Bin
+
+// DeployLatencyStorage deploys a new Ethereum contract, binding an instance of LatencyStorage to it.
+func (r *runner) deployLatencyStorage(opts *runOptions) (common.Address, uint64, *LatencyStorage, error) {
+	parsed, err := LatencyStorageMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
+	}
+
+	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(LatencyStorageBin))
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	return address, gasConsumed, &LatencyStorage{contract: c}, nil
+}
+
+// LatencyStorage is an auto generated Go binding around an Ethereum contract.
+type LatencyStorage struct {
+	*contract
+}
+
+// GetLatency is a free data retrieval call binding the contract method 0x41ed3911.
+//
+// Solidity: function getLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorage) GetLatency(opts *runOptions, _sender common.Address, _receiver common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _LatencyStorage.call(opts, "getLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetMultipleLatency is a free data retrieval call binding the contract method 0xb07ee6e3.
+//
+// Solidity: function getMultipleLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorage) GetMultipleLatency(opts *runOptions, _sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, uint64, error) {
+	out, consumed, err := _LatencyStorage.call(opts, "getMultipleLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new([]LatencyStorageLatency), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]LatencyStorageLatency)).(*[]LatencyStorageLatency)
+	return out0, consumed, err
+
+}
+
+// GetMultipleTotalLatency is a free data retrieval call binding the contract method 0xbb0f5556.
+//
+// Solidity: function getMultipleTotalLatency(address _sender, address[] _receiver) view returns((address,uint256)[])
+func (_LatencyStorage *LatencyStorage) GetMultipleTotalLatency(opts *runOptions, _sender common.Address, _receiver []common.Address) ([]LatencyStorageLatency, uint64, error) {
+	out, consumed, err := _LatencyStorage.call(opts, "getMultipleTotalLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new([]LatencyStorageLatency), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]LatencyStorageLatency)).(*[]LatencyStorageLatency)
+	return out0, consumed, err
+
+}
+
+// GetTotalLatency is a free data retrieval call binding the contract method 0x46e1e762.
+//
+// Solidity: function getTotalLatency(address _sender, address _receiver) view returns(uint256)
+func (_LatencyStorage *LatencyStorage) GetTotalLatency(opts *runOptions, _sender common.Address, _receiver common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _LatencyStorage.call(opts, "getTotalLatency", _sender, _receiver)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UpdateLatency is a free data retrieval call for a paid mutator transaction binding the contract method 0x83a8123e.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function updateLatency((address,uint256)[] _latency) returns()
+func (_LatencyStorage *LatencyStorage) CallUpdateLatency(r *runner, opts *runOptions, _latency []LatencyStorageLatency) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _LatencyStorage.call(opts, "updateLatency", _latency)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpdateLatency is a paid mutator transaction binding the contract method 0x83a8123e.
+//
+// Solidity: function updateLatency((address,uint256)[] _latency) returns()
+func (_LatencyStorage *LatencyStorage) UpdateLatency(opts *runOptions, _latency []LatencyStorageLatency) (uint64, error) {
+	_, consumed, err := _LatencyStorage.call(opts, "updateLatency", _latency)
+	return consumed, err
+}
+
+/* EVENTS ARE NOT YET SUPPORTED
+
+ */
+
 // LiquidMetaData contains all meta data concerning the Liquid contract.
 var LiquidMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"addresspayable\",\"name\":\"_treasury\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_index\",\"type\":\"string\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"COMMISSION_RATE_PRECISION\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"FEE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"commissionRate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"lock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"lockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"name\":\"redistribute\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rate\",\"type\":\"uint256\"}],\"name\":\"setCommissionRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"_success\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"_success\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"treasury\",\"outputs\":[{\"internalType\":\"addresspayable\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_unclaimedATN\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_unclaimedNTN\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"unlockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"validator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
@@ -12578,6 +14219,151 @@ func (_Liquid *Liquid) Validator(opts *runOptions) (common.Address, uint64, erro
 
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 	return out0, consumed, err
+
+}
+
+// Approve is a free data retrieval call for a paid mutator transaction binding the contract method 0x095ea7b3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function approve(address _spender, uint256 _amount) returns(bool)
+func (_Liquid *Liquid) CallApprove(r *runner, opts *runOptions, _spender common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Liquid.call(opts, "approve", _spender, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Burn is a free data retrieval call for a paid mutator transaction binding the contract method 0x9dc29fac.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function burn(address _account, uint256 _amount) returns()
+func (_Liquid *Liquid) CallBurn(r *runner, opts *runOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Liquid.call(opts, "burn", _account, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ClaimRewards is a free data retrieval call for a paid mutator transaction binding the contract method 0x372500ab.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function claimRewards() returns()
+func (_Liquid *Liquid) CallClaimRewards(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Liquid.call(opts, "claimRewards")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Lock is a free data retrieval call for a paid mutator transaction binding the contract method 0x282d3fdf.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function lock(address _account, uint256 _amount) returns()
+func (_Liquid *Liquid) CallLock(r *runner, opts *runOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Liquid.call(opts, "lock", _account, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Mint is a free data retrieval call for a paid mutator transaction binding the contract method 0x40c10f19.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function mint(address _account, uint256 _amount) returns()
+func (_Liquid *Liquid) CallMint(r *runner, opts *runOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Liquid.call(opts, "mint", _account, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Redistribute is a free data retrieval call for a paid mutator transaction binding the contract method 0xa0ce552d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function redistribute(uint256 _ntnReward) payable returns(uint256, uint256)
+func (_Liquid *Liquid) CallRedistribute(r *runner, opts *runOptions, _ntnReward *big.Int) (*big.Int, *big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Liquid.call(opts, "redistribute", _ntnReward)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	out1 := *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	return out0, out1, consumed, err
+
+}
+
+// SetCommissionRate is a free data retrieval call for a paid mutator transaction binding the contract method 0x19fac8fd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setCommissionRate(uint256 _rate) returns()
+func (_Liquid *Liquid) CallSetCommissionRate(r *runner, opts *runOptions, _rate *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Liquid.call(opts, "setCommissionRate", _rate)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Transfer is a free data retrieval call for a paid mutator transaction binding the contract method 0xa9059cbb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transfer(address _to, uint256 _amount) returns(bool _success)
+func (_Liquid *Liquid) CallTransfer(r *runner, opts *runOptions, _to common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Liquid.call(opts, "transfer", _to, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// TransferFrom is a free data retrieval call for a paid mutator transaction binding the contract method 0x23b872dd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function transferFrom(address _sender, address _recipient, uint256 _amount) returns(bool _success)
+func (_Liquid *Liquid) CallTransferFrom(r *runner, opts *runOptions, _sender common.Address, _recipient common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Liquid.call(opts, "transferFrom", _sender, _recipient, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Unlock is a free data retrieval call for a paid mutator transaction binding the contract method 0x7eee288d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unlock(address _account, uint256 _amount) returns()
+func (_Liquid *Liquid) CallUnlock(r *runner, opts *runOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Liquid.call(opts, "unlock", _account, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -13213,6 +14999,116 @@ func (_NonStakableVesting *NonStakableVesting) UnlockedFunds(opts *runOptions, _
 
 }
 
+// ChangeContractBeneficiary is a free data retrieval call for a paid mutator transaction binding the contract method 0xa9f45b62.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function changeContractBeneficiary(address _beneficiary, uint256 _id, address _recipient) returns()
+func (_NonStakableVesting *NonStakableVesting) CallChangeContractBeneficiary(r *runner, opts *runOptions, _beneficiary common.Address, _id *big.Int, _recipient common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _NonStakableVesting.call(opts, "changeContractBeneficiary", _beneficiary, _id, _recipient)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// CreateSchedule is a free data retrieval call for a paid mutator transaction binding the contract method 0x0b5d0e42.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function createSchedule(uint256 _amount, uint256 _startTime, uint256 _cliffDuration, uint256 _totalDuration) returns()
+func (_NonStakableVesting *NonStakableVesting) CallCreateSchedule(r *runner, opts *runOptions, _amount *big.Int, _startTime *big.Int, _cliffDuration *big.Int, _totalDuration *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _NonStakableVesting.call(opts, "createSchedule", _amount, _startTime, _cliffDuration, _totalDuration)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// NewContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x7b8d4744.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function newContract(address _beneficiary, uint256 _amount, uint256 _scheduleID) returns()
+func (_NonStakableVesting *NonStakableVesting) CallNewContract(r *runner, opts *runOptions, _beneficiary common.Address, _amount *big.Int, _scheduleID *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _NonStakableVesting.call(opts, "newContract", _beneficiary, _amount, _scheduleID)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReleaseAllFunds is a free data retrieval call for a paid mutator transaction binding the contract method 0x0a30959d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function releaseAllFunds(uint256 _id) returns()
+func (_NonStakableVesting *NonStakableVesting) CallReleaseAllFunds(r *runner, opts *runOptions, _id *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _NonStakableVesting.call(opts, "releaseAllFunds", _id)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReleaseFund is a free data retrieval call for a paid mutator transaction binding the contract method 0x07ae499f.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function releaseFund(uint256 _id, uint256 _amount) returns()
+func (_NonStakableVesting *NonStakableVesting) CallReleaseFund(r *runner, opts *runOptions, _id *big.Int, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _NonStakableVesting.call(opts, "releaseFund", _id, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxAllowedDuration is a free data retrieval call for a paid mutator transaction binding the contract method 0x4e974657.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMaxAllowedDuration(uint256 _newMaxDuration) returns()
+func (_NonStakableVesting *NonStakableVesting) CallSetMaxAllowedDuration(r *runner, opts *runOptions, _newMaxDuration *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _NonStakableVesting.call(opts, "setMaxAllowedDuration", _newMaxDuration)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTotalNominal is a free data retrieval call for a paid mutator transaction binding the contract method 0x995e21a4.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setTotalNominal(uint256 _totalNominal) returns()
+func (_NonStakableVesting *NonStakableVesting) CallSetTotalNominal(r *runner, opts *runOptions, _totalNominal *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _NonStakableVesting.call(opts, "setTotalNominal", _totalNominal)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UnlockTokens is a free data retrieval call for a paid mutator transaction binding the contract method 0xf968f493.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unlockTokens() returns(uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed)
+func (_NonStakableVesting *NonStakableVesting) CallUnlockTokens(r *runner, opts *runOptions) (struct {
+	NewUnlockedSubscribed   *big.Int
+	NewUnlockedUnsubscribed *big.Int
+}, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _NonStakableVesting.call(opts, "unlockTokens")
+	r.revertSnapshot(snap)
+
+	outstruct := new(struct {
+		NewUnlockedSubscribed   *big.Int
+		NewUnlockedUnsubscribed *big.Int
+	})
+	if err != nil {
+		return *outstruct, consumed, err
+	}
+
+	outstruct.NewUnlockedSubscribed = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.NewUnlockedUnsubscribed = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	return *outstruct, consumed, err
+
+}
+
 // ChangeContractBeneficiary is a paid mutator transaction binding the contract method 0xa9f45b62.
 //
 // Solidity: function changeContractBeneficiary(address _beneficiary, uint256 _id, address _recipient) returns()
@@ -13592,6 +15488,72 @@ func (_Oracle *Oracle) VotingInfo(opts *runOptions, arg0 common.Address) (struct
 	outstruct.Commit = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 	outstruct.IsVoter = *abi.ConvertType(out[2], new(bool)).(*bool)
 	return *outstruct, consumed, err
+
+}
+
+// Finalize is a free data retrieval call for a paid mutator transaction binding the contract method 0x4bb278f3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function finalize() returns(bool)
+func (_Oracle *Oracle) CallFinalize(r *runner, opts *runOptions) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _Oracle.call(opts, "finalize")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address _operator) returns()
+func (_Oracle *Oracle) CallSetOperator(r *runner, opts *runOptions, _operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Oracle.call(opts, "setOperator", _operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetSymbols is a free data retrieval call for a paid mutator transaction binding the contract method 0x8d4f75d2.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setSymbols(string[] _symbols) returns()
+func (_Oracle *Oracle) CallSetSymbols(r *runner, opts *runOptions, _symbols []string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Oracle.call(opts, "setSymbols", _symbols)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetVoters is a free data retrieval call for a paid mutator transaction binding the contract method 0x845023f2.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setVoters(address[] _newVoters) returns()
+func (_Oracle *Oracle) CallSetVoters(r *runner, opts *runOptions, _newVoters []common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Oracle.call(opts, "setVoters", _newVoters)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Vote is a free data retrieval call for a paid mutator transaction binding the contract method 0x307de9b6.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function vote(uint256 _commit, int256[] _reports, uint256 _salt) returns()
+func (_Oracle *Oracle) CallVote(r *runner, opts *runOptions, _commit *big.Int, _reports []*big.Int, _salt *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Oracle.call(opts, "vote", _commit, _reports, _salt)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -14581,6 +16543,138 @@ func (_Stabilization *Stabilization) UnderCollateralized(opts *runOptions, colla
 
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 	return out0, consumed, err
+
+}
+
+// Borrow is a free data retrieval call for a paid mutator transaction binding the contract method 0xc5ebeaec.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function borrow(uint256 amount) returns()
+func (_Stabilization *Stabilization) CallBorrow(r *runner, opts *runOptions, amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "borrow", amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Deposit is a free data retrieval call for a paid mutator transaction binding the contract method 0xb6b55f25.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function deposit(uint256 amount) returns()
+func (_Stabilization *Stabilization) CallDeposit(r *runner, opts *runOptions, amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "deposit", amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Liquidate is a free data retrieval call for a paid mutator transaction binding the contract method 0x2f865568.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function liquidate(address account) payable returns()
+func (_Stabilization *Stabilization) CallLiquidate(r *runner, opts *runOptions, account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "liquidate", account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Repay is a free data retrieval call for a paid mutator transaction binding the contract method 0x402d8883.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function repay() payable returns()
+func (_Stabilization *Stabilization) CallRepay(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "repay")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetLiquidationRatio is a free data retrieval call for a paid mutator transaction binding the contract method 0x946ce8cd.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setLiquidationRatio(uint256 ratio) returns()
+func (_Stabilization *Stabilization) CallSetLiquidationRatio(r *runner, opts *runOptions, ratio *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "setLiquidationRatio", ratio)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMinCollateralizationRatio is a free data retrieval call for a paid mutator transaction binding the contract method 0x7b44646a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMinCollateralizationRatio(uint256 ratio) returns()
+func (_Stabilization *Stabilization) CallSetMinCollateralizationRatio(r *runner, opts *runOptions, ratio *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "setMinCollateralizationRatio", ratio)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMinDebtRequirement is a free data retrieval call for a paid mutator transaction binding the contract method 0x53afe81d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setMinDebtRequirement(uint256 amount) returns()
+func (_Stabilization *Stabilization) CallSetMinDebtRequirement(r *runner, opts *runOptions, amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "setMinDebtRequirement", amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address operator) returns()
+func (_Stabilization *Stabilization) CallSetOperator(r *runner, opts *runOptions, operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "setOperator", operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOracle is a free data retrieval call for a paid mutator transaction binding the contract method 0x7adbf973.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOracle(address oracle) returns()
+func (_Stabilization *Stabilization) CallSetOracle(r *runner, opts *runOptions, oracle common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "setOracle", oracle)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetSupplyControl is a free data retrieval call for a paid mutator transaction binding the contract method 0x52e5a050.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setSupplyControl(address supplyControl) returns()
+func (_Stabilization *Stabilization) CallSetSupplyControl(r *runner, opts *runOptions, supplyControl common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "setSupplyControl", supplyControl)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Withdraw is a free data retrieval call for a paid mutator transaction binding the contract method 0x2e1a7d4d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function withdraw(uint256 amount) returns()
+func (_Stabilization *Stabilization) CallWithdraw(r *runner, opts *runOptions, amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Stabilization.call(opts, "withdraw", amount)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -15776,6 +17870,270 @@ func (_StakableVesting *StakableVesting) UnlockedLiquidBalanceOf(opts *runOption
 
 }
 
+// Bond is a free data retrieval call for a paid mutator transaction binding the contract method 0xc0d3895e.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function bond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+func (_StakableVesting *StakableVesting) CallBond(r *runner, opts *runOptions, _id *big.Int, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _StakableVesting.call(opts, "bond", _id, _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// BondingApplied is a free data retrieval call for a paid mutator transaction binding the contract method 0x9dfd1b8e.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function bondingApplied(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) returns()
+func (_StakableVesting *StakableVesting) CallBondingApplied(r *runner, opts *runOptions, _bondingID *big.Int, _validator common.Address, _liquid *big.Int, _selfDelegation bool, _rejected bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "bondingApplied", _bondingID, _validator, _liquid, _selfDelegation, _rejected)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ChangeContractBeneficiary is a free data retrieval call for a paid mutator transaction binding the contract method 0xa9f45b62.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function changeContractBeneficiary(address _beneficiary, uint256 _id, address _recipient) returns()
+func (_StakableVesting *StakableVesting) CallChangeContractBeneficiary(r *runner, opts *runOptions, _beneficiary common.Address, _id *big.Int, _recipient common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "changeContractBeneficiary", _beneficiary, _id, _recipient)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ClaimRewards is a free data retrieval call for a paid mutator transaction binding the contract method 0x0962ef79.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function claimRewards(uint256 _id) returns()
+func (_StakableVesting *StakableVesting) CallClaimRewards(r *runner, opts *runOptions, _id *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "claimRewards", _id)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ClaimRewards0 is a free data retrieval call for a paid mutator transaction binding the contract method 0x372500ab.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function claimRewards() returns()
+func (_StakableVesting *StakableVesting) CallClaimRewards0(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "claimRewards0")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ClaimRewards1 is a free data retrieval call for a paid mutator transaction binding the contract method 0x6c7b69cb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function claimRewards(uint256 _id, address _validator) returns()
+func (_StakableVesting *StakableVesting) CallClaimRewards1(r *runner, opts *runOptions, _id *big.Int, _validator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "claimRewards1", _id, _validator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// NewContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x2d8d17c6.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function newContract(address _beneficiary, uint256 _amount, uint256 _startTime, uint256 _cliffDuration, uint256 _totalDuration) returns()
+func (_StakableVesting *StakableVesting) CallNewContract(r *runner, opts *runOptions, _beneficiary common.Address, _amount *big.Int, _startTime *big.Int, _cliffDuration *big.Int, _totalDuration *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "newContract", _beneficiary, _amount, _startTime, _cliffDuration, _totalDuration)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReceiveATN is a free data retrieval call for a paid mutator transaction binding the contract method 0x161605e3.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function receiveATN() payable returns()
+func (_StakableVesting *StakableVesting) CallReceiveATN(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "receiveATN")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReleaseAllLNTN is a free data retrieval call for a paid mutator transaction binding the contract method 0xe69ecd2a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function releaseAllLNTN(uint256 _id) returns()
+func (_StakableVesting *StakableVesting) CallReleaseAllLNTN(r *runner, opts *runOptions, _id *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "releaseAllLNTN", _id)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReleaseAllNTN is a free data retrieval call for a paid mutator transaction binding the contract method 0x3577a8f8.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function releaseAllNTN(uint256 _id) returns()
+func (_StakableVesting *StakableVesting) CallReleaseAllNTN(r *runner, opts *runOptions, _id *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "releaseAllNTN", _id)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReleaseFunds is a free data retrieval call for a paid mutator transaction binding the contract method 0x4d68282f.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function releaseFunds(uint256 _id) returns()
+func (_StakableVesting *StakableVesting) CallReleaseFunds(r *runner, opts *runOptions, _id *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "releaseFunds", _id)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReleaseLNTN is a free data retrieval call for a paid mutator transaction binding the contract method 0xec85303d.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function releaseLNTN(uint256 _id, address _validator, uint256 _amount) returns()
+func (_StakableVesting *StakableVesting) CallReleaseLNTN(r *runner, opts *runOptions, _id *big.Int, _validator common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "releaseLNTN", _id, _validator, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReleaseNTN is a free data retrieval call for a paid mutator transaction binding the contract method 0x81170628.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function releaseNTN(uint256 _id, uint256 _amount) returns()
+func (_StakableVesting *StakableVesting) CallReleaseNTN(r *runner, opts *runOptions, _id *big.Int, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "releaseNTN", _id, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// RewardsDistributed is a free data retrieval call for a paid mutator transaction binding the contract method 0xd18736ab.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function rewardsDistributed(address[] _validators) returns()
+func (_StakableVesting *StakableVesting) CallRewardsDistributed(r *runner, opts *runOptions, _validators []common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "rewardsDistributed", _validators)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetRequiredGasBond is a free data retrieval call for a paid mutator transaction binding the contract method 0x6a94b441.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setRequiredGasBond(uint256 _gas) returns()
+func (_StakableVesting *StakableVesting) CallSetRequiredGasBond(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "setRequiredGasBond", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetRequiredGasUnbond is a free data retrieval call for a paid mutator transaction binding the contract method 0x2ebc0660.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setRequiredGasUnbond(uint256 _gas) returns()
+func (_StakableVesting *StakableVesting) CallSetRequiredGasUnbond(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "setRequiredGasUnbond", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTotalNominal is a free data retrieval call for a paid mutator transaction binding the contract method 0x995e21a4.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setTotalNominal(uint256 _newTotalNominal) returns()
+func (_StakableVesting *StakableVesting) CallSetTotalNominal(r *runner, opts *runOptions, _newTotalNominal *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "setTotalNominal", _newTotalNominal)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Unbond is a free data retrieval call for a paid mutator transaction binding the contract method 0xba19a4ae.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unbond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
+func (_StakableVesting *StakableVesting) CallUnbond(r *runner, opts *runOptions, _id *big.Int, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _StakableVesting.call(opts, "unbond", _id, _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UnbondingApplied is a free data retrieval call for a paid mutator transaction binding the contract method 0xa8920241.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unbondingApplied(uint256 _unbondingID, address _validator, bool _rejected) returns()
+func (_StakableVesting *StakableVesting) CallUnbondingApplied(r *runner, opts *runOptions, _unbondingID *big.Int, _validator common.Address, _rejected bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "unbondingApplied", _unbondingID, _validator, _rejected)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UnbondingReleased is a free data retrieval call for a paid mutator transaction binding the contract method 0x3c54c290.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function unbondingReleased(uint256 _unbondingID, uint256 _amount, bool _rejected) returns()
+func (_StakableVesting *StakableVesting) CallUnbondingReleased(r *runner, opts *runOptions, _unbondingID *big.Int, _amount *big.Int, _rejected bool) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "unbondingReleased", _unbondingID, _amount, _rejected)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpdateFunds is a free data retrieval call for a paid mutator transaction binding the contract method 0x0ba6d271.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function updateFunds(address _beneficiary, uint256 _id) returns()
+func (_StakableVesting *StakableVesting) CallUpdateFunds(r *runner, opts *runOptions, _beneficiary common.Address, _id *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _StakableVesting.call(opts, "updateFunds", _beneficiary, _id)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
 // Bond is a paid mutator transaction binding the contract method 0xc0d3895e.
 //
 // Solidity: function bond(uint256 _id, address _validator, uint256 _amount) payable returns(uint256)
@@ -16039,6 +18397,54 @@ func (_SupplyControl *SupplyControl) TotalSupply(opts *runOptions) (*big.Int, ui
 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	return out0, consumed, err
+
+}
+
+// Burn is a free data retrieval call for a paid mutator transaction binding the contract method 0x44df8e70.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function burn() payable returns()
+func (_SupplyControl *SupplyControl) CallBurn(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _SupplyControl.call(opts, "burn")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Mint is a free data retrieval call for a paid mutator transaction binding the contract method 0x40c10f19.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function mint(address recipient, uint256 amount) returns()
+func (_SupplyControl *SupplyControl) CallMint(r *runner, opts *runOptions, recipient common.Address, amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _SupplyControl.call(opts, "mint", recipient, amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address operator) returns()
+func (_SupplyControl *SupplyControl) CallSetOperator(r *runner, opts *runOptions, operator common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _SupplyControl.call(opts, "setOperator", operator)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStabilizer is a free data retrieval call for a paid mutator transaction binding the contract method 0xdb7f521a.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setStabilizer(address stabilizer_) returns()
+func (_SupplyControl *SupplyControl) CallSetStabilizer(r *runner, opts *runOptions, stabilizer_ common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _SupplyControl.call(opts, "setStabilizer", stabilizer_)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
@@ -16490,6 +18896,18 @@ func (_TestUpgraded *TestUpgraded) Foo(opts *runOptions) (string, uint64, error)
 
 }
 
+// FooBar is a free data retrieval call for a paid mutator transaction binding the contract method 0x1e4f3395.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function FooBar(string _foo) returns()
+func (_TestUpgraded *TestUpgraded) CallFooBar(r *runner, opts *runOptions, _foo string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _TestUpgraded.call(opts, "FooBar", _foo)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
 // FooBar is a paid mutator transaction binding the contract method 0x1e4f3395.
 //
 // Solidity: function FooBar(string _foo) returns()
@@ -16578,6 +18996,30 @@ func (_UpgradeManager *UpgradeManager) Operator(opts *runOptions) (common.Addres
 
 }
 
+// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function setOperator(address _account) returns()
+func (_UpgradeManager *UpgradeManager) CallSetOperator(r *runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _UpgradeManager.call(opts, "setOperator", _account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Upgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0x6e3d9ff0.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function upgrade(address _target, string _data) returns()
+func (_UpgradeManager *UpgradeManager) CallUpgrade(r *runner, opts *runOptions, _target common.Address, _data string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _UpgradeManager.call(opts, "upgrade", _target, _data)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _account) returns()
@@ -16635,6 +19077,42 @@ func (_Upgradeable *Upgradeable) GetNewContract(opts *runOptions) ([]byte, strin
 	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
 	out1 := *abi.ConvertType(out[1], new(string)).(*string)
 	return out0, out1, consumed, err
+
+}
+
+// CompleteContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0x872cf059.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function completeContractUpgrade() returns()
+func (_Upgradeable *Upgradeable) CallCompleteContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Upgradeable.call(opts, "completeContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ResetContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0xcf9c5719.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function resetContractUpgrade() returns()
+func (_Upgradeable *Upgradeable) CallResetContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Upgradeable.call(opts, "resetContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpgradeContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xb2ea9adb.
+// Similar to eth_call, it reverts the state after the call and returns the output.
+// Solidity: function upgradeContract(bytes _bytecode, string _abi) returns()
+func (_Upgradeable *Upgradeable) CallUpgradeContract(r *runner, opts *runOptions, _bytecode []byte, _abi string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _Upgradeable.call(opts, "upgradeContract", _bytecode, _abi)
+	r.revertSnapshot(snap)
+	return consumed, err
 
 }
 
