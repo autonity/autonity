@@ -25,6 +25,7 @@ import (
 	"github.com/autonity/autonity/common/prque"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 )
 
 // timeoutGracePeriod is the amount of time to allow for a peer to deliver a
@@ -152,7 +153,7 @@ func (d *Downloader) concurrentFetch(queue typedQueue) error {
 						// permitted it, consider the peer malicious attempting to
 						// stall the sync.
 						peer.log.Warn("Peer stalling, dropping", "waited", common.PrettyDuration(waited))
-						d.dropPeer(peer.id)
+						d.dropPeer(peer.id, p2p.DiscSyncFailed)
 					}
 				}
 			}
@@ -315,7 +316,7 @@ func (d *Downloader) concurrentFetch(queue typedQueue) error {
 			if fails > 2 {
 				queue.updateCapacity(peer, 0, 0)
 			} else {
-				d.dropPeer(peer.id)
+				d.dropPeer(peer.id, p2p.DiscSyncFailed)
 
 				// If this peer was the master peer, abort sync immediately
 				d.cancelLock.RLock()
