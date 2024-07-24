@@ -19,7 +19,6 @@ package downloader
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -29,7 +28,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity"
+	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/p2p"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
@@ -131,7 +133,7 @@ func (dl *downloadTester) newPeer(id string, version uint, blocks []*types.Block
 }
 
 // dropPeer simulates a hard peer removal from the connection pool.
-func (dl *downloadTester) dropPeer(id string) {
+func (dl *downloadTester) dropPeer(id string, _ p2p.DiscReason) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 

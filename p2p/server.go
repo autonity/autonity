@@ -223,8 +223,9 @@ type Server struct {
 	checkpointAddPeer       chan *conn
 
 	// State of run loop and listenLoop.
-	inboundHistory expHeap[mclock.AbsTime]
-	suspended      safeExpHeap[uint64]
+	inboundHistory       expHeap[mclock.AbsTime]
+	suspendedForBlocks   safeExpHeap[uint64]
+	suspendedForTimespan safeExpHeap[mclock.AbsTime] // like suspendedForBlocks, but based on time rather than blocks
 
 	committee       []*enode.Node
 	committeeSubset []*enode.Node
@@ -934,7 +935,8 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 }
 
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
-	srv.suspended.expire(srv.currentBlock.Load(), nil)
+	srv.suspendedForBlocks.expire(srv.currentBlock.Load(), nil)
+	srv.suspendedForTimespan.expire(srv.clock.Now(), nil)
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
@@ -944,7 +946,9 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscAlreadyConnected
 	case c.node.ID() == srv.localnode.ID():
 		return DiscSelf
-	case srv.suspended.contains(c.node.ID().String()):
+	case srv.suspendedForBlocks.contains(c.node.ID().String()):
+		return DiscSuspended
+	case srv.suspendedForTimespan.contains(c.node.ID().String()):
 		return DiscSuspended
 	case srv.Net == Consensus && !srv.inCommittee(c.node.ID()):
 		return DiscPeerNotInCommittee
@@ -1070,16 +1074,27 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 func (srv *Server) processPeerSuspension(pd peerDrop) {
 	var p2pError *peerError
 	var protoError *ProtocolError
-	if errors.As(pd.err, &protoError) {
+	var reason DiscReason
+
+	switch {
+	case errors.As(pd.err, &protoError):
 		if protoError.Suspension() > 0 {
-			srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+protoError.Suspension())
+			srv.suspendedForBlocks.add(pd.ID().String(), srv.currentBlock.Load()+protoError.Suspension())
 		}
-	} else if errors.As(pd.err, &p2pError) {
+	case errors.As(pd.err, &p2pError):
 		switch p2pError.code {
 		case errInvalidMsgCode, errInvalidMsg:
-			srv.suspended.add(pd.ID().String(), srv.currentBlock.Load()+p2pErrorSuspensionSpan)
+			srv.suspendedForBlocks.add(pd.ID().String(), srv.currentBlock.Load()+p2pErrorSuspensionSpan)
 		}
+	case errors.As(pd.err, &reason):
+		if reason == DiscSyncFailed {
+			now := srv.clock.Now()
+			srv.suspendedForTimespan.add(pd.ID().String(), now.Add(syncFailedSuspensionSpan))
+		}
+	default:
+		// do nothing, no suspension
 	}
+
 }
 
 // SetupConn runs the handshakes and attempts to add the connection

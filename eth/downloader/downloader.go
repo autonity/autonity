@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/autonity/autonity"
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state/snapshot"
@@ -35,6 +35,7 @@ import (
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
 )
 
@@ -82,7 +83,7 @@ var (
 )
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string, reason p2p.DiscReason)
 
 // headerTask is a set of downloaded headers to queue along with their precomputed
 // hashes to avoid constant rehashing.
@@ -336,7 +337,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
-			d.dropPeer(id)
+			d.dropPeer(id, p2p.DiscSyncFailed)
 		}
 		return err
 	}
@@ -951,7 +952,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, head uint64) e
 		default:
 			// Header retrieval either timed out, or the peer failed in some strange way
 			// (e.g. disconnect). Consider the master peer bad and drop
-			d.dropPeer(p.id)
+			d.dropPeer(p.id, p2p.DiscSyncFailed)
 
 			// Finish the sync gracefully instead of dumping the gathered data though
 			for _, ch := range []chan bool{d.queue.blockWakeCh, d.queue.receiptWakeCh} {

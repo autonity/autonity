@@ -29,6 +29,7 @@ import (
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/trie"
 )
 
@@ -96,7 +97,7 @@ type headersInsertFn func(headers []*types.Header) (int, error)
 type chainInsertFn func(types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string, reason p2p.DiscReason)
 
 // blockAnnounce is the hash notification of the availability of a new block in the
 // network.
@@ -556,7 +557,7 @@ func (f *BlockFetcher) loop() {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
 						log.Trace("Invalid block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
-						f.dropPeer(announce.origin)
+						f.dropPeer(announce.origin, p2p.DiscUselessPeer)
 						f.forgetHash(hash)
 						continue
 					}
@@ -802,7 +803,7 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 		// Validate the header and if something went wrong, drop the peer
 		if err := f.verifyHeader(header); err != nil && err != consensus.ErrFutureTimestampBlock {
 			log.Debug("Propagated header verification failed", "peer", peer, "number", header.Number, "hash", hash, "err", err)
-			f.dropPeer(peer)
+			f.dropPeer(peer, p2p.DiscUselessPeer)
 			return
 		}
 		// Run the actual import and log any issues
@@ -852,7 +853,7 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 		default:
 			// Something went very wrong, drop the peer
 			log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
-			f.dropPeer(peer)
+			f.dropPeer(peer, p2p.DiscUselessPeer)
 			return
 		}
 		// Run the actual import and log any issues
