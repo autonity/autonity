@@ -19,25 +19,10 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-//TODO(lorenzo) add tests where we sent future height messages to the precompiled Run() methods. Maybe start from the following:
-/*
-t.Run("a future msg is received, expect an error of errFutureMsg", func(t *testing.T) {
-		futureHeight := height + 1
-		proposal := newValidatedProposalMessage(futureHeight, round, -1, signer, committee, nil, proposerIdx)
-		chainMock.EXPECT().GetHeaderByNumber(height).Return(nil)
-		_, err := verifyProofSignatures(chainMock, &Proof{Message: proposal})
-		require.Equal(t, errFutureMsg, err)
-	})
-
-	t.Run("chain cannot provide the last header of the height that msg votes on, expect an error of errFutureMsg", func(t *testing.T) {
-		proposal := newValidatedProposalMessage(height-5, round, -1, signer, committee, nil, proposerIdx)
-		chainMock.EXPECT().GetHeaderByNumber(height - 6).Return(nil)
-		_, err := verifyProofSignatures(chainMock, &Proof{Message: proposal})
-		require.Equal(t, errFutureMsg, err)
-	})*/
 var (
 	height              = uint64(100)
 	lastHeight          = height - 1
+	futureHeight        = height + 10
 	defRound            = int64(0)
 	defValidRound       = int64(-1)
 	newRound            = int64(4)
@@ -68,6 +53,8 @@ var (
 	precommit1   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), signer, self, cSize)
 	precommit2   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee[1], cSize)
 	aggPrecommit = message.AggregatePrecommits([]message.Vote{precommit1, precommit2})
+
+	futureVote = newValidatedPrecommit(defRound, futureHeight, defNewProposal.Value(), signer, self, cSize)
 
 	committee2, keys2, _ = generateCommittee()
 	proposal2            = newValidatedProposalMessage(height, defRound, defValidRound, makeSigner(keys2[0]), committee2, nil, proposerIdx)
@@ -195,6 +182,18 @@ func TestAccusationVerifier(t *testing.T) {
 		ret, err := av.Run(wrongBytes, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
+	})
+
+	t.Run("Test accusation verifier run with future height message", func(t *testing.T) {
+		av := AccusationVerifier{}
+		proof := Proof{Message: futureVote}
+
+		raw, err := rlp.EncodeToBytes(&proof)
+		require.NoError(t, err)
+
+		ret, err := av.Run(append(make([]byte, 32), raw...), height, nil, common.Address{})
+		require.Equal(t, failureReturn, ret)
+		require.Nil(t, err)
 	})
 
 	cases := []testCase{
@@ -532,6 +531,22 @@ func TestMisbehaviourVerifier(t *testing.T) {
 		ret, err := mv.Run(wrongBytes, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
+	})
+	t.Run("Test misbehaviour verifier run with future height message", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockChainContext(ctrl)
+		chainMock.EXPECT().GetHeaderByNumber(futureHeight - 1).Times(1).Return(nil)
+
+		mv := MisbehaviourVerifier{chain: chainMock}
+		proof := Proof{Message: futureVote}
+
+		raw, err := rlp.EncodeToBytes(&proof)
+		require.NoError(t, err)
+
+		ret, err := mv.Run(append(make([]byte, 32), raw...), height, nil, common.Address{})
+		require.Equal(t, failureReturn, ret)
+		require.Nil(t, err)
 	})
 
 	tests := []testCase{
@@ -1206,6 +1221,22 @@ func TestInnocenceVerifier(t *testing.T) {
 		ret, err := iv.Run(nil, height, nil, common.Address{})
 		assert.Equal(t, failureReturn, ret)
 		assert.Nil(t, err)
+	})
+	t.Run("Test innocence verifier run with future height message", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		blockchainMock := NewMockChainContext(ctrl)
+		blockchainMock.EXPECT().GetHeaderByNumber(futureHeight - 1).Times(1).Return(nil)
+
+		iv := InnocenceVerifier{chain: blockchainMock}
+		proof := Proof{Message: futureVote}
+
+		raw, err := rlp.EncodeToBytes(&proof)
+		require.NoError(t, err)
+
+		ret, err := iv.Run(append(make([]byte, 32), raw...), height, nil, common.Address{})
+		require.Equal(t, failureReturn, ret)
+		require.Nil(t, err)
 	})
 
 	t.Run("Test validate innocence Proof with invalid Signature() of message", func(t *testing.T) {

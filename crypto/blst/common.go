@@ -44,7 +44,6 @@ type PublicKey interface {
 	Marshal() []byte
 	Copy() PublicKey
 	Aggregate(p2 PublicKey) (PublicKey, error)
-	IsInfinite() bool
 	Hex() string
 }
 
@@ -53,6 +52,7 @@ type Signature interface {
 	Verify(pubKey PublicKey, msg []byte) bool
 	POPVerify(pubKey PublicKey, msg []byte) bool
 	IsZero() bool
+	AggregateVerifyStrict(pubKeys []PublicKey, msgs [][32]byte) bool
 	AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool
 	FastAggregateVerify(pubKeys []PublicKey, msg [32]byte) bool
 	Marshal() []byte

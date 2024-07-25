@@ -137,7 +137,6 @@ type Backend struct {
 	aggregator *aggregator
 
 	// buffer for future height events and related metadata
-	// TODO(lorenzo) refinements, wrap this stuff into a separate struct?
 	future          map[uint64][]*events.UnverifiedMessageEvent // UnverifiedMessageEvent is used slightly inappropriately here, as the future height messages still need to pass the checks in `handleDecodedMsg` before being posted to the aggregator.
 	futureMinHeight uint64
 	futureMaxHeight uint64

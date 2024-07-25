@@ -240,9 +240,9 @@ func (sb *Backend) verifyQuorumCertificate(header, parent *types.Header) error {
 	}
 
 	// verify signature
-	var keys [][]byte //nolint
+	var keys []blst.PublicKey //nolint
 	for _, index := range quorumCertificate.Signers.Flatten() {
-		keys = append(keys, parent.Committee[index].ConsensusKeyBytes)
+		keys = append(keys, parent.Committee[index].ConsensusKey)
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {

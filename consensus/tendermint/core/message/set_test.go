@@ -45,6 +45,8 @@ var (
 		ConsensusKeyBytes: hexutil.MustDecode("0xa460c204c407b6272f7731b0d15daca8f2564cf7ace301769e3b42de2482fc3bf8116dd13c0545e806441d074d02dcc2"),
 		VotingPower:       hexutil.MustDecodeBig("0x39"),
 	}}
+	blockHash  = common.BytesToHash([]byte("123456789"))
+	blockHash2 = common.BytesToHash([]byte("7890"))
 )
 
 // don't care about Address and ConsensusKey while testing the set.Add
@@ -62,27 +64,82 @@ func defaultSigner(h common.Hash) blst.Signature {
 	return testConsensusKey.Sign(h[:])
 }
 
-//TODO(lorenzo) need more tests here:
-// - aggregation logic on Add()
-// - power caching logic
-// - duplicated and equivocated votes in set
-// 		- check that totalPower updated only once per signer anyways
+func TestMessageSetAggregationAndPower(t *testing.T) {
+	r := int64(1)
+	h := uint64(1)
+	csize := len(testCommittee)
+
+	ms := NewSet()
+
+	vote := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize)
+	ms.Add(vote)
+
+	require.Equal(t, common.Big1, ms.TotalPower().Power())
+	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
+	require.Equal(t, vote.Hash(), ms.Messages()[0].Hash())
+	require.Equal(t, vote.Hash(), ms.VotesFor(blockHash)[0].Hash())
+
+	// duplicated vote has no influence on power and is not saved two times
+	ms.Add(vote)
+
+	require.Equal(t, common.Big1, ms.TotalPower().Power())
+	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
+	require.Equal(t, vote.Hash(), ms.Messages()[0].Hash())
+	require.Equal(t, vote.Hash(), ms.VotesFor(blockHash)[0].Hash())
+	require.Equal(t, 1, len(ms.Messages()))
+	require.Equal(t, 1, len(ms.VotesFor(blockHash)))
+
+	// equivocated vote has no influence on power and it is saved
+	equivocatedVote := NewPrevote(r, h, blockHash2, defaultSigner, makeCommitteeMember(1, 0), csize)
+	ms.Add(equivocatedVote)
+
+	require.Equal(t, common.Big1, ms.TotalPower().Power())
+	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
+	require.Equal(t, common.Big1, ms.PowerFor(blockHash2).Power())
+	require.Equal(t, 2, len(ms.Messages()))
+	require.Equal(t, 1, len(ms.VotesFor(blockHash)))
+	require.Equal(t, 1, len(ms.VotesFor(blockHash2)))
+
+	// add vote from another validator, it should get aggregated with the first one
+	vote2 := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 1), csize)
+	ms.Add(vote2)
+
+	require.Equal(t, common.Big3, ms.TotalPower().Power())
+	require.Equal(t, common.Big3, ms.PowerFor(blockHash).Power())
+	require.Equal(t, 1, len(ms.VotesFor(blockHash)))
+	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(0))
+	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(1))
+
+	// add an aggregate that cannot be merged with the previous one
+
+	aggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
+	ms.Add(aggregate[0])
+
+	require.Equal(t, common.Big5, ms.TotalPower().Power())
+	require.Equal(t, common.Big5, ms.PowerFor(blockHash).Power())
+	require.Equal(t, 2, len(ms.VotesFor(blockHash)))
+	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(0))
+	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(1))
+	require.True(t, ms.VotesFor(blockHash)[1].Signers().Contains(0))
+	require.True(t, ms.VotesFor(blockHash)[1].Signers().Contains(2))
+
+}
 
 func TestMessageSetAddVote(t *testing.T) {
-	blockHash := common.BytesToHash([]byte("123456789"))
 	msg := NewPrevote(1, 1, blockHash, defaultSigner, testCommitteeMember, 1)
 	ms := NewSet()
 	ms.Add(msg)
 	ms.Add(msg)
 
 	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
+	require.Equal(t, common.Big1, ms.TotalPower().Power())
 }
 
-func TestMessageSetVotesSize(t *testing.T) {
-	blockHash := common.BytesToHash([]byte("123456789"))
+func TestMessageSetEmpty(t *testing.T) {
 	ms := NewSet()
 
 	require.Equal(t, common.Big0, ms.PowerFor(blockHash).Power())
+	require.Equal(t, common.Big0, ms.TotalPower().Power())
 }
 
 func TestMessageSetAddNilVote(t *testing.T) {
@@ -91,11 +148,10 @@ func TestMessageSetAddNilVote(t *testing.T) {
 	ms.Add(msg)
 	ms.Add(msg)
 	require.Equal(t, common.Big1, ms.PowerFor(common.Hash{}).Power())
+	require.Equal(t, common.Big1, ms.TotalPower().Power())
 }
 
 func TestMessageSetTotalSize(t *testing.T) {
-	blockHash := common.BytesToHash([]byte("123456789"))
-	blockHash2 := common.BytesToHash([]byte("7890"))
 	nilHash := common.Hash{}
 	csize := len(testCommittee)
 
@@ -155,7 +211,6 @@ func TestMessageSetTotalSize(t *testing.T) {
 
 func TestMessageSetValues(t *testing.T) {
 	t.Run("not known hash given, nil returned", func(t *testing.T) {
-		blockHash := common.BytesToHash([]byte("123456789"))
 		ms := NewSet()
 		if got := ms.VotesFor(blockHash); got != nil {
 			t.Fatalf("Expected nils, got %v", got)
@@ -163,7 +218,6 @@ func TestMessageSetValues(t *testing.T) {
 	})
 
 	t.Run("known hash given, message returned", func(t *testing.T) {
-		blockHash := common.BytesToHash([]byte("123456789"))
 		msg := NewPrevote(1, 1, blockHash, defaultSigner, testCommitteeMember, 1)
 
 		ms := NewSet()

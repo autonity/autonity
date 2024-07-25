@@ -9,6 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	blst "github.com/supranational/blst/bindings/go"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/rlp"
 )
 
 func TestSignVerify(t *testing.T) {
@@ -391,6 +394,133 @@ func TestSignature_Hex(t *testing.T) {
 	signatureB, err := SignatureFromBytes(b)
 	require.NoError(t, err)
 	require.Equal(t, true, bytes.Equal(signatureA.Marshal(), signatureB.Marshal()))
+}
+
+func TestSignatureEncodeDecode(t *testing.T) {
+	priv, err := RandKey()
+	require.NoError(t, err)
+	signature := priv.Sign([]byte{0xca, 0xfe})
+
+	signatureRLP, err := rlp.EncodeToBytes(signature)
+	require.NoError(t, err)
+
+	decodedSig := &BlsSignature{}
+	err = rlp.Decode(bytes.NewReader(signatureRLP), decodedSig)
+	require.NoError(t, err)
+
+	require.Equal(t, signature.Marshal(), decodedSig.Marshal())
+}
+
+// some tests taken from paper "0" of Nguyen Thoi Minh Quan
+func TestBlsAttacks(t *testing.T) {
+	// x1 + x2 = 0
+	x1Bytes := []byte{99, 64, 58, 175, 15, 139, 113, 184, 37, 222, 127, 204, 233, 209, 34, 8, 61, 27, 85, 251, 68, 31, 255, 214, 8, 189, 190, 71, 198, 16, 210, 91}
+	x2Bytes := []byte{16, 173, 108, 164, 26, 18, 11, 144, 13, 91, 88, 59, 31, 208, 181, 253, 22, 162, 78, 7, 187, 222, 92, 40, 247, 66, 65, 183, 57, 239, 45, 166}
+	x1Scalar := new(blst.SecretKey).Deserialize(x1Bytes)
+	x2Scalar := new(blst.SecretKey).Deserialize(x2Bytes)
+	x1 := &bls12SecretKey{p: x1Scalar}
+	x2 := &bls12SecretKey{p: x2Scalar}
+
+	X1 := x1.PublicKey()
+	X2 := x2.PublicKey()
+	// individual pubkeys are valid
+	require.True(t, X1.(*BlsPublicKey).p.KeyValidate())
+	require.True(t, X2.(*BlsPublicKey).p.KeyValidate())
+
+	aggX, err := AggregatePublicKeys([]PublicKey{X1, X2})
+	require.NoError(t, err)
+	// aggregate pubkey is not valid, since it is the infinite pubkey
+	require.False(t, aggX.(*BlsPublicKey).p.KeyValidate())
+
+	t.Run("Splitting zero - inconsistent verification", func(t *testing.T) {
+		m := common.Hash{0xca, 0xfe}
+		sig1 := x1.Sign(m[:])
+		sig2 := x2.Sign(m[:])
+
+		aggSig := AggregateSignatures([]Signature{sig1, sig2})
+		require.True(t, aggSig.IsZero())
+
+		// single signatures are valid
+		require.True(t, sig1.Verify(X1, m[:]))
+		require.True(t, sig2.Verify(X2, m[:]))
+
+		// Verify and FastAggregateVerify fail because the aggregate key is infinite
+		require.False(t, aggSig.Verify(aggX, m[:]))
+		require.False(t, aggSig.FastAggregateVerify([]PublicKey{X1, X2}, m))
+
+		// this would lead to possible inconsistent verification. This is why we need to make sure to pass distinct messages to `AggregateVerify`
+		require.True(t, aggSig.AggregateVerify([]PublicKey{X1, X2}, [][32]byte{m, m}))
+
+		defer func() {
+			if recover() == nil {
+				t.Fatal("AggregateVerifyStrict should've panicked")
+			}
+		}()
+		require.False(t, aggSig.AggregateVerifyStrict([]PublicKey{X1, X2}, [][32]byte{m, m}))
+	})
+	t.Run("Splitting zero - non message binding", func(t *testing.T) {
+		// The user publishes signature sig3.
+		m3 := common.Hash{0xca, 0xfe}
+		x3, err := RandKey()
+		require.NoError(t, err)
+		X3 := x3.PublicKey()
+		sig3 := x3.Sign(m3[:])
+
+		m := common.Hash{0xff, 0xff}
+		aggsig := sig3
+
+		// aggsig = sig3 is a valid signature for (m,m3,m) if we use AggregateVerify. Note that the malicious party doesn't even have to sign m.
+		// however this is true only if we allow the usage of AggregateVerify with non-distinct messages
+		require.True(t, aggsig.AggregateVerify([]PublicKey{X1, X3, X2}, [][32]byte{m, m3, m}))
+
+		// The attack is rendered impossible if we properly use AggregateVerify (with distinct messages)
+		defer func() {
+			if recover() == nil {
+				t.Fatal("AggregateVerifyStrict should've panicked")
+			}
+		}()
+		require.True(t, aggsig.AggregateVerifyStrict([]PublicKey{X1, X3, X2}, [][32]byte{m, m3, m}))
+	})
+	t.Run("Splitting zero attack - non key binding", func(t *testing.T) {
+		m := common.Hash{0xca, 0xfe}
+		x3, err := RandKey()
+		require.NoError(t, err)
+		X3 := x3.PublicKey()
+		sig3 := x3.Sign(m[:])
+
+		// same sig is valid both for X3 only and for {X1,X2,X3}
+		require.True(t, sig3.FastAggregateVerify([]PublicKey{X3}, m))
+		require.True(t, sig3.FastAggregateVerify([]PublicKey{X1, X2, X3}, m))
+	})
+	t.Run("Consensus attack", func(t *testing.T) {
+		m := common.Hash{0xca, 0xfe}
+
+		x3, err := RandKey()
+		require.NoError(t, err)
+		X3 := x3.PublicKey()
+		sig3 := x3.Sign(m[:])
+
+		x4, err := RandKey()
+		require.NoError(t, err)
+		X4 := x4.PublicKey()
+		sig4 := x4.Sign(m[:])
+
+		// offset both signatures of the same value in opposite directions
+		// we can do that by aggregating with signatures from x1 and x2 (since x1 = -x2)
+		sig1 := x1.Sign(m[:])
+		sig2 := x2.Sign(m[:])
+
+		sig3Offsetted := AggregateSignatures([]Signature{sig3, sig1})
+		sig4Offsetted := AggregateSignatures([]Signature{sig4, sig2})
+
+		// aggregate signature is still valid
+		aggSig := AggregateSignatures([]Signature{sig3Offsetted, sig4Offsetted})
+		require.True(t, aggSig.FastAggregateVerify([]PublicKey{X3, X4}, m))
+
+		// individual signatures are not valid anymore
+		require.False(t, sig3Offsetted.Verify(X3, m[:]))
+		require.False(t, sig4Offsetted.Verify(X4, m[:]))
+	})
 }
 
 // newAggregateSignature creates a blank aggregate signature.

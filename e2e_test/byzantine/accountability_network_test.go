@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"encoding/hex"
 	"math/rand"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/crypto/blst"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/rlp"
 )
@@ -127,27 +125,15 @@ type OffChainAccusationFuzzer struct {
 	*core.Core
 }
 
-// TODO(lorenzo) not sure this manages to fuzz also the `Signers` object in message.Vote
 func fuzzedMessages() []message.Msg {
 	num := rand.Intn(10) + 1
 	var msgs []message.Msg
-	//TODO(lorenzo) properly define custom fuzzing functions for signature and signerkey
-	f := fuzz.New().Funcs(
-		func(sig *blst.Signature, c fuzz.Continue) {
-			sigHex := "0x98759b81f6595ac857dbf0a51df26c6b9bb05ada93be66a4dfff5cb7aa5b0a43cd5cf37eb7f5cdfa67df9080a4e406921484edc9596f71eb55323ec79c62a73128524db2ad3eac9d2bb2db74676a21c1b280613e574bbfd54cbd220c552b518d" //nolint
-			b, _ := hex.DecodeString(sigHex[2:])
-			*sig, _ = blst.SignatureFromBytes(b)
-		},
-		func(key *blst.PublicKey, c fuzz.Continue) {
-			keyHex := "0x9324e32ed1739ae1283888dd91a17b13881f989e94fc1b572d678392e0e0df8fa7e5dec44b8cf378000d68ecca5e36eb" //nolint
-			b, _ := hex.DecodeString(keyHex[2:])
-			*key, _ = blst.PublicKeyFromBytes(b)
-		},
-	)
+	f := fuzz.New()
 
 	for i := 0; i < num; i++ {
 		m := &message.Fake{}
-		f.Fuzz(m)
+		f.Fuzz(&m.FakePayload)
+		f.Fuzz(&m.FakeCode)
 		// todo: (Jason) add fuzz for the proposal contains in the accusation accountability message.
 		// since our RLP encoding of accusation msg does not allow a full proposal, thus we skip the proposal code.
 		if m.FakeCode == message.ProposalCode {
@@ -187,7 +173,7 @@ func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 		}
 		proof, err := rlp.EncodeToBytes(accusation)
 		if err != nil {
-			panic("Failed to generate random bytes ")
+			panic("Failed to generate random bytes " + err.Error())
 		}
 		if ok {
 			// send fuzzed accusation msg.

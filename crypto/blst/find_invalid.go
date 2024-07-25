@@ -83,7 +83,8 @@ func findInvalid(
 	return append(leftInvalid, rightInvalid...)
 }
 
-// NOTE: functions below currently not used, they use AggregateVerify instead of FastAggregateVerify. They are used in benchmarks
+// NOTE: functions below currently not used, they use AggregateVerify instead of FastAggregateVerify. They are used in benchmarks.
+// 			IMPORTANT: If we start to use them we need to make sure that we always pass distinct messages to AggregateVerify
 
 func FindInvalidSignatures(signatures []Signature, pks []PublicKey, msgs [][32]byte) ([]uint, error) {
 	if len(signatures) != len(pks) && len(pks) != len(msgs) {
@@ -139,6 +140,7 @@ func findInvalidSignaturesRecursive(
 
 	go func() {
 		aggSig := AggregateSignatures(signatures[start:pivot])
+		// TODO: make sure that msgs are all distinct
 		verified := aggSig.AggregateVerify(pks[start:pivot], msgs[start:pivot])
 
 		if !verified {
@@ -153,6 +155,7 @@ func findInvalidSignaturesRecursive(
 
 	go func() {
 		aggSig := AggregateSignatures(signatures[pivot:end])
+		// TODO: make sure that messages are all distinct
 		verified := aggSig.AggregateVerify(pks[pivot:end], msgs[pivot:end])
 
 		if !verified {
