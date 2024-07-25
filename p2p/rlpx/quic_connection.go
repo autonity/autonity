@@ -78,7 +78,7 @@ func (qc *QuicConn) writer(stream quic2.Stream, writeCh <-chan message) {
 
 func (qc *QuicConn) reader(stream quic2.Stream, readCh chan<- message) {
 	log.Info("Reading stream", "id", stream.StreamID())
-	last := time.Now()
+	//last := time.Now()
 	r := ReadBuffer{}
 	for {
 		select {
@@ -89,13 +89,18 @@ func (qc *QuicConn) reader(stream quic2.Stream, readCh chan<- message) {
 			r.Reset()
 			//var t time.Time
 			//stream.SetReadDeadline(t)
-			log.Info("header read - time since last read", "time taken", time.Since(last).Microseconds(), "stream ID", stream.StreamID())
+			now := time.Now()
+			//log.Info("header read - time since last read", "time taken", time.Since(last).Microseconds(), "stream ID", stream.StreamID())
 			header, err := r.Read(stream, 16)
-			log.Info("length of data read in first attempt", "len", len(r.data), "capacity", cap(r.data), "stream ID", stream.StreamID())
+			//log.Info("length of data read in first attempt", "len", len(r.data), "capacity", cap(r.data), "stream ID", stream.StreamID(), "time taken", time.Since(now).Microseconds())
 			if netutil.IsTemporaryError(err) {
 				continue
 			}
 			if err != nil {
+				msg := message{
+					err: err,
+				}
+				readCh <- msg
 				log.Error("read frame error", "err", err, "stream ID", stream.StreamID())
 				return
 			}
@@ -110,16 +115,27 @@ func (qc *QuicConn) reader(stream quic2.Stream, readCh chan<- message) {
 			snappyByte := header[3]
 
 			// Read the frame content.
-			log.Info("frame read - time since last read", "time taken", time.Since(last).Microseconds(), "stream ID", stream.StreamID())
+			now = time.Now()
+			//log.Info("frame read - time since last read", "time taken", time.Since(last).Microseconds(), "stream ID", stream.StreamID())
 			frame, err := r.Read(stream, int(rsize))
 			if err != nil {
 				log.Error("read frame content", "err", err, "stream ID", stream.StreamID())
+				msg := message{
+					err: err,
+				}
+				readCh <- msg
 				return
 			}
-			last = time.Now()
+			//last = time.Now()
+			msg := message{
+				snappyByte: snappyByte,
+				data:       make([]byte, fsize),
+				err:        nil,
+			}
+			copy(msg.data, frame[:fsize])
 
-			log.Info("new packet received", "id", stream.StreamID(), "size", rsize, "snappy byte", int(snappyByte))
-			readCh <- message{snappyByte, frame[:fsize], nil}
+			log.Info("frame read finished, new packet received", "id", stream.StreamID(), "size", rsize, "snappy byte", int(snappyByte), "time taken", time.Since(now).Microseconds())
+			readCh <- msg
 		}
 	}
 

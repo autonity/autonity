@@ -848,17 +848,17 @@ func (srv *Server) setupQUICListening() error {
 	go func() {
 		log.Info("Waiting for connection")
 
-		keyLogFile := "./sslkeylogfile_server.log"
-
-		// Open the key log file for writing
-		f, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
-		if err != nil {
-			log.Error("failed to open key log file:", "error", err)
-		}
+		//keyLogFile := "./sslkeylogfile_server.log"
+		//
+		//// Open the key log file for writing
+		//f, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+		//if err != nil {
+		//	log.Error("failed to open key log file:", "error", err)
+		//}
 		tlsConfig := &tls.Config{
 			Certificates:       []tls.Certificate{cert},
 			InsecureSkipVerify: true,
-			KeyLogWriter:       f,
+			//KeyLogWriter:       f,
 		}
 
 		quicConfig := &quic2.Config{

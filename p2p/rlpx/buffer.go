@@ -70,7 +70,7 @@ func (b *ReadBuffer) Read(r io.Reader, n int) ([]byte, error) {
 
 	// Make buffer space available.
 	need := n - have
-	b.grow(need * 2)
+	b.grow(need * 10)
 
 	// Read.
 	rn, err := io.ReadAtLeast(r, b.data[b.end:cap(b.data)], need)

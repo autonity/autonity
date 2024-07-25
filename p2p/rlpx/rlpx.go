@@ -123,6 +123,7 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 		var actualSize int
 		actualSize, err = snappy.DecodedLen(data)
 		if err != nil {
+			log.Error("Snappy decode length failed")
 			return code, nil, 0, err
 		}
 		if actualSize > maxUint24 {
@@ -130,6 +131,9 @@ func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
 		}
 		c.snappyReadBuffer = growslice(c.snappyReadBuffer, actualSize)
 		data, err = snappy.Decode(c.snappyReadBuffer, data)
+		if err != nil {
+			log.Error("Snappy decode failed")
+		}
 	}
 	return code, data, wireSize, err
 }

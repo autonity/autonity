@@ -290,6 +290,9 @@ func UpdateSystemSocketOptions(bufferSize int) {
 		fmt.Sprintf("net.core.wmem_max=%d", bufferSize),
 		fmt.Sprintf("net.ipv4.tcp_rmem=65536        %d    %d", bufferSize, bufferSize),
 		fmt.Sprintf("net.ipv4.tcp_wmem=65536        %d    %d", bufferSize, bufferSize),
+		fmt.Sprintf("net.ipv4.udp_mem=373026        %d    %d", bufferSize, bufferSize),
+		fmt.Sprintf("net.ipv4.udp_rmem_min=65536"),
+		fmt.Sprintf("net.ipv4.udp_wmem_min=65536"),
 		fmt.Sprintf("net.ipv4.route.flush=1"),
 		fmt.Sprintf("net.ipv4.tcp_slow_start_after_idle=0"),
 	}
@@ -384,12 +387,14 @@ func (p *Peer) readLoop(errc chan<- error) {
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
+			log.Error("Error on readmsg", "error", err)
 			errc <- err
 			return
 		}
 		msg.ReceivedAt = time.Now()
 		//p.ping.Reset(pingInterval)
 		if err = p.handle(msg); err != nil {
+			log.Error("Error on handle message", "error", err)
 			errc <- err
 			return
 		}

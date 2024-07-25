@@ -25,7 +25,6 @@ import (
 	"fmt"
 	mrand "math/rand"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -88,16 +87,16 @@ type quicDialer struct {
 }
 
 func (t quicDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
-	keyLogFile := "./sslkeylogfile_client.log"
-
-	// Open the key log file for writing
-	f, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
-	if err != nil {
-		log.Error("failed to open key log file:", "error", err)
-	}
+	//keyLogFile := "./sslkeylogfile_client.log"
+	//
+	//// Open the key log file for writing
+	//f, err := os.OpenFile(keyLogFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	//if err != nil {
+	//	log.Error("failed to open key log file:", "error", err)
+	//}
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
-		KeyLogWriter:       f,
+		//KeyLogWriter:       f,
 	}
 	addr := dest.IP().String() + ":" + strconv.Itoa(dest.TCP())
 	quicConfig := &quic2.Config{
