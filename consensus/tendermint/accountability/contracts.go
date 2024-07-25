@@ -510,7 +510,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 
 // check if the Proof of challenge of PVO12 is valid.
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
-	if len(p.Evidences) < 2 {
+	// if there is no evidence or there is unexpected number of msg evidence field, return false to prevent DoS attack.
+	if len(p.Evidences) == 0 || len(p.Evidences) > 2 {
 		return false
 	}
 
