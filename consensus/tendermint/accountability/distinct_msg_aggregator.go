@@ -79,13 +79,13 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 // PreValidate computes the aggregated public key and set the preValidated flag.
 func (r *Signers) PreValidate(parentHeader *types.Header) error {
 	committeeSize := parentHeader.Committee.Len()
-	publicKeys := make([][]byte, len(r.Signers))
+	publicKeys := make([]blst.PublicKey, len(r.Signers))
 	r.hasSigners = make(map[int]struct{})
 	for i, idx := range r.Signers {
 		if idx >= committeeSize || idx < 0 {
 			return ErrInvalidSignerIndex
 		}
-		publicKeys[i] = parentHeader.Committee[idx].ConsensusKeyBytes
+		publicKeys[i] = parentHeader.Committee[idx].ConsensusKey
 		r.hasSigners[idx] = struct{}{}
 	}
 
