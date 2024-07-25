@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -15,6 +16,7 @@ import (
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
 
@@ -58,7 +60,7 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, 
 	return res, consumed, nil
 }
 
-type Committee struct {
+type committee struct {
 	validators      []AutonityValidator
 	liquidContracts []*Liquid
 }
@@ -66,12 +68,13 @@ type Committee struct {
 type runner struct {
 	t       *testing.T
 	evm     *vm.EVM
+	stateDB *state.StateDB
 	origin  common.Address // session's sender, can be overridden via runOptions
 	tracing bool
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	autonity               *Autonity
+	autonity               *AutonityTest
 	accountability         *Accountability
 	oracle                 *Oracle
 	acu                    *ACU
@@ -83,8 +86,10 @@ type runner struct {
 	nonStakableVesting     *NonStakableVesting
 	omissionAccountability *OmissionAccountability
 
-	committee Committee   // genesis validators for easy access
-	operator  *runOptions // operator runOptions for easy access
+	committee committee                       // genesis validators for easy access
+	operator  *runOptions                     // operator runOptions for easy access
+	params    AutonityConfig                  // autonity config for easy access
+	genesis   *params.AutonityContractGenesis // genesis config for easy access
 }
 
 func (r *runner) NoError(gasConsumed uint64, err error) uint64 {
@@ -99,6 +104,9 @@ func (r *runner) liquidContract(v AutonityValidator) *Liquid {
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
+	//txHash, err := RandomHash()
+	//require.NoError(r.t, err)
+
 	r.evm.Origin = r.origin
 	value := common.Big0
 	if opts != nil {
@@ -107,8 +115,11 @@ func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 			value = opts.value
 		}
 	}
+
+	//r.stateDB.Prepare(txHash, 0)
 	gas := uint64(math.MaxUint64)
 	ret, leftOver, err := r.evm.Call(vm.AccountRef(r.evm.Origin), addr, input, gas, value)
+	//r.stateDB.GetLogs(txHash, common.Hash{})
 	return ret, gas - leftOver, err
 }
 
@@ -139,6 +150,14 @@ func (r *runner) run(name string, f func(r *runner)) {
 
 func (r *runner) giveMeSomeMoney(user common.Address, amount *big.Int) { //nolint
 	r.evm.StateDB.AddBalance(user, amount)
+}
+
+func (r *runner) randomAccount() common.Address {
+	key, err := crypto.GenerateKey()
+	require.NoError(r.t, err)
+	address := crypto.PubkeyToAddress(key.PublicKey)
+	r.giveMeSomeMoney(address, big.NewInt(1e18))
+	return address
 }
 
 func (r *runner) getBalanceOf(account common.Address) *big.Int { //nolint
@@ -228,12 +247,12 @@ func (r *runner) sendAUT(sender, recipient common.Address, value *big.Int) { //n
 	r.evm.StateDB.AddBalance(recipient, value)
 }
 
-func initalizeEVM() (*vm.EVM, error) {
+func initializeEVM() (*vm.EVM, *state.StateDB, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
 	stateDB, err := state.New(common.Hash{}, db, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	vmBlockContext := vm.BlockContext{
 		Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
@@ -251,7 +270,7 @@ func initalizeEVM() (*vm.EVM, error) {
 		GasPrice: common.Big0,
 	}
 	evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
-	return evm, nil
+	return evm, stateDB, nil
 }
 
 func copyConfig(original *params.AutonityContractGenesis) *params.AutonityContractGenesis {
@@ -268,9 +287,9 @@ func copyConfig(original *params.AutonityContractGenesis) *params.AutonityContra
 }
 
 func setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *params.AutonityContractGenesis) *runner {
-	evm, err := initalizeEVM()
+	evm, stateDb, err := initializeEVM()
 	require.NoError(t, err)
-	r := &runner{t: t, evm: evm}
+	r := &runner{t: t, evm: evm, stateDB: stateDb}
 
 	var autonityGenesis *params.AutonityContractGenesis
 	if configOverride != nil {
@@ -314,13 +333,15 @@ func setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		},
 		ContractVersion: big.NewInt(1),
 	}
+	r.params = autonityConfig
+	r.genesis = autonityGenesis
 	r.operator = &runOptions{origin: autonityConfig.Protocol.OperatorAccount}
 	r.committee.validators = make([]AutonityValidator, 0, len(autonityGenesis.Validators))
 	for _, v := range autonityGenesis.Validators {
 		validator := genesisToAutonityVal(v)
 		r.committee.validators = append(r.committee.validators, validator)
 	}
-	_, _, r.autonity, err = r.deployAutonity(nil, r.committee.validators, autonityConfig)
+	_, _, r.autonity, err = r.deployAutonityTest(nil, r.committee.validators, autonityConfig)
 	require.NoError(t, err)
 	require.Equal(t, r.autonity.address, params.AutonityContractAddress)
 	_, err = r.autonity.FinalizeInitialization(nil)
@@ -540,4 +561,14 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 		ProvableFaultCount:       v.ProvableFaultCount,
 		State:                    *v.State,
 	}
+}
+
+// there is probably a better place for this
+func RandomHash() (common.Hash, error) {
+	bytes := make([]byte, 32)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(bytes), nil
 }
