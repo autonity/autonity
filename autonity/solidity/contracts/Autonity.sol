@@ -158,7 +158,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 contractVersion;
     }
 
-    struct EpochBoundary{
+    struct EpochInfo {
+        CommitteeMember[] committee;
         uint256 parentEpochBlock;
         uint256 epochBlock;
         uint256 nextEpochBlock;
@@ -182,12 +183,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
-    // epochCommittees, saves committee for per epoch in the history.
-    // k: epochID, value: committee members
-    mapping(uint256=>CommitteeMember[]) internal epochCommittees;
-    // epochBoundaries, save epoch boundaries for per epoch
-    // k: epochID, value: EpochBoundary.
-    mapping(uint256=>EpochBoundary) internal epochBoundaries;
+    // epochInfos, saves epoch info for per epoch in the history
+    mapping(uint256=>EpochInfo) internal epochInfos;
 
     CommitteeMember[] internal committee;
     uint256 public atnTotalRedistributed;
@@ -325,8 +322,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // init epoch info for genesis deployment of contract.
         parentEpochBlock = 0;
         nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
-        epochCommittees[epochID] = committee;
-        epochBoundaries[epochID] = EpochBoundary(parentEpochBlock, block.number, nextEpochBlock);
+        _addEpochInfo(epochID, EpochInfo(committee, parentEpochBlock, block.number, nextEpochBlock));
     }
 
     /**
@@ -829,8 +825,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
             epochID += 1;
-            epochCommittees[epochID] = committee; // save new committee with its new epoch id.
-            epochBoundaries[epochID] = EpochBoundary(parentEpochBlock, block.number, nextEpochBlock);
+            _addEpochInfo(epochID, EpochInfo(committee, parentEpochBlock, block.number, nextEpochBlock));
             emit NewEpoch(epochID);
         }
 
@@ -938,10 +933,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @notice Returns the current epoch info: its commitee and the responding epoch boundary.
+    * @notice Returns the current epoch info of the chain.
     */
-    function getEpochInfo() external view virtual returns (CommitteeMember[]memory, EpochBoundary memory) {
-        return (epochCommittees[epochID], epochBoundaries[epochID]);
+    function getEpochInfo() external view virtual returns (EpochInfo memory) {
+        return epochInfos[epochID];
     }
 
     /**
@@ -1047,12 +1042,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
         require(_height <= block.number, "cannot get committee for a future height");
         if (_height == 0) {
-            return epochCommittees[0];
+            return epochInfos[0].committee;
         }
-        uint256 eID = blockEpochMap[_height];
 
+        uint256 eID = blockEpochMap[_height];
         // if current epoch haven't been ended, then return current committee.
-        CommitteeMember[] memory members = epochCommittees[eID];
+        CommitteeMember[] memory members = epochInfos[eID].committee;
         if (members.length == 0) {
             return committee;
         }
@@ -1810,4 +1805,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         return false;
     }
 
+    function _addEpochInfo(uint256 _epochID, EpochInfo memory _epoch) internal {
+        EpochInfo storage epoch = epochInfos[_epochID];
+        epoch.parentEpochBlock = _epoch.parentEpochBlock;
+        epoch.epochBlock = _epoch.epochBlock;
+        epoch.nextEpochBlock = _epoch.nextEpochBlock;
+        for (uint256 i=0; i<_epoch.committee.length; i++) {
+            epoch.committee.push(_epoch.committee[i]);
+        }
+    }
 }
