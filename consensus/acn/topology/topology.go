@@ -11,16 +11,18 @@ var errDegreeCount = errors.New("degree count is greater than network size")
 
 type networkTopology struct {
 	nodeCount, degreeCount, minNodes int
+	faultTolerant                    bool
 }
 
-func NewGraphTopology(totalNodes, degreeCount, minNodes int) (networkTopology, error) {
+func NewGraphTopology(totalNodes, degreeCount, minNodes int, faultTolerant bool) (networkTopology, error) {
 	if degreeCount >= totalNodes {
 		return networkTopology{}, errDegreeCount
 	}
 	network := networkTopology{
-		nodeCount:   totalNodes,
-		degreeCount: degreeCount,
-		minNodes:    minNodes,
+		nodeCount:     totalNodes,
+		degreeCount:   degreeCount,
+		minNodes:      minNodes,
+		faultTolerant: faultTolerant,
 	}
 
 	network.makeNetworkValid()
@@ -31,12 +33,16 @@ func (g *networkTopology) makeNetworkValid() {
 	if g.nodeCount < 2 {
 		return
 	}
-	if !g.isNetworkValid() {
+	if g.faultTolerant && g.degreeCount < (g.nodeCount-1)/3+1 && !g.isNetworkValid() {
 		g.degreeCount = (g.nodeCount-1)/3 + 1
 	}
 
 	for !g.isNetworkValid() {
 		g.degreeCount++
+	}
+
+	if bft.F(big.NewInt(int64(g.nodeCount))).Int64() < int64(g.degreeCount) {
+		g.faultTolerant = true
 	}
 }
 
@@ -44,6 +50,10 @@ func (g *networkTopology) isNetworkValid() bool {
 	if ((g.nodeCount - g.degreeCount - 1) & 1) == 1 { // (a%2) = (a&1)
 		// to make the graph symmetric
 		return false
+	}
+
+	if !g.faultTolerant {
+		return g.degreeCount > 1 || (g.nodeCount == 2 && g.degreeCount == 1)
 	}
 
 	return bft.F(big.NewInt(int64(g.nodeCount))).Int64() < int64(g.degreeCount)
