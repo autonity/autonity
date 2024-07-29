@@ -103,9 +103,9 @@ func TestInitialState(t *testing.T) {
 	})
 
 	r.run("Test getValidator, balanceOf and totalSupply", func(rr *runner) {
-		totalExpectedSupply := int64(0)
+		totalExpectedSupply := big.NewInt(0)
 		for _, expectedValidator := range rr.committee.validators {
-			totalExpectedSupply += expectedValidator.BondedStake.Int64()
+			totalExpectedSupply = new(big.Int).Add(expectedValidator.BondedStake, totalExpectedSupply)
 
 			balance, _, err := rr.autonity.BalanceOf(nil, expectedValidator.NodeAddress)
 			require.NoError(t, err)
@@ -119,17 +119,19 @@ func TestInitialState(t *testing.T) {
 			require.Equal(t, readValidator.NodeAddress, expectedValidator.NodeAddress, "unexpected node address")
 			require.Equal(t, readValidator.Enode, expectedValidator.Enode, "unexpected enode")
 
-			require.Equal(t, rr.params.Policy.DelegationRate.Int64(), readValidator.CommissionRate.Int64(), "incorrect commission rate")
-			require.Equal(t, expectedValidator.BondedStake.Int64(), readValidator.BondedStake.Int64(), "incorrect bonded stake")
+			require.Equal(t, rr.params.Policy.DelegationRate, readValidator.CommissionRate, "incorrect commission rate")
+			require.Equal(t, expectedValidator.BondedStake, readValidator.BondedStake, "incorrect bonded stake")
 			require.Equal(t, expectedValidator.TotalSlashed.Int64(), readValidator.TotalSlashed.Int64(), "incorrect total slashed")
 			require.Equal(t, expectedValidator.RegistrationBlock.Int64(), readValidator.RegistrationBlock.Int64(), "incorrect registration block")
 			require.Equal(t, expectedValidator.State, readValidator.State, "incorrect state")
 		}
 
+		// add stakable vesting mint to expected supply
+		totalExpectedSupply = new(big.Int).Add(totalExpectedSupply, params.DefaultStakableVestingGenesis.TotalNominal)
+
 		totalSupply, _, err := rr.autonity.TotalSupply(nil)
 		require.NoError(t, err)
-		// ToDo: Figure out why this isn't working
-		require.Equal(t, totalExpectedSupply, totalSupply.Int64())
+		require.Equal(t, totalExpectedSupply.String(), totalSupply.String())
 	})
 }
 
@@ -183,7 +185,7 @@ func TestValidatorCommissionRate(t *testing.T) {
 		intermediateVal, _, err := rr.autonity.GetValidator(nil, rr.committee.validators[0].NodeAddress)
 		require.NoError(t, err)
 
-		require.Equal(t, initialCommissionRate.Int64(), intermediateVal.CommissionRate.Int64())
+		require.Equal(t, initialCommissionRate, intermediateVal.CommissionRate)
 
 		rr.waitNBlocks(5)
 
@@ -218,7 +220,7 @@ func TestSetProtocolParameters(t *testing.T) {
 
 		minBaseFee, _, err := rr.autonity.GetMinimumBaseFee(nil)
 		require.NoError(t, err)
-		require.Equal(t, initialMinBaseFee.Int64(), minBaseFee.Int64())
+		require.Equal(t, initialMinBaseFee, minBaseFee)
 	})
 
 	r.run("Test set max committee size by operator", func(rr *runner) {
@@ -246,7 +248,7 @@ func TestSetProtocolParameters(t *testing.T) {
 
 		committeeSize, _, err := rr.autonity.GetMaxCommitteeSize(nil)
 		require.NoError(t, err)
-		require.Equal(t, initialCommitteeSize.Int64(), committeeSize.Int64())
+		require.Equal(t, initialCommitteeSize, committeeSize)
 	})
 
 	r.run("Test set unbonding period by operator", func(rr *runner) {
@@ -465,11 +467,11 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		supplyAfter, _, err := rr.autonity.TotalSupply(nil)
 		require.NoError(t, err)
-		require.Equal(t, new(big.Int).Add(supplyBefore, amount).Int64(), supplyAfter.Int64())
+		require.Equal(t, new(big.Int).Add(supplyBefore, amount), supplyAfter)
 
 		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceAfter.Int64())
+		require.Equal(t, amount, balanceAfter)
 	})
 
 	r.run("Test mint Newton fails by non-operator", func(rr *runner) {
@@ -489,7 +491,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		supplyAfter, _, err := rr.autonity.TotalSupply(nil)
 		require.NoError(t, err)
-		require.Equal(t, supplyBefore.Int64(), supplyAfter.Int64())
+		require.Equal(t, supplyBefore, supplyAfter)
 	})
 
 	r.run("Test burn Newton by operator", func(rr *runner) {
@@ -504,14 +506,14 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore.Int64())
+		require.Equal(t, amount, balanceBefore)
 
 		_, err = rr.autonity.Burn(rr.operator, account, amount)
 		require.NoError(t, err)
 
 		supplyAfter, _, err := rr.autonity.TotalSupply(nil)
 		require.NoError(t, err)
-		require.Equal(t, supplyBefore.Int64()-amount.Int64(), supplyAfter.Int64())
+		require.Equal(t, new(big.Int).Sub(supplyBefore, amount), supplyAfter)
 
 		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
@@ -530,7 +532,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore.Int64())
+		require.Equal(t, amount, balanceBefore)
 
 		_, err = rr.autonity.Burn(&runOptions{origin: rr.randomAccount()}, account, amount)
 		require.Error(t, err)
@@ -538,11 +540,11 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		supplyAfter, _, err := rr.autonity.TotalSupply(nil)
 		require.NoError(t, err)
-		require.Equal(t, supplyBefore.Int64(), supplyAfter.Int64())
+		require.Equal(t, supplyBefore, supplyAfter)
 
 		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceAfter.Int64())
+		require.Equal(t, amount, balanceAfter)
 	})
 
 	r.run("Test ERC20 token transfer", func(rr *runner) {
@@ -556,7 +558,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceBefore1, _, err := rr.autonity.BalanceOf(nil, account1)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore1.Int64())
+		require.Equal(t, amount, balanceBefore1)
 
 		balanceBefore2, _, err := rr.autonity.BalanceOf(nil, account2)
 		require.NoError(t, err)
@@ -571,7 +573,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceAfter2, _, err := rr.autonity.BalanceOf(nil, account2)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceAfter2.Int64())
+		require.Equal(t, amount, balanceAfter2)
 	})
 
 	r.run("Test ERC20 token transfer fails by insufficient funds", func(rr *runner) {
@@ -585,7 +587,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceBefore1, _, err := rr.autonity.BalanceOf(nil, account1)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64()/2, balanceBefore1.Int64())
+		require.Equal(t, new(big.Int).Div(amount, big.NewInt(2)), balanceBefore1)
 
 		balanceBefore2, _, err := rr.autonity.BalanceOf(nil, account2)
 		require.NoError(t, err)
@@ -597,7 +599,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceAfter1, _, err := rr.autonity.BalanceOf(nil, account1)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64()/2, balanceAfter1.Int64())
+		require.Equal(t, new(big.Int).Div(amount, big.NewInt(2)), balanceAfter1)
 	})
 
 	r.run("Test ERC20 token approve", func(rr *runner) {
@@ -610,7 +612,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceBefore1, _, err := rr.autonity.BalanceOf(nil, account1)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore1.Int64())
+		require.Equal(t, amount, balanceBefore1)
 
 		balanceBefore2, _, err := rr.autonity.BalanceOf(nil, account2)
 		require.NoError(t, err)
@@ -621,7 +623,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		allowance, _, err := rr.autonity.Allowance(nil, account1, account2)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), allowance.Int64())
+		require.Equal(t, amount, allowance)
 
 		_, err = rr.autonity.TransferFrom(&runOptions{origin: account2}, account1, account2, amount)
 		require.NoError(t, err)
@@ -632,7 +634,7 @@ func TestERC20TokenManagement(t *testing.T) {
 
 		balanceAfter2, _, err := rr.autonity.BalanceOf(nil, account2)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceAfter2.Int64())
+		require.Equal(t, amount, balanceAfter2)
 	})
 }
 
@@ -648,7 +650,7 @@ func TestBondingAndUnbonding(t *testing.T) {
 
 		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore.Int64())
+		require.Equal(t, amount, balanceBefore)
 
 		_, err = rr.autonity.Bond(&runOptions{origin: account}, rr.committee.validators[0].NodeAddress, amount)
 		require.NoError(t, err)
@@ -674,7 +676,7 @@ func TestBondingAndUnbonding(t *testing.T) {
 		accountBalance, _, err = valLiquid.BalanceOf(nil, account)
 		require.NoError(t, err)
 		require.Condition(t, func() bool {
-			return accountBalance.Int64() > 0
+			return accountBalance.Cmp(big.NewInt(0)) > 0
 		})
 	})
 
@@ -688,7 +690,7 @@ func TestBondingAndUnbonding(t *testing.T) {
 
 		balanceBefore, _, err := rr.autonity.BalanceOf(nil, treasury)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore.Int64())
+		require.Equal(t, amount, balanceBefore)
 
 		_, err = rr.autonity.Bond(&runOptions{origin: treasury}, val.NodeAddress, amount)
 		require.NoError(t, err)
@@ -724,7 +726,7 @@ func TestBondingAndUnbonding(t *testing.T) {
 
 		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore.Int64())
+		require.Equal(t, amount, balanceBefore)
 
 		_, err = rr.autonity.Bond(&runOptions{origin: account}, rr.randomAccount(), amount)
 		require.Error(t, err)
@@ -732,7 +734,7 @@ func TestBondingAndUnbonding(t *testing.T) {
 
 		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceAfter.Int64())
+		require.Equal(t, amount, balanceAfter)
 	})
 }
 
@@ -754,7 +756,7 @@ func TestBondingAndUnbondingRequests(t *testing.T) {
 
 		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceBefore.Int64())
+		require.Equal(t, amount, balanceBefore)
 
 		_, err = rr.autonity.Bond(&runOptions{origin: account}, rr.committee.validators[0].NodeAddress, amount)
 		require.Error(t, err)
@@ -762,7 +764,7 @@ func TestBondingAndUnbondingRequests(t *testing.T) {
 
 		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), balanceAfter.Int64())
+		require.Equal(t, amount, balanceAfter)
 	})
 
 	r.run("Test unbonding from a valid validator", func(rr *runner) {
@@ -781,6 +783,8 @@ func TestBondingAndUnbondingRequests(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(0), balanceBefore.Int64())
 
+		expectedValInfo, _, err := rr.autonity.GetValidator(nil, rr.committee.validators[0].NodeAddress)
+
 		_, err = rr.autonity.Unbond(&runOptions{origin: account}, rr.committee.validators[0].NodeAddress, amount)
 		require.NoError(t, err)
 
@@ -792,21 +796,67 @@ func TestBondingAndUnbondingRequests(t *testing.T) {
 		unbondingRequestId := big.NewInt(int64(0))
 
 		unbondingRequest, _, err := rr.autonity.GetUnbondingRequest(nil, unbondingRequestId)
+		// verify unbonding request details
 		require.NoError(t, err)
 		require.Equal(t, account, unbondingRequest.Delegator)
 		require.Equal(t, rr.committee.validators[0].NodeAddress, unbondingRequest.Delegatee)
-		require.Equal(t, amount.Int64(), unbondingRequest.Amount.Int64())
+		require.Equal(t, amount, unbondingRequest.Amount)
 		require.Equal(t, int64(0), unbondingRequest.UnbondingShare.Int64())
 		require.Equal(t, false, unbondingRequest.Unlocked)
 
 		liquidContract := rr.committee.liquidContracts[0]
-		liquidBalance, _, err := liquidContract.BalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, int64(0), liquidBalance.Int64())
 
 		lockedBalance, _, err := liquidContract.LockedBalanceOf(nil, account)
 		require.NoError(t, err)
-		require.Equal(t, amount.Int64(), lockedBalance.Int64())
+		require.Equal(t, amount, lockedBalance)
+
+		rr.waitNextEpoch()
+
+		// verify that the unbonding request is unlocked
+		ubRequest, _, err := rr.autonity.GetUnbondingRequest(nil, unbondingRequestId)
+		require.NoError(t, err)
+		require.Equal(t, amount, ubRequest.UnbondingShare)
+		require.Equal(t, true, ubRequest.Unlocked)
+
+		valInfo, _, err := rr.autonity.GetValidator(nil, rr.committee.validators[0].NodeAddress)
+		require.NoError(t, err)
+		verifyValidatorInfoPostUnbonding(t, &valInfo, &expectedValInfo, big.NewInt(0), amount)
+
+		lockedBalanceAfterEpoch, _, err := liquidContract.LockedBalanceOf(nil, account)
+		require.NoError(t, err)
+
+		liquidBalanceAfterEpoch, _, err := liquidContract.BalanceOf(nil, account)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), lockedBalanceAfterEpoch.Int64())
+		require.Equal(t, int64(0), liquidBalanceAfterEpoch.Int64())
 	})
 
+}
+
+func verifyValidatorInfoPostUnbonding(
+	t *testing.T,
+	valInfo *AutonityValidator,
+	expectedValidator *AutonityValidator,
+	selfUnbonded,
+	totalUnbonded *big.Int,
+) {
+	nonSelfUnbonded := new(big.Int).Sub(totalUnbonded, selfUnbonded)
+
+	require.Equal(t, new(big.Int).Sub(expectedValidator.BondedStake, totalUnbonded), valInfo.BondedStake)
+	require.Equal(t, new(big.Int).Sub(expectedValidator.SelfBondedStake, selfUnbonded), valInfo.SelfBondedStake)
+	require.Equal(t, new(big.Int).Add(expectedValidator.UnbondingShares, nonSelfUnbonded), valInfo.UnbondingShares)
+	require.Equal(t, new(big.Int).Add(expectedValidator.UnbondingStake, nonSelfUnbonded), valInfo.UnbondingStake)
+	require.Equal(t,
+		new(big.Int).Add(expectedValidator.SelfUnbondingStake, selfUnbonded).String(),
+		valInfo.SelfUnbondingStake.String(),
+	)
+	require.Equal(t,
+		new(big.Int).Add(expectedValidator.SelfUnbondingShares, selfUnbonded).String(),
+		valInfo.SelfUnbondingShares.String(),
+	)
+	require.Equal(t,
+		new(big.Int).Sub(expectedValidator.LiquidSupply, nonSelfUnbonded).String(),
+		valInfo.LiquidSupply.String(),
+	)
 }
