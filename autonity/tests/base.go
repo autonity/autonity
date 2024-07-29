@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/core/types"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -103,9 +105,11 @@ func (r *runner) liquidContract(v AutonityValidator) *Liquid {
 	return &Liquid{&contract{v.LiquidContract, abi, r}}
 }
 
+var k = 0
+
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
-	//txHash, err := RandomHash()
-	//require.NoError(r.t, err)
+	txHash, err := RandomHash()
+	require.NoError(r.t, err)
 
 	r.evm.Origin = r.origin
 	value := common.Big0
@@ -116,10 +120,18 @@ func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 		}
 	}
 
-	//r.stateDB.Prepare(txHash, 0)
+	r.stateDB.Prepare(txHash, k)
+	k++
+	rules := r.evm.ChainConfig().Rules(r.evm.Context.BlockNumber, r.evm.Context.Random != nil)
+	r.stateDB.PrepareAccessList(r.evm.Origin, &addr, vm.ActivePrecompiles(rules), types.AccessList{})
+
 	gas := uint64(math.MaxUint64)
 	ret, leftOver, err := r.evm.Call(vm.AccountRef(r.evm.Origin), addr, input, gas, value)
-	//r.stateDB.GetLogs(txHash, common.Hash{})
+
+	logs := r.stateDB.GetLogs(txHash, common.Hash{})
+	for _, log := range logs {
+		fmt.Println(log)
+	}
 	return ret, gas - leftOver, err
 }
 
@@ -167,6 +179,7 @@ func (r *runner) getBalanceOf(account common.Address) *big.Int { //nolint
 func (r *runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte, params ...any) (common.Address, uint64, *contract, error) {
 	args, err := abi.Pack("", params...)
 	require.NoError(r.t, err)
+
 	data := append(bytecode, args...)
 	gas := uint64(math.MaxUint64)
 	r.evm.Origin = r.origin
