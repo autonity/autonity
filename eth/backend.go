@@ -597,7 +597,7 @@ func (s *Ethereum) validatorController() {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
+		committee, err := s.blockchain.ProtocolContracts().CallGetCommitteeEnodes(state, block.Header(), false)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
