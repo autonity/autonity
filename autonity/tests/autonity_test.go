@@ -1,9 +1,10 @@
 package tests
 
 import (
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
 
 	"math/big"
 	"reflect"
@@ -859,4 +860,17 @@ func verifyValidatorInfoPostUnbonding(
 		new(big.Int).Sub(expectedValidator.LiquidSupply, nonSelfUnbonded).String(),
 		valInfo.LiquidSupply.String(),
 	)
+}
+
+func TestReadWriteContract(t *testing.T) {
+	r := setup(t, nil)
+	r.run("Test read and write contract", func(rr *runner) {
+		account := rr.randomAccount()
+		balance, _, err := rr.autonity.BalanceOf(nil, account)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), balance.Int64())
+
+		_, err = rr.autonity.Mint(rr.operator, account, big.NewInt(1e18))
+		require.NoError(t, err)
+	})
 }

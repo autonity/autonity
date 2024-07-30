@@ -99,9 +99,9 @@ func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
 			return a.Validator.String() < b.Validator.String()
 		})
 		ret = append(ret, autonity.GenesisBond{
-			Staker:        addr,
-			NewtonBalance: alloc.NewtonBalance,
-			Bonds:         delegations,
+			Staker:                addr,
+			UnbondedNewtonBalance: alloc.NewtonBalance,
+			Delegations:           delegations,
 		})
 	}
 	slices.SortFunc(ret, func(a, b autonity.GenesisBond) bool {
@@ -334,15 +334,11 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 
 	genesisBonds := g.Alloc.ToGenesisBonds()
-	evmProvider := func(statedb vm.StateDB) *vm.EVM {
-		return genesisEVM(g, statedb)
+	evm := genesisEVM(g, statedb)
+	if err := autonity.ExecuteGenesisSequence(g.Config, genesisBonds, evm); err != nil {
+		return nil, fmt.Errorf("cannoot deploy contracts: %w", err)
 	}
-
-	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
-	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
-		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
-	}
-	genesisCommittee, err := evmContracts.AutonityContract.Committee(nil, statedb)
+	genesisCommittee, err := autonity.CallGetCommittee(evm)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}

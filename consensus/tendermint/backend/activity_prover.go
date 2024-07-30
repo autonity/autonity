@@ -195,5 +195,5 @@ func (sb *Backend) consensusViewOfHeight(height *big.Int) (*big.Int, types.Commi
 	if err != nil {
 		return nil, nil, err
 	}
-	return sb.BlockChain().ProtocolContracts().AutonityContract.GetConsensusViewOfHeight(header, state, height)
+	return sb.BlockChain().ProtocolContracts().AutonityContract.CallGetConsensusViewOfHeight(state, header, height)
 }
