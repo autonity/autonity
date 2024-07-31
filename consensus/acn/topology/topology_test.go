@@ -2,131 +2,159 @@ package topology
 
 import (
 	"math"
+	"math/big"
 	"testing"
 
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	MinNodes     = 2
-	MaxGraphSize = 100
+	MinGraphSize = 1
+	MaxGraphSize = 1000
 )
 
 func TestDegreeIsMoreThanOneThirdForFaultTolerant(t *testing.T) {
 	tester := func(nodeCount int) {
-		graph, err := NewGraphTopology(nodeCount, 0, MinNodes, true)
+		smallestDegreeChecker := func(graph Topology, smallestDegree int) {
+			require.True(t, graph.isNetworkValid())
+			// smallest possible degree count
+			require.True(t, graph.DegreeCount() >= smallestDegree)
+			require.True(t, graph.DegreeCount()-2 < smallestDegree)
+
+			graph.SetDegree(graph.DegreeCount() - 2)
+
+			require.True(t, graph.isNetworkValid())
+			// smallest possible degree count
+			require.True(t, graph.DegreeCount() >= smallestDegree)
+			require.True(t, graph.DegreeCount()-2 < smallestDegree)
+		}
+
+		graph, err := NewFaultTolerantTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		require.True(t, graph.isNetworkValid())
-		// smallest possible degree count
-		require.True(t, graph.degreeCount > (nodeCount-1)/3)
-		require.True(t, graph.degreeCount-2 <= (nodeCount-1)/3)
+		smallestDegreeChecker(graph, (nodeCount-1)/3+1)
 
-		graph.SetDegreeCount(graph.degreeCount - 2)
-
-		require.True(t, graph.isNetworkValid())
-		// smallest possible degree count
-		require.True(t, graph.degreeCount > (nodeCount-1)/3)
-		require.True(t, graph.degreeCount-2 <= (nodeCount-1)/3)
+		graph, err = NewOptimizedTopology(nodeCount, 0, 0)
+		require.NoError(t, err)
+		smallestDegreeChecker(graph, min(nodeCount-1, int(math.Ceil(math.Sqrt(float64(nodeCount))))))
 	}
 	testForMultipleGraph(2, MaxGraphSize, tester)
 }
 
 func TestDegreeCountNotMoreThanNetworkSize(t *testing.T) {
-	_, err := NewGraphTopology(10, 10, 1, true)
+	tester := func(graph Topology) {
+		err := graph.SetDegree(10)
+		require.Error(t, err)
+		require.Equal(t, errDegreeCount, err)
+
+		require.Equal(t, 9, graph.DegreeCount())
+	}
+
+	_, err := NewFaultTolerantTopology(10, 10, 1)
 	require.Error(t, err)
 	require.Equal(t, errDegreeCount, err)
 
-	graph, err := NewGraphTopology(10, 9, 1, true)
+	_, err = NewOptimizedTopology(10, 10, 1)
+	require.Error(t, err)
+	require.Equal(t, errDegreeCount, err)
+
+	graph, err := NewFaultTolerantTopology(10, 9, 1)
 	require.NoError(t, err)
-	err = graph.SetDegreeCount(10)
-	require.Error(t, err)
-	require.Equal(t, errDegreeCount, err)
+	tester(graph)
 
-	require.Equal(t, 9, graph.degreeCount)
+	graph, err = NewOptimizedTopology(10, 9, 1)
+	require.NoError(t, err)
+	tester(graph)
 }
 
 func TestAdjacentNodesAreConnected(t *testing.T) {
 	tester := func(nodeCount int) {
-		adjacencyCheck := func(graph *networkTopology) {
+		adjacencyCheck := func(graph Topology) {
 			for node := 0; node < nodeCount; node++ {
-				edges := graph.RequestSubset(node)
+				edges, err := graph.RequestSubset(node)
+				require.NoError(t, err)
 				for _, peer := range edges {
 					require.True(t, graph.isAdjacent(node, peer))
 				}
 			}
 		}
 
-		graph, err := NewGraphTopology(nodeCount, 0, 0, true)
+		graph, err := NewFaultTolerantTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		adjacencyCheck(&graph)
+		adjacencyCheck(graph)
 
-		graph, err = NewGraphTopology(nodeCount, 0, 0, false)
+		graph, err = NewOptimizedTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		adjacencyCheck(&graph)
+		adjacencyCheck(graph)
 	}
 
-	testForMultipleGraph(2, MaxGraphSize, tester)
+	testForMultipleGraph(MinGraphSize, MaxGraphSize, tester)
 }
 
-func TestGraphIsBidirectional(t *testing.T) {
+func TestFaultTolerantGraphIsBidirectional(t *testing.T) {
 	tester := func(nodeCount int) {
+		graph, err := NewFaultTolerantTopology(nodeCount, 0, 0)
+		require.NoError(t, err)
 
-		directionChecker := func(graph *networkTopology) {
-			edgesMap := make(map[int]bool)
-			for node := 0; node < nodeCount; node++ {
-				edges := graph.RequestSubset(node)
-				for _, peer := range edges {
-					key := combinedIndex(node, peer, nodeCount)
-					if _, ok := edgesMap[key]; ok {
-						delete(edgesMap, key)
-					} else {
-						edgesMap[key] = true
-					}
+		edgesMap := make(map[int]bool)
+		for node := 0; node < nodeCount; node++ {
+			edges, err := graph.RequestSubset(node)
+			require.NoError(t, err)
+			for _, peer := range edges {
+				key := combinedIndex(node, peer, nodeCount)
+				if _, ok := edgesMap[key]; ok {
+					delete(edgesMap, key)
+				} else {
+					edgesMap[key] = true
 				}
 			}
-
-			require.Equal(t, 0, len(edgesMap))
 		}
 
-		graph, err := NewGraphTopology(nodeCount, 0, 0, true)
-		require.NoError(t, err)
-		directionChecker(&graph)
-
-		graph, err = NewGraphTopology(nodeCount, 0, 0, false)
-		require.NoError(t, err)
-		directionChecker(&graph)
+		require.Equal(t, 0, len(edgesMap))
 	}
 
-	testForMultipleGraph(2, MaxGraphSize, tester)
+	testForMultipleGraph(MinGraphSize, MaxGraphSize, tester)
 }
 
 func TestDegreeCount(t *testing.T) {
 	tester := func(nodeCount int) {
-		degreeChecker := func(graph *networkTopology) {
+		degreeChecker := func(graph Topology, nodeCount int) {
 			for node := 0; node < nodeCount; node++ {
-				edges := graph.RequestSubset(node)
-				require.Equal(t, graph.degreeCount, len(edges))
+				edges, err := graph.RequestSubset(node)
+				require.NoError(t, err)
+				if graph.isAdjacent(node, node) {
+					require.Equal(t, graph.DegreeCount(), len(edges)+1)
+				} else {
+					require.Equal(t, graph.DegreeCount(), len(edges))
+				}
 			}
 		}
 
-		graph, err := NewGraphTopology(nodeCount, 0, 0, true)
+		graph, err := NewFaultTolerantTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		degreeChecker(&graph)
+		degreeChecker(graph, nodeCount)
 
-		graph, err = NewGraphTopology(nodeCount, 0, 0, false)
+		graph, err = NewOptimizedTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		degreeChecker(&graph)
+		degreeChecker(graph, graph.DegreeCount()+1)
+		for node := graph.DegreeCount() + 1; node < nodeCount; node++ {
+			edges, err := graph.RequestSubset(node)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(edges))
+		}
 	}
 
-	testForMultipleGraph(2, MaxGraphSize, tester)
+	testForMultipleGraph(MinGraphSize, MaxGraphSize, tester)
 }
 
 func TestGraphIsConnected(t *testing.T) {
 	tester := func(nodeCount int) {
 		graph := newGraph(nodeCount)
-		connectionChecker := func(graphTopology *networkTopology) {
+		connectionChecker := func(graphTopology Topology) {
+			var err error
 			for node := 0; node < nodeCount; node++ {
-				graph.edges[node] = graphTopology.RequestSubset(node)
+				graph.edges[node], err = graphTopology.RequestSubset(node)
+				require.NoError(t, err)
 			}
 			graph.visited = make([]bool, nodeCount)
 			require.Equal(t, nodeCount, graph.dfs(0))
@@ -135,118 +163,172 @@ func TestGraphIsConnected(t *testing.T) {
 			}
 		}
 
-		graphTopology, err := NewGraphTopology(nodeCount, 0, 0, true)
+		graphTopology, err := NewFaultTolerantTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		connectionChecker(&graphTopology)
+		connectionChecker(graphTopology)
 
-		graphTopology, err = NewGraphTopology(nodeCount, 0, 0, false)
+		graphTopology, err = NewOptimizedTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		connectionChecker(&graphTopology)
+		connectionChecker(graphTopology)
 	}
 
-	testForMultipleGraph(1, MaxGraphSize, tester)
+	testForMultipleGraph(MinGraphSize, MaxGraphSize, tester)
 }
 
 // Tests graph diameter for a bidirectional graph
-func TestGraphDiameter(t *testing.T) {
+func TestFaultTolerantGraphDiameter(t *testing.T) {
 	tester := func(nodeCount int) {
 		graph := newGraph(nodeCount)
-		diameterChecker := func(graphTopology *networkTopology) {
-			for node := 0; node < nodeCount; node++ {
-				graph.edges[node] = graphTopology.RequestSubset(node)
+		graphTopology, err := NewFaultTolerantTopology(nodeCount, 0, 0)
+		require.NoError(t, err)
+		for node := 0; node < nodeCount; node++ {
+			graph.edges[node], err = graphTopology.RequestSubset(node)
+			require.NoError(t, err)
+		}
+		graph.targetDiameter = 2
+		graph.distance = make([][]int, nodeCount)
+		for i := 0; i < nodeCount; i++ {
+			graph.distance[i] = make([]int, nodeCount)
+			for j := 0; j < nodeCount; j++ {
+				graph.distance[i][j] = graph.targetDiameter + 1
 			}
-			graph.targetDiameter = 2
-			graph.distance = make([][]int, nodeCount)
-			for i := 0; i < nodeCount; i++ {
-				graph.distance[i] = make([]int, nodeCount)
-				for j := 0; j < nodeCount; j++ {
-					graph.distance[i][j] = graph.targetDiameter + 1
-				}
+		}
+
+		pairsToUpdate := nodeCount * (nodeCount - 1) / 2 // we have C(n,2) unordered pairs of nodes
+		updatedPairs := make(map[int]bool)
+		for graphSize := nodeCount; graphSize > 0 && len(updatedPairs) < pairsToUpdate; graphSize-- {
+			source := graphSize - 1
+			graph.bfs(source, source, graph.distance[source])
+
+			// Now we need to determine shortest path distance for any pair of nodes `(u,v)` such that the path
+			// between `u` and `v` includes `source`. Note that we don't need to determine the shortest path distance
+			// for all pairs of nodes. We only determine the shortest path distance for some pair `(u,v)` such that
+			// `distance[u][v] <= targetDiameter`, otherwise the test will fail. Which gives us opportunity to optimize here.
+			for peer := 0; peer < source; peer++ {
+				d := graph.distance[source][peer]
+				require.True(t, d <= graph.targetDiameter, "graph diameter more than expected")
+				// assuming that the graph is bidirectional, which is tested in TestGraphIsBidirectional
+				graph.distance[peer][source] = d
+				updatedPairs[combinedIndex(peer, source, nodeCount)] = true
 			}
-
-			pairsToUpdate := nodeCount * (nodeCount - 1) / 2 // we have C(n,2) unordered pairs of nodes
-			updatedPairs := make(map[int]bool)
-			for graphSize := nodeCount; graphSize > 0 && len(updatedPairs) < pairsToUpdate; graphSize-- {
-				source := graphSize - 1
-				graph.bfs(source, source, graph.distance[source])
-
-				// Now we need to determine shortest path distance for any pair of nodes `(u,v)` such that the path
-				// between `u` and `v` includes `source`. Note that we don't need to determine the shortest path distance
-				// for all pairs of nodes. We only determine the shortest path distance for some pair `(u,v)` such that
-				// `distance[u][v] <= targetDiameter`, otherwise the test will fail. Which gives us opportunity to optimize here.
-				for peer := 0; peer < source; peer++ {
-					d := graph.distance[source][peer]
-					require.True(t, d <= graph.targetDiameter, "graph diameter more than expected")
-					// assuming that the graph is bidirectional, which is tested in TestGraphIsBidirectional
-					graph.distance[peer][source] = d
-					updatedPairs[combinedIndex(peer, source, nodeCount)] = true
-				}
-				// update any pair `(nodeA,nodeB)` such that the shortest path between `nodeA` and `nodeB` includes `source`
-				// As we have `targetedDiameter = 2`, doing this operation is not very costly.
-				for nodeAIndex, nodeA := range graph.edges[source] {
-					for nodeBIndex := nodeAIndex + 1; nodeBIndex < len(graph.edges[source]); nodeBIndex++ {
-						nodeB := graph.edges[source][nodeBIndex]
-						if graph.distance[nodeA][nodeB] > 2 {
-							graph.distance[nodeA][nodeB] = 2
-							graph.distance[nodeB][nodeA] = 2
-							updatedPairs[combinedIndex(nodeA, nodeB, nodeCount)] = true
-						}
+			// update any pair `(nodeA,nodeB)` such that the shortest path between `nodeA` and `nodeB` includes `source`
+			// As we have `targetedDiameter = 2`, doing this operation is not very costly.
+			for nodeAIndex, nodeA := range graph.edges[source] {
+				for nodeBIndex := nodeAIndex + 1; nodeBIndex < len(graph.edges[source]); nodeBIndex++ {
+					nodeB := graph.edges[source][nodeBIndex]
+					if graph.distance[nodeA][nodeB] > 2 {
+						graph.distance[nodeA][nodeB] = 2
+						graph.distance[nodeB][nodeA] = 2
+						updatedPairs[combinedIndex(nodeA, nodeB, nodeCount)] = true
 					}
 				}
 			}
 		}
-
-		graphTopology, err := NewGraphTopology(nodeCount, 0, 0, true)
-		require.NoError(t, err)
-		diameterChecker(&graphTopology)
-
-		graphTopology, err = NewGraphTopology(nodeCount, min(nodeCount-1, int(math.Ceil(math.Sqrt(float64(nodeCount))))), 0, false)
-		require.NoError(t, err)
-		diameterChecker(&graphTopology)
 	}
 
-	testForMultipleGraph(1, MaxGraphSize, tester)
+	testForMultipleGraph(MinGraphSize, MaxGraphSize, tester)
+}
+
+// tests diameter from `root=0` only
+func TestOptimizedGraphDiameter(t *testing.T) {
+	tester := func(nodeCount int) {
+		graph := newGraph(nodeCount)
+		network, err := NewOptimizedTopology(nodeCount, 0, 0)
+		require.NoError(t, err)
+
+		graph.targetDiameter = 2
+		graph.distance = make([][]int, nodeCount)
+		graph.distance[0] = make([]int, nodeCount)
+		for node := 0; node < nodeCount; node++ {
+			graph.edges[node], err = network.RequestSubset(node)
+			require.NoError(t, err)
+			graph.distance[0][node] = graph.targetDiameter + 1
+		}
+
+		graph.bfs(0, nodeCount, graph.distance[0])
+		for node := 0; node < nodeCount; node++ {
+			require.True(t, graph.distance[0][node] <= graph.targetDiameter)
+		}
+	}
+
+	testForMultipleGraph(MinGraphSize, MaxGraphSize, tester)
 }
 
 func TestNoDuplicateNodeInConnection(t *testing.T) {
 	tester := func(nodeCount int) {
 		tester2 := func(degreeCount int) {
-			graph, err := NewGraphTopology(nodeCount, degreeCount, 0, false)
-			require.NoError(t, err)
-			for node := 0; node < nodeCount; node++ {
-				edges := graph.RequestSubset(node)
-				existedPeer := make(map[int]bool)
-				existedPeer[node] = true
-				for _, peer := range edges {
-					require.False(t, existedPeer[peer])
-					existedPeer[peer] = true
+			duplicateChecker := func(graph Topology) {
+				for node := 0; node < nodeCount; node++ {
+					edges, err := graph.RequestSubset(node)
+					require.NoError(t, err)
+					existedPeer := make(map[int]bool)
+					existedPeer[node] = true
+					for _, peer := range edges {
+						require.False(t, existedPeer[peer])
+						existedPeer[peer] = true
+					}
 				}
 			}
+
+			graph, err := NewFaultTolerantTopology(nodeCount, degreeCount, 0)
+			require.NoError(t, err)
+			duplicateChecker(graph)
+
+			graph, err = NewOptimizedTopology(nodeCount, degreeCount, 0)
+			require.NoError(t, err)
+			duplicateChecker(graph)
 		}
 
 		tester2(0)
-		tester2((1 + nodeCount) / 2)
+		if nodeCount > 1 {
+			tester2((1 + nodeCount) / 2)
+		}
 		if nodeCount > 2 {
 			tester2((2*nodeCount + 2) / 3)
 		}
 	}
-	testForMultipleGraph(2, MaxGraphSize, tester)
+	testForMultipleGraph(MinGraphSize, MaxGraphSize, tester)
 }
 
 func TestGraphConnectivityForFaultTolerant(t *testing.T) {
-	// TODO (tariq): need to optimize
 	tester := func(nodeCount int) {
-		graphTopology, err := NewGraphTopology(nodeCount, 0, 0, true)
+		graphTopology, err := NewFaultTolerantTopology(nodeCount, 0, 0)
 		require.NoError(t, err)
-		require.Equal(t, graphTopology.degreeCount, graphTopology.connectivity())
+		connectivity, err := graphTopology.(*faultTolerantTopology).connectivity()
+		require.NoError(t, err)
+		require.True(t, connectivity > int(bft.F(big.NewInt(int64(nodeCount))).Int64()))
 	}
-	// TODO (tariq): increase upto 1000
-	testForMultipleGraph(1, 100, tester)
+	testForMultipleGraph(2, 100, tester)
+}
+
+func TestGraphConnectivityForLargeFaultTolerant(t *testing.T) {
+	// TODO (tariq): exploit the propery of the graph that it is symmetric and has a unique shape
+}
+
+func BenchmarkEdgeConstructionForDegreeSqrt(b *testing.B) {
+	graph, err := NewOptimizedTopology(1024, 0, 0)
+	require.NoError(b, err)
+	require.Equal(b, 32, graph.DegreeCount())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		graph.RequestSubset(0)
+	}
+}
+
+func BenchmarkEdgeConstructionForDegree100(b *testing.B) {
+	graph, err := NewOptimizedTopology(1024, 100, 0)
+	require.NoError(b, err)
+	require.Equal(b, 100, graph.DegreeCount())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		graph.RequestSubset(0)
+	}
 }
 
 func BenchmarkEdgeConstructionForDegreeOneThird(b *testing.B) {
-	graph, err := NewGraphTopology(1000, 0, 0, true)
+	graph, err := NewFaultTolerantTopology(1000, 0, 0)
 	require.NoError(b, err)
+	require.True(b, 999/3+1 <= graph.DegreeCount() && 999/3+2 >= graph.DegreeCount())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		graph.RequestSubset(0)
@@ -254,8 +336,9 @@ func BenchmarkEdgeConstructionForDegreeOneThird(b *testing.B) {
 }
 
 func BenchmarkEdgeConstructionForDegreeHalf(b *testing.B) {
-	graph, err := NewGraphTopology(1000, 500, 0, true)
+	graph, err := NewFaultTolerantTopology(1000, 500, 0)
 	require.NoError(b, err)
+	require.True(b, 500 <= graph.DegreeCount() && 501 >= graph.DegreeCount())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		graph.RequestSubset(0)
@@ -263,8 +346,9 @@ func BenchmarkEdgeConstructionForDegreeHalf(b *testing.B) {
 }
 
 func BenchmarkEdgeConstructionForDegreeTwoThird(b *testing.B) {
-	graph, err := NewGraphTopology(1000, 2002/3, 0, true)
+	graph, err := NewFaultTolerantTopology(1000, 2002/3, 0)
 	require.NoError(b, err)
+	require.True(b, 2002/3 <= graph.DegreeCount() && 2002/3+1 >= graph.DegreeCount())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		graph.RequestSubset(0)
