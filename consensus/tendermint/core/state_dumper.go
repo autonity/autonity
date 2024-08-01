@@ -27,19 +27,19 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 	state := interfaces.CoreState{
 		Client:              c.address,
 		BlockPeriod:         c.blockPeriod,
-		CurHeightMessages:   msgForDump(c.messages.All()),
+		CurHeightMessages:   msgForDump(c.roundsState.AllMessages()),
 		FutureRoundMessages: getFutureRoundMsgs(c),
 		// future height msgs are not really a part of core anymore, but we include them in the state dump for completeness sake
 		FutureHeightMessages: msgForDump(c.backend.FutureMsgs()),
 		// tendermint Core state:
 		Height:      c.Height(),
 		Round:       c.Round(),
-		Step:        uint64(c.step),
+		Step:        uint64(c.Step()),
 		Proposal:    getProposal(c, c.Round()),
-		LockedValue: getHash(c.lockedValue),
-		LockedRound: c.lockedRound,
-		ValidValue:  getHash(c.validValue),
-		ValidRound:  c.validRound,
+		LockedValue: getHash(c.LockedValue()),
+		LockedRound: c.LockedRound(),
+		ValidValue:  getHash(c.ValidValue()),
+		ValidRound:  c.ValidRound(),
 
 		// committee state
 		Committee:       c.CommitteeSet().Committee(),
@@ -48,10 +48,10 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 		QuorumVotePower: c.CommitteeSet().Quorum(),
 		RoundStates:     getRoundState(c),
 		// extra state
-		SentProposal:          c.sentProposal,
-		SentPrevote:           c.sentPrevote,
-		SentPrecommit:         c.sentPrecommit,
-		SetValidRoundAndValue: c.setValidRoundAndValue,
+		SentProposal:          c.SentProposal(),
+		SentPrevote:           c.SentPrevote(),
+		SentPrecommit:         c.SentPrecommit(),
+		SetValidRoundAndValue: c.ValidRoundAndValueSet(),
 		// timer state
 		ProposeTimerStarted:   c.proposeTimeout.TimerStarted(),
 		PrevoteTimerStarted:   c.prevoteTimeout.TimerStarted(),
@@ -97,8 +97,8 @@ func msgForDump(messages []message.Msg) []*interfaces.MsgForDump {
 }
 
 func getProposal(c *Core, round int64) *common.Hash {
-	if c.messages.GetOrCreate(round).Proposal() != nil && c.messages.GetOrCreate(round).Proposal().Block() != nil {
-		v := c.messages.GetOrCreate(round).Proposal().Block().Hash()
+	if c.roundsState.GetOrCreate(round).Proposal() != nil && c.roundsState.GetOrCreate(round).Proposal().Block() != nil {
+		v := c.roundsState.GetOrCreate(round).Proposal().Block().Hash()
 		return &v
 	}
 	return nil
@@ -113,11 +113,11 @@ func getHash(b *types.Block) *common.Hash {
 }
 
 func getRoundState(c *Core) []interfaces.RoundState {
-	rounds := c.messages.GetRounds()
+	rounds := c.roundsState.Messages().GetRounds()
 	states := make([]interfaces.RoundState, 0, len(rounds))
 
 	for _, r := range rounds {
-		proposal, prevoteState, preCommitState := getVoteState(c.messages, r)
+		proposal, prevoteState, preCommitState := getVoteState(c.roundsState.Messages(), r)
 		state := interfaces.RoundState{
 			Round:          r,
 			Proposal:       proposal,

@@ -21,13 +21,13 @@ import (
 // 3. proposal is from current proposer
 // 4. proposal is verified and valid
 func (c *Core) newProposalCheck(ctx context.Context, proposal *message.Propose) {
-	if c.step != Propose || proposal.ValidRound() != -1 {
+	if c.Step() != Propose || proposal.ValidRound() != -1 {
 		return
 	}
 	// When lockedRound is set to any value other than -1 lockedValue is also
 	// set to a non nil value. So we can be sure that we will only try to access
 	// lockedValue when it is non nil.
-	c.prevoter.SendPrevote(ctx, !(c.lockedRound == -1 || proposal.Block().Hash() == c.lockedValue.Hash()))
+	c.prevoter.SendPrevote(ctx, !(c.LockedRound() == -1 || proposal.Block().Hash() == c.LockedValue().Hash()))
 	c.SetStep(ctx, Prevote)
 }
 
@@ -40,14 +40,14 @@ func (c *Core) newProposalCheck(ctx context.Context, proposal *message.Propose) 
 // 4. proposal is verified and valid
 func (c *Core) oldProposalCheck(ctx context.Context, proposal *message.Propose) {
 	vr := proposal.ValidRound()
-	if c.step != Propose || vr == -1 || vr >= c.Round() {
+	if c.Step() != Propose || vr == -1 || vr >= c.Round() {
 		return
 	}
 
 	hash := proposal.Block().Hash()
-	rm := c.messages.GetOrCreate(vr)
+	rm := c.roundsState.GetOrCreate(vr)
 	if rm.PrevotesPower(hash).Cmp(c.CommitteeSet().Quorum()) >= 0 {
-		c.prevoter.SendPrevote(ctx, !(c.lockedRound <= vr || hash == c.lockedValue.Hash()))
+		c.prevoter.SendPrevote(ctx, !(c.LockedRound() <= vr || hash == c.LockedValue().Hash()))
 		c.SetStep(ctx, Prevote)
 	}
 }
@@ -55,10 +55,10 @@ func (c *Core) oldProposalCheck(ctx context.Context, proposal *message.Propose) 
 // Line 34 in Algorithm 1 of The latest gossip on BFT consensus
 // checks if we have to schedule the prevote timeout
 func (c *Core) prevoteTimeoutCheck() {
-	if c.step != Prevote {
+	if c.Step() != Prevote {
 		return
 	}
-	if !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
+	if !c.prevoteTimeout.TimerStarted() && !c.SentPrecommit() && c.CurRoundMessages().PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		timeoutDuration := c.timeoutPrevote(c.Round())
 		c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
 		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
@@ -72,33 +72,31 @@ func (c *Core) prevoteTimeoutCheck() {
 // 3. proposal is from current proposer
 // 4. proposal is verified and valid
 func (c *Core) quorumPrevotesCheck(ctx context.Context, proposal *message.Propose) {
-	if c.step == Propose {
+	if c.Step() == Propose {
 		return
 	}
 	// we are at prevote or precommit step
-	if c.curRoundMessages.PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.setValidRoundAndValue {
+	if c.CurRoundMessages().PrevotesPower(proposal.Block().Hash()).Cmp(c.CommitteeSet().Quorum()) >= 0 && !c.ValidRoundAndValueSet() {
 		if metrics.Enabled {
 			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 		}
-		if c.step == Prevote {
-			c.lockedValue = proposal.Block()
-			c.lockedRound = c.Round()
+		if c.Step() == Prevote {
+			// todo: Jason, double check if the locked round equals to the round of the proposal.
+			c.SetLockedRoundAndValue(c.Round(), proposal.Block())
 			c.precommiter.SendPrecommit(ctx, false)
 			c.SetStep(ctx, Precommit)
 		}
-		c.validValue = proposal.Block()
-		c.validRound = c.Round()
-		c.setValidRoundAndValue = true
+		c.SetValidRoundAndValue(c.Round(), proposal.Block())
 	}
 }
 
 // Line 44 in Algorithm 1 of The latest gossip on BFT consensus
 // checks if we have to precommit nil because we received quorum prevotes nil
 func (c *Core) quorumPrevotesNilCheck(ctx context.Context) {
-	if c.step != Prevote {
+	if c.Step() != Prevote {
 		return
 	}
-	if c.curRoundMessages.PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
+	if c.CurRoundMessages().PrevotesPower(common.Hash{}).Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		if metrics.Enabled {
 			PrevoteQuorumBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 		}
@@ -110,7 +108,7 @@ func (c *Core) quorumPrevotesNilCheck(ctx context.Context) {
 // Line 47 in Algorithm 1 of The latest gossip on BFT consensus
 // checks if we have to schedule the precommit timeout
 func (c *Core) precommitTimeoutCheck() {
-	if !c.precommitTimeout.TimerStarted() && c.curRoundMessages.PrecommitsTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
+	if !c.precommitTimeout.TimerStarted() && c.CurRoundMessages().PrecommitsTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
@@ -124,7 +122,7 @@ func (c *Core) precommitTimeoutCheck() {
 // returns whether the proposal was committed or not
 func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Propose, verified bool) bool {
 	hash := proposal.Block().Hash()
-	rm := c.messages.GetOrCreate(proposal.R())
+	rm := c.roundsState.GetOrCreate(proposal.R())
 
 	// if no quorum, return without verifying the proposal
 	if rm.PrecommitsPower(hash).Cmp(c.CommitteeSet().Quorum()) < 0 {
@@ -170,7 +168,7 @@ func (c *Core) roundSkipCheck(ctx context.Context, r int64) {
 
 	if futurePower.Cmp(c.CommitteeSet().F()) > 0 {
 		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", r)
-		c.StartRound(ctx, r)
+		c.StartRound(ctx, r, false)
 	}
 }
 
@@ -206,7 +204,7 @@ func (c *Core) currentProposalChecks(ctx context.Context, proposal *message.Prop
 // upon condition rules to check when receiving a current round prevote
 func (c *Core) currentPrevoteChecks(ctx context.Context) {
 	// fetch current proposal
-	curProposal := c.curRoundMessages.Proposal()
+	curProposal := c.CurRoundMessages().Proposal()
 
 	if curProposal != nil {
 		// Line 36 in Algorithm 1 of The latest gossip on BFT consensus
@@ -227,7 +225,7 @@ func (c *Core) currentPrevoteChecks(ctx context.Context) {
 // 1. need to be checked only when we change from propose to prevote step
 // 2. coincide with the ones to check when receiving a prevote
 func (c *Core) stepChangeChecks(ctx context.Context) {
-	if c.step != Prevote {
+	if c.Step() != Prevote {
 		panic("Step change tendermint checks done when transitioning to a step != Prevote")
 	}
 	c.currentPrevoteChecks(ctx)
@@ -235,7 +233,7 @@ func (c *Core) stepChangeChecks(ctx context.Context) {
 
 // upon condition rules to check when receiving a current round precommit
 func (c *Core) currentPrecommitChecks(ctx context.Context) {
-	curProposal := c.curRoundMessages.Proposal()
+	curProposal := c.CurRoundMessages().Proposal()
 
 	// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 	// check if we reached quorum precommits for the current proposal

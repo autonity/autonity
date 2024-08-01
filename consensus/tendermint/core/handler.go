@@ -28,8 +28,23 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
-	// Start a new round from last height + 1
-	c.StartRound(ctx, 0)
+	// If the state in WAL is stale, then we start round with 0 for new heights.
+	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
+		c.StartRound(ctx, 0, false)
+	} else {
+
+		// the state recovered from WAL is not stale, if the decision haven't been made, start the round again.
+		if c.Decision() == nil {
+			lastFlushedRound := c.Round()
+			c.StartRound(ctx, lastFlushedRound, true)
+		}
+
+		// the decision was made, however it was failed to be committed.
+		// Start new height from round 0 after the commitment is done.
+		if c.Decision() != nil {
+			// todo: Jason, commit the decision and start new height.
+		}
+	}
 
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
@@ -117,9 +132,9 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	case message.ProposalCode:
 		break
 	case message.PrevoteCode:
-		quorum = (c.messages.GetOrCreate(round).PrevotesPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+		quorum = (c.roundsState.GetOrCreate(round).PrevotesPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
 	case message.PrecommitCode:
-		quorum = (c.messages.GetOrCreate(round).PrecommitsPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+		quorum = (c.roundsState.GetOrCreate(round).PrecommitsPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
 	}
 	return quorum
 }
@@ -129,12 +144,12 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 	// We can consider changing it only if it considerably harms performance.
 	switch code {
 	case message.PrevoteCode:
-		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
-		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote)
+		aggregatePrevote := c.roundsState.GetOrCreate(round).PrevoteFor(value)
+		c.roundsState.GetOrCreate(round).AddPrevote(aggregatePrevote)
 		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote)
 	case message.PrecommitCode:
-		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value)
-		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
+		aggregatePrecommit := c.roundsState.GetOrCreate(round).PrecommitFor(value)
+		c.roundsState.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
 		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit)
 	}
 }
@@ -243,7 +258,7 @@ eventLoop:
 			}
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				// if we already decided on this height block, ignore the timeout. It is useless by now.
-				if c.step == PrecommitDone {
+				if c.Step() == PrecommitDone {
 					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
 					continue
 				}
@@ -335,7 +350,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	}
 
 	// if we already decided on this height block, discard the message. It is useless by now.
-	if c.step == PrecommitDone {
+	if c.Step() == PrecommitDone {
 		return constants.ErrHeightClosed
 	}
 

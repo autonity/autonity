@@ -17,6 +17,7 @@ type RoundsState interface {
 type RoundMessageInterface interface {
 	SetProposal(proposal *message.Propose, verified bool)
 
+	Messages() *message.Map
 	CurRoundMessages() *message.RoundMessages
 	CurRoundProposal() *message.Propose
 	CurRoundPrevotesTotalPower() *big.Int
@@ -40,7 +41,7 @@ type RoundMessageInterface interface {
 	AggregatedPrevoteFor(round int64, hash common.Hash) *message.Prevote
 	AggregatedPrecommitFor(round int64, hash common.Hash) *message.Precommit
 
-	All() []message.Msg
+	AllMessages() []message.Msg
 }
 
 type TendermintStateInterface interface {
@@ -335,6 +336,10 @@ func (rs *RoundsStateImpl) ValidRoundAndValueSet() bool {
 
 // round messages reader functions:
 
+func (rs *RoundsStateImpl) Messages() *message.Map {
+	return rs.messages
+}
+
 func (rs *RoundsStateImpl) CurRoundMessages() *message.RoundMessages {
 	return rs.curRoundMessages
 }
@@ -447,6 +452,6 @@ func (rs *RoundsStateImpl) AggregatedPrecommitFor(round int64, hash common.Hash)
 	panic("cannot aggregate future round precommits")
 }
 
-func (rs *RoundsStateImpl) All() []message.Msg {
+func (rs *RoundsStateImpl) AllMessages() []message.Msg {
 	return rs.messages.All()
 }

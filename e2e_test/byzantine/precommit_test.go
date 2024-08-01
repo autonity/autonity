@@ -30,7 +30,7 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	} else {
 		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.HexToHash("0xCAFE"), c.Backend().Sign, self, csize)
 	}
-	c.SetSentPrecommit(true)
+	c.SetSentPrecommit()
 	c.BroadcastAll(precommit)
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/ethdb"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -57,7 +58,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger, noGossip bool) *Backend {
+	log log.Logger, noGossip bool, db ethdb.Database) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -83,7 +84,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 		backend.gossiper = services.Gossiper(backend)
 	}
 
-	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
+	core := tendermintCore.New(backend, services, backend.address, log, noGossip, db)
 	backend.core = core
 	backend.evDispatcher = core
 

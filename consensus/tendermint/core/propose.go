@@ -28,12 +28,12 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if !c.IsProposer() {
 		panic("not proposer")
 	}
-	if c.sentProposal {
+	if c.SentProposal() {
 		return
 	}
 	self := c.LastHeader().CommitteeMember(c.address)
-	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)
-	c.sentProposal = true
+	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), block, c.backend.Sign, self)
+	c.SetSentProposal()
 	c.backend.SetProposedBlockHash(block.Hash())
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal)
 	c.Broadcaster().Broadcast(proposal)
@@ -59,7 +59,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	// proposal is either for current round or old round
-	roundMessages := c.messages.GetOrCreate(proposal.R())
+	roundMessages := c.roundsState.GetOrCreate(proposal.R())
 
 	// if we already have a proposal for this round - ignore
 	// the first proposal sent by the sender in a round is always the only one we consider.
@@ -76,7 +76,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	if proposal.R() < c.Round() {
 		// old round proposal, check if we have quorum precommits on it
 		// Save it, but do not verify the proposal yet unless we have enough precommits for it.
-		roundMessages.SetProposal(proposal, false)
+		c.roundsState.SetProposal(proposal, false)
 
 		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 		// check if we have a quorum of precommits for this proposal
@@ -128,7 +128,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// Proposal is invalid here, we need to prevote nil.
 		// However, we may have already sent a prevote nil in the past without having processed the proposal
 		// because of a timeout, so we need to check if we are still in the Propose step.
-		if c.step == Propose {
+		if c.Step() == Propose {
 			c.prevoter.SendPrevote(ctx, true)
 			// do not to accept another proposal in current round
 			c.SetStep(ctx, Prevote)
@@ -138,7 +138,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	// Set the proposal for the current round
-	c.curRoundMessages.SetProposal(proposal, true)
+	c.roundsState.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal)
 
 	// check upon conditions for current round proposal
@@ -162,7 +162,7 @@ func (c *Proposer) HandleNewCandidateBlockMsg(ctx context.Context, candidateBloc
 
 	// if current node is the proposer of current height and current round at step PROPOSE without available candidate
 	// block sent before, if the incoming candidate block is the one it missed, send it now.
-	if c.IsProposer() && c.step == Propose && !c.sentProposal && c.Height().Cmp(number) == 0 {
+	if c.IsProposer() && c.Step() == Propose && !c.SentProposal() && c.Height().Cmp(number) == 0 {
 		c.logger.Debug("NewCandidateBlockEvent: Sending proposal that was missed before", "number", number.Uint64())
 		c.proposer.SendProposal(ctx, candidateBlock)
 	}
@@ -189,7 +189,7 @@ func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Pro
 		"msgHeight", proposal.H(),
 		"currentRound", log.Lazy{Fn: c.Round},
 		"msgRound", proposal.R(),
-		"currentStep", c.step,
+		"currentStep", c.Step(),
 		"isProposer", log.Lazy{Fn: c.IsProposer},
 		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", log.Lazy{Fn: func() bool { return proposal.Block().Hash() == common.Hash{} }},

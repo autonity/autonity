@@ -22,7 +22,7 @@ type Precommiter struct {
 func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	value := common.Hash{}
 	if !isNil {
-		proposal := c.curRoundMessages.Proposal()
+		proposal := c.roundsState.CurRoundMessages().Proposal()
 		if proposal == nil {
 			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
@@ -35,7 +35,7 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	self := c.LastHeader().CommitteeMember(c.address)
 	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
 	c.LogPrecommitMessageEvent("Precommit sent", precommit)
-	c.sentPrecommit = true
+	c.SetSentPrecommit()
 	c.Broadcaster().Broadcast(precommit)
 	if metrics.Enabled {
 		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
@@ -53,8 +53,8 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	if precommit.R() < c.Round() {
 		// We are receiving a precommit for an old round. We need to check if we have now a quorum
 		// in this old round.
-		roundMessages := c.messages.GetOrCreate(precommit.R())
-		roundMessages.AddPrecommit(precommit)
+		c.roundsState.AddPrecommit(precommit)
+		roundMessages := c.roundsState.GetOrCreate(precommit.R())
 		c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
 
 		oldRoundProposal := roundMessages.Proposal()
@@ -70,7 +70,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// Precommit if for current round from here
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
-	c.curRoundMessages.AddPrecommit(precommit)
+	c.roundsState.AddPrecommit(precommit)
 	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrecommitCode, Value: precommit.Value()})
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit)
 
@@ -79,14 +79,14 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 }
 
 func (c *Precommiter) HandleCommit(ctx context.Context) {
-	c.logger.Debug("Received a final committed proposal", "step", c.step)
+	c.logger.Debug("Received a final committed proposal", "step", c.Step())
 	lastBlock := c.backend.HeadBlock()
 	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
 	if height.Cmp(c.Height()) == 0 {
 		c.logger.Debug("Discarding event as Core is at the same height", "height", c.Height())
 	} else {
 		c.logger.Debug("New chain head ahead of consensus Core height", "height", c.Height(), "block_height", height)
-		c.StartRound(ctx, 0)
+		c.StartRound(ctx, 0, false)
 	}
 }
 
@@ -98,14 +98,16 @@ func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *messag
 		"msgHeight", precommit.H(),
 		"currentRound", log.Lazy{Fn: c.Round},
 		"msgRound", precommit.R(),
-		"currentStep", c.step,
+		"currentStep", c.Step(),
 		"isProposer", log.Lazy{Fn: c.IsProposer},
 		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", precommit.Value() == common.Hash{},
 		"value", precommit.Value(),
-		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrecommitsTotalPower},
-		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(common.Hash{}) }},
-		"proposedBlockVote", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(c.curRoundMessages.ProposalHash()) }},
+		"totalVotes", log.Lazy{Fn: c.roundsState.CurRoundMessages().PrecommitsTotalPower},
+		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.roundsState.CurRoundMessages().PrecommitsPower(common.Hash{}) }},
+		"proposedBlockVote", log.Lazy{Fn: func() *big.Int {
+			return c.roundsState.CurRoundMessages().PrecommitsPower(c.roundsState.CurRoundMessages().ProposalHash())
+		}},
 		"precommit", log.Lazy{Fn: func() string { return precommit.String() }},
 	)
 }

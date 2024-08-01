@@ -171,8 +171,8 @@ func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Ad
 }
 
 func setCoreState(c *Core, h *big.Int, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee interfaces.Committee, header *types.Header) {
-	c.setHeight(h)
-	c.setRound(r)
+	c.SetHeight(h)
+	c.SetRound(r)
 	c.SetStep(context.Background(), s)
 	c.lockedValue = lv
 	c.lockedRound = lr

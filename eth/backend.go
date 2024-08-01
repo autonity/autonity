@@ -180,7 +180,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
-		config.Miner.Noverify, &vmConfig, evMux, msgStore)
+		config.Miner.Noverify, &vmConfig, evMux, msgStore, chainDb)
 
 	nodeKey, _ := stack.Config().AutonityKeys()
 	eth := &Ethereum{

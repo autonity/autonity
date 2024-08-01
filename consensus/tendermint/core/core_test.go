@@ -120,14 +120,14 @@ func TestCore_Setters(t *testing.T) {
 		require.False(t, c.proposeTimeout.TimerStarted())
 	})
 
-	t.Run("setRound", func(t *testing.T) {
-		c.setRound(27)
+	t.Run("SetRound", func(t *testing.T) {
+		c.SetRound(27)
 		require.Equal(t, int64(27), c.Round())
 	})
 
-	t.Run("setHeight", func(t *testing.T) {
+	t.Run("SetHeight", func(t *testing.T) {
 		c := &Core{}
-		c.setHeight(new(big.Int).SetUint64(10))
+		c.SetHeight(new(big.Int).SetUint64(10))
 		require.Equal(t, uint64(10), c.height.Uint64())
 	})
 

@@ -142,7 +142,7 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 		log.Debug("prevote collusion simulated", "rule", rule, "h", c.Height(), "r", r, "v", v.Hash(), "node", c.Address())
 		// send prevote for the planned invalid proposal for PVO.
 		vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
-		c.SetSentPrevote(true)
+		c.SetSentPrevote()
 		c.BroadcastAll(vote)
 		return
 	}
@@ -150,7 +150,7 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 	// send prevote for the planned invalid proposal for PVN
 	log.Debug("prevote collusion simulated", "rule", rule, "h", c.Height(), "r", r, "v", v.Hash(), "node", c.Address())
 	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
-	c.SetSentPrevote(true)
+	c.SetSentPrevote()
 	c.BroadcastAll(vote)
 }
 

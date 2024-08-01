@@ -95,7 +95,7 @@ func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
 		panic("cannot fetch header")
 	}
 	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
-	c.SetSentPrecommit(true)
+	c.SetSentPrecommit()
 	c.Broadcaster().Broadcast(precommit)
 }
 

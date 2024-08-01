@@ -137,7 +137,7 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 	for i := 0; i < rand.Intn(10); i++ {
 		precommit.Signers().Increment(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
 	}
-	c.SetSentPrecommit(true)
+	c.SetSentPrecommit()
 	c.Backend().Gossip(c.CommitteeSet().Committee(), precommit)
 }
 
@@ -187,7 +187,7 @@ func (c *fuzzPrevoter) SendPrevote(_ context.Context, isNil bool) {
 	for i := 0; i < rand.Intn(10); i++ {
 		prevote.Signers().Increment(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
 	}
-	c.SetSentPrevote(true)
+	c.SetSentPrevote()
 	c.Backend().Gossip(c.CommitteeSet().Committee(), prevote)
 }
 
@@ -260,7 +260,7 @@ func (c *fuzzProposer) SendProposal(_ context.Context, p *types.Block) {
 	e2e.FuzBlock(p, &num)
 	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
-	c.SetSentProposal(true)
+	c.SetSentProposal()
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	c.BroadcastAll(proposal)

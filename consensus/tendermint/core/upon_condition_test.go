@@ -78,10 +78,8 @@ func TestStartRoundVariables(t *testing.T) {
 
 		// Update locked and valid Value (if locked value changes then valid value also changes, ie quorum(prevotes)
 		// delivered in prevote step)
-		env.core.SetLockedValue(env.curBlock)
-		env.core.SetLockedRound(env.curRound)
-		env.core.SetValidValue(env.curBlock)
-		env.core.SetValidRound(env.curRound)
+		env.core.SetLockedRoundAndValue(env.curRound, env.curBlock)
+		env.core.SetValidRoundAndValue(env.curRound, env.curBlock)
 
 		// Move to next round and check the expected state
 		env.core.StartRound(context.Background(), env.curRound+1)
@@ -91,8 +89,7 @@ func TestStartRoundVariables(t *testing.T) {
 		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
 		// value and valid value are different)
 		currentBlock2 := generateBlock(env.curHeight)
-		env.core.SetValidValue(currentBlock2)
-		env.core.SetValidRound(env.curRound + 1)
+		env.core.SetValidRoundAndValue(env.curRound+1, currentBlock2)
 
 		// Move to next round and check the expected state
 		env.core.StartRound(context.Background(), env.curRound+2)
@@ -1309,13 +1306,11 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 func (e *ConsensusENV) setupCore(backend interfaces.Backend, address common.Address) {
 	e.core = New(backend, nil, address, log.Root(), false)
 	e.core.setCommitteeSet(e.committee)
-	e.core.setHeight(e.curHeight)
+	e.core.SetHeight(e.curHeight)
 	e.core.setLastHeader(&types.Header{Committee: e.committee.Committee(), Number: new(big.Int).SetUint64(e.curHeight.Uint64() - 1)})
-	e.core.setRound(e.curRound)
-	e.core.SetValidRound(e.validRound)
-	e.core.SetLockedRound(e.lockedRound)
-	e.core.SetValidValue(e.validValue)
-	e.core.SetLockedValue(e.lockedValue)
+	e.core.SetRound(e.curRound)
+	e.core.SetValidRoundAndValue(e.validRound, e.validValue)
+	e.core.SetLockedRoundAndValue(e.lockedRound, e.lockedValue)
 	e.core.SetStep(context.Background(), e.step)
 }
 
