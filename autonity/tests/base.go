@@ -1,9 +1,6 @@
 package tests
 
 import (
-	"crypto/rand"
-	"encoding/json"
-	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -22,80 +19,19 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
 
 	_ "github.com/autonity/autonity/eth/tracers/native" //nolint
 )
 
 var (
-	operator = &runOptions{origin: defaultAutonityConfig.Protocol.OperatorAccount}
-
-	// todo: replicate truffle tests default config.
-	defaultAutonityConfig = AutonityConfig{
-		Policy: AutonityPolicy{
-			TreasuryFee:             new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
-			MinBaseFee:              new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
-			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
-			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
-			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
-			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
-		},
-		Contracts: AutonityContracts{
-			AccountabilityContract:      params.AccountabilityContractAddress,
-			OracleContract:              params.OracleContractAddress,
-			AcuContract:                 params.ACUContractAddress,
-			SupplyControlContract:       params.SupplyControlContractAddress,
-			StabilizationContract:       params.StabilizationContractAddress,
-			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
-			InflationControllerContract: params.InflationControllerContractAddress,
-			NonStakableVestingContract:  params.NonStakableVestingContractAddress,
-		},
-		Protocol: AutonityProtocol{
-			OperatorAccount: params.TestAutonityContractConfig.Operator,
-			EpochPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
-			BlockPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
-			CommitteeSize:   new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
-		},
-		ContractVersion: big.NewInt(1),
-	}
+	operator     = &runOptions{origin: params.TestAutonityContractConfig.Operator}
+	fromAutonity = &runOptions{origin: params.AutonityContractAddress}
 )
-
-var fromAutonity = &runOptions{origin: params.AutonityContractAddress}
 
 type runOptions struct {
 	origin common.Address
 	value  *big.Int
-}
-
-type contract struct {
-	address common.Address
-	abi     *abi.ABI
-	r       *runner
-}
-
-func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, uint64, error) {
-	var tracer tracers.Tracer
-	if c.r.tracing {
-		tracer, _ = tracers.New("callTracer", new(tracers.Context))
-		c.r.evm.Config = vm.Config{Debug: true, Tracer: tracer}
-	}
-	input, err := c.abi.Pack(method, params...)
-	require.NoError(c.r.t, err)
-	out, consumed, err := c.r.call(opts, c.address, input)
-	if c.r.tracing {
-		traceResult, err := tracer.GetResult()
-		require.NoError(c.r.t, err)
-		pretty, _ := json.MarshalIndent(traceResult, "", "    ")
-		fmt.Println(string(pretty))
-	}
-	if err != nil {
-		reason, _ := abi.UnpackRevert(out)
-		return nil, 0, fmt.Errorf("%w: %s", err, reason)
-	}
-	res, err := c.abi.Unpack(method, out)
-	require.NoError(c.r.t, err)
-	return res, consumed, nil
 }
 
 type committee struct {
@@ -124,10 +60,14 @@ type runner struct {
 	nonStakableVesting     *NonStakableVesting
 	omissionAccountability *OmissionAccountability
 
-	committee committee                       // genesis validators for easy access
-	operator  *runOptions                     // operator runOptions for easy access
-	params    AutonityConfig                  // autonity config for easy access
-	genesis   *params.AutonityContractGenesis // genesis config for easy access
+	committee committee     // genesis validators for easy access
+	operator  *runOptions   // operator runOptions for easy access
+	genesis   *core.Genesis // genesis config for easy access
+
+	// temporary state
+	prepared    bool
+	persistLogs bool
+	logs        []*types.Log
 }
 
 func (r *runner) NoError(gasConsumed uint64, err error) uint64 {
@@ -142,8 +82,7 @@ func (r *runner) liquidContract(v AutonityValidator) *Liquid {
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
-	txHash, err := RandomHash()
-	require.NoError(r.t, err)
+	txHash := common.HexToHash("0x2f1085bc13c8a5a7d8e0544216e110fcc22b4c571657f313c9716a3bdc7453f3")
 
 	r.evm.Origin = r.origin
 	value := common.Big0
@@ -155,17 +94,21 @@ func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 	}
 
 	sender := r.stateDB.GetOrNewStateObject(r.evm.Origin)
-	r.stateDB.Prepare(txHash, 0)
-	rules := r.evm.ChainConfig().Rules(r.evm.Context.BlockNumber, r.evm.Context.Random != nil)
-	r.stateDB.PrepareAccessList(r.evm.Origin, &addr, vm.ActivePrecompiles(rules), types.AccessList{})
+
+	// by only preparing once, we avoid the errors we encounter in the access list on revert
+	if !r.prepared {
+		r.stateDB.Prepare(txHash, 0)
+		r.prepared = true
+	}
 
 	gas := uint64(math.MaxUint64)
 	ret, leftOver, err := r.evm.Call(sender, addr, input, gas, value)
 
-	logs := r.stateDB.GetLogs(txHash, common.Hash{})
-	for _, log := range logs {
-		fmt.Println(log)
+	if r.persistLogs {
+		logs := r.stateDB.GetLogs(txHash, common.Hash{})
+		r.logs = append(r.logs, logs...)
 	}
+
 	return ret, gas - leftOver, err
 }
 
@@ -174,6 +117,9 @@ func (r *runner) snapshot() int {
 }
 
 func (r *runner) revertSnapshot(id int) {
+	r.prepared = false
+	r.clearLogs()
+	r.persistLogs = false
 	r.evm.StateDB.RevertToSnapshot(id)
 }
 
@@ -319,30 +265,31 @@ func initializeEVM(chainConfig *params.ChainConfig) (*vm.EVM, *state.StateDB, er
 	return evm, stateDB, nil
 }
 
-func copyConfig(original *params.AutonityContractGenesis) *params.AutonityContractGenesis {
-	jsonBytes, err := json.Marshal(original)
-	if err != nil {
-		panic("cannot marshal autonity genesis config: " + err.Error())
-	}
-	genesisCopy := &params.AutonityContractGenesis{}
-	err = json.Unmarshal(jsonBytes, genesisCopy)
-	if err != nil {
-		panic("cannot unmarshal autonity genesis config: " + err.Error())
-	}
-	return genesisCopy
+func (r *runner) keepLogs(persist bool) {
+	r.persistLogs = persist
 }
 
-func setup(t *testing.T, _ func(*params.AutonityContractGenesis) *params.AutonityContractGenesis) *runner {
+func (r *runner) Logs() []*types.Log {
+	return r.logs
+}
+
+func (r *runner) clearLogs() {
+	r.logs = nil
+}
+
+func setup(t *testing.T, configOverride func(genesis *core.Genesis) *core.Genesis) *runner {
 	genesisConfig := &core.Genesis{
 		Config:  params.TestChainConfig,
 		BaseFee: big.NewInt(params.InitialBaseFee),
 	}
 
+	if configOverride != nil {
+		genesisConfig = configOverride(genesisConfig)
+	}
+
 	evm, stateDb, err := initializeEVM(genesisConfig.Config)
 	require.NoError(t, err)
 	r := &runner{t: t, evm: evm, stateDB: stateDb}
-
-	//TODO: implement override also for the other contracts
 
 	//
 	// Step 1: Autonity Contract Deployment
@@ -354,12 +301,11 @@ func setup(t *testing.T, _ func(*params.AutonityContractGenesis) *params.Autonit
 	}
 
 	// TODO: replicate truffle tests default config.
-	r.params = defaultAutonityConfig
-	r.genesis = params.TestAutonityContractConfig
-	r.operator = &runOptions{origin: defaultAutonityConfig.Protocol.OperatorAccount}
+	r.genesis = genesisConfig
+	r.operator = operator
 
 	// set up internal bindings
-	r.autonity = &AutonityTest{&contract{params.AutonityContractAddress, &generated.AutonityAbi, r}}
+	r.autonity = &AutonityTest{&contract{params.AutonityContractAddress, &generated.AutonityTestAbi, r}}
 	r.accountability = &Accountability{&contract{params.AccountabilityContractAddress, &generated.AccountabilityAbi, r}}
 	r.oracle = &Oracle{&contract{params.OracleContractAddress, &generated.OracleAbi, r}}
 	r.acu = &ACU{&contract{params.ACUContractAddress, &generated.ACUAbi, r}}
@@ -383,39 +329,4 @@ func setup(t *testing.T, _ func(*params.AutonityContractGenesis) *params.Autonit
 	r.evm.Context.BlockNumber = common.Big1
 	r.evm.Context.Time = new(big.Int).Add(r.evm.Context.Time, common.Big1)
 	return r
-}
-
-// temporary until we find a better solution
-func genesisToAutonityVal(v *params.Validator) AutonityValidator {
-	return AutonityValidator{
-		Treasury:                 v.Treasury,
-		NodeAddress:              *v.NodeAddress,
-		OracleAddress:            v.OracleAddress,
-		Enode:                    v.Enode,
-		CommissionRate:           v.CommissionRate,
-		BondedStake:              v.BondedStake,
-		UnbondingStake:           v.UnbondingStake,
-		UnbondingShares:          v.UnbondingShares,
-		SelfBondedStake:          v.SelfBondedStake,
-		SelfUnbondingStake:       v.SelfUnbondingStake,
-		SelfUnbondingShares:      v.SelfUnbondingShares,
-		SelfUnbondingStakeLocked: v.SelfUnbondingStakeLocked,
-		LiquidContract:           *v.LiquidContract,
-		LiquidSupply:             v.LiquidSupply,
-		RegistrationBlock:        v.RegistrationBlock,
-		TotalSlashed:             v.TotalSlashed,
-		JailReleaseBlock:         v.JailReleaseBlock,
-		ProvableFaultCount:       v.ProvableFaultCount,
-		State:                    *v.State,
-	}
-}
-
-// there is probably a better place for this
-func RandomHash() (common.Hash, error) {
-	bytes := make([]byte, 32)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return common.BytesToHash(bytes), nil
 }

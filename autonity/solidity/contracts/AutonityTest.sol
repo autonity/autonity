@@ -18,7 +18,19 @@ contract AutonityTest is Autonity {
     }
 
     function applyNewCommissionRates() public onlyProtocol {
-        Autonity._applyNewCommissionRates();
+        _applyNewCommissionRates();
+    }
+
+    function getCommissionRateChangeQueueFirst() public view returns (uint256) {
+        return commissionRateChangeQueueFirst;
+    }
+
+    function getCommissionRateChangeQueueLast() public view returns (uint256) {
+        return commissionRateChangeQueueLast;
+    }
+
+    function getCommissionRateChangeRequest(uint256 _id) public view returns (CommissionRateChangeRequest memory) {
+        return commissionRateChangeQueue[_id];
     }
 
     function applyStakingOperations() public {

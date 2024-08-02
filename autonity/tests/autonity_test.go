@@ -1,14 +1,15 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/require"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/params"
-
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/params"
 )
 
 func TestInitialState(t *testing.T) {
@@ -29,19 +30,19 @@ func TestInitialState(t *testing.T) {
 	r.run("Test get min base fee", func(rr *runner) {
 		mBaseFee, _, err := rr.autonity.GetMinimumBaseFee(r.operator)
 		require.NoError(t, err)
-		require.Equal(t, rr.params.Policy.MinBaseFee, mBaseFee)
+		require.Equal(t, rr.genesis.Config.AutonityContractConfig.MinBaseFee, mBaseFee.Uint64())
 	})
 
 	r.run("Test get contract version", func(rr *runner) {
 		version, _, err := rr.autonity.GetVersion(nil)
 		require.NoError(t, err)
-		require.Equal(t, rr.params.ContractVersion, version)
+		require.Equal(t, big.NewInt(1), version)
 	})
 
 	r.run("Test get max committee size", func(rr *runner) {
 		cSize, _, err := rr.autonity.GetMaxCommitteeSize(nil)
 		require.NoError(t, err)
-		require.Equal(t, rr.params.Protocol.CommitteeSize, cSize)
+		require.Equal(t, rr.genesis.Config.AutonityContractConfig.MaxCommitteeSize, cSize.Uint64())
 	})
 
 	r.run("Test get operator account", func(rr *runner) {
@@ -55,8 +56,8 @@ func TestInitialState(t *testing.T) {
 		require.NoError(t, err)
 		expectedVals := func() []common.Address {
 			var validators []common.Address
-			for _, v := range rr.genesis.Validators {
-				validators = append(validators, *v.NodeAddress)
+			for _, v := range rr.committee.validators {
+				validators = append(validators, v.NodeAddress)
 			}
 			return validators
 		}()
@@ -120,7 +121,7 @@ func TestInitialState(t *testing.T) {
 			require.Equal(t, readValidator.NodeAddress, expectedValidator.NodeAddress, "unexpected node address")
 			require.Equal(t, readValidator.Enode, expectedValidator.Enode, "unexpected enode")
 
-			require.Equal(t, rr.params.Policy.DelegationRate, readValidator.CommissionRate, "incorrect commission rate")
+			require.Equal(t, rr.genesis.Config.AutonityContractConfig.DelegationRate, readValidator.CommissionRate.Uint64(), "incorrect commission rate")
 			require.Equal(t, expectedValidator.BondedStake, readValidator.BondedStake, "incorrect bonded stake")
 			require.Equal(t, expectedValidator.TotalSlashed.Int64(), readValidator.TotalSlashed.Int64(), "incorrect total slashed")
 			require.Equal(t, expectedValidator.RegistrationBlock.Int64(), readValidator.RegistrationBlock.Int64(), "incorrect registration block")
@@ -137,9 +138,9 @@ func TestInitialState(t *testing.T) {
 }
 
 func TestValidatorCommissionRate(t *testing.T) {
-	r := setup(t, func(params *params.AutonityContractGenesis) *params.AutonityContractGenesis {
-		params.UnbondingPeriod = 0
-		return params
+	r := setup(t, func(genesisConfig *core.Genesis) *core.Genesis {
+		genesisConfig.Config.AutonityContractConfig.UnbondingPeriod = uint64(0)
+		return genesisConfig
 	})
 
 	r.run("Test revert with unauthorized caller", func(rr *runner) {
@@ -157,8 +158,23 @@ func TestValidatorCommissionRate(t *testing.T) {
 	})
 
 	r.run("Test change commission rate", func(rr *runner) {
+		rr.keepLogs(true)
 		_, err := rr.autonity.ChangeCommissionRate(&runOptions{origin: rr.committee.validators[0].NodeAddress}, rr.committee.validators[0].NodeAddress, big.NewInt(1337))
 		require.NoError(t, err)
+
+		contains := emitsEvent(rr.logs, rr.autonity.ParseCommissionRateChange, &AutonityTestCommissionRateChange{
+			Validator: rr.committee.validators[0].NodeAddress,
+			Rate:      big.NewInt(1337),
+		})
+		require.True(t, contains, "commission rate change log not emitted")
+
+		idx, _, err := rr.autonity.GetCommissionRateChangeQueueFirst(nil)
+		require.NoError(t, err)
+
+		commissionRateChangeRequest, _, err := rr.autonity.GetCommissionRateChangeRequest(nil, idx)
+		require.NoError(t, err)
+		require.Equal(t, rr.committee.validators[0].NodeAddress, commissionRateChangeRequest.Validator)
+		require.Equal(t, big.NewInt(1337), commissionRateChangeRequest.Rate)
 
 		_, err = rr.autonity.ApplyNewCommissionRates(&runOptions{origin: rr.origin})
 		require.NoError(t, err)
@@ -463,8 +479,13 @@ func TestERC20TokenManagement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(0), balanceBefore.Int64())
 
+		rr.keepLogs(true)
 		_, err = rr.autonity.Mint(rr.operator, account, amount)
 		require.NoError(t, err)
+		require.True(t, emitsEvent(rr.Logs(), rr.autonity.ParseMintedStake, &AutonityTestMintedStake{
+			Addr:   account,
+			Amount: amount,
+		}))
 
 		supplyAfter, _, err := rr.autonity.TotalSupply(nil)
 		require.NoError(t, err)
@@ -509,8 +530,13 @@ func TestERC20TokenManagement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, amount, balanceBefore)
 
+		rr.keepLogs(true)
 		_, err = rr.autonity.Burn(rr.operator, account, amount)
 		require.NoError(t, err)
+		require.True(t, emitsEvent(rr.Logs(), rr.autonity.ParseBurnedStake, &AutonityTestBurnedStake{
+			Addr:   account,
+			Amount: amount,
+		}), "burn should emit a burn event with the correct params")
 
 		supplyAfter, _, err := rr.autonity.TotalSupply(nil)
 		require.NoError(t, err)
@@ -565,8 +591,14 @@ func TestERC20TokenManagement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(0), balanceBefore2.Int64())
 
+		rr.keepLogs(true)
 		_, err = rr.autonity.Transfer(&runOptions{origin: account1}, account2, amount)
 		require.NoError(t, err)
+		require.True(t, emitsEvent(rr.Logs(), rr.autonity.ParseTransfer, &AutonityTestTransfer{
+			From:  account1,
+			To:    account2,
+			Value: amount,
+		}), "transfer should emit a Transfer event with the correct params")
 
 		balanceAfter1, _, err := rr.autonity.BalanceOf(nil, account1)
 		require.NoError(t, err)
@@ -832,7 +864,6 @@ func TestBondingAndUnbondingRequests(t *testing.T) {
 		require.Equal(t, int64(0), lockedBalanceAfterEpoch.Int64())
 		require.Equal(t, int64(0), liquidBalanceAfterEpoch.Int64())
 	})
-
 }
 
 func verifyValidatorInfoPostUnbonding(
@@ -866,11 +897,20 @@ func TestReadWriteContract(t *testing.T) {
 	r := setup(t, nil)
 	r.run("Test read and write contract", func(rr *runner) {
 		account := rr.randomAccount()
+
 		balance, _, err := rr.autonity.BalanceOf(nil, account)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), balance.Int64())
 
+		rr.keepLogs(true)
 		_, err = rr.autonity.Mint(rr.operator, account, big.NewInt(1e18))
 		require.NoError(t, err)
+
+		contains := emitsEvent(rr.Logs(), rr.autonity.ParseMintedStake, &AutonityTestMintedStake{
+			Addr:   account,
+			Amount: big.NewInt(1e18),
+		})
+		require.True(t, contains, "minted stake log not found")
 	})
+
 }

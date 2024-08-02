@@ -1,10 +1,8 @@
 package tests
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ALTree/bigfloat"
 	"github.com/stretchr/testify/require"
@@ -173,9 +171,9 @@ func TestInflationContract(t *testing.T) {
 	for i := uint64(0); i < epochCount.Uint64(); i++ {
 		lastEpochTime := new(big.Int).Add(genesisTime, new(big.Int).Mul(new(big.Int).SetUint64(i), epochPeriod))
 		currentEpochTime := new(big.Int).Add(genesisTime, new(big.Int).Mul(new(big.Int).SetUint64(i+1), epochPeriod))
-		currentTime := time.Unix(int64(currentEpochTime.Uint64()), 0)
-		days := currentTime.Day()
-		years := currentTime.Year()
+		//currentTime := time.Unix(int64(currentEpochTime.Uint64()), 0)
+		//days := currentTime.Day()
+		//years := currentTime.Year()
 
 		delta, gasConsumed, err := inflationControllerContract.CalculateSupplyDelta(nil, currentSupply, inflationReserve, lastEpochTime, currentEpochTime)
 		require.NoError(r.t, err)
@@ -186,7 +184,7 @@ func TestInflationContract(t *testing.T) {
 		// Compare the go implementation with the solidity one
 		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
-		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
+		// fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
 		require.True(r.t, diffSolWithGoBasis.Cmp(common.Big0) == 0, "inflation reward calculation mismatch")
 
 		currentSupply.Add(currentSupply, delta)
