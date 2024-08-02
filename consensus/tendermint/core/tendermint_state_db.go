@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -31,7 +30,7 @@ var (
 	messagePrefix = []byte("Message") // messagePrefix + MsgID -> consensus message
 )
 
-type RoundsStateDB struct {
+type TendermintStateDB struct {
 	db ethdb.Database // WAL db which share the same key-value DB of blockchain DB.
 
 	maxMsgID           uint64 // cache for max MSG ID
@@ -48,10 +47,10 @@ type RoundsStateDB struct {
 	logger log.Logger
 }
 
-// newRoundStateDB create the context of WAL database, it shares the same key-value store of blockchain DB.
-func newRoundStateDB(db ethdb.Database) *RoundsStateDB {
-	logger := log.New("newRoundStateDB", "type", "RoundsStateDB")
-	rsdb := &RoundsStateDB{
+// newTendermintStateDB create the context of WAL database, it shares the same key-value store of blockchain DB.
+func newTendermintStateDB(db ethdb.Database) *TendermintStateDB {
+	logger := log.New("newTendermintStateDB", "type", "TendermintStateDB")
+	rsdb := &TendermintStateDB{
 		db:     db,
 		logger: logger,
 	}
@@ -86,7 +85,7 @@ type extTendermintState struct {
 	height   *big.Int `rlp:"nil"`
 	round    int64
 	step     Step
-	decision *types.Block `rlp:"nil"`
+	decision common.Hash
 
 	lockedRound int64
 	validRound  int64
@@ -102,15 +101,15 @@ type extTendermintState struct {
 
 // UpdateLastRoundState stores the latest tendermint state in DB, in case of a start of a new height, it also does
 // garbage collection and reset MSG ID for a new height.
-func (rsdb *RoundsStateDB) UpdateLastRoundState(rs TendermintState, startNewHeight bool) error {
+func (rsdb *TendermintStateDB) UpdateLastRoundState(rs TendermintState, startNewHeight bool) error {
 	logger := rsdb.logger.New("func", "UpdateLastRoundState")
 	viewKey := lastTendermintStateKey
-
+	// todo: jason, check if we have other db engine options.
+	// todo: jason, check if we have other options for encoding.
 	extRoundState := extTendermintState{
 		height:                rs.height,
 		round:                 rs.round,
 		step:                  rs.step,
-		decision:              rs.decision,
 		lockedRound:           rs.lockedRound,
 		validRound:            rs.validRound,
 		sentProposal:          rs.sentProposal,
@@ -118,6 +117,10 @@ func (rsdb *RoundsStateDB) UpdateLastRoundState(rs TendermintState, startNewHeig
 		sentPrecommit:         rs.sentPrecommit,
 		setValidRoundAndValue: rs.setValidRoundAndValue,
 	}
+	if rs.decision != nil {
+		extRoundState.decision = rs.decision.Hash()
+	}
+
 	if rs.lockedValue != nil {
 		extRoundState.lockedValue = rs.lockedValue.Hash()
 	}
@@ -167,11 +170,10 @@ func (rsdb *RoundsStateDB) UpdateLastRoundState(rs TendermintState, startNewHeig
 
 // GetLastTendermintState will return tendermint state from DB, it will return an initial state if there was no state flushed.
 // This function is called once on node start up.
-func (rsdb *RoundsStateDB) GetLastTendermintState() extTendermintState {
+func (rsdb *TendermintStateDB) GetLastTendermintState() extTendermintState {
 	// set default states.
 	var entry = extTendermintState{
 		height:      common.Big0,
-		decision:    nil,
 		lockedRound: -1,
 		validRound:  -1,
 	}
@@ -196,7 +198,7 @@ type inMsg struct {
 
 // AddMsg inserts a successfully applied consensus message of tendermint state engine into WAL. The inserting messages
 // are ordered by a message ID managed in WAL for retrieval and garbage collection.
-func (rsdb *RoundsStateDB) AddMsg(msg message.Msg, verified bool) error {
+func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 	nextMsgID := rsdb.lastConsensusMsgID + 1
 	msgKey := messageKey(nextMsgID)
 	before := time.Now()
@@ -240,7 +242,7 @@ func (rsdb *RoundsStateDB) AddMsg(msg message.Msg, verified bool) error {
 }
 
 // GetMsg retrieves the msg with its corresponding ID.
-func (rsdb *RoundsStateDB) GetMsg(msgID uint64) (message.Msg, bool, error) {
+func (rsdb *TendermintStateDB) GetMsg(msgID uint64) (message.Msg, bool, error) {
 	msgKey := messageKey(msgID)
 	rawEntry, err := rsdb.db.Get(msgKey)
 	if err != nil {
@@ -254,7 +256,7 @@ func (rsdb *RoundsStateDB) GetMsg(msgID uint64) (message.Msg, bool, error) {
 }
 
 // GetMsgID retrieves the managed MSG ID from DB of the specific key.
-func (rsdb *RoundsStateDB) GetMsgID(key []byte) (uint64, error) {
+func (rsdb *TendermintStateDB) GetMsgID(key []byte) (uint64, error) {
 	has, err := rsdb.db.Has(key)
 	if err != nil {
 		return 0, err
@@ -278,7 +280,7 @@ func (rsdb *RoundsStateDB) GetMsgID(key []byte) (uint64, error) {
 
 // RoundMsgsFromDB retrieves the entire round messages of the last consensus view flushed in the WAL. This function is
 // called once at the node start up to rebuild the tendermint state.
-func (rsdb *RoundsStateDB) RoundMsgsFromDB() *message.Map {
+func (rsdb *TendermintStateDB) RoundMsgsFromDB() *message.Map {
 	roundMsgs := message.NewMap()
 	if rsdb.lastConsensusMsgID == 0 {
 		return roundMsgs
@@ -306,7 +308,7 @@ func (rsdb *RoundsStateDB) RoundMsgsFromDB() *message.Map {
 // the storage engine handles the garbage collection for the overwritten value, thus we save the max msg ID in the
 // store to do a periodical garbage collection: the key-values of range (lastMsgID, maxMsgID] are the only required
 // items to be deleted.
-func (rsdb *RoundsStateDB) GarbageCollection() {
+func (rsdb *TendermintStateDB) GarbageCollection() {
 	if rsdb.maxMsgID <= rsdb.lastConsensusMsgID {
 		return
 	}

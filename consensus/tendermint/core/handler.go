@@ -30,19 +30,20 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 
 	// If the state in WAL is stale, then we start round with 0 for new heights.
 	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
-		c.StartRound(ctx, 0, false)
+		c.StartRound(ctx, 0)
 	} else {
 
-		// the state recovered from WAL is not stale, if the decision haven't been made, start the round again.
+		// the state recovered from WAL is not stale.
+		// if the decision haven't been made, start the new round.
 		if c.Decision() == nil {
-			lastFlushedRound := c.Round()
-			c.StartRound(ctx, lastFlushedRound, true)
+			c.StartRound(ctx, c.Round()+1)
 		}
 
-		// the decision was made, however it was failed to be committed.
-		// Start new height from round 0 after the commitment is done.
+		// the decision was made, but node failed to commit it to the blockchain view.
+		// commit it to the blockchain, and start a new height.
 		if c.Decision() != nil {
 			// todo: Jason, commit the decision and start new height.
+			// c.Commit()
 		}
 	}
 

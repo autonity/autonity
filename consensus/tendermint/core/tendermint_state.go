@@ -75,8 +75,10 @@ const (
 	garbageCollectionInterval = 60
 )
 
-// TendermintState has the raw state of tendermint state machine, it also contains some extra state base on Autonity
-// implementation of TBFT.
+var nilValue = common.Hash{}
+
+// TendermintState has the raw state of tendermint state machine,
+// it also contains some extra state base on Autonity implementation of TBFT.
 type TendermintState struct {
 	// raw states of tendermint, the decision is recorded to recommit the decision if one failed to commit it during a
 	// disaster scenario, this protects the safety of the consensus protocol.
@@ -97,34 +99,29 @@ type TendermintState struct {
 	setValidRoundAndValue bool
 }
 
-// RoundsStateImpl stores the tendermint state of a consensus instance into file system. For every successfully applied
+// TendermintStateImpl stores the tendermint state of a consensus instance into file system. For every successfully applied
 // consensus messages, they are flushed to WAL, and for every update on the tendermint state, the state are flushed to
 // WAL as well, thus the validator can recover the tendermint state from a disaster by loading the state from WAL. Note
 // that the view flushed in WAL might become stale if the network grows the chain head into a higher view, in this case,
 // the consensus engine should start a new height to overwrite the view of WAL on start up.
-type RoundsStateImpl struct {
-	TendermintState                         // state that to be flushed on update.
-	curRoundMessages *message.RoundMessages // current round messages of Autonity tendermint.
-	messages         *message.Map           // round messages of current height.
-	db               *RoundsStateDB         // storage layer of tendermint state and round messages.
+type TendermintStateImpl struct {
+	TendermintState                         // in-memory state that to be flushed on update.
+	curRoundMessages *message.RoundMessages // in-memory current round messages of Autonity tendermint.
+	messages         *message.Map           // in-memory round messages of current height.
+	db               *TendermintStateDB     // storage layer of tendermint state and round messages.
 	logger           log.Logger
 }
 
-// newRoundsState, load rounds state from underlying database if there was state stored, otherwise return default state.
-func newRoundsState(logger log.Logger, db ethdb.Database) RoundsState {
-	// todo: jason, shall we keep the limit of max round to 99? As with WAL, validator can restore the round, thus it
-	//  wouldn't be reset to 0 on start up, this limit of round number isn't a standard implementation of BFT, it might
-	//  introduce live-ness issue for the consensus engine.
-
+// newTendermintState, load rounds state from underlying database if there was state stored, otherwise return default state.
+func newTendermintState(logger log.Logger, db ethdb.Database) RoundsState {
 	// load tendermint state and rounds messages from database.
-	walDB := newRoundStateDB(db)
+	walDB := newTendermintStateDB(db)
 	roundMsgs := walDB.RoundMsgsFromDB()
 	lastState := walDB.GetLastTendermintState()
 	state := TendermintState{
 		height:                lastState.height,
 		round:                 lastState.round,
 		step:                  lastState.step,
-		decision:              lastState.decision,
 		lockedRound:           lastState.lockedRound,
 		validRound:            lastState.validRound,
 		sentProposal:          lastState.sentProposal,
@@ -133,14 +130,29 @@ func newRoundsState(logger log.Logger, db ethdb.Database) RoundsState {
 		setValidRoundAndValue: lastState.setValidRoundAndValue,
 	}
 
-	if lastState.lockedRound != -1 {
+	// by according to tendermint paper: https://arxiv.org/pdf/1807.04938, page-6, line-36 to line-43.
+	// the locked value and valid value are the in the proposal of the corresponding locked round and valid round.
+	if lastState.lockedRound != -1 && roundMsgs.GetOrCreate(lastState.lockedRound).Proposal() != nil {
 		state.lockedValue = roundMsgs.GetOrCreate(lastState.lockedRound).Proposal().Block()
 	}
-	if lastState.validRound != -1 {
+	if lastState.validRound != -1 && roundMsgs.GetOrCreate(lastState.validRound).Proposal() != nil {
 		state.validValue = roundMsgs.GetOrCreate(lastState.validRound).Proposal().Block()
 	}
 
-	return &RoundsStateImpl{
+	// load the decision from round messages, as the decision is not always be in the last round,
+	// we need to iterate round messages' proposal to find it.
+	if lastState.decision != nilValue {
+		allRounds := roundMsgs.GetRounds()
+		for _, r := range allRounds {
+			proposal := roundMsgs.GetOrCreate(r).Proposal()
+			if proposal != nil && proposal.Block().Hash() == lastState.decision {
+				state.decision = proposal.Block()
+				break
+			}
+		}
+	}
+
+	return &TendermintStateImpl{
 		TendermintState:  state,
 		messages:         roundMsgs,
 		curRoundMessages: roundMsgs.GetOrCreate(state.round),
@@ -151,7 +163,7 @@ func newRoundsState(logger log.Logger, db ethdb.Database) RoundsState {
 
 // round state writer functions
 
-func (rs *RoundsStateImpl) StartNewHeight(h *big.Int) {
+func (rs *TendermintStateImpl) StartNewHeight(h *big.Int) {
 	rs.height = h
 	rs.round = 0
 	rs.step = Propose
@@ -175,7 +187,7 @@ func (rs *RoundsStateImpl) StartNewHeight(h *big.Int) {
 	rs.curRoundMessages = rs.messages.GetOrCreate(0)
 }
 
-func (rs *RoundsStateImpl) StartNewRound(r int64) {
+func (rs *TendermintStateImpl) StartNewRound(r int64) {
 	rs.curRoundMessages = rs.messages.GetOrCreate(r)
 
 	rs.round = r
@@ -189,21 +201,21 @@ func (rs *RoundsStateImpl) StartNewRound(r int64) {
 	}
 }
 
-func (rs *RoundsStateImpl) SetStep(s Step) {
+func (rs *TendermintStateImpl) SetStep(s Step) {
 	rs.step = s
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
 		rs.logger.Error("failed to flush round state in WAL", "error", err)
 	}
 }
 
-func (rs *RoundsStateImpl) SetDecision(block *types.Block) {
+func (rs *TendermintStateImpl) SetDecision(block *types.Block) {
 	rs.decision = block
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
 		rs.logger.Error("failed to flush round state in WAL", "error", err)
 	}
 }
 
-func (rs *RoundsStateImpl) SetLockedRoundAndValue(r int64, block *types.Block) {
+func (rs *TendermintStateImpl) SetLockedRoundAndValue(r int64, block *types.Block) {
 	rs.lockedRound = r
 	rs.lockedValue = block
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
@@ -211,7 +223,7 @@ func (rs *RoundsStateImpl) SetLockedRoundAndValue(r int64, block *types.Block) {
 	}
 }
 
-func (rs *RoundsStateImpl) SetValidRoundAndValue(r int64, block *types.Block) {
+func (rs *TendermintStateImpl) SetValidRoundAndValue(r int64, block *types.Block) {
 	rs.validRound = r
 	rs.validValue = block
 	rs.setValidRoundAndValue = true
@@ -220,21 +232,21 @@ func (rs *RoundsStateImpl) SetValidRoundAndValue(r int64, block *types.Block) {
 	}
 }
 
-func (rs *RoundsStateImpl) SetSentProposal() {
+func (rs *TendermintStateImpl) SetSentProposal() {
 	rs.sentProposal = true
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
 		rs.logger.Error("failed to flush round state in WAL", "error", err)
 	}
 }
 
-func (rs *RoundsStateImpl) SetSentPrevote() {
+func (rs *TendermintStateImpl) SetSentPrevote() {
 	rs.sentPrevote = true
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
 		rs.logger.Error("failed to flush round state in WAL", "error", err)
 	}
 }
 
-func (rs *RoundsStateImpl) SetSentPrecommit() {
+func (rs *TendermintStateImpl) SetSentPrecommit() {
 	rs.sentPrecommit = true
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
 		rs.logger.Error("failed to flush round state in WAL", "error", err)
@@ -243,7 +255,7 @@ func (rs *RoundsStateImpl) SetSentPrecommit() {
 
 // message writer functions:
 
-func (rs *RoundsStateImpl) SetProposal(proposal *message.Propose, verified bool) {
+func (rs *TendermintStateImpl) SetProposal(proposal *message.Propose, verified bool) {
 	if proposal.R() == rs.round {
 		rs.curRoundMessages.SetProposal(proposal, verified)
 		rs.db.AddMsg(proposal, verified)
@@ -256,7 +268,7 @@ func (rs *RoundsStateImpl) SetProposal(proposal *message.Propose, verified bool)
 	}
 	panic("future round proposal should be in backlog")
 }
-func (rs *RoundsStateImpl) AddPrevote(vote *message.Prevote) {
+func (rs *TendermintStateImpl) AddPrevote(vote *message.Prevote) {
 	if vote.R() == rs.round {
 		rs.curRoundMessages.AddPrevote(vote)
 		rs.db.AddMsg(vote, true)
@@ -270,7 +282,7 @@ func (rs *RoundsStateImpl) AddPrevote(vote *message.Prevote) {
 	panic("future round prevote should be in backlog")
 }
 
-func (rs *RoundsStateImpl) AddPrecommit(vote *message.Precommit) {
+func (rs *TendermintStateImpl) AddPrecommit(vote *message.Precommit) {
 	if vote.R() == rs.round {
 		rs.curRoundMessages.AddPrecommit(vote)
 		rs.db.AddMsg(vote, true)
@@ -286,85 +298,85 @@ func (rs *RoundsStateImpl) AddPrecommit(vote *message.Precommit) {
 
 // state reader functions:
 
-func (rs *RoundsStateImpl) Height() *big.Int {
+func (rs *TendermintStateImpl) Height() *big.Int {
 	return rs.height
 }
 
-func (rs *RoundsStateImpl) Round() int64 {
+func (rs *TendermintStateImpl) Round() int64 {
 	return rs.round
 }
 
-func (rs *RoundsStateImpl) Step() Step {
+func (rs *TendermintStateImpl) Step() Step {
 	return rs.step
 }
 
-func (rs *RoundsStateImpl) Decision() *types.Block {
+func (rs *TendermintStateImpl) Decision() *types.Block {
 	return rs.decision
 }
 
-func (rs *RoundsStateImpl) LockedRound() int64 {
+func (rs *TendermintStateImpl) LockedRound() int64 {
 	return rs.lockedRound
 }
 
-func (rs *RoundsStateImpl) ValidRound() int64 {
+func (rs *TendermintStateImpl) ValidRound() int64 {
 	return rs.validRound
 }
 
-func (rs *RoundsStateImpl) LockedValue() *types.Block {
+func (rs *TendermintStateImpl) LockedValue() *types.Block {
 	return rs.lockedValue
 }
 
-func (rs *RoundsStateImpl) ValidValue() *types.Block {
+func (rs *TendermintStateImpl) ValidValue() *types.Block {
 	return rs.validValue
 }
 
-func (rs *RoundsStateImpl) SentProposal() bool {
+func (rs *TendermintStateImpl) SentProposal() bool {
 	return rs.sentProposal
 }
 
-func (rs *RoundsStateImpl) SentPrevote() bool {
+func (rs *TendermintStateImpl) SentPrevote() bool {
 	return rs.sentPrevote
 }
 
-func (rs *RoundsStateImpl) SentPrecommit() bool {
+func (rs *TendermintStateImpl) SentPrecommit() bool {
 	return rs.sentPrecommit
 }
 
-func (rs *RoundsStateImpl) ValidRoundAndValueSet() bool {
+func (rs *TendermintStateImpl) ValidRoundAndValueSet() bool {
 	return rs.setValidRoundAndValue
 }
 
 // round messages reader functions:
 
-func (rs *RoundsStateImpl) Messages() *message.Map {
+func (rs *TendermintStateImpl) Messages() *message.Map {
 	return rs.messages
 }
 
-func (rs *RoundsStateImpl) CurRoundMessages() *message.RoundMessages {
+func (rs *TendermintStateImpl) CurRoundMessages() *message.RoundMessages {
 	return rs.curRoundMessages
 }
 
-func (rs *RoundsStateImpl) CurRoundProposal() *message.Propose {
+func (rs *TendermintStateImpl) CurRoundProposal() *message.Propose {
 	return rs.curRoundMessages.Proposal()
 }
 
-func (rs *RoundsStateImpl) CurRoundPrevotesTotalPower() *big.Int {
+func (rs *TendermintStateImpl) CurRoundPrevotesTotalPower() *big.Int {
 	return rs.curRoundMessages.PrevotesTotalPower()
 }
 
-func (rs *RoundsStateImpl) CurRoundPrecommitsTotalPower() *big.Int {
+func (rs *TendermintStateImpl) CurRoundPrecommitsTotalPower() *big.Int {
 	return rs.curRoundMessages.PrecommitsTotalPower()
 }
 
-func (rs *RoundsStateImpl) CurRoundPrevotesPower(hash common.Hash) *big.Int {
+func (rs *TendermintStateImpl) CurRoundPrevotesPower(hash common.Hash) *big.Int {
 	return rs.curRoundMessages.PrevotesPower(hash)
 }
 
-func (rs *RoundsStateImpl) CurRoundPrecommitsPower(hash common.Hash) *big.Int {
+func (rs *TendermintStateImpl) CurRoundPrecommitsPower(hash common.Hash) *big.Int {
 	return rs.curRoundMessages.PrecommitsPower(hash)
 }
 
-func (rs *RoundsStateImpl) RoundProposal(r int64) *message.Propose {
+func (rs *TendermintStateImpl) RoundProposal(r int64) *message.Propose {
 	if r == rs.round {
 		return rs.curRoundMessages.Proposal()
 	}
@@ -374,7 +386,7 @@ func (rs *RoundsStateImpl) RoundProposal(r int64) *message.Propose {
 	panic("future round proposal should be in backlog")
 }
 
-func (rs *RoundsStateImpl) RoundPower(r int64) *big.Int {
+func (rs *TendermintStateImpl) RoundPower(r int64) *big.Int {
 	if r == rs.round {
 		return rs.curRoundMessages.Power().Power()
 	}
@@ -384,7 +396,7 @@ func (rs *RoundsStateImpl) RoundPower(r int64) *big.Int {
 	panic("round power cannot be calculated for future round messages")
 }
 
-func (rs *RoundsStateImpl) RoundPrevotesTotalPower(r int64) *big.Int {
+func (rs *TendermintStateImpl) RoundPrevotesTotalPower(r int64) *big.Int {
 	if r == rs.round {
 		return rs.curRoundMessages.PrevotesTotalPower()
 	}
@@ -394,7 +406,7 @@ func (rs *RoundsStateImpl) RoundPrevotesTotalPower(r int64) *big.Int {
 	panic("prevote power cannot be calculated for future round messages")
 }
 
-func (rs *RoundsStateImpl) RoundPrecommitsTotalPower(r int64) *big.Int {
+func (rs *TendermintStateImpl) RoundPrecommitsTotalPower(r int64) *big.Int {
 	if r == rs.round {
 		return rs.curRoundMessages.PrecommitsTotalPower()
 	}
@@ -404,7 +416,7 @@ func (rs *RoundsStateImpl) RoundPrecommitsTotalPower(r int64) *big.Int {
 	panic("precommit power cannot be calculated for future round messages")
 }
 
-func (rs *RoundsStateImpl) RoundPrevotesPower(r int64, hash common.Hash) *big.Int {
+func (rs *TendermintStateImpl) RoundPrevotesPower(r int64, hash common.Hash) *big.Int {
 	if r == rs.round {
 		return rs.curRoundMessages.PrevotesPower(hash)
 	}
@@ -414,7 +426,7 @@ func (rs *RoundsStateImpl) RoundPrevotesPower(r int64, hash common.Hash) *big.In
 	panic("prevote power cannot be calculated for future round messages")
 }
 
-func (rs *RoundsStateImpl) RoundPrecommitsPower(r int64, hash common.Hash) *big.Int {
+func (rs *TendermintStateImpl) RoundPrecommitsPower(r int64, hash common.Hash) *big.Int {
 	if r == rs.round {
 		return rs.curRoundMessages.PrecommitsPower(hash)
 	}
@@ -424,15 +436,15 @@ func (rs *RoundsStateImpl) RoundPrecommitsPower(r int64, hash common.Hash) *big.
 	panic("precommit power cannot be calculated for future round messages")
 }
 
-func (rs *RoundsStateImpl) GetOrCreate(r int64) *message.RoundMessages {
+func (rs *TendermintStateImpl) GetOrCreate(r int64) *message.RoundMessages {
 	return rs.messages.GetOrCreate(r)
 }
 
-func (rs *RoundsStateImpl) GetRounds() []int64 {
+func (rs *TendermintStateImpl) GetRounds() []int64 {
 	return rs.messages.GetRounds()
 }
 
-func (rs *RoundsStateImpl) AggregatedPrevoteFor(round int64, hash common.Hash) *message.Prevote {
+func (rs *TendermintStateImpl) AggregatedPrevoteFor(round int64, hash common.Hash) *message.Prevote {
 	if round == rs.round {
 		return rs.curRoundMessages.PrevoteFor(hash)
 	}
@@ -442,7 +454,7 @@ func (rs *RoundsStateImpl) AggregatedPrevoteFor(round int64, hash common.Hash) *
 	panic("cannot aggregate future round prevotes")
 }
 
-func (rs *RoundsStateImpl) AggregatedPrecommitFor(round int64, hash common.Hash) *message.Precommit {
+func (rs *TendermintStateImpl) AggregatedPrecommitFor(round int64, hash common.Hash) *message.Precommit {
 	if round == rs.round {
 		return rs.curRoundMessages.PrecommitFor(hash)
 	}
@@ -452,6 +464,6 @@ func (rs *RoundsStateImpl) AggregatedPrecommitFor(round int64, hash common.Hash)
 	panic("cannot aggregate future round precommits")
 }
 
-func (rs *RoundsStateImpl) AllMessages() []message.Msg {
+func (rs *TendermintStateImpl) AllMessages() []message.Msg {
 	return rs.messages.All()
 }

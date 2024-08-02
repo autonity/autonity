@@ -168,7 +168,7 @@ func (c *Core) roundSkipCheck(ctx context.Context, r int64) {
 
 	if futurePower.Cmp(c.CommitteeSet().F()) > 0 {
 		c.logger.Debug("Received messages with F + 1 total power for a higher round", "New round", r)
-		c.StartRound(ctx, r, false)
+		c.StartRound(ctx, r)
 	}
 }
 

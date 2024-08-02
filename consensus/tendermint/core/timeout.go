@@ -193,7 +193,7 @@ func (c *Core) handleTimeoutPrevote(ctx context.Context, msg TimeoutEvent) {
 func (c *Core) handleTimeoutPrecommit(ctx context.Context, msg TimeoutEvent) {
 	if msg.HeightWhenCalled.Cmp(c.Height()) == 0 && msg.RoundWhenCalled == c.Round() {
 		c.logTimeoutEvent("TimeoutEvent(Precommit): Received", "Precommit", msg)
-		c.StartRound(ctx, c.Round()+1, false)
+		c.StartRound(ctx, c.Round()+1)
 	}
 }
 

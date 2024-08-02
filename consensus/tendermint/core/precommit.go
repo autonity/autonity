@@ -86,7 +86,7 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 		c.logger.Debug("Discarding event as Core is at the same height", "height", c.Height())
 	} else {
 		c.logger.Debug("New chain head ahead of consensus Core height", "height", c.Height(), "block_height", height)
-		c.StartRound(ctx, 0, false)
+		c.StartRound(ctx, 0)
 	}
 }
 

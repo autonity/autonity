@@ -39,7 +39,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
-		roundsState:            newRoundsState(logger, db),
+		roundsState:            newTendermintState(logger, db),
 		noGossip:               noGossip,
 	}
 	c.SetDefaultHandlers()
@@ -227,7 +227,7 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 }
 
 // StartRound starts a new round. if round equals to 0, it means to starts a new height
-func (c *Core) StartRound(ctx context.Context, round int64, recoveredRound bool) {
+func (c *Core) StartRound(ctx context.Context, round int64) {
 	// todo: Jason, shall we keep this? As we read round from WAL, the round could exceed this constants.MaxRound.
 	if round > constants.MaxRound {
 		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
@@ -237,7 +237,7 @@ func (c *Core) StartRound(ctx context.Context, round int64, recoveredRound bool)
 
 	c.measureHeightRoundMetrics(round)
 	// Set initial FSM state
-	c.setInitialState(round, recoveredRound)
+	c.setInitialState(round)
 	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
@@ -267,7 +267,7 @@ func (c *Core) StartRound(ctx context.Context, round int64, recoveredRound bool)
 	c.backend.Post(events.RoundChangeEvent{Height: c.Height().Uint64(), Round: round})
 }
 
-func (c *Core) setInitialState(r int64, recoveredRound bool) {
+func (c *Core) setInitialState(r int64) {
 	start := time.Now()
 	c.roundChangeMu.Lock()
 	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
@@ -298,10 +298,7 @@ func (c *Core) setInitialState(r int64, recoveredRound bool) {
 	c.prevoteTimeout.Reset(Prevote)
 	c.precommitTimeout.Reset(Precommit)
 
-	// don't reset tendermint state for a starting of recovered round.
-	if !recoveredRound {
-		c.SetRound(r)
-	}
+	c.SetRound(r)
 
 	// update round duration timer
 	if metrics.Enabled {
