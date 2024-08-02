@@ -42,8 +42,13 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 		// the decision was made, but node failed to commit it to the blockchain view.
 		// commit it to the blockchain, and start a new height.
 		if c.Decision() != nil {
-			// todo: Jason, commit the decision and start new height.
+			// todo: Jason, commit the decision and start new height. In the block commit context of worker, there are
+			//  extra info of a task, such as TX receipts are required to commit a block, however those context wasn't
+			//  persisted at all once node reset. This make the decision commit on start up phase failed. To fix it, we
+			//  need to flush those context data of a task as well, which might make this feature be very complicated.
 			// c.Commit()
+			// now we don't commit the decision, but start from a new round.
+			c.StartRound(ctx, c.Round()+1)
 		}
 	}
 
