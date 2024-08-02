@@ -10,7 +10,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint"
-	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/core"
 )
 
 var omissionEpochPeriod = 100
@@ -19,8 +19,8 @@ var inflationAfter100Blocks = 6311834092292000000
 const ScaleFactor = 10_000
 
 // need a longer epoch for omission accountability tests
-var configOverride = func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
-	config.EpochPeriod = uint64(omissionEpochPeriod)
+var configOverride = func(config *core.Genesis) *core.Genesis {
+	config.Config.AutonityContractConfig.EpochPeriod = uint64(omissionEpochPeriod)
 	return config
 }
 
@@ -483,9 +483,9 @@ func TestOmissionPunishments(t *testing.T) {
 
 func TestProposerRewardDistribution(t *testing.T) {
 	t.Run("Rewards are correctly allocated based on config", func(t *testing.T) {
-		r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
-			config.EpochPeriod = uint64(omissionEpochPeriod)
-			config.MaxCommitteeSize = 10 // avoid having to deal with precision loss **in the golang test** (solidity side is fine)
+		r := setup(t, func(config *core.Genesis) *core.Genesis {
+			config.Config.AutonityContractConfig.EpochPeriod = uint64(omissionEpochPeriod)
+			config.Config.AutonityContractConfig.MaxCommitteeSize = 10 // avoid having to deal with precision loss **in the golang test** (solidity side is fine)
 			return config
 		})
 
@@ -633,10 +633,10 @@ func TestConfigSanity(t *testing.T) {
 }
 
 func TestRewardWithholding(t *testing.T) {
-	r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
-		config.EpochPeriod = uint64(omissionEpochPeriod)
-		config.ProposerRewardRate = 0 // no rewards to proposers to make computation simpler
-		config.TreasuryFee = 0        // same
+	r := setup(t, func(config *core.Genesis) *core.Genesis {
+		config.Config.AutonityContractConfig.EpochPeriod = uint64(omissionEpochPeriod)
+		config.Config.AutonityContractConfig.ProposerRewardRate = 0 // no rewards to proposers to make computation simpler
+		config.Config.AutonityContractConfig.TreasuryFee = 0        // same
 		return config
 	})
 	r.waitNBlocks(tendermint.DeltaBlocks)

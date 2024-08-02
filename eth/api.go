@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -666,7 +667,7 @@ func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.ProtocolContracts)
 					if err != nil {
 						return makereturn(nil, err)
 					}
-					packedResult, err := ac.CallContractFunc(stateDB, bc.CurrentHeader(), packedArgs)
+					packedResult, _, err := ac.CallContractFunc(stateDB, bc.CurrentHeader(), params.AutonityContractAddress, packedArgs)
 					if err != nil {
 						return makereturn(nil, err)
 					}

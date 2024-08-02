@@ -721,8 +721,8 @@ var (
 		}
 	{{end}}
 
-	/* EVENTS ARE NOT YET SUPPORTED
 	{{range .Events}}
+        /* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
 		// {{$contract.Type}}{{.Normalized.Name}}Iterator is returned from Filter{{.Normalized.Name}} and is used to iterate over the raw logs and unpacked data for {{.Normalized.Name}} events raised by the {{$contract.Type}} contract.
 		type {{$contract.Type}}{{.Normalized.Name}}Iterator struct {
 			Event *{{$contract.Type}}{{.Normalized.Name}} // Event containing the contract specifics and raw log
@@ -786,13 +786,25 @@ var (
 			it.sub.Unsubscribe()
 			return nil
 		}
-
+        */
+        
 		// {{$contract.Type}}{{.Normalized.Name}} represents a {{.Normalized.Name}} event raised by the {{$contract.Type}} contract.
 		type {{$contract.Type}}{{.Normalized.Name}} struct { {{range .Normalized.Inputs}}
 			{{capitalise .Name}} {{if .Indexed}}{{bindtopictype .Type $structs}}{{else}}{{bindtype .Type $structs}}{{end}}; {{end}}
 			Raw types.Log // Blockchain specific contextual infos
 		}
+        
+        // {{$contract.Type}}{{.Normalized.Name}}.SetRaw is allows shared interface for setting the raw log data in an event
+        func (_{{$contract.Type}}{{.Normalized.Name}} *{{$contract.Type}}{{.Normalized.Name}}) SetRaw(log types.Log) {
+			_{{$contract.Type}}{{.Normalized.Name}}.Raw = log
+		}
+        
+        // {{$contract.Type}}{{.Normalized.Name}}.GetRaw is allows shared interface for getting the raw log data in an event
+        func (_{{$contract.Type}}{{.Normalized.Name}} *{{$contract.Type}}{{.Normalized.Name}}) GetRaw() types.Log {
+            return _{{$contract.Type}}{{.Normalized.Name}}.Raw
+        }
 
+        /*
 		// Filter{{.Normalized.Name}} is a free log retrieval operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
@@ -851,21 +863,21 @@ var (
 				}
 			}), nil
 		}
+        */
 
 		// Parse{{.Normalized.Name}} is a log parse operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
 		func (_{{$contract.Type}} *{{$contract.Type}}) Parse{{.Normalized.Name}}(log types.Log) (*{{$contract.Type}}{{.Normalized.Name}}, error) {
 			event := new({{$contract.Type}}{{.Normalized.Name}})
-			if err := _{{$contract.Type}}.contract.UnpackLog(event, "{{.Original.Name}}", log); err != nil {
+			if err := _{{$contract.Type}}.contract.unpackLog(event, "{{.Original.Name}}", log); err != nil {
 				return nil, err
 			}
-			event.Raw = log
+			event.SetRaw(log)
 			return event, nil
 		}
 
  	{{end}}
-	*/
 {{end}}
 `
 

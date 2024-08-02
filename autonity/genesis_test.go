@@ -39,5 +39,9 @@ func TestGenesisSteps(t *testing.T) {
 	t.Run("Test autonity deploy step", func(t *testing.T) {
 		err := executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{deployAutonityContract})
 		require.NoError(t, err)
+
+		// Check that the autonity contract was deployed
+		code := evm.StateDB.GetCode(params.AutonityContractAddress)
+		require.NotEmpty(t, code)
 	})
 }
