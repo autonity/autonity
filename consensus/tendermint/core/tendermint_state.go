@@ -100,33 +100,41 @@ func newTendermintState(logger log.Logger, db ethdb.Database) RoundsState {
 	roundMsgs := walDB.RoundMsgsFromDB()
 	lastState := walDB.GetLastTendermintState()
 	state := TendermintState{
-		height:                lastState.height,
-		round:                 lastState.round,
-		step:                  lastState.step,
-		lockedRound:           lastState.lockedRound,
-		validRound:            lastState.validRound,
-		sentProposal:          lastState.sentProposal,
-		sentPrevote:           lastState.sentPrevote,
-		sentPrecommit:         lastState.sentPrecommit,
-		setValidRoundAndValue: lastState.setValidRoundAndValue,
+		height:                new(big.Int).SetUint64(lastState.Height),
+		round:                 int64(lastState.Round),
+		step:                  lastState.Step,
+		lockedRound:           int64(lastState.LockedRound),
+		validRound:            int64(lastState.ValidRound),
+		sentProposal:          lastState.SentProposal,
+		sentPrevote:           lastState.SentPrevote,
+		sentPrecommit:         lastState.SentPrecommit,
+		setValidRoundAndValue: lastState.SetValidRoundAndValue,
+	}
+
+	if lastState.IsLockedRoundNil {
+		state.lockedRound = -1
+	}
+
+	if lastState.IsValidRoundNil {
+		state.validRound = -1
 	}
 
 	// by according to tendermint paper: https://arxiv.org/pdf/1807.04938, page-6, line-36 to line-43.
 	// the locked value and valid value are the in the proposal of the corresponding locked round and valid round.
-	if lastState.lockedRound != -1 && roundMsgs.GetOrCreate(lastState.lockedRound).Proposal() != nil {
-		state.lockedValue = roundMsgs.GetOrCreate(lastState.lockedRound).Proposal().Block()
+	if state.lockedRound != -1 && roundMsgs.GetOrCreate(state.lockedRound).Proposal() != nil {
+		state.lockedValue = roundMsgs.GetOrCreate(state.lockedRound).Proposal().Block()
 	}
-	if lastState.validRound != -1 && roundMsgs.GetOrCreate(lastState.validRound).Proposal() != nil {
-		state.validValue = roundMsgs.GetOrCreate(lastState.validRound).Proposal().Block()
+	if state.validRound != -1 && roundMsgs.GetOrCreate(state.validRound).Proposal() != nil {
+		state.validValue = roundMsgs.GetOrCreate(state.validRound).Proposal().Block()
 	}
 
 	// load the decision from round messages, as the decision is not always be in the last round,
 	// we need to iterate round messages' proposal to find it.
-	if lastState.decision != nilValue {
+	if lastState.Decision != nilValue {
 		allRounds := roundMsgs.GetRounds()
 		for _, r := range allRounds {
 			proposal := roundMsgs.GetOrCreate(r).Proposal()
-			if proposal != nil && proposal.Block().Hash() == lastState.decision {
+			if proposal != nil && proposal.Block().Hash() == lastState.Decision {
 				state.decision = proposal.Block()
 				break
 			}

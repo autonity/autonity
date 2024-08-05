@@ -8,7 +8,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/rlp"
-	"math/big"
 	"time"
 )
 
@@ -78,25 +77,27 @@ func newTendermintStateDB(db ethdb.Database) *TendermintStateDB {
 	return rsdb
 }
 
-// extTendermintState is used for RLP encoding and decoding, it replaces the locked value and valid value with hash to
+// ExtTendermintState is used for RLP encoding and decoding, it replaces the locked value and valid value with hash to
 // improve the performance, on the state recovery end, the values are retrieved from the rounds proposal of the specific
 // round.
-type extTendermintState struct {
-	height   *big.Int `rlp:"nil"`
-	round    int64
-	step     Step
-	decision common.Hash
+type ExtTendermintState struct {
+	Height   uint64
+	Round    uint64
+	Step     Step
+	Decision common.Hash
 
-	lockedRound int64
-	validRound  int64
-	lockedValue common.Hash
-	validValue  common.Hash
+	LockedRound      uint64
+	IsLockedRoundNil bool
+	ValidRound       uint64
+	IsValidRoundNil  bool
+	LockedValue      common.Hash
+	ValidValue       common.Hash
 
 	// extra helper states base on our implementation.
-	sentProposal          bool
-	sentPrevote           bool
-	sentPrecommit         bool
-	setValidRoundAndValue bool
+	SentProposal          bool
+	SentPrevote           bool
+	SentPrecommit         bool
+	SetValidRoundAndValue bool
 }
 
 // UpdateLastRoundState stores the latest tendermint state in DB, in case of a start of a new height, it also does
@@ -106,30 +107,39 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs TendermintState, startNew
 	viewKey := lastTendermintStateKey
 	// todo: jason, check if we have other db engine options.
 	// todo: jason, check if we have other options for encoding.
-	extRoundState := extTendermintState{
-		height:                rs.height,
-		round:                 rs.round,
-		step:                  rs.step,
-		lockedRound:           rs.lockedRound,
-		validRound:            rs.validRound,
-		sentProposal:          rs.sentProposal,
-		sentPrevote:           rs.sentPrevote,
-		sentPrecommit:         rs.sentPrecommit,
-		setValidRoundAndValue: rs.setValidRoundAndValue,
+	extRoundState := ExtTendermintState{
+		Height:                rs.height.Uint64(),
+		Round:                 uint64(rs.round),
+		Step:                  rs.step,
+		LockedRound:           uint64(rs.lockedRound),
+		ValidRound:            uint64(rs.validRound),
+		SentProposal:          rs.sentProposal,
+		SentPrevote:           rs.sentPrevote,
+		SentPrecommit:         rs.sentPrecommit,
+		SetValidRoundAndValue: rs.setValidRoundAndValue,
 	}
+
+	if rs.lockedRound == -1 {
+		extRoundState.IsLockedRoundNil = true
+	}
+
+	if rs.validRound == -1 {
+		extRoundState.IsValidRoundNil = true
+	}
+
 	if rs.decision != nil {
-		extRoundState.decision = rs.decision.Hash()
+		extRoundState.Decision = rs.decision.Hash()
 	}
 
 	if rs.lockedValue != nil {
-		extRoundState.lockedValue = rs.lockedValue.Hash()
+		extRoundState.LockedValue = rs.lockedValue.Hash()
 	}
 	if rs.validValue != nil {
-		extRoundState.validValue = rs.validValue.Hash()
+		extRoundState.ValidValue = rs.validValue.Hash()
 	}
 
 	before := time.Now()
-	entryBytes, err := rlp.EncodeToBytes(extRoundState)
+	entryBytes, err := rlp.EncodeToBytes(&extRoundState)
 	rsdb.rsRLPEncTimer.UpdateSince(before)
 	if err != nil {
 		logger.Error("Failed to save roundState", "reason", "rlp encoding", "err", err)
@@ -170,13 +180,9 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs TendermintState, startNew
 
 // GetLastTendermintState will return tendermint state from DB, it will return an initial state if there was no state flushed.
 // This function is called once on node start up.
-func (rsdb *TendermintStateDB) GetLastTendermintState() extTendermintState {
+func (rsdb *TendermintStateDB) GetLastTendermintState() ExtTendermintState {
 	// set default states.
-	var entry = extTendermintState{
-		height:      common.Big0,
-		lockedRound: -1,
-		validRound:  -1,
-	}
+	var entry = ExtTendermintState{}
 	viewKey := lastTendermintStateKey
 	rawEntry, err := rsdb.db.Get(viewKey)
 	if err != nil {
@@ -191,9 +197,9 @@ func (rsdb *TendermintStateDB) GetLastTendermintState() extTendermintState {
 	return entry
 }
 
-type inMsg struct {
-	msg      message.Msg
-	verified bool
+type ExtMsg struct {
+	Msg      message.Msg
+	Verified bool
 }
 
 // AddMsg inserts a successfully applied consensus message of tendermint state engine into WAL. The inserting messages
@@ -209,8 +215,8 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 		return err
 	}
 
-	m := inMsg{msg: msg, verified: verified}
-	msgBytes, err := rlp.EncodeToBytes(m)
+	m := ExtMsg{Msg: msg, Verified: verified}
+	msgBytes, err := rlp.EncodeToBytes(&m)
 	rsdb.msgRLPEncTimer.UpdateSince(before)
 	if err != nil {
 		rsdb.logger.Error("Failed to save msg", "reason", "rlp encoding", "err", err)
@@ -248,11 +254,11 @@ func (rsdb *TendermintStateDB) GetMsg(msgID uint64) (message.Msg, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	var entry inMsg
+	var entry ExtMsg
 	if err = rlp.DecodeBytes(rawEntry, &entry); err != nil {
 		return nil, false, err
 	}
-	return entry.msg, entry.verified, nil
+	return entry.Msg, entry.Verified, nil
 }
 
 // GetMsgID retrieves the managed MSG ID from DB of the specific key.
