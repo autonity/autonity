@@ -15,33 +15,14 @@ type RoundsState interface {
 }
 
 type RoundMessageInterface interface {
-	SetProposal(proposal *message.Propose, verified bool)
-
 	Messages() *message.Map
+	AllMessages() []message.Msg
 	CurRoundMessages() *message.RoundMessages
-	CurRoundProposal() *message.Propose
-	CurRoundPrevotesTotalPower() *big.Int
-	CurRoundPrecommitsTotalPower() *big.Int
-	CurRoundPrevotesPower(hash common.Hash) *big.Int
-	CurRoundPrecommitsPower(hash common.Hash) *big.Int
 
+	SetProposal(proposal *message.Propose, verified bool)
 	AddPrevote(vote *message.Prevote)
 	AddPrecommit(vote *message.Precommit)
-
-	RoundProposal(r int64) *message.Propose
-	RoundPower(r int64) *big.Int
-	RoundPrevotesTotalPower(r int64) *big.Int
-	RoundPrecommitsTotalPower(r int64) *big.Int
-	RoundPrevotesPower(r int64, hash common.Hash) *big.Int
-	RoundPrecommitsPower(r int64, hash common.Hash) *big.Int
-
-	GetOrCreate(r int64) *message.RoundMessages // todo: shall it be a internal one?
-	GetRounds() []int64
-
-	AggregatedPrevoteFor(round int64, hash common.Hash) *message.Prevote
-	AggregatedPrecommitFor(round int64, hash common.Hash) *message.Precommit
-
-	AllMessages() []message.Msg
+	GetOrCreate(r int64) *message.RoundMessages
 }
 
 type TendermintStateInterface interface {
@@ -356,112 +337,8 @@ func (rs *TendermintStateImpl) CurRoundMessages() *message.RoundMessages {
 	return rs.curRoundMessages
 }
 
-func (rs *TendermintStateImpl) CurRoundProposal() *message.Propose {
-	return rs.curRoundMessages.Proposal()
-}
-
-func (rs *TendermintStateImpl) CurRoundPrevotesTotalPower() *big.Int {
-	return rs.curRoundMessages.PrevotesTotalPower()
-}
-
-func (rs *TendermintStateImpl) CurRoundPrecommitsTotalPower() *big.Int {
-	return rs.curRoundMessages.PrecommitsTotalPower()
-}
-
-func (rs *TendermintStateImpl) CurRoundPrevotesPower(hash common.Hash) *big.Int {
-	return rs.curRoundMessages.PrevotesPower(hash)
-}
-
-func (rs *TendermintStateImpl) CurRoundPrecommitsPower(hash common.Hash) *big.Int {
-	return rs.curRoundMessages.PrecommitsPower(hash)
-}
-
-func (rs *TendermintStateImpl) RoundProposal(r int64) *message.Propose {
-	if r == rs.round {
-		return rs.curRoundMessages.Proposal()
-	}
-	if r < rs.round {
-		return rs.messages.GetOrCreate(r).Proposal()
-	}
-	panic("future round proposal should be in backlog")
-}
-
-func (rs *TendermintStateImpl) RoundPower(r int64) *big.Int {
-	if r == rs.round {
-		return rs.curRoundMessages.Power().Power()
-	}
-	if r < rs.round {
-		return rs.messages.GetOrCreate(r).Power().Power()
-	}
-	panic("round power cannot be calculated for future round messages")
-}
-
-func (rs *TendermintStateImpl) RoundPrevotesTotalPower(r int64) *big.Int {
-	if r == rs.round {
-		return rs.curRoundMessages.PrevotesTotalPower()
-	}
-	if r < rs.round {
-		return rs.messages.GetOrCreate(r).PrevotesTotalPower()
-	}
-	panic("prevote power cannot be calculated for future round messages")
-}
-
-func (rs *TendermintStateImpl) RoundPrecommitsTotalPower(r int64) *big.Int {
-	if r == rs.round {
-		return rs.curRoundMessages.PrecommitsTotalPower()
-	}
-	if r < rs.round {
-		return rs.messages.GetOrCreate(r).PrecommitsTotalPower()
-	}
-	panic("precommit power cannot be calculated for future round messages")
-}
-
-func (rs *TendermintStateImpl) RoundPrevotesPower(r int64, hash common.Hash) *big.Int {
-	if r == rs.round {
-		return rs.curRoundMessages.PrevotesPower(hash)
-	}
-	if r < rs.round {
-		return rs.messages.GetOrCreate(r).PrevotesPower(hash)
-	}
-	panic("prevote power cannot be calculated for future round messages")
-}
-
-func (rs *TendermintStateImpl) RoundPrecommitsPower(r int64, hash common.Hash) *big.Int {
-	if r == rs.round {
-		return rs.curRoundMessages.PrecommitsPower(hash)
-	}
-	if r < rs.round {
-		return rs.messages.GetOrCreate(r).PrecommitsPower(hash)
-	}
-	panic("precommit power cannot be calculated for future round messages")
-}
-
 func (rs *TendermintStateImpl) GetOrCreate(r int64) *message.RoundMessages {
 	return rs.messages.GetOrCreate(r)
-}
-
-func (rs *TendermintStateImpl) GetRounds() []int64 {
-	return rs.messages.GetRounds()
-}
-
-func (rs *TendermintStateImpl) AggregatedPrevoteFor(round int64, hash common.Hash) *message.Prevote {
-	if round == rs.round {
-		return rs.curRoundMessages.PrevoteFor(hash)
-	}
-	if round < rs.round {
-		return rs.messages.GetOrCreate(round).PrevoteFor(hash)
-	}
-	panic("cannot aggregate future round prevotes")
-}
-
-func (rs *TendermintStateImpl) AggregatedPrecommitFor(round int64, hash common.Hash) *message.Precommit {
-	if round == rs.round {
-		return rs.curRoundMessages.PrecommitFor(hash)
-	}
-	if round < rs.round {
-		return rs.messages.GetOrCreate(round).PrecommitFor(hash)
-	}
-	panic("cannot aggregate future round precommits")
 }
 
 func (rs *TendermintStateImpl) AllMessages() []message.Msg {
