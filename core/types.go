@@ -53,5 +53,5 @@ type Processor interface {
 
 	// ProcessFromCache processes the state same as Process except it checks the availability
 	// of cached state and utilizes the same if present
-	ProcessFromCache(block *types.Block, statedb **state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
+	ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, *state.StateDB, uint64, error)
 }

@@ -193,9 +193,9 @@ type worker struct {
 	pendingLogsFeed event.Feed
 
 	// Subscriptions
-	mux          *event.TypeMux
-	txsCh        chan core.NewTxsEvent
-	txsSub       event.Subscription
+	mux *event.TypeMux
+	//txsCh        chan core.NewTxsEvent
+	//txsSub       event.Subscription
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 	chainSideCh  chan core.ChainSideEvent
@@ -252,18 +252,18 @@ type worker struct {
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
 	worker := &worker{
-		config:             config,
-		chainConfig:        chainConfig,
-		coinbase:           config.Etherbase,
-		engine:             engine,
-		eth:                eth,
-		mux:                mux,
-		chain:              eth.BlockChain(),
-		isLocalBlock:       isLocalBlock,
-		localUncles:        make(map[common.Hash]*types.Block),
-		remoteUncles:       make(map[common.Hash]*types.Block),
-		pendingTasks:       make(map[common.Hash]*task),
-		txsCh:              make(chan core.NewTxsEvent, txChanSize),
+		config:       config,
+		chainConfig:  chainConfig,
+		coinbase:     config.Etherbase,
+		engine:       engine,
+		eth:          eth,
+		mux:          mux,
+		chain:        eth.BlockChain(),
+		isLocalBlock: isLocalBlock,
+		localUncles:  make(map[common.Hash]*types.Block),
+		remoteUncles: make(map[common.Hash]*types.Block),
+		pendingTasks: make(map[common.Hash]*task),
+		//txsCh:              make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:        make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:        make(chan core.ChainSideEvent, chainSideChanSize),
 		newWorkCh:          make(chan *newWorkReq),
@@ -276,7 +276,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		resubmitAdjustCh:   make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
 	// Subscribe NewTxsEvent for tx pool
-	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
+	//worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
@@ -521,7 +521,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 // submit it or return task according to given parameters for various proposes.
 func (w *worker) mainLoop() {
 	defer w.wg.Done()
-	defer w.txsSub.Unsubscribe()
+	//defer w.txsSub.Unsubscribe()
 	defer w.chainHeadSub.Unsubscribe()
 	defer w.chainSideSub.Unsubscribe()
 	defer func() {
@@ -584,39 +584,39 @@ func (w *worker) mainLoop() {
 				}
 			}
 
-		case ev := <-w.txsCh:
-			// Apply transactions to the pending state if we're not sealing
-			//
-			// Note all transactions received may not be continuous with transactions
-			// already included in the current sealing block. These transactions will
-			// be automatically eliminated.
-			if !w.isRunning() && w.current != nil {
-				// If block is already full, abort
-				if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
-					continue
-				}
-				txs := make(map[common.Address]types.Transactions)
-				for _, tx := range ev.Txs {
-					acc, _ := types.Sender(w.current.signer, tx)
-					txs[acc] = append(txs[acc], tx)
-				}
-				txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
-				tcount := w.current.tcount
-				w.commitTransactions(w.current, txset, nil)
-
-				// Only update the snapshot if any new transactions were added
-				// to the pending block
-				if tcount != w.current.tcount {
-					w.updateSnapshot(w.current)
-				}
-			}
-			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
-
+		//case ev := <-w.txsCh:
+		//	// Apply transactions to the pending state if we're not sealing
+		//	//
+		//	// Note all transactions received may not be continuous with transactions
+		//	// already included in the current sealing block. These transactions will
+		//	// be automatically eliminated.
+		//	if !w.isRunning() && w.current != nil {
+		//		// If block is already full, abort
+		//		if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
+		//			continue
+		//		}
+		//		txs := make(map[common.Address]types.Transactions)
+		//		for _, tx := range ev.Txs {
+		//			acc, _ := types.Sender(w.current.signer, tx)
+		//			txs[acc] = append(txs[acc], tx)
+		//		}
+		//		txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
+		//		tcount := w.current.tcount
+		//		w.commitTransactions(w.current, txset, nil)
+		//
+		//		// Only update the snapshot if any new transactions were added
+		//		// to the pending block
+		//		if tcount != w.current.tcount {
+		//			w.updateSnapshot(w.current)
+		//		}
+		//	}
+		//	atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
+		//
 		// System stopped
 		case <-w.exitCh:
 			return
-		case <-w.txsSub.Err():
-			return
+		//case <-w.txsSub.Err():
+		//	return
 		case <-w.chainHeadSub.Err():
 			return
 		case <-w.chainSideSub.Err():
@@ -844,6 +844,30 @@ func (w *worker) updateSnapshot(env *environment) {
 	)
 	w.snapshotReceipts = copyReceipts(env.receipts)
 	w.snapshotState = env.state.Copy()
+}
+
+// updateSnapshot updates pending snapshot block, receipts and state.
+func (w *worker) prepareSnapshot(env *environment) (*types.Block, []*types.Receipt, *state.StateDB) {
+	w.snapshotMu.Lock()
+	defer w.snapshotMu.Unlock()
+
+	snapshotBlock := types.NewBlock(
+		env.header,
+		env.txs,
+		env.unclelist(),
+		env.receipts,
+		trie.NewStackTrie(nil),
+	)
+	return snapshotBlock, copyReceipts(env.receipts), env.state.Copy()
+}
+
+// updateSnapshot updates pending snapshot block, receipts and state.
+func (w *worker) setSnapshot(block *types.Block, receipts []*types.Receipt, state *state.StateDB) {
+	w.snapshotMu.Lock()
+	defer w.snapshotMu.Unlock()
+	w.snapshotBlock = block
+	w.snapshotReceipts = receipts
+	w.snapshotState = state
 }
 
 func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*types.Log, error) {
@@ -1187,8 +1211,18 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 
 		finalizeStart := time.Now()
 		// Create a local environment copy, avoid the data race with snapshot state.
-		// https://github.com/autonity/autonity/issues/24299
-		env := env.copy()
+		// https://github.com/ethereum/go-ethereum/issues/24299
+		//env := env.copy() - this is the fix in upstream, our approach below:
+		// Instead of copying environment to avoid race between result channel and snapshot state,
+		// we update snapshot before even pushing task to task channel
+		var (
+			snapshotBlock    *types.Block
+			snapshotReceipts []*types.Receipt
+			snapshotState    *state.StateDB
+		)
+		if update {
+			snapshotBlock, snapshotReceipts, snapshotState = w.prepareSnapshot(env)
+		}
 		block, err := w.engine.FinalizeAndAssemble(w.chain, env.header, env.state, env.txs, env.unclelist(), &env.receipts)
 		if err != nil {
 			return err
@@ -1199,7 +1233,9 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 			FinalizeWorkBg.Add(now.Sub(finalizeStart).Nanoseconds())
 		}
 		// If we're post merge, just ignore
-
+		if update {
+			w.setSnapshot(snapshotBlock, snapshotReceipts, snapshotState)
+		}
 		select {
 		case w.taskCh <- &task{receipts: env.receipts, state: env.state, block: block, createdAt: time.Now()}:
 			if metrics.Enabled {
