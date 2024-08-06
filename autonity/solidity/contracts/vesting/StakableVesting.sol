@@ -14,7 +14,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @notice Sum of total amount of contracts that can be created.
      * Each time a new contract is created, `totalNominal` is decreased.
      * Address(this) should have `totalNominal` amount of NTN availabe at genesis,
-     * otherwise withdrawing or bonding from a contract is not possible
+     * otherwise withdrawing or bonding from a contract is not possible.
      */
     uint256 public totalNominal;
 
@@ -37,7 +37,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     /**
      * @dev We put all the bonding request id of past epoch in `contractToBonding[contractID]` array and apply them whenever needed.
      * All bonding requests are applied at epoch end, so we can process all of them (failed or successful) together.
-     * See `bond` and `_handlePendingBondingRequest` for more clarity
+     * See `bond` and `_handlePendingBondingRequest` for more clarity.
      */
 
     mapping(uint256 => uint256[]) internal contractToBonding;
@@ -61,7 +61,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     mapping(address => uint256) internal atnRewards;
 
     /**
-     * @dev Same as atnRewards for NTN rewards
+     * @dev Same as atnRewards for NTN rewards.
      */
     mapping(address => uint256) internal ntnRewards;
 
@@ -196,7 +196,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice Updates the funds of the contract and returns total value of the contract
+     * @notice Updates the funds of the contract and returns total value of the contract.
      */
     function updateFundsAndGetContractTotalValue(address _beneficiary, uint256 _id) external returns (uint256) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
@@ -205,7 +205,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice Updates the funds of the contract and returns the contract
+     * @notice Updates the funds of the contract and returns the contract.
      */
     function updateFundsAndGetContract(address _beneficiary, uint256 _id) external returns (Contract memory) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
@@ -214,10 +214,10 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice Set the value of totalNominal
+     * @notice Set the value of totalNominal.
      * In case totalNominal is increased, the increased amount should be minted
      * and transferred to the address of this contract, otherwise newly created vesting
-     * contracts will not have funds to withdraw or bond. See newContract()
+     * contracts will not have funds to withdraw or bond. See `ewContract()`.
      * @custom:restricted-to operator account
      */
     function setTotalNominal(uint256 _newTotalNominal) virtual external onlyOperator {
@@ -299,7 +299,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice Used by beneficiary to claim all rewards which is entitled from bonding
+     * @notice Used by beneficiary to claim all rewards which is entitled from bonding.
      * @dev Rewards from some cancelled contracts are stored in atnRewards and ntnRewards mapping. All rewards from
      * contracts that are still entitled to the beneficiary need to be calculated.
      */

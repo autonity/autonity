@@ -27,7 +27,7 @@ contract ContractBase {
     Contract[] internal contracts;
 
     Autonity internal autonity;
-    address private operator;
+    address internal operator;
 
     constructor(address payable _autonity, address _operator) {
         autonity = Autonity(_autonity);

@@ -11,12 +11,12 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * The balance is not immediately available at the vault.
      * Rather the unlocked amount of schedules is minted at epoch end.
      * The balance tells us the max size of a newly created schedule.
-     * See `createSchedule()`
+     * See `createSchedule()`.
      */
     uint256 public totalNominal;
 
     /**
-     * @notice The maximum duration of any schedule or contract
+     * @notice The maximum duration of any schedule or contract.
      */
     uint256 public maxAllowedDuration;
 
@@ -33,12 +33,12 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
 
     /**
      * @dev Stores all the schedules, there should not be too many of them, for the sake of efficiency
-     * of `unlockTokens()` function
+     * of `unlockTokens()` function.
      */
-    Schedule[] private schedules;
+    Schedule[] internal schedules;
 
-    /** @dev ID of schedule that some contract is subscribed to */
-    mapping(uint256 => uint256) private subscribedTo;
+    /** @dev ID of schedule that some contract is subscribed to. */
+    mapping(uint256 => uint256) internal subscribedTo;
 
     constructor(
         address payable _autonity, address _operator
@@ -174,13 +174,13 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     /**
      * @notice Unlock tokens of all schedules upto current time.
      * @dev It calculates the newly unlocked tokens upto current time and also updates the amount
-     * of total unlocked tokens and the time of unlock for each schedule
+     * of total unlocked tokens and the time of unlock for each schedule.
      * Autonity must mint new unlocked tokens, because this contract knows that for each schedule,
-     * `schedule.totalUnlocked` tokens are now unlocked and available to release
+     * `schedule.totalUnlocked` tokens are now unlocked and available to release.
      * @return _newUnlockedSubscribed tokens unlocked from contract subscribed to some schedule
      * @return _newUnlockedUnsubscribed tokens unlocked from schedule.unsubscribedAmount, which is not subscribed by any contract
      * @dev `newUnlockedSubscribed` goes to the balance of address(this) and `newUnlockedUnsubscribed` goes to the treasury address.
-     * See `finalize()` in Autonity.sol
+     * See `finalize()` in Autonity.sol.
      * @custom:restricted-to Autonity contract
      */
     function unlockTokens() external onlyAutonity returns (uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed) {
@@ -219,19 +219,19 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      * @dev Calculates the total value of the contract, which is constant for non stakable contracts.
      * @param _contractID unique global id of the contract
      */
-    function _calculateTotalValue(uint256 _contractID) private view returns (uint256) {
+    function _calculateTotalValue(uint256 _contractID) internal view returns (uint256) {
         Contract storage _contract = contracts[_contractID];
         return _contract.currentNTNAmount + _contract.withdrawnValue;
     }
 
     /**
-     * @dev Calculates the amount of withdrawable funds upto `schedule.lastUnlockTime`, which is the last epoch time.
+     * @dev Calculates the amount of withdrawable funds upto `schedule.lastUnlockTime`, which is the last epoch time,
      * where schedule = schedule subsribed by the contract.
      * The unlock mechanism is epoch based, but instead of taking time from `autonity.lastEpochBlock()`, we take the time
      * from `schedule.lastUnlockTime`. Because the locked tokens are not minted from genesis. This way it is ensured that
      * the unlocked tokens are minted at epoch end.
      */
-    function _unlockedFunds(uint256 _contractID) private view returns (uint256) {
+    function _unlockedFunds(uint256 _contractID) internal view returns (uint256) {
         return _calculateAvailableUnlockedFunds(
             _contractID,
             _calculateTotalValue(_contractID),
@@ -255,7 +255,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
     }
 
     /**
-     * @notice Returns some schedule
+     * @notice Returns some schedule.
      * @param _id id of some schedule numbered from 0 to (n-1), where n = total schedules created
      */
     function getSchedule(uint256 _id) external view returns (Schedule memory) {

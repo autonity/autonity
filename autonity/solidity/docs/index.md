@@ -135,7 +135,6 @@ _Modifier that checks if the caller is the governance operator account._
 _This structure tracks the activity that requires to update rewards. Any activity like increase or decrease of liquid balances
 or claiming rewards require updating rewards before the activity is applied. This structure tracks those activities, when such
 activity is requested.
-
 There are two types of reward event:
 Pending Reward Event: A reward event that cannot be applied yet. Bonding or unbonding request creates such reward event.
 Last Reward Event: A reward event that can be applied. When a pending reward event can be applied, after the epcoh is finalized,
@@ -187,6 +186,32 @@ struct Account {
 }
 ```
 
+### rewardTracker
+
+```solidity
+mapping(address => struct LiquidRewardManager.RewardTracker) rewardTracker
+```
+
+_Stores `unclaimedRewards` and `lastUnrealisedFeeFactor` for each validator,
+`lastUnrealisedFeeFactor` is used to calculate unrealised rewards for contracts with the same logic as done in Liquid.sol._
+
+### bondedValidators
+
+```solidity
+mapping(uint256 => address[]) bondedValidators
+```
+
+_Stores the array of validators bonded to a contract._
+
+### validatorIdx
+
+```solidity
+mapping(uint256 => mapping(address => uint256)) validatorIdx
+```
+
+_`validatorIdx[id][validator]` stores the `index+1` of validator in `bondedValidators[id]` array
+where `id` is the unique global id of a contract._
+
 ### _newBondingRequested
 
 ```solidity
@@ -222,13 +247,43 @@ function _mintLiquid(uint256 _id, address _validator, uint256 _amount, uint256 _
 
 _Mints some liquid tokens that represents liquid bonded to some validator from some contract._
 
+### _realiseFees
+
+```solidity
+function _realiseFees(uint256 _id, address _validator, uint256 _epochID) internal returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees)
+```
+
+_Realise fees until `epochID`. Must update rewards before realising fees._
+
+### _claimRewards
+
+```solidity
+function _claimRewards(address _validator) internal
+```
+
+_Claims all rewards from the liquid contract of the validator._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _validator | address | validator address |
+
 ### _claimRewards
 
 ```solidity
 function _claimRewards(uint256 _id) internal returns (uint256 _atnTotalFees, uint256 _ntnTotalFees)
 ```
 
-_Calculates total rewards for a contract and resets `realisedFees[id][validator]` as rewards are claimed_
+_Calculates total rewards for a contract and resets `realisedFees[id][validator]` as rewards are claimed._
+
+### _addValidator
+
+```solidity
+function _addValidator(uint256 _id, address _validator) internal
+```
+
+_Adds validator in `bondedValidators` array._
 
 ### _clearValidators
 
@@ -274,6 +329,15 @@ the request-epoch has passed.
 | ---- | ---- | ----------- |
 | _validator | address | validator address |
 
+### _updateLastRewardEvent
+
+```solidity
+function _updateLastRewardEvent(address _validator) internal
+```
+
+_If pending rewrad event exists and if the event is not from current epoch, then the pending rewrad event
+replaces the last reward event._
+
 ### _newPendingRewardEvent
 
 ```solidity
@@ -291,6 +355,79 @@ function _updatePendingEventLiquid(address _validator) internal
 _In case a transfer of liquid token happens, it will affect the total rewards distribution at epoch end,
 because the total liquid is changed. If we already have a pending reward event to calculate reward distribution,
 then this change in liquid balance needs to be considered. This function updates the total liquid in the pending event._
+
+### _updateUnclaimedReward
+
+```solidity
+function _updateUnclaimedReward(address _validator, uint256 _epochID) internal
+```
+
+_Updates the unclaimed rewards from validator and the `lastUnrealisedFeeFactor` which is used
+to compute unrealised fees for accounts. Both are updated until given epoch id. The `lastUnrealisedFeeFactor`
+is kept with history, so we have a `mapping(epochID => value)` of `lastUnrealisedFeeFactor` instead of a single variable.
+The history is needed because the liquid balance of some account is not updated immediately, instead it can be updated
+some time later, whenever the related account sends some transaction that will require the updated liquid balance.
+To update unclaimed rewards, first we need to apply the last reward event (see: struct `RewardEvent`). Then if there is a
+pending reward event from some past epoch, it replaces the current last reward event. Then we apply the new last reward
+event again. After that, if we are still behind the input `epochID`, then we fetch the last updated rewards._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _validator | address | validator address, from which we will claim rewards |
+| _epochID | uint256 | the epochID untill which we need to fetch rewards |
+
+### _unfetchedFeeFactor
+
+```solidity
+function _unfetchedFeeFactor(contract Liquid _contract, uint256 _atnLastReward, uint256 _ntnLastReward) internal view returns (uint256 _atnFeeFactor, uint256 _ntnFeeFactor)
+```
+
+_Fetches the `unclaimedRewards` from liquid contract and calculates the changes in `lastUnrealisedFeeFactor`
+but does not update any state variable. This function helps to calculate unclaimed rewards._
+
+### _rewardEventSimulator
+
+```solidity
+function _rewardEventSimulator(struct LiquidRewardManager.RewardEvent _rewardEvent, uint256 _atnLastReward, uint256 _ntnLastReward) internal view returns (uint256 _atnNewReward, uint256 _ntnNewReward, uint256 _atnFeeFactor, uint256 _ntnFeeFactor)
+```
+
+_Applies the reward event without changing the state and generates rewards.
+This function helps to calculate unclaimed rewards._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _rewardEvent | struct LiquidRewardManager.RewardEvent | Reward event to apply |
+| _atnLastReward | uint256 |  |
+| _ntnLastReward | uint256 |  |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _atnNewReward | uint256 | ATN reward amount after applying event |
+| _ntnNewReward | uint256 | NTN reward amount after applying event |
+| _atnFeeFactor | uint256 | unrealised fee factor for ATN rewards |
+| _ntnFeeFactor | uint256 | unrealised fee factor for NTN rewards |
+
+### _generateUnrealisedFeeFactor
+
+```solidity
+function _generateUnrealisedFeeFactor(address _validator, uint256 _epochID) internal view returns (uint256 _atnUnrealisedFeeFactor, uint256 _ntnUnrealisedFeeFactor)
+```
+
+_Generates unrealised fee factor for validator till the rewards for `epochID` have been distributed.
+This function helps to calculate unclaimed rewards._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _validator | address | validator address |
+| _epochID | uint256 | epochID |
 
 ### _unclaimedRewards
 
@@ -336,7 +473,7 @@ The total amount of funds to create new locked non-stakable schedules.
 The balance is not immediately available at the vault.
 Rather the unlocked amount of schedules is minted at epoch end.
 The balance tells us the max size of a newly created schedule.
-See `createSchedule()`
+See `createSchedule()`.
 
 ### maxAllowedDuration
 
@@ -344,7 +481,24 @@ See `createSchedule()`
 uint256 maxAllowedDuration
 ```
 
-The maximum duration of any schedule or contract
+The maximum duration of any schedule or contract.
+
+### schedules
+
+```solidity
+struct NonStakableVesting.Schedule[] schedules
+```
+
+_Stores all the schedules, there should not be too many of them, for the sake of efficiency
+of `unlockTokens()` function._
+
+### subscribedTo
+
+```solidity
+mapping(uint256 => uint256) subscribedTo
+```
+
+_ID of schedule that some contract is subscribed to._
 
 ### createSchedule
 
@@ -456,11 +610,11 @@ function unlockTokens() external returns (uint256 _newUnlockedSubscribed, uint25
 Unlock tokens of all schedules upto current time.
 
 _It calculates the newly unlocked tokens upto current time and also updates the amount
-of total unlocked tokens and the time of unlock for each schedule
+of total unlocked tokens and the time of unlock for each schedule.
 Autonity must mint new unlocked tokens, because this contract knows that for each schedule,
-`schedule.totalUnlocked` tokens are now unlocked and available to release
+`schedule.totalUnlocked` tokens are now unlocked and available to release.
 `newUnlockedSubscribed` goes to the balance of address(this) and `newUnlockedUnsubscribed` goes to the treasury address.
-See `finalize()` in Autonity.sol_
+See `finalize()` in Autonity.sol._
 
 #### Return Values
 
@@ -468,6 +622,32 @@ See `finalize()` in Autonity.sol_
 | ---- | ---- | ----------- |
 | _newUnlockedSubscribed | uint256 | tokens unlocked from contract subscribed to some schedule |
 | _newUnlockedUnsubscribed | uint256 | tokens unlocked from schedule.unsubscribedAmount, which is not subscribed by any contract |
+
+### _calculateTotalValue
+
+```solidity
+function _calculateTotalValue(uint256 _contractID) internal view returns (uint256)
+```
+
+_Calculates the total value of the contract, which is constant for non stakable contracts._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _contractID | uint256 | unique global id of the contract |
+
+### _unlockedFunds
+
+```solidity
+function _unlockedFunds(uint256 _contractID) internal view returns (uint256)
+```
+
+_Calculates the amount of withdrawable funds upto `schedule.lastUnlockTime`, which is the last epoch time,
+where schedule = schedule subsribed by the contract.
+The unlock mechanism is epoch based, but instead of taking time from `autonity.lastEpochBlock()`, we take the time
+from `schedule.lastUnlockTime`. Because the locked tokens are not minted from genesis. This way it is ensured that
+the unlocked tokens are minted at epoch end._
 
 ### unlockedFunds
 
@@ -483,7 +663,7 @@ Returns the amount of withdrawable funds upto the last epoch time.
 function getSchedule(uint256 _id) external view returns (struct NonStakableVesting.Schedule)
 ```
 
-Returns some schedule
+Returns some schedule.
 
 #### Parameters
 
@@ -502,7 +682,7 @@ uint256 totalNominal
 Sum of total amount of contracts that can be created.
 Each time a new contract is created, `totalNominal` is decreased.
 Address(this) should have `totalNominal` amount of NTN availabe at genesis,
-otherwise withdrawing or bonding from a contract is not possible
+otherwise withdrawing or bonding from a contract is not possible.
 
 ### contractToBonding
 
@@ -512,7 +692,7 @@ mapping(uint256 => uint256[]) contractToBonding
 
 _We put all the bonding request id of past epoch in `contractToBonding[contractID]` array and apply them whenever needed.
 All bonding requests are applied at epoch end, so we can process all of them (failed or successful) together.
-See `bond` and `_handlePendingBondingRequest` for more clarity_
+See `bond` and `_handlePendingBondingRequest` for more clarity._
 
 ### contractToUnbonding
 
@@ -540,7 +720,7 @@ See cancelContract for more clarity._
 mapping(address => uint256) ntnRewards
 ```
 
-_Same as atnRewards for NTN rewards_
+_Same as atnRewards for NTN rewards._
 
 ### newContract
 
@@ -663,7 +843,7 @@ this function updates the funds of some contract entitled to beneficiary by appl
 function updateFundsAndGetContractTotalValue(address _beneficiary, uint256 _id) external returns (uint256)
 ```
 
-Updates the funds of the contract and returns total value of the contract
+Updates the funds of the contract and returns total value of the contract.
 
 ### updateFundsAndGetContract
 
@@ -671,7 +851,7 @@ Updates the funds of the contract and returns total value of the contract
 function updateFundsAndGetContract(address _beneficiary, uint256 _id) external returns (struct ContractBase.Contract)
 ```
 
-Updates the funds of the contract and returns the contract
+Updates the funds of the contract and returns the contract.
 
 ### setTotalNominal
 
@@ -679,10 +859,10 @@ Updates the funds of the contract and returns the contract
 function setTotalNominal(uint256 _newTotalNominal) external virtual
 ```
 
-Set the value of totalNominal
+Set the value of totalNominal.
 In case totalNominal is increased, the increased amount should be minted
 and transferred to the address of this contract, otherwise newly created vesting
-contracts will not have funds to withdraw or bond. See newContract()
+contracts will not have funds to withdraw or bond. See `ewContract()`.
 
 ### bond
 
@@ -746,7 +926,7 @@ Used by beneficiary to claim rewards from bonding some contract to validator.
 function claimRewards() external virtual returns (uint256 _atnRewards, uint256 _ntnRewards)
 ```
 
-Used by beneficiary to claim all rewards which is entitled from bonding
+Used by beneficiary to claim all rewards which is entitled from bonding.
 
 _Rewards from some cancelled contracts are stored in atnRewards and ntnRewards mapping. All rewards from
 contracts that are still entitled to the beneficiary need to be calculated._

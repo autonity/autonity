@@ -15,7 +15,6 @@ contract LiquidRewardManager {
      * @dev This structure tracks the activity that requires to update rewards. Any activity like increase or decrease of liquid balances
      * or claiming rewards require updating rewards before the activity is applied. This structure tracks those activities, when such
      * activity is requested.
-     * 
      * There are two types of reward event:
      * Pending Reward Event: A reward event that cannot be applied yet. Bonding or unbonding request creates such reward event.
      * Last Reward Event: A reward event that can be applied. When a pending reward event can be applied, after the epcoh is finalized,
@@ -62,19 +61,20 @@ contract LiquidRewardManager {
 
     /**
      * @dev Stores `unclaimedRewards` and `lastUnrealisedFeeFactor` for each validator,
-     * `lastUnrealisedFeeFactor` is used to calculate unrealised rewards for contracts with the same logic as done in Liquid.sol
+     * `lastUnrealisedFeeFactor` is used to calculate unrealised rewards for contracts with the same logic as done in Liquid.sol.
      */
-    mapping(address => RewardTracker) private rewardTracker;
+    mapping(address => RewardTracker) internal rewardTracker;
 
     /** @dev Stores the array of validators bonded to a contract. */
-    mapping(uint256 => address[]) private bondedValidators;
+    mapping(uint256 => address[]) internal bondedValidators;
+
     /** 
      * @dev `validatorIdx[id][validator]` stores the `index+1` of validator in `bondedValidators[id]` array
      * where `id` is the unique global id of a contract.
      */
-    mapping(uint256 => mapping(address => uint256)) private validatorIdx;
+    mapping(uint256 => mapping(address => uint256)) internal validatorIdx;
 
-    mapping(uint256 => mapping(address => Account)) private accounts;
+    mapping(uint256 => mapping(address => Account)) internal accounts;
 
     constructor(address payable _autonity) {
         autonity = Autonity(_autonity);
@@ -131,7 +131,7 @@ contract LiquidRewardManager {
     /**
      * @dev Realise fees until `epochID`. Must update rewards before realising fees.
      */
-    function _realiseFees(uint256 _id, address _validator, uint256 _epochID) private returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) {
+    function _realiseFees(uint256 _id, address _validator, uint256 _epochID) internal returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) {
         _updateUnclaimedReward(_validator, _epochID);
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
         require(_rewardTracker.unrealisedFeeFactorUpdated[_epochID] == true, "unrealised fee factor not updated");
@@ -156,7 +156,7 @@ contract LiquidRewardManager {
 
     function _computeUnrealisedFees(
         uint256 _balance, uint256 _unrealisedFeeFactor, uint256 _lastUnrealisedFeeFactor
-    ) private pure returns (uint256) {
+    ) internal pure returns (uint256) {
         if (_balance == 0) {
             return 0;
         }
@@ -168,7 +168,7 @@ contract LiquidRewardManager {
      * @dev Claims all rewards from the liquid contract of the validator.
      * @param _validator validator address
      */
-    function _claimRewards(address _validator) private {
+    function _claimRewards(address _validator) internal {
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
         uint256 _epochID = _getEpochID();
         require(_epochID > 0, "no rewards until first epoch finalized");
@@ -184,7 +184,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev Calculates total rewards for a contract and resets `realisedFees[id][validator]` as rewards are claimed
+     * @dev Calculates total rewards for a contract and resets `realisedFees[id][validator]` as rewards are claimed.
      */ 
     function _claimRewards(uint256 _id) internal returns (uint256 _atnTotalFees, uint256 _ntnTotalFees) {
         address[] memory _validators = bondedValidators[_id];
@@ -203,14 +203,14 @@ contract LiquidRewardManager {
         _account.ntnRealisedFee = 0;
     }
 
-    function _initiateValidator(address _validator) private {
+    function _initiateValidator(address _validator) internal {
         rewardTracker[_validator].liquidContract = autonity.getValidator(_validator).liquidContract;
     }
 
     /**
      * @dev Adds validator in `bondedValidators` array.
      */
-    function _addValidator(uint256 _id, address _validator) private {
+    function _addValidator(uint256 _id, address _validator) internal {
         if (validatorIdx[_id][_validator] > 0) return;
         address[] storage _validators = bondedValidators[_id];
         _validators.push(_validator);
@@ -248,7 +248,7 @@ contract LiquidRewardManager {
         }
     }
 
-    function _removeValidator(uint256 _id, address _validator) private {
+    function _removeValidator(uint256 _id, address _validator) internal {
         address[] storage _validators = bondedValidators[_id];
         uint256 _idxDelete = validatorIdx[_id][_validator]-1;
         if (_idxDelete+1 == _validators.length) {
@@ -289,7 +289,7 @@ contract LiquidRewardManager {
      * @dev If pending rewrad event exists and if the event is not from current epoch, then the pending rewrad event
      * replaces the last reward event.
      */
-    function _updateLastRewardEvent(address _validator) private {
+    function _updateLastRewardEvent(address _validator) internal {
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
         RewardEvent storage _pending = _rewardTracker.pendingRewardEvent;
         if (_pending.eventExist == true && _pending.epochID < _getEpochID()) {
@@ -341,7 +341,7 @@ contract LiquidRewardManager {
         uint256 _atnReward,
         uint256 _ntnReward,
         uint256 _totalLiquid
-    ) private {
+    ) internal {
         mapping(uint256 => uint256) storage _lastUnrealisedFeeFactor = _rewardTracker.atnLastUnrealisedFeeFactor;
 
         if (_rewardTracker.lastUpdateEpochID > 0) {
@@ -372,7 +372,7 @@ contract LiquidRewardManager {
         _rewardTracker.lastUpdateEpochID = _epochID+1;
     }
 
-    function _applyLastRewardEvent(RewardTracker storage _rewardTracker) private {
+    function _applyLastRewardEvent(RewardTracker storage _rewardTracker) internal {
 
         RewardEvent storage _lastRewardEvent = _rewardTracker.lastRewardEvent;
 
@@ -397,18 +397,17 @@ contract LiquidRewardManager {
 
     /**
      * @dev Updates the unclaimed rewards from validator and the `lastUnrealisedFeeFactor` which is used
-     * to compute unrealised fees for accounts. Both is updated until given epoch id. The `lastUnrealisedFeeFactor`
+     * to compute unrealised fees for accounts. Both are updated until given epoch id. The `lastUnrealisedFeeFactor`
      * is kept with history, so we have a `mapping(epochID => value)` of `lastUnrealisedFeeFactor` instead of a single variable.
      * The history is needed because the liquid balance of some account is not updated immediately, instead it can be updated
      * some time later, whenever the related account sends some transaction that will require the updated liquid balance.
-     * @param _validator validator address, from which we will claim rewards
-     * @param _epochID the epochID untill which we need to fetch rewards
-     * 
      * To update unclaimed rewards, first we need to apply the last reward event (see: struct `RewardEvent`). Then if there is a
      * pending reward event from some past epoch, it replaces the current last reward event. Then we apply the new last reward
-     * event again. After that, if we are still behind the input epochID, then we fetch the last updated rewards.
+     * event again. After that, if we are still behind the input `epochID`, then we fetch the last updated rewards.
+     * @param _validator validator address, from which we will claim rewards
+     * @param _epochID the epochID untill which we need to fetch rewards
      */
-    function _updateUnclaimedReward(address _validator, uint256 _epochID) private {
+    function _updateUnclaimedReward(address _validator, uint256 _epochID) internal {
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
         _applyLastRewardEvent(_rewardTracker);
 
@@ -444,7 +443,7 @@ contract LiquidRewardManager {
         Liquid _contract,
         uint256 _atnLastReward,
         uint256 _ntnLastReward
-    ) private view returns (
+    ) internal view returns (
         uint256 _atnFeeFactor,
         uint256 _ntnFeeFactor
     ) {
@@ -470,7 +469,7 @@ contract LiquidRewardManager {
         RewardEvent storage _rewardEvent,
         uint256 _atnLastReward,
         uint256 _ntnLastReward
-    ) private view returns (
+    ) internal view returns (
         uint256 _atnNewReward,
         uint256 _ntnNewReward,
         uint256 _atnFeeFactor,
@@ -500,7 +499,7 @@ contract LiquidRewardManager {
     function _generateUnrealisedFeeFactor(
         address _validator,
         uint256 _epochID
-    ) private view returns (
+    ) internal view returns (
         uint256 _atnUnrealisedFeeFactor,
         uint256 _ntnUnrealisedFeeFactor
     ) {
