@@ -51,8 +51,8 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 			}
 			quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
 			if err := c.backend.Commit(c.Decision(), c.DecisionRound(), quorumCertificate); err != nil {
-				c.logger.Error("failed to commit a block", "err", err)
-				return
+				c.logger.Error("failed to commit the decision from WAL", "err", err)
+				// todo: Jason, shall we stop this client from starting?
 			}
 			// todo: Jason, check the commit result and start round 0 for new height!!!!!
 			time.Sleep(1 * time.Second)
