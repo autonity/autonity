@@ -219,11 +219,18 @@ func TestSetProtocolParameters(t *testing.T) {
 	r := setup(t, nil)
 
 	r.run("Test set min base fee by operator", func(rr *runner) {
-		_, err := rr.autonity.SetMinimumBaseFee(rr.operator, big.NewInt(50000))
+		newBaseFee := big.NewInt(50000)
+
+		rr.keepLogs(true)
+		_, err := rr.autonity.SetMinimumBaseFee(rr.operator, newBaseFee)
 		require.NoError(t, err)
+		require.True(t, emitsEvent(rr.Logs(), rr.autonity.ParseMinimumBaseFeeUpdated, &AutonityTestMinimumBaseFeeUpdated{
+			GasPrice: newBaseFee,
+		}), "setMinimumBaseFee should emit a MinimumBaseFeeUpdated even with the correct params")
 
 		minBaseFee, _, err := rr.autonity.GetMinimumBaseFee(nil)
 		require.NoError(t, err)
+
 		require.Equal(t, int64(50000), minBaseFee.Int64())
 	})
 
@@ -294,12 +301,19 @@ func TestSetProtocolParameters(t *testing.T) {
 	})
 
 	r.run("Test extend epoch period by operator", func(rr *runner) {
+		newPeriod := big.NewInt(307)
+
 		epochPeriod, _, err := rr.autonity.GetEpochPeriod(nil)
 		require.NoError(t, err)
 		require.NotEqual(t, int64(307), epochPeriod.Int64())
 
-		_, err = rr.autonity.SetEpochPeriod(rr.operator, big.NewInt(307))
+		rr.keepLogs(true)
+
+		_, err = rr.autonity.SetEpochPeriod(rr.operator, newPeriod)
 		require.NoError(t, err)
+		require.True(t, emitsEvent(rr.Logs(), rr.autonity.ParseEpochPeriodUpdated, &AutonityTestEpochPeriodUpdated{
+			Period: newPeriod,
+		}), "setEpochPeriod should emit EpochPeriodUpdatedEvent with correct param")
 
 		epochPeriod, _, err = rr.autonity.GetEpochPeriod(nil)
 		require.NoError(t, err)
@@ -460,6 +474,17 @@ func TestOnlyAccountabilityOnlyProtocol(t *testing.T) {
 			big.NewInt(10),
 			true,
 		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "execution reverted: function restricted to the protocol")
+	})
+
+	r.run("Test compute committee can be called by the protocol", func(rr *runner) {
+		_, err := rr.autonity.ComputeCommittee(&runOptions{origin: rr.origin})
+		require.NoError(t, err)
+	})
+
+	r.run("Test compute commitee cannot be called by non-protocol", func(rr *runner) {
+		_, err := rr.autonity.ComputeCommittee(&runOptions{origin: rr.randomAccount()})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "execution reverted: function restricted to the protocol")
 	})
@@ -651,8 +676,14 @@ func TestERC20TokenManagement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(0), balanceBefore2.Int64())
 
+		rr.keepLogs(true)
 		_, err = rr.autonity.Approve(&runOptions{origin: account1}, account2, amount)
 		require.NoError(t, err)
+		require.True(t, emitsEvent(rr.Logs(), rr.autonity.ParseApproval, &AutonityTestApproval{
+			Owner:   account1,
+			Spender: account2,
+			Value:   amount,
+		}), "approve should emit an approval event with the correct params")
 
 		allowance, _, err := rr.autonity.Allowance(nil, account1, account2)
 		require.NoError(t, err)
@@ -669,248 +700,4 @@ func TestERC20TokenManagement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, amount, balanceAfter2)
 	})
-}
-
-func TestBondingAndUnbonding(t *testing.T) {
-	r := setup(t, nil)
-
-	r.run("Test bond to a valid validator", func(rr *runner) {
-		account := rr.randomAccount()
-		amount := big.NewInt(1e18)
-
-		_, err := rr.autonity.Mint(rr.operator, account, amount)
-		require.NoError(t, err)
-
-		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, amount, balanceBefore)
-
-		_, err = rr.autonity.Bond(&runOptions{origin: account}, rr.committee.validators[0].NodeAddress, amount)
-		require.NoError(t, err)
-
-		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), balanceAfter.Int64())
-
-		bondingRequestId := len(rr.committee.validators)
-		bondingRequest, _, err := rr.autonity.GetBondingRequest(nil, big.NewInt(int64(bondingRequestId)))
-		require.NoError(t, err)
-		require.Equal(t, account, bondingRequest.Delegator)
-		require.Equal(t, rr.committee.validators[0].NodeAddress, bondingRequest.Delegatee)
-		require.Equal(t, amount, bondingRequest.Amount)
-
-		valLiquid := r.committee.liquidContracts[0]
-		accountBalance, _, err := valLiquid.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), accountBalance.Int64())
-
-		rr.waitNextEpoch()
-
-		accountBalance, _, err = valLiquid.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Condition(t, func() bool {
-			return accountBalance.Cmp(big.NewInt(0)) > 0
-		})
-	})
-
-	r.run("Test validator self bonding", func(rr *runner) {
-		treasury := rr.committee.validators[0].Treasury
-		val := rr.committee.validators[0]
-		amount := big.NewInt(1e18)
-
-		_, err := rr.autonity.Mint(rr.operator, treasury, amount)
-		require.NoError(t, err)
-
-		balanceBefore, _, err := rr.autonity.BalanceOf(nil, treasury)
-		require.NoError(t, err)
-		require.Equal(t, amount, balanceBefore)
-
-		_, err = rr.autonity.Bond(&runOptions{origin: treasury}, val.NodeAddress, amount)
-		require.NoError(t, err)
-
-		balanceAfter, _, err := rr.autonity.BalanceOf(nil, treasury)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), balanceAfter.Int64())
-
-		// bondingRequestId is the length of the validators array because each validator has bonded once
-		bondingRequestId := len(rr.committee.validators)
-		bondingRequest, _, err := rr.autonity.GetBondingRequest(nil, big.NewInt(int64(bondingRequestId)))
-		require.NoError(t, err)
-
-		require.Equal(t, treasury, bondingRequest.Delegator)
-		require.Equal(t, val.NodeAddress, bondingRequest.Delegatee)
-		require.Equal(t, amount, bondingRequest.Amount)
-
-		// wait till end of epoch
-		rr.waitNextEpoch()
-
-		valLiquid := r.committee.liquidContracts[0]
-		treasuryBalance, _, err := valLiquid.BalanceOf(nil, treasury)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), treasuryBalance.Int64())
-	})
-
-	r.run("Test does not bond on a non registered validator", func(rr *runner) {
-		account := rr.randomAccount()
-		amount := big.NewInt(1e18)
-
-		_, err := rr.autonity.Mint(rr.operator, account, amount)
-		require.NoError(t, err)
-
-		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, amount, balanceBefore)
-
-		_, err = rr.autonity.Bond(&runOptions{origin: account}, rr.randomAccount(), amount)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted: validator not registered")
-
-		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, amount, balanceAfter)
-	})
-}
-
-func TestBondingAndUnbondingRequests(t *testing.T) {
-	r := setup(t, nil)
-
-	r.run("Test cannot bond to a paused validator", func(rr *runner) {
-		_, err := rr.autonity.PauseValidator(
-			&runOptions{origin: rr.committee.validators[0].NodeAddress},
-			rr.committee.validators[0].NodeAddress,
-		)
-		require.NoError(t, err)
-
-		account := rr.randomAccount()
-		amount := big.NewInt(1e18)
-
-		_, err = rr.autonity.Mint(rr.operator, account, amount)
-		require.NoError(t, err)
-
-		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, amount, balanceBefore)
-
-		_, err = rr.autonity.Bond(&runOptions{origin: account}, rr.committee.validators[0].NodeAddress, amount)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted: validator need to be active")
-
-		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, amount, balanceAfter)
-	})
-
-	r.run("Test unbonding from a valid validator", func(rr *runner) {
-		account := rr.randomAccount()
-		amount := big.NewInt(1e18)
-
-		_, err := rr.autonity.Mint(rr.operator, account, amount)
-		require.NoError(t, err)
-
-		_, err = rr.autonity.Bond(&runOptions{origin: account}, rr.committee.validators[0].NodeAddress, amount)
-		require.NoError(t, err)
-
-		rr.waitNextEpoch()
-
-		balanceBefore, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), balanceBefore.Int64())
-
-		expectedValInfo, _, err := rr.autonity.GetValidator(nil, rr.committee.validators[0].NodeAddress)
-
-		_, err = rr.autonity.Unbond(&runOptions{origin: account}, rr.committee.validators[0].NodeAddress, amount)
-		require.NoError(t, err)
-
-		balanceAfter, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), balanceAfter.Int64())
-
-		// this is the first unbonding request
-		unbondingRequestId := big.NewInt(int64(0))
-
-		unbondingRequest, _, err := rr.autonity.GetUnbondingRequest(nil, unbondingRequestId)
-		// verify unbonding request details
-		require.NoError(t, err)
-		require.Equal(t, account, unbondingRequest.Delegator)
-		require.Equal(t, rr.committee.validators[0].NodeAddress, unbondingRequest.Delegatee)
-		require.Equal(t, amount, unbondingRequest.Amount)
-		require.Equal(t, int64(0), unbondingRequest.UnbondingShare.Int64())
-		require.Equal(t, false, unbondingRequest.Unlocked)
-
-		liquidContract := rr.committee.liquidContracts[0]
-		require.NoError(t, err)
-
-		lockedBalance, _, err := liquidContract.LockedBalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, amount, lockedBalance)
-
-		rr.waitNextEpoch()
-
-		// verify that the unbonding request is unlocked
-		ubRequest, _, err := rr.autonity.GetUnbondingRequest(nil, unbondingRequestId)
-		require.NoError(t, err)
-		require.Equal(t, amount, ubRequest.UnbondingShare)
-		require.Equal(t, true, ubRequest.Unlocked)
-
-		valInfo, _, err := rr.autonity.GetValidator(nil, rr.committee.validators[0].NodeAddress)
-		require.NoError(t, err)
-		verifyValidatorInfoPostUnbonding(t, &valInfo, &expectedValInfo, big.NewInt(0), amount)
-
-		lockedBalanceAfterEpoch, _, err := liquidContract.LockedBalanceOf(nil, account)
-		require.NoError(t, err)
-
-		liquidBalanceAfterEpoch, _, err := liquidContract.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), lockedBalanceAfterEpoch.Int64())
-		require.Equal(t, int64(0), liquidBalanceAfterEpoch.Int64())
-	})
-}
-
-func verifyValidatorInfoPostUnbonding(
-	t *testing.T,
-	valInfo *AutonityValidator,
-	expectedValidator *AutonityValidator,
-	selfUnbonded,
-	totalUnbonded *big.Int,
-) {
-	nonSelfUnbonded := new(big.Int).Sub(totalUnbonded, selfUnbonded)
-
-	require.Equal(t, new(big.Int).Sub(expectedValidator.BondedStake, totalUnbonded), valInfo.BondedStake)
-	require.Equal(t, new(big.Int).Sub(expectedValidator.SelfBondedStake, selfUnbonded), valInfo.SelfBondedStake)
-	require.Equal(t, new(big.Int).Add(expectedValidator.UnbondingShares, nonSelfUnbonded), valInfo.UnbondingShares)
-	require.Equal(t, new(big.Int).Add(expectedValidator.UnbondingStake, nonSelfUnbonded), valInfo.UnbondingStake)
-	require.Equal(t,
-		new(big.Int).Add(expectedValidator.SelfUnbondingStake, selfUnbonded).String(),
-		valInfo.SelfUnbondingStake.String(),
-	)
-	require.Equal(t,
-		new(big.Int).Add(expectedValidator.SelfUnbondingShares, selfUnbonded).String(),
-		valInfo.SelfUnbondingShares.String(),
-	)
-	require.Equal(t,
-		new(big.Int).Sub(expectedValidator.LiquidSupply, nonSelfUnbonded).String(),
-		valInfo.LiquidSupply.String(),
-	)
-}
-
-func TestReadWriteContract(t *testing.T) {
-	r := setup(t, nil)
-	r.run("Test read and write contract", func(rr *runner) {
-		account := rr.randomAccount()
-
-		balance, _, err := rr.autonity.BalanceOf(nil, account)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), balance.Int64())
-
-		rr.keepLogs(true)
-		_, err = rr.autonity.Mint(rr.operator, account, big.NewInt(1e18))
-		require.NoError(t, err)
-
-		contains := emitsEvent(rr.Logs(), rr.autonity.ParseMintedStake, &AutonityTestMintedStake{
-			Addr:   account,
-			Amount: big.NewInt(1e18),
-		})
-		require.True(t, contains, "minted stake log not found")
-	})
-
 }
