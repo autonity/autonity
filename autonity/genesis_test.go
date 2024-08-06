@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 )
 
 func TestGenesisSteps(t *testing.T) {
@@ -43,5 +44,8 @@ func TestGenesisSteps(t *testing.T) {
 		// Check that the autonity contract was deployed
 		code := evm.StateDB.GetCode(params.AutonityContractAddress)
 		require.NotEmpty(t, code)
+		require.Equal(t, generated.AutonityBytecode, code)
 	})
+
+	// TODO(scott) test the remaining genesis steps
 }
