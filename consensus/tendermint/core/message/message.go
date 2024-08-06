@@ -38,7 +38,7 @@ var (
 )
 
 const (
-	ProposalCode uint8 = iota
+	ProposalCode uint8 = iota + 1
 	PrevoteCode
 	PrecommitCode
 	LightProposalCode

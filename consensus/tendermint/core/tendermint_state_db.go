@@ -2,12 +2,15 @@ package core
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/rlp"
+	"io"
 	"time"
 )
 
@@ -27,6 +30,10 @@ var (
 	lastTBFTInstanceMsgIDKey = []byte("TBFTInstanceMsgID")
 
 	messagePrefix = []byte("Message") // messagePrefix + MsgID -> consensus message
+
+	errLightProposal = errors.New("light proposal error in WAL")
+	errMissingType   = errors.New("missing msg type error in WAL")
+	errWrongMsgType  = errors.New("wrong msg type error in WAL")
 )
 
 type TendermintStateDB struct {
@@ -197,9 +204,76 @@ func (rsdb *TendermintStateDB) GetLastTendermintState() ExtTendermintState {
 	return entry
 }
 
-type ExtMsg struct {
-	Msg      message.Msg
+type typedMsg struct {
+	message.Msg
+}
+
+func (t *typedMsg) EncodeRLP(w io.Writer) error {
+	code := t.Msg.Code()
+	if code == message.LightProposalCode {
+		return errLightProposal
+	}
+
+	return rlp.Encode(w, []any{t.Code(), t.Msg})
+}
+
+func (t *typedMsg) DecodeRLP(stream *rlp.Stream) error {
+	if _, err := stream.List(); err != nil {
+		return err
+	}
+	b, err := stream.Bytes()
+	if err != nil {
+		return err
+	}
+
+	if len(b) == 0 {
+		return errMissingType
+	}
+	// Note that a nil element is not accepted.
+	var p message.Msg
+	switch b[0] {
+	case message.PrevoteCode:
+		p = &message.Prevote{}
+	case message.PrecommitCode:
+		p = &message.Precommit{}
+	case message.ProposalCode:
+		p = &message.Propose{}
+	default:
+		return errWrongMsgType
+	}
+	if err := stream.Decode(p); err != nil {
+		return fmt.Errorf("could not decode proof's typed message %w", err)
+	}
+	t.Msg = p
+	return stream.ListEnd()
+}
+
+type encodedMsg struct {
+	Message  typedMsg
 	Verified bool
+}
+
+type ExtMsg struct {
+	Verified bool
+	Msg      message.Msg
+}
+
+func (m *ExtMsg) EncodeRLP(w io.Writer) error {
+	encoded := encodedMsg{
+		Verified: m.Verified,
+		Message:  typedMsg{m.Msg},
+	}
+	return rlp.Encode(w, &encoded)
+}
+
+func (m *ExtMsg) DecodeRLP(stream *rlp.Stream) error {
+	encoded := encodedMsg{}
+	if err := stream.Decode(&encoded); err != nil {
+		return fmt.Errorf("could not decode encoded WAL msg %w", err)
+	}
+	m.Verified = encoded.Verified
+	m.Msg = encoded.Message.Msg
+	return nil
 }
 
 // AddMsg inserts a successfully applied consensus message of tendermint state engine into WAL. The inserting messages
