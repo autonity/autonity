@@ -11,10 +11,10 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     uint256 public contractVersion = 1;
 
     /**
-     * @notice stake reserved to create new contracts
-     * each time a new contract is creasted, totalNominal is decreased
-     * address(this) should have totalNominal amount of NTN availabe,
-     * otherwise withdrawing or bonding from a contract is not possible
+     * @notice Sum of total amount of contracts that can be created.
+     * Each time a new contract is created, `totalNominal` is decreased.
+     * Address(this) should have `totalNominal` amount of NTN availabe at genesis,
+     * otherwise withdrawing or bonding from a contract is not possible.
      */
     uint256 public totalNominal;
 
@@ -31,47 +31,52 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
         address validator;
     }
 
-    mapping(uint256 => PendingBondingRequest) private pendingBondingRequest;
-    mapping(uint256 => PendingUnbondingRequest) private pendingUnbondingRequest;
+    mapping(uint256 => PendingBondingRequest) internal pendingBondingRequest;
+    mapping(uint256 => PendingUnbondingRequest) internal pendingUnbondingRequest;
 
     /**
-     * @dev We put all the bonding request id of past epoch in contractToBonding[contractID] array and apply them whenever needed.
+     * @dev We put all the bonding request id of past epoch in `contractToBonding[contractID]` array and apply them whenever needed.
      * All bonding requests are applied at epoch end, so we can process all of them (failed or successful) together.
-     * See bond and _handlePendingBondingRequest for more clarity
+     * See `bond` and `_handlePendingBondingRequest` for more clarity.
      */
 
-    mapping(uint256 => uint256[]) private contractToBonding;
+    mapping(uint256 => uint256[]) internal contractToBonding;
 
     /**
      * @dev We put all the unbonding request id of past epoch in contractToUnbonding mapping. All requests from past epoch
      * can be applied together. But not all requests are released together at epoch end. So we need to put them in map
-     * and use tailPendingUnbondingID and headPendingUnbondingID to keep track of contractToUnbonding.
-     * See unbond and _handlePendingUnbondingRequest for more clarity
+     * and use `tailPendingUnbondingID` and `headPendingUnbondingID` to keep track of contractToUnbonding.
+     * See `unbond` and `_handlePendingUnbondingRequest` for more clarity
      */
 
-    mapping(uint256 => mapping(uint256 => uint256)) private contractToUnbonding;
-    mapping(uint256 => uint256) private appliedPendingUnbondingID;
-    mapping(uint256 => uint256) private tailPendingUnbondingID;
-    mapping(uint256 => uint256) private headPendingUnbondingID;
+    mapping(uint256 => mapping(uint256 => uint256)) internal contractToUnbonding;
+    mapping(uint256 => uint256) internal appliedPendingUnbondingID;
+    mapping(uint256 => uint256) internal tailPendingUnbondingID;
+    mapping(uint256 => uint256) internal headPendingUnbondingID;
 
-    // AUT rewards entitled to some beneficiary for bonding from some contract before it has been cancelled
-    // see cancelContract for more clarity.
-    mapping(address => uint256) private atnRewards;
-    mapping(address => uint256) private ntnRewards;
+    /**
+     * @dev ATN rewards entitled to some beneficiary for bonding from some contract before it has been cancelled.
+     * See cancelContract for more clarity.
+     */
+    mapping(address => uint256) internal atnRewards;
+
+    /**
+     * @dev Same as atnRewards for NTN rewards.
+     */
+    mapping(address => uint256) internal ntnRewards;
 
     constructor(
         address payable _autonity, address _operator
     ) LiquidRewardManager(_autonity) ContractBase(_autonity, _operator) {}
 
     /**
-     * @notice creates a new stakable contract, restricted to operator only
-     * @dev _amount NTN must be minted and transferred to this contract before creating the contract
-     * otherwise the contract cannot be released or bonded to some validator
+     * @notice Creates a new stakable contract.
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
      * @param _startTime start time of the vesting
      * @param _cliffDuration cliff period
      * @param _totalDuration total duration of the contract
+     * @custom:restricted-to operator account
      */
     function newContract(
         address _beneficiary,
@@ -89,10 +94,9 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
 
     /**
-     * @notice used by beneficiary to transfer all unlocked NTN and LNTN of some contract to his own address
-     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
-     * So any beneficiary can number their contracts from 0 to (n-1). Beneficiary does not need to know the 
-     * unique global contract id which can be retrieved via _getUniqueContractID function
+     * @notice Used by beneficiary to transfer all unlocked NTN and LNTN of some contract to his own address.
+     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones).
+     * So any beneficiary can number their contracts from 0 to (n-1). Beneficiary does not need to know the unique global contract id.
      */
     function releaseFunds(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
@@ -106,7 +110,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice used by beneficiary to transfer all unlocked NTN of some contract to his own address
+     * @notice Used by beneficiary to transfer all unlocked NTN of some contract to his own address.
      */
     function releaseAllNTN(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
@@ -115,7 +119,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice used by beneficiary to transfer all unlocked LNTN of some contract to his own address
+     * @notice Used by beneficiary to transfer all unlocked LNTN of some contract to his own address.
      */
     function releaseAllLNTN(uint256 _id) virtual external {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
@@ -126,7 +130,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     /**
-     * @notice used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address
+     * @notice Used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address.
      * @param _amount amount to transfer
      */
     function releaseNTN(uint256 _id, uint256 _amount) virtual external {
@@ -138,7 +142,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     /**
-     * @notice used by beneficiary to transfer some amount of unlocked LNTN of some contract to his own address
+     * @notice Used by beneficiary to transfer some amount of unlocked LNTN of some contract to his own address.
      * @param _validator address of the validator
      * @param _amount amount of LNTN to transfer
      */
@@ -160,14 +164,14 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice changes the beneficiary of some contract to the _recipient address. _recipient can release and stake tokens from the contract.
-     * only operator is able to call this function.
-     * rewards which have been entitled to the beneficiary due to bonding from this contract are not transferred to _recipient
-     * @dev rewards earned until this point from this contract are calculated and stored in atnRewards and ntnRewards mapping so that
-     * _beneficiary can later claim them even though _beneficiary is not entitled to this contract.
+     * @notice Changes the beneficiary of some contract to the recipient address. The recipient address can release and stake tokens from the contract.
+     * Rewards which have been entitled to the beneficiary due to bonding from this contract are not transferred to recipient.
+     * @dev Rewards earned until this point from this contract are calculated and stored in atnRewards and ntnRewards mapping so that
+     * beneficiary can later claim them even though beneficiary is not entitled to this contract.
      * @param _beneficiary beneficiary address whose contract will be canceled
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
      * @param _recipient whome the contract is transferred to
+     * @custom:restricted-to operator account
      */
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
@@ -183,18 +187,26 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
     /**
      * @notice In case some funds are missing due to some pending staking operation that failed,
-     * this function updates the funds of some contract _id entitled to _beneficiary by reverting the failed requests
+     * this function updates the funds of some contract entitled to beneficiary by applying the pending requests.
+     * @param _beneficiary beneficiary address
+     * @param _id contract id to update
      */
     function updateFunds(address _beneficiary, uint256 _id) virtual external {
         _updateFunds(_getUniqueContractID(_beneficiary, _id));
     }
 
+    /**
+     * @notice Updates the funds of the contract and returns total value of the contract.
+     */
     function updateFundsAndGetContractTotalValue(address _beneficiary, uint256 _id) external returns (uint256) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         _updateFunds(_contractID);
         return _calculateTotalValue(_contractID);
     }
 
+    /**
+     * @notice Updates the funds of the contract and returns the contract.
+     */
     function updateFundsAndGetContract(address _beneficiary, uint256 _id) external returns (Contract memory) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         _updateFunds(_contractID);
@@ -202,18 +214,19 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice Set the value of totalNominal. Restricted to operator account
+     * @notice Set the value of totalNominal.
      * In case totalNominal is increased, the increased amount should be minted
      * and transferred to the address of this contract, otherwise newly created vesting
-     * contracts will not have funds to withdraw or bond. See newContract()
+     * contracts will not have funds to withdraw or bond. See `ewContract()`.
+     * @custom:restricted-to operator account
      */
     function setTotalNominal(uint256 _newTotalNominal) virtual external onlyOperator {
         totalNominal = _newTotalNominal;
     }
 
     /**
-     * @notice Used by beneficiary to bond some NTN of some contract _id.
-     * All bondings are delegated, as vesting manager cannot own a validator
+     * @notice Used by beneficiary to bond some NTN of some contract.
+     * All bondings are delegated, as vesting manager cannot own a validator.
      * @param _id id of the contract numbered from 0 to (n-1) where n = total contracts entitled to the beneficiary (excluding canceled ones)
      * @param _validator address of the validator for bonding
      * @param _amount amount of NTN to bond
@@ -262,7 +275,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice used by beneficiary to claim rewards from contract _id from bonding to _validator
+     * @notice Used by beneficiary to claim rewards from bonding some contract to validator.
      * @param _id contract ID
      * @param _validator validator address
      */
@@ -275,7 +288,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice used by beneficiary to claim rewards from contract _id from bonding
+     * @notice Used by beneficiary to claim rewards from bonding some contract to validator.
      */
     function claimRewards(uint256 _id) virtual external returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256 _contractID = _getUniqueContractID(msg.sender, _id);
@@ -286,9 +299,9 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice used by beneficiary to claim all rewards which is entitled from bonding
+     * @notice Used by beneficiary to claim all rewards which is entitled from bonding.
      * @dev Rewards from some cancelled contracts are stored in atnRewards and ntnRewards mapping. All rewards from
-     * contracts that are still entitled to the beneficiary need to be calculated via _claimRewards
+     * contracts that are still entitled to the beneficiary need to be calculated.
      */
     function claimRewards() virtual external returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256[] storage _contractIDs = beneficiaryContracts[msg.sender];
@@ -313,31 +326,31 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     receive() external payable {}
 
     /**
-     * @dev returns equivalent amount of NTN using the ratio.
+     * @dev Returns equivalent amount of NTN using the current ratio.
      * @param _validator validator address
      * @param _amount amount of LNTN to be converted
      */
-    function _calculateLNTNValue(address _validator, uint256 _amount) private view returns (uint256) {
+    function _calculateLNTNValue(address _validator, uint256 _amount) internal view returns (uint256) {
         Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake) / _validatorInfo.liquidSupply;
     }
 
     /**
-     * @dev returns equivalent amount of LNTN using the ratio.
+     * @dev Returns equivalent amount of LNTN using the current ratio.
      * @param _validator validator address
      * @param _amount amount of NTN to be converted
      */
-    function _getLiquidFromNTN(address _validator, uint256 _amount) private view returns (uint256) {
+    function _getLiquidFromNTN(address _validator, uint256 _amount) internal view returns (uint256) {
         Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * _validatorInfo.liquidSupply / (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake);
     }
 
     /**
-     * @dev calculates the total value of the contract, which can vary if the contract has some LNTN
-     * total value = current_NTN + withdrawn_value + (the value of LNTN converted to NTN)
+     * @dev Calculates the total value of the contract, which can vary if the contract has some LNTN.
+     * `totalValue = currentNTN + withdrawnValue + (the value of LNTN converted to NTN using current ratio)`
      * @param _contractID unique global id of the contract
      */
-    function _calculateTotalValue(uint256 _contractID) private view returns (uint256) {
+    function _calculateTotalValue(uint256 _contractID) internal view returns (uint256) {
         Contract storage _contract = contracts[_contractID];
         uint256 _totalValue = _contract.currentNTNAmount + _contract.withdrawnValue;
         address[] memory _validators = _bondedValidators(_contractID);
@@ -352,14 +365,15 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @dev transfers some LNTN equivalent to _availableUnlockedFunds NTN to beneficiary address.
-     * In case the _contractID has LNTN to multiple validators, we pick one validator and try to transfer
+     * @dev Transfers some LNTN equivalent to beneficiary address. The amount of unlocked funds is calculated in NTN
+     * and then converted to LNTN using the current ratio.
+     * In case the contract has LNTN to multiple validators, we pick one validator and try to transfer
      * as much LNTN as possible. If there still remains some more uncloked funds, then we pick another validator.
      * There is no particular order in which validator should be picked first.
      */
     function _releaseAllUnlockedLNTN(
         uint256 _contractID, uint256 _availableUnlockedFunds
-    ) private returns (uint256 _remaining) {
+    ) internal returns (uint256 _remaining) {
         _remaining = _availableUnlockedFunds;
         address[] memory _validators = _bondedValidators(_contractID);
         for (uint256 i = 0; i < _validators.length && _remaining > 0; i++) {
@@ -384,15 +398,15 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @dev calculates the amount of unlocked funds in NTN until last epoch block time
+     * @dev Calculates the amount of unlocked funds in NTN until last epoch time.
      */
-    function _unlockedFunds(uint256 _contractID) private view returns (uint256) {
+    function _unlockedFunds(uint256 _contractID) internal view returns (uint256) {
         return _calculateAvailableUnlockedFunds(
             _contractID, _calculateTotalValue(_contractID), autonity.lastEpochTime()
         );
     }
 
-    function _updateAndTransferLNTN(uint256 _contractID, address _to, uint256 _amount, address _validator) private {
+    function _updateAndTransferLNTN(uint256 _contractID, address _to, uint256 _amount, address _validator) internal {
         _burnLiquid(_contractID, _validator, _amount, _getEpochID()-1);
         bool _sent = ILiquidLogic(_liquidStateContract(_validator)).transfer(_to, _amount);
         require(_sent, "LNTN transfer failed");
@@ -402,7 +416,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
         _updatePendingEventLiquid(_validator);
     }
 
-    function _sendRewards(uint256 _atnReward, uint256 _ntnReward) private {
+    function _sendRewards(uint256 _atnReward, uint256 _ntnReward) internal {
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
         (bool _sent, ) = msg.sender.call{value: _atnReward}("");
@@ -412,19 +426,19 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
         require(_sent, "failed to send NTN");
     }
 
-    function _updateFunds(uint256 _contractID) private {
+    /**
+     * @dev Updates the funds by applying the staking requests.
+     */
+    function _updateFunds(uint256 _contractID) internal {
         _handlePendingBondingRequest(_contractID);
         _handlePendingUnbondingRequest(_contractID);
     }
 
     /**
-     * @dev The contract needs to be cleaned before bonding, unbonding or claiming rewards.
-     * _cleanup removes any unnecessary validator from the list, removes pending bonding or unbonding requests
-     * that have been rejected or reverted but vesting manager could not be notified. If the clean up is not
-     * done, then liquid balance could be incorrect due to not handling the bonding or unbonding request.
+     * @dev Updates the funds and removes any unnecessary validator from the list.
      * @param _contractID unique global contract id
      */
-    function _cleanup(uint256 _contractID) private {
+    function _cleanup(uint256 _contractID) internal {
         _updateFunds(_contractID);
         _clearValidators(_contractID);
     }
@@ -435,7 +449,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * applied at epoch end immediately. Requests from current epoch are not handled.
      * @param _contractID unique global id of the contract
      */
-    function _handlePendingBondingRequest(uint256 _contractID) private {
+    function _handlePendingBondingRequest(uint256 _contractID) internal {
         uint256[] storage _bondingIDs = contractToBonding[_contractID];
         uint256 _length = _bondingIDs.length;
         if (_length == 0) {
@@ -479,7 +493,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * Unbonding request that are released in Autonity are released.
      * @param _contractID unique global id of the contract
      */
-    function _handlePendingUnbondingRequest(uint256 _contractID) private {
+    function _handlePendingUnbondingRequest(uint256 _contractID) internal {
         uint256 _unbondingID;
         PendingUnbondingRequest storage _unbondingRequest;
         mapping(uint256 => uint256) storage _unbondingIDs = contractToUnbonding[_contractID];
@@ -534,7 +548,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     function _balanceChangeFromStakingRequest(
         uint256 _contractID,
         address _validator
-    ) private view returns (int256 _balanceChange, uint256 _lastRequestEpoch) {
+    ) internal view returns (int256 _balanceChange, uint256 _lastRequestEpoch) {
         uint256 _currentEpochID = _getEpochID();
 
         // get balance increase for bonding requests
@@ -599,10 +613,12 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      */
 
     /**
-     * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding to _validator
+     * @notice Returns unclaimed rewards from some contract entitled to beneficiary from bonding to validator.
      * @param _beneficiary beneficiary address
      * @param _id contract ID
      * @param _validator validator address
+     * @return _atnRewards unclaimed ATN rewards
+     * @return _ntnRewards unclaimed NTN rewards
      */
     function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
@@ -611,7 +627,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding
+     * @notice Returns unclaimed rewards from some contract entitled to beneficiary from bonding.
      */
     function unclaimedRewards(address _beneficiary, uint256 _id) virtual public view returns (uint256 _atnRewards, uint256 _ntnRewards) {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
@@ -625,7 +641,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to _beneficiary
+     * @notice Returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to beneficiary.
      */
     function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
         _atnRewards = atnRewards[_beneficiary];
@@ -639,7 +655,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice returns the amount of LNTN for some contract
+     * @notice Returns the amount of LNTN for some contract.
      * @param _beneficiary beneficiary address
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
      * @param _validator validator address
@@ -649,33 +665,36 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
     }
 
     /**
-     * @notice returns the amount of locked LNTN for some contract
+     * @notice Returns the amount of locked LNTN for some contract.
      */
     function lockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
         return _lockedLiquidBalanceOf(_getUniqueContractID(_beneficiary, _id), _validator);
     }
 
     /**
-     * @notice returns the amount of unlocked LNTN for some contract
+     * @notice Returns the amount of unlocked LNTN for some contract.
      */
     function unlockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
         return _unlockedLiquidBalanceOf(_getUniqueContractID(_beneficiary, _id), _validator);
     }
 
     /**
-     * @notice returns the list of validators bonded some contract
+     * @notice Returns the list of validators bonded some contract.
      */
     function getBondedValidators(address _beneficiary, uint256 _id) virtual external view returns (address[] memory) {
         return _bondedValidators(_getUniqueContractID(_beneficiary, _id));
     }
 
     /**
-     * @notice returns the amount of released funds in NTN for some contract
+     * @notice Returns the amount of released funds in NTN for some contract.
      */
     function unlockedFunds(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
         return _unlockedFunds(_getUniqueContractID(_beneficiary, _id));
     }
 
+    /**
+     * @notice Returns the current total value of the contract in NTN.
+     */
     function contractTotalValue(address _beneficiary, uint256 _id) external view returns (uint256) {
         return _calculateTotalValue(_getUniqueContractID(_beneficiary, _id));
     }
