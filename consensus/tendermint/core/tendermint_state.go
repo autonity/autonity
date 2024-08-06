@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/ethdb"
@@ -94,10 +95,10 @@ type TendermintStateImpl struct {
 }
 
 // newTendermintState, load rounds state from underlying database if there was state stored, otherwise return default state.
-func newTendermintState(logger log.Logger, db ethdb.Database) RoundsState {
+func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.ChainReader) RoundsState {
 	// load tendermint state and rounds messages from database.
 	walDB := newTendermintStateDB(db)
-	roundMsgs := walDB.RoundMsgsFromDB()
+	roundMsgs := walDB.RoundMsgsFromDB(chain)
 	lastState := walDB.GetLastTendermintState()
 	state := TendermintState{
 		height:                new(big.Int).SetUint64(lastState.Height),

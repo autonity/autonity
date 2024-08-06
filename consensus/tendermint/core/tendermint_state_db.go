@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
@@ -360,7 +361,7 @@ func (rsdb *TendermintStateDB) GetMsgID(key []byte) (uint64, error) {
 
 // RoundMsgsFromDB retrieves the entire round messages of the last consensus view flushed in the WAL. This function is
 // called once at the node start up to rebuild the tendermint state.
-func (rsdb *TendermintStateDB) RoundMsgsFromDB() *message.Map {
+func (rsdb *TendermintStateDB) RoundMsgsFromDB(chain consensus.ChainReader) *message.Map {
 	roundMsgs := message.NewMap()
 	if rsdb.lastConsensusMsgID == 0 {
 		return roundMsgs
@@ -370,6 +371,16 @@ func (rsdb *TendermintStateDB) RoundMsgsFromDB() *message.Map {
 		msg, verified, err := rsdb.GetMsg(id)
 		if err != nil {
 			rsdb.logger.Warn("failed to read WAL for msg", "error", err)
+			continue
+		}
+
+		lastHeader := chain.GetHeaderByNumber(msg.H() - 1)
+		if err = msg.PreValidate(lastHeader); err != nil {
+			rsdb.logger.Warn("failed to pre-validate msg from WAL", "error", err)
+			continue
+		}
+		if err = msg.Validate(); err != nil {
+			rsdb.logger.Warn("failed to validate msg from WAL", "error", err)
 			continue
 		}
 		switch {
