@@ -31,7 +31,7 @@ type TendermintStateInterface interface {
 	StartNewHeight(h *big.Int)
 	StartNewRound(r int64)
 	SetStep(s Step)
-	SetDecision(block *types.Block)
+	SetDecision(block *types.Block, round int64)
 	SetLockedRoundAndValue(r int64, block *types.Block)
 	SetValidRoundAndValue(r int64, block *types.Block)
 	SetSentProposal()
@@ -43,6 +43,7 @@ type TendermintStateInterface interface {
 	Round() int64
 	Step() Step
 	Decision() *types.Block
+	DecisionRound() int64
 	LockedRound() int64
 	ValidRound() int64
 	LockedValue() *types.Block
@@ -90,6 +91,7 @@ type TendermintStateImpl struct {
 	TendermintState                         // in-memory state that to be flushed on update.
 	curRoundMessages *message.RoundMessages // in-memory current round messages of Autonity tendermint.
 	messages         *message.Map           // in-memory round messages of current height.
+	roundOfDecision  int64                  // in-memory round on which the decision is committed with, enriched from WAL msgs.
 	db               *TendermintStateDB     // storage layer of tendermint state and round messages.
 	logger           log.Logger
 }
@@ -129,6 +131,7 @@ func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.Ch
 		state.validValue = roundMsgs.GetOrCreate(state.validRound).Proposal().Block()
 	}
 
+	roundOfDecision := int64(-1)
 	// load the decision from round messages, as the decision is not always be in the last round,
 	// we need to iterate round messages' proposal to find it.
 	if lastState.Decision != nilValue {
@@ -137,6 +140,7 @@ func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.Ch
 			proposal := roundMsgs.GetOrCreate(r).Proposal()
 			if proposal != nil && proposal.Block().Hash() == lastState.Decision {
 				state.decision = proposal.Block()
+				roundOfDecision = proposal.R()
 				break
 			}
 		}
@@ -144,6 +148,7 @@ func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.Ch
 
 	return &TendermintStateImpl{
 		TendermintState:  state,
+		roundOfDecision:  roundOfDecision,
 		messages:         roundMsgs,
 		curRoundMessages: roundMsgs.GetOrCreate(state.round),
 		db:               walDB,
@@ -172,7 +177,7 @@ func (rs *TendermintStateImpl) StartNewHeight(h *big.Int) {
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, true); err != nil {
 		rs.logger.Error("failed to flush round state in WAL", "error", err)
 	}
-
+	rs.roundOfDecision = -1
 	rs.messages.Reset()
 	rs.curRoundMessages = rs.messages.GetOrCreate(0)
 }
@@ -198,8 +203,9 @@ func (rs *TendermintStateImpl) SetStep(s Step) {
 	}
 }
 
-func (rs *TendermintStateImpl) SetDecision(block *types.Block) {
+func (rs *TendermintStateImpl) SetDecision(block *types.Block, r int64) {
 	rs.decision = block
+	rs.roundOfDecision = r
 	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
 		rs.logger.Error("failed to flush round state in WAL", "error", err)
 	}
@@ -298,6 +304,10 @@ func (rs *TendermintStateImpl) Round() int64 {
 
 func (rs *TendermintStateImpl) Step() Step {
 	return rs.step
+}
+
+func (rs *TendermintStateImpl) DecisionRound() int64 {
+	return rs.roundOfDecision
 }
 
 func (rs *TendermintStateImpl) Decision() *types.Block {
