@@ -176,7 +176,7 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	precommitWithQuorum := messages.PrecommitFor(proposalHash)
 	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
 	// record decision in WAL.
-	c.SetDecision(proposal.Block())
+	c.SetDecision(proposal.Block(), proposal.R())
 	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
@@ -418,6 +418,12 @@ func (c *Core) Decision() *types.Block {
 	return c.roundsState.Decision()
 }
 
+func (c *Core) DecisionRound() int64 {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.DecisionRound()
+}
+
 func (c *Core) LockedRound() int64 {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
@@ -491,10 +497,10 @@ func (c *Core) UpdateStep(step Step) {
 	c.roundsState.SetStep(step)
 }
 
-func (c *Core) SetDecision(block *types.Block) {
+func (c *Core) SetDecision(block *types.Block, round int64) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
-	c.roundsState.SetDecision(block)
+	c.roundsState.SetDecision(block, round)
 }
 
 func (c *Core) SetSentProposal() {

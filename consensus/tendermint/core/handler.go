@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -28,27 +30,33 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
-	// If the state in WAL is stale, then we start round with 0 for new heights.
+	// If the state in WAL is stale, then we start round 0 for new heights.
 	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
 		c.StartRound(ctx, 0)
 	} else {
-
 		// the state recovered from WAL is not stale.
-		// if the decision haven't been made, start the new round.
+		// if the decision of current height haven't been made, start the new round.
 		if c.Decision() == nil {
 			c.StartRound(ctx, c.Round()+1)
 		}
 
-		// the decision was made, but node failed to commit it to the blockchain view.
-		// commit it to the blockchain, and start a new height.
+		// if the decision of current height was made, try to commit it and start round 0.
 		if c.Decision() != nil {
-			// todo: Jason, commit the decision and start new height. In the block commit context of worker, there are
-			//  extra info of a task, such as TX receipts are required to commit a block, however those context wasn't
-			//  persisted at all once node reset. This make the decision commit on start up phase failed. To fix it, we
-			//  need to flush those context data of a task as well, which might make this feature be very complicated.
-			// c.Commit()
-			// now we don't commit the decision, but start from a new round.
-			c.StartRound(ctx, c.Round()+1)
+			roundMsgs := c.roundsState.GetOrCreate(c.DecisionRound())
+			proposalHash := c.Decision().Header().Hash()
+			c.logger.Info("Committing a block from WAL", "hash", proposalHash)
+			precommitWithQuorum := roundMsgs.PrecommitFor(proposalHash)
+			if precommitWithQuorum == nil {
+				panic("Your WAL DB has corrupted, try to re-sync the blockchain")
+			}
+			quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
+			if err := c.backend.Commit(c.Decision(), c.DecisionRound(), quorumCertificate); err != nil {
+				c.logger.Error("failed to commit a block", "err", err)
+				return
+			}
+			// todo: Jason, check the commit result and start round 0 for new height!!!!!
+			time.Sleep(1 * time.Second)
+			c.StartRound(ctx, 0)
 		}
 	}
 

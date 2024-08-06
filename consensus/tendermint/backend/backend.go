@@ -216,11 +216,16 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
+
+	// If the node is the block miner, commit the block by reusing the worker mining context's environment,
+	// thus, it save time to compute those receipts, logs and state instance of the block.
 	if sb.proposedBlockHash == proposal.Hash() && !sb.isResultChanNil() {
 		sb.sendResultChan(proposal)
 		return nil
 	}
 
+	// Otherwise, insert the decision via the block fetcher channel by creating a virtual remote peer
+	// called "tendermint" which provides the block.
 	if sb.Enqueuer != nil {
 		sb.Enqueuer.Enqueue(fetcherID, proposal)
 	}
