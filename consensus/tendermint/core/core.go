@@ -39,7 +39,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
-		roundsState:            newTendermintState(logger, db),
+		roundsState:            newTendermintState(logger, db, backend.BlockChain()),
 		noGossip:               noGossip,
 	}
 	c.SetDefaultHandlers()
