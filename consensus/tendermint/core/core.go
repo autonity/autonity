@@ -175,12 +175,18 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 
 	precommitWithQuorum := messages.PrecommitFor(proposalHash)
 	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
-	// record decision in WAL.
+
+	// todo: Jason, since commit() checks extra conditions, shall we need to move those condition here before we flush
+	//  the decision? However this movement is quit heavy, since we have consensus conditions and chain context conditions
+	//  to be checked.
+	// record decision in WAL before the submission.
 	c.SetDecision(proposal.Block(), proposal.R())
+
 	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
+
 	if metrics.Enabled {
 		now := time.Now()
 		CommitTimer.Update(now.Sub(start))
