@@ -120,6 +120,15 @@ func (a AggregateSignature) Copy() AggregateSignature {
 	return AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
 }
 
+func (a AggregateSignature) Empty() bool {
+	return a.Signature == nil && a.Signers == nil
+}
+
+// TODO(lorenzo) might be better to just catch this case at rlp decoding.
+func (a AggregateSignature) Incomplete() bool {
+	return a.Signature == nil || a.Signers == nil
+}
+
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
 
 type CommitteeMember struct {

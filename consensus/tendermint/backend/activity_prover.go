@@ -22,6 +22,8 @@ var (
 	ErrInvalidActivityProofSignature = errors.New("invalid activity proof signature")
 	// ErrInsufficientActivityProof is returned if the voting power is less than quorum for activity proof.
 	ErrInsufficientActivityProof = errors.New("insufficient power for activity proof")
+	// ErrImcompleteActivityProof is returned when the proof has a single field nil and the other is not nil
+	ErrIncompleteActivityProof = errors.New("incomplete activity proof")
 )
 
 // assembleActivityProof assembles the nodes' activity proof of height `h` with the aggregated precommit
@@ -31,7 +33,7 @@ func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, ui
 	number := new(big.Int).SetUint64(h)
 
 	// TODO(lorenzo) re-review this part about lastEpochBlock after epoch-header is merged
-	lastEpochBlock, _, err := sb.consensusViewOfHeight(number)
+	lastEpochBlock, committee, err := sb.consensusViewOfHeight(number)
 	if err != nil {
 		return types.AggregateSignature{}, 0, fmt.Errorf("Error while fetching lastEpochBlock for height %d: %w", number.Uint64(), err)
 	}
@@ -63,8 +65,14 @@ func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, ui
 	}
 
 	aggregatePrecommit := message.AggregatePrecommits(votes)
-	// TODO(lorenzo) maybe add a check and a warning on whether we successfully included quorum voting power
-	// 			- another option is to leave empty proof if we do not have quorum. If so, have to modify also the VerifyHeader logic
+
+	// if we do not have enough voting power, leave the proof empty
+	quorum := bft.Quorum(committee.TotalVotingPower())
+	if aggregatePrecommit.Power().Cmp(quorum) < 0 {
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "power", aggregatePrecommit.Power(), "quorum", quorum)
+		return types.AggregateSignature{}, 0, nil
+	}
+
 	return types.NewAggregateSignature(aggregatePrecommit.Signature().(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil
 }
 
@@ -86,15 +94,20 @@ func (sb *Backend) validateActivityProof(proof types.AggregateSignature, h uint6
 	// during the first delta blocks of the epoch, the proof should be empty. If not, reject proposal
 	if h <= lastEpochBlock.Uint64()+tendermint.DeltaBlocks {
 		sb.logger.Debug("Validating activity proof in first delta blocks, should be empty", "height", h, "lastEpochBlock", lastEpochBlock)
-		if proof.Signature != nil || proof.Signers != nil {
+		if !proof.Empty() {
 			return false, new(big.Int), []common.Address{}, ErrNotEmptyActivityProof
 		}
 		return false, new(big.Int), []common.Address{}, nil
 	}
 
 	// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
-	if proof.Signature == nil || proof.Signers == nil {
+	if proof.Empty() {
 		return true, new(big.Int), []common.Address{}, nil
+	}
+
+	// if the proof is malformed, reject the proposal
+	if proof.Incomplete() {
+		return false, new(big.Int), []common.Address{}, ErrIncompleteActivityProof
 	}
 
 	activityProof := proof.Copy() // copy so that we do not modify the header when doing Signers.Validate()
@@ -105,16 +118,19 @@ func (sb *Backend) validateActivityProof(proof types.AggregateSignature, h uint6
 
 	signers, proposerEffort, err := sb.verifyActivityProof(activityProof, committee, h-tendermint.DeltaBlocks, r)
 	if err != nil {
-		// if the signature is invalid, reject the proposal
-		if errors.Is(err, ErrInvalidActivityProofSignature) {
-			sb.logger.Info("Rejecting proposal with invalid activity proof signature")
-			return false, new(big.Int), []common.Address{}, err
-		}
-		sb.logger.Info("Faulty activity proof addressed, proposer is omission faulty")
-		return true, proposerEffort, []common.Address{}, nil
+		// verifyActivityProof returns an error if the signature is invalid or if the voting power is not enough
+		// in both cases, we reject the proposal.
+		sb.logger.Info("Rejecting proposal with invalid activity proof signature", "err", err)
+		return false, new(big.Int), []common.Address{}, err
 	}
 
 	// we have got the signers, let's compute the absentees and return them
+	absentees := computeAbsents(signers, committee)
+
+	return false, proposerEffort, absentees, nil
+}
+
+func computeAbsents(signers []common.Address, committee types.Committee) []common.Address {
 	// TODO(lorenzo) optimization, maybe using a map?
 	var absentees []common.Address
 	for _, member := range committee {
@@ -128,8 +144,7 @@ func (sb *Backend) validateActivityProof(proof types.AggregateSignature, h uint6
 			absentees = append(absentees, member.Address)
 		}
 	}
-
-	return false, proposerEffort, absentees, nil
+	return absentees
 }
 
 // verifyActivityProof validates that the activity proof  is signed  by committee members and that the voting

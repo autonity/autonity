@@ -161,7 +161,7 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 	*  2. if we are after the first delta blocks and the activity proof is not empty:
 	* 		a. the activityProof Signers information should pass the Validate(len(committee)) check
 	* 		b. the activityProof Signature should be a valid signature
-	*  we cannot check anything related to voting power as we accept proposals even if the activity proof has insufficient voting power.
+	*		c. the activity proof carries at least quorum voting power (if not it should be empty)
 	*
 	* However if one of these conditions is violated, theoretically it should not be possible to reach Quorum on the block, and therefore produce a valid QuorumCertificate. Therefore is someone is feeding us tampered headers, it should also manage to forge a different valid quorum certificate.
 	*
