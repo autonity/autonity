@@ -1,6 +1,7 @@
 package strats
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -13,6 +14,7 @@ type registeredStrategy struct {
 }
 
 func registerStrategy(name string, newFn func(base BaseStrategy) Strategy) {
+	fmt.Printf("registering strat : %v\n", name)
 	id := uint64(len(StrategyRegistry))
 	newRegistration := registeredStrategy{
 		Name: name,

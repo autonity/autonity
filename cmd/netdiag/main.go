@@ -122,6 +122,7 @@ Update a cluster with current binary.`,
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			configFlag,
+			idFlag,
 		},
 		Description: `
 The control command starts the netdiag command center.`,
@@ -163,6 +164,7 @@ var (
 )
 
 func init() {
+	fmt.Printf("app initiated\n")
 	app.Name = "NetDiag"
 	app.Usage = "Autonity Network Diagnosis Utility"
 	app.Flags = []cli.Flag{}
@@ -269,7 +271,7 @@ func run(c *cli.Context) error {
 
 func control(c *cli.Context) error {
 	// This is very ugly and need to be refactored :(
-	targetPeer := 0
+	targetPeer := c.Int(idFlag.Name)
 	cfg := readConfigFile(c.String(configFlag.Name))
 	client, err := rpc.Dial("tcp", cfg.Nodes[targetPeer].Ip+":1337")
 	if err != nil {

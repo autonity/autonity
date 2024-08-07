@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
@@ -191,6 +192,7 @@ func (r *ResultPingIcmp) String() string {
 		r.MinRtt, r.AvgRtt, r.MaxRtt, r.StdDevRtt)
 	return builder.String()
 }
+
 func (p *P2POp) PingIcmp(args *ArgTarget, reply *ResultPingIcmp) error {
 	if args.Target < 0 || args.Target >= len(p.engine.peers) {
 		return errInvalidRpcArg
@@ -258,6 +260,7 @@ func (p *P2POp) PingIcmpBroadcast(_ *ArgEmpty, reply *ResultIcmpAll) error {
 		peerStats := <-ch
 		if p.engine.peers[i] != nil {
 			p.engine.peers[i].rtt = peerStats.AvgRtt
+			p.engine.latencyMatrix[p.engine.id][i] = peerStats.AvgRtt
 		}
 		(*reply)[i] = peerStats
 	}
@@ -416,6 +419,127 @@ func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandom
 	result.HasErrors = hasError.Load()
 	result.PacketResults = packetResults
 	*reply = result
+	return nil
+}
+
+type ResultSendLatencyArray struct {
+	AckReceived []bool
+	Errors      []error
+	HasError    bool
+}
+
+func (r *ResultSendLatencyArray) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "DevP2P Send Rand Latency Array\n")
+
+	if r.HasError {
+		errCount := 0
+		target := make([]int, 0, len(r.Errors))
+		for i, err := range r.Errors {
+			if err != nil {
+				errCount++
+				target = append(target, i)
+			}
+		}
+		fmt.Fprintf(&builder, "Got %d errors\nGot errors from following targets\n", errCount)
+		for _, id := range target {
+			fmt.Fprintf(&builder, "%d, ", id)
+		}
+		fmt.Fprintf(&builder, "\n")
+	}
+
+	ackReceived := make([]int, 0, len(r.AckReceived))
+	ackNotReceived := make([]int, 0, len(r.AckReceived))
+	for i, received := range r.AckReceived {
+		if received {
+			ackReceived = append(ackReceived, i)
+		} else {
+			ackNotReceived = append(ackNotReceived, i)
+		}
+	}
+
+	fmt.Fprintf(&builder, "Received responses from the following %d targets:\n", len(ackReceived))
+	for _, id := range ackReceived {
+		if r.Errors[id] != nil {
+			fmt.Fprintf(&builder, "%d with error, ", id)
+		} else {
+			fmt.Fprintf(&builder, "%d, ", id)
+		}
+	}
+
+	fmt.Fprintf(&builder, "\nFollowing %d targets did not respond:\n", len(ackNotReceived))
+	for _, id := range ackNotReceived {
+		if r.Errors[id] != nil {
+			fmt.Fprintf(&builder, "%d with error, ", id)
+		} else {
+			fmt.Fprintf(&builder, "%d, ", id)
+		}
+	}
+	fmt.Fprintf(&builder, "\n")
+	return builder.String()
+}
+
+func (p *P2POp) SendLatencyArray(_ *ArgEmpty, reply *ResultSendLatencyArray) error {
+	result := ResultSendLatencyArray{
+		AckReceived: make([]bool, len(p.engine.peers)),
+		Errors:      make([]error, len(p.engine.peers)),
+		HasError:    false,
+	}
+	var hasError atomic.Bool
+	var wg sync.WaitGroup
+
+	for i, peer := range p.engine.peers {
+		if i == p.engine.id {
+			continue
+		}
+		if peer == nil || !peer.connected {
+			result.Errors[i] = errTargetNotConnected
+			hasError.Store(true)
+			continue
+		}
+
+		wg.Add(1)
+		go func(id int, peer *Peer) {
+			err := peer.sendLatencyArray(p.engine.latencyMatrix[p.engine.id])
+			if err != nil {
+				hasError.Store(true)
+			} else {
+				result.AckReceived[id] = true
+			}
+			result.Errors[id] = err
+			wg.Done()
+		}(i, peer)
+	}
+
+	wg.Wait()
+	result.HasError = hasError.Load()
+	*reply = result
+	return nil
+}
+
+type ResultLatencyMatrix [][]time.Duration
+
+func (r *ResultLatencyMatrix) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "Latency matrix global view:\n")
+	for id, latencyArray := range *r {
+		fmt.Fprintf(&builder, "Latency from peer %d is following:\n", id)
+		for peerID, l := range latencyArray {
+			if peerID == id {
+				continue
+			}
+			if l == 0 {
+				fmt.Fprintf(&builder, "peer %d : inf\n", peerID)
+			} else {
+				fmt.Fprintf(&builder, "peer %d : %d\n", peerID, l)
+			}
+		}
+	}
+	return builder.String()
+}
+
+func (p *P2POp) LatencyMatrix(_ *ArgEmpty, reply *ResultLatencyMatrix) error {
+	// TODO
 	return nil
 }
 

@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"sort"
 	"sync"
 	"sync/atomic"

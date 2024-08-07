@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/ecdsa"
 	"sync"
+	"time"
 
 	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/core/types"
@@ -21,6 +22,8 @@ type Engine struct {
 
 	state      *strats.State
 	strategies []strats.Strategy
+
+	latencyMatrix [][]time.Duration
 
 	sync.RWMutex
 }
@@ -88,6 +91,8 @@ func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *E
 	e.enodes = types.NewNodes(enodesToResolve, true).List
 	e.peers = make([]*Peer, len(e.enodes))
 	e.id = id
+	e.latencyMatrix = make([][]time.Duration, len(e.enodes))
+	e.latencyMatrix[id] = make([]time.Duration, len(e.enodes))
 	return e
 }
 

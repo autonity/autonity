@@ -24,6 +24,7 @@ const (
 	DisseminateRequest
 	DisseminateReport
 	ProtocolMessages
+	LatencyArrayMsg
 )
 
 var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error{
@@ -34,6 +35,7 @@ var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error
 	UpdateTCPSocket:    handleUpdateTcpSocket,
 	DisseminateRequest: handleDisseminatePacket,
 	DisseminateReport:  handleDisseminateReport,
+	LatencyArrayMsg:    handleLatencyArray,
 	//BlockMsg //serialized block
 	//AckBlockMsg
 }
@@ -224,7 +226,7 @@ func (p *Peer) sendData(data []byte) (uint64, time.Duration, error) {
 		log.Error("Unable to dispatch request", "error", err)
 		return 0, 0, err
 	}
-	dispatchDuration := time.Now().Sub(startTime)
+	dispatchDuration := time.Since(startTime)
 	timer := time.NewTimer(5 * time.Second)
 	select {
 	case ans := <-req:
@@ -257,6 +259,49 @@ func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
 	}
 	fmt.Println("[ACKDATA] << ", ack.RequestId)
 	return p.dispatchResponse(ack.RequestId, ack)
+}
+
+// ***********************
+// ***** SendLatency *****
+// ***********************
+
+type LatencyArrayPacket struct {
+	RequestId uint64
+	Latency   []time.Duration
+}
+
+func (p *Peer) sendLatencyArray(latency []time.Duration) error {
+	id := rand.Uint64()
+	fmt.Println("[LatencyArrayPacket] >> ", id)
+	req, err := p.dispatchRequest(id, LatencyArrayMsg, LatencyArrayPacket{id, latency})
+	if err != nil {
+		log.Error("Unable to dispatch request", "error", err)
+		return err
+	}
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case <-req:
+		return nil
+	case <-timer.C:
+		return errTimeout
+	}
+}
+
+func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
+	var latencyArray LatencyArrayPacket
+	if err := rlp.Decode(data, &latencyArray); err != nil {
+		return err
+	}
+	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
+	fmt.Println("[LatencyArrayPacket] << ", latencyArray.RequestId)
+	for i, enode := range e.peers {
+		if p.Peer.ID() == enode.ID() {
+			e.latencyMatrix[i] = latencyArray.Latency
+			fmt.Printf("Got latency array from peer %v : %v\n", enode.ID(), latencyArray.Latency)
+			break
+		}
+	}
+	return p2p.Send(p, AckDataMsg, AckDataPacket{latencyArray.RequestId, now})
 }
 
 // ***************************
