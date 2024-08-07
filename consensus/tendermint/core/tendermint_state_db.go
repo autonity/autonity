@@ -55,8 +55,7 @@ type TendermintStateDB struct {
 }
 
 // newTendermintStateDB create the context of WAL database, it shares the same key-value store of blockchain DB.
-func newTendermintStateDB(db ethdb.Database) *TendermintStateDB {
-	logger := log.New("newTendermintStateDB", "type", "TendermintStateDB")
+func newTendermintStateDB(logger log.Logger, db ethdb.Database) *TendermintStateDB {
 	rsdb := &TendermintStateDB{
 		db:     db,
 		logger: logger,
@@ -72,11 +71,17 @@ func newTendermintStateDB(db ethdb.Database) *TendermintStateDB {
 
 	lastMsgID, err := rsdb.GetMsgID(lastTBFTInstanceMsgIDKey)
 	if err != nil {
-		panic(err)
+		logger.Error("failed to load last msg ID from WAL DB", "err", err)
+		lastMsgID = 0
+		// todo: do we need to stop the client which might corrupted its WAL DB?
+		// panic(err)
 	}
 	maxMsgID, err := rsdb.GetMsgID(maxMessageIDKey)
 	if err != nil {
-		panic(err)
+		logger.Error("failed to load max msg ID from WAL DB", "err", err)
+		maxMsgID = 0
+		// todo: do we need to stop the client?
+		// panic(err)
 	}
 
 	rsdb.lastConsensusMsgID = lastMsgID
@@ -110,7 +115,7 @@ type ExtTendermintState struct {
 
 // UpdateLastRoundState stores the latest tendermint state in DB, in case of a start of a new height, it also does
 // garbage collection and reset MSG ID for a new height.
-func (rsdb *TendermintStateDB) UpdateLastRoundState(rs TendermintState, startNewHeight bool) error {
+func (rsdb *TendermintStateDB) UpdateLastRoundState(rs *TendermintState, startNewHeight bool) error {
 	logger := rsdb.logger.New("func", "UpdateLastRoundState")
 	viewKey := lastTendermintStateKey
 	// todo: jason, check if we have other db engine options.
@@ -150,7 +155,7 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs TendermintState, startNew
 	entryBytes, err := rlp.EncodeToBytes(&extRoundState)
 	rsdb.rsRLPEncTimer.UpdateSince(before)
 	if err != nil {
-		logger.Error("Failed to save roundState", "reason", "rlp encoding", "err", err)
+		logger.Error("Failed to save roundState in WAL", "reason", "rlp encoding", "err", err)
 		return err
 	}
 
@@ -168,20 +173,23 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs TendermintState, startNew
 		rsdb.lastConsensusMsgID = 0
 		msgIDBytes, err := rlp.EncodeToBytes(rsdb.lastConsensusMsgID)
 		if err != nil {
-			rsdb.logger.Error("Failed to reset msg id", "reason", "rlp encoding", "err", err)
+			rsdb.logger.Error("Failed to reset msg id in WAL", "reason", "rlp encoding", "err", err)
 			return err
 		}
 		if err = batch.Put(lastTBFTInstanceMsgIDKey, msgIDBytes); err != nil {
-			rsdb.logger.Error("Failed to reset msg id", "reason", "level db put", "err", err)
+			rsdb.logger.Error("Failed to reset msg id in WAL", "reason", "level db put", "err", err)
 			return err
 		}
 	}
 
-	batch.Put(viewKey, entryBytes)
+	if err = batch.Put(viewKey, entryBytes); err != nil {
+		rsdb.logger.Error("Failed to reset view in WAL", "reason", "level db put", "err", err)
+		return err
+	}
 	err = batch.Write()
 	rsdb.rsDbSaveTimer.UpdateSince(before)
 	if err != nil {
-		logger.Error("Failed to save roundState", "reason", "levelDB write", "err", err, "func")
+		logger.Error("Failed to save roundState in WAL", "reason", "level db write", "err", err, "func")
 	}
 	return err
 }
@@ -286,7 +294,7 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 
 	msgIDBytes, err := rlp.EncodeToBytes(nextMsgID)
 	if err != nil {
-		rsdb.logger.Error("Failed to save msg id", "reason", "rlp encoding", "err", err)
+		rsdb.logger.Error("Failed to save msg id in WAL", "reason", "rlp encoding", "err", err)
 		return err
 	}
 
@@ -294,7 +302,7 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 	msgBytes, err := rlp.EncodeToBytes(&m)
 	rsdb.msgRLPEncTimer.UpdateSince(before)
 	if err != nil {
-		rsdb.logger.Error("Failed to save msg", "reason", "rlp encoding", "err", err)
+		rsdb.logger.Error("Failed to save msg in WAL", "reason", "rlp encoding", "err", err)
 		return err
 	}
 
@@ -306,15 +314,26 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 	// increase max msg ID if current msg ID is greater than it.
 	if nextMsgID > rsdb.maxMsgID {
 		rsdb.maxMsgID = nextMsgID
-		batch.Put(maxMessageIDKey, msgIDBytes)
+		if err = batch.Put(maxMessageIDKey, msgIDBytes); err != nil {
+			rsdb.logger.Error("Failed to update max msg id in WAL", "reason", "level db put", "err", err)
+			return err
+		}
 	}
 
-	batch.Put(lastTBFTInstanceMsgIDKey, msgIDBytes)
-	batch.Put(msgKey, msgBytes)
+	if err = batch.Put(lastTBFTInstanceMsgIDKey, msgIDBytes); err != nil {
+		rsdb.logger.Error("Failed to update last msg id in WAL", "reason", "level db put", "err", err)
+		return err
+	}
+
+	if err = batch.Put(msgKey, msgBytes); err != nil {
+		rsdb.logger.Error("Failed to flush msg in WAL", "reason", "level db put", "err", err)
+		return err
+	}
+
 	err = batch.Write()
 	rsdb.rsDbSaveTimer.UpdateSince(before)
 	if err != nil {
-		rsdb.logger.Error("Failed to save roundState", "reason", "levelDB write", "err", err, "func")
+		rsdb.logger.Error("Failed to save roundState", "reason", "level db write", "err", err, "func")
 		return err
 	}
 
@@ -327,10 +346,12 @@ func (rsdb *TendermintStateDB) GetMsg(msgID uint64) (message.Msg, bool, error) {
 	msgKey := messageKey(msgID)
 	rawEntry, err := rsdb.db.Get(msgKey)
 	if err != nil {
+		rsdb.logger.Error("failed to get msg from WAL", "msgID", msgID, "error", err)
 		return nil, false, err
 	}
 	var entry ExtMsg
 	if err = rlp.DecodeBytes(rawEntry, &entry); err != nil {
+		rsdb.logger.Error("failed to decode msg from WAL", "msgID", msgID, "error", err)
 		return nil, false, err
 	}
 	return entry.Msg, entry.Verified, nil
@@ -354,6 +375,7 @@ func (rsdb *TendermintStateDB) GetMsgID(key []byte) (uint64, error) {
 		return 0, nil
 	}
 	if err := rlp.DecodeBytes(enc, &id); err != nil {
+		rsdb.logger.Error("failed to decode msg ID in WAL", "err", err)
 		return 0, err
 	}
 	return id, nil

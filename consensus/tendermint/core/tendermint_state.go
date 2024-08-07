@@ -106,7 +106,7 @@ func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.Ch
 	}
 
 	// load tendermint state and rounds messages from database.
-	walDB := newTendermintStateDB(db)
+	walDB := newTendermintStateDB(logger, db)
 	roundMsgs := walDB.RoundMsgsFromDB(chain)
 	lastState := walDB.GetLastTendermintState()
 	state := TendermintState{
@@ -315,7 +315,7 @@ func (rs *TendermintStateImpl) AddPrecommit(vote *message.Precommit) {
 func (rs *TendermintStateImpl) tryLogStateTransition(startNewHeight bool) {
 	// log state transition only on WAL is enabled.
 	if rs.db != nil {
-		if err := rs.db.UpdateLastRoundState(rs.TendermintState, startNewHeight); err != nil {
+		if err := rs.db.UpdateLastRoundState(&rs.TendermintState, startNewHeight); err != nil {
 			rs.logger.Error("failed to flush state transition in WAL", "error", err)
 		}
 	}
