@@ -98,6 +98,13 @@ type TendermintStateImpl struct {
 
 // newTendermintState, load rounds state from underlying database if there was state stored, otherwise return default state.
 func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.ChainReader) RoundsState {
+
+	// if the WAL logging is not enabled, return default state on start up.
+	// the default state will be overwritten on consensus engine start phase by respecting chain height.
+	if db == nil {
+		return newStateWithoutWAL(logger)
+	}
+
 	// load tendermint state and rounds messages from database.
 	walDB := newTendermintStateDB(db)
 	roundMsgs := walDB.RoundMsgsFromDB(chain)
@@ -156,6 +163,36 @@ func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.Ch
 	}
 }
 
+// newStateWithoutWAL returns a default state of tendermint.
+func newStateWithoutWAL(logger log.Logger) *TendermintStateImpl {
+	state := TendermintState{
+		height:      common.Big0,
+		round:       0,
+		step:        Propose,
+		decision:    nil,
+		lockedRound: -1,
+		validRound:  -1,
+		lockedValue: nil,
+		validValue:  nil,
+
+		// extra states of Autonity TBFT implementation.
+		sentProposal:          false,
+		sentPrevote:           false,
+		sentPrecommit:         false,
+		setValidRoundAndValue: false,
+	}
+
+	roundMsgs := message.NewMap()
+	return &TendermintStateImpl{
+		TendermintState:  state,
+		roundOfDecision:  -1,
+		messages:         roundMsgs,
+		curRoundMessages: roundMsgs.GetOrCreate(0),
+		db:               nil,
+		logger:           logger,
+	}
+}
+
 // round state writer functions
 
 func (rs *TendermintStateImpl) StartNewHeight(h *big.Int) {
@@ -174,12 +211,11 @@ func (rs *TendermintStateImpl) StartNewHeight(h *big.Int) {
 	rs.sentPrecommit = false
 	rs.setValidRoundAndValue = false
 
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, true); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
 	rs.roundOfDecision = -1
 	rs.messages.Reset()
 	rs.curRoundMessages = rs.messages.GetOrCreate(0)
+
+	rs.tryLogStateTransition(true)
 }
 
 func (rs *TendermintStateImpl) StartNewRound(r int64) {
@@ -191,62 +227,46 @@ func (rs *TendermintStateImpl) StartNewRound(r int64) {
 	rs.sentPrevote = false
 	rs.sentPrecommit = false
 	rs.setValidRoundAndValue = false
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 func (rs *TendermintStateImpl) SetStep(s Step) {
 	rs.step = s
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 func (rs *TendermintStateImpl) SetDecision(block *types.Block, r int64) {
 	rs.decision = block
 	rs.roundOfDecision = r
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 func (rs *TendermintStateImpl) SetLockedRoundAndValue(r int64, block *types.Block) {
 	rs.lockedRound = r
 	rs.lockedValue = block
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 func (rs *TendermintStateImpl) SetValidRoundAndValue(r int64, block *types.Block) {
 	rs.validRound = r
 	rs.validValue = block
 	rs.setValidRoundAndValue = true
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 func (rs *TendermintStateImpl) SetSentProposal() {
 	rs.sentProposal = true
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 func (rs *TendermintStateImpl) SetSentPrevote() {
 	rs.sentPrevote = true
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 func (rs *TendermintStateImpl) SetSentPrecommit() {
 	rs.sentPrecommit = true
-	if err := rs.db.UpdateLastRoundState(rs.TendermintState, false); err != nil {
-		rs.logger.Error("failed to flush round state in WAL", "error", err)
-	}
+	rs.tryLogStateTransition(false)
 }
 
 // message writer functions:
@@ -254,12 +274,12 @@ func (rs *TendermintStateImpl) SetSentPrecommit() {
 func (rs *TendermintStateImpl) SetProposal(proposal *message.Propose, verified bool) {
 	if proposal.R() == rs.round {
 		rs.curRoundMessages.SetProposal(proposal, verified)
-		rs.db.AddMsg(proposal, verified)
+		rs.tryLogMsg(proposal, verified)
 		return
 	}
 	if proposal.R() < rs.round {
 		rs.messages.GetOrCreate(proposal.R()).SetProposal(proposal, verified)
-		rs.db.AddMsg(proposal, verified)
+		rs.tryLogMsg(proposal, verified)
 		return
 	}
 	panic("future round proposal should be in backlog")
@@ -267,12 +287,12 @@ func (rs *TendermintStateImpl) SetProposal(proposal *message.Propose, verified b
 func (rs *TendermintStateImpl) AddPrevote(vote *message.Prevote) {
 	if vote.R() == rs.round {
 		rs.curRoundMessages.AddPrevote(vote)
-		rs.db.AddMsg(vote, true)
+		rs.tryLogMsg(vote, true)
 		return
 	}
 	if vote.R() < rs.round {
 		rs.messages.GetOrCreate(vote.R()).AddPrevote(vote)
-		rs.db.AddMsg(vote, true)
+		rs.tryLogMsg(vote, true)
 		return
 	}
 	panic("future round prevote should be in backlog")
@@ -281,15 +301,33 @@ func (rs *TendermintStateImpl) AddPrevote(vote *message.Prevote) {
 func (rs *TendermintStateImpl) AddPrecommit(vote *message.Precommit) {
 	if vote.R() == rs.round {
 		rs.curRoundMessages.AddPrecommit(vote)
-		rs.db.AddMsg(vote, true)
+		rs.tryLogMsg(vote, true)
 		return
 	}
 	if vote.R() < rs.round {
 		rs.messages.GetOrCreate(vote.R()).AddPrecommit(vote)
-		rs.db.AddMsg(vote, true)
+		rs.tryLogMsg(vote, true)
 		return
 	}
 	panic("future round precommit should be in backlog")
+}
+
+func (rs *TendermintStateImpl) tryLogStateTransition(startNewHeight bool) {
+	// log state transition only on WAL is enabled.
+	if rs.db != nil {
+		if err := rs.db.UpdateLastRoundState(rs.TendermintState, startNewHeight); err != nil {
+			rs.logger.Error("failed to flush state transition in WAL", "error", err)
+		}
+	}
+}
+
+func (rs *TendermintStateImpl) tryLogMsg(msg message.Msg, verified bool) {
+	// flush message only on WAL is enabled.
+	if rs.db != nil {
+		if err := rs.db.AddMsg(msg, verified); err != nil {
+			rs.logger.Error("failed to flush msg in WAL", "error", err)
+		}
+	}
 }
 
 // state reader functions:
