@@ -11,7 +11,7 @@ import (
 
 func TestAutonityRewardsDistribution(t *testing.T) {
 	r := setup(t, func(genesis *core.Genesis) *core.Genesis {
-		//genesis.Config.AutonityContractConfig.EpochPeriod = 20
+		// genesis.Config.AutonityContractConfig.EpochPeriod = 20
 		return genesis
 	})
 
