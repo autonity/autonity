@@ -104,9 +104,16 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		ProposalReceivedBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 
-	// Verify the proposal we received
-	start := time.Now()
-	duration, err := c.backend.VerifyProposal(proposal.Block()) // youssef: can we skip the verification for our own proposal?
+	var (
+		duration time.Duration
+		err      error
+		start    = time.Now()
+	)
+
+	// skip verification for our own proposal
+	if c.backend.ProposedBlockHash() == proposal.Hash() {
+		duration, err = c.backend.VerifyProposal(proposal.Block())
+	}
 
 	if metrics.Enabled {
 		now := time.Now()

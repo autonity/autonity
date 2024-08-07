@@ -466,6 +466,10 @@ func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 	sb.proposedBlockHash = hash
 }
 
+func (sb *Backend) ProposedBlockHash() common.Hash {
+	return sb.proposedBlockHash
+}
+
 // AddSeal update timestamp and signature of the block based on its number of transactions
 func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	header := block.Header()

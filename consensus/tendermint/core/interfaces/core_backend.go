@@ -47,6 +47,7 @@ type Backend interface {
 
 	Post(ev any)
 
+	ProposedBlockHash() common.Hash
 	// SetProposedBlockHash is a setter for the proposed block hash
 	SetProposedBlockHash(hash common.Hash)
 
