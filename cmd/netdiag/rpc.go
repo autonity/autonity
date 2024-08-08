@@ -260,7 +260,7 @@ func (p *P2POp) PingIcmpBroadcast(_ *ArgEmpty, reply *ResultIcmpAll) error {
 		peerStats := <-ch
 		if p.engine.peers[i] != nil {
 			p.engine.peers[i].rtt = peerStats.AvgRtt
-			p.engine.latencyMatrix[p.engine.id][i] = peerStats.AvgRtt
+			p.engine.state.LatencyMatrix[p.engine.id][i] = peerStats.AvgRtt
 		}
 		(*reply)[i] = peerStats
 	}
@@ -500,7 +500,7 @@ func (p *P2POp) SendLatencyArray(_ *ArgEmpty, reply *ResultSendLatencyArray) err
 
 		wg.Add(1)
 		go func(id int, peer *Peer) {
-			err := peer.sendLatencyArray(p.engine.latencyMatrix[p.engine.id])
+			err := peer.sendLatencyArray(p.engine.state.LatencyMatrix[p.engine.id])
 			if err != nil {
 				hasError.Store(true)
 			} else {

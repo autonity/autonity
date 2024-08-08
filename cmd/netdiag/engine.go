@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/ecdsa"
 	"sync"
-	"time"
 
 	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/core/types"
@@ -22,8 +21,6 @@ type Engine struct {
 
 	state      *strats.State
 	strategies []strats.Strategy
-
-	latencyMatrix [][]time.Duration
 
 	sync.RWMutex
 }
@@ -91,8 +88,6 @@ func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *E
 	e.enodes = types.NewNodes(enodesToResolve, true).List
 	e.peers = make([]*Peer, len(e.enodes))
 	e.id = id
-	e.latencyMatrix = make([][]time.Duration, len(e.enodes))
-	e.latencyMatrix[id] = make([]time.Duration, len(e.enodes))
 	return e
 }
 
@@ -118,6 +113,7 @@ func (e *Engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*Peer, error) {
 	for i := 0; i < len(e.config.Nodes); i++ {
 		if e.enodes[i].ID() == node.ID() {
 			p.ip = e.enodes[i].IP().String()
+			p.id = i
 			e.peers[i] = p
 			break
 		}
@@ -140,16 +136,4 @@ func (e *Engine) peer(i int) strats.Peer {
 		return nil
 	}
 	return e.peers[i]
-}
-
-func (e *Engine) peerToId(peer *Peer) int {
-	for i := range e.peers {
-		if e.peers[i] == nil {
-			continue
-		}
-		if e.peers[i].ID() == peer.ID() {
-			return i
-		}
-	}
-	return 0
 }

@@ -32,9 +32,9 @@ func registerStrategy(name string, newFn func(base BaseStrategy) Strategy) {
 }
 
 type ChunkInfo struct {
-	Partial bool
-	Total   int
-	SeqNum  []int
+	Partial       bool
+	TotalReceived int
+	SeqReceived   []bool
 }
 
 // State is a shared object amongst strategies.
@@ -44,15 +44,20 @@ type State struct {
 	ReceivedPackets map[uint64]ChunkInfo
 	ReceivedReports map[uint64]chan *IndividualDisseminateResult
 	AverageRTT      []time.Duration
+	LatencyMatrix   [][]time.Duration
+	InfoChannel     chan any
 }
 
 func NewState(id uint64, peers int) *State {
-	return &State{
+	state := &State{
 		Id:              id,
 		ReceivedPackets: make(map[uint64]ChunkInfo),
 		ReceivedReports: make(map[uint64]chan *IndividualDisseminateResult),
 		AverageRTT:      make([]time.Duration, peers),
+		LatencyMatrix:   make([][]time.Duration, peers),
 	}
+	state.LatencyMatrix[id] = make([]time.Duration, peers)
+	return state
 }
 
 func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDisseminateResult {

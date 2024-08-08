@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -54,6 +53,7 @@ type Peer struct {
 	rtt       time.Duration
 	requests  map[uint64]chan any
 	connected bool
+	id        int
 	sync.RWMutex
 }
 
@@ -73,7 +73,7 @@ func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, orig
 	var chunks []DisseminatePacket
 	maxSize := 20_000
 	log.Info("Disseminate Packet")
-	if p.IsUDP() || p.IsQuic() && len(data) > maxSize {
+	if (p.IsUDP() || p.IsQuic()) && len(data) > maxSize {
 		snum := 0
 		total := len(data) / maxSize
 		if len(data)%maxSize > 0 {
@@ -296,7 +296,7 @@ func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 	fmt.Println("[LatencyArrayPacket] << ", latencyArray.RequestId)
 	for i, enode := range e.peers {
 		if p.Peer.ID() == enode.ID() {
-			e.latencyMatrix[i] = latencyArray.Latency
+			e.state.LatencyMatrix[i] = latencyArray.Latency
 			fmt.Printf("Got latency array from peer %v : %v\n", enode.ID(), latencyArray.Latency)
 			break
 		}
@@ -353,22 +353,23 @@ func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 
 	chunkInfo, ok := e.state.ReceivedPackets[packet.RequestId]
 	if ok {
-		chunkInfo.SeqNum[packet.Seq] = math.MaxInt
-		chunkInfo.Partial = false
-		for _, num := range chunkInfo.SeqNum {
-			if num != math.MaxInt { // none of the slots in seqNum array should be empty, for a complete packet reception
-				chunkInfo.Partial = true
-				break
-			}
+		chunkInfo.SeqReceived[packet.Seq] = true
+		chunkInfo.TotalReceived++
+		if chunkInfo.TotalReceived == len(chunkInfo.SeqReceived) {
+			chunkInfo.Partial = false
 		}
 		e.state.ReceivedPackets[packet.RequestId] = chunkInfo
 	} else {
-		chunkInfo := strats.ChunkInfo{Total: int(packet.Total),
-			Partial: packet.Partial,
-			SeqNum:  make([]int, max(packet.Total, 1)),
+		chunkInfo := strats.ChunkInfo{
+			TotalReceived: 1,
+			Partial:       packet.Partial,
+			SeqReceived:   make([]bool, max(packet.Total, 1)),
 		}
 		// use max.Int to mark the seq as received
-		chunkInfo.SeqNum[packet.Seq] = math.MaxInt
+		chunkInfo.SeqReceived[packet.Seq] = true
+		if chunkInfo.TotalReceived == len(chunkInfo.SeqReceived) {
+			chunkInfo.Partial = false
+		}
 		e.state.ReceivedPackets[packet.RequestId] = chunkInfo
 	}
 	return nil
@@ -385,11 +386,11 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	// check if first time received.
 	if pktInfo, ok := e.state.ReceivedPackets[packet.RequestId]; ok {
 		// check if the seqNum is already received
-		if len(pktInfo.SeqNum) <= int(packet.Seq) {
+		if len(pktInfo.SeqReceived) <= int(packet.Seq) {
 			log.Crit("invalid seqNum", "packet Info", pktInfo, "received packet", packet)
 		}
 
-		if !packet.Partial || (packet.Partial && pktInfo.SeqNum[packet.Seq] == math.MaxInt) {
+		if !packet.Partial || (packet.Partial && pktInfo.SeqReceived[packet.Seq]) {
 			//log.Info("packet has already arrived", "packet", packet.Seq)
 			// do nothing
 			return nil
@@ -407,10 +408,10 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	pktInfo := e.state.ReceivedPackets[packet.RequestId]
 	// all packets related to this requestID has been received
 	if !pktInfo.Partial {
-		log.Info("complete packet received, sending report", "total chunks", len(pktInfo.SeqNum))
+		log.Info("complete packet received, sending report", "total chunks", len(pktInfo.SeqReceived))
 		return p2p.Send(e.peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
 			RequestId: packet.RequestId,
-			Sender:    uint64(e.peerToId(p)),
+			Sender:    uint64(p.id),
 			Hop:       packet.Hop,
 			Time:      now,
 		}) // should we ask for ACK?
@@ -431,7 +432,7 @@ func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 		return nil // or error maybe
 	}
 	channel <- &strats.IndividualDisseminateResult{
-		Sender:        e.peerToId(p),
+		Sender:        p.id,
 		Relay:         int(packet.Sender),
 		Hop:           int(packet.Hop),
 		ReceptionTime: time.Unix(int64(packet.Time)/int64(time.Second), int64(packet.Time)%int64(time.Second)),
