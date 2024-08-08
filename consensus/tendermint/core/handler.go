@@ -37,32 +37,7 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
 		c.StartRound(ctx, 0)
 	} else {
-		// the state recovered from WAL is not stale.
-		// if the decision of current height haven't been made, start the new round.
-		if c.Decision() == nil {
-			// set last header since we start round on top of a legacy round.
-			c.setLastHeader(c.Backend().HeadBlock().Header())
-			c.StartRound(ctx, c.Round()+1)
-		}
-
-		// if the decision of current height was made, try to commit it and start new height from round 0.
-		if c.Decision() != nil {
-			roundMsgs := c.roundsState.GetOrCreate(c.DecisionRound())
-			proposalHash := c.Decision().Header().Hash()
-			c.logger.Info("Committing a block from WAL", "hash", proposalHash)
-			precommitWithQuorum := roundMsgs.PrecommitFor(proposalHash)
-			if precommitWithQuorum == nil {
-				panic("Your WAL DB has corrupted, try to re-sync the blockchain")
-			}
-			quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
-			if err := c.backend.Commit(c.Decision(), c.DecisionRound(), quorumCertificate); err != nil {
-				c.logger.Error("failed to commit the decision from WAL", "err", err)
-				// todo: Jason, shall we stop this client from starting?
-			}
-			// todo: Jason, check the commit result and start round 0 for new height!!!!!
-			time.Sleep(1 * time.Second)
-			c.StartRound(ctx, 0)
-		}
+		c.startWithRecoveredState(ctx)
 	}
 
 	// Tendermint Finite State Machine discrete event loop
@@ -81,6 +56,35 @@ func (c *Core) Stop() {
 	// Ensure all event handling go routines exit
 	<-c.stopped
 	<-c.stopped
+}
+
+// startWithRecoveredState start the round base on the state recovered from WAL.
+func (c *Core) startWithRecoveredState(ctx context.Context) {
+
+	// if the decision of current height haven't been made, start the new round.
+	if c.Decision() == nil {
+		// set last header since we start round on top of a legacy round.
+		c.setLastHeader(c.Backend().HeadBlock().Header())
+		c.StartRound(ctx, c.Round()+1)
+		return
+	}
+
+	// if the decision of current height was made, try to commit it and start new height from round 0.
+	roundMsgs := c.roundsState.GetOrCreate(c.DecisionRound())
+	proposalHash := c.Decision().Header().Hash()
+	c.logger.Info("Committing a block from WAL", "hash", proposalHash)
+	precommitWithQuorum := roundMsgs.PrecommitFor(proposalHash)
+	if precommitWithQuorum == nil {
+		panic("Your WAL DB has corrupted, try to re-sync the blockchain")
+	}
+	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
+	if err := c.backend.Commit(c.Decision(), c.DecisionRound(), quorumCertificate); err != nil {
+		c.logger.Error("failed to commit the decision from WAL", "err", err)
+		// todo: Jason, shall we stop this client from starting?
+	}
+	// todo: Jason, check the commit result and start round 0 for new height!!!!!
+	time.Sleep(1 * time.Second)
+	c.StartRound(ctx, 0)
 }
 
 func (c *Core) subscribeEvents() {
