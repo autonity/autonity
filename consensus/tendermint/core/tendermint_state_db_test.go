@@ -2,12 +2,14 @@ package core
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"math/big"
 	"testing"
 )
@@ -32,7 +34,7 @@ func TestTendermintStateDB(t *testing.T) {
 
 	t.Run("flush tendermint state", func(t *testing.T) {
 		state := TendermintState{
-			height:                common.Big256,
+			height:                common.Big1,
 			round:                 1,
 			step:                  Propose,
 			decision:              proposal.Block(),
@@ -63,12 +65,7 @@ func TestTendermintStateDB(t *testing.T) {
 		require.Equal(t, state.setValidRoundAndValue, flushedState.SetValidRoundAndValue)
 	})
 
-	// todo: Jason, add gc collection test trigger by height rotation.
-	t.Run("flush state with height rotation", func(t *testing.T) {
-
-	})
-
-	t.Run("flush consensus messages", func(t *testing.T) {
+	t.Run("flush, query and GC consensus messages", func(t *testing.T) {
 		// flush proposal
 		err := db.AddMsg(proposal, true)
 		require.NoError(t, err)
@@ -152,5 +149,88 @@ func TestTendermintStateDB(t *testing.T) {
 		if !deep.Equal(precomit, msg) {
 			t.Fatalf("expected: %v\n, got: %v", precomit, msg)
 		}
+
+		// test query all messages
+		ctl := gomock.NewController(t)
+		defer ctl.Finish()
+		chainMock := consensus.NewMockChainHeaderReader(ctl)
+		chainMock.EXPECT().GetHeaderByNumber(height - 1).AnyTimes().Return(header)
+		messages := db.RoundMsgsFromDB(chainMock)
+		require.Equal(t, 3, len(messages.All()))
+
+		// flush state with new height, the last consensus msg ID should be reset to 0.
+		newState := TendermintState{
+			height:                common.Big2,
+			round:                 0,
+			step:                  Propose,
+			decision:              nil,
+			lockedRound:           -1,
+			validRound:            -1,
+			lockedValue:           nil,
+			validValue:            nil,
+			sentProposal:          false,
+			sentPrevote:           false,
+			sentPrecommit:         false,
+			setValidRoundAndValue: false,
+		}
+		err = db.UpdateLastRoundState(&newState, true)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), db.lastConsensusMsgID)
+		flushedLastMsgID, err = db.GetMsgID(lastTBFTInstanceMsgIDKey)
+		require.Equal(t, db.lastConsensusMsgID, flushedLastMsgID)
+
+		flushedMaxMsgID, err = db.GetMsgID(maxMessageIDKey)
+		require.NoError(t, err)
+		require.Equal(t, uint64(3), flushedMaxMsgID)
+		require.Equal(t, db.maxMsgID, flushedMaxMsgID)
+
+		// flush a prevote msg of the new height.
+		preVote = message.NewPrevote(round, uint64(2), common.Hash{}, signer, &committeeSet.Committee()[0], cSize)
+		err = db.AddMsg(preVote, true)
+		require.Equal(t, uint64(1), db.lastConsensusMsgID)
+		flushedLastMsgID, err = db.GetMsgID(lastTBFTInstanceMsgIDKey)
+		require.Equal(t, db.lastConsensusMsgID, flushedLastMsgID)
+
+		flushedMaxMsgID, err = db.GetMsgID(maxMessageIDKey)
+		require.NoError(t, err)
+		require.Equal(t, uint64(3), flushedMaxMsgID)
+		require.Equal(t, db.maxMsgID, flushedMaxMsgID)
+
+		// test GC consensus messages.
+		newState2 := TendermintState{
+			height:                new(big.Int).SetUint64(garbageCollectionInterval),
+			round:                 0,
+			step:                  Propose,
+			decision:              nil,
+			lockedRound:           -1,
+			validRound:            -1,
+			lockedValue:           nil,
+			validValue:            nil,
+			sentProposal:          false,
+			sentPrevote:           false,
+			sentPrecommit:         false,
+			setValidRoundAndValue: false,
+		}
+		err = db.UpdateLastRoundState(&newState2, true)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), db.lastConsensusMsgID)
+		flushedLastMsgID, err = db.GetMsgID(lastTBFTInstanceMsgIDKey)
+		require.Equal(t, db.lastConsensusMsgID, flushedLastMsgID)
+
+		flushedMaxMsgID, err = db.GetMsgID(maxMessageIDKey)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), flushedMaxMsgID)
+		require.Equal(t, db.maxMsgID, flushedMaxMsgID)
+
+		// those removed msgs are not found from DB anymore.
+		for id := uint64(2); id <= uint64(3); id++ {
+			msg, verified, err = db.GetMsg(id)
+			require.Error(t, err, "not found")
+			require.Equal(t, false, verified)
+		}
+		msg, verified, err = db.GetMsg(uint64(1))
+		require.NoError(t, err)
+		require.Equal(t, true, verified)
+		require.Equal(t, message.PrevoteCode, msg.Code())
 	})
 }

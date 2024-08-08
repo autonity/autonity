@@ -383,7 +383,7 @@ func (rsdb *TendermintStateDB) GetMsgID(key []byte) (uint64, error) {
 
 // RoundMsgsFromDB retrieves the entire round messages of the last consensus view flushed in the WAL. This function is
 // called once at the node start up to rebuild the tendermint state.
-func (rsdb *TendermintStateDB) RoundMsgsFromDB(chain consensus.ChainReader) *message.Map {
+func (rsdb *TendermintStateDB) RoundMsgsFromDB(chain consensus.ChainHeaderReader) *message.Map {
 	roundMsgs := message.NewMap()
 	if rsdb.lastConsensusMsgID == 0 {
 		return roundMsgs
@@ -433,10 +433,23 @@ func (rsdb *TendermintStateDB) GarbageCollection() {
 			rsdb.logger.Warn("delete msg from WAL failed", "err", err)
 		}
 	}
-	if err := batch.Write(); err != nil {
-		rsdb.logger.Warn("delete msg from WAL failed", "err", err)
+
+	msgIDBytes, err := rlp.EncodeToBytes(rsdb.lastConsensusMsgID)
+	if err != nil {
+		rsdb.logger.Error("failed to encode msg id in WAL", "err", err)
 		return
 	}
+
+	if err = batch.Put(maxMessageIDKey, msgIDBytes); err != nil {
+		rsdb.logger.Error("failed to update max msg id in WAL", "err", err)
+		return
+	}
+
+	if err = batch.Write(); err != nil {
+		rsdb.logger.Error("delete msg from WAL failed", "err", err)
+		return
+	}
+
 	rsdb.maxMsgID = rsdb.lastConsensusMsgID
 }
 
