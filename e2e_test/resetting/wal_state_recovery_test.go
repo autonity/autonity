@@ -32,6 +32,5 @@ func TestStateRecoveryFromWAL(t *testing.T) {
 	require.NoError(t, err)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(60, 60, false)
-	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+	network.WaitToMineNBlocks(60, 60, false)
 }

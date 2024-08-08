@@ -22,6 +22,9 @@ const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
+	// on the core construction phase, blockchain isn't ready yet,
+	// thus we load tendermint state at here before the engine start.
+	c.roundsState = newTendermintState(c.logger, c.db, c.backend.BlockChain())
 	c.protocolContracts = contract
 	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
 		c.protocolContracts,
@@ -37,10 +40,12 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 		// the state recovered from WAL is not stale.
 		// if the decision of current height haven't been made, start the new round.
 		if c.Decision() == nil {
+			// set last header since we start round on top of a legacy round.
+			c.setLastHeader(c.Backend().HeadBlock().Header())
 			c.StartRound(ctx, c.Round()+1)
 		}
 
-		// if the decision of current height was made, try to commit it and start round 0.
+		// if the decision of current height was made, try to commit it and start new height from round 0.
 		if c.Decision() != nil {
 			roundMsgs := c.roundsState.GetOrCreate(c.DecisionRound())
 			proposalHash := c.Decision().Header().Hash()

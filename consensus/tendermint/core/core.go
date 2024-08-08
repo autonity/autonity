@@ -39,8 +39,8 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
-		roundsState:            newTendermintState(logger, db, backend.BlockChain()),
 		noGossip:               noGossip,
+		db:                     db,
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -81,6 +81,7 @@ type Core struct {
 	roundChangeMu sync.Mutex
 
 	// Tendermint SM state, and its underlying WAL storage.
+	db          ethdb.Database
 	roundsState RoundsState
 	committee   interfaces.Committee
 	lastHeader  *types.Header
