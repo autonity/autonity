@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"io/ioutil"
+	"io/ioutil" //nolint
 	"math/big"
 	"net"
 	"os"

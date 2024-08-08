@@ -177,6 +177,7 @@ func TestTendermintStateDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), db.lastConsensusMsgID)
 		flushedLastMsgID, err = db.GetMsgID(lastTBFTInstanceMsgIDKey)
+		require.NoError(t, err)
 		require.Equal(t, db.lastConsensusMsgID, flushedLastMsgID)
 
 		flushedMaxMsgID, err = db.GetMsgID(maxMessageIDKey)
@@ -187,8 +188,10 @@ func TestTendermintStateDB(t *testing.T) {
 		// flush a prevote msg of the new height.
 		preVote = message.NewPrevote(round, uint64(2), common.Hash{}, signer, &committeeSet.Committee()[0], cSize)
 		err = db.AddMsg(preVote, true)
+		require.NoError(t, err)
 		require.Equal(t, uint64(1), db.lastConsensusMsgID)
 		flushedLastMsgID, err = db.GetMsgID(lastTBFTInstanceMsgIDKey)
+		require.NoError(t, err)
 		require.Equal(t, db.lastConsensusMsgID, flushedLastMsgID)
 
 		flushedMaxMsgID, err = db.GetMsgID(maxMessageIDKey)
@@ -215,6 +218,7 @@ func TestTendermintStateDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), db.lastConsensusMsgID)
 		flushedLastMsgID, err = db.GetMsgID(lastTBFTInstanceMsgIDKey)
+		require.NoError(t, err)
 		require.Equal(t, db.lastConsensusMsgID, flushedLastMsgID)
 
 		flushedMaxMsgID, err = db.GetMsgID(maxMessageIDKey)
@@ -224,7 +228,7 @@ func TestTendermintStateDB(t *testing.T) {
 
 		// those removed msgs are not found from DB anymore.
 		for id := uint64(2); id <= uint64(3); id++ {
-			msg, verified, err = db.GetMsg(id)
+			_, verified, err = db.GetMsg(id)
 			require.Error(t, err, "not found")
 			require.Equal(t, false, verified)
 		}
