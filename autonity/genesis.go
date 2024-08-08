@@ -51,7 +51,6 @@ var (
 		createDefaultStakingVestingContracts,
 		deployNonStakableVestingContract,
 		createDefaultNonStakableVestingContracts,
-		deployOmissionAccountabilityContract,
 	}
 	testGenesisSequence = []genesisStep{
 		deployAutonityTestContract,
@@ -67,7 +66,6 @@ var (
 		createDefaultStakingVestingContracts,
 		deployNonStakableVestingContract,
 		createDefaultNonStakableVestingContracts,
-		deployOmissionAccountabilityContract,
 	}
 	errBadDeploymentAddress = errors.New("mismatch with params deployment address")
 )
@@ -126,20 +124,17 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			DelegationRate:          new(big.Int).SetUint64(config.AutonityContractConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(config.AutonityContractConfig.InitialInflationReserve),
-			ProposerRewardRate:      new(big.Int).SetUint64(config.AutonityContractConfig.ProposerRewardRate),
-			WithheldRewardsPool:     common.Address{},
 			TreasuryAccount:         config.AutonityContractConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract:         params.AccountabilityContractAddress,
-			OracleContract:                 params.OracleContractAddress,
-			AcuContract:                    params.ACUContractAddress,
-			SupplyControlContract:          params.SupplyControlContractAddress,
-			StabilizationContract:          params.StabilizationContractAddress,
-			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
-			InflationControllerContract:    params.InflationControllerContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
-			NonStakableVestingContract:     params.NonStakableVestingContractAddress,
+			AccountabilityContract:      params.AccountabilityContractAddress,
+			OracleContract:              params.OracleContractAddress,
+			AcuContract:                 params.ACUContractAddress,
+			SupplyControlContract:       params.SupplyControlContractAddress,
+			StabilizationContract:       params.StabilizationContractAddress,
+			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
+			InflationControllerContract: params.InflationControllerContractAddress,
+			NonStakableVestingContract:  params.NonStakableVestingContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: config.AutonityContractConfig.Operator,
@@ -545,49 +540,6 @@ func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ Gene
 	return nil
 }
 
-func deployOmissionAccountabilityContract(chainConfig *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	config := chainConfig.OmissionAccountabilityConfig
-	if config == nil {
-		config = params.DefaultOmissionAccountabilityConfig
-	}
-	conf := OmissionAccountabilityConfig{
-		InactivityThreshold:    new(big.Int).SetUint64(config.InactivityThreshold),
-		LookbackWindow:         new(big.Int).SetUint64(config.LookbackWindow),
-		PastPerformanceWeight:  new(big.Int).SetUint64(config.PastPerformanceWeight),
-		InitialJailingPeriod:   new(big.Int).SetUint64(config.InitialJailingPeriod),
-		InitialProbationPeriod: new(big.Int).SetUint64(config.InitialProbationPeriod),
-		InitialSlashingRate:    new(big.Int).SetUint64(config.InitialSlashingRate),
-		SlashingRatePrecision:  new(big.Int).SetUint64(chainConfig.AccountabilityConfig.SlashingRatePrecision), // same as accountability
-	}
-
-	nodeAddresses := make([]common.Address, len(chainConfig.AutonityContractConfig.Validators))
-	treasuries := make([]common.Address, len(chainConfig.AutonityContractConfig.Validators))
-	for _, val := range chainConfig.AutonityContractConfig.Validators {
-		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
-		treasuries = append(treasuries, val.Treasury)
-	}
-
-	addr, err := deploy(
-		&generated.OmissionAccountabilityAbi,
-		generated.OmissionAccountabilityBytecode,
-		common.Big0,
-		params.AutonityContractAddress,
-		nodeAddresses,
-		treasuries,
-		conf,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
-	}
-
-	if addr != params.OmissionAccountabilityContractAddress {
-		return errBadDeploymentAddress
-	}
-
-	return nil
-}
-
 // *
 // Test only functions
 // *
@@ -600,20 +552,17 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 			DelegationRate:          new(big.Int).SetUint64(config.AutonityContractConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(config.AutonityContractConfig.InitialInflationReserve),
-			ProposerRewardRate:      new(big.Int).SetUint64(config.AutonityContractConfig.ProposerRewardRate),
-			WithheldRewardsPool:     common.Address{},
 			TreasuryAccount:         config.AutonityContractConfig.Treasury,
 		},
 		Contracts: AutonityContracts{
-			AccountabilityContract:         params.AccountabilityContractAddress,
-			OracleContract:                 params.OracleContractAddress,
-			AcuContract:                    params.ACUContractAddress,
-			SupplyControlContract:          params.SupplyControlContractAddress,
-			StabilizationContract:          params.StabilizationContractAddress,
-			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
-			InflationControllerContract:    params.InflationControllerContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
-			NonStakableVestingContract:     params.NonStakableVestingContractAddress,
+			AccountabilityContract:      params.AccountabilityContractAddress,
+			OracleContract:              params.OracleContractAddress,
+			AcuContract:                 params.ACUContractAddress,
+			SupplyControlContract:       params.SupplyControlContractAddress,
+			StabilizationContract:       params.StabilizationContractAddress,
+			UpgradeManagerContract:      params.UpgradeManagerContractAddress,
+			InflationControllerContract: params.InflationControllerContractAddress,
+			NonStakableVestingContract:  params.NonStakableVestingContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount: config.AutonityContractConfig.Operator,

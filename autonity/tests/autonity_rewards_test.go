@@ -17,13 +17,7 @@ func TestAutonityRewardsDistribution(t *testing.T) {
 
 	r.run("Test finalize with non-deployer account fails", func(rr *runner) {
 		account := rr.randomAccount()
-		_, err := r.autonity.Finalize(
-			&runOptions{origin: account},
-			nil,
-			account,
-			big.NewInt(0),
-			false,
-		)
+		_, err := r.autonity.Finalize(&runOptions{origin: account})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "execution reverted: function restricted to the protocol")
 	})

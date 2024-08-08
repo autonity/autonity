@@ -456,24 +456,12 @@ func TestOnlyAccountabilityOnlyProtocol(t *testing.T) {
 	})
 
 	r.run("Test finalize can be called by protocol", func(rr *runner) {
-		_, err := rr.autonity.Finalize(
-			&runOptions{origin: rr.origin},
-			nil,
-			rr.committee.validators[0].NodeAddress,
-			big.NewInt(10),
-			true,
-		)
+		_, err := rr.autonity.Finalize(&runOptions{origin: rr.origin})
 		require.NoError(t, err)
 	})
 
 	r.run("Test finalize cannot be called by non-protocol", func(rr *runner) {
-		_, err := rr.autonity.Finalize(
-			&runOptions{origin: rr.randomAccount()},
-			nil,
-			rr.committee.validators[0].NodeAddress,
-			big.NewInt(10),
-			true,
-		)
+		_, err := rr.autonity.Finalize(&runOptions{origin: rr.randomAccount()})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "execution reverted: function restricted to the protocol")
 	})

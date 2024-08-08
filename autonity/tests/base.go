@@ -48,17 +48,16 @@ type runner struct {
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	autonity               *AutonityTest
-	accountability         *Accountability
-	oracle                 *Oracle
-	acu                    *ACU
-	supplyControl          *SupplyControl
-	stabilization          *Stabilization
-	upgradeManager         *UpgradeManager
-	inflationController    *InflationController
-	stakableVesting        *StakableVesting
-	nonStakableVesting     *NonStakableVesting
-	omissionAccountability *OmissionAccountability
+	autonity            *AutonityTest
+	accountability      *Accountability
+	oracle              *Oracle
+	acu                 *ACU
+	supplyControl       *SupplyControl
+	stabilization       *Stabilization
+	upgradeManager      *UpgradeManager
+	inflationController *InflationController
+	stakableVesting     *StakableVesting
+	nonStakableVesting  *NonStakableVesting
 
 	committee committee     // genesis validators for easy access
 	operator  *runOptions   // operator runOptions for easy access
@@ -315,7 +314,6 @@ func setup(t *testing.T, configOverride func(genesis *core.Genesis) *core.Genesi
 	r.inflationController = &InflationController{&contract{params.InflationControllerContractAddress, &generated.InflationControllerAbi, r}}
 	r.stakableVesting = &StakableVesting{&contract{params.StakableVestingContractAddress, &generated.StakableVestingAbi, r}}
 	r.nonStakableVesting = &NonStakableVesting{&contract{params.NonStakableVestingContractAddress, &generated.NonStakableVestingAbi, r}}
-	r.omissionAccountability = &OmissionAccountability{&contract{params.OmissionAccountabilityContractAddress, &generated.OmissionAccountabilityAbi, r}}
 
 	r.committee.liquidContracts = make([]*Liquid, 0, len(genesisConfig.Config.AutonityContractConfig.Validators))
 	r.committee.validators = make([]AutonityValidator, 0, len(genesisConfig.Config.AutonityContractConfig.Validators))
