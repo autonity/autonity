@@ -72,14 +72,19 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
-	// todo: resolve the reasonable default settings
-	// values assume 10_000 as scaling factor
+	/*
+	* 1. percentage values assume 10_000 as scaling factor
+	* 2. the following equation needs to be respected: pastPerformanceWeight <= InactivityThreshold
+	*    this ensures that a validator with 100% inactivity in epoch x and 0% inactivity in epoch x+n,
+	*    will not be considered inactive again at epoch x+n
+	 */
+	// TODO(lorenzo): change to agreed upon initial values
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
 		InactivityThreshold:    1000, // 10%
 		LookbackWindow:         30,   // 30 blocks
-		PastPerformanceWeight:  1000, // 10% // TODO(lorenzo) this has to be set so that if you do 100% offline in epoch x and 0% offline in epoch y, you still do not get slashed in epoch y
+		PastPerformanceWeight:  1000, // 10%
 		InitialJailingPeriod:   300,  // 300 blocks
-		InitialProbationPeriod: 300,  // 300 blocks // TODO(lorenzo) it is easier to express this in epochs
+		InitialProbationPeriod: 24,   // 24 epochs
 		InitialSlashingRate:    1000, // 10%
 	}
 

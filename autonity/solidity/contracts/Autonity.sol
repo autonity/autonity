@@ -150,7 +150,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 unbondingPeriod;
         uint256 initialInflationReserve;
         uint256 proposerRewardRate; // fraction of epoch fees allocated for proposer rewarding based on activity proof
-        address payable withheldRewardsPool; //TODO(lorenzo) determine what address this is going to be. For now set to treasury.
+        address payable withheldRewardsPool; // set to the autonity global treasury at genesis, but can be changed
         address payable treasuryAccount;
     }
 
@@ -572,6 +572,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function setUnbondingPeriod(uint256 _period) public virtual onlyOperator {
         config.policy.unbondingPeriod = _period;
+    }
+
+    function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
+        require(_proposerRewardRate <= PROPOSER_REWARD_RATE_PRECISION,"Cannot exceed 100%");
+        config.policy.proposerRewardRate = _proposerRewardRate;
+    }
+
+    function setWithheldRewardsPool(address payable pool) public virtual onlyOperator {
+        config.policy.withheldRewardsPool = pool;
     }
 
     /*
@@ -1177,16 +1186,16 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         }
 
         // proposer fees redistribution based on effort put into activity proofs
-        uint256 committeeFactor = (committee.length*COMMITTEE_FRACTION_PRECISION)/config.protocol.committeeSize;
-        // TODO(lorenzo) not sure if operation order is the best (balance between precision loss and overflow)
-            // write tests
-            // also add case if rewards = 0 ? like for the treasury
-        uint256 atnProposerRewards = (_atn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
-        uint256 ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
-        _transfer(address(this), address(config.contracts.omissionAccountabilityContract), ntnProposerRewards);
-        config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: atnProposerRewards}(ntnProposerRewards);
-        _atn -= atnProposerRewards;
-        _ntn -= ntnProposerRewards;
+        // if the total effort is 0, just redistribute the proposer rewards based on stake
+        if(config.contracts.omissionAccountabilityContract.getTotalEffort() > 0){
+            uint256 committeeFactor = (committee.length*COMMITTEE_FRACTION_PRECISION)/config.protocol.committeeSize;
+            uint256 atnProposerRewards = (_atn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
+            uint256 ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
+            _transfer(address(this), address(config.contracts.omissionAccountabilityContract), ntnProposerRewards);
+            config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: atnProposerRewards}(ntnProposerRewards);
+            _atn -= atnProposerRewards;
+            _ntn -= ntnProposerRewards;
+        }
 
         uint256 omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
 
@@ -1224,8 +1233,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 // the distribution account for the PAS ratio post-slashing.
                 uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;
                 if (_atnSelfReward > 0) {
-                    // todo: handle failure scenario here although not critical.
-                    _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
+                    (bool ok,) = _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
+                    // if transfer doesn't go through (sneaky contract), just keep the amount at the autonity contract for future redistribution
+                    if(!ok) {
+                        atnTotalRedistributed -= _atnSelfReward;
+                    }
                 }
                 uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
                 if (_ntnSelfReward > 0) {
@@ -1247,7 +1259,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // send withheld funds to the appropriate pool
         if (atnTotalWithheld > 0) {
             // Using "call" to let the treasury contract do any kind of computation on receive.
-            // TODO(lorenzo) deal with call failure?
             config.policy.withheldRewardsPool.call{value: atnTotalWithheld}("");
             atnTotalRedistributed -= atnTotalWithheld;
         }

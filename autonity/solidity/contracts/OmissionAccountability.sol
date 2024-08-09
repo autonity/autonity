@@ -55,7 +55,8 @@ contract OmissionAccountability is IOmissionAccountability {
         newLookbackWindow = config.lookbackWindow;
     }
 
-    //TODO(lorenzo): update comments and interface. Restore at symbol in front of notice and param
+    //TODO(lorenzo): update comments and interface. Restore at symbol in front of notice and param.
+    // add comments also to the other funcs
     // shouldn't be called with block.number < delta
     /**
     * notice called by the Autonity Contract at block finalization, it receives activity report.
@@ -288,16 +289,18 @@ contract OmissionAccountability is IOmissionAccountability {
     function distributeProposerRewards(uint256 _ntnReward) external payable virtual onlyAutonity {
         uint256 atnReward = msg.value;
 
-        // TODO(lorenzo) what if totaleffort is zero, where do we send the money? add explicit check about it to shortcircuit the method
-
         for(uint256 i=0; i < committee.length; i++) {
            if(proposerEffort[committee[i]] > 0){
-               // TODO(lorenzo) is it possible that numerator is always too small and therefore rewards = 0 all the time?
-                    // write a test for it
                uint256 atnProposerReward = (proposerEffort[committee[i]] * atnReward) / totalEffort;
                uint256 ntnProposerReward = (proposerEffort[committee[i]] * _ntnReward) / totalEffort;
-               // TODO(lorenzo): handle failure
-               treasuries[i].call{value: atnProposerReward, gas: 2300}("");
+
+               // if for some reasons, funds can't be transferred to the treasury (sneaky contract)
+               (bool ok, ) = treasuries[i].call{value: atnProposerReward, gas: 2300}("");
+               // well, too bad, it goes to the autonity global treasury.
+               if(!ok) {
+                   autonity.getTreasuryAccount().call{value:atnProposerReward}("");
+               }
+
                autonity.transfer(treasuries[i],ntnProposerReward);
 
                // reset after usage
@@ -318,6 +321,10 @@ contract OmissionAccountability is IOmissionAccountability {
 
     function getLookbackWindow() external view virtual returns (uint256,bool) {
         return (config.lookbackWindow, config.lookbackWindow != newLookbackWindow);
+    }
+
+    function getTotalEffort() external view virtual returns (uint256) {
+        return totalEffort;
     }
 
     function setCommittee(address[] memory _nodeAddresses, address[] memory _treasuries) external virtual onlyAutonity{

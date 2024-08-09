@@ -156,22 +156,11 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 		return err
 	}
 
-	// TODO(lorenzo) issues when fetching consensus view?
+	// TODO(lorenzo) can this cause issues when verifying a header chain?
+	// we might not be able to fetch the consensus view. This needs to be reviewed after Epoch header gets merged
 	if _, _, _, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound); err != nil {
 		return err
 	}
-
-	/* TODO(lorenzo) maybe we can check that:
-	*  1. if we are at the first delta blocks of the epoch, the activity proof should be empty
-	*  2. if we are after the first delta blocks and the activity proof is not empty:
-	* 		a. the activityProof Signers information should pass the Validate(len(committee)) check
-	* 		b. the activityProof Signature should be a valid signature
-	*		c. the activity proof carries at least quorum voting power (if not it should be empty)
-	*
-	* However if one of these conditions is violated, theoretically it should not be possible to reach Quorum on the block, and therefore produce a valid QuorumCertificate. Therefore is someone is feeding us tampered headers, it should also manage to forge a different valid quorum certificate.
-	*
-	* Write tests for this scenario.
-	 */
 
 	return sb.verifyQuorumCertificate(header, parent)
 }

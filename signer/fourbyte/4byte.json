@@ -139,5 +139,8 @@
   "9dfd1b8e": "bondingApplied(uint256,address,uint256,bool,bool)",
   "d18736ab": "rewardsDistributed(address[])",
   "a8920241": "unbondingApplied(uint256,address,bool)",
-  "3c54c290": "unbondingReleased(uint256,uint256,bool)"
+  "3c54c290": "unbondingReleased(uint256,uint256,bool)",
+  "416f86a2": "setProposerRewardRate(uint256)",
+  "39f9eb1f": "setWithheldRewardsPool(address)",
+  "53b1821b": "getTotalEffort()"
 }

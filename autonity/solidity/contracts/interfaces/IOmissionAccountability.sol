@@ -18,6 +18,7 @@ interface IOmissionAccountability {
     function getScaleFactor() external pure returns (uint256);
     function distributeProposerRewards(uint256 _ntnReward) external payable;
     function getLookbackWindow() external view virtual returns (uint256,bool);
+    function getTotalEffort() external view virtual returns (uint256);
 
 
     /**
