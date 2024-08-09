@@ -48,6 +48,8 @@ var (
 
 func (ethash *Ethash) SetResultChan(_ chan<- *types.Block) {}
 
+func (ethash *Ethash) SetProposalVerifiedEventChan(_ chan<- common.Hash) {}
+
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
 func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {

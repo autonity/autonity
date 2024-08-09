@@ -158,6 +158,7 @@ const (
 	commitInterruptNone int32 = iota
 	commitInterruptNewHead
 	commitInterruptResubmit
+	commitInterruptVerifiedProposal
 )
 
 // newWorkReq represents a request for new sealing work submitting with relative interrupt notifier.
@@ -202,14 +203,15 @@ type worker struct {
 	chainSideSub event.Subscription
 
 	// Channels
-	newWorkCh          chan *newWorkReq
-	getWorkCh          chan *getWorkReq
-	taskCh             chan *task
-	resultCh           chan *types.Block
-	startCh            chan struct{}
-	exitCh             chan struct{}
-	resubmitIntervalCh chan time.Duration
-	resubmitAdjustCh   chan *intervalAdjust
+	newWorkCh               chan *newWorkReq
+	getWorkCh               chan *getWorkReq
+	proposalVerifiedEventCh chan common.Hash
+	taskCh                  chan *task
+	resultCh                chan *types.Block
+	startCh                 chan struct{}
+	exitCh                  chan struct{}
+	resubmitIntervalCh      chan time.Duration
+	resubmitAdjustCh        chan *intervalAdjust
 
 	wg sync.WaitGroup
 
@@ -264,16 +266,17 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		remoteUncles: make(map[common.Hash]*types.Block),
 		pendingTasks: make(map[common.Hash]*task),
 		//txsCh:              make(chan core.NewTxsEvent, txChanSize),
-		chainHeadCh:        make(chan core.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:        make(chan core.ChainSideEvent, chainSideChanSize),
-		newWorkCh:          make(chan *newWorkReq),
-		getWorkCh:          make(chan *getWorkReq),
-		taskCh:             make(chan *task),
-		resultCh:           make(chan *types.Block, resultQueueSize),
-		exitCh:             make(chan struct{}),
-		startCh:            make(chan struct{}, 1),
-		resubmitIntervalCh: make(chan time.Duration),
-		resubmitAdjustCh:   make(chan *intervalAdjust, resubmitAdjustChanSize),
+		chainHeadCh:             make(chan core.ChainHeadEvent, chainHeadChanSize),
+		chainSideCh:             make(chan core.ChainSideEvent, chainSideChanSize),
+		newWorkCh:               make(chan *newWorkReq),
+		getWorkCh:               make(chan *getWorkReq),
+		taskCh:                  make(chan *task),
+		resultCh:                make(chan *types.Block, resultQueueSize),
+		proposalVerifiedEventCh: make(chan common.Hash, chainHeadChanSize),
+		exitCh:                  make(chan struct{}),
+		startCh:                 make(chan struct{}, 1),
+		resubmitIntervalCh:      make(chan time.Duration),
+		resubmitAdjustCh:        make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
 	// Subscribe NewTxsEvent for tx pool
 	//worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
@@ -281,6 +284,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 	worker.engine.SetResultChan(worker.resultCh)
+	worker.engine.SetProposalVerifiedEventChan(worker.proposalVerifiedEventCh)
 
 	// Sanitize recommit interval if the user-specified one is too short.
 	recommit := worker.config.Recommit
@@ -452,6 +456,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		}
 		w.pendingMu.Unlock()
 	}
+	var lastBlock common.Hash
 
 	for {
 		select {
@@ -459,14 +464,32 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
 			commit(false, commitInterruptNewHead)
+			lastBlock = w.chain.CurrentBlock().Hash()
 
 		case head := <-w.chainHeadCh:
 			clearPending(head.Block.NumberU64())
+			if head.Block.Hash() == lastBlock {
+				log.Debug("Chain head event - sealed block already prepared")
+				continue
+			}
+			timestamp = time.Now().Unix()
+			if h, ok := w.engine.(consensus.Handler); ok {
+				h.NewChainHead()
+			}
+			lastBlock = head.Block.Hash()
+			commit(false, commitInterruptNewHead)
+
+		case blockHash := <-w.proposalVerifiedEventCh:
+			if blockHash == lastBlock {
+				log.Debug("Proposal verified event - sealed block already prepared")
+				continue
+			}
 			timestamp = time.Now().Unix()
 			if h, ok := w.engine.(consensus.Handler); ok {
 				h.NewChainHead()
 			}
 			commit(false, commitInterruptNewHead)
+			lastBlock = blockHash
 
 		case <-timer.C:
 			// If sealing is running resubmit a new work cycle periodically to pull in
@@ -1210,19 +1233,6 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		}
 
 		finalizeStart := time.Now()
-		// Create a local environment copy, avoid the data race with snapshot state.
-		// https://github.com/ethereum/go-ethereum/issues/24299
-		//env := env.copy() - this is the fix in upstream, our approach below:
-		// Instead of copying environment to avoid race between result channel and snapshot state,
-		// we update snapshot before even pushing task to task channel
-		var (
-			snapshotBlock    *types.Block
-			snapshotReceipts []*types.Receipt
-			snapshotState    *state.StateDB
-		)
-		if update {
-			snapshotBlock, snapshotReceipts, snapshotState = w.prepareSnapshot(env)
-		}
 		block, err := w.engine.FinalizeAndAssemble(w.chain, env.header, env.state, env.txs, env.unclelist(), &env.receipts)
 		if err != nil {
 			return err
@@ -1231,10 +1241,6 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 			now := time.Now()
 			FinalizeWorkTimer.Update(now.Sub(finalizeStart))
 			FinalizeWorkBg.Add(now.Sub(finalizeStart).Nanoseconds())
-		}
-		// If we're post merge, just ignore
-		if update {
-			w.setSnapshot(snapshotBlock, snapshotReceipts, snapshotState)
 		}
 		select {
 		case w.taskCh <- &task{receipts: env.receipts, state: env.state, block: block, createdAt: time.Now()}:
@@ -1250,6 +1256,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 			w.eth.Logger().Info("Worker has exited")
 		}
 	}
+
 	if update {
 		w.updateSnapshot(env)
 	}

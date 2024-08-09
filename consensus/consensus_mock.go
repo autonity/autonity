@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 //
+
 // Package consensus is a generated GoMock package.
 package consensus
 
@@ -432,6 +433,18 @@ func (mr *MockEngineMockRecorder) SealHash(header any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockEngine)(nil).SealHash), header)
 }
 
+// SetProposalVerifiedEventChan mocks base method.
+func (m *MockEngine) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- common.Hash) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
+}
+
+// SetProposalVerifiedEventChan indicates an expected call of SetProposalVerifiedEventChan.
+func (mr *MockEngineMockRecorder) SetProposalVerifiedEventChan(proposalVerifiedEventCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposalVerifiedEventChan", reflect.TypeOf((*MockEngine)(nil).SetProposalVerifiedEventChan), proposalVerifiedEventCh)
+}
+
 // SetResultChan mocks base method.
 func (m *MockEngine) SetResultChan(results chan<- *types.Block) {
 	m.ctrl.T.Helper()
@@ -730,6 +743,18 @@ func (mr *MockPoWMockRecorder) SealHash(header any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockPoW)(nil).SealHash), header)
 }
 
+// SetProposalVerifiedEventChan mocks base method.
+func (m *MockPoW) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- common.Hash) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
+}
+
+// SetProposalVerifiedEventChan indicates an expected call of SetProposalVerifiedEventChan.
+func (mr *MockPoWMockRecorder) SetProposalVerifiedEventChan(proposalVerifiedEventCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposalVerifiedEventChan", reflect.TypeOf((*MockPoW)(nil).SetProposalVerifiedEventChan), proposalVerifiedEventCh)
+}
+
 // SetResultChan mocks base method.
 func (m *MockPoW) SetResultChan(results chan<- *types.Block) {
 	m.ctrl.T.Helper()
@@ -936,6 +961,18 @@ func (m *MockBFT) SealHash(header *types.Header) common.Hash {
 func (mr *MockBFTMockRecorder) SealHash(header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockBFT)(nil).SealHash), header)
+}
+
+// SetProposalVerifiedEventChan mocks base method.
+func (m *MockBFT) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- common.Hash) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
+}
+
+// SetProposalVerifiedEventChan indicates an expected call of SetProposalVerifiedEventChan.
+func (mr *MockBFTMockRecorder) SetProposalVerifiedEventChan(proposalVerifiedEventCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposalVerifiedEventChan", reflect.TypeOf((*MockBFT)(nil).SetProposalVerifiedEventChan), proposalVerifiedEventCh)
 }
 
 // SetResultChan mocks base method.
