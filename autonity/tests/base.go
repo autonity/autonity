@@ -208,7 +208,7 @@ func (r *runner) generateNewCommittee() {
 }
 
 func (r *runner) waitSomeBlock(endTime int64) int64 { //nolint
-	// bcause we have 1 block/s
+	// because we have 1 block/s
 	r.waitNBlocks(int(endTime) - int(r.evm.Context.Time.Int64()))
 	return r.evm.Context.Time.Int64()
 }
@@ -228,7 +228,7 @@ func (r *runner) sendAUT(sender, recipient common.Address, value *big.Int) { //n
 	r.evm.StateDB.AddBalance(recipient, value)
 }
 
-func initalizeEVM() (*vm.EVM, error) {
+func initializeEVM() (*vm.EVM, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
 	stateDB, err := state.New(common.Hash{}, db, nil)
@@ -268,7 +268,7 @@ func copyConfig(original *params.AutonityContractGenesis) *params.AutonityContra
 }
 
 func setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *params.AutonityContractGenesis) *runner {
-	evm, err := initalizeEVM()
+	evm, err := initializeEVM()
 	require.NoError(t, err)
 	r := &runner{t: t, evm: evm}
 
@@ -471,7 +471,7 @@ func setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
 		treasuries = append(treasuries, val.Treasury)
 	}
-	_, _, r.omissionAccountability, err = r.deployOmissionAccountability(nil, r.autonity.address, nodeAddresses, treasuries, OmissionAccountabilityConfig{
+	_, _, r.omissionAccountability, err = r.deployOmissionAccountability(nil, r.autonity.address, autonityConfig.Protocol.OperatorAccount, nodeAddresses, treasuries, OmissionAccountabilityConfig{
 		InactivityThreshold:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InactivityThreshold)),
 		LookbackWindow:         big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.LookbackWindow)),
 		PastPerformanceWeight:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.PastPerformanceWeight)),
