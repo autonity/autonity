@@ -26,18 +26,31 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	// thus we load tendermint state at here before the engine start.
 	c.roundsState = newTendermintState(c.logger, c.db, c.backend.BlockChain())
 	c.protocolContracts = contract
-	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
-		c.protocolContracts,
-		c.backend.BlockChain())
-	c.setCommitteeSet(committeeSet)
-	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
+	// construct committee for consensus engine with chain head by default.
+	latestView := c.backend.BlockChain().CurrentBlock()
+	committeeSet := committee.NewWeightedRandomSamplingCommittee(latestView, c.protocolContracts, c.backend.BlockChain())
+	c.setCommitteeSet(committeeSet)
+
+	ctx, c.cancel = context.WithCancel(ctx)
 	// If the state in WAL is stale, then we start round 0 for new heights.
 	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
 		c.StartRound(ctx, 0)
 	} else {
-		c.startWithRecoveredState(ctx)
+		// start round on top of the legacy states
+		if c.Decision() == nil {
+			c.setLastHeader(c.Backend().HeadBlock().Header())
+			c.StartRound(ctx, c.Round()+1)
+		} else {
+			// decision was made, however it wasn't be committed.
+			// reset the view, commit the decision and start new height.
+			latestView = c.Decision()
+			c.setLastHeader(latestView.Header())
+			c.committee.SetLastHeader(latestView.Header())
+			// this is a blocking op, thus we create a routine to do it.
+			go c.startWithRecoveredDecision(ctx)
+		}
 	}
 
 	// Tendermint Finite State Machine discrete event loop
@@ -58,18 +71,9 @@ func (c *Core) Stop() {
 	<-c.stopped
 }
 
-// startWithRecoveredState start the round base on the state recovered from WAL.
-func (c *Core) startWithRecoveredState(ctx context.Context) {
+// startWithRecoveredDecision start the round base on the recovered decision from WAL.
+func (c *Core) startWithRecoveredDecision(ctx context.Context) {
 
-	// if the decision of current height haven't been made, start the new round.
-	if c.Decision() == nil {
-		// set last header since we start round on top of a legacy round.
-		c.setLastHeader(c.Backend().HeadBlock().Header())
-		c.StartRound(ctx, c.Round()+1)
-		return
-	}
-
-	// if the decision of current height was made, try to commit it and start new height from round 0.
 	roundMsgs := c.roundsState.GetOrCreate(c.DecisionRound())
 	proposalHash := c.Decision().Header().Hash()
 	c.logger.Info("Committing a block from WAL", "hash", proposalHash)
@@ -78,13 +82,35 @@ func (c *Core) startWithRecoveredState(ctx context.Context) {
 		panic("Your WAL DB has corrupted, try to re-sync the blockchain")
 	}
 	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
+
+	// On start up, this commit operation will be blocked until the block
+	// fetcher starts to handle the block inserted by the enqueuer.
 	if err := c.backend.Commit(c.Decision(), c.DecisionRound(), quorumCertificate); err != nil {
 		c.logger.Error("failed to commit the decision from WAL", "err", err)
-		// todo: Jason, shall we stop this client from starting?
 	}
-	// todo: Jason, check the commit result and start round 0 for new height!!!!!
-	time.Sleep(1 * time.Second)
+
+	// wait until the block is inserted in the blockchain, then start the new height with round 0.
+	if err := c.waitCommitment(ctx, c.Decision().Number().Uint64(), 5); err != nil {
+		panic("timeout to commit the decision from WAL to blockchain")
+	}
 	c.StartRound(ctx, 0)
+}
+
+func (c *Core) waitCommitment(ctx context.Context, height uint64, numSec int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numSec)*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			c.logger.Info("waiting for decision commitment from WAL", "height", height)
+			if c.Backend().BlockChain().CurrentHeader().Number.Uint64() >= height {
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (c *Core) subscribeEvents() {
