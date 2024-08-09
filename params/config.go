@@ -101,7 +101,7 @@ var (
 			Operator:                common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
 			Treasury:                common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
 			TreasuryFee:             10_000_000_000_000_000,
-			DelegationRate:          1000,
+			DelegationRate:          1000, // 10%
 			ProposerRewardRate:      1000, // 10% TODO(lorenzo) fix correct value
 			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			Validators: []*Validator{

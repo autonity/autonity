@@ -235,7 +235,6 @@ func TestVerifyActivityProof(t *testing.T) {
 	require.NoError(t, err)
 
 	// simulate insufficient voting power by artificially inflating the committee
-	var keys []blst.SecretKey
 	for i := 0; i < 5; i++ {
 		key, err := blst.RandKey()
 		require.NoError(t, err)
@@ -244,7 +243,6 @@ func TestVerifyActivityProof(t *testing.T) {
 			Address:      common.Address{byte(i)},
 			ConsensusKey: key.PublicKey(),
 		})
-		keys = append(keys, key)
 	}
 	signers, effort, err = backend.verifyActivityProof(proof, committee, 1, 0)
 	require.Equal(t, []common.Address{}, signers)
@@ -263,15 +261,11 @@ func TestVerifyActivityProof(t *testing.T) {
 }
 
 func TestComputeAbsents(t *testing.T) {
-	var keys []blst.SecretKey
 	n := 10
 	var committee []types.CommitteeMember
 
 	for i := 0; i < n; i++ {
-		key, err := blst.RandKey()
-		require.NoError(t, err)
 		committee = append(committee, types.CommitteeMember{Address: common.Address{byte(i)}})
-		keys = append(keys, key)
 	}
 
 	var signers []common.Address
