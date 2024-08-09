@@ -156,6 +156,11 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 		return err
 	}
 
+	// TODO(lorenzo) issues when fetching consensus view?
+	if _, _, _, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound); err != nil {
+		return err
+	}
+
 	/* TODO(lorenzo) maybe we can check that:
 	*  1. if we are at the first delta blocks of the epoch, the activity proof should be empty
 	*  2. if we are after the first delta blocks and the activity proof is not empty:

@@ -283,6 +283,14 @@ func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evm
 	if config == nil {
 		config = params.DefaultOmissionAccountabilityConfig
 	}
+
+	// check that pastPerformanceWeight <= inactivityThreshold
+	// This ensures that a validator having 100% inactivity in epoch x and 0% inactivity in epoch x + n
+	// will not be considered inactive again at epoch x + n
+	if config.PastPerformanceWeight > config.InactivityThreshold {
+		return fmt.Errorf("PastPerformanceWeight is too high. PastPerformanceWeight: %d, InactivityThreshold: %d", config.PastPerformanceWeight, config.InactivityThreshold)
+	}
+
 	conf := OmissionAccountabilityConfig{
 		InactivityThreshold:    new(big.Int).SetUint64(config.InactivityThreshold),
 		LookbackWindow:         new(big.Int).SetUint64(config.LookbackWindow),
@@ -300,7 +308,14 @@ func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evm
 		treasuries = append(treasuries, val.Treasury)
 	}
 
-	err := evmContracts.DeployOmissionAccountabilityContract(params.AutonityContractAddress, nodeAddresses, treasuries, conf, generated.OmissionAccountabilityBytecode)
+	err := evmContracts.DeployOmissionAccountabilityContract(
+		params.AutonityContractAddress,
+		genesisConfig.AutonityContractConfig.Operator,
+		nodeAddresses,
+		treasuries,
+		conf,
+		generated.OmissionAccountabilityBytecode,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
 	}

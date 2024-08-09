@@ -579,7 +579,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @param _period Positive integer.
     */
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
-        uint256 lookbackWindow = config.contracts.omissionAccountabilityContract.getLookbackWindow();
+        (uint256 lookbackWindow,bool changeInProgress) = config.contracts.omissionAccountabilityContract.getLookbackWindow();
+        require(changeInProgress == false,"lookback window is changing in omission contract, wait for epoch end");
         require(_period > DELTA+lookbackWindow-1,"epoch period needs to be greater than DELTA+lookbackWindow-1");
 
 
@@ -607,6 +608,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         config.contracts.supplyControlContract.setOperator(_account);
         config.contracts.stabilizationContract.setOperator(_account);
         config.contracts.upgradeManagerContract.setOperator(_account);
+        config.contracts.omissionAccountabilityContract.setOperator(_account);
     }
 
     /*

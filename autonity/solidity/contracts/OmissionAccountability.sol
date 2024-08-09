@@ -5,7 +5,6 @@ contract OmissionAccountability is IOmissionAccountability {
     // Used for fixed-point arithmetic during computation of inactivity score
     uint256 public constant SCALE_FACTOR = 10_000;
 
-    // TODO(lorenzo) code methods to change the config
     struct Config {
         uint256 inactivityThreshold;        // threshold to determine if a validator is an offender at the end of epoch.
         uint256 lookbackWindow;
@@ -13,6 +12,8 @@ contract OmissionAccountability is IOmissionAccountability {
         uint256 initialJailingPeriod;       // initial number of epoch an offender will be jailed for
         uint256 initialProbationPeriod;     // initial number of epoch an offender will be set under probation for
         uint256 initialSlashingRate;
+        // TODO(lorenzo) this parameter should be updated by accountability when it changes there
+        // OR the change is triggered by the autonity contract, which then updates both accountability and omission
         uint256 slashingRatePrecision;      // should be the same one used in Accountability.sol
     }
 
@@ -20,6 +21,9 @@ contract OmissionAccountability is IOmissionAccountability {
     address[] private committee; // node addresses
     address[] private treasuries;
     uint256 private lastEpochBlock;
+
+    uint256 private newLookbackWindow;
+    address private operator;
 
     mapping(uint256 => bool) public faultyProposers;                         // marks height where proposer is faulty
     mapping(uint256 => mapping(address=>bool)) public inactiveValidators;    // inactive validators for each height
@@ -36,14 +40,19 @@ contract OmissionAccountability is IOmissionAccountability {
     mapping(address => uint256) public probationPeriods;
     mapping(address => uint256) public repeatedOffences; // reset as soon as an entire probation period is completed without offences.
 
+    uint256[] public epochCollusionDegree; // maps epoch number to the collusion degree
+
     Config public config;
     Autonity internal autonity; // for access control in setters function.
 
-    constructor(address payable _autonity, address[] memory _nodeAddresses, address[] memory _treasuries, Config memory _config) {
+    constructor(address payable _autonity, address _operator, address[] memory _nodeAddresses, address[] memory _treasuries, Config memory _config) {
         autonity = Autonity(_autonity);
+        operator = operator;
         config = _config;
         committee = _nodeAddresses;
         treasuries = _treasuries;
+
+        newLookbackWindow = config.lookbackWindow;
     }
 
     //TODO(lorenzo): update comments and interface. Restore at symbol in front of notice and param
@@ -62,7 +71,6 @@ contract OmissionAccountability is IOmissionAccountability {
             inactivityCounter[_proposer]++;
         }else{
             faultyProposers[targetHeight] = false;
-            // TODO(lorenzo) what if we overflow? check also other parts of the code
             proposerEffort[_proposer] += _proposerEffort;
             totalEffort += _proposerEffort;
 
@@ -70,7 +78,6 @@ contract OmissionAccountability is IOmissionAccountability {
         }
 
         if(_epochEnded){
-            //TODO(lorenzo) is it fine that collusion degree is not stored in state
             uint256 collusionDegree = _computeInactivityScoresAndCollusionDegree();
             _punishInactiveValidators(collusionDegree);
 
@@ -78,6 +85,12 @@ contract OmissionAccountability is IOmissionAccountability {
             for(uint256 i=0;i<committee.length;i++) {
                 inactivityCounter[committee[i]] = 0;
             }
+
+            // store collusion degree in state. This is useful for slashed validators to verify their slashing rate
+            epochCollusionDegree.push(collusionDegree);
+
+            // update lookback window if changed
+            config.lookbackWindow = newLookbackWindow;
         }
     }
 
@@ -133,7 +146,7 @@ contract OmissionAccountability is IOmissionAccountability {
             uint256 inactivityScore = (inactivityCounter[committee[i]]*SCALE_FACTOR / (epochPeriod-config.lookbackWindow+1-DELTA));
 
             // there is an edge case where inactivityScore can be > 100%. We cap it at 100%.
-            // this can happen for example if we have a network with a single validators, that is never including any activity proof,
+            // this can happen for example if we have a network with a single validator, that is never including any activity proof,
             // thus always being considered a faulty proposer and getting his inactivityCounter increased even when we do not have lookback blocks yet
             if(inactivityScore > SCALE_FACTOR){
                 inactivityScore = SCALE_FACTOR;
@@ -303,8 +316,8 @@ contract OmissionAccountability is IOmissionAccountability {
         return SCALE_FACTOR;
     }
 
-    function getLookbackWindow() external view virtual returns (uint256) {
-        return config.lookbackWindow;
+    function getLookbackWindow() external view virtual returns (uint256,bool) {
+        return (config.lookbackWindow, config.lookbackWindow != newLookbackWindow);
     }
 
     function setCommittee(address[] memory _nodeAddresses, address[] memory _treasuries) external virtual onlyAutonity{
@@ -316,11 +329,57 @@ contract OmissionAccountability is IOmissionAccountability {
         lastEpochBlock = _lastEpochBlock;
     }
 
+    function setOperator(address _operator) external virtual onlyAutonity {
+        operator = _operator;
+    }
+
+    // config update methods
+
+    function setInactivityThreshold(uint256 _inactivityThreshold) external virtual onlyOperator {
+        require(_inactivityThreshold <= SCALE_FACTOR, "cannot exceed scale factor");
+        config.inactivityThreshold = _inactivityThreshold;
+    }
+
+    function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator{
+        require(_pastPerformanceWeight <= SCALE_FACTOR, "cannot exceed scale factor");
+        require(_pastPerformanceWeight <= config.inactivityThreshold, "pastPerformanceWeight cannot be greater than inactivityThreshold");
+        config.pastPerformanceWeight = _pastPerformanceWeight;
+    }
+
+    function setInitialJailingPeriod(uint256 _initialJailingPeriod) external virtual onlyOperator {
+        config.initialJailingPeriod = _initialJailingPeriod;
+    }
+
+    function setInitialProbationPeriod(uint256 _initialProbationPeriod) external virtual onlyOperator {
+        config.initialProbationPeriod = _initialProbationPeriod;
+    }
+
+    function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
+        require(_initialSlashingRate <= SCALE_FACTOR, "cannot exceed scale factor");
+        config.initialSlashingRate = _initialSlashingRate;
+    }
+
+    // will be updated at epoch end
+    function setLookbackWindow(uint256 _lookbackWindow) external virtual onlyOperator {
+        uint256 epochPeriod = autonity.getEpochPeriod();
+        require(epochPeriod > DELTA+_lookbackWindow-1,"epoch period needs to be greater than DELTA+lookbackWindow-1");
+        newLookbackWindow = _lookbackWindow;
+    }
+
     /**
     * @dev Modifier that checks if the caller is the autonity contract.
     */
     modifier onlyAutonity {
         require(msg.sender == address(autonity) , "function restricted to the Autonity Contract");
+        _;
+    }
+
+
+    /**
+    * @dev Modifier that checks if the caller is the operator.
+    */
+    modifier onlyOperator {
+        require(operator == msg.sender, "restricted to operator");
         _;
     }
 }
