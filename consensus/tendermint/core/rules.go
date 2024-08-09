@@ -150,7 +150,7 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 
 	// all good, commit
 	c.logger.Debug("Committing proposal", "height", c.Height(), "round", c.Round(), "proposal round", proposal.R())
-	c.Commit(ctx, proposal.R(), rm)
+	c.committer.Commit(ctx, proposal.R(), rm)
 	return true
 }
 

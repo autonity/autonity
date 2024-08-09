@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -48,6 +47,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		c.prevoter = services.Prevoter(c)
 		c.precommiter = services.Precommiter(c)
 		c.proposer = services.Proposer(c)
+		c.committer = services.Committer(c)
 	}
 	return c
 }
@@ -57,6 +57,7 @@ func (c *Core) SetDefaultHandlers() {
 	c.prevoter = &Prevoter{c}
 	c.precommiter = &Precommiter{c}
 	c.proposer = &Proposer{c}
+	c.committer = &Committer{c}
 }
 
 type Core struct {
@@ -112,12 +113,17 @@ type Core struct {
 	prevoter    interfaces.Prevoter
 	precommiter interfaces.Precommiter
 	proposer    interfaces.Proposer
+	committer   interfaces.Committer
 
 	// these timestamps are used to compute metrics for tendermint
 	newHeight          time.Time
 	newRound           time.Time
 	currBlockTimeStamp time.Time
 	noGossip           bool
+}
+
+func (c *Core) Committer() interfaces.Committer {
+	return c.committer
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -159,40 +165,6 @@ func (c *Core) PrecommitTimeout() *Timeout {
 
 func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
-}
-
-func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundMessages) {
-	c.SetStep(ctx, PrecommitDone)
-	// for metrics
-	start := time.Now()
-	proposal := messages.Proposal()
-	if proposal == nil {
-		// Should never happen really. Let's panic to catch bugs.
-		panic("Core commit called with empty proposal")
-		return
-	}
-	proposalHash := proposal.Block().Header().Hash()
-	c.logger.Debug("Committing a block", "hash", proposalHash)
-
-	precommitWithQuorum := messages.PrecommitFor(proposalHash)
-	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
-
-	// todo: Jason, since commit() checks extra conditions, shall we need to move those condition here before we flush
-	//  the decision? However this movement is quit heavy, since we have consensus conditions and chain context conditions
-	//  to be checked.
-	// record decision in WAL before the submission.
-	c.SetDecision(proposal.Block(), proposal.R())
-
-	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {
-		c.logger.Error("failed to commit a block", "err", err)
-		return
-	}
-
-	if metrics.Enabled {
-		now := time.Now()
-		CommitTimer.Update(now.Sub(start))
-		CommitBg.Add(now.Sub(start).Nanoseconds())
-	}
 }
 
 // Metric collecton of round change and height change.

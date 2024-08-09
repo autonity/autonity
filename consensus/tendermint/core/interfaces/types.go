@@ -6,4 +6,5 @@ type Services struct {
 	Proposer    func(c Core) Proposer
 	Precommiter func(c Core) Precommiter
 	Gossiper    func(b Backend) Gossiper
+	Committer   func(c Core) Committer
 }
