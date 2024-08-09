@@ -38,7 +38,7 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
 		c.StartRound(ctx, 0)
 	} else {
-		// start round on top of the legacy states
+		// start round on top of the recovered tendermint states
 		if c.Decision() == nil {
 			c.setLastHeader(c.Backend().HeadBlock().Header())
 			c.StartRound(ctx, c.Round()+1)
