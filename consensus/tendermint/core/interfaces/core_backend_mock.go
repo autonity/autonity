@@ -481,6 +481,20 @@ func (mr *MockCoreMockRecorder) Precommiter() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Precommiter", reflect.TypeOf((*MockCore)(nil).Precommiter))
 }
 
+// Committer mocks base method.
+func (m *MockCore) Committer() Committer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Committer")
+	ret0, _ := ret[0].(Committer)
+	return ret0
+}
+
+// Committer indicates an expected call of Committer.
+func (mr *MockCoreMockRecorder) Committer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Committer", reflect.TypeOf((*MockCore)(nil).Committer))
+}
+
 // Prevoter mocks base method.
 func (m *MockCore) Prevoter() Prevoter {
 	m.ctrl.T.Helper()

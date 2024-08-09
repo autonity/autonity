@@ -94,6 +94,7 @@ type Core interface {
 	Proposer() Proposer
 	Prevoter() Prevoter
 	Precommiter() Precommiter
+	Committer() Committer
 	Height() *big.Int
 	Round() int64
 	CurrentHeightMessages() []message.Msg

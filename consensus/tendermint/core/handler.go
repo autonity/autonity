@@ -76,7 +76,7 @@ func (c *Core) startWithRecoveredDecision(ctx context.Context) {
 
 	roundMsgs := c.roundsState.GetOrCreate(c.DecisionRound())
 	proposalHash := c.Decision().Header().Hash()
-	c.logger.Info("Committing a block from WAL", "hash", proposalHash)
+	c.logger.Info("Committing a block from WAL", "height", c.Decision().Number().Uint64(), "hash", proposalHash)
 	precommitWithQuorum := roundMsgs.PrecommitFor(proposalHash)
 	if precommitWithQuorum == nil {
 		panic("Your WAL DB has corrupted, try to re-sync the blockchain")
