@@ -168,25 +168,23 @@ func TestHandleMessage(t *testing.T) {
 
 	for _, tc := range cases {
 		logger := log.New("backend", "test", "id", 0)
-		messageMap := message.NewMap()
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 		engine := Core{
 			logger:           logger,
 			address:          currentValidator.Address,
-			round:            tc.round,
-			height:           tc.height,
-			step:             tc.step,
+			roundsState:      newTendermintState(log.New(), nil, nil),
 			futureRound:      make(map[int64][]message.Msg),
 			futurePower:      make(map[int64]*message.AggregatedPower),
-			messages:         messageMap,
-			curRoundMessages: messageMap.GetOrCreate(0),
 			committee:        committeeSet,
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 			backend:          backendMock,
 		}
+		engine.SetHeight(tc.height)
+		engine.SetRound(tc.round)
+		engine.UpdateStep(tc.step)
 		engine.SetDefaultHandlers()
 
 		func() {
@@ -241,25 +239,23 @@ func TestHandleFutureRound(t *testing.T) {
 	currentHeight := big.NewInt(1)
 	currentRound := int64(0)
 	logger := log.New("backend", "test", "id", 0)
-	messageMap := message.NewMap()
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 	engine := Core{
 		logger:           logger,
 		address:          sender1.Address,
-		round:            currentRound,
-		height:           currentHeight,
-		step:             Propose,
+		roundsState:      newTendermintState(log.New(), nil, nil),
 		futureRound:      make(map[int64][]message.Msg),
 		futurePower:      make(map[int64]*message.AggregatedPower),
-		messages:         messageMap,
-		curRoundMessages: messageMap.GetOrCreate(0),
 		committee:        committeeSet,
 		proposeTimeout:   NewTimeout(Propose, logger),
 		prevoteTimeout:   NewTimeout(Prevote, logger),
 		precommitTimeout: NewTimeout(Precommit, logger),
 		backend:          backendMock,
 	}
+	engine.UpdateStep(Propose)
+	engine.SetRound(currentRound)
+	engine.SetHeight(currentHeight)
 	engine.SetDefaultHandlers()
 
 	// handling vote
@@ -291,7 +287,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	c := New(backendMock, nil, common.HexToAddress("0x0123456789"), log.Root(), false)
+	c := New(backendMock, nil, common.HexToAddress("0x0123456789"), log.Root(), false, nil)
 	_, c.cancel = context.WithCancel(context.Background())
 	c.subscribeEvents()
 	c.stopped <- struct{}{}
