@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
 //
+
 // Package accountability is a generated GoMock package.
 package accountability
 

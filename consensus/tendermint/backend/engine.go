@@ -443,6 +443,14 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 	return nil
 }
 
+func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- common.Hash) {
+	sb.proposalVerifiedCh = proposalVerifiedCh
+}
+
+func (sb *Backend) ProposalVerified(hash common.Hash) {
+	sb.proposalVerifiedCh <- hash
+}
+
 func (sb *Backend) SetResultChan(results chan<- *types.Block) {
 	sb.commitCh = results
 }

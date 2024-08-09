@@ -87,6 +87,9 @@ type Backend interface {
 
 	// returns the channel used to pass messages between peer sessions and the aggregator
 	MessageCh() <-chan events.UnverifiedMessageEvent
+
+	// ProposalVerified notifies miner a proposal is verified
+	ProposalVerified(hash common.Hash)
 }
 
 type Core interface {

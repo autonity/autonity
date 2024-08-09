@@ -104,15 +104,16 @@ type Backend struct {
 	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
-	commitCh          chan<- *types.Block
-	messageCh         chan events.UnverifiedMessageEvent // to send events to the aggregator
-	proposedBlockHash common.Hash
-	coreStarting      atomic.Bool
-	coreRunning       atomic.Bool
-	core              interfaces.Core
-	evDispatcher      interfaces.EventDispatcher
-	stopped           chan struct{}
-	wg                sync.WaitGroup
+	proposalVerifiedCh chan<- common.Hash
+	commitCh           chan<- *types.Block
+	messageCh          chan events.UnverifiedMessageEvent // to send events to the aggregator
+	proposedBlockHash  common.Hash
+	coreStarting       atomic.Bool
+	coreRunning        atomic.Bool
+	core               interfaces.Core
+	evDispatcher       interfaces.EventDispatcher
+	stopped            chan struct{}
+	wg                 sync.WaitGroup
 
 	// used to save consensus messages while core is stopped
 	pendingMessages ring.Ring
