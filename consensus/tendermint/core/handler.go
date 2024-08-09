@@ -90,13 +90,13 @@ func (c *Core) startWithRecoveredDecision(ctx context.Context) {
 	}
 
 	// wait until the block is inserted in the blockchain, then start the new height with round 0.
-	if err := c.waitCommitment(ctx, c.Decision().Number().Uint64(), 5); err != nil {
+	if err := c.waitCommitment(c.Decision().Number().Uint64(), 5); err != nil {
 		panic("timeout to commit the decision from WAL to blockchain")
 	}
 	c.StartRound(ctx, 0)
 }
 
-func (c *Core) waitCommitment(ctx context.Context, height uint64, numSec int) error {
+func (c *Core) waitCommitment(height uint64, numSec int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numSec)*time.Second)
 	defer cancel()
 	ticker := time.NewTicker(1 * time.Second)
