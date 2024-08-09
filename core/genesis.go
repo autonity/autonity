@@ -617,6 +617,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		UnbondingPeriod:         120,
 		EpochPeriod:             60,               //seconds
 		DelegationRate:          1200,             // 12%
+		WithholdingThreshold:    0,                // 0%, no tolerance
 		ProposerRewardRate:      1000,             // 10%
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              10000000000,

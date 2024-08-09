@@ -102,6 +102,7 @@ var (
 			Treasury:                common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
 			TreasuryFee:             10_000_000_000_000_000,
 			DelegationRate:          1000, // 10%
+			WithholdingThreshold:    0,    // 0%, no tolerance
 			ProposerRewardRate:      1000, // 10% TODO(lorenzo) fix correct value
 			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			Validators: []*Validator{
@@ -463,6 +464,7 @@ var (
 			TreasuryFee:             10_000_000_000_000_000,
 			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
 			DelegationRate:          1000,
+			WithholdingThreshold:    0,    // 0%, no tolerance
 			ProposerRewardRate:      1000, // 10% TODO(lorenzo) fix correct value
 			Validators: []*Validator{{
 				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
@@ -741,6 +743,7 @@ var (
 		UnbondingPeriod:         120,
 		EpochPeriod:             40,   // needs to be > DELTA+lookback-1
 		DelegationRate:          1200, // 12%
+		WithholdingThreshold:    0,    // 0%, no tolerance
 		ProposerRewardRate:      1000, // 10%
 		Treasury:                common.Address{120},
 		TreasuryFee:             1500000000000000, // 0.15%,

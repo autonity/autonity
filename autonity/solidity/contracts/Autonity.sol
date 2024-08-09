@@ -38,6 +38,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
     uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
+    uint256 public constant WITHHOLDING_THRESHOLD_PRECISION = 10_000;
     uint256 public constant COMMITTEE_FRACTION_PRECISION = 10 ** 18; // TODO(lorenzo) double check if needed
 
     // TODO (tariq): review the values [already tested from stakable-vesting-contract]
@@ -149,6 +150,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 delegationRate;
         uint256 unbondingPeriod;
         uint256 initialInflationReserve;
+        uint256 withholdingThreshold;
         uint256 proposerRewardRate; // fraction of epoch fees allocated for proposer rewarding based on activity proof
         address payable withheldRewardsPool; // set to the autonity global treasury at genesis, but can be changed
         address payable treasuryAccount;
@@ -577,6 +579,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
         require(_proposerRewardRate <= PROPOSER_REWARD_RATE_PRECISION,"Cannot exceed 100%");
         config.policy.proposerRewardRate = _proposerRewardRate;
+    }
+
+    function setWithholdingThreshold(uint256 _withholdingThreshold) public virtual onlyOperator {
+        require(_withholdingThreshold <= WITHHOLDING_THRESHOLD_PRECISION,"Cannot exceed 100%");
+        config.policy.withholdingThreshold = _withholdingThreshold;
     }
 
     function setWithheldRewardsPool(address payable pool) public virtual onlyOperator {
@@ -1218,7 +1225,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 }
                 // rewards withholding based on omission accountability
                 uint256 inactivityScore = config.contracts.omissionAccountabilityContract.getInactivityScore(_val.nodeAddress);
-                if(inactivityScore > 0) {
+                if(inactivityScore > config.policy.withholdingThreshold) {
                     uint256 atnWithheld = _atnReward * inactivityScore / omissionScaleFactor;
                     uint256 ntnWithheld = _ntnReward * inactivityScore / omissionScaleFactor;
 

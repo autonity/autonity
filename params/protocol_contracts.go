@@ -77,6 +77,7 @@ var (
 	* 2. the following equation needs to be respected: pastPerformanceWeight <= InactivityThreshold
 	*    this ensures that a validator with 100% inactivity in epoch x and 0% inactivity in epoch x+n,
 	*    will not be considered inactive again at epoch x+n
+	* 3. lookbackWindow needs to be >= 1
 	 */
 	// TODO(lorenzo): change to agreed upon initial values
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
@@ -123,6 +124,7 @@ type AutonityContractGenesis struct {
 	Treasury                common.Address        `json:"treasury"`
 	TreasuryFee             uint64                `json:"treasuryFee"`
 	DelegationRate          uint64                `json:"delegationRate"`
+	WithholdingThreshold    uint64                `json:"withholdingThreshold"`
 	ProposerRewardRate      uint64                `json:"proposerRewardRate"`
 	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator

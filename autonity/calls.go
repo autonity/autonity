@@ -291,6 +291,10 @@ func DeployOmissionAccountabilityContract(genesisConfig *params.ChainConfig, evm
 		return fmt.Errorf("PastPerformanceWeight is too high. PastPerformanceWeight: %d, InactivityThreshold: %d", config.PastPerformanceWeight, config.InactivityThreshold)
 	}
 
+	if config.LookbackWindow == 0 {
+		return fmt.Errorf("LookbackWindow needs to be >=1")
+	}
+
 	conf := OmissionAccountabilityConfig{
 		InactivityThreshold:    new(big.Int).SetUint64(config.InactivityThreshold),
 		LookbackWindow:         new(big.Int).SetUint64(config.LookbackWindow),
@@ -333,6 +337,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			DelegationRate:          new(big.Int).SetUint64(genesisConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(genesisConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(genesisConfig.InitialInflationReserve),
+			WithholdingThreshold:    new(big.Int).SetUint64(genesisConfig.WithholdingThreshold),
 			ProposerRewardRate:      new(big.Int).SetUint64(genesisConfig.ProposerRewardRate),
 			WithheldRewardsPool:     genesisConfig.Treasury, //TODO(lorenzo) decide if fine
 			TreasuryAccount:         genesisConfig.Treasury,

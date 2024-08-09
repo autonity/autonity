@@ -142,5 +142,7 @@
   "3c54c290": "unbondingReleased(uint256,uint256,bool)",
   "416f86a2": "setProposerRewardRate(uint256)",
   "39f9eb1f": "setWithheldRewardsPool(address)",
-  "53b1821b": "getTotalEffort()"
+  "53b1821b": "getTotalEffort()",
+  "e490389e": "WITHHOLDING_THRESHOLD_PRECISION()",
+  "905d76e9": "setWithholdingThreshold(uint256)"
 }

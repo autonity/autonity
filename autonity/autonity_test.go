@@ -459,6 +459,7 @@ func autonityTestConfig() AutonityConfig {
 			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
+			WithholdingThreshold:    new(big.Int).SetUint64(params.TestAutonityContractConfig.WithholdingThreshold),
 			ProposerRewardRate:      new(big.Int).SetUint64(params.TestAutonityContractConfig.ProposerRewardRate),
 			WithheldRewardsPool:     params.TestAutonityContractConfig.Operator,
 			TreasuryAccount:         params.TestAutonityContractConfig.Operator,

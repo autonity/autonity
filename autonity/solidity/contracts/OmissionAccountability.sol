@@ -106,6 +106,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
         // for each absent of target height, check the lookback window to see if he was online at some point
         // if online even once in the lookback window, consider him online for this block
+        // NOTE: the current block is included in the window, (h - delta - lookback, h - delta]
         for(uint256 i=0; i < _absentees.length; i++) {
             bool confirmedAbsent = true;
             uint256 initialLookBackWindow = config.lookbackWindow;
@@ -368,6 +369,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
     // will be updated at epoch end
     function setLookbackWindow(uint256 _lookbackWindow) external virtual onlyOperator {
+        require(_lookbackWindow >= 1, "lookbackWindow cannot be 0");
         uint256 epochPeriod = autonity.getEpochPeriod();
         require(epochPeriod > DELTA+_lookbackWindow-1,"epoch period needs to be greater than DELTA+lookbackWindow-1");
         newLookbackWindow = _lookbackWindow;

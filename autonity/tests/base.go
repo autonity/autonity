@@ -292,6 +292,7 @@ func setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 			DelegationRate:          new(big.Int).SetUint64(autonityGenesis.DelegationRate),
 			UnbondingPeriod:         new(big.Int).SetUint64(autonityGenesis.UnbondingPeriod),
 			InitialInflationReserve: (*big.Int)(autonityGenesis.InitialInflationReserve),
+			WithholdingThreshold:    new(big.Int).SetUint64(autonityGenesis.WithholdingThreshold),
 			ProposerRewardRate:      new(big.Int).SetUint64(autonityGenesis.ProposerRewardRate),
 			WithheldRewardsPool:     autonityGenesis.Operator,
 			TreasuryAccount:         autonityGenesis.Operator,
