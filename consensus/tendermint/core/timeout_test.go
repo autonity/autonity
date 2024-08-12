@@ -69,25 +69,23 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(1)
 
 		mockBackend := interfaces.NewMockBackend(ctrl)
 		engine := Core{
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
-			round:            1,
-			height:           big.NewInt(2),
+			roundsState:      newTendermintState(log.New(), nil, nil),
 			committee:        committeeSet,
-			step:             Prevote,
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
+		engine.SetHeight(common.Big2)
+		engine.SetRound(1)
+		engine.UpdateStep(Prevote)
+
 		engine.SetDefaultHandlers()
 		timeoutEvent := TimeoutEvent{
 			RoundWhenCalled:  1,
@@ -111,7 +109,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 
 		engine.handleTimeoutPrevote(context.Background(), timeoutEvent)
 
-		if engine.step != Precommit {
+		if engine.Step() != Precommit {
 			t.Fatalf("should be precommit step now")
 		}
 	})
@@ -126,24 +124,22 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		currentValidator, _ := committeeSet.GetByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(1)
 		mockBackend := interfaces.NewMockBackend(ctrl)
 		mockBackend.EXPECT().Post(gomock.Any()).AnyTimes()
 		engine := Core{
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
-			step:             Prevote,
-			round:            1,
-			height:           big.NewInt(2),
+			roundsState:      newTendermintState(log.New(), nil, nil),
 			committee:        committeeSet,
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 		}
+		engine.SetHeight(common.Big2)
+		engine.SetRound(1)
+		engine.UpdateStep(Prevote)
+
 		engine.SetDefaultHandlers()
 		timeoutEvent := TimeoutEvent{
 			RoundWhenCalled:  1,
@@ -153,11 +149,11 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 
 		engine.handleTimeoutPrecommit(context.Background(), timeoutEvent)
 
-		if engine.height.Uint64() != 2 || engine.round != 2 {
+		if engine.Height().Uint64() != 2 || engine.Round() != 2 {
 			t.Fatalf("should be next round")
 		}
 
-		if engine.step != Propose {
+		if engine.Step() != Propose {
 			t.Fatalf("should be propose step")
 		}
 	})
@@ -169,17 +165,16 @@ func TestOnTimeoutPrevote(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockBackend := interfaces.NewMockBackend(ctrl)
-	messages := message.NewMap()
-	curRoundMessages := messages.GetOrCreate(2)
+
 	engine := Core{
-		backend:          mockBackend,
-		logger:           log.New("backend", "test", "id", 0),
-		round:            2,
-		height:           big.NewInt(4),
-		curRoundMessages: curRoundMessages,
-		messages:         messages,
-		step:             Prevote,
+		backend:     mockBackend,
+		logger:      log.New("backend", "test", "id", 0),
+		roundsState: newTendermintState(log.New(), nil, nil),
 	}
+	engine.SetHeight(common.Big4)
+	engine.SetRound(2)
+	engine.UpdateStep(Prevote)
+
 	engine.SetDefaultHandlers()
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)
@@ -201,17 +196,15 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockBackend := interfaces.NewMockBackend(ctrl)
-	messages := message.NewMap()
-	curRoundMessages := messages.GetOrCreate(2)
 	engine := Core{
-		backend:          mockBackend,
-		logger:           log.New("backend", "test", "id", 0),
-		round:            2,
-		height:           big.NewInt(4),
-		step:             Precommit,
-		curRoundMessages: curRoundMessages,
-		messages:         messages,
+		backend:     mockBackend,
+		logger:      log.New("backend", "test", "id", 0),
+		roundsState: newTendermintState(log.New(), nil, nil),
 	}
+	engine.SetHeight(common.Big4)
+	engine.SetRound(2)
+	engine.UpdateStep(Precommit)
+
 	engine.SetDefaultHandlers()
 	mockBackend.EXPECT().Post(gomock.Any()).Times(1).Do(func(ev interface{}) {
 		timeoutEvent, ok := ev.(TimeoutEvent)
