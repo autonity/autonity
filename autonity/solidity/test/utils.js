@@ -262,7 +262,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   // omission accountability contract
   let nodeAddresses = validators.map((item, index) => (item.nodeAddress));
   let treasuries = validators.map((item, index) => (item.treasury));
-  const omissionAccountability = await OmissionAccountability.new(autonity.address, nodeAddresses, treasuries, omissionAccountabilityConfig, {from:deployer})
+  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, nodeAddresses, treasuries, omissionAccountabilityConfig, {from:deployer})
 
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});
