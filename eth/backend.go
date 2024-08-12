@@ -179,6 +179,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
+	// todo: Jason, input concrete chain DB when WAL is enabled, otherwise input a nil point to disable WAL.
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
 		config.Miner.Noverify, &vmConfig, evMux, msgStore, chainDb)
 
