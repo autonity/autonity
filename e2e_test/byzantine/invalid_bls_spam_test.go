@@ -66,6 +66,7 @@ func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 		network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.Config.AutonityContractConfig.EpochPeriod = 100
 			genesis.Config.OmissionAccountabilityConfig.PastPerformanceWeight = 10000
+			genesis.Config.OmissionAccountabilityConfig.InactivityThreshold = 10000
 		})
 		require.NoError(t, err)
 		defer network.Shutdown(t)

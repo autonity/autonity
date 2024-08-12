@@ -219,8 +219,6 @@ func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeaders(t *testing.T) {
-	// TODO(lorenzo) fix this test once epoch header merged
-	t.Skip("This should be solved by epoch header. Fix it once merged")
 	chain, engine := newBlockChain(1)
 
 	// success case
@@ -285,8 +283,6 @@ OUT1:
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeadersAbortValidation(t *testing.T) {
-	// TODO(lorenzo) fix this test once epoch header merged
-	t.Skip("This should be solved by epoch header. Fix it once merged")
 	chain, engine := newBlockChain(1)
 
 	// success case
@@ -354,8 +350,6 @@ OUT2:
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyErrorHeaders(t *testing.T) {
-	// TODO(lorenzo) fix this test once epoch header merged
-	t.Skip("This should be solved by epoch header. Fix it once merged")
 	chain, engine := newBlockChain(1)
 
 	// success case

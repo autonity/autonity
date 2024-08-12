@@ -156,11 +156,11 @@ func (sb *Backend) verifyHeaderAgainstParent(header, parent *types.Header) error
 		return err
 	}
 
-	// TODO(lorenzo) can this cause issues when verifying a header chain?
-	// we might not be able to fetch the consensus view. This needs to be reviewed after Epoch header gets merged
-	if _, _, _, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound); err != nil {
-		return err
-	}
+	// TODO(lorenzo) this will currently cause syncing issues, because we are not be able to fetch the consensus view.
+	// It needs to be implemented after Epoch header gets merged. With that we should be able to fetch the committee
+	//if _, _, _, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound); err != nil {
+	//	return err
+	//}
 
 	return sb.verifyQuorumCertificate(header, parent)
 }
