@@ -130,6 +130,7 @@ func getMemberIndex(members types.Committee, memberAddr common.Address) int64 {
 }
 
 type WeightedRandomSamplingCommittee struct {
+	lock                   sync.RWMutex
 	previousHeader         *types.Header
 	bc                     *ethcore.BlockChain // Todo : remove this dependency
 	autonityContract       *autonity.ProtocolContracts
@@ -147,10 +148,14 @@ func NewWeightedRandomSamplingCommittee(previousBlock *types.Block, autonityCont
 
 // Return the underlying types.Committee
 func (w *WeightedRandomSamplingCommittee) Committee() types.Committee {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
 	return w.previousHeader.Committee
 }
 
 func (w *WeightedRandomSamplingCommittee) SetLastHeader(header *types.Header) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
 	w.previousHeader = header
 	w.previousBlockStateRoot = header.Root
 }
