@@ -19,13 +19,13 @@ import (
 )
 
 func TestGetLockedValueAndValidValue(t *testing.T) {
-	c := &Core{}
+	c := &Core{roundsState: newTendermintState(log.New(), nil, nil)}
 	b := generateBlock(new(big.Int).SetUint64(1))
-	c.lockedValue = b
-	c.validValue = b
+	c.SetValidRoundAndValue(0, b)
+	c.SetLockedRoundAndValue(0, b)
 
-	assert.Equal(t, c.lockedValue.Hash(), *getHash(c.lockedValue))
-	assert.Equal(t, c.validValue.Hash(), *getHash(c.validValue))
+	assert.Equal(t, c.LockedValue().Hash(), *getHash(c.LockedValue()))
+	assert.Equal(t, c.ValidValue().Hash(), *getHash(c.ValidValue()))
 }
 
 func TestGetProposal(t *testing.T) {
@@ -34,10 +34,10 @@ func TestGetProposal(t *testing.T) {
 
 	nodeAddr := common.BytesToAddress([]byte("node"))
 	backendMock := interfaces.NewMockBackend(ctrl)
-	core := New(backendMock, nil, nodeAddr, log.Root(), false)
-
+	core := New(backendMock, nil, nodeAddr, log.Root(), false, nil)
+	core.roundsState = newTendermintState(log.New(), nil, nil)
 	proposal := randomProposal(t)
-	core.messages.GetOrCreate(proposal.R()).SetProposal(proposal, true)
+	core.roundsState.GetOrCreate(proposal.R()).SetProposal(proposal, true)
 
 	assert.Equal(t, proposal.Block().Hash(), *getProposal(core, proposal.R()))
 }
@@ -49,7 +49,8 @@ func TestGetRoundState(t *testing.T) {
 	defer ctrl.Finish()
 
 	backendMock := interfaces.NewMockBackend(ctrl)
-	c := New(backendMock, nil, sender, log.Root(), false)
+	c := New(backendMock, nil, sender, log.Root(), false, nil)
+	c.roundsState = newTendermintState(log.New(), nil, nil)
 	rounds := []int64{0, 1}
 	height := big.NewInt(int64(100) + 1)
 
@@ -82,8 +83,9 @@ func TestGetCoreState(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
 	backendMock.EXPECT().FutureMsgs().Return(nil)
-	c := New(backendMock, nil, sender, log.Root(), false)
-
+	c := New(backendMock, nil, sender, log.Root(), false, nil)
+	c.roundsState = newTendermintState(log.New(), nil, nil)
+	c.SetHeight(height)
 	var rounds = []int64{0, 1}
 
 	// Prepare 2 rounds of messages
@@ -107,8 +109,7 @@ func TestGetCoreState(t *testing.T) {
 	}
 	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
 	require.NoError(t, err)
-	setCoreState(c, height, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet,
-		prevBlock.Header())
+	setCoreState(c, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet, prevBlock.Header())
 
 	var e = StateRequestEvent{
 		StateChan: make(chan interfaces.CoreState),
@@ -164,24 +165,22 @@ func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Ad
 	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey), testCommitteeMember)
 	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
 	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
-	c.messages.GetOrCreate(r).SetProposal(proposal, true)
-	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
-	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)
+	c.roundsState.GetOrCreate(r).SetProposal(proposal, true)
+	c.roundsState.GetOrCreate(r).AddPrevote(prevoteMsg)
+	c.roundsState.GetOrCreate(r).AddPrecommit(precommitMsg)
 	return proposal, proposal.Signer()
 }
 
-func setCoreState(c *Core, h *big.Int, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee interfaces.Committee, header *types.Header) {
-	c.SetHeight(h)
+func setCoreState(c *Core, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee interfaces.Committee, header *types.Header) {
 	c.SetRound(r)
 	c.SetStep(context.Background(), s)
-	c.lockedValue = lv
-	c.lockedRound = lr
-	c.validValue = vv
-	c.validRound = vr
+	c.SetLockedRoundAndValue(lr, lv)
+	c.SetValidRoundAndValue(vr, vv)
+
 	c.setCommitteeSet(committee)
 	c.setLastHeader(header)
-	c.sentProposal = true
-	c.sentPrevote = true
-	c.sentPrecommit = true
-	c.setValidRoundAndValue = true
+	c.SetSentProposal()
+	c.SetSentPrevote()
+	c.SetSentPrecommit()
+	c.ValidRoundAndValueSet()
 }
