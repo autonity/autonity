@@ -140,8 +140,6 @@ func (c *Committee) Equal(other *Committee) bool {
 }
 
 func (c *Committee) MemberByIndex(index int) *CommitteeMember {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
 	if index >= len(c.Members) || index < 0 {
 		return nil
 	}
