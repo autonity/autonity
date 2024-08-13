@@ -152,7 +152,12 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if dec.BaseFee != nil {
 		h.BaseFee = (*big.Int)(dec.BaseFee)
 	}
+
+	if dec.ProposerSeal == nil {
+		return errors.New("missing required field 'proposerSeal' for Header")
+	}
 	h.ProposerSeal = *dec.ProposerSeal
+
 	if dec.Round == nil {
 		return errors.New("missing required field 'round' for Header")
 	}
