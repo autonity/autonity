@@ -371,11 +371,6 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 	types.WriteEpoch(head, epoch)
 
-	err = head.EnrichEpochInfo()
-	if err != nil {
-		return nil, err
-	}
-
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
