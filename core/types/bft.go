@@ -113,5 +113,7 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 }
 
 func WriteEpoch(h *Header, epoch *Epoch) {
-	h.Epoch = *epoch
+	if h != nil && epoch != nil {
+		h.Epoch = *epoch
+	}
 }

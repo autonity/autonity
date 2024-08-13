@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -43,7 +44,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	// the latest epoch head should be in the most case.
 	committee, parentEHead, curEHead, nextEHead, err := bc.LatestEpoch()
 	if err != nil {
-		panic("missing epoch head, chain DB might corrupted.")
+		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
 	}
 
 	if height > curEHead && height <= nextEHead {
@@ -60,7 +61,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 		for i := 0; i < backwardEpochSearchLimit; i++ {
 			lastEpoch := bc.GetHeaderByNumber(parentEHead)
 			if lastEpoch == nil {
-				bc.log.Warn("cannot find parent epoch header, trying to get committee from state DB", "epoch block", parentEHead)
+				bc.log.Warn("cannot find parent epoch header, trying to get committee from state DB", "epoch block", parentEHead, "height", height)
 				break
 			}
 
