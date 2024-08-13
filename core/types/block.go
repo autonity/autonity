@@ -186,6 +186,10 @@ func (h *Header) Hash() common.Hash {
 	return rlpHash(h.original())
 }
 
+func (h *Header) IsGenesis() bool {
+	return h.Number.Uint64() == 0
+}
+
 func (h *Header) IsEpochHeader() bool {
 	return h.Epoch.IsEpochHeader()
 }
