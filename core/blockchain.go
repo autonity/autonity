@@ -2184,7 +2184,7 @@ func (bc *BlockChain) SetChainHead(newBlock *types.Block) error {
 	}
 
 	if newBlock.IsEpochHead() {
-		bc.epochHeadFeed.Send(newBlock.Header())
+		bc.epochHeadFeed.Send(EpochHeadEvent{newBlock.Header()})
 		bc.log.Info("Set the epoch head", "number", newBlock.Number(), "hash", newBlock.Hash())
 	}
 
