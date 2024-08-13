@@ -374,6 +374,11 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
 		return nil
 	}
 	header := &types.Header{Number: new(big.Int).SetUint64(number)}
+	var epoch types.Epoch
+	epoch.Committee = cr.committee.Copy()
+	epoch.ParentEpochBlock = common.Big0
+	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
+	types.WriteEpoch(header, &epoch)
 	return header
 }
 func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
