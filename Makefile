@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast generate
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast generate
 
 BINDIR = ./build/bin
 GO ?= latest
@@ -151,7 +151,7 @@ test-race:
 
 test-contracts: test-contracts-asm test-contracts-truffle
 
-test-contracts-fast: test-contracts-asm
+test-contracts-fast: test-contracts-asm test-contracts-truffle-fast
 
 # prerequisites for testing contracts
 test-contracts-pre:
@@ -227,6 +227,16 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 	@echo "killing test autonity network and cleaning chaindata"
 	@-pkill autonity
 	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data
+
+# This runs the contract tests using truffle against a Ganache instance
+test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
+	@echo "killing ganache"
+	@-pkill -f "ganache"
 
 docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
