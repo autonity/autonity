@@ -170,5 +170,6 @@
   "a9fd1a8f": "getEpochInfo()",
   "241ed650": "newEpochPeriod()",
   "25ce1bb9": "getNextEpochBlock()",
-  "ddb073ce": "getEpochInfo1()"
+  "ddb073ce": "getEpochInfo1()",
+  "628ea573": "curEpochID()"
 }

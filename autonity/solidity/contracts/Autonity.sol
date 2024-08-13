@@ -320,8 +320,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         computeCommittee();
         lastEpochTime = block.timestamp;
         // init epoch info for genesis deployment of contract.
+        blockEpochMap[block.number] = epochID; // genesis block is mapped to the 1st epoch with epoch #0
         parentEpochBlock = 0;
         nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
+        // add epochID => Epoch info mapping for genesis block.
         _addEpochInfo(epochID, EpochInfo(committee, parentEpochBlock, block.number, nextEpochBlock));
     }
 
@@ -1041,17 +1043,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
         require(_height <= block.number, "cannot get committee for a future height");
-        if (_height == 0) {
-            return epochInfos[0].committee;
-        }
 
-        uint256 eID = blockEpochMap[_height];
-        // if current epoch haven't been ended, then return current committee.
-        CommitteeMember[] memory members = epochInfos[eID].committee;
-        if (members.length == 0) {
+        uint256 blockEpochID = blockEpochMap[_height];
+        // if the input height belong to current epoch, then return current committee.
+        CommitteeMember[] memory members = epochInfos[blockEpochID].committee;
+        if (blockEpochID == epochID) {
             return committee;
         }
-        // return finalized epoch's committee
+        // otherwise returns finalized history epoch's committee
         return members;
     }
 
