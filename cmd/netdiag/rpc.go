@@ -522,10 +522,15 @@ type ResultLatencyMatrix [][]time.Duration
 func (r *ResultLatencyMatrix) String() string {
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "Latency matrix global view:\n")
+	valid := true
+	symmetric := true
 	for id, latencyArray := range *r {
 		fmt.Fprintf(&builder, "Latency from peer %d is following:\n", id)
 		for peerID, l := range latencyArray {
 			if peerID == id {
+				if l != 0 {
+					valid = false
+				}
 				continue
 			}
 			if l == 0 {
@@ -533,13 +538,26 @@ func (r *ResultLatencyMatrix) String() string {
 			} else {
 				fmt.Fprintf(&builder, "peer %d : %d\n", peerID, l)
 			}
+
+			if (*r)[id][peerID] != (*r)[peerID][id] {
+				symmetric = false
+			}
 		}
 	}
+
+	fmt.Fprintf(&builder, "Is valid? %v\n", valid)
+	fmt.Fprintf(&builder, "Is symmetric? %v\n", symmetric)
+
 	return builder.String()
 }
 
 func (p *P2POp) LatencyMatrix(_ *ArgEmpty, reply *ResultLatencyMatrix) error {
-	// TODO
+	result := make([][]time.Duration, len(p.engine.enodes))
+	for i, latencyArray := range p.engine.state.LatencyMatrix {
+		result[i] = make([]time.Duration, len(p.engine.enodes))
+		copy(latencyArray, result[i])
+	}
+	*reply = (ResultLatencyMatrix)(result)
 	return nil
 }
 

@@ -19,7 +19,7 @@ type Client struct {
 	scp *scp.Client
 }
 
-func New(ip string) *Client {
+func New(ip, user string) *Client {
 	key, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
 	if err != nil {
 		log.Error("Failed to read ssh file, err:", err)
@@ -32,10 +32,9 @@ func New(ip string) *Client {
 	}
 
 	//userName := os.Getenv("USER")
-	userName := "piyush"
-	log.Info("Connecting to", " host: ", ip, " user: ", userName)
+	log.Info("Connecting to", " host: ", ip, " user: ", user)
 	config := &ssh.ClientConfig{
-		User: userName,
+		User: user,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
@@ -58,12 +57,12 @@ func New(ip string) *Client {
 	return sshService
 }
 
-func Manager(ip string) *Client {
+func Manager(ip, user string) *Client {
 	result, ok := sshPeers.Load(ip)
 	if ok {
 		return result.(*Client)
 	}
-	sshService := New(ip)
+	sshService := New(ip, user)
 	if sshService == nil {
 		return nil
 	}

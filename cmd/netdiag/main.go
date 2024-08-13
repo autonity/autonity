@@ -164,7 +164,6 @@ var (
 )
 
 func init() {
-	fmt.Printf("app initiated\n")
 	app.Name = "NetDiag"
 	app.Usage = "Autonity Network Diagnosis Utility"
 	app.Flags = []cli.Flag{}

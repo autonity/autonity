@@ -225,7 +225,7 @@ func deployVM(ctx context.Context, client *compute.InstancesClient, id int, proj
 }
 
 func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy bool) error {
-	client := ssh.Manager(vm.ip)
+	client := ssh.Manager(vm.ip, vm.user)
 	if client == nil {
 		log.Error("ssh client not found", "ip", vm.ip)
 		return nil
@@ -271,7 +271,7 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 }
 
 func (vm *vm) startRunner(configFileName, networkMode string, optFlags string) error {
-	client := ssh.Manager(vm.ip)
+	client := ssh.Manager(vm.ip, vm.user)
 	if client == nil {
 		log.Error("ssh client not found", "ip", vm.ip)
 		return nil
@@ -302,7 +302,7 @@ func (vm *vm) startRunner(configFileName, networkMode string, optFlags string) e
 }
 
 func (vm *vm) killRunner(configFileName string) error {
-	client := ssh.Manager(vm.ip)
+	client := ssh.Manager(vm.ip, vm.user)
 	if client == nil {
 		log.Error("ssh client not found", "ip", vm.ip)
 		return nil
@@ -319,7 +319,7 @@ func (vm *vm) killRunner(configFileName string) error {
 
 func (vm *vm) downloadLogs() {
 	log.Info("Downloading the log file...", "id", vm.id)
-	client := ssh.Manager(vm.ip)
+	client := ssh.Manager(vm.ip, vm.user)
 	if client == nil {
 		log.Error("ssh client not found", "ip", vm.ip)
 		return
