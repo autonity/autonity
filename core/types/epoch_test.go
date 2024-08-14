@@ -193,14 +193,14 @@ func TestCommittee_Enrich(t *testing.T) {
 }
 
 func TestCommittee_TotalVotingPower(t *testing.T) {
-	committee := &Committee{
+	c := &Committee{
 		Members: []CommitteeMember{
 			{VotingPower: big.NewInt(10)},
 			{VotingPower: big.NewInt(20)},
 		},
 	}
 
-	total := committee.TotalVotingPower()
+	total := c.TotalVotingPower()
 	expected := big.NewInt(30)
 
 	if total.Cmp(expected) != 0 {
@@ -209,16 +209,16 @@ func TestCommittee_TotalVotingPower(t *testing.T) {
 }
 
 func TestCommittee_Proposer(t *testing.T) {
-	committee := &Committee{
+	c := &Committee{
 		Members: []CommitteeMember{
 			{Address: common.Address{1}, VotingPower: big.NewInt(10)},
 			{Address: common.Address{2}, VotingPower: big.NewInt(20)},
 		},
 	}
 
-	proposer := committee.Proposer(1, 0)
-	if proposer != committee.Members[1].Address {
-		t.Errorf("expected proposer to be address %v, got %v", committee.Members[1].Address, proposer)
+	proposer := c.Proposer(1, 0)
+	if proposer != c.Members[1].Address {
+		t.Errorf("expected proposer to be address %v, got %v", c.Members[1].Address, proposer)
 	}
 }
 
