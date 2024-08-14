@@ -332,6 +332,12 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 				parentEpochHead.NextEpochBlock().Uint64() != proposalNumber {
 				return 0, consensus.ErrInvalidParentEpochHead
 			}
+
+			// check the computed parentEpochHead, nextEpochHead are equal to the proposal's ones.
+			if parentEpochBlock.Cmp(proposal.Header().ParentEpochBlock()) != 0 ||
+				nextEpochBlock.Cmp(proposal.Header().NextEpochBlock()) != 0 {
+				return 0, consensus.ErrInconsistentEpochBoundary
+			}
 		}
 
 		if !committee.Equal(header.Committee()) {

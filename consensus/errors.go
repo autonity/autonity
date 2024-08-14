@@ -38,6 +38,9 @@ var (
 	// ErrInconsistentCommitteeSet is returned if the committee set is inconsistent
 	ErrInconsistentCommitteeSet = errors.New("inconsistent committee set")
 
+	// ErrInconsistentEpochBoundary is returned if the epoch boundary is inconsistent
+	ErrInconsistentEpochBoundary = errors.New("inconsistent epoch boundary")
+
 	// ErrCommitteeMemberNotFound is returned if the committee member is missing from
 	// the committee set.
 	ErrCommitteeMemberNotFound = errors.New("committee member not found")
