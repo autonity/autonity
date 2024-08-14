@@ -37,6 +37,37 @@ func (e *Epoch) Copy() Epoch {
 	return clone
 }
 
+func (e *Epoch) Equal(other *Epoch) bool {
+	if e == nil && other == nil {
+		return true
+	}
+
+	if e == nil || other == nil {
+		return false
+	}
+
+	if (e.ParentEpochBlock == nil) != (other.ParentEpochBlock == nil) ||
+		(e.NextEpochBlock == nil) != (other.NextEpochBlock == nil) ||
+		(e.Committee == nil) != (other.Committee == nil) {
+		return false
+	}
+
+	if e.ParentEpochBlock != nil && e.ParentEpochBlock.Cmp(other.ParentEpochBlock) != 0 {
+		return false
+	}
+
+	if e.NextEpochBlock != nil && e.NextEpochBlock.Cmp(other.NextEpochBlock) != 0 {
+		return false
+	}
+
+	// Use the Equal method of the Committee struct
+	if !e.Committee.Equal(other.Committee) {
+		return false
+	}
+
+	return true
+}
+
 type CommitteeMember struct {
 	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
 	VotingPower       *big.Int       `json:"votingPower"        gencodec:"required"`

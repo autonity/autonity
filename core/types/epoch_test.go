@@ -47,11 +47,110 @@ func TestEpoch_IsEpochHeader(t *testing.T) {
 	}
 }
 
+func TestEpoch_Equal(t *testing.T) {
+	consensusKey1, err := blst.RandKey()
+	require.NoError(t, err)
+	consensusPubKey1 := consensusKey1.PublicKey()
+	consensusPubKey1Bytes := consensusPubKey1.Marshal()
+
+	consensusKey2, err := blst.RandKey()
+	require.NoError(t, err)
+	consensusPubKey2 := consensusKey2.PublicKey()
+	consensusPubKey2Bytes := consensusPubKey2.Marshal()
+
+	tests := []struct {
+		name   string
+		epoch1 *Epoch
+		epoch2 *Epoch
+		expect bool
+	}{
+		{
+			name:   "both nil epochs",
+			epoch1: nil,
+			epoch2: nil,
+			expect: true,
+		},
+		{
+			name:   "one nil epoch",
+			epoch1: nil,
+			epoch2: &Epoch{},
+			expect: false,
+		},
+		{
+			name:   "different parent blocks",
+			epoch1: &Epoch{ParentEpochBlock: big.NewInt(1), NextEpochBlock: big.NewInt(2), Committee: &Committee{}},
+			epoch2: &Epoch{ParentEpochBlock: big.NewInt(2), NextEpochBlock: big.NewInt(2), Committee: &Committee{}},
+			expect: false,
+		},
+		{
+			name: "equal epochs",
+			epoch1: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
+				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes}}},
+			},
+			epoch2: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
+				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes}}},
+			},
+			expect: true,
+		},
+		{
+			name: "unequal epochs - different key",
+			epoch1: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
+				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey2, ConsensusKeyBytes: consensusPubKey2Bytes}}},
+			},
+			epoch2: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
+				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes}}},
+			},
+			expect: false,
+		},
+		{
+			name: "unequal epochs - different committee",
+			epoch1: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
+				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10)}}},
+			},
+			epoch2: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
+				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{2}, VotingPower: big.NewInt(10)}}},
+			},
+			expect: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.epoch1.Equal(tt.epoch2)
+			if result != tt.expect {
+				t.Errorf("expected %v, got %v", tt.expect, result)
+			}
+		})
+	}
+}
+
 func TestCommittee_Copy(t *testing.T) {
+	consensusKey1, err := blst.RandKey()
+	require.NoError(t, err)
+	consensusPubKey1 := consensusKey1.PublicKey()
+	consensusPubKey1Bytes := consensusPubKey1.Marshal()
+
+	consensusKey2, err := blst.RandKey()
+	require.NoError(t, err)
+	consensusPubKey2 := consensusKey2.PublicKey()
+	consensusPubKey2Bytes := consensusPubKey2.Marshal()
+
 	original := &Committee{
 		Members: []CommitteeMember{
-			{Address: common.Address{1}, VotingPower: big.NewInt(10)},
-			{Address: common.Address{2}, VotingPower: big.NewInt(20)},
+			{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes},
+			{Address: common.Address{2}, VotingPower: big.NewInt(20), ConsensusKeyBytes: consensusPubKey2Bytes, ConsensusKey: consensusPubKey2},
 		},
 	}
 
@@ -70,20 +169,23 @@ func TestCommittee_Copy(t *testing.T) {
 }
 
 func TestCommittee_Enrich(t *testing.T) {
+	consensusKey1, err := blst.RandKey()
+	require.NoError(t, err)
+	consensusPubKey1 := consensusKey1.PublicKey()
+	consensusPubKey1Bytes := consensusPubKey1.Marshal()
+
 	member := CommitteeMember{
 		Address:           common.Address{1},
 		VotingPower:       big.NewInt(10),
-		ConsensusKeyBytes: []byte{0x01, 0x02, 0x03},
+		ConsensusKeyBytes: consensusPubKey1Bytes,
 	}
 
-	committee := &Committee{
+	c := &Committee{
 		Members: []CommitteeMember{member},
 	}
 
-	err := committee.Enrich()
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
+	err = c.Enrich()
+	require.NoError(t, err)
 
 	if committee.Members[0].Index != 0 {
 		t.Errorf("expected index to be 0, got %d", committee.Members[0].Index)

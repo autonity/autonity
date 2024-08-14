@@ -320,6 +320,22 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, err
 		}
 
+		computedEpoch := types.Epoch{
+			ParentEpochBlock: parentEpochBlock,
+			NextEpochBlock:   nextEpochBlock,
+			Committee:        committee,
+		}
+
+		if !proposal.Header().Epoch.Equal(&computedEpoch) {
+			sb.logger.Error("inconsistent epoch info",
+				"currentVerifier", sb.address.String(),
+				"proposalNumber", proposalNumber,
+				"headerEpoch", header.Epoch,
+				"computedEpoch", computedEpoch,
+			)
+			return 0, consensus.ErrInconsistentEpochInfo
+		}
+
 		// check if the bi-direction link in between the two epoch header are matched.
 		if committee != nil && committee.Len() > 0 {
 			if parentEpochBlock == nil || nextEpochBlock == nil {
@@ -332,22 +348,6 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 				parentEpochHead.NextEpochBlock().Uint64() != proposalNumber {
 				return 0, consensus.ErrInvalidParentEpochHead
 			}
-
-			// check the computed parentEpochHead, nextEpochHead are equal to the proposal's ones.
-			if parentEpochBlock.Cmp(proposal.Header().ParentEpochBlock()) != 0 ||
-				nextEpochBlock.Cmp(proposal.Header().NextEpochBlock()) != 0 {
-				return 0, consensus.ErrInconsistentEpochBoundary
-			}
-		}
-
-		if !committee.Equal(header.Committee()) {
-			sb.logger.Error("wrong committee set",
-				"currentVerifier", sb.address.String(),
-				"proposalNumber", proposalNumber,
-				"headerCommittee", header.Committee(),
-				"computedCommittee", committee,
-			)
-			return 0, consensus.ErrInconsistentCommitteeSet
 		}
 		// At this stage committee field is consistent with the validator list returned by Soma-contract
 		return 0, nil

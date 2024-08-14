@@ -38,16 +38,12 @@ var (
 	// ErrInconsistentCommitteeSet is returned if the committee set is inconsistent
 	ErrInconsistentCommitteeSet = errors.New("inconsistent committee set")
 
-	// ErrInconsistentEpochBoundary is returned if the epoch boundary is inconsistent
-	ErrInconsistentEpochBoundary = errors.New("inconsistent epoch boundary")
+	// ErrInconsistentEpochInfo is returned if the epoch info is inconsistent
+	ErrInconsistentEpochInfo = errors.New("inconsistent epoch info")
 
 	// ErrCommitteeMemberNotFound is returned if the committee member is missing from
 	// the committee set.
 	ErrCommitteeMemberNotFound = errors.New("committee member not found")
-
-	// ErrUnknownEpoch is returned when validating a block requires an epoch header
-	// that is unknown.
-	ErrUnknownEpoch = errors.New("unknown epoch header")
 
 	// ErrInvalidParentEpochHead is returned if the parent epoch number is wrong
 	ErrInvalidParentEpochHead = errors.New("invalid parent epoch head number")
