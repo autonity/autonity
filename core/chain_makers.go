@@ -235,7 +235,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 				ConsensusKeyBytes: val.ConsensusKey,
 			}
 		}
-		committee.Sort()
+		types.SortCommitteeMembers(committee.Members)
 		if err := committee.Enrich(); err != nil {
 			panic(fmt.Sprintf("GenerateChain failed to setup committee error: %v", err))
 		}

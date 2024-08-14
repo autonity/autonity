@@ -176,19 +176,6 @@ func (c *Committee) TotalVotingPower() *big.Int {
 	return new(big.Int).Set(c.totalVotingPower)
 }
 
-// Todo: (Jason) Remove this function? As the compute committee precompile contract did the sorting, thus we might not
-//
-//	need this anymore, however some of the unit test need this sorting.
-func (c *Committee) Sort() {
-	if len(c.Members) != 0 {
-		// sort validators according to their voting power in descending order
-		// stable sort keeps the original order of equal elements
-		slices.SortStableFunc(c.Members, func(a, b CommitteeMember) int {
-			return b.VotingPower.Cmp(a.VotingPower)
-		})
-	}
-}
-
 // Enrich adds some convenience information to the committee member structs
 func (c *Committee) Enrich() error {
 	for i := range c.Members {
@@ -230,8 +217,8 @@ func (c *Committee) Proposer(height uint64, round int64) common.Address {
 
 // SortCommitteeMembers sort validators according to their voting power in descending order
 // stable sort keeps the original order of equal elements
-func SortCommitteeMembers(members []*CommitteeMember) {
-	slices.SortStableFunc(members, func(a, b *CommitteeMember) int {
+func SortCommitteeMembers(members []CommitteeMember) {
+	slices.SortStableFunc(members, func(a, b CommitteeMember) int {
 		return b.VotingPower.Cmp(a.VotingPower)
 	})
 }

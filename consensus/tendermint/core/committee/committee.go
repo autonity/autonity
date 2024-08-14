@@ -30,8 +30,7 @@ func NewRoundRobinSet(committee *types.Committee, lastBlockProposer common.Addre
 		return nil, ErrEmptyCommitteeSet
 	}
 
-	committee.Sort()
-
+	types.SortCommitteeMembers(committee.Members)
 	//Create new roundRobinSet
 	set := &RoundRobinCommittee{
 		committee:         committee,

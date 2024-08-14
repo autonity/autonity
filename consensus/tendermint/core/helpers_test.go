@@ -92,7 +92,7 @@ func GenerateCommittee(n int) (*types.Committee, AddressKeyMap) {
 		committee.Members = append(committee.Members, committeeMember)
 		keymap[committeeMember.Address] = Keys{consensus: consensusKey, node: privateKey}
 	}
-	committee.Sort()
+	types.SortCommitteeMembers(committee.Members)
 	// assign indexes
 	for i := 0; i < n; i++ {
 		committee.Members[i].Index = uint64(i)

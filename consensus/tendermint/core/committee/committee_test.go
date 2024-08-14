@@ -85,7 +85,7 @@ func TestSet_Committee(t *testing.T) {
 	var committeeSetSizes = []int64{1, 2, 10, 100}
 	var assertSetCommittee = func(t *testing.T, n int64) {
 		c := createTestCommitteeMembers(t, n, genRandUint64(int(n), maxSize))
-		c.Sort()
+		types.SortCommitteeMembers(c.Members)
 		set, err := NewRoundRobinSet(c, c.Members[0].Address)
 		assertNilError(t, err)
 
@@ -106,7 +106,7 @@ func TestSet_Committee(t *testing.T) {
 
 func TestSet_GetByIndex(t *testing.T) {
 	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
-	c.Sort()
+	types.SortCommitteeMembers(c.Members)
 	set, err := NewRoundRobinSet(c.Copy(), c.Members[0].Address)
 	assertNilError(t, err)
 
@@ -128,7 +128,7 @@ func TestSet_GetByIndex(t *testing.T) {
 
 func TestSet_GetByAddress(t *testing.T) {
 	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
-	c.Sort()
+	types.SortCommitteeMembers(c.Members)
 	set, err := NewRoundRobinSet(c, c.Members[0].Address)
 	assertNilError(t, err)
 
@@ -161,7 +161,7 @@ func TestSet_GetProposer(t *testing.T) {
 		size := size
 		t.Run(fmt.Sprintf("check round robin for validator set size of %v", size), func(t *testing.T) {
 			c := createTestCommitteeMembers(t, int64(size), genRandUint64(size, maxSize))
-			c.Sort()
+			types.SortCommitteeMembers(c.Members)
 			r := rand.Intn(size)
 			lastBlockProposer := c.Members[r].Address
 			expectedProposerAddrForRound0 := c.Members[(r+1)%size].Address
@@ -200,7 +200,7 @@ func TestSet_GetProposer(t *testing.T) {
 func TestSet_IsProposer(t *testing.T) {
 	rounds := []int64{0, 1, 2, 3, 4, 5, 6, 7, 8}
 	c := createTestCommitteeMembers(t, 4, genRandUint64(4, maxSize))
-	c.Sort()
+	types.SortCommitteeMembers(c.Members)
 	lastBlockProposerIndex := 2
 	lastBlockProposer := c.Members[lastBlockProposerIndex].Address
 	roundRobinOffset := lastBlockProposerIndex + 1
