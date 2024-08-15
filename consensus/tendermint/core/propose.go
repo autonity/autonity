@@ -34,8 +34,7 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 
 	self, err := c.CommitteeSet().GetByAddress(c.address)
 	if err != nil {
-		c.logger.Info("validator is no longer in current committee")
-		return
+		c.logger.Crit("validator is no longer in current committee")
 	}
 
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)

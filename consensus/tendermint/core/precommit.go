@@ -34,8 +34,7 @@ func (c *Precommiter) SendPrecommit(_ context.Context, isNil bool) {
 	}
 	self, err := c.CommitteeSet().GetByAddress(c.address)
 	if err != nil {
-		c.logger.Info("validator is no longer in current committee")
-		return
+		c.logger.Crit("validator is no longer in current committee")
 	}
 	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrecommitMessageEvent("Precommit sent", precommit)
