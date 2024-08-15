@@ -5,6 +5,7 @@ import (
 	"github.com/autonity/autonity/params/generated"
 	"math"
 	"math/big"
+	"strconv"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
@@ -42,9 +43,9 @@ const KB = 1024
 func LoadPrecompiles() {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
-	pv := InnocenceVerifier{}
-	cv := MisbehaviourVerifier{}
-	av := AccusationVerifier{}
+	pv := InnocenceVerifier{checkInnocenceAddress}
+	cv := MisbehaviourVerifier{checkMisbehaviourAddress}
+	av := AccusationVerifier{checkAccusationAddress}
 	setPrecompiles := func(set map[common.Address]vm.PrecompiledContract) {
 		set[checkInnocenceAddress] = &pv
 		set[checkMisbehaviourAddress] = &cv
@@ -59,6 +60,7 @@ func LoadPrecompiles() {
 
 // AccusationVerifier implemented as a native contract to validate if an accusation is valid
 type AccusationVerifier struct {
+	address common.Address
 }
 
 // RequiredGas the gas cost to execute AccusationVerifier contract, weighted by input data size.
@@ -110,7 +112,7 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ 
 		return failureReturn, nil
 	}
 
-	committee, err := committeeOfHeight(p.Message.H(), e)
+	committee, err := committeeOfHeight(p.Message.H(), e, a.address)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -212,6 +214,7 @@ func verifyAccusation(p *Proof, committee *types.Committee) bool {
 
 // MisbehaviourVerifier implemented as a native contract to validate if misbehaviour is valid
 type MisbehaviourVerifier struct {
+	address common.Address
 }
 
 // RequiredGas the gas cost to execute MisbehaviourVerifier contract, weighted by input data size.
@@ -232,7 +235,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, e *vm.EVM, _ common.A
 		return failureReturn, nil
 	}
 
-	committee, err := committeeOfHeight(p.Message.H(), e)
+	committee, err := committeeOfHeight(p.Message.H(), e, c.address)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -588,6 +591,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee *types.C
 
 // InnocenceVerifier implemented as a native contract to validate an innocence Proof.
 type InnocenceVerifier struct {
+	address common.Address
 }
 
 // RequiredGas the gas cost to execute this Proof validator contract, weighted by input data size.
@@ -609,7 +613,7 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ c
 		return failureReturn, nil
 	}
 
-	committee, err := committeeOfHeight(p.Message.H(), e)
+	committee, err := committeeOfHeight(p.Message.H(), e, c.address)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -938,36 +942,36 @@ func maxEvidenceMessages(committeeSize int) int {
 	return constants.MaxRound + 1
 }
 
-func committeeOfHeight(height uint64, evm *vm.EVM) (*types.Committee, error) {
+func committeeOfHeight(height uint64, evm *vm.EVM, caller common.Address) (*types.Committee, error) {
 	var committeeSet []types.CommitteeMember
-	err := acCall(evm, "getCommitteeByHeight", &committeeSet, new(big.Int).SetUint64(height))
+	err := acCall(evm, caller, "getCommitteeByHeight", &committeeSet, new(big.Int).SetUint64(height))
 	if err != nil {
 		return nil, err
 	}
-	committee := &types.Committee{}
-	if len(committeeSet) != 0 {
-		committee.Members = make([]types.CommitteeMember, len(committeeSet))
-		for i, m := range committeeSet {
-			c := m
-			committee.Members[i] = c
-		}
-		// As the committee is already sorted by the contract, thus we don't need sort again.
+
+	if len(committeeSet) == 0 {
+		panic("get empty committee set for height: " + strconv.FormatUint(height, 10))
 	}
 
+	committee := &types.Committee{}
+	committee.Members = committeeSet
+	// As the committee is already sorted by the contract, thus we don't need sort again.
 	if err = committee.Enrich(); err != nil {
 		return nil, err
 	}
 
-	return committee, err
+	return committee, nil
 }
 
-func acCall(evm *vm.EVM, function string, result any, args ...any) error {
+func acCall(evm *vm.EVM, caller common.Address, function string, result any, args ...any) error {
 	packedArgs, err := generated.AutonityAbi.Pack(function, args...)
 	if err != nil {
 		return err
 	}
+
+	// todo: Jason, resolve reasonable gas cap.
 	gas := uint64(math.MaxUint64)
-	ret, _, err := evm.Call(vm.AccountRef(params.DeployerAddress), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
+	ret, _, err := evm.Call(vm.AccountRef(caller), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
 	if err != nil {
 		return err
 	}
