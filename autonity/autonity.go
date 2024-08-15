@@ -306,19 +306,14 @@ func (c *AutonityContract) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (*types.Committee, *types.Receipt, *big.Int, *big.Int, error) {
-	// todo: (Jason) check if we need this? GenesisToBlock() does not call this function.
-	if header.Number.Uint64() == 0 {
-		return nil, nil, nil, nil, nil
-	}
-
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (*types.Receipt, *types.Epoch, error) {
 	log.Debug("Finalizing block",
 		"balance", statedb.GetBalance(params.AutonityContractAddress),
 		"block", header.Number.Uint64())
 
-	upgradeContract, committee, parentEpochBlock, nextEpochBlock, err := c.callFinalize(statedb, header)
+	upgradeContract, epochInfo, err := c.callFinalize(statedb, header)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// Create a new receipt for the finalize call
@@ -338,7 +333,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 			log.Warn("Autonity Contracts Upgrade Failed", "err", err)
 		}
 	}
-	return committee, receipt, parentEpochBlock, nextEpochBlock, nil
+	return receipt, epochInfo, nil
 }
 
 func (c *AutonityContract) upgradeAutonityContract(statedb vm.StateDB, header *types.Header) error {

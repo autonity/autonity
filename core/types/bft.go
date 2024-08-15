@@ -45,7 +45,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	}
 	newHeader.QuorumCertificate = AggregateSignature{}
 	newHeader.Round = 0
-	newHeader.Epoch = Epoch{}
+	newHeader.Epoch = nil
 	return newHeader
 }
 
@@ -110,10 +110,4 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 	}
 	h.QuorumCertificate = quorumCertificate.Copy()
 	return nil
-}
-
-func WriteEpoch(h *Header, epoch *Epoch) {
-	if h != nil && epoch != nil {
-		h.Epoch = *epoch
-	}
 }

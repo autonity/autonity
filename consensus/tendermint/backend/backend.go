@@ -251,6 +251,15 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		return 0, core.ErrBannedHash
 	}
 
+	// short circuit break.
+	if proposal.IsEpochHead() {
+		epoch := proposal.Header().Epoch
+		if epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
+			len(epoch.Committee.Members) == 0 {
+			return 0, consensus.ErrInvalidEpochInfo
+		}
+	}
+
 	// verify if the proposal block is already included in the node's local chain.
 	// This scenario can happen when we are processing a proposal, but in the meantime other peers already reached quorum on it,
 	// therefore we already received the finalized block through p2p block propagation.
@@ -309,7 +318,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		}
 
 		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
-		committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
+		receipt, epochInfo, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
 		if err != nil {
 			return 0, err
 		}
@@ -320,35 +329,16 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, err
 		}
 
-		computedEpoch := types.Epoch{
-			ParentEpochBlock: parentEpochBlock,
-			NextEpochBlock:   nextEpochBlock,
-			Committee:        committee,
-		}
-
-		if !proposal.Header().Epoch.Equal(&computedEpoch) {
+		if !proposal.Header().Epoch.Equal(epochInfo) {
 			sb.logger.Error("inconsistent epoch info",
 				"currentVerifier", sb.address.String(),
 				"proposalNumber", proposalNumber,
 				"headerEpoch", header.Epoch,
-				"computedEpoch", computedEpoch,
+				"computedEpoch", epochInfo,
 			)
 			return 0, consensus.ErrInconsistentEpochInfo
 		}
 
-		// check if the bi-direction link in between the two epoch header are matched.
-		if committee != nil && committee.Len() > 0 {
-			if parentEpochBlock == nil || nextEpochBlock == nil {
-				return 0, consensus.ErrInvalidEpochBoundary
-			}
-
-			// as consensus participants run in full node mode, thus they should have all the headers in DB.
-			parentEpochHead := sb.BlockChain().GetHeaderByNumber(parentEpochBlock.Uint64())
-			if !parentEpochHead.IsEpochHeader() ||
-				parentEpochHead.NextEpochBlock().Uint64() != proposalNumber {
-				return 0, consensus.ErrInvalidParentEpochHead
-			}
-		}
 		// At this stage committee field is consistent with the validator list returned by Soma-contract
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {

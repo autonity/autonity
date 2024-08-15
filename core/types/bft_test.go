@@ -30,7 +30,7 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0xc8b015729f0933f2359b0e489504b8e60befce0d3320f84a85930f8f29836ad9")
+	posHeaderHash := common.HexToHash("0x9d465e9557b41bff471c11c5ebf0ac5eeaf64dd508242b268cd318f1eaa206ab")
 
 	quorumCertificate := AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
@@ -56,7 +56,7 @@ func TestHeaderHash(t *testing.T) {
 		},
 	}
 
-	epoch := Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
+	epoch := &Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
 
 	testCases := []struct {
 		header Header

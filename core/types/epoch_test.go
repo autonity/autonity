@@ -9,44 +9,6 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
-func TestEpoch_IsEpochHeader(t *testing.T) {
-	tests := []struct {
-		name   string
-		epoch  Epoch
-		expect bool
-	}{
-		{
-			name:   "valid epoch header",
-			epoch:  Epoch{ParentEpochBlock: big.NewInt(1), NextEpochBlock: big.NewInt(2), Committee: &Committee{Members: []CommitteeMember{{}}}},
-			expect: true,
-		},
-		{
-			name:   "missing parent block",
-			epoch:  Epoch{NextEpochBlock: big.NewInt(2), Committee: &Committee{Members: []CommitteeMember{{}}}},
-			expect: false,
-		},
-		{
-			name:   "missing next block",
-			epoch:  Epoch{ParentEpochBlock: big.NewInt(1), Committee: &Committee{Members: []CommitteeMember{{}}}},
-			expect: false,
-		},
-		{
-			name:   "empty committee",
-			epoch:  Epoch{ParentEpochBlock: big.NewInt(1), NextEpochBlock: big.NewInt(2), Committee: &Committee{Members: []CommitteeMember{}}},
-			expect: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.epoch.IsEpochHeader()
-			if result != tt.expect {
-				t.Errorf("expected %v, got %v", tt.expect, result)
-			}
-		})
-	}
-}
-
 func TestEpoch_Equal(t *testing.T) {
 	consensusKey1, err := blst.RandKey()
 	require.NoError(t, err)

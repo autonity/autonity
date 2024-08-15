@@ -2,6 +2,8 @@ package types
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -15,26 +17,81 @@ import (
 
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
 
+var _ = (*Epoch)(nil)
+
 type Epoch struct {
-	ParentEpochBlock *big.Int   `rlp:"nil"`
-	NextEpochBlock   *big.Int   `rlp:"nil"`
-	Committee        *Committee `rlp:"nil"`
+	ParentEpochBlock *big.Int   `rlp:"nil" json:"parentEpochBlock" gencodec:"required"`
+	NextEpochBlock   *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`
+	Committee        *Committee `rlp:"nil" json:"committee" gencodec:"required"`
 }
 
-func (e *Epoch) IsEpochHeader() bool {
-	return e.ParentEpochBlock != nil && e.NextEpochBlock != nil && e.Committee != nil && e.Committee.Len() > 0
+// MarshalJSON marshals as JSON.
+func (e Epoch) MarshalJSON() ([]byte, error) {
+	type epoch struct {
+		ParentEpochBlock *hexutil.Big `json:"parentEpochBlock" gencodec:"required"`
+		NextEpochBlock   *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
+		Committee        Committee    `json:"committee" gencodec:"required"`
+	}
+	var enc epoch
+	enc.ParentEpochBlock = (*hexutil.Big)(e.ParentEpochBlock)
+	enc.NextEpochBlock = (*hexutil.Big)(e.NextEpochBlock)
+	enc.Committee = Committee{}
+	if e.Committee != nil {
+		enc.Committee = *e.Committee // nolint
+	}
+	return json.Marshal(&enc)
 }
 
-func (e *Epoch) Copy() Epoch {
-	clone := Epoch{}
-
-	if e.IsEpochHeader() {
-		clone.Committee = e.Committee.Copy()
-		clone.ParentEpochBlock = new(big.Int).SetUint64(e.ParentEpochBlock.Uint64())
-		clone.NextEpochBlock = new(big.Int).SetUint64(e.NextEpochBlock.Uint64())
+// UnmarshalJSON unmarshals from JSON.
+func (e *Epoch) UnmarshalJSON(input []byte) error {
+	type epoch struct {
+		ParentEpochBlock *hexutil.Big `json:"parentEpochBlock" gencodec:"required"`
+		NextEpochBlock   *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
+		Committee        *Committee   `json:"committee" gencodec:"required"`
 	}
 
-	return clone
+	var dec epoch
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+
+	if dec.ParentEpochBlock == nil {
+		return errors.New("missing required field 'parentEpochBlock' for epoch")
+	}
+	e.ParentEpochBlock = dec.ParentEpochBlock.ToInt()
+	// the un-marshaled common.Big0 presents different data layout of *big.Int, it causes deep-equal failed block_test.go
+	// thus we have this special convert for parent epoch block which is possible to be a zero value.
+	if dec.ParentEpochBlock.ToInt().Cmp(common.Big0) == 0 {
+		e.ParentEpochBlock = common.Big0
+	}
+
+	if dec.NextEpochBlock == nil {
+		return errors.New("missing required field 'nextEpochBlock' for epoch")
+	}
+	e.NextEpochBlock = dec.NextEpochBlock.ToInt()
+
+	if dec.Committee == nil {
+		return errors.New("missing required field 'committee' for epoch")
+	}
+	e.Committee = dec.Committee
+	return nil
+}
+
+func (e *Epoch) Copy() *Epoch {
+	cpy := &Epoch{}
+
+	if e.ParentEpochBlock != nil {
+		cpy.ParentEpochBlock = new(big.Int).SetUint64(e.ParentEpochBlock.Uint64())
+	}
+
+	if e.NextEpochBlock != nil {
+		cpy.NextEpochBlock = new(big.Int).SetUint64(e.NextEpochBlock.Uint64())
+	}
+
+	if e.Committee != nil {
+		cpy.Committee = e.Committee.Copy()
+	}
+	return cpy
 }
 
 func (e *Epoch) Equal(other *Epoch) bool {
@@ -60,7 +117,6 @@ func (e *Epoch) Equal(other *Epoch) bool {
 		return false
 	}
 
-	// Use the Equal method of the Committee struct
 	if !e.Committee.Equal(other.Committee) {
 		return false
 	}

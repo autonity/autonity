@@ -35,7 +35,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		ProposerSeal      hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             hexutil.Uint64     `json:"round"               gencodec:"required"`
 		QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-		Epoch             Epoch              `json:"epoch"               gencodec:"required"`
+		Epoch             *Epoch              `json:"epoch"              gencodec:"optional"`
 		Hash              common.Hash        `json:"hash"`
 	}
 	var enc Header
@@ -58,8 +58,10 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.ProposerSeal = h.ProposerSeal
 	enc.Round = hexutil.Uint64(h.Round)
 	enc.QuorumCertificate = h.QuorumCertificate
+	if h.Epoch != nil {
+		enc.Epoch = h.Epoch
+	}
 	enc.Hash = h.Hash()
-	enc.Epoch = h.Epoch
 	return json.Marshal(&enc)
 }
 
@@ -85,7 +87,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		ProposerSeal      *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
 		Round             *hexutil.Uint64     `json:"round"               gencodec:"required"`
 		QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-		Epoch             *Epoch              `json:"epoch"               gencodec:"required"`
+		Epoch             *Epoch              `json:"epoch"              gencodec:"optional"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -166,13 +168,13 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'quorumCertificate' for Header")
 	}
 	h.QuorumCertificate = *dec.QuorumCertificate
-	if dec.Epoch == nil {
-		return errors.New("missing required field 'epoch' for Header")
+
+	if dec.Epoch != nil {
+		h.Epoch = dec.Epoch
+		if err := h.EnrichEpochInfo(); err != nil {
+			return err
+		}
 	}
-	h.Epoch = *dec.Epoch
-	//TODO(lorenzo) Added this manually to make the e2e test work. Fix it properly.
-	if err := h.EnrichEpochInfo(); err != nil {
-		return err
-	}
+
 	return nil
 }

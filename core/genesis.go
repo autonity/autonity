@@ -369,7 +369,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		ParentEpochBlock: common.Big0,
 		NextEpochBlock:   new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
 	}
-	types.WriteEpoch(head, epoch)
+	head.Epoch = epoch
 
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit

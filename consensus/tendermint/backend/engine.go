@@ -52,8 +52,6 @@ var (
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidRound is returned if the round exceed maximum round number.
 	errInvalidRound = errors.New("invalid round")
-	// errInvalidEpochBoundary is returned if the bi-direction of epoch headers pointers cannot match.
-	errInvalidEpochBoundary = errors.New("invalid epoch boundary")
 )
 var (
 	defaultDifficulty             = big.NewInt(1)
@@ -84,6 +82,7 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return consensus.ErrUnknownAncestor
 	}
 
+	// get latest epoch info for signature checks and epoch boundary checks latter on.
 	committee, _, curEHead, nexEHead, err := chain.LatestEpoch()
 	if err != nil {
 		return err
@@ -145,10 +144,19 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return nil
 	}
 
-	// Check the bi-direction links of epoch headers
+	// inserting header number should pass the corresponding epoch boundary check.
+	if header.Number.Uint64() <= curEpochHead || header.Number.Uint64() > nextEHead {
+		sb.logger.Error("verify header", "header is out of epoch range",
+			"height", header.Number.Uint64(), "curEpochHead", curEpochHead, "nextEpochHead", nextEHead)
+		return consensus.ErrOutOfEpochRange
+	}
+
+	// epoch info integrity check
 	if header.IsEpochHeader() {
-		if nextEHead != header.Number.Uint64() || header.ParentEpochBlock().Uint64() != curEpochHead {
-			return errInvalidEpochBoundary
+		epoch := header.Epoch
+		if epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
+			len(epoch.Committee.Members) == 0 {
+			return consensus.ErrInvalidEpochInfo
 		}
 	}
 
@@ -156,6 +164,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	if parent == nil {
 		return errUnknownBlock
 	}
+	// check quorum certificates of consensus participants
 	return sb.verifyHeaderAgainstLastView(header, parent, committee)
 }
 
@@ -318,14 +327,14 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
 // Finaize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	_ []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, *big.Int, error) {
+	_ []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 
-	committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
+	receipt, epochInfo, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	return committee, receipt, parentEpochBlock, nextEpochBlock, nil
+	return receipt, epochInfo, nil
 }
 
 // FinalizeAndAssemble call Finaize to compute post transacation state modifications
@@ -334,7 +343,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 
 	statedb.Prepare(common.ACHash(header.Number), len(txs))
-	committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
+	receipt, epochInfo, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -342,35 +351,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	// No block rewards in BFT, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
-
-	var epoch types.Epoch
-
-	// check if the bi-direction link in between the two epoch header are matched.
-	if committee != nil && committee.Len() > 0 {
-		if parentEpochBlock == nil || nextEpochBlock == nil {
-			panic(consensus.ErrInvalidEpochBoundary)
-		}
-		// todo: (Jason) do we need to check this in the block mining context? It would make engine.go be hard
-		//  to be tested since the prepared blocks haven't been saved on chain, and the GetHeaderByNumber of
-		//  parentEpochBlock will return nil. This checker is enabled in proposal verification and the headers
-		//  verification.
-		/*
-			// note that miner node runs in full node mode, thus miner node should have the full block headers.
-			parentEpochHead := sb.BlockChain().GetHeaderByNumber(parentEpochBlock.Uint64())
-			if !parentEpochHead.IsEpochHeader() ||
-				parentEpochHead.NextEpochBlock().Uint64() != header.Number.Uint64() {
-				panic(consensus.ErrInvalidParentEpochHead)
-			}*/
-		epoch.Committee = committee
-		epoch.ParentEpochBlock = parentEpochBlock
-		epoch.NextEpochBlock = nextEpochBlock
-	}
-
-	types.WriteEpoch(header, &epoch)
-
-	if err = header.EnrichEpochInfo(); err != nil {
-		panic(err)
-	}
+	header.Epoch = epochInfo
 
 	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
 }
@@ -378,16 +359,17 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
 // committee field containaining the list of committee members allowed to participate in consensus for the next block.
 func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
-	_ []*types.Transaction, _ []*types.Receipt) (*types.Committee, *types.Receipt, *big.Int, *big.Int, error) {
+	_ []*types.Transaction, _ []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 
-	committee, receipt, parentEpochBlock, nextEpochBlock, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
+	receipt, epochInfo, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
-	return committee, receipt, parentEpochBlock, nextEpochBlock, nil
+
+	return receipt, epochInfo, nil
 }
 
 func (sb *Backend) GetCommitteeByHeight(height *big.Int) (*types.Committee, error) {

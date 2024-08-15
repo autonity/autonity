@@ -93,8 +93,8 @@ type Header struct {
 	*/
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate AggregateSignature `json:"quorumCertificate"      gencodec:"required"`
-	Epoch             Epoch              `json:"epoch" gencodec:"required"`
+	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+	Epoch             *Epoch             `json:"epoch"               gencodec:"optional"`
 }
 
 type AggregateSignature struct {
@@ -145,7 +145,7 @@ type headerExtra struct {
 	ProposerSeal      []byte             `json:"proposerSeal"        gencodec:"required"`
 	Round             uint64             `json:"round"               gencodec:"required"`
 	QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	Epoch             Epoch              `json:"epoch"               gencodec:"required"`
+	Epoch             *Epoch             `rlp:"nil"                  gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -191,7 +191,7 @@ func (h *Header) IsGenesis() bool {
 }
 
 func (h *Header) IsEpochHeader() bool {
-	return h.Epoch.IsEpochHeader()
+	return h.Epoch != nil
 }
 
 func (h *Header) ParentEpochBlock() *big.Int {
@@ -494,8 +494,12 @@ func CopyHeader(h *Header) *Header {
 		BaseFee:           baseFee,
 		Round:             h.Round,
 		QuorumCertificate: quorumCertificate,
-		Epoch:             h.Epoch.Copy(),
 	}
+
+	if h.Epoch != nil {
+		cpy.Epoch = h.Epoch.Copy()
+	}
+
 	return cpy
 }
 

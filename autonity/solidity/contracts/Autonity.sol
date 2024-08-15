@@ -764,11 +764,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * protocol only.
     *
     * @return upgrade Set to true if an autonity contract upgrade is available.
+    * @return epochEnded Set to true if an epoch is ended.
     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
     * @return parentEpochBlock The parent epoch block number.
     * @return nextEpochBlock The next epoch block number.
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory, uint256, uint256) {
+    function finalize() external virtual onlyProtocol nonReentrant returns (bool, bool, CommitteeMember[] memory, uint256, uint256) {
         blockEpochMap[block.number] = epochID;
 
         // Making this condition change to make the Autonity contract to have a chance to
@@ -837,13 +838,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             catch {}
         }
 
-        // return newly elected committee set on epoch rotation,
-        // otherwise return empty committee set for no changes.
-        if (epochEnded) {
-            return (contractUpgradeReady, committee, parentEpochBlock, nextEpochBlock);
-        }
-        CommitteeMember[] memory emptySet;
-        return (contractUpgradeReady, emptySet, parentEpochBlock, nextEpochBlock);
+        return (contractUpgradeReady, epochEnded, committee, parentEpochBlock, nextEpochBlock);
     }
 
     /**
