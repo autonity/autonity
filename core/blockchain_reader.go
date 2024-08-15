@@ -36,6 +36,11 @@ import (
 // It get committee from LRU cache first, otherwise it trys to search backward epoch with limited hops, if the
 // committee of the height cannot be find still, then it try to query it from the state DB.
 func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
+
+	if height == 0 {
+		return bc.genesisBlock.Header().Epoch.Committee, nil
+	}
+
 	// always get it from LRU cache first
 	if committee, ok := bc.committeeCache.Get(height); ok {
 		return committee.(*types.Committee), nil
