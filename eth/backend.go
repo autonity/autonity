@@ -617,12 +617,16 @@ func (s *Ethereum) validatorController() {
 	}
 	wasValidating := false
 
-	committee, _, _, _, err := s.blockchain.LatestEpoch()
-	if err != nil {
-		s.log.Crit("missing epoch head, chain db might be corrupted", "err", err)
-	}
-
+	// read the committee base on latest state.
 	currentHead := s.blockchain.CurrentHeader()
+	currentState, err := s.blockchain.State()
+	if err != nil {
+		panic(err)
+	}
+	committee, err := s.blockchain.ProtocolContracts().GetCommitteeByHeight(currentHead, currentState, currentHead.Number)
+	if err != nil {
+		panic(err)
+	}
 	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)
 		s.miner.Start()
