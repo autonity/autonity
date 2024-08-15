@@ -203,15 +203,7 @@ func (h *Header) NextEpochBlock() *big.Int {
 }
 
 func (h *Header) EnrichEpochInfo() error {
-	if h.IsEpochHeader() {
-		if err := h.Epoch.Committee.Enrich(); err != nil {
-			return fmt.Errorf("error while deserializing consensus keys: %w", err)
-		}
-		if h.Epoch.Committee.Len() > 0 && (h.Epoch.ParentEpochBlock == nil || h.Epoch.NextEpochBlock == nil) {
-			return fmt.Errorf("invalid epoch boundary")
-		}
-	}
-	return nil
+	return h.Epoch.Committee.Enrich()
 }
 
 func (h *Header) Committee() *Committee {
@@ -268,8 +260,14 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Round = hExtra.Round
 		h.Epoch = hExtra.Epoch
 
-		if err = h.EnrichEpochInfo(); err != nil {
-			return err
+		if h.IsEpochHeader() {
+			if err = h.EnrichEpochInfo(); err != nil {
+				return err
+			}
+
+			if h.Epoch.ParentEpochBlock == nil || h.Epoch.NextEpochBlock == nil {
+				return fmt.Errorf("invalid epoch boundary")
+			}
 		}
 	} else {
 		h.Extra = origin.Extra
