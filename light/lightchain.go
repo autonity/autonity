@@ -370,9 +370,9 @@ func (lc *LightChain) Rollback(chain []common.Hash) {
 
 			// if the rollback header is an epoch header, then header chain's epoch header with its parent epoch header.
 			if lc.hc.CurrentHeadEpochHeader().Hash() == hash {
-				num := lc.hc.CurrentHeadEpochHeader().ParentEpochBlock().Uint64()
+				num := lc.hc.CurrentHeadEpochHeader().Epoch.ParentEpochBlock.Uint64()
 				newEpochHeader := lc.GetHeaderByNumber(num)
-				if newEpochHeader == nil {
+				if newEpochHeader == nil || !newEpochHeader.IsEpochHeader() {
 					log.Error("cannot find parent epoch header from header chain", "number", num)
 					panic("cannot find parent epoch header from header chain")
 				}

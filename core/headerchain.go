@@ -546,7 +546,7 @@ func (hc *HeaderChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, 
 		return nil, 0, 0, 0, ErrMissingEpochHeader
 	}
 
-	return head.Committee(), head.ParentEpochBlock().Uint64(), head.Number.Uint64(), head.NextEpochBlock().Uint64(), nil
+	return head.Committee(), head.Epoch.ParentEpochBlock.Uint64(), head.Number.Uint64(), head.Epoch.NextEpochBlock.Uint64(), nil
 }
 
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going
@@ -671,9 +671,9 @@ func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, d
 
 		// if the rollback one is an epoch header, then update the epoch head with the parent epoch head.
 		if hdr.IsEpochHeader() {
-			newHeadEpochHeader := hc.GetHeaderByNumber(hdr.ParentEpochBlock().Uint64())
+			newHeadEpochHeader := hc.GetHeaderByNumber(hdr.Epoch.ParentEpochBlock.Uint64())
 			if newHeadEpochHeader == nil {
-				log.Crit("cannot find parent epoch header from header chain", "num", hdr.ParentEpochBlock().Uint64())
+				log.Crit("cannot find parent epoch header from header chain", "num", hdr.Epoch.ParentEpochBlock.Uint64())
 			}
 			rawdb.WriteEpochHeaderHash(markerBatch, newHeadEpochHeader.Hash())
 			hc.currentEpochHeader.Store(newHeadEpochHeader)

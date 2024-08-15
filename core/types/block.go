@@ -194,14 +194,6 @@ func (h *Header) IsEpochHeader() bool {
 	return h.Epoch != nil
 }
 
-func (h *Header) ParentEpochBlock() *big.Int {
-	return h.Epoch.ParentEpochBlock
-}
-
-func (h *Header) NextEpochBlock() *big.Int {
-	return h.Epoch.NextEpochBlock
-}
-
 func (h *Header) EnrichEpochInfo() error {
 	return h.Epoch.Committee.Enrich()
 }

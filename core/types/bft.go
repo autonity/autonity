@@ -45,7 +45,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	}
 	newHeader.QuorumCertificate = AggregateSignature{}
 	newHeader.Round = 0
-	newHeader.Epoch = nil
+	newHeader.Extra = []byte{}
 	return newHeader
 }
 

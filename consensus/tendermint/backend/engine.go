@@ -214,7 +214,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			if header.IsEpochHeader() {
 				committee = header.Committee()
 				curEHead = header.Number.Uint64()
-				nextEHead = header.NextEpochBlock().Uint64()
+				nextEHead = header.Epoch.NextEpochBlock.Uint64()
 			}
 
 			select {

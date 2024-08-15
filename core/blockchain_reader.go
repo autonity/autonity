@@ -70,11 +70,15 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 				break
 			}
 
-			if height > lastEpoch.Number.Uint64() && height <= lastEpoch.NextEpochBlock().Uint64() {
+			if !lastEpoch.IsEpochHeader() {
+				panic(fmt.Sprintf("parent epoch head: %d is not an epoch head.", lastEpoch.Number.Uint64()))
+			}
+
+			if height > lastEpoch.Number.Uint64() && height <= lastEpoch.Epoch.NextEpochBlock.Uint64() {
 				bc.committeeCache.Add(height, lastEpoch.Committee())
 				return lastEpoch.Committee(), nil
 			}
-			parentEHead = lastEpoch.ParentEpochBlock().Uint64()
+			parentEHead = lastEpoch.Epoch.ParentEpochBlock.Uint64()
 		}
 	}
 

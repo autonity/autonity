@@ -91,7 +91,7 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				Epoch: epoch,
 			}),
-			posHeaderHash,
+			common.HexToHash("0xb2f1911b3792b6dc69fb287b23d13e966cecff18114e8dca614b960c1316e29b"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
