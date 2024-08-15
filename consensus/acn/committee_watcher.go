@@ -33,7 +33,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	wasValidating := false
 	committee, _, _, _, err := acn.chain.LatestEpoch()
 	if err != nil {
-		acn.log.Crit("Could not retrieve latest epoch, chain db might be corrupted")
+		acn.log.Crit("Could not retrieve latest epoch, chain db might be corrupted", "error", err)
 	}
 	currentHead := acn.chain.CurrentHeader()
 	if committee.MemberByAddress(acn.address) != nil { //nolint
