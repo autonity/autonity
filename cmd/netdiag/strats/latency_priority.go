@@ -45,3 +45,7 @@ func (l *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64
 	// randomDissemination is defined in random.go
 	return l.randomDissemination(l.RandomRatio, requestId, data, int(maxPeers), originalSender, int(hop+1), partial, seqNum, total)
 }
+
+func (l *LowRTT) ConstructGraph(maxPeers int) error {
+	return nil
+}

@@ -4,17 +4,19 @@ import (
 	"errors"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/autonity/autonity/log"
 )
 
 var (
-	errGraphNotConstructed  = errors.New("graph for latrix matrix optimization is not ready yet")
-	errGraphConstruction    = errors.New("invalid graph construction")
-	errInvalidArgumentHop   = errors.New("hop is greater than 1")
-	errInvalidLatencyMatrix = errors.New("latency to self should be zero")
-	errPeerNotFound         = errors.New("peer not found")
+	errGraphNotConstructed   = errors.New("graph for latrix matrix optimization is not ready yet")
+	errGraphConstruction     = errors.New("invalid graph construction")
+	errInvalidArgumentHop    = errors.New("hop is greater than 1")
+	errInvalidLatencyMatrix  = errors.New("latency to self should be zero")
+	errLatencyMatrixNotReady = errors.New("latency matrix not ready")
+	errPeerNotFound          = errors.New("peer not found")
 )
 
 type LatencyMatrixOptimize struct {
@@ -35,7 +37,7 @@ func init() {
 
 func createLatencyMatrixOpimize(base BaseStrategy, peerSetUpperBound int) *LatencyMatrixOptimize {
 	strategy := &LatencyMatrixOptimize{base, Graph{id: int(base.State.Id)}, peerSetUpperBound}
-	go strategy.start()
+	// go strategy.start()
 	return strategy
 }
 
@@ -70,6 +72,12 @@ func (l *LatencyMatrixOptimize) isLatencyMatrixReady() (bool, error) {
 }
 
 func (l *LatencyMatrixOptimize) constructGraph(peers int) {
+	if l.graph.initiated && l.graph.peers == peers {
+		return
+	}
+	if !l.graph.constructing.CompareAndSwap(false, true) {
+		return
+	}
 	l.graph.peers = peers
 	timeMatrix := make([][]int64, peers)
 	for i := 0; i < peers; i++ {
@@ -92,15 +100,32 @@ func (l *LatencyMatrixOptimize) constructGraph(peers int) {
 		high := 10 * time.Second.Microseconds()
 		for low < high {
 			mid := (low + high) / 2
-			l.graph.constructConnection(root, maxConnections, mid, timeMatrix)
+			if !l.graph.constructConnection(root, maxConnections, mid, timeMatrix) {
+				low = mid + 1
+			} else {
+				high = mid
+			}
 		}
 		l.graph.constructConnection(root, maxConnections, low, timeMatrix)
 	}
 	l.graph.initiated = true
+	l.graph.constructing.Store(false)
+}
+
+func (l *LatencyMatrixOptimize) ConstructGraph(maxPeers int) error {
+	ready, err := l.isLatencyMatrixReady()
+	if err != nil {
+		return err
+	}
+	if !ready {
+		return errLatencyMatrixNotReady
+	}
+	l.constructGraph(maxPeers)
+	return nil
 }
 
 func (l *LatencyMatrixOptimize) Execute(packetId uint64, data []byte, maxPeers int) error {
-	if !l.graph.initiated {
+	if !l.graph.initiated || maxPeers != l.graph.peers {
 		return errGraphNotConstructed
 	}
 	if l.graph.rootedConnection[l.State.Id] == nil {
@@ -111,7 +136,7 @@ func (l *LatencyMatrixOptimize) Execute(packetId uint64, data []byte, maxPeers i
 }
 
 func (l *LatencyMatrixOptimize) HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
-	if !l.graph.initiated {
+	if !l.graph.initiated || maxPeers != uint64(l.graph.peers) {
 		return errGraphNotConstructed
 	}
 	if hop == 0 || l.graph.rootedConnection[originalSender] == nil {
@@ -148,9 +173,10 @@ func (l *LatencyMatrixOptimize) send(root, packetId, maxPeers uint64, hop uint8,
 }
 
 type Graph struct {
-	initiated bool
-	peers     int
-	id        int
+	constructing atomic.Bool
+	initiated    bool
+	peers        int
+	id           int
 	// `rootedConnection[root]` contains the connection array of the node when
 	// the original sender is `root`
 	rootedConnection [][]int

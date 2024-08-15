@@ -48,6 +48,10 @@ func (p *Broadcast) HandlePacket(requestId uint64, hop uint8, originalSender uin
 	return nil
 }
 
+func (p *Broadcast) ConstructGraph(maxPeers int) error {
+	return nil
+}
+
 func (p *BroadcastBlocking) Execute(packetId uint64, data []byte, maxPeers int) error {
 	for i := 0; i < maxPeers; i++ {
 		peer := p.Peers(i)
@@ -63,5 +67,9 @@ func (p *BroadcastBlocking) Execute(packetId uint64, data []byte, maxPeers int) 
 }
 
 func (p *BroadcastBlocking) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
+	return nil
+}
+
+func (p *BroadcastBlocking) ConstructGraph(maxPeers int) error {
 	return nil
 }

@@ -77,6 +77,10 @@ func (p *Simple) HandlePacket(requestId uint64, hop uint8, originalSender uint64
 	return nil
 }
 
+func (p *Simple) ConstructGraph(maxPeers int) error {
+	return nil
+}
+
 func disseminationGroup(id int, peers []Peer) []Peer {
 	groupSize := int(math.Sqrt(float64(len(peers))))
 	groupCount := groupSize

@@ -45,7 +45,10 @@ func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *E
 				log.Error("Reading loop fatal error", "error", err)
 				return err
 			}
-			handler := protocolHandlers[msg.Code]
+			handler, ok := protocolHandlers[msg.Code]
+			if !ok {
+				return errInvalidMsgCode
+			}
 			if err = handler(e, node, msg.Payload); err != nil {
 				log.Debug("Peer handler error", "id", peer.String(), "error", err)
 				return err

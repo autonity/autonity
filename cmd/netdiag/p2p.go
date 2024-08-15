@@ -14,6 +14,7 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
+// `ProtocolMessages` should be last
 const (
 	PingMsg = uint64(iota)
 	PongMsg
@@ -22,8 +23,8 @@ const (
 	UpdateTCPSocket
 	DisseminateRequest
 	DisseminateReport
-	ProtocolMessages
 	LatencyArrayMsg
+	ProtocolMessages
 )
 
 var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error{
@@ -40,6 +41,7 @@ var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error
 }
 
 var (
+	errInvalidMsgCode = errors.New("invalid message code")
 	errUnknownRequest = errors.New("no matching request id")
 	errTimeout        = errors.New("request timed out")
 )
@@ -266,42 +268,50 @@ func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
 // ***********************
 
 type LatencyArrayPacket struct {
-	RequestId uint64
-	Latency   []time.Duration
+	RequestId    uint64
+	LatencyArray []uint64
 }
 
-func (p *Peer) sendLatencyArray(latency []time.Duration) error {
+func (p *Peer) sendLatencyArray(latency []time.Duration) (uint64, time.Duration, error) {
+	log.Info("sendLatencyArray")
+	startTime := time.Now()
 	id := rand.Uint64()
 	fmt.Println("[LatencyArrayPacket] >> ", id)
-	req, err := p.dispatchRequest(id, LatencyArrayMsg, LatencyArrayPacket{id, latency})
+	buff := make([]uint64, len(latency))
+	for i, l := range latency {
+		buff[i] = uint64(l)
+	}
+	req, err := p.dispatchRequest(id, LatencyArrayMsg, LatencyArrayPacket{id, buff})
 	if err != nil {
 		log.Error("Unable to dispatch request", "error", err)
-		return err
+		return 0, 0, err
 	}
+	dispatchDuration := time.Since(startTime)
 	timer := time.NewTimer(5 * time.Second)
 	select {
-	case <-req:
-		return nil
+	case ans := <-req:
+		return ans.(AckDataPacket).Time, dispatchDuration, nil
 	case <-timer.C:
-		return errTimeout
+		return 0, dispatchDuration, errTimeout
 	}
 }
 
 func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
-	var latencyArray LatencyArrayPacket
-	if err := rlp.Decode(data, &latencyArray); err != nil {
+	var latencyPacket LatencyArrayPacket
+	if err := rlp.Decode(data, &latencyPacket); err != nil {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	fmt.Println("[LatencyArrayPacket] << ", latencyArray.RequestId)
-	for i, enode := range e.peers {
-		if p.Peer.ID() == enode.ID() {
-			e.state.LatencyMatrix[i] = latencyArray.Latency
-			fmt.Printf("Got latency array from peer %v : %v\n", enode.ID(), latencyArray.Latency)
+	fmt.Println("[LatencyArrayPacket] << ", latencyPacket.RequestId)
+	e.state.LatencyMatrix[p.id] = make([]time.Duration, len(e.peers))
+	for i, l := range latencyPacket.LatencyArray {
+		if i >= len(e.peers) {
 			break
 		}
+		e.state.LatencyMatrix[p.id][i] = time.Duration(l)
 	}
-	return p2p.Send(p, AckDataMsg, AckDataPacket{latencyArray.RequestId, now})
+	fmt.Printf("Got latency array from peer %v\n", p.ID())
+	return p2p.Send(p, AckDataMsg, AckDataPacket{latencyPacket.RequestId, now})
 }
 
 // ***************************

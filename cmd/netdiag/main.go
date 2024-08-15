@@ -57,6 +57,11 @@ var (
 		Value: "root",
 		Usage: "Username to access gcp instances",
 	}
+	gcpVmName = cli.StringFlag{
+		Name:  "vm-name",
+		Value: "",
+		Usage: "vm instance name",
+	}
 	networkModeFlag = cli.StringFlag{
 		Name:  "network",
 		Value: "tcp",
@@ -95,6 +100,7 @@ var (
 			gcpInstanceTemplateFlag,
 			gcpUsernameFlag,
 			networkModeFlag,
+			gcpVmName,
 		},
 		Description: `
 The setup command deploys a new network of nodes.`,
@@ -295,7 +301,11 @@ func control(c *cli.Context) error {
 
 		// User selects a method
 		fmt.Printf("\n%s|%s(%d)>> ", cfg.Nodes[targetPeer].Ip, cfg.Nodes[targetPeer].Zone, targetPeer)
-		input, _ := reader.ReadString('\n')
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			log.Error("Error reading input", "err", err)
+			return err
+		}
 		input = strings.TrimSpace(input)
 		matches := peerRegexCmd.FindStringSubmatch(input)
 		if len(matches) == 2 {
@@ -404,7 +414,7 @@ func setup(c *cli.Context) error {
 		wg.Add(1)
 		go func(id int) {
 			var err error
-			name := "netdiag-runner-" + uuid.New().String()
+			name := "netdiag-runner-" + c.String(gcpVmName.Name) + "-" + uuid.New().String()
 			attempts := 0
 			for {
 				zone := zones[(6*id+attempts)%len(zones)]

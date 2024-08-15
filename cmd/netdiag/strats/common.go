@@ -100,6 +100,8 @@ type Strategy interface {
 	Execute(packetId uint64, data []byte, maxPeers int) error
 	// HandlePacket has the logic when receiving a packet.
 	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error
+	// ConstructGraph constructs the graph to disseminate packet for `maxPeers`
+	ConstructGraph(maxPeers int) error
 }
 
 type Peer interface {

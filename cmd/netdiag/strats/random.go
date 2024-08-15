@@ -76,3 +76,7 @@ func (p *Random) HandlePacket(packetId uint64, hop uint8, originalSender uint64,
 	}
 	return nil
 }
+
+func (p *Random) ConstructGraph(maxPeers int) error {
+	return nil
+}
