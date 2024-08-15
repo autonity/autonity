@@ -323,8 +323,7 @@ func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
 	for _, accusation := range escalatedOnes {
 		committee, err := fd.blockchain.CommitteeOfHeight(accusation.Message.H())
 		if err != nil {
-			fd.logger.Error("escalateExpiredAccusations", "cannot find committee", "height", accusation.Message.H(), "err", err)
-			continue
+			fd.logger.Crit("escalateExpiredAccusations", "cannot find committee", "height", accusation.Message.H(), "err", err)
 		}
 		offender := committee.Members[accusation.OffenderIndex].Address
 		fd.removeOffChainAccusation(accusation)

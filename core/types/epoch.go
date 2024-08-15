@@ -276,7 +276,8 @@ func (c *Committee) Enrich() error {
 	return nil
 }
 
-// Proposer elects a proposer from the committee for the height and round.
+// Proposer elects a proposer from the voting power sorted committee for the height and round, it implements same
+// election algorithm as proposer election in AC contract. The underlying sorted committee is sourced from the AC contract.
 func (c *Committee) Proposer(height uint64, round int64) common.Address {
 	totalVotingPower := c.TotalVotingPower()
 	seed := big.NewInt(constants.MaxRound)

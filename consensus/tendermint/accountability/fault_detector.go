@@ -3,6 +3,7 @@ package accountability
 import (
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"sort"
@@ -354,8 +355,7 @@ loop:
 func (fd *FaultDetector) canReport(height uint64) bool {
 	committee, err := fd.blockchain.CommitteeOfHeight(height)
 	if err != nil {
-		fd.logger.Error("Can't retrieve committee for message", "err", err, "height", height)
-		return false
+		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
 	}
 
 	// each reporting slot contains reportingSlotPeriod block period that a unique and deterministic validator is asked to
@@ -610,8 +610,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 
 	committee, err := fd.blockchain.CommitteeOfHeight(height)
 	if err != nil {
-		fd.logger.Error("runRuleEngine", "err", err, "height", height)
-		return nil
+		fd.logger.Crit("cannot find committee for height", "err", err, "height", height)
 	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	proofs := fd.runRulesOverHeight(height, quorum, committee)
@@ -1285,7 +1284,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 	var err error
 	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
 	if err != nil {
-		return err
+		fd.logger.Crit("cannot find committee for height", "err", err, "height", m.H())
 	}
 
 	for _, signerIndex := range m.Signers().FlattenUniq() {
@@ -1317,7 +1316,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 	var err error
 	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
 	if err != nil {
-		return err
+		fd.logger.Crit("cannot find committee for height", "err", err, "height", m.H())
 	}
 	for _, signerIndex := range m.Signers().FlattenUniq() {
 		signer := committee.Members[signerIndex].Address
@@ -1351,13 +1350,11 @@ func errorToRule(err error) autonity.Rule {
 	return rule
 }
 
-// TODO: this function basically reimplements committee.GetProposer
-// it would be better to use that function but it requires sharing the CommitteeSet between Core and the FD.
-// It would reduce code repetition, however the proposer cache is already shared so it would not improve performance.
+// Proposer election now is unified in committee structure.
 func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
 	committee, err := chain.CommitteeOfHeight(h)
 	if err != nil {
-		return common.Address{}, err
+		panic(fmt.Sprintf("cannot get committee of height: %d", h))
 	}
 	proposer := chain.ProtocolContracts().Proposer(committee, nil, h-1, r)
 	return proposer, nil

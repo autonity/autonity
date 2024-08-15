@@ -77,7 +77,7 @@ func TestAccusation(t *testing.T) {
 	r.run("accusation for committed value should revert", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0xca, 0xfe} }
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 }
@@ -132,13 +132,6 @@ func TestAccusationTiming(t *testing.T) {
 
 	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
-		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
-		require.NoError(r.t, err)
-	})
-
-	r.run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)

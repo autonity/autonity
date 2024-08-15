@@ -255,7 +255,7 @@ func (c *AutonityContract) EpochPeriod(block *types.Header, db vm.StateDB) (*big
 	return c.callGetEpochPeriod(db, block)
 }
 
-// Todo: (Jason) keeping stateDB as a input parameter gives a chance that we can compute proposer from AC contract.
+// Proposer election is now computed by committee structure, it is on longer depends on AC contract.
 func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
 	c.Lock()
 	defer c.Unlock()
