@@ -325,17 +325,8 @@ func createTestCommitteeMembers(t *testing.T, n, totalPower int64) *types.Commit
 		}
 		committee.Members = append(committee.Members, member)
 	}
-
-	if n > 0 {
-		// swap 1st and last element if 1st element is less then last to ensure committee is not sorted
-		firstIndex, lastIndex := 0, committee.Len()-1
-
-		comp := committee.Members[firstIndex].VotingPower.Cmp(committee.Members[lastIndex].VotingPower)
-		if comp < 0 {
-			committee.Members[firstIndex], committee.Members[lastIndex] =
-				committee.Members[lastIndex], committee.Members[firstIndex]
-		}
-	}
+	// as committee member are always sorted in voting power in the protocol, thus we sort it in this test context.
+	types.SortCommitteeMembers(committee.Members)
 
 	return committee
 }
