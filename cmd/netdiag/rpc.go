@@ -319,36 +319,7 @@ func (p *P2POp) PingDevP2P(args *ArgTarget, reply *ResultPing) error {
 	return nil
 }
 
-type ResultPingBroadcast struct {
-	pings  []ResultPing
-	errors []error
-}
-
-func (r *ResultPingBroadcast) String() string {
-	var builder strings.Builder
-	fmt.Fprintf(&builder, "PingDevP2P for all peers\n")
-	minRtt := 100 * time.Second
-	for i, item := range r.pings {
-		if r.errors[i] == nil {
-			minRtt = min(minRtt, item.rtt())
-		}
-	}
-	fmt.Fprintf(&builder, "Min RTT: %v\n", minRtt)
-	for i, item := range r.pings {
-		if r.errors[i] != nil {
-			fmt.Fprintf(&builder, "Error for target peer %v : %v\n", item.Id, r.errors[i])
-		} else {
-			fmt.Fprint(&builder, item.String())
-		}
-	}
-	return builder.String()
-}
-
-func (p *P2POp) PingDevP2PBroadcast(_ *ArgEmpty, reply *ResultPingBroadcast) error {
-	result := ResultPingBroadcast{
-		pings:  make([]ResultPing, 0, len(p.engine.peers)),
-		errors: make([]error, 0, len(p.engine.peers)),
-	}
+func (p *P2POp) PingDevP2PBroadcast(_ *ArgEmpty, _ *ArgEmpty) error {
 	for id, peer := range p.engine.peers {
 		if id == p.engine.id {
 			continue
@@ -358,8 +329,7 @@ func (p *P2POp) PingDevP2PBroadcast(_ *ArgEmpty, reply *ResultPingBroadcast) err
 			RequestTime: time.Now(),
 		}
 		if peer == nil || !peer.connected {
-			result.pings = append(result.pings, ping)
-			result.errors = append(result.errors, errTargetNotConnected)
+			return errTargetNotConnected
 		} else {
 			timeReceived, err := peer.sendPing()
 			if err == nil {
@@ -367,11 +337,8 @@ func (p *P2POp) PingDevP2PBroadcast(_ *ArgEmpty, reply *ResultPingBroadcast) err
 				ping.PongReceivedTime = time.Now()
 				p.engine.state.LatencyMatrix[p.engine.id][id] = ping.rtt()
 			}
-			result.pings = append(result.pings, ping)
-			result.errors = append(result.errors, err)
 		}
 	}
-	*reply = result
 	return nil
 }
 
