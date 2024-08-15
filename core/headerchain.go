@@ -167,8 +167,6 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 		batch = hc.chainDb.NewBatch()
 	)
 	if first.ParentHash != hc.currentHeaderHash {
-		// todo: (Jason) check if this reorg context happens for instant BFT consensus? Or is it possible for fork?
-		//  we might need rollback the head epoch header as well.
 		// Delete any canonical number assignments above the new head
 		for i := last.Number.Uint64() + 1; ; i++ {
 			hash := rawdb.ReadCanonicalHash(hc.chainDb, i)
@@ -319,7 +317,13 @@ func (hc *HeaderChain) writeHeadersAndSetHead(headers []*types.Header, forker *F
 			lastHeader: lastHeader,
 		}
 	)
-	// Ask the fork choicer if the reorg is necessary
+	// Ask the fork choicer if the reorg is necessary.
+	// Forker is the fork chooser based on the highest total difficulty of the
+	// chain(the fork choice used in the eth1) and the external fork choice (the fork
+	// choice used in the eth2). This main goal of this ForkChoice is not only for
+	// offering fork choice during the eth1/2 merge phase, but also keep the compatibility
+	// for all other proof-of-work networks. As Tendermint is an instant consensus protocol, thus
+	// the reorg shouldn't happen in tendermint at all.
 	if reorg, err := forker.ReorgNeeded(hc.CurrentHeader(), lastHeader); err != nil {
 		return nil, err
 	} else if !reorg {
