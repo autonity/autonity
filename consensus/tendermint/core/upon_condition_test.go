@@ -1096,7 +1096,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	nextProposalMsg := generateBlockProposal(0, big.NewInt(int64(nextHeight)), int64(-1), false, signer(e, 0), member(e, 0))
 	proposal := generateBlockProposal(e.curRound, e.curHeight, e.curRound, false, signer(e, e.curRound), member(e, e.curRound))
 	precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), proposal.Block().Hash(), signer(e, 1), member(e, 1), e.committeeSize)
-	setCommitteeAndSealOnBlock(t, proposal.Block(), e.committee, e.keys, 1)
+	sealProposal(t, proposal.Block(), e.committee, e.keys, 1)
 
 	ctrl := gomock.NewController(t)
 	defer waitForExpects(ctrl)
@@ -1230,7 +1230,7 @@ func TestFutureRoundChange(t *testing.T) {
 	})
 }
 
-func setCommitteeAndSealOnBlock(t *testing.T, b *types.Block, c interfaces.Committee, keys AddressKeyMap, signerIndex int) {
+func sealProposal(t *testing.T, b *types.Block, c interfaces.Committee, keys AddressKeyMap, signerIndex int) {
 	h := b.Header()
 	hashData := types.SigHash(h)
 	signature, err := crypto.Sign(hashData[:], keys[c.Committee().Members[signerIndex].Address].node)
@@ -1288,7 +1288,7 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 	env.lockedRound = -1
 	env.validRound = -1
 
-	setCommitteeAndSealOnBlock(t, env.previousValue, env.committee, env.keys, 0)
+	sealProposal(t, env.previousValue, env.committee, env.keys, 0)
 
 	env.clientAddress = env.committee.Committee().Members[0].Address
 	env.clientMember = &env.committee.Committee().Members[0]
