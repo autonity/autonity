@@ -600,13 +600,13 @@ func (s *Ethereum) validatorController() {
 	epochHeadCh := make(chan core.EpochHeadEvent)
 	epochHeadSub := s.blockchain.SubscribeEpochHeadEvent(epochHeadCh)
 
-	updateConsensusEnodes := func(epochHeader *types.Header) {
-		state, err := s.blockchain.StateAt(epochHeader.Root)
+	updateConsensusEnodes := func(header *types.Header) {
+		state, err := s.blockchain.StateAt(header.Root)
 		if err != nil {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(epochHeader, state, false)
+		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(header, state, false)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -619,8 +619,7 @@ func (s *Ethereum) validatorController() {
 
 	committee, _, _, _, err := s.blockchain.LatestEpoch()
 	if err != nil {
-		s.log.Error("missing epoch head, chain db might be corrupted", "err", err)
-		return
+		s.log.Crit("missing epoch head, chain db might be corrupted", "err", err)
 	}
 
 	currentHead := s.blockchain.CurrentHeader()
