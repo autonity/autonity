@@ -184,10 +184,8 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 
 	committee, err := sb.BlockChain().CommitteeOfHeight(msg.H())
 	if err != nil {
-		sb.logger.Error("handleDecodedMsg", "err", err)
-		return true, err
 		// since this is not a future message, we should always have the committee of the height.
-		//sb.logger.Crit("Missing committee for non-future consensus message", "height", msg.H())
+		sb.logger.Crit("Missing committee for non-future consensus message", "height", msg.H())
 	}
 
 	// assign power and bls signer key
