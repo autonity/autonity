@@ -41,7 +41,7 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 		// start round on top of the recovered tendermint states
 		if c.Decision() == nil {
 			c.setLastHeader(c.Backend().HeadBlock().Header())
-			c.StartRound(ctx, c.Round())
+			c.StartWithRecoveredState(ctx)
 		} else {
 			// decision was made, however it wasn't be committed.
 			// reset the view, commit the decision and start new height.
