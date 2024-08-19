@@ -969,7 +969,9 @@ func acCall(evm *vm.EVM, caller common.Address, function string, result any, arg
 		return err
 	}
 
-	// todo: Jason, resolve reasonable gas cap.
+	// as the gas of the precompile functions are resolved by its corresponding RequiredGas() interface, thus this gas
+	// consumption of reading committee is not counted into the original TXN, thus it does not make sense to resolve
+	// the gas cap for this call.
 	gas := uint64(math.MaxUint64)
 	ret, _, err := evm.Call(vm.AccountRef(caller), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
 	if err != nil {
