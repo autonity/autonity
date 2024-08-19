@@ -20,7 +20,7 @@ type Client struct {
 }
 
 func New(ip, user string) *Client {
-	key, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
+	key, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa-corp"))
 	if err != nil {
 		log.Error("Failed to read ssh file, err:", err)
 		return nil

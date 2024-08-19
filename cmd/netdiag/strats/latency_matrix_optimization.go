@@ -15,7 +15,7 @@ var (
 	errGraphConstruction     = errors.New("invalid graph construction")
 	errInvalidArgumentHop    = errors.New("hop is greater than 1")
 	errInvalidLatencyMatrix  = errors.New("latency to self should be zero")
-	errLatencyMatrixNotReady = errors.New("latency matrix not ready")
+	ErrLatencyMatrixNotReady = errors.New("latency matrix not ready")
 	errPeerNotFound          = errors.New("peer not found")
 )
 
@@ -36,7 +36,11 @@ func init() {
 }
 
 func createLatencyMatrixOpimize(base BaseStrategy, peerSetUpperBound int) *LatencyMatrixOptimize {
-	strategy := &LatencyMatrixOptimize{base, Graph{id: int(base.State.Id)}, peerSetUpperBound}
+	graph := Graph{
+		id:             int(base.State.Id),
+		peerGraphReady: make([]bool, base.State.Peers),
+	}
+	strategy := &LatencyMatrixOptimize{base, graph, peerSetUpperBound}
 	// go strategy.start()
 	return strategy
 }
@@ -109,7 +113,16 @@ func (l *LatencyMatrixOptimize) constructGraph(peers int) {
 		l.graph.constructConnection(root, maxConnections, low, timeMatrix)
 	}
 	l.graph.initiated = true
+	l.graph.peerGraphReady[l.State.Id] = true
 	l.graph.constructing.Store(false)
+}
+
+func (l *LatencyMatrixOptimize) GraphReadyForPeer(peerID int) {
+	l.graph.peerGraphReady[peerID] = true
+}
+
+func (l *LatencyMatrixOptimize) IsGraphReadyForPeer(peerID int) bool {
+	return l.graph.peerGraphReady[peerID]
 }
 
 func (l *LatencyMatrixOptimize) ConstructGraph(maxPeers int) error {
@@ -118,7 +131,7 @@ func (l *LatencyMatrixOptimize) ConstructGraph(maxPeers int) error {
 		return err
 	}
 	if !ready {
-		return errLatencyMatrixNotReady
+		return ErrLatencyMatrixNotReady
 	}
 	l.constructGraph(maxPeers)
 	return nil
@@ -180,6 +193,7 @@ type Graph struct {
 	// `rootedConnection[root]` contains the connection array of the node when
 	// the original sender is `root`
 	rootedConnection [][]int
+	peerGraphReady   []bool
 }
 
 // Returns `false` if construction is not possible otherwise returns `true`.

@@ -80,3 +80,9 @@ func (p *Random) HandlePacket(packetId uint64, hop uint8, originalSender uint64,
 func (p *Random) ConstructGraph(maxPeers int) error {
 	return nil
 }
+
+func (p *Random) GraphReadyForPeer(peerID int) {}
+
+func (p *Random) IsGraphReadyForPeer(peerID int) bool {
+	return true
+}

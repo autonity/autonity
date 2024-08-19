@@ -49,3 +49,9 @@ func (l *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64
 func (l *LowRTT) ConstructGraph(maxPeers int) error {
 	return nil
 }
+
+func (p *LowRTT) GraphReadyForPeer(peerID int) {}
+
+func (p *LowRTT) IsGraphReadyForPeer(peerID int) bool {
+	return true
+}

@@ -81,6 +81,12 @@ func (p *Simple) ConstructGraph(maxPeers int) error {
 	return nil
 }
 
+func (p *Simple) GraphReadyForPeer(peerID int) {}
+
+func (p *Simple) IsGraphReadyForPeer(peerID int) bool {
+	return true
+}
+
 func disseminationGroup(id int, peers []Peer) []Peer {
 	groupSize := int(math.Sqrt(float64(len(peers))))
 	groupCount := groupSize

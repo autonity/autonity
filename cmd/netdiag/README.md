@@ -36,5 +36,5 @@ Ssh agent can help to avoid the password prompt at every deployment.
 
 ```
  eval (ssh-agent -c) 
- ssh-add ~/.ssh/id_rsa
+ ssh-add ~/.ssh/id_rsa-corp
 ```

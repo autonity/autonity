@@ -24,6 +24,8 @@ const (
 	DisseminateRequest
 	DisseminateReport
 	LatencyArrayMsg
+	TriggerRequest
+	GraphReady
 	ProtocolMessages
 )
 
@@ -36,6 +38,8 @@ var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error
 	DisseminateRequest: handleDisseminatePacket,
 	DisseminateReport:  handleDisseminateReport,
 	LatencyArrayMsg:    handleLatencyArray,
+	TriggerRequest:     handleTriggerRequest,
+	GraphReady:         handleGraphReady,
 	//BlockMsg //serialized block
 	//AckBlockMsg
 }
@@ -273,7 +277,6 @@ type LatencyArrayPacket struct {
 }
 
 func (p *Peer) sendLatencyArray(latency []time.Duration) (uint64, time.Duration, error) {
-	log.Info("sendLatencyArray")
 	startTime := time.Now()
 	id := rand.Uint64()
 	fmt.Println("[LatencyArrayPacket] >> ", id)
@@ -314,8 +317,85 @@ func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 	return p2p.Send(p, AckDataMsg, AckDataPacket{latencyPacket.RequestId, now})
 }
 
+// ***********************
+// ***** SendTrigger *****
+// ***********************
+
+type TriggerPacket struct {
+	RequestId uint64
+	Strategy  uint64
+}
+
+func (p *Peer) sendTriggerRequest(strategy uint64) error {
+	id := rand.Uint64()
+	fmt.Println("[TriggerPacket][TriggerRequest] >> ", id)
+	req, err := p.dispatchRequest(
+		id, TriggerRequest,
+		TriggerPacket{RequestId: id, Strategy: strategy},
+	)
+	if err != nil {
+		log.Error("Unable to dispatch request", "error", err)
+		return err
+	}
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case <-req:
+		return nil
+	case <-timer.C:
+		return errTimeout
+	}
+}
+
+func handleTriggerRequest(e *Engine, p *Peer, data io.Reader) error {
+	var trigger TriggerPacket
+	if err := rlp.Decode(data, &trigger); err != nil {
+		return err
+	}
+	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
+	go func(e *Engine, p *Peer, trigger *TriggerPacket) {
+		p2pop := P2POp{e}
+		err := p2pop.broadcastLatencyAndMakeGraph(int(trigger.Strategy))
+		if err == nil {
+			p.sendGraphReady(trigger.Strategy)
+		}
+	}(e, p, &trigger)
+	fmt.Println("[TriggerPacket][TriggerRequest] << ", trigger.RequestId)
+	return p2p.Send(p, AckDataMsg, AckDataPacket{trigger.RequestId, now})
+}
+
+func (p *Peer) sendGraphReady(strategy uint64) error {
+	id := rand.Uint64()
+	fmt.Println("[TriggerPacket][GraphReady] >> ", id)
+	req, err := p.dispatchRequest(
+		id, GraphReady,
+		TriggerPacket{RequestId: id, Strategy: strategy},
+	)
+	if err != nil {
+		log.Error("Unable to dispatch request", "error", err)
+		return err
+	}
+	timer := time.NewTimer(5 * time.Second)
+	select {
+	case <-req:
+		return nil
+	case <-timer.C:
+		return errTimeout
+	}
+}
+
+func handleGraphReady(e *Engine, p *Peer, data io.Reader) error {
+	var trigger TriggerPacket
+	if err := rlp.Decode(data, &trigger); err != nil {
+		return err
+	}
+	e.strategies[trigger.Strategy].GraphReadyForPeer(p.id)
+	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
+	fmt.Println("[TriggerPacket][GraphReady] << ", trigger.RequestId)
+	return p2p.Send(p, AckDataMsg, AckDataPacket{trigger.RequestId, now})
+}
+
 // ***************************
-// ***** UpdateTCPSocket **** *
+// ***** UpdateTCPSocket *****
 // ***************************
 
 type TCPOptionsPacket struct {

@@ -37,7 +37,8 @@ type ChunkInfo struct {
 
 // State is a shared object amongst strategies.
 type State struct {
-	Id uint64
+	Id    uint64
+	Peers int
 	// Those need to be protected
 	ReceivedPackets map[uint64]ChunkInfo
 	ReceivedReports map[uint64]chan *IndividualDisseminateResult
@@ -49,6 +50,7 @@ type State struct {
 func NewState(id uint64, peers int) *State {
 	state := &State{
 		Id:              id,
+		Peers:           peers,
 		ReceivedPackets: make(map[uint64]ChunkInfo),
 		ReceivedReports: make(map[uint64]chan *IndividualDisseminateResult),
 		AverageRTT:      make([]time.Duration, peers),
@@ -102,6 +104,10 @@ type Strategy interface {
 	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error
 	// ConstructGraph constructs the graph to disseminate packet for `maxPeers`
 	ConstructGraph(maxPeers int) error
+	// GraphReadyForPeer is called when the graph for peer `peerID` is constructed
+	GraphReadyForPeer(peerID int)
+	// Returns `true` if graph is constructed for all peers
+	IsGraphReadyForPeer(peerID int) bool
 }
 
 type Peer interface {

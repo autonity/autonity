@@ -201,6 +201,7 @@ func (p *P2POp) PingIcmp(args *ArgTarget, reply *ResultPingIcmp) error {
 		return errTargetNotConnected
 	}
 	*reply = *(*ResultPingIcmp)(<-pingIcmp(p.engine.peers[args.Target].ip))
+	p.engine.state.LatencyMatrix[p.engine.id][args.Target] = reply.AvgRtt
 	return nil
 }
 
@@ -315,6 +316,7 @@ func (p *P2POp) PingDevP2P(args *ArgTarget, reply *ResultPing) error {
 	}
 	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
 	result.PongReceivedTime = time.Now()
+	p.engine.state.LatencyMatrix[p.engine.id][args.Target] = result.rtt()
 	*reply = result
 	return nil
 }
@@ -486,19 +488,15 @@ func (r *ResultSendLatencyArray) String() string {
 
 	fmt.Fprintf(&builder, "\nReceived responses from the following %d targets:\n", len(ackReceived))
 	for _, id := range ackReceived {
-		if r.Errors[id] != "" {
-			fmt.Fprintf(&builder, "%d with error: %s\n", id, r.Errors[id])
-		} else {
-			fmt.Fprintf(&builder, "%d\n", id)
+		if r.Errors[id] == "" {
+			fmt.Fprintf(&builder, "%d, ", id)
 		}
 	}
 
-	fmt.Fprintf(&builder, "\nFollowing %d targets did not respond:\n", len(ackNotReceived))
+	fmt.Fprintf(&builder, "\nFollowing %d targets did not respond:\n", len(ackNotReceived)-1)
 	for _, id := range ackNotReceived {
 		if r.Errors[id] != "" {
 			fmt.Fprintf(&builder, "%d with error: %s\n", id, r.Errors[id])
-		} else {
-			fmt.Fprintf(&builder, "%d\n", id)
 		}
 	}
 	fmt.Fprintf(&builder, "\n")
@@ -949,6 +947,76 @@ func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultDissemination) er
 	return nil
 }
 
+func (p *P2POp) StartLatencyBroadcastAndGraphMaking(arg *ArgStrategy, _ *ArgEmpty) error {
+	errs := make([]<-chan error, len(p.engine.peers))
+	for id, peer := range p.engine.peers {
+		ch := make(chan error, 1)
+		errs[id] = ch
+		if id == p.engine.id {
+			ch <- nil
+			continue
+		}
+		if peer == nil || !peer.connected {
+			ch <- errTargetNotConnected
+		} else {
+			go func(peer *Peer, ch chan error) {
+				err := peer.sendTriggerRequest(uint64(arg.Strategy))
+				ch <- err
+			}(peer, ch)
+		}
+	}
+
+	for _, ch := range errs {
+		err := <-ch
+		if err != nil {
+			return fmt.Errorf("error in send trigger request: %s", err.Error())
+		}
+	}
+	err := p.broadcastLatencyAndMakeGraph(arg.Strategy)
+	if err != nil {
+		return fmt.Errorf("error in making graph: %s", err.Error())
+	}
+
+	attempt := 10
+	for tries := 0; tries < attempt; tries++ {
+		ready := true
+		for i := 0; i < len(p.engine.peers); i++ {
+			if !p.engine.strategies[arg.Strategy].IsGraphReadyForPeer(i) {
+				ready = false
+				break
+			}
+		}
+		if ready {
+			return nil
+		}
+		time.Sleep(time.Second * 2)
+	}
+	return fmt.Errorf("failed to check if graph is ready for all after %d attempts", attempt)
+}
+
+func (p *P2POp) broadcastLatencyAndMakeGraph(strategy int) error {
+	var reply ResultIcmpAll
+	err := p.PingIcmpBroadcast(nil, &reply)
+	if err != nil {
+		return err
+	}
+	var reply2 ResultSendLatencyArray
+	err = p.SendLatencyArray(nil, &reply2)
+	if err != nil {
+		return err
+	}
+	attempt := 10
+	for i := 0; i < attempt; i++ {
+		err := p.engine.strategies[strategy].ConstructGraph(len(p.engine.peers))
+		if err == strats.ErrLatencyMatrixNotReady {
+			time.Sleep(time.Second * 5)
+			continue
+		}
+		return err
+	}
+	return fmt.Errorf("failed to construct graph after %d attempts", attempt)
+}
+
 type ArgGraphConstruct struct {
 	ArgStrategy
 	ArgMaxPeers
@@ -964,12 +1032,75 @@ func (a *ArgGraphConstruct) AskUserInput() error {
 	return nil
 }
 
-func (p *P2POp) ConstructGraph(arg *ArgGraphConstruct, _ *ArgEmpty) error {
+type ResultConstructGraph struct {
+	Err string
+}
+
+func (r *ResultConstructGraph) String() string {
+	var builder strings.Builder
+	if r.Err != "" {
+		fmt.Fprintf(&builder, "Graph constructed with error : %s\n", r.Err)
+	} else {
+		fmt.Fprintf(&builder, "Graph constructed with no error\n")
+	}
+	return builder.String()
+}
+
+func (p *P2POp) ConstructGraph(arg *ArgGraphConstruct, reply *ResultConstructGraph) error {
 	recipients := arg.MaxPeers
 	if arg.MaxPeers == 0 {
 		recipients = len(p.engine.peers)
 	}
-	return p.engine.strategies[arg.Strategy].ConstructGraph(recipients)
+	err := p.engine.strategies[arg.Strategy].ConstructGraph(recipients)
+	result := ResultConstructGraph{""}
+	if err != nil {
+		result.Err = err.Error()
+	}
+	*reply = result
+	return err
+}
+
+type PeerStatus struct {
+	GraphStatus string
+	Peers       []int
+}
+
+type ResultIsGraphReady struct {
+	PeerStatus []PeerStatus
+}
+
+func (r *ResultIsGraphReady) String() string {
+	var builder strings.Builder
+
+	for _, stat := range r.PeerStatus {
+		fmt.Fprintf(&builder, "Following %d peers are %s\n", len(stat.Peers), stat.GraphStatus)
+		for _, id := range stat.Peers {
+			fmt.Fprintf(&builder, "%d, ", id)
+		}
+		fmt.Fprintf(&builder, "\n")
+	}
+	return builder.String()
+}
+
+func (p *P2POp) IsGraphReady(arg *ArgStrategy, reply *ResultIsGraphReady) error {
+	result := ResultIsGraphReady{}
+
+	readyPeers := make([]int, 0, len(p.engine.peers))
+	notReadyPeers := make([]int, 0, len(p.engine.peers))
+	for id := 0; id < len(p.engine.peers); id++ {
+		if p.engine.strategies[arg.Strategy].IsGraphReadyForPeer(id) {
+			readyPeers = append(readyPeers, id)
+		} else {
+			notReadyPeers = append(notReadyPeers, id)
+		}
+	}
+
+	peerStatus := make([]PeerStatus, 0, 2)
+	peerStatus = append(peerStatus, PeerStatus{"ready", readyPeers})
+	peerStatus = append(peerStatus, PeerStatus{"not ready", notReadyPeers})
+	result.PeerStatus = peerStatus
+	*reply = result
+	return nil
 }
 
 func checkPeer(id int, peers []*Peer) (*Peer, error) {

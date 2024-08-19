@@ -52,6 +52,12 @@ func (p *Broadcast) ConstructGraph(maxPeers int) error {
 	return nil
 }
 
+func (p *Broadcast) GraphReadyForPeer(peerID int) {}
+
+func (p *Broadcast) IsGraphReadyForPeer(peerID int) bool {
+	return true
+}
+
 func (p *BroadcastBlocking) Execute(packetId uint64, data []byte, maxPeers int) error {
 	for i := 0; i < maxPeers; i++ {
 		peer := p.Peers(i)
@@ -72,4 +78,10 @@ func (p *BroadcastBlocking) HandlePacket(requestId uint64, hop uint8, originalSe
 
 func (p *BroadcastBlocking) ConstructGraph(maxPeers int) error {
 	return nil
+}
+
+func (p *BroadcastBlocking) GraphReadyForPeer(peerID int) {}
+
+func (p *BroadcastBlocking) IsGraphReadyForPeer(peerID int) bool {
+	return true
 }
