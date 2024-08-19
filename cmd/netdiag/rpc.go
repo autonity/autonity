@@ -451,13 +451,13 @@ func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandom
 	return nil
 }
 
-type ResultSendLatencyArray struct {
+type ResultBroadcastLatencyArray struct {
 	HasError    bool
 	AckReceived []bool
 	Errors      []string
 }
 
-func (r *ResultSendLatencyArray) String() string {
+func (r *ResultBroadcastLatencyArray) String() string {
 	var builder strings.Builder
 
 	if r.HasError {
@@ -503,8 +503,8 @@ func (r *ResultSendLatencyArray) String() string {
 	return builder.String()
 }
 
-func (p *P2POp) SendLatencyArray(_ *ArgEmpty, reply *ResultSendLatencyArray) error {
-	result := ResultSendLatencyArray{}
+func (p *P2POp) BroadcastLatencyArray(_ *ArgEmpty, reply *ResultBroadcastLatencyArray) error {
+	result := ResultBroadcastLatencyArray{}
 	errs := make([]string, len(p.engine.peers))
 	acks := make([]bool, len(p.engine.peers))
 	var hasError atomic.Bool
@@ -1000,8 +1000,8 @@ func (p *P2POp) broadcastLatencyAndMakeGraph(strategy int) error {
 	if err != nil {
 		return err
 	}
-	var reply2 ResultSendLatencyArray
-	err = p.SendLatencyArray(nil, &reply2)
+	var reply2 ResultBroadcastLatencyArray
+	err = p.BroadcastLatencyArray(nil, &reply2)
 	if err != nil {
 		return err
 	}
