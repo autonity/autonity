@@ -20,7 +20,9 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/ethdb/badgerdb"
 	"math/big"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -82,6 +84,7 @@ type Ethereum struct {
 	snapDialCandidates enode.Iterator
 
 	// DB interfaces
+	walDB   ethdb.Database // wal database.
 	chainDb ethdb.Database // Block chain database
 
 	eventMux       *event.TypeMux
@@ -179,13 +182,21 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
-	// todo: Jason, input concrete chain DB when WAL is enabled, otherwise input a nil point to disable WAL.
+
+	// todo: Jason, refine this with flags for WAL directory. Now it is created at wal under node directory.
+	wal := filepath.Join(stack.Config().DataDir, stack.Config().Name, "wal")
+	walDB, err := badgerdb.New(wal)
+	if err != nil {
+		panic(err)
+	}
+
 	consensusEngine := ethconfig.CreateConsensusEngine(stack, chainConfig, config, config.Miner.Notify,
-		config.Miner.Noverify, &vmConfig, evMux, msgStore, chainDb)
+		config.Miner.Noverify, &vmConfig, evMux, msgStore, walDB)
 
 	nodeKey, _ := stack.Config().AutonityKeys()
 	eth := &Ethereum{
 		config:            config,
+		walDB:             walDB,
 		chainDb:           chainDb,
 		log:               stack.Logger(),
 		eventMux:          stack.EventMux(),
@@ -669,6 +680,9 @@ func (s *Ethereum) Stop() error {
 	// Clean shutdown marker as the last thing before closing db
 	s.shutdownTracker.Stop()
 
+	if s.walDB != nil {
+		s.walDB.Close()
+	}
 	s.chainDb.Close()
 	s.eventMux.Stop()
 

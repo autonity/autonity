@@ -707,6 +707,9 @@ func checkGoRoutineLeak(t *testing.T) {
 		// this routine from 3rd party SDK is used only by E2E test framework for port query, it does not have a shutdown
 		// triggered from inside of it, and we cannot shut down it from e2e test framework side as well.
 		goleak.IgnoreTopFunction("github.com/hashicorp/consul/sdk/freeport.checkFreedPorts"),
+
+		// introduced by badger database.
+		goleak.IgnoreTopFunction("github.com/golang/glog.(*loggingT).flushDaemon"),
 	)
 }
 
