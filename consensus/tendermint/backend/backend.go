@@ -290,10 +290,14 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, err
 		}
 
-		receipts, _, usedGas, _, err := sb.blockchain.Processor().Process(proposal, state, *sb.vmConfig)
+		receipts, _, usedGas, committee, err := sb.blockchain.Processor().Process(proposal, state, *sb.vmConfig)
+		if err != nil {
+			sb.logger.Error("state processing failed", "error", err)
+			return 0, err
+		}
 		//Validate the state of the proposal
 		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, usedGas); err != nil {
-			sb.logger.Error("proposal proposed, bad root state", err)
+			sb.logger.Error("proposal proposed, bad root state", "error", err)
 			return 0, err
 		}
 		// As the epoch infos(committee, lastEpochBlock, nextEpochBlock) are saving in the contract state, thus the

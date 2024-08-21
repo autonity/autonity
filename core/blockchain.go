@@ -155,7 +155,6 @@ var defaultCacheConfig = &CacheConfig{
 	SnapshotWait:   true,
 }
 
-
 type blockStateCache struct {
 	hash     common.Hash
 	receipts types.Receipts
