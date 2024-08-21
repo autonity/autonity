@@ -179,6 +179,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     // it is applied to the protocol right after the end of current epoch.
     uint256 public newEpochPeriod;
 
+    uint256 public lastFinalizedBlock;
     uint256 public lastEpochBlock;
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
@@ -319,6 +320,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
+        lastFinalizedBlock = block.number;
         // init epoch info for genesis deployment of contract.
         blockEpochMap[block.number] = epochID; // genesis block is mapped to the 1st epoch with epoch #0
         parentEpochBlock = 0;
@@ -770,6 +772,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @return nextEpochBlock The next epoch block number.
     */
     function finalize() external virtual onlyProtocol nonReentrant returns (bool, bool, CommitteeMember[] memory, uint256, uint256) {
+        lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
 
         // Making this condition change to make the Autonity contract to have a chance to
@@ -1039,14 +1042,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
         require(_height <= block.number, "cannot get committee for a future height");
 
-        uint256 blockEpochID = blockEpochMap[_height];
-        // if the input height belong to current epoch, then return current committee.
-        CommitteeMember[] memory members = epochInfos[blockEpochID].committee;
-        if (blockEpochID == epochID) {
-            return committee;
+        // if the block was already finalized, get committee by its corresponding epoch id.
+        if (_height <= lastFinalizedBlock) {
+            uint256 blockEpochID = blockEpochMap[_height];
+            CommitteeMember[] memory members = epochInfos[blockEpochID].committee;
+            return members;
         }
-        // otherwise returns finalized history epoch's committee
-        return members;
+
+        // otherwise, this _height is the latest consensus instance, return current committee.
+        return committee;
     }
 
     /**

@@ -1350,22 +1350,12 @@ func errorToRule(err error) autonity.Rule {
 	return rule
 }
 
-// Proposer election now is unified in committee structure.
-func getProposer(chain ChainContext, h uint64, r int64) (common.Address, error) {
-	committee, err := chain.CommitteeOfHeight(h)
-	if err != nil {
-		panic(fmt.Sprintf("cannot get committee of height: %d", h))
-	}
-	proposer := chain.ProtocolContracts().Proposer(committee, nil, h-1, r)
-	return proposer, nil
-}
-
 func isProposerValid(chain ChainContext, m message.Msg) bool {
-	proposer, err := getProposer(chain, m.H(), m.R())
+	committee, err := chain.CommitteeOfHeight(m.H())
 	if err != nil {
-		log.Error("get proposer err", "err", err)
-		return false
+		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
 	}
+	proposer := chain.ProtocolContracts().Proposer(committee, nil, m.H()-1, m.R())
 	signer := m.(*message.Propose).Signer()
 	return signer == proposer
 }

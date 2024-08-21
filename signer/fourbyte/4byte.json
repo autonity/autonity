@@ -171,5 +171,6 @@
   "241ed650": "newEpochPeriod()",
   "25ce1bb9": "getNextEpochBlock()",
   "ddb073ce": "getEpochInfo1()",
-  "628ea573": "curEpochID()"
+  "628ea573": "curEpochID()",
+  "ae1da0b5": "lastFinalizedBlock()"
 }
