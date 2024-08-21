@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/dgraph-io/badger/v4"
+	"github.com/dgraph-io/badger/v4/options"
 )
 
 //todo: Jason, refine this adaptation with only required interfaces for WAL.
@@ -16,8 +17,8 @@ type Database struct {
 }
 
 func New(dir string) (*Database, error) {
-	// todo: Jason review those options of caches for the store to tune it be faster.
-	db, err := badger.Open(badger.DefaultOptions(dir))
+	opts := badger.DefaultOptions(dir).WithMetricsEnabled(false).WithDetectConflicts(false).WithCompression(options.None)
+	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
