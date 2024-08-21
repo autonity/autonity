@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -97,9 +98,13 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(round)
 		proposal := message.NewPropose(round, height, 1, block, signer, signerMember)
 
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		ctrl := gomock.NewController(t)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
+		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
 		c := &Core{
 			address:          addr,
 			messages:         messages,
@@ -115,6 +120,7 @@ func TestHandleProposal(t *testing.T) {
 		require.NoError(t, err)
 		proposal2 := message.NewPropose(round, height, 87, block, signer, signerMember)
 		err = c.proposer.HandleProposal(context.Background(), proposal2)
+		wg.Wait()
 		if !errors.Is(err, constants.ErrAlreadyHaveProposal) {
 			t.Fatalf("Expected %v, got %v", constants.ErrAlreadyHaveProposal, err)
 		}
@@ -136,6 +142,7 @@ func TestHandleProposal(t *testing.T) {
 			height:           new(big.Int).SetUint64(height),
 		}
 		c.SetDefaultHandlers()
+
 		err := c.proposer.HandleProposal(context.Background(), proposal)
 		if !errors.Is(err, constants.ErrOldRoundMessage) {
 			t.Fatalf("Expected %v, got %v", constants.ErrOldRoundMessage, err)
@@ -213,6 +220,7 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messageMap.GetOrCreate(round)
 		proposal := message.NewPropose(round, height, 1, block, signer, signerMember)
 		backendMock := interfaces.NewMockBackend(ctrl)
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
 		event := backlogMessageEvent{
 			msg: proposal,
@@ -243,11 +251,16 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		block := types.NewBlockWithHeader(&types.Header{Number: big.NewInt(1)})
 
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
 		proposal := message.NewPropose(round, height, 2, block, signer, signerMember)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
 
 		c := &Core{
 			address:          addr,
@@ -267,6 +280,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
+		wg.Wait()
 		if !reflect.DeepEqual(curRoundMessages.Proposal(), proposal) {
 			t.Fatalf("%v not equal to  %v", curRoundMessages.Proposal(), proposal)
 		}
@@ -315,13 +329,18 @@ func TestHandleProposal(t *testing.T) {
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			require.NoError(t, err)
 		}
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
 		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ types.AggregateSignature) {
 			require.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
 		})
 
 		err = c.proposer.HandleProposal(context.Background(), proposal)
+		wg.Wait()
 		require.NoError(t, err)
 	})
 	t.Run("valid proposal given, valid round -1, pre-vote is sent", func(t *testing.T) {
@@ -329,6 +348,8 @@ func TestHandleProposal(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
 		})
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(round)
@@ -337,6 +358,8 @@ func TestHandleProposal(t *testing.T) {
 		prevote := message.NewPrevote(round, height, block.Hash(), signer, signerMember, csize)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
+		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(gomock.Any(), prevote)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
 		c := &Core{
@@ -362,6 +385,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
+		wg.Wait()
 		if !reflect.DeepEqual(curRoundMessages.Proposal(), proposal) {
 			t.Fatalf("%v not equal to  %v", curRoundMessages.Proposal(), proposal)
 		}
@@ -380,8 +404,12 @@ func TestHandleProposal(t *testing.T) {
 			messages.GetOrCreate(round - 1).AddPrevote(prevote)
 		}
 
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
+		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(gomock.Any(), message.NewPrevote(round, height, proposal.Block().Hash(), signer, signerMember, csize))
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
 
@@ -408,6 +436,7 @@ func TestHandleProposal(t *testing.T) {
 			t.Fatalf("Expected <nil>, got %v", err)
 		}
 
+		wg.Wait()
 		if !reflect.DeepEqual(curRoundMessage.Proposal(), proposal) {
 			t.Fatalf("%v not equal to  %v", curRoundMessage.Proposal(), proposal)
 		}

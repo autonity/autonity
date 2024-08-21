@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -255,6 +256,7 @@ func TestNewProposal(t *testing.T) {
 		// prepare prevote nil and target the malicious proposer and the corresponding value.
 		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), common.Hash{}, e.clientSigner, e.clientMember, e.committeeSize)
 
+		backendMock.EXPECT().ProposedBlockHash().Return(invalidProposal.Hash())
 		backendMock.EXPECT().VerifyProposal(invalidProposal.Block()).Return(time.Duration(1), errors.New("invalid proposal"))
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
@@ -275,13 +277,18 @@ func TestNewProposal(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
+		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
 		e.setupCore(backendMock, e.clientAddress)
 		err := e.core.handleMsg(context.Background(), proposal)
+		wg.Wait()
 		assert.NoError(t, err)
 		e.checkState(t, e.curHeight, e.curRound, Prevote, nil, e.lockedRound, nil, int64(-1))
 	})
@@ -301,13 +308,18 @@ func TestNewProposal(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
+		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
 		e.setupCore(backendMock, e.clientAddress)
 		err := e.core.handleMsg(context.Background(), e.curProposal)
+		wg.Wait()
 		assert.NoError(t, err)
 		e.checkState(t, e.curHeight, e.curRound, Prevote, e.curProposal.Block(), e.lockedRound, e.curProposal.Block(), e.validRound)
 	})
@@ -332,11 +344,16 @@ func TestNewProposal(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 
 		e.setupCore(backendMock, e.clientAddress)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
+		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
 		err := e.core.handleMsg(context.Background(), e.curProposal)
+		wg.Wait()
 		assert.NoError(t, err)
 		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 	})
@@ -368,10 +385,14 @@ func TestOldProposal(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
+		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
 		e.setupCore(backendMock, e.clientAddress)
@@ -383,6 +404,7 @@ func TestOldProposal(t *testing.T) {
 		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote))
 
 		err := e.core.handleMsg(context.Background(), e.curProposal)
+		wg.Wait()
 		assert.NoError(t, err)
 		e.checkState(t, e.curHeight, e.curRound, Prevote, nil, e.lockedRound, nil, e.validRound)
 	})
@@ -412,10 +434,14 @@ func TestOldProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
+		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		e.setupCore(backendMock, e.clientAddress)
 		fakePrevote := message.Fake{
 			FakeValue:   e.curProposal.Block().Hash(),
@@ -424,6 +450,7 @@ func TestOldProposal(t *testing.T) {
 		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote))
 
 		err := e.core.handleMsg(context.Background(), e.curProposal)
+		wg.Wait()
 		assert.NoError(t, err)
 		e.checkState(t, e.curHeight, e.curRound, Prevote, e.curProposal.Block(), e.curProposal.ValidRound()+1, e.curProposal.Block(), e.curProposal.ValidRound()+1)
 	})
@@ -457,11 +484,16 @@ func TestOldProposal(t *testing.T) {
 
 		fakePrevote := message.NewFakePrevote(message.Fake{FakeSigners: signersWithPower(0, e.committeeSize, e.core.CommitteeSet().Quorum()), FakeValue: e.curProposal.Block().Hash()})
 		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(fakePrevote)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(0), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
+		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 
 		err := e.core.handleMsg(context.Background(), e.curProposal)
+		wg.Wait()
 		assert.NoError(t, err)
 		e.checkState(t, e.curHeight, e.curRound, Prevote, e.lockedValue, e.curProposal.ValidRound()+1, e.validValue, e.curProposal.ValidRound()+1)
 	})
@@ -584,13 +616,18 @@ func TestOldProposal(t *testing.T) {
 
 		//schedule the proposer Timeout since the client is not the proposer for this round
 		e.core.proposeTimeout.ScheduleTimeout(1*time.Second, e.core.Round(), e.core.Height(), e.core.onTimeoutPropose)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
+		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsgToBroadcast)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 
 		// now we handle new round's proposal with round_p > vr on value v.
 		err := e.core.handleMsg(context.Background(), e.curProposal)
+		wg.Wait()
 		assert.NoError(t, err)
 
 		// check that the propose timeout is still started, as the proposal did not cause a step change
@@ -623,15 +660,20 @@ func TestProposeTimeout(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
+		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
 		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
+		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
 		e.setupCore(backendMock, e.clientAddress)
 
 		// propose timer should be started
 		e.core.proposeTimeout.ScheduleTimeout(5*time.Second, e.core.Round(), e.core.Height(), e.core.onTimeoutPropose)
 		assert.True(t, e.core.proposeTimeout.TimerStarted())
 		err := e.core.handleMsg(context.Background(), proposal)
+		wg.Wait()
 		assert.NoError(t, err)
 		// propose timer should still be running
 		assert.True(t, e.core.proposeTimeout.TimerStarted())
