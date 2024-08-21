@@ -149,9 +149,16 @@ func (env *environment) discard() {
 // task contains all information for consensus engine sealing and result submitting.
 type task struct {
 	receipts  []*types.Receipt
-	state     *state.StateDB
+	st        *state.StateDB
 	block     *types.Block
 	createdAt time.Time
+	stateLock sync.RWMutex
+}
+
+func (t *task) stateCopy() *state.StateDB {
+	t.stateLock.RLock()
+	defer t.stateLock.RUnlock()
+	return t.st.Copy()
 }
 
 const (
@@ -194,9 +201,7 @@ type worker struct {
 	pendingLogsFeed event.Feed
 
 	// Subscriptions
-	mux *event.TypeMux
-	//txsCh        chan core.NewTxsEvent
-	//txsSub       event.Subscription
+	mux          *event.TypeMux
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 	chainSideCh  chan core.ChainSideEvent
@@ -225,6 +230,7 @@ type worker struct {
 
 	pendingMu    sync.RWMutex
 	pendingTasks map[common.Hash]*task
+	pendingHash  common.Hash
 
 	snapshotMu       sync.RWMutex // The lock used to protect the snapshots below
 	snapshotBlock    *types.Block
@@ -254,18 +260,17 @@ type worker struct {
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
 	worker := &worker{
-		config:       config,
-		chainConfig:  chainConfig,
-		coinbase:     config.Etherbase,
-		engine:       engine,
-		eth:          eth,
-		mux:          mux,
-		chain:        eth.BlockChain(),
-		isLocalBlock: isLocalBlock,
-		localUncles:  make(map[common.Hash]*types.Block),
-		remoteUncles: make(map[common.Hash]*types.Block),
-		pendingTasks: make(map[common.Hash]*task),
-		//txsCh:              make(chan core.NewTxsEvent, txChanSize),
+		config:                  config,
+		chainConfig:             chainConfig,
+		coinbase:                config.Etherbase,
+		engine:                  engine,
+		eth:                     eth,
+		mux:                     mux,
+		chain:                   eth.BlockChain(),
+		isLocalBlock:            isLocalBlock,
+		localUncles:             make(map[common.Hash]*types.Block),
+		remoteUncles:            make(map[common.Hash]*types.Block),
+		pendingTasks:            make(map[common.Hash]*task),
 		chainHeadCh:             make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:             make(chan core.ChainSideEvent, chainSideChanSize),
 		newWorkCh:               make(chan *newWorkReq),
@@ -279,7 +284,6 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		resubmitAdjustCh:        make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
 	// Subscribe NewTxsEvent for tx pool
-	//worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
@@ -339,29 +343,27 @@ func (w *worker) enablePreseal() {
 
 // pending returns the pending state and corresponding block.
 func (w *worker) pending() (*types.Block, *state.StateDB) {
-	// return a snapshot to avoid contention on currentMu mutex
-	w.snapshotMu.RLock()
-	defer w.snapshotMu.RUnlock()
-	if w.snapshotState == nil {
+	w.pendingMu.RLock()
+	t := w.pendingTasks[w.pendingHash]
+	if t == nil {
+		w.pendingMu.RUnlock()
 		return nil, nil
 	}
-	return w.snapshotBlock, w.snapshotState.Copy()
+	w.pendingMu.RUnlock()
+	return t.block, t.stateCopy()
+
 }
 
 // pendingBlock returns pending block.
 func (w *worker) pendingBlock() *types.Block {
-	// return a snapshot to avoid contention on currentMu mutex
-	w.snapshotMu.RLock()
-	defer w.snapshotMu.RUnlock()
-	return w.snapshotBlock
-}
-
-// pendingBlockAndReceipts returns pending block and corresponding receipts.
-func (w *worker) pendingBlockAndReceipts() (*types.Block, types.Receipts) {
-	// return a snapshot to avoid contention on currentMu mutex
-	w.snapshotMu.RLock()
-	defer w.snapshotMu.RUnlock()
-	return w.snapshotBlock, w.snapshotReceipts
+	w.pendingMu.RLock()
+	t := w.pendingTasks[w.pendingHash]
+	if t == nil {
+		w.pendingMu.RUnlock()
+		return nil
+	}
+	w.pendingMu.RUnlock()
+	return t.block
 }
 
 // start sets the running status as 1 and triggers new work submitting.
@@ -544,7 +546,6 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 // submit it or return task according to given parameters for various proposes.
 func (w *worker) mainLoop() {
 	defer w.wg.Done()
-	//defer w.txsSub.Unsubscribe()
 	defer w.chainHeadSub.Unsubscribe()
 	defer w.chainSideSub.Unsubscribe()
 	defer func() {
@@ -606,40 +607,9 @@ func (w *worker) mainLoop() {
 					delete(w.remoteUncles, hash)
 				}
 			}
-
-		//case ev := <-w.txsCh:
-		//	// Apply transactions to the pending state if we're not sealing
-		//	//
-		//	// Note all transactions received may not be continuous with transactions
-		//	// already included in the current sealing block. These transactions will
-		//	// be automatically eliminated.
-		//	if !w.isRunning() && w.current != nil {
-		//		// If block is already full, abort
-		//		if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
-		//			continue
-		//		}
-		//		txs := make(map[common.Address]types.Transactions)
-		//		for _, tx := range ev.Txs {
-		//			acc, _ := types.Sender(w.current.signer, tx)
-		//			txs[acc] = append(txs[acc], tx)
-		//		}
-		//		txset := types.NewTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
-		//		tcount := w.current.tcount
-		//		w.commitTransactions(w.current, txset, nil)
-		//
-		//		// Only update the snapshot if any new transactions were added
-		//		// to the pending block
-		//		if tcount != w.current.tcount {
-		//			w.updateSnapshot(w.current)
-		//		}
-		//	}
-		//	atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
-		//
 		// System stopped
 		case <-w.exitCh:
 			return
-		//case <-w.txsSub.Err():
-		//	return
 		case <-w.chainHeadSub.Err():
 			return
 		case <-w.chainSideSub.Err():
@@ -676,6 +646,9 @@ func (w *worker) taskLoop() {
 				continue
 			}
 			// Interrupt previous sealing operation
+			//TODO: this interrupt doesn't seem to do anything, Seal is called synchronously, when interrupt is thrown
+			// no other sealing operation is running
+
 			interrupt()
 			stopCh, prev = make(chan struct{}), sealHash
 
@@ -685,6 +658,7 @@ func (w *worker) taskLoop() {
 			w.eth.Logger().Debug("New block Seal request", "hash", sealHash)
 			w.pendingMu.Lock()
 			w.pendingTasks[sealHash] = task
+			w.pendingHash = sealHash
 			w.pendingMu.Unlock()
 
 			sealStart := time.Now()
@@ -733,46 +707,67 @@ func (w *worker) resultLoop() {
 				w.eth.Logger().Error("Block found but no relative pending task", "number", block.Number(), "sealhash", sealhash, "hash", hash)
 				continue
 			}
-			// Different block could share same sealhash, deep copy here to prevent write-write conflict.
-			var (
-				receipts = make([]*types.Receipt, len(task.receipts))
-				logs     []*types.Log
-			)
-			copyStart := time.Now()
-			for i, taskReceipt := range task.receipts {
-				receipt := new(types.Receipt)
-				receipts[i] = receipt
-				*receipt = *taskReceipt
 
-				// add block location fields
-				receipt.BlockHash = hash
-				receipt.BlockNumber = block.Number()
-				receipt.TransactionIndex = uint(i)
-
-				// Update the block hash in all logs since it is now available and not when the
-				// receipt/log of individual transactions were created.
-				receipt.Logs = make([]*types.Log, len(taskReceipt.Logs))
-				for i, taskLog := range taskReceipt.Logs {
-					log := new(types.Log)
-					receipt.Logs[i] = log
-					*log = *taskLog
-					log.BlockHash = hash
+			// Update the block hash in all logs since it is now available and not when the
+			// receipt/log of individual transactions were created.
+			for i, r := range task.receipts {
+				r.BlockHash = block.Hash()
+				r.BlockNumber = block.Number()
+				r.TransactionIndex = uint(i)
+				for _, l := range r.Logs {
+					l.BlockHash = block.Hash()
 				}
-				logs = append(logs, receipt.Logs...)
 			}
-			if metrics.Enabled {
-				now := time.Now()
-				CopyWorkTimer.Update(now.Sub(copyStart))
-				CopyWorkBg.Add(now.Sub(copyStart).Nanoseconds())
+			task.stateLock.Lock()
+			for _, log := range task.st.Logs() {
+				log.BlockHash = block.Hash()
 			}
 
+			// Different block could share same sealhash, deep copy here to prevent write-write conflict.
+			//var (
+			//	receipts = make([]*types.Receipt, len(task.receipts))
+			//	logs     []*types.Log
+			//)
+			//copyStart := time.Now()
+			//for i, taskReceipt := range task.receipts {
+			//	receipt := new(types.Receipt)
+			//	receipts[i] = receipt
+			//	*receipt = *taskReceipt
+			//
+			//	// add block location fields
+			//	receipt.BlockHash = hash
+			//	receipt.BlockNumber = block.Number()
+			//	receipt.TransactionIndex = uint(i)
+			//
+			//	// Update the block hash in all logs since it is now available and not when the
+			//	// receipt/log of individual transactions were created.
+			//	receipt.Logs = make([]*types.Log, len(taskReceipt.Logs))
+			//	for i, taskLog := range taskReceipt.Logs {
+			//		log := new(types.Log)
+			//		receipt.Logs[i] = log
+			//		*log = *taskLog
+			//		log.BlockHash = hash
+			//	}
+			//	logs = append(logs, receipt.Logs...)
+			//}
+			//if metrics.Enabled {
+			//	now := time.Now()
+			//	CopyWorkTimer.Update(now.Sub(copyStart))
+			//	CopyWorkBg.Add(now.Sub(copyStart).Nanoseconds())
+			//}
+			//
 			// Commit block and state to database.
 			persistStart := time.Now()
-			_, err := w.chain.WriteBlockAndSetHead(block, receipts, logs, task.state, true)
+			// protect state access, Practically this lock will always be available, by this time
+			// a new pending task will be created(since task creation starts just after the proposal verification)
+			// and this will not be the point of contention, but in theory this can happen, hence the lock
+			_, err := w.chain.WriteBlockAndSetHead(block, task.receipts, task.st.Logs(), task.st, true)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
+				task.stateLock.Unlock()
 				continue
 			}
+			task.stateLock.Unlock()
 			if metrics.Enabled {
 				now := time.Now()
 				PersistWorkTimer.Update(now.Sub(persistStart))
@@ -867,30 +862,6 @@ func (w *worker) updateSnapshot(env *environment) {
 	)
 	w.snapshotReceipts = copyReceipts(env.receipts)
 	w.snapshotState = env.state.Copy()
-}
-
-// updateSnapshot updates pending snapshot block, receipts and state.
-func (w *worker) prepareSnapshot(env *environment) (*types.Block, []*types.Receipt, *state.StateDB) {
-	w.snapshotMu.Lock()
-	defer w.snapshotMu.Unlock()
-
-	snapshotBlock := types.NewBlock(
-		env.header,
-		env.txs,
-		env.unclelist(),
-		env.receipts,
-		trie.NewStackTrie(nil),
-	)
-	return snapshotBlock, copyReceipts(env.receipts), env.state.Copy()
-}
-
-// updateSnapshot updates pending snapshot block, receipts and state.
-func (w *worker) setSnapshot(block *types.Block, receipts []*types.Receipt, state *state.StateDB) {
-	w.snapshotMu.Lock()
-	defer w.snapshotMu.Unlock()
-	w.snapshotBlock = block
-	w.snapshotReceipts = receipts
-	w.snapshotState = state
 }
 
 func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*types.Log, error) {
@@ -1046,16 +1017,6 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 	if parent == nil {
 		return nil, fmt.Errorf("missing parent")
 	}
-	/*
-		// We must account here for the block period in case of Tendermint consensus.
-		// Another strategy would have been to sleep before submitting a new work request
-		// within the newWorkLoop's commit closure.
-		if w.chainConfig.Tendermint != nil {
-			if parent.Time()+w.chainConfig.Tendermint.BlockPeriod >= uint64(timestamp) {
-				timestamp = int64(parent.Time() + w.chainConfig.Tendermint.BlockPeriod)
-			}
-		}
-	*/
 
 	// Sanity check the timesw.chainConfig.Tendermint.BlockPeriod timestamp correctness, recap the timestamp
 	// to parent+1 if the mutation is allowed.
@@ -1243,7 +1204,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 			FinalizeWorkBg.Add(now.Sub(finalizeStart).Nanoseconds())
 		}
 		select {
-		case w.taskCh <- &task{receipts: env.receipts, state: env.state, block: block, createdAt: time.Now()}:
+		case w.taskCh <- &task{receipts: env.receipts, st: env.state, block: block, createdAt: time.Now()}:
 			if metrics.Enabled {
 				TotalTaskPrepareBg.Add(time.Since(start).Nanoseconds())
 			}
@@ -1255,10 +1216,6 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		case <-w.exitCh:
 			w.eth.Logger().Info("Worker has exited")
 		}
-	}
-
-	if update {
-		w.updateSnapshot(env)
 	}
 	return nil
 }
