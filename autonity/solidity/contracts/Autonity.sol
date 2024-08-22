@@ -1058,8 +1058,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @param _block the input block number.
     */
     function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
-        require(_height <= block.number, "cannot get epoch for a future height");
-        if (_height <= lastFinalizedBlock) {
+        require(_block <= block.number, "cannot get epoch for a future block");
+        if (_block <= lastFinalizedBlock) {
             return blockEpochMap[_block];
         }
         return epochID;
