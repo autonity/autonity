@@ -1147,10 +1147,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
                     _transfer(address(this), _val.liquidStateContract, _ntnDelegationReward);
-                    (bool _success, ) = _val.liquidStateContract.call{value: _atnDelegationReward}(
-                        abi.encodeWithSignature("redistribute(uint256)", _ntnDelegationReward)
-                    );
-                    require(_success == true, "failed to distribute rewards");
+                    _redistributeLiquidReward(_val.liquidStateContract, _ntnDelegationReward, _atnDelegationReward);
                 }
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
@@ -1359,11 +1356,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // delegatedStake cannot be 0 because the bonding was applied successfully
             // calculate LNTN using current ratio of NTN:LNTN
             uint256 _liquidAmount = _validator.liquidSupply * _bonding.amount / (_validator.bondedStake - _validator.selfBondedStake);
-            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
-                abi.encodeWithSignature("burn(address,uint256)", _bonding.delegator, _liquidAmount)
-            );
+            bool _success = _burnLiquid(_validator.liquidStateContract, _bonding.delegator, _liquidAmount);
             if (_success == false) {
-                emit CallFailed(_validator.liquidStateContract, "burn(address,uint256)", _returnData);
                 return;
             }
             _validator.liquidSupply -= _liquidAmount;
@@ -1398,11 +1392,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             } else {
                 _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
             }
-            (bool _success, bytes memory _returnData) = address(_validator.liquidStateContract).call(
-                abi.encodeWithSignature("mint(address,uint256)", _bonding.delegator, _liquidAmount)
-            );
+            bool _success = _mintLiquid(_validator.liquidStateContract, _bonding.delegator, _liquidAmount);
             if (_success == false) {
-                emit CallFailed(_validator.liquidStateContract, "mint(address,uint256)", _returnData);
+                accounts[_bonding.delegator] += _bonding.amount;
                 _notifyBondingApplied(id, 0, false, true);
                 return;
             }
@@ -1424,10 +1416,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // Lock LNTN if it was issued (non self-delegated stake case)
             uint256 liqBalance = LiquidState(payable(_validator.liquidStateContract)).unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
-            (bool _success, ) = _validator.liquidStateContract.call(
-                abi.encodeWithSignature("lock(address,uint256)", _recipient, _amount)
-            );
-            require(_success, "Failed to lock LNTN");
+            _lockLiquid(_validator.liquidStateContract, _recipient, _amount);
         } else {
             require(
                 _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
@@ -1501,11 +1490,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             } else {
                 _liquidAmount = (_validator.liquidSupply * _amount) / _delegatedStake;
             }
-            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
-                abi.encodeWithSignature("mint(address,uint256)", _unbonding.delegator, _liquidAmount)
-            );
+            bool _success = _mintLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
             if (_success == false) {
-                emit CallFailed(_validator.liquidStateContract, "mint(address,uint256)", _returnData);
                 return;
             }
             _validator.liquidSupply += _liquidAmount;
@@ -1592,11 +1578,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 _newtonAmount;
         if (!_unbonding.selfDelegation){
             uint256 _liquidAmount = _unbonding.amount;
-            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
-                abi.encodeWithSignature("mint(address,uint256)", _unbonding.delegator, _liquidAmount)
-            );
+            bool _success = _mintLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
             if (_success == false) {
-                emit CallFailed(_validator.liquidStateContract, "mint(address,uint256)", _returnData);
                 return;
             }
             _validator.liquidSupply += _liquidAmount;
@@ -1633,20 +1616,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         if (!_unbonding.selfDelegation){
             // Step 1: Unlock and burn requested liquid newtons
             uint256 _liquidAmount = _unbonding.amount;
-            (bool _success, bytes memory _returnData) = _validator.liquidStateContract.call(
-                abi.encodeWithSignature("unlock(address,uint256)", _unbonding.delegator, _liquidAmount)
-            );
+            bool _success = _unlockLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
             if (_success == false) {
-                emit CallFailed(_validator.liquidStateContract, "unlock(address,uint256)", _returnData);
                 _notifyUnbondingApplied(_id, true);
                 return;
             }
 
-            (_success, _returnData) = _validator.liquidStateContract.call(
-                abi.encodeWithSignature("burn(address,uint256)", _unbonding.delegator, _liquidAmount)
-            );
+            _success = _burnLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
             if (_success == false) {
-                emit CallFailed(_validator.liquidStateContract, "burn(address,uint256)", _returnData);
                 _notifyUnbondingApplied(_id, true);
                 return;
             }
@@ -1699,12 +1676,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             }
 
             // change commission rate for liquid staking accounts
-            validators[_curRequest.validator].commissionRate = _curRequest.rate;
-            (bool _success, bytes memory _returnData) = validators[_curRequest.validator].liquidStateContract.call(
-                abi.encodeWithSignature("setCommissionRate(uint256)", _curRequest.rate)
-            );
-            if (_success == false) {
-                emit CallFailed(validators[_curRequest.validator].liquidStateContract, "setCommissionRate(uint256)", _returnData);
+            bool _success = _setCommissionRate(validators[_curRequest.validator].liquidStateContract, _curRequest.rate);
+            if (_success) {
+                validators[_curRequest.validator].commissionRate = _curRequest.rate;
             }
 
             delete commissionRateChangeQueue[commissionRateChangeQueueFirst];
@@ -1742,6 +1716,60 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             }
         }
         tailUnbondingID = _processedId;
+    }
+
+    function _mintLiquid(address _contract, address _account, uint256 _amount) internal virtual returns (bool) {
+        (bool _success, bytes memory _returnData) = _contract.call(
+            abi.encodeWithSignature("mint(address,uint256)", _account, _amount)
+        );
+        if (_success == false) {
+            emit CallFailed(_contract, "mint(address,uint256)", _returnData);
+        }
+        return _success;
+    }
+
+    function _burnLiquid(address _contract, address _account, uint256 _amount) internal virtual returns (bool) {
+        (bool _success, bytes memory _returnData) = _contract.call(
+            abi.encodeWithSignature("burn(address,uint256)", _account, _amount)
+        );
+        if (_success == false) {
+            emit CallFailed(_contract, "burn(address,uint256)", _returnData);
+        }
+        return _success;
+    }
+
+    function _redistributeLiquidReward(address _contract, uint256 _ntnReward, uint256 _atnReward) internal virtual {
+        (bool _success, ) = _contract.call{value: _atnReward}(
+            abi.encodeWithSignature("redistribute(uint256)", _ntnReward)
+        );
+        require(_success, "failed to distribute rewards");
+    }
+
+    function _lockLiquid(address _contract, address _account, uint256 _amount) internal virtual {
+        (bool _success, ) = _contract.call(
+            abi.encodeWithSignature("lock(address,uint256)", _account, _amount)
+        );
+        require(_success, "Failed to lock LNTN");
+    }
+
+    function _unlockLiquid(address _contract, address _account, uint256 _amount) internal virtual returns (bool) {
+        (bool _success, bytes memory _returnData) = _contract.call(
+            abi.encodeWithSignature("unlock(address,uint256)", _account, _amount)
+        );
+        if (_success == false) {
+            emit CallFailed(_contract, "unlock(address,uint256)", _returnData);
+        }
+        return _success;
+    }
+
+    function _setCommissionRate(address _contract, uint256 _rate) internal virtual returns (bool) {
+        (bool _success, bytes memory _returnData) = _contract.call(
+            abi.encodeWithSignature("setCommissionRate(uint256)", _rate)
+        );
+        if (_success == false) {
+            emit CallFailed(_contract, "setCommissionRate(uint256)", _returnData);
+        }
+        return _success;
     }
 
     /**

@@ -2,35 +2,9 @@
 
 pragma solidity ^0.8.3;
 import "./LiquidLogic.sol";
-import "./Autonity.sol";
+import "./LiquidStorage.sol";
 
-contract LiquidState is Upgradeable {
-
-    // storage layout - this must be compatible with LiquidLogic
-    mapping(address => uint256) private balances;
-    mapping(address => uint256) private lockedBalances;
-
-    mapping(address => mapping (address => uint256)) private allowances;
-    uint256 private supply;
-
-    mapping(address => uint256) private atnRealisedFees;
-    mapping(address => uint256) private atnUnrealisedFeeFactors;
-    uint256 private atnLastUnrealisedFeeFactor;
-    mapping(address => uint256) private ntnRealisedFees;
-    mapping(address => uint256) private ntnUnrealisedFeeFactors;
-    uint256 private ntnLastUnrealisedFeeFactor;
-
-    string public name;
-    string public symbol;
-
-    address public validator;
-    address payable public treasury;
-    uint256 public commissionRate;
-
-    uint256 public treasuryUnclaimedATN;
-
-    Autonity private autonityContract; //not hardcoded for testing purposes
-
+contract LiquidState is LiquidStorage {
 
     constructor(
         address _validator,

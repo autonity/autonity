@@ -3,7 +3,7 @@
 pragma solidity ^0.8.3;
 import "./interfaces/IERC20.sol";
 import "./interfaces/IStakeProxy.sol";
-import "./Upgradeable.sol";
+import "./LiquidStorage.sol";
 
 // References:
 //
@@ -40,35 +40,7 @@ import "./Upgradeable.sol";
 //   implementation.
 //
 
-contract LiquidLogic is IERC20, Upgradeable {
-
-    // storage layout - this must be compatible with LiquidLogic
-    mapping(address => uint256) private balances;
-    mapping(address => uint256) private lockedBalances;
-
-    mapping(address => mapping (address => uint256)) private allowances;
-    uint256 private supply;
-
-    mapping(address => uint256) private atnRealisedFees;
-    mapping(address => uint256) private atnUnrealisedFeeFactors;
-    uint256 private atnLastUnrealisedFeeFactor;
-    mapping(address => uint256) private ntnRealisedFees;
-    mapping(address => uint256) private ntnUnrealisedFeeFactors;
-    uint256 private ntnLastUnrealisedFeeFactor;
-
-    string public name;
-    string public symbol;
-
-    address public validator;
-    address payable public treasury;
-    uint256 public commissionRate;
-
-    uint256 public treasuryUnclaimedATN;
-
-    IERC20 private autonityContract; //not hardcoded for testing purposes
-
-    // this must be always last, since logic is delegated to LiquidLogic and
-    // they must use same storage layout
+contract LiquidLogic is IERC20, LiquidStorage {
 
     // TODO: Better solution to address the fractional terms in fee
     // computations?
@@ -79,7 +51,7 @@ contract LiquidLogic is IERC20, Upgradeable {
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
     constructor() {
-        autonityContract = IERC20(msg.sender);
+        // autonityContract = Autonity(payable(msg.sender));
     }
 
     /**
@@ -87,7 +59,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      * Update lastUnrealisedFeeFactor and transfer treasury fees.
      * @custom:restricted-to the autonity contract
      */
-    function redistribute(uint256 _ntnReward) external payable onlyAutonity returns (uint256, uint256) {
+    function redistribute(uint256 _ntnReward) external virtual payable onlyAutonity returns (uint256, uint256) {
         uint256 _atnReward = msg.value;
         // Step 1 : transfer entitled amount of fees to validator's
         // treasury account.
@@ -125,7 +97,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      * @notice Mint new tokens and transfer them to the target account.
      * @custom:restricted-to the autonity contract.
      */
-    function mint(address _account, uint256 _amount) external onlyAutonity {
+    function mint(address _account, uint256 _amount) external virtual onlyAutonity {
         _increaseBalance(_account, _amount);
         emit Transfer(address(0), _account, _amount);
     }
@@ -134,7 +106,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      * @notice Burn tokens from the target account.
      * @custom:restricted-to Restricted to the autonity contract.
      */
-    function burn(address _account, uint256 _amount) external onlyAutonity {
+    function burn(address _account, uint256 _amount) external virtual onlyAutonity {
         _requireAndDecreaseBalance(_account, _amount);
         emit Transfer(_account, address(0), _amount);
     }
@@ -142,7 +114,7 @@ contract LiquidLogic is IERC20, Upgradeable {
     /**
      * @notice Send the unclaimed ATN entitled to treasury to treasury account
      */
-    function claimTreasuryATN() external {
+    function claimTreasuryATN() external virtual {
         require(msg.sender == treasury, "only treasury can claim his reward");
         (bool _sent, ) = treasury.call{value: treasuryUnclaimedATN}("");
         require(_sent, "failed to send ATN");
@@ -152,7 +124,7 @@ contract LiquidLogic is IERC20, Upgradeable {
     /**
      * @notice Withdraws all fees earned so far by the caller.
      */
-    function claimRewards() external {
+    function claimRewards() external virtual {
         (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) = _realiseFees(msg.sender);
         delete atnRealisedFees[msg.sender];
         delete ntnRealisedFees[msg.sender];
@@ -181,7 +153,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      *
      * @dev Emits a {Transfer} event. Implementation of {IERC20 transfer}
      */
-    function transfer(address _to, uint256 _amount) public returns (bool _success) {
+    function transfer(address _to, uint256 _amount) external virtual returns (bool _success) {
         _requireAndDecreaseBalance(msg.sender, _amount);
         _increaseBalance(_to, _amount);
         emit Transfer(msg.sender, _to, _amount);
@@ -195,7 +167,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address _spender, uint256 _amount) public returns (bool) {
+    function approve(address _spender, uint256 _amount) external virtual returns (bool) {
         _approve(msg.sender, _spender, _amount);
         return true;
     }
@@ -212,7 +184,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address _sender, address _recipient, uint256 _amount) public returns (bool) {
+    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual returns (bool) {
         uint256 _currentAllowance = allowances[_sender][msg.sender];
         require(_currentAllowance >= _amount, "ERC20: transfer amount exceeds allowance");
         _approve(_sender, msg.sender, _currentAllowance - _amount);
@@ -228,7 +200,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      * @notice Setter for the commission rate, restricted to the Autonity Contract.
      * @param _rate New rate.
      */
-    function setCommissionRate(uint256 _rate) public onlyAutonity {
+    function setCommissionRate(uint256 _rate) external virtual onlyAutonity {
         commissionRate = _rate;
     }
 
@@ -237,7 +209,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      * @param _account address of the account to lock funds .
               _amount LNTN amount of tokens to lock.
      */
-    function lock(address _account, uint256 _amount) public onlyAutonity {
+    function lock(address _account, uint256 _amount) external virtual onlyAutonity {
         require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
         lockedBalances[_account] += _amount;
     }
@@ -247,7 +219,7 @@ contract LiquidLogic is IERC20, Upgradeable {
      * @param _account address of the account to lock funds .
               _amount LNTN amount of tokens to lock.
      */
-    function unlock(address _account, uint256 _amount) public onlyAutonity {
+    function unlock(address _account, uint256 _amount) external virtual onlyAutonity {
         require(lockedBalances[_account] >= _amount, "can't unlock more funds than locked");
         lockedBalances[_account] -= _amount;
     }
@@ -255,14 +227,14 @@ contract LiquidLogic is IERC20, Upgradeable {
     /**
      * @dev It is not expected to fall into the fallback function. Implemeted fallback() to get a reverting message.
      */
-    fallback() payable external {
+    fallback() payable external virtual {
         revert("fallback not implemented for LiquidLogic");
     }
 
     /**
      * @dev To receive ATN.
      */
-    receive() payable external {}
+    receive() payable external virtual {}
 
     /**
      ============================================================
@@ -394,7 +366,7 @@ contract LiquidLogic is IERC20, Upgradeable {
         uint256 _ntnUnrealisedFeeFactor,
         uint256 _atnLastUnrealisedFeeFactor,
         uint256 _ntnLastUnrealisedFeeFactor
-    ) external pure returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
+    ) external virtual pure returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
         uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, _atnLastUnrealisedFeeFactor, _atnUnrealisedFeeFactor);
         _unclaimedATN = _atnRealisedFees + _atnUnrealisedFee;
         uint256 _ntnUnrealisedFee = _computeUnrealisedFees(_balance, _ntnLastUnrealisedFeeFactor, _ntnUnrealisedFeeFactor);
@@ -404,15 +376,15 @@ contract LiquidLogic is IERC20, Upgradeable {
     /**
      * @notice All of the following getters exist to implement the IRC20 interface. They have no use.
      */
-    function totalSupply() external view returns (uint256) {
+    function totalSupply() external virtual view returns (uint256) {
         return supply;
     }
 
-    function balanceOf(address _account) external view returns (uint256) {
+    function balanceOf(address _account) external virtual view returns (uint256) {
         return balances[_account];
     }
 
-    function allowance(address _owner, address _spender) external view returns (uint256) {
+    function allowance(address _owner, address _spender) external virtual view returns (uint256) {
         return allowances[_owner][_spender];
     }
 
