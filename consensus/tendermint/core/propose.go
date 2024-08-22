@@ -111,7 +111,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	)
 
 	// skip verification for our own proposal
-	if c.backend.ProposedBlockHash() == proposal.Hash() {
+	if c.backend.ProposedBlockHash() != proposal.Hash() {
 		duration, err = c.backend.VerifyProposal(proposal.Block())
 	}
 
