@@ -201,6 +201,8 @@ type worker struct {
 
 	// Subscriptions
 	mux          *event.TypeMux
+	txsCh        chan core.NewTxsEvent
+	txsSub       event.Subscription
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 	chainSideCh  chan core.ChainSideEvent
@@ -270,6 +272,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		localUncles:             make(map[common.Hash]*types.Block),
 		remoteUncles:            make(map[common.Hash]*types.Block),
 		pendingTasks:            make(map[common.Hash]*task),
+		txsCh:                   make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:             make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:             make(chan core.ChainSideEvent, chainSideChanSize),
 		newWorkCh:               make(chan *newWorkReq),
@@ -283,6 +286,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		resubmitAdjustCh:        make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
 	// Subscribe NewTxsEvent for tx pool
+	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
@@ -545,6 +549,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 // submit it or return task according to given parameters for various proposes.
 func (w *worker) mainLoop() {
 	defer w.wg.Done()
+	defer w.txsSub.Unsubscribe()
 	defer w.chainHeadSub.Unsubscribe()
 	defer w.chainSideSub.Unsubscribe()
 	defer func() {
@@ -606,8 +611,12 @@ func (w *worker) mainLoop() {
 					delete(w.remoteUncles, hash)
 				}
 			}
+		case ev := <-w.txsCh:
+			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
 		// System stopped
 		case <-w.exitCh:
+			return
+		case <-w.txsSub.Err():
 			return
 		case <-w.chainHeadSub.Err():
 			return
