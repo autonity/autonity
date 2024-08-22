@@ -160,7 +160,7 @@ func TestLogicOperation(t *testing.T) {
 		)
 
 		r.NoError(
-			newLiquidLogic.Mint(fromAutonity, validator, common.Big1),
+			newLiquidLogic.Mint(fromSender(common.HexToAddress("0x0"), nil), validator, common.Big1),
 		)
 		checkLiquidBalance(r, liquidState, validator, common.Big0)
 	})
