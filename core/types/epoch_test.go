@@ -79,6 +79,20 @@ func TestEpoch_Equal(t *testing.T) {
 			epoch1: &Epoch{
 				ParentEpochBlock: big.NewInt(1),
 				NextEpochBlock:   big.NewInt(2),
+				Committee:        nil,
+			},
+			epoch2: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
+				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{2}, VotingPower: big.NewInt(10)}}},
+			},
+			expect: false,
+		},
+		{
+			name: "unequal epochs - different committee",
+			epoch1: &Epoch{
+				ParentEpochBlock: big.NewInt(1),
+				NextEpochBlock:   big.NewInt(2),
 				Committee:        &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10)}}},
 			},
 			epoch2: &Epoch{

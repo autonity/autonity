@@ -59,11 +59,6 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'parentEpochBlock' for epoch")
 	}
 	e.ParentEpochBlock = dec.ParentEpochBlock.ToInt()
-	// the un-marshaled common.Big0 presents different data layout of *big.Int, it causes deep-equal failed block_test.go
-	// thus we have this special convert for parent epoch block which is possible to be a zero value.
-	if dec.ParentEpochBlock.ToInt().Cmp(common.Big0) == 0 {
-		e.ParentEpochBlock = common.Big0
-	}
 
 	if dec.NextEpochBlock == nil {
 		return errors.New("missing required field 'nextEpochBlock' for epoch")
@@ -81,11 +76,11 @@ func (e *Epoch) Copy() *Epoch {
 	cpy := &Epoch{}
 
 	if e.ParentEpochBlock != nil {
-		cpy.ParentEpochBlock = new(big.Int).SetUint64(e.ParentEpochBlock.Uint64())
+		cpy.ParentEpochBlock = new(big.Int).Set(e.ParentEpochBlock)
 	}
 
 	if e.NextEpochBlock != nil {
-		cpy.NextEpochBlock = new(big.Int).SetUint64(e.NextEpochBlock.Uint64())
+		cpy.NextEpochBlock = new(big.Int).Set(e.NextEpochBlock)
 	}
 
 	if e.Committee != nil {

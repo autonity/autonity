@@ -267,7 +267,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		chain, backend := newBlockChain(committeeSize)
 		sub := backend.Subscribe(events.MessageEvent{})
 		genesis := chain.Genesis()
-		genesisCommittee := genesis.Header().Committee()
+		genesisCommittee := genesis.Header().Epoch.Committee
 		h := uint64(1)
 		r := int64(0)
 
@@ -296,7 +296,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		chain, backend := newBlockChain(committeeSize)
 		sub := backend.Subscribe(events.MessageEvent{})
 		genesis := chain.Genesis()
-		genesisCommittee := genesis.Header().Committee()
+		genesisCommittee := genesis.Header().Epoch.Committee
 
 		h := uint64(1)
 		r := int64(10)
@@ -336,7 +336,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		committeeSize := 4
 		chain, backend := newBlockChain(committeeSize)
 		genesis := chain.Genesis()
-		genesisCommittee := genesis.Header().Committee()
+		genesisCommittee := genesis.Header().Epoch.Committee
 
 		h := uint64(1)
 		r := int64(10)
@@ -390,7 +390,7 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 
 		mineOneBlock(t, chain, backend)
 
-		genesisCommittee := genesis.Header().Committee()
+		genesisCommittee := genesis.Header().Epoch.Committee
 		prevote := message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, backend.Sign, &genesisCommittee.Members[0], genesisCommittee.Len())
 		errCh := make(chan error)
 
@@ -1261,7 +1261,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 
 		// need to pass them through a fake prevote to make signature valid
 		// save messages that will trigger quorum for *
-		genesisCommittee := chain.Genesis().Header().Committee()
+		genesisCommittee := chain.Genesis().Header().Epoch.Committee
 		vote := tweakPrevote(message.NewPrevote(futureRound, futureHeight, common.Hash{0x00}, testSigner, &genesisCommittee.Members[0], csize), testKey.PublicKey())
 		a.saveMessage(makeBogusEvent(vote))
 		vote = tweakPrevote(message.NewPrevote(futureRound, futureHeight, common.Hash{0x01}, testSigner, &genesisCommittee.Members[1], csize), testKey.PublicKey())
@@ -1315,7 +1315,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		}
 
 		// save a prevote carrying quorum for same (h,r,c,v) as the power change. It should get processed due to the power change
-		genesisCommittee := chain.Genesis().Header().Committee()
+		genesisCommittee := chain.Genesis().Header().Epoch.Committee
 		vote := message.NewPrevote(round, height, value, testSigner, &genesisCommittee.Members[0], csize)
 		for i := 1; i < genesisCommittee.Len(); i++ {
 			vote.Signers().Increment(&genesisCommittee.Members[i])
@@ -1351,7 +1351,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		coreMock.EXPECT().Height().Return(common.Big1).AnyTimes()
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 		aggregatedPower := message.NewAggregatedPower()
-		aggregatedPower.Set(0, chain.Genesis().Header().Committee().TotalVotingPower())
+		aggregatedPower.Set(0, chain.Genesis().Header().Epoch.Committee.TotalVotingPower())
 		coreMock.EXPECT().Power(gomock.Any(), gomock.Any()).Return(aggregatedPower).Times(1)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 		backendMock.EXPECT().Subscribe(gomock.Any(), gomock.Any(), gomock.Any()).Return(eventMux.Subscribe(events.FuturePowerChangeEvent{})).Times(1)

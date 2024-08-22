@@ -75,8 +75,8 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 			}
 
 			if height > lastEpoch.Number.Uint64() && height <= lastEpoch.Epoch.NextEpochBlock.Uint64() {
-				bc.committeeCache.Add(height, lastEpoch.Committee())
-				return lastEpoch.Committee(), nil
+				bc.committeeCache.Add(height, lastEpoch.Epoch.Committee)
+				return lastEpoch.Epoch.Committee, nil
 			}
 			parentEHead = lastEpoch.Epoch.ParentEpochBlock.Uint64()
 		}
@@ -85,12 +85,12 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	// otherwise try to get committee from state db of the height.
 	// get the latest epoch info from state db, as snap sync/fast sync
 	// node might miss the epoch header below pivot block.
-	currentBLock := bc.CurrentBlock()
-	state, err := bc.State()
+	currentHeader := bc.CurrentHeader()
+	stateDB, err := bc.StateAt(currentHeader.Root)
 	if err != nil {
 		return nil, err
 	}
-	committee, err = bc.protocolContracts.GetCommitteeByHeight(currentBLock.Header(), state, new(big.Int).SetUint64(height))
+	committee, err = bc.protocolContracts.GetCommitteeByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
 	if err != nil {
 		return nil, err
 	}

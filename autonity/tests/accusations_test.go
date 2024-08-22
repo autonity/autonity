@@ -77,7 +77,7 @@ func TestAccusation(t *testing.T) {
 	r.run("accusation for committed value should revert", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
 		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0xca, 0xfe} }
-		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
+		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 }
@@ -90,7 +90,7 @@ func TestAccusationTiming(t *testing.T) {
 
 	currentHeight := uint64(1024) // height of current consensus instance
 	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
-	r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0xca, 0xfe} }
+	r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 	lastCommittedHeight := currentHeight - 1 // height of last committed block
 
 	r.run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *runner) {

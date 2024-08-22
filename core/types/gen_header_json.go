@@ -171,7 +171,7 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 
 	if dec.Epoch != nil {
 		h.Epoch = dec.Epoch
-		if err := h.EnrichEpochInfo(); err != nil {
+		if err := h.Epoch.Committee.Enrich(); err != nil {
 			return err
 		}
 	}

@@ -546,7 +546,7 @@ func (hc *HeaderChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, 
 		return nil, 0, 0, 0, ErrMissingEpochHeader
 	}
 
-	return head.Committee(), head.Epoch.ParentEpochBlock.Uint64(), head.Number.Uint64(), head.Epoch.NextEpochBlock.Uint64(), nil
+	return head.Epoch.Committee, head.Epoch.ParentEpochBlock.Uint64(), head.Number.Uint64(), head.Epoch.NextEpochBlock.Uint64(), nil
 }
 
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going

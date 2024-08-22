@@ -98,7 +98,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		}},
 	}
 
-	epoch := &Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
+	epoch := &Epoch{ParentEpochBlock: common.Big1, NextEpochBlock: common.Big256, Committee: c}
 
 	t.Run("encode / decode with none nil epoch in block header", func(t *testing.T) {
 		header := &Header{
@@ -123,7 +123,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 			QuorumCertificate: AggregateSignature{},
 		}
 
-		err := header.EnrichEpochInfo()
+		err := header.Epoch.Committee.Enrich()
 		require.NoError(t, err)
 
 		// fill in some additional fields

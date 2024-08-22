@@ -619,7 +619,7 @@ func (s *Ethereum) validatorController() {
 
 	// read the committee base on latest state.
 	currentHead := s.blockchain.CurrentHeader()
-	currentState, err := s.blockchain.State()
+	currentState, err := s.blockchain.StateAt(currentHead.Root)
 	if err != nil {
 		panic(err)
 	}
@@ -641,7 +641,7 @@ func (s *Ethereum) validatorController() {
 			s.p2pServer.SetCurrentBlockNumber(ev.Block.NumberU64())
 		case ev := <-epochHeadCh:
 			// epoch head change comes with the committee rotation:
-			committee = ev.Header.Committee()
+			committee = ev.Header.Epoch.Committee
 			// check if the local node belongs to the consensus committee.
 			if committee.MemberByAddress(s.address) == nil {
 				// if the local node was part of the committee set for the previous block
@@ -700,7 +700,7 @@ func (s *Ethereum) Stop() error {
 func (s *Ethereum) genesisCountdown() {
 	genesisTime := time.Unix(int64(s.blockchain.Genesis().Time()), 0)
 	s.log.Info(fmt.Sprintf("Chain genesis time: %v", genesisTime))
-	committee := s.blockchain.Genesis().Header().Committee()
+	committee := s.blockchain.Genesis().Header().Epoch.Committee
 	if committee.MemberByAddress(s.address) != nil {
 		s.log.Warn("**************************************************************")
 		s.log.Warn("Local node is detected GENESIS VALIDATOR")

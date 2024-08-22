@@ -1054,47 +1054,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @notice getProposer returns the address of the proposer for the given height and
-    * round. The proposer is selected from the committee via weighted random
-    * sampling, with selection probability determined by the voting power of
-    * each committee member. The selection mechanism is deterministic and will
-    * always select the same address, given the same height, round and contract
-    * state.
-    */
-    function getProposer(uint256 height, uint256 round) external view virtual returns (address) {
-        CommitteeMember[] memory members = getCommitteeByHeight(height);
-
-        // calculate total voting power from the corresponding committee, the system does not allow validator with 0 stake/power.
-        uint256 total_voting_power = 0;
-        for (uint256 i = 0; i < members.length; i++) {
-            total_voting_power += members[i].votingPower;
-        }
-
-        require(total_voting_power != 0, "The committee is not staking");
-
-        // distribute seed into a 256bits key-space.
-        uint256 key = height * MAX_ROUND + round;
-        uint256 value = uint256(keccak256(abi.encodePacked(key)));
-        uint256 index = value % total_voting_power;
-
-        // find the index hit which committee member which line up in the committee list.
-        // we assume there is no 0 stake/power validators.
-        uint256 counter = 0;
-        for (uint256 i = 0; i < members.length; i++) {
-            counter += members[i].votingPower;
-            if (index <= counter - 1) {
-                return members[i].addr;
-            }
-        }
-        revert("There is no validator left in the network");
-    }
-
-    /**
      * @notice Returns epoch associated to the block number.
      * @param _block the input block number.
     */
     function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
-        return blockEpochMap[_block];
+        require(_height <= block.number, "cannot get epoch for a future height");
+        if (_height <= lastFinalizedBlock) {
+            return blockEpochMap[_block];
+        }
+        return epochID;
     }
 
     /*

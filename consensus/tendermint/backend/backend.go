@@ -382,13 +382,13 @@ func (sb *Backend) CoreState() interfaces.CoreState {
 
 // CommitteeEnodes retrieve the list of validators enodes for the current block
 func (sb *Backend) CommitteeEnodes() []string {
-	// todo: (Jason) check if we need to fetch state and current header within an automic operation.
-	db, err := sb.blockchain.State()
+	header := sb.blockchain.CurrentBlock().Header()
+	stateDB, err := sb.blockchain.StateAt(header.Root)
 	if err != nil {
-		sb.logger.Error("Failed to get state", "err", err)
+		sb.logger.Error("Failed to get state", "err", err, "height", header.Number.Uint64())
 		return nil
 	}
-	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock().Header(), db, false)
+	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(header, stateDB, false)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil

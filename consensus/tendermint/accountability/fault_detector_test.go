@@ -89,7 +89,7 @@ func newBlockHeader(height uint64, committee *types.Committee) *types.Header {
 
 	header.Epoch = &epoch
 
-	if err := header.EnrichEpochInfo(); err != nil {
+	if err := header.Epoch.Committee.Enrich(); err != nil {
 		panic(err)
 	}
 

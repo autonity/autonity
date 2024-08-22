@@ -234,6 +234,13 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 		return nil
 	}
 
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation. This could
+	// happen due to the timing and delay.
+	if fd.blockchain.GetBlock(accusation.Message.Value(), accusation.Message.H()) != nil {
+		fd.logger.Info("reject an accusation over a committed block", "sender", sender, "block", accusation.Message.H())
+		return nil
+	}
+
 	// check if the accusation sent by remote peer is valid or not, an invalid accusation will drop sender's peer.
 	if !verifyAccusation(accusation, committee) {
 		return errInvalidAccusation

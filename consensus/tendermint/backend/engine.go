@@ -151,12 +151,16 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return consensus.ErrOutOfEpochRange
 	}
 
-	// epoch info integrity check
+	// epoch info integrity check, this is checked at both the proposal verification and block sync phases.
 	if header.IsEpochHeader() {
 		epoch := header.Epoch
 		if epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
 			len(epoch.Committee.Members) == 0 {
 			return consensus.ErrInvalidEpochInfo
+		}
+
+		if nextEHead != header.Number.Uint64() || header.Epoch.ParentEpochBlock.Uint64() != curEpochHead {
+			return consensus.ErrInvalidEpochBoundary
 		}
 	}
 
@@ -212,7 +216,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 
 			// if the processing header is a new epoch header, update the epoch info for un-processed headers .
 			if header.IsEpochHeader() {
-				committee = header.Committee()
+				committee = header.Epoch.Committee
 				curEHead = header.Number.Uint64()
 				nextEHead = header.Epoch.NextEpochBlock.Uint64()
 			}
@@ -376,11 +380,11 @@ func (sb *Backend) GetCommitteeByHeight(height *big.Int) (*types.Committee, erro
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 	header := sb.BlockChain().CurrentHeader()
-	state, err := sb.blockchain.State()
+	stateDB, err := sb.blockchain.StateAt(header.Root)
 	if err != nil {
 		return nil, err
 	}
-	return sb.BlockChain().ProtocolContracts().GetCommitteeByHeight(header, state, height)
+	return sb.BlockChain().ProtocolContracts().GetCommitteeByHeight(header, stateDB, height)
 }
 
 // Seal generates a new block for the given input block with the local miner's

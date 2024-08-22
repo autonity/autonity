@@ -176,7 +176,7 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 func TestSignerJailed(t *testing.T) {
 	chain, backend := newBlockChain(1)
 
-	member := chain.Genesis().Header().Committee().Members[0]
+	member := chain.Genesis().Header().Epoch.Committee.Members[0]
 
 	// generate one msg
 	data := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
@@ -208,7 +208,7 @@ func TestFutureHeightMessage(t *testing.T) {
 	t.Run("received future height message is buffered", func(t *testing.T) {
 		chain, backend := newBlockChain(1)
 
-		member := chain.Genesis().Header().Committee().Members[0]
+		member := chain.Genesis().Header().Epoch.Committee.Members[0]
 
 		// generate one msg
 		futureHeight := uint64(20)
@@ -237,7 +237,7 @@ func TestFutureHeightMessage(t *testing.T) {
 		defer ctrl.Finish()
 		setupMocks(backend, ctrl, t)
 
-		member := chain.Genesis().Header().Committee().Members[0]
+		member := chain.Genesis().Header().Epoch.Committee.Members[0]
 
 		for h := maxFutureMsgs + 100; h > 0; h-- {
 			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, 1)
@@ -259,7 +259,7 @@ func TestFutureHeightMessage(t *testing.T) {
 		defer ctrl.Finish()
 		setupMocks(backend, ctrl, t)
 
-		member := chain.Genesis().Header().Committee().Members[0]
+		member := chain.Genesis().Header().Epoch.Committee.Members[0]
 
 		vote := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
 		errCh := make(chan error, 1)

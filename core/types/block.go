@@ -194,14 +194,6 @@ func (h *Header) IsEpochHeader() bool {
 	return h.Epoch != nil
 }
 
-func (h *Header) EnrichEpochInfo() error {
-	return h.Epoch.Committee.Enrich()
-}
-
-func (h *Header) Committee() *Committee {
-	return h.Epoch.Committee
-}
-
 var headerSize = common.StorageSize(reflect.TypeOf(Header{}).Size())
 
 // Size returns the approximate memory used by all internal contents. It is used
@@ -253,8 +245,12 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Epoch = hExtra.Epoch
 
 		if h.IsEpochHeader() {
-			if err = h.EnrichEpochInfo(); err != nil {
+			if err = h.Epoch.Committee.Enrich(); err != nil {
 				return err
+			}
+
+			if len(h.Epoch.Committee.Members) == 0 {
+				return fmt.Errorf("no validator in committee set")
 			}
 
 			if h.Epoch.ParentEpochBlock == nil || h.Epoch.NextEpochBlock == nil {

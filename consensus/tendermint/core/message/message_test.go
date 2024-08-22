@@ -793,7 +793,7 @@ func newHeader(number uint64, c *types.Committee) *types.Header {
 	epoch.ParentEpochBlock = common.Big0
 	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
 	header.Epoch = &epoch
-	if err := header.EnrichEpochInfo(); err != nil {
+	if err := header.Epoch.Committee.Enrich(); err != nil {
 		panic(err)
 	}
 

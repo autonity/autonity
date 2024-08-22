@@ -50,4 +50,7 @@ var (
 
 	// ErrOutOfEpochRange is return if the inserting height is out of epoch range.
 	ErrOutOfEpochRange = errors.New("the inserting height is out of epoch range")
+
+	// ErrInvalidEpochBoundary is return if the bi-direction link of epoch header is broken.
+	ErrInvalidEpochBoundary = errors.New("invalid epoch boundary")
 )

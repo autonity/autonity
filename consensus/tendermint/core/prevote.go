@@ -33,7 +33,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	}
 	self, err := c.CommitteeSet().GetByAddress(c.address)
 	if err != nil {
-		c.logger.Crit("validator is no longer in current committee")
+		c.logger.Crit("validator is no longer in current committee", "err", err)
 	}
 	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)

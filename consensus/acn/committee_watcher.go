@@ -34,7 +34,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 
 	// read the committee base on latest state.
 	currentHead := acn.chain.CurrentHeader()
-	currentState, err := acn.chain.State()
+	currentState, err := acn.chain.StateAt(currentHead.Root)
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +57,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 			case ev := <-chainHeadCh:
 				acn.server.SetCurrentBlockNumber(ev.Block.NumberU64())
 			case ev := <-epochHeadCh:
-				committee = ev.Header.Committee()
+				committee = ev.Header.Epoch.Committee
 				// check if the local node belongs to the consensus committee.
 				if committee.MemberByAddress(acn.address) == nil {
 					// if the local node was part of the committee set for the previous block

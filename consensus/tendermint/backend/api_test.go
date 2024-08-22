@@ -13,7 +13,7 @@ import (
 
 func TestGetCommittee(t *testing.T) {
 	chain, engine := newBlockChain(1)
-	want := chain.Genesis().Header().Committee()
+	want := chain.Genesis().Header().Epoch.Committee
 	bn := rpc.BlockNumber(0)
 	api := &API{
 		chain:      chain,
@@ -46,7 +46,7 @@ func TestGetCommitteeAtHash(t *testing.T) {
 		}
 
 		hash := chain.Genesis().Hash()
-		want := chain.Genesis().Header().Committee()
+		want := chain.Genesis().Header().Epoch.Committee
 		got, err := api.GetCommitteeAtHash(hash)
 		assert.NoError(t, err)
 		assert.Equal(t, want, got)

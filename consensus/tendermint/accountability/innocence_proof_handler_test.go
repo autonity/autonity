@@ -376,6 +376,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 
 		currentHeader := newBlockHeader(height, committee)
 		chainMock.EXPECT().CurrentBlock().Return(types.NewBlockWithHeader(currentHeader))
+		chainMock.EXPECT().GetBlock(accusationPO.Message.Value(), accusationPO.Message.H()).Return(nil)
 
 		for i := range committee.Members {
 			preVote := newValidatedPrevote(validRound, accusationHeight, proposal.Value(), makeSigner(keys[i]), &committee.Members[i], cSize)
@@ -428,6 +429,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		chainMock.EXPECT().CurrentBlock().AnyTimes().Return(types.NewBlockWithHeader(currentHeader))
+
 		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, nil, core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -441,6 +443,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		payload, err := rlp.EncodeToBytes(&p)
 		require.NoError(t, err)
 		hash := crypto.Hash(payload)
+		chainMock.EXPECT().GetBlock(p.Message.Value(), p.Message.H()).Return(nil)
 
 		err = fd.handleOffChainAccusation(&p, common.Address{}, hash, committee)
 		require.Equal(t, errInvalidAccusation, err)
@@ -478,6 +481,7 @@ func TestHandleOffChainAccusation(t *testing.T) {
 			mStore.Save(preVote)
 		}
 		chainMock.EXPECT().CommitteeOfHeight(accusationHeight).Return(committee, nil)
+		chainMock.EXPECT().GetBlock(accusationPO.Message.Value(), accusationPO.Message.H()).Return(nil)
 		err = fd.handleOffChainAccusation(&accusationPO, remotePeer, hash, committee)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(fd.innocenceProofBuff.accusationList))
