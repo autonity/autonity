@@ -50,8 +50,8 @@ func (l *LowRTT) ConstructGraph(maxPeers int) error {
 	return nil
 }
 
-func (p *LowRTT) GraphReadyForPeer(peerID int) {}
+func (l *LowRTT) GraphReadyForPeer(peerID int) {}
 
-func (p *LowRTT) IsGraphReadyForPeer(peerID int) bool {
+func (l *LowRTT) IsGraphReadyForPeer(peerID int) bool {
 	return true
 }

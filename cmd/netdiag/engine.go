@@ -16,21 +16,21 @@ type Engine struct {
 	id     int
 	server *p2p.Server
 
-	peers  []*Peer // nil never connected, can do probably cleaner
+	Peers  []*Peer // nil never connected, can do probably cleaner
 	enodes []*enode.Node
 
-	state      *strats.State
-	strategies []strats.Strategy
+	State      *strats.State
+	Strategies []strats.Strategy
 
 	sync.RWMutex
 }
 
 func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := &Engine{
-		state: strats.NewState(uint64(id), len(cfg.Nodes)),
+		State: strats.NewState(uint64(id), len(cfg.Nodes)),
 	}
 	for _, s := range strats.StrategyRegistry {
-		e.strategies = append(e.strategies, s.Constructor(e.peer, e.state))
+		e.Strategies = append(e.Strategies, s.Constructor(e.peer, e.State))
 	}
 
 	runner := func(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
@@ -89,7 +89,7 @@ func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *E
 		enodesToResolve[i] = e.config.Nodes[i].Enode
 	}
 	e.enodes = types.NewNodes(enodesToResolve, true).List
-	e.peers = make([]*Peer, len(e.enodes))
+	e.Peers = make([]*Peer, len(e.enodes))
 	e.id = id
 	return e
 }
@@ -117,7 +117,7 @@ func (e *Engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*Peer, error) {
 		if e.enodes[i].ID() == node.ID() {
 			p.ip = e.enodes[i].IP().String()
 			p.id = i
-			e.peers[i] = p
+			e.Peers[i] = p
 			break
 		}
 	}
@@ -128,15 +128,15 @@ func (e *Engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*Peer, error) {
 func (e *Engine) peerCount() int {
 	e.Lock()
 	defer e.Unlock()
-	return len(e.peers)
+	return len(e.Peers)
 }
 
 func (e *Engine) peer(i int) strats.Peer {
-	if i >= len(e.peers) {
+	if i >= len(e.Peers) {
 		return nil
 	}
-	if e.peers[i] == nil {
+	if e.Peers[i] == nil {
 		return nil
 	}
-	return e.peers[i]
+	return e.Peers[i]
 }

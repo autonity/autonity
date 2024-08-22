@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/cmd/netdiag/api"
 	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -306,12 +307,12 @@ func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	fmt.Println("[LatencyArrayPacket] << ", latencyPacket.RequestId)
-	e.state.LatencyMatrix[p.id] = make([]time.Duration, len(e.peers))
+	e.State.LatencyMatrix[p.id] = make([]time.Duration, len(e.Peers))
 	for i, l := range latencyPacket.LatencyArray {
-		if i >= len(e.peers) {
+		if i >= len(e.Peers) {
 			break
 		}
-		e.state.LatencyMatrix[p.id][i] = time.Duration(l)
+		e.State.LatencyMatrix[p.id][i] = time.Duration(l)
 	}
 	fmt.Printf("Got latency array from peer %v\n", p.ID())
 	return p2p.Send(p, AckDataMsg, AckDataPacket{latencyPacket.RequestId, now})
@@ -326,7 +327,7 @@ type TriggerPacket struct {
 	Strategy  uint64
 }
 
-func (p *Peer) sendTriggerRequest(strategy uint64) error {
+func (p *Peer) SendTriggerRequest(strategy uint64) error {
 	id := rand.Uint64()
 	fmt.Println("[TriggerPacket][TriggerRequest] >> ", id)
 	req, err := p.dispatchRequest(
@@ -388,7 +389,7 @@ func handleGraphReady(e *Engine, p *Peer, data io.Reader) error {
 	if err := rlp.Decode(data, &trigger); err != nil {
 		return err
 	}
-	e.strategies[trigger.Strategy].GraphReadyForPeer(p.id)
+	e.Strategies[trigger.Strategy].GraphReadyForPeer(p.id)
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	fmt.Println("[TriggerPacket][GraphReady] << ", trigger.RequestId)
 	return p2p.Send(p, AckDataMsg, AckDataPacket{trigger.RequestId, now})
@@ -422,8 +423,8 @@ func handleUpdateTcpSocket(e *Engine, p *Peer, msg io.Reader) error {
 	} else {
 		p2p.UpdateSystemSocketOptions(int(opts.BufferSize))
 	}
-	for i, _ := range e.peers {
-		peer, err := checkPeer(i, e.peers)
+	for i, _ := range e.Peers {
+		peer, err := api.checkPeer(i, e.Peers)
 		if err != nil {
 			continue
 		}
@@ -441,14 +442,14 @@ type DisseminateReportPacket struct {
 
 func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 
-	chunkInfo, ok := e.state.ReceivedPackets[packet.RequestId]
+	chunkInfo, ok := e.State.ReceivedPackets[packet.RequestId]
 	if ok {
 		chunkInfo.SeqReceived[packet.Seq] = true
 		chunkInfo.TotalReceived++
 		if chunkInfo.TotalReceived == len(chunkInfo.SeqReceived) {
 			chunkInfo.Partial = false
 		}
-		e.state.ReceivedPackets[packet.RequestId] = chunkInfo
+		e.State.ReceivedPackets[packet.RequestId] = chunkInfo
 	} else {
 		chunkInfo := strats.ChunkInfo{
 			TotalReceived: 1,
@@ -460,7 +461,7 @@ func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 		if chunkInfo.TotalReceived == len(chunkInfo.SeqReceived) {
 			chunkInfo.Partial = false
 		}
-		e.state.ReceivedPackets[packet.RequestId] = chunkInfo
+		e.State.ReceivedPackets[packet.RequestId] = chunkInfo
 	}
 	return nil
 }
@@ -474,7 +475,7 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	//fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "ORIGIN", packet.OriginalSender, "HOP", packet.Hop)
 	// check if first time received.
-	if pktInfo, ok := e.state.ReceivedPackets[packet.RequestId]; ok {
+	if pktInfo, ok := e.State.ReceivedPackets[packet.RequestId]; ok {
 		// check if the seqNum is already received
 		if len(pktInfo.SeqReceived) <= int(packet.Seq) {
 			log.Crit("invalid seqNum", "packet Info", pktInfo, "received packet", packet)
@@ -488,18 +489,18 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	}
 	cacheDisseminatePacket(e, &packet)
 
-	if err := e.strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.MaxPeers, packet.Data, packet.Partial, packet.Seq, packet.Total); err != nil {
+	if err := e.Strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.MaxPeers, packet.Data, packet.Partial, packet.Seq, packet.Total); err != nil {
 		log.Error("Error handling packet: ", err)
 	}
-	if e.peers[packet.OriginalSender] == nil {
+	if e.Peers[packet.OriginalSender] == nil {
 		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
 		return nil
 	}
-	pktInfo := e.state.ReceivedPackets[packet.RequestId]
+	pktInfo := e.State.ReceivedPackets[packet.RequestId]
 	// all packets related to this requestID has been received
 	if !pktInfo.Partial {
 		log.Info("complete packet received, sending report", "total chunks", len(pktInfo.SeqReceived))
-		return p2p.Send(e.peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
+		return p2p.Send(e.Peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
 			RequestId: packet.RequestId,
 			Sender:    uint64(p.id),
 			Hop:       packet.Hop,
@@ -516,7 +517,7 @@ func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 	if err := rlp.Decode(data, &packet); err != nil {
 		return err
 	}
-	channel, ok := e.state.ReceivedReports[packet.RequestId]
+	channel, ok := e.State.ReceivedReports[packet.RequestId]
 	if !ok {
 		log.Error("Dissemination report id not found!")
 		return nil // or error maybe

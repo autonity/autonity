@@ -167,8 +167,8 @@ func (r *ResultConnectedPeers) String() string {
 func (p *P2POp) ConnectedPeers(_ *ArgEmpty, reply *ResultConnectedPeers) error {
 	log.Info("RPC request for connected peers") // dunno if could be generated somehow dynamically
 	c := 0
-	connected := make([]bool, len(p.engine.peers))
-	for i, p := range p.engine.peers {
+	connected := make([]bool, len(p.engine.Peers))
+	for i, p := range p.engine.Peers {
 		if p != nil && p.connected {
 			connected[i] = true
 			c++
@@ -194,14 +194,14 @@ func (r *ResultPingIcmp) String() string {
 }
 
 func (p *P2POp) PingIcmp(args *ArgTarget, reply *ResultPingIcmp) error {
-	if args.Target < 0 || args.Target >= len(p.engine.peers) {
+	if args.Target < 0 || args.Target >= len(p.engine.Peers) {
 		return errInvalidRpcArg
 	}
-	if p.engine.peers[args.Target] == nil {
+	if p.engine.Peers[args.Target] == nil {
 		return errTargetNotConnected
 	}
-	*reply = *(*ResultPingIcmp)(<-pingIcmp(p.engine.peers[args.Target].ip))
-	p.engine.state.LatencyMatrix[p.engine.id][args.Target] = reply.AvgRtt
+	*reply = *(*ResultPingIcmp)(<-pingIcmp(p.engine.Peers[args.Target].ip))
+	p.engine.State.LatencyMatrix[p.engine.id][args.Target] = reply.AvgRtt
 	return nil
 }
 
@@ -246,9 +246,9 @@ func (r *ResultIcmpAll) String() string {
 }
 
 func (p *P2POp) PingIcmpBroadcast(_ *ArgEmpty, reply *ResultIcmpAll) error {
-	replyChannels := make([]<-chan *probing.Statistics, len(p.engine.peers))
-	*reply = make([]*probing.Statistics, len(p.engine.peers))
-	for i, peer := range p.engine.peers {
+	replyChannels := make([]<-chan *probing.Statistics, len(p.engine.Peers))
+	*reply = make([]*probing.Statistics, len(p.engine.Peers))
+	for i, peer := range p.engine.Peers {
 		if peer == nil || !peer.connected {
 			ch := make(chan *probing.Statistics, 1)
 			ch <- &probing.Statistics{} // default result for non-connected peer to write
@@ -259,9 +259,9 @@ func (p *P2POp) PingIcmpBroadcast(_ *ArgEmpty, reply *ResultIcmpAll) error {
 	}
 	for i, ch := range replyChannels {
 		peerStats := <-ch
-		if p.engine.peers[i] != nil {
-			p.engine.peers[i].rtt = peerStats.AvgRtt
-			p.engine.state.LatencyMatrix[p.engine.id][i] = peerStats.AvgRtt
+		if p.engine.Peers[i] != nil {
+			p.engine.Peers[i].rtt = peerStats.AvgRtt
+			p.engine.State.LatencyMatrix[p.engine.id][i] = peerStats.AvgRtt
 		}
 		(*reply)[i] = peerStats
 	}
@@ -299,10 +299,10 @@ func (r *ResultPing) String() string {
 }
 
 func (p *P2POp) PingDevP2P(args *ArgTarget, reply *ResultPing) error {
-	if args.Target < 0 || args.Target >= len(p.engine.peers) {
+	if args.Target < 0 || args.Target >= len(p.engine.Peers) {
 		return errInvalidRpcArg
 	}
-	peer := p.engine.peers[args.Target]
+	peer := p.engine.Peers[args.Target]
 	if peer == nil || !peer.connected {
 		return errTargetNotConnected
 	}
@@ -316,13 +316,13 @@ func (p *P2POp) PingDevP2P(args *ArgTarget, reply *ResultPing) error {
 	}
 	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
 	result.PongReceivedTime = time.Now()
-	p.engine.state.LatencyMatrix[p.engine.id][args.Target] = result.rtt()
+	p.engine.State.LatencyMatrix[p.engine.id][args.Target] = result.rtt()
 	*reply = result
 	return nil
 }
 
 func (p *P2POp) PingDevP2PBroadcast(_ *ArgEmpty, _ *ArgEmpty) error {
-	for id, peer := range p.engine.peers {
+	for id, peer := range p.engine.Peers {
 		if id == p.engine.id {
 			continue
 		}
@@ -337,7 +337,7 @@ func (p *P2POp) PingDevP2PBroadcast(_ *ArgEmpty, _ *ArgEmpty) error {
 			if err == nil {
 				ping.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
 				ping.PongReceivedTime = time.Now()
-				p.engine.state.LatencyMatrix[p.engine.id][id] = ping.rtt()
+				p.engine.State.LatencyMatrix[p.engine.id][id] = ping.rtt()
 			}
 		}
 	}
@@ -396,10 +396,10 @@ func (r *ResultSendRandomData) String() string {
 }
 
 func (p *P2POp) SendRandomData(args *ArgTargetSizeCount, reply *ResultSendRandomData) error {
-	if args.Target < 0 || args.Target >= len(p.engine.peers) {
+	if args.Target < 0 || args.Target >= len(p.engine.Peers) {
 		return errInvalidRpcArg
 	}
-	peer := p.engine.peers[args.Target]
+	peer := p.engine.Peers[args.Target]
 	if peer == nil || !peer.connected {
 		return errTargetNotConnected
 	}
@@ -505,12 +505,12 @@ func (r *ResultBroadcastLatencyArray) String() string {
 
 func (p *P2POp) BroadcastLatencyArray(_ *ArgEmpty, reply *ResultBroadcastLatencyArray) error {
 	result := ResultBroadcastLatencyArray{}
-	errs := make([]string, len(p.engine.peers))
-	acks := make([]bool, len(p.engine.peers))
+	errs := make([]string, len(p.engine.Peers))
+	acks := make([]bool, len(p.engine.Peers))
 	var hasError atomic.Bool
 	var wg sync.WaitGroup
 
-	for i, peer := range p.engine.peers {
+	for i, peer := range p.engine.Peers {
 		if i == p.engine.id {
 			errs[i] = ""
 			continue
@@ -523,7 +523,7 @@ func (p *P2POp) BroadcastLatencyArray(_ *ArgEmpty, reply *ResultBroadcastLatency
 
 		wg.Add(1)
 		go func(id int, peer *Peer) {
-			_, _, err := peer.sendLatencyArray(p.engine.state.LatencyMatrix[p.engine.id])
+			_, _, err := peer.sendLatencyArray(p.engine.State.LatencyMatrix[p.engine.id])
 			if err != nil {
 				hasError.Store(true)
 				errs[id] = err.Error()
@@ -579,7 +579,7 @@ func (r *ResultLatencyMatrix) String() string {
 
 func (p *P2POp) LatencyMatrix(_ *ArgEmpty, reply *ResultLatencyMatrix) error {
 	result := make([][]time.Duration, len(p.engine.enodes))
-	for i, latencyArray := range p.engine.state.LatencyMatrix {
+	for i, latencyArray := range p.engine.State.LatencyMatrix {
 		result[i] = make([]time.Duration, len(p.engine.enodes))
 		copy(result[i], latencyArray)
 	}
@@ -646,9 +646,9 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 	bufferSize := 80 * 1024 * 1024
 	peers := make([]*Peer, 0)
 	if args.Target == 0 {
-		peers = p.engine.peers
+		peers = p.engine.Peers
 	} else {
-		peer, err := checkPeer(args.Target, p.engine.peers)
+		peer, err := checkPeer(args.Target, p.engine.Peers)
 		if err != nil {
 			return err
 		}
@@ -657,7 +657,7 @@ func (p *P2POp) TCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuning) e
 
 	p2p.UpdateSystemSocketOptions(bufferSize)
 	for i, _ := range peers {
-		peer, err := checkPeer(i, p.engine.peers)
+		peer, err := checkPeer(i, p.engine.Peers)
 		if err != nil {
 			continue
 		}
@@ -674,9 +674,9 @@ func (p *P2POp) ResetTCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuni
 	var peers []*Peer
 
 	if args.Target == 0 {
-		peers = p.engine.peers
+		peers = p.engine.Peers
 	} else {
-		peer, err := checkPeer(args.Target, p.engine.peers)
+		peer, err := checkPeer(args.Target, p.engine.Peers)
 		if err != nil {
 			return err
 		}
@@ -685,7 +685,7 @@ func (p *P2POp) ResetTCPSocketTuning(args *ArgTarget, reply *ResultTCPSocketTuni
 	p2p.ResetSocketOptions()
 	bufferSize := 40 * 1024 * 1024
 	for i, _ := range peers {
-		peer, err := checkPeer(i, p.engine.peers)
+		peer, err := checkPeer(i, p.engine.Peers)
 		if err != nil {
 			continue
 		}
@@ -905,19 +905,19 @@ func (p *P2POp) WarmUp(args *ArgWarmUp, reply *ResultDissemination) error {
 	reply.Size = args.Size
 	recipients := args.MaxPeers
 	if args.MaxPeers == 0 {
-		recipients = len(p.engine.peers)
+		recipients = len(p.engine.Peers)
 	}
 	reply.MaxPeers = recipients
 	rnd := rand2.New(rand2.NewSource(time.Now().UnixNano()))
 	packetId := rnd.Uint64()
-	p.engine.state.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
+	p.engine.State.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
 	log.Info("Started Dissemination", "size", reply.Size, "peers", recipients, "packetId", packetId)
 
 	// broadcast strategy
-	if err := p.engine.strategies[0].Execute(packetId, buff, recipients); err != nil {
+	if err := p.engine.Strategies[0].Execute(packetId, buff, recipients); err != nil {
 		return err
 	}
-	reply.IndividualResults = p.engine.state.CollectReports(packetId, recipients)
+	reply.IndividualResults = p.engine.State.CollectReports(packetId, recipients)
 	return nil
 }
 
@@ -931,25 +931,25 @@ func (p *P2POp) Disseminate(args *ArgDisseminate, reply *ResultDissemination) er
 	reply.Size = args.Size
 	recipients := args.MaxPeers
 	if args.MaxPeers == 0 {
-		recipients = len(p.engine.peers)
+		recipients = len(p.engine.Peers)
 	}
 	reply.MaxPeers = recipients
 	rnd := rand2.New(rand2.NewSource(time.Now().UnixNano()))
 	packetId := rnd.Uint64()
-	p.engine.state.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
+	p.engine.State.ReceivedReports[packetId] = make(chan *strats.IndividualDisseminateResult)
 	log.Info("Started Dissemination", "size", reply.Size, "peers", recipients, "packetId", packetId)
 
 	// actual dissemination
-	if err := p.engine.strategies[args.Strategy].Execute(packetId, buff, recipients); err != nil {
+	if err := p.engine.Strategies[args.Strategy].Execute(packetId, buff, recipients); err != nil {
 		return err
 	}
-	reply.IndividualResults = p.engine.state.CollectReports(packetId, recipients)
+	reply.IndividualResults = p.engine.State.CollectReports(packetId, recipients)
 	return nil
 }
 
 func (p *P2POp) StartLatencyBroadcastAndGraphMaking(arg *ArgStrategy, _ *ArgEmpty) error {
-	errs := make([]<-chan error, len(p.engine.peers))
-	for id, peer := range p.engine.peers {
+	errs := make([]<-chan error, len(p.engine.Peers))
+	for id, peer := range p.engine.Peers {
 		ch := make(chan error, 1)
 		errs[id] = ch
 		if id == p.engine.id {
@@ -960,7 +960,7 @@ func (p *P2POp) StartLatencyBroadcastAndGraphMaking(arg *ArgStrategy, _ *ArgEmpt
 			ch <- errTargetNotConnected
 		} else {
 			go func(peer *Peer, ch chan error) {
-				err := peer.sendTriggerRequest(uint64(arg.Strategy))
+				err := peer.SendTriggerRequest(uint64(arg.Strategy))
 				ch <- err
 			}(peer, ch)
 		}
@@ -980,8 +980,8 @@ func (p *P2POp) StartLatencyBroadcastAndGraphMaking(arg *ArgStrategy, _ *ArgEmpt
 	attempt := 10
 	for tries := 0; tries < attempt; tries++ {
 		ready := true
-		for i := 0; i < len(p.engine.peers); i++ {
-			if !p.engine.strategies[arg.Strategy].IsGraphReadyForPeer(i) {
+		for i := 0; i < len(p.engine.Peers); i++ {
+			if !p.engine.Strategies[arg.Strategy].IsGraphReadyForPeer(i) {
 				ready = false
 				break
 			}
@@ -1007,8 +1007,8 @@ func (p *P2POp) broadcastLatencyAndMakeGraph(strategy int) error {
 	}
 	attempt := 10
 	for i := 0; i < attempt; i++ {
-		err := p.engine.strategies[strategy].ConstructGraph(len(p.engine.peers))
-		if err == strats.ErrLatencyMatrixNotReady {
+		err := p.engine.Strategies[strategy].ConstructGraph(len(p.engine.Peers))
+		if errors.Is(err, strats.ErrLatencyMatrixNotReady) {
 			time.Sleep(time.Second * 5)
 			continue
 		}
@@ -1049,9 +1049,9 @@ func (r *ResultConstructGraph) String() string {
 func (p *P2POp) ConstructGraph(arg *ArgGraphConstruct, reply *ResultConstructGraph) error {
 	recipients := arg.MaxPeers
 	if arg.MaxPeers == 0 {
-		recipients = len(p.engine.peers)
+		recipients = len(p.engine.Peers)
 	}
-	err := p.engine.strategies[arg.Strategy].ConstructGraph(recipients)
+	err := p.engine.Strategies[arg.Strategy].ConstructGraph(recipients)
 	result := ResultConstructGraph{""}
 	if err != nil {
 		result.Err = err.Error()
@@ -1085,10 +1085,10 @@ func (r *ResultIsGraphReady) String() string {
 func (p *P2POp) IsGraphReady(arg *ArgStrategy, reply *ResultIsGraphReady) error {
 	result := ResultIsGraphReady{}
 
-	readyPeers := make([]int, 0, len(p.engine.peers))
-	notReadyPeers := make([]int, 0, len(p.engine.peers))
-	for id := 0; id < len(p.engine.peers); id++ {
-		if p.engine.strategies[arg.Strategy].IsGraphReadyForPeer(id) {
+	readyPeers := make([]int, 0, len(p.engine.Peers))
+	notReadyPeers := make([]int, 0, len(p.engine.Peers))
+	for id := 0; id < len(p.engine.Peers); id++ {
+		if p.engine.Strategies[arg.Strategy].IsGraphReadyForPeer(id) {
 			readyPeers = append(readyPeers, id)
 		} else {
 			notReadyPeers = append(notReadyPeers, id)
