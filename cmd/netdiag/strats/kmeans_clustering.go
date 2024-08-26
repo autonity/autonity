@@ -2,6 +2,7 @@ package strats
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/autonity/autonity/cmd/netdiag/strats/kmeans"
@@ -51,11 +52,17 @@ func (k *KmeansClustering) HandlePacket(packetId uint64, hop uint8, originalSend
 }
 
 func (k *KmeansClustering) send(root, packetId uint64, hop uint8, data []byte) error {
+	log.Debug("Sending packet", "root", root, "packetId", packetId, "hop", hop, "localId", k.State.Id)
+	if len(k.graph.rootedConnection) == 0 {
+		log.Error("Graph not initiated, rootedConnection is empty")
+		return ErrGraphConstruction
+	}
 	// first collect all peers to send to
 	var destinationPeers []int
 
 	// if we are the originator of the packet, we need to send to all local leaders
 	if root == k.State.Id {
+		log.Debug("Original sender, adding all local leaders", "localLeaders", fmt.Sprintf("%v", k.localLeaders), "root", root)
 		// we don't need to send it to ourselves
 		destinationPeers = filterArray(k.localLeaders, func(i int) bool {
 			return i != int(k.State.Id)
@@ -68,7 +75,7 @@ func (k *KmeansClustering) send(root, packetId uint64, hop uint8, data []byte) e
 			destinationPeers,
 			// we don't need to send it to the originator
 			filterArray(k.graph.rootedConnection[k.State.Id], func(i int) bool {
-				return i == int(root)
+				return i != int(root)
 			})...,
 		)
 	}
@@ -81,21 +88,24 @@ func (k *KmeansClustering) send(root, packetId uint64, hop uint8, data []byte) e
 
 	for _, peerID := range destinationPeers {
 		if peer := k.Peers(peerID); peer == nil {
+			log.Error("Peer not found", "peerID", peerID)
 			return errPeerNotFound
 		}
 	}
 
 	var wg sync.WaitGroup
-	for _, peerID := range k.graph.rootedConnection[root] {
+	for _, peerID := range destinationPeers {
 		peer := k.Peers(peerID)
 		wg.Add(1)
-		go func() {
-			err := peer.DisseminateRequest(k.Code, packetId, hop, root, uint64(0), data, false, 0, 0)
+		peerID := peerID
+		go func(p Peer) {
+			log.Debug("Sending packet to peer", "peerID", peerID)
+			err := p.DisseminateRequest(k.Code, packetId, hop, root, uint64(0), data, false, 0, 0)
 			if err != nil {
 				log.Error("DisseminateRequest err:", err)
 			}
 			wg.Done()
-		}()
+		}(peer)
 	}
 	wg.Wait()
 	return nil
@@ -122,6 +132,9 @@ func (k *KmeansClustering) IsGraphReadyForPeer(peerID int) bool {
 
 func (k *KmeansClustering) isLatencyMatrixReady() (bool, error) {
 	for id, array := range k.State.LatencyMatrix {
+		if len(array) != k.State.Peers {
+			return false, nil
+		}
 		for peer, latency := range array {
 			if id == peer {
 				if latency != 0 {
@@ -138,6 +151,7 @@ func (k *KmeansClustering) isLatencyMatrixReady() (bool, error) {
 }
 
 func (k *KmeansClustering) constructGraph() error {
+	log.Debug("Constructing graph")
 	if k.graph.initiated {
 		return nil
 	}
@@ -146,18 +160,21 @@ func (k *KmeansClustering) constructGraph() error {
 		return nil
 	}
 
+	log.Debug("Assigning clusters ", "numClusters", k.NumClusters)
 	clusters, err := kmeans.AssignClusters(k.State.LatencyMatrix, k.NumClusters)
 	if err != nil {
 		return err
 	}
+	log.Debug("Clusters assigned", "clusters", fmt.Sprintf("%v", clusters))
 
 	var rootedConnection = make([][]int, k.State.Peers)
 	var localLeaders []int
 	for i := 0; i < k.State.Peers; i++ {
 		rootedConnection[i] = make([]int, 0)
 	}
-	for _, c := range clusters {
+	for i, c := range clusters {
 		clusterLeader := minArray(c)
+		log.Debug("Cluster leader elected", "iCluster", i, "clusterLeader", clusterLeader)
 		localLeaders = append(localLeaders, clusterLeader)
 		for _, peer := range c {
 			if peer != clusterLeader {
@@ -166,6 +183,8 @@ func (k *KmeansClustering) constructGraph() error {
 		}
 	}
 
+	k.graph.rootedConnection = rootedConnection
+	k.localLeaders = localLeaders
 	k.graph.initiated = true
 	k.graph.peerGraphReady[k.State.Id] = true
 	k.graph.constructing.Store(false)

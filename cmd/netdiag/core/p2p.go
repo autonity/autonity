@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"errors"
@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/autonity/autonity/cmd/netdiag/api"
 	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -46,9 +45,10 @@ var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error
 }
 
 var (
-	errInvalidMsgCode = errors.New("invalid message code")
-	errUnknownRequest = errors.New("no matching request id")
-	errTimeout        = errors.New("request timed out")
+	errInvalidMsgCode   = errors.New("invalid message code")
+	errUnknownRequest   = errors.New("no matching request id")
+	errPeerNotConnected = errors.New("peer not connected")
+	errTimeout          = errors.New("request timed out")
 )
 
 type Peer struct {
@@ -56,10 +56,10 @@ type Peer struct {
 	p2p.MsgReadWriter
 	// ICMP stats
 	// Delay on TIME
-	ip        string
-	rtt       time.Duration
+	Ip        string
+	Rtt       time.Duration
 	requests  map[uint64]chan any
-	connected bool
+	Connected bool
 	id        int
 	sync.RWMutex
 }
@@ -153,7 +153,7 @@ func (p *Peer) dispatchResponse(requestId uint64, packet any) error {
 }
 
 func (p *Peer) RTT() time.Duration {
-	return p.rtt
+	return p.Rtt
 }
 
 func (p *Peer) dispatchRequest(requestId uint64, code uint64, packet any) (chan any, error) {
@@ -175,13 +175,13 @@ type PongPacket struct {
 	Time      uint64
 }
 
-func (p *Peer) sendPing() (uint64, error) {
+func (p *Peer) SendPing() (uint64, error) {
 	id := rand.Uint64()
 	req, err := p.dispatchRequest(id, PingMsg, PingPacket{id})
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println("[PING] >>", id)
+	fmt.Println("[PING] >>", "requestId", id)
 	timer := time.NewTimer(5 * time.Second)
 	select {
 	case ans := <-req:
@@ -197,7 +197,7 @@ func handlePing(_ *Engine, p *Peer, data io.Reader) error {
 	if err := rlp.Decode(data, &ping); err != nil {
 		return err
 	}
-	fmt.Println("[PING] << , [PONG] >> ", ping.RequestId)
+	fmt.Println("[PING] << , [PONG] >> ", "requestId", ping.RequestId)
 	return p2p.Send(p, PongMsg, PongPacket{ping.RequestId, now})
 }
 
@@ -206,7 +206,7 @@ func handlePong(_ *Engine, p *Peer, msg io.Reader) error {
 	if err := rlp.Decode(msg, &pong); err != nil {
 		return err
 	}
-	fmt.Println("[PONG] <<", pong.RequestId)
+	log.Debug("[PONG] <<", "requestId", pong.RequestId)
 	return p.dispatchResponse(pong.RequestId, pong)
 }
 
@@ -224,10 +224,10 @@ type AckDataPacket struct {
 	Time      uint64
 }
 
-func (p *Peer) sendData(data []byte) (uint64, time.Duration, error) {
+func (p *Peer) SendData(data []byte) (uint64, time.Duration, error) {
 	startTime := time.Now()
 	id := rand.Uint64()
-	fmt.Println("[DATAPACKET] >> ", id)
+	log.Debug("[DATAPACKET] >> ", "id", id)
 	req, err := p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 	if err != nil {
 		log.Error("Unable to dispatch request", "error", err)
@@ -245,7 +245,7 @@ func (p *Peer) sendData(data []byte) (uint64, time.Duration, error) {
 
 func (p *Peer) sendDataAsync(data []byte) (chan any, error) {
 	id := rand.Uint64()
-	fmt.Println("[DATAPACKET] >> ", id)
+	log.Debug("[DATAPACKET] >> ", "id", id)
 	return p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 }
 
@@ -255,7 +255,7 @@ func handleData(_ *Engine, p *Peer, data io.Reader) error {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	fmt.Println("[DATAPACKET] << ", dataPacket.RequestId)
+	log.Debug("[DATAPACKET] << ", "requestId", dataPacket.RequestId)
 	return p2p.Send(p, AckDataMsg, AckDataPacket{dataPacket.RequestId, now})
 }
 
@@ -264,7 +264,7 @@ func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
 	if err := rlp.Decode(msg, &ack); err != nil {
 		return err
 	}
-	fmt.Println("[ACKDATA] << ", ack.RequestId)
+	log.Debug("[ACKDATA] << ", "requestId", ack.RequestId)
 	return p.dispatchResponse(ack.RequestId, ack)
 }
 
@@ -274,18 +274,19 @@ func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
 
 type LatencyArrayPacket struct {
 	RequestId    uint64
+	Strategy     uint64
 	LatencyArray []uint64
 }
 
-func (p *Peer) sendLatencyArray(latency []time.Duration) (uint64, time.Duration, error) {
+func (p *Peer) SendLatencyArray(strategy uint64, latency []time.Duration) (uint64, time.Duration, error) {
 	startTime := time.Now()
 	id := rand.Uint64()
-	fmt.Println("[LatencyArrayPacket] >> ", id)
+	log.Debug("[LatencyArrayPacket] >> ", "id", id)
 	buff := make([]uint64, len(latency))
 	for i, l := range latency {
 		buff[i] = uint64(l)
 	}
-	req, err := p.dispatchRequest(id, LatencyArrayMsg, LatencyArrayPacket{id, buff})
+	req, err := p.dispatchRequest(id, LatencyArrayMsg, LatencyArrayPacket{id, strategy, buff})
 	if err != nil {
 		log.Error("Unable to dispatch request", "error", err)
 		return 0, 0, err
@@ -300,21 +301,37 @@ func (p *Peer) sendLatencyArray(latency []time.Duration) (uint64, time.Duration,
 	}
 }
 
+// handleLatencyArray is called when a peer receives a latency array
+// It will store the latency array in the state and construct the graph if possible
 func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 	var latencyPacket LatencyArrayPacket
 	if err := rlp.Decode(data, &latencyPacket); err != nil {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	fmt.Println("[LatencyArrayPacket] << ", latencyPacket.RequestId)
+	log.Debug("[LatencyArrayPacket] << ", "id", latencyPacket.RequestId)
 	e.State.LatencyMatrix[p.id] = make([]time.Duration, len(e.Peers))
 	for i, l := range latencyPacket.LatencyArray {
 		if i >= len(e.Peers) {
+			log.Error("Invalid latency array received from peer", "peer", p.id, "len", len(e.Peers), "index", i)
 			break
 		}
 		e.State.LatencyMatrix[p.id][i] = time.Duration(l)
 	}
-	fmt.Printf("Got latency array from peer %v\n", p.ID())
+	go func(e *Engine, strategy uint64) {
+		if err := e.Strategies[int(strategy)].ConstructGraph(len(e.Peers)); err != nil {
+			if !errors.Is(err, strats.ErrLatencyMatrixNotReady) {
+				log.Error("Error constructing graph", "error", err)
+			} else {
+				log.Debug("Received latency arrya, but latency matrix not complete")
+			}
+		} else {
+			if err := BroadcastGraphReady(e, strategy); err != nil {
+				log.Error("Error in broadcast graph ready", "error", err)
+			}
+		}
+	}(e, latencyPacket.Strategy)
+	log.Debug("Got latency array from peer", "peerId", p.ID())
 	return p2p.Send(p, AckDataMsg, AckDataPacket{latencyPacket.RequestId, now})
 }
 
@@ -329,7 +346,7 @@ type TriggerPacket struct {
 
 func (p *Peer) SendTriggerRequest(strategy uint64) error {
 	id := rand.Uint64()
-	fmt.Println("[TriggerPacket][TriggerRequest] >> ", id)
+	log.Debug("[TriggerPacket][TriggerRequest] >> ", "id", id)
 	req, err := p.dispatchRequest(
 		id, TriggerRequest,
 		TriggerPacket{RequestId: id, Strategy: strategy},
@@ -347,6 +364,8 @@ func (p *Peer) SendTriggerRequest(strategy uint64) error {
 	}
 }
 
+// handleTriggerRequest is called when a peer receives a trigger request
+// It will ping all peers and broadcast it's own latency array
 func handleTriggerRequest(e *Engine, p *Peer, data io.Reader) error {
 	var trigger TriggerPacket
 	if err := rlp.Decode(data, &trigger); err != nil {
@@ -354,19 +373,23 @@ func handleTriggerRequest(e *Engine, p *Peer, data io.Reader) error {
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	go func(e *Engine, p *Peer, trigger *TriggerPacket) {
-		p2pop := P2POp{e}
-		err := p2pop.broadcastLatencyAndMakeGraph(int(trigger.Strategy))
-		if err == nil {
-			p.sendGraphReady(trigger.Strategy)
+		// get latency for all peers
+		latency := PingPeers(e)
+
+		// set our own latency in the matrix
+		e.State.LatencyMatrix[e.Id] = FilterAveRtt(latency)
+
+		if err := BroadcastLatency(e, trigger.Strategy, latency); err != nil {
+			log.Error("Error in broadcast latency", "error", err)
 		}
 	}(e, p, &trigger)
-	fmt.Println("[TriggerPacket][TriggerRequest] << ", trigger.RequestId)
+	log.Debug("[TriggerPacket][TriggerRequest] << ", trigger.RequestId)
 	return p2p.Send(p, AckDataMsg, AckDataPacket{trigger.RequestId, now})
 }
 
 func (p *Peer) sendGraphReady(strategy uint64) error {
 	id := rand.Uint64()
-	fmt.Println("[TriggerPacket][GraphReady] >> ", id)
+	log.Debug("[TriggerPacket][GraphReady] >> ", "id", id)
 	req, err := p.dispatchRequest(
 		id, GraphReady,
 		TriggerPacket{RequestId: id, Strategy: strategy},
@@ -391,7 +414,7 @@ func handleGraphReady(e *Engine, p *Peer, data io.Reader) error {
 	}
 	e.Strategies[trigger.Strategy].GraphReadyForPeer(p.id)
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	fmt.Println("[TriggerPacket][GraphReady] << ", trigger.RequestId)
+	log.Debug("[TriggerPacket][GraphReady] << ", "id", trigger.RequestId)
 	return p2p.Send(p, AckDataMsg, AckDataPacket{trigger.RequestId, now})
 }
 
@@ -404,7 +427,7 @@ type TCPOptionsPacket struct {
 	Reset      bool
 }
 
-func (p *Peer) sendUpdateTcpSocket(bufferSize int, reset bool) error {
+func (p *Peer) SendUpdateTcpSocket(bufferSize int, reset bool) error {
 	id := rand.Uint64()
 	log.Info("sending update")
 	_, err := p.dispatchRequest(id, UpdateTCPSocket, TCPOptionsPacket{uint64(bufferSize), reset}) // this will leak for now
@@ -424,7 +447,7 @@ func handleUpdateTcpSocket(e *Engine, p *Peer, msg io.Reader) error {
 		p2p.UpdateSystemSocketOptions(int(opts.BufferSize))
 	}
 	for i, _ := range e.Peers {
-		peer, err := api.checkPeer(i, e.Peers)
+		peer, err := checkPeer(i, e.Peers)
 		if err != nil {
 			continue
 		}
@@ -529,4 +552,16 @@ func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 		ReceptionTime: time.Unix(int64(packet.Time)/int64(time.Second), int64(packet.Time)%int64(time.Second)),
 	}
 	return nil
+}
+
+func checkPeer(id int, peers []*Peer) (*Peer, error) {
+	if id >= len(peers) {
+		return nil, fmt.Errorf("peer %d not found", id)
+	}
+
+	peer := peers[id]
+	if peer == nil || !peer.Connected {
+		return nil, errPeerNotConnected
+	}
+	return peer, nil
 }

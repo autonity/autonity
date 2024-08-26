@@ -232,7 +232,7 @@ func (vm *vm) deployRunner(configFileName string, debug bool, skipConfigDeploy b
 	}
 
 	if !skipConfigDeploy {
-		log.Info("Transferring config file to the VM...", "id", vm.id)
+		log.Info("Transferring Config file to the VM...", "id", vm.id)
 		// Send the binary to the VM
 		err := client.Upload(configFileName, configFileName, true)
 		if err != nil {
@@ -287,7 +287,7 @@ func (vm *vm) startRunner(configFileName, networkMode string, optFlags string) e
 	// Execute the binary on the VM
 	log.Info("Executing the runner on the VM...", "id", vm.id)
 
-	flags := fmt.Sprintf("run --config %s --id %d --network %s %s", configFileName, vm.id, networkMode, optFlags)
+	flags := fmt.Sprintf("run --Config %s --id %d --network %s %s", configFileName, vm.id, networkMode, optFlags)
 	localCommand := fmt.Sprintf("chmod +x ~/%s && sudo -b ./%s %s > %s 2>&1 ", binaryName, binaryName, flags, logFileName)
 	log.Info("local command", "cmd", localCommand)
 

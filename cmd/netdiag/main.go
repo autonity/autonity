@@ -30,6 +30,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/urfave/cli.v1"
 
+	"github.com/autonity/autonity/cmd/netdiag/api"
+	"github.com/autonity/autonity/cmd/netdiag/core"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 )
@@ -38,8 +40,8 @@ var (
 	app = cli.NewApp()
 
 	configFlag = cli.StringFlag{
-		Name:  "config",
-		Value: "./config.json",
+		Name:  "Config",
+		Value: "./Config.json",
 		Usage: "Configuration for netdiag runner",
 	}
 	gcpProjectIDFlag = cli.StringFlag{
@@ -185,23 +187,10 @@ func init() {
 	}
 }
 
-type nodeConfig struct {
-	Enode        string
-	Ip           string
-	Key          string
-	Zone         string
-	InstanceName string
-}
-type config struct {
-	Nodes        []nodeConfig
-	GcpProjectId string
-	GcpUsername  string
-}
-
-func readConfigFile(file string) config {
+func readConfigFile(file string) core.Config {
 	jsonFile, err := os.Open(file)
 	if err != nil {
-		log.Error("can't open config file", "err", err)
+		log.Error("can't open Config file", "err", err)
 		os.Exit(1)
 	}
 	defer jsonFile.Close()
@@ -211,9 +200,9 @@ func readConfigFile(file string) config {
 		log.Crit("error reading json", "err", err)
 	}
 	// Unmarshal the byte slice into a Person struct
-	conf := &config{}
+	conf := &core.Config{}
 	if err := json.Unmarshal(byteValue, &conf); err != nil {
-		log.Crit("error unmarshalling config", "err", err)
+		log.Crit("error unmarshalling Config", "err", err)
 	}
 	return *conf
 }
@@ -253,8 +242,8 @@ func run(c *cli.Context) error {
 	if err != nil {
 		log.Crit("can't load key", "key", key)
 	}
-	engine := newEngine(cfg, localId, skey, c.String(networkModeFlag.Name))
-	if err := rpc.Register(&P2POp{engine}); err != nil {
+	engine := core.NewEngine(cfg, localId, skey, c.String(networkModeFlag.Name))
+	if err := rpc.Register(&api.P2POp{Engine: engine}); err != nil {
 		log.Error("can't register RPC", "err", err)
 		os.Exit(1)
 	}
@@ -264,7 +253,7 @@ func run(c *cli.Context) error {
 	}
 	log.Info("listening rpc on port 1337")
 	go rpc.Accept(ln)
-	if err := engine.start(); err != nil {
+	if err := engine.Start(); err != nil {
 		log.Error("engine start error", "err", err)
 	}
 	log.Info("P2P server started")
@@ -285,7 +274,7 @@ func control(c *cli.Context) error {
 	}
 	log.Info("Connected!", "ip", cfg.Nodes[targetPeer].Ip)
 	reader := bufio.NewReader(os.Stdin)
-	p := &P2POp{}
+	p := &api.P2POp{}
 	typeName := reflect.TypeOf(p).Elem().Name()
 	methods := reflect.TypeOf(p)
 
@@ -330,7 +319,7 @@ func control(c *cli.Context) error {
 		method := methods.Method(methodIndex - 1)
 		argType := method.Func.Type().In(1) // Assuming first is receiver, second is context (if present)
 		args := reflect.New(argType.Elem()).Interface()
-		if userArg, ok := args.(Argument); ok {
+		if userArg, ok := args.(api.Argument); ok {
 			if err := userArg.AskUserInput(); err != nil {
 				return err
 			}
@@ -362,7 +351,7 @@ func setup(c *cli.Context) error {
 
 	configFileName := c.String(configFlag.Name)
 	if _, err := os.Stat(configFileName); err == nil {
-		return fmt.Errorf("config file:%s exists, cleanup and retry setup", configFileName)
+		return fmt.Errorf("Config file:%s exists, cleanup and retry setup", configFileName)
 	}
 	n := c.Int(peersFlag.Name)
 	if n <= 0 {
@@ -433,8 +422,8 @@ func setup(c *cli.Context) error {
 	wg.Wait()
 	log.Info("Instances deployment completed")
 	// generate keys and enodes
-	cfg := config{
-		Nodes:        make([]nodeConfig, n),
+	cfg := core.Config{
+		Nodes:        make([]core.NodeConfig, n),
 		GcpProjectId: projectId,
 		GcpUsername:  c.String(gcpUsernameFlag.Name),
 	}
@@ -446,7 +435,7 @@ func setup(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		cfg.Nodes[i] = nodeConfig{
+		cfg.Nodes[i] = core.NodeConfig{
 			Ip:           vms[i].ip,
 			Key:          hex.EncodeToString(crypto.FromECDSA(key)),
 			Enode:        fmt.Sprintf("enode://%x@%s:31337", crypto.FromECDSAPub(&key.PublicKey)[1:], vms[i].ip),
@@ -458,7 +447,7 @@ func setup(c *cli.Context) error {
 	configFile, err := os.Create(configFileName)
 	if err != nil {
 		wd, _ := os.Getwd()
-		log.Error("can't create config file", "err", err, "file", configFileName, "wd", wd)
+		log.Error("can't create Config file", "err", err, "file", configFileName, "wd", wd)
 		return err
 	}
 
@@ -466,7 +455,7 @@ func setup(c *cli.Context) error {
 	encoder := json.NewEncoder(configFile)
 	encoder.SetIndent("", "    ")
 	if err := encoder.Encode(cfg); err != nil {
-		log.Error("can't encode config to file", "err", err)
+		log.Error("can't encode Config to file", "err", err)
 		return err
 	}
 	log.Info("Config generated, wait 30 seconds")
@@ -540,9 +529,9 @@ func cleanup(c *cli.Context) error {
 	wg.Wait()
 	err = os.Remove(c.String(configFlag.Name))
 	if err != nil {
-		log.Error("config removal failed", "error", err)
+		log.Error("Config removal failed", "error", err)
 	}
-	log.Info("removed config", "file", c.String(configFlag.Name))
+	log.Info("removed Config", "file", c.String(configFlag.Name))
 	log.Info("Cluster cleaned up", "duration(s)", time.Now().Sub(now).Seconds())
 	return nil
 }

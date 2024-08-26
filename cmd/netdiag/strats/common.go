@@ -106,7 +106,7 @@ type Strategy interface {
 	ConstructGraph(maxPeers int) error
 	// GraphReadyForPeer is called when the graph for peer `peerID` is constructed
 	GraphReadyForPeer(peerID int)
-	// Returns `true` if graph is constructed for all peers
+	// IsGraphReadyForPeer Returns `true` if graph is constructed for all peers
 	IsGraphReadyForPeer(peerID int) bool
 }
 

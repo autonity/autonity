@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"crypto/ecdsa"
@@ -12,12 +12,13 @@ import (
 )
 
 type Engine struct {
-	config
-	id     int
+	Config
+
+	Id     int
 	server *p2p.Server
 
 	Peers  []*Peer // nil never connected, can do probably cleaner
-	enodes []*enode.Node
+	Enodes []*enode.Node
 
 	State      *strats.State
 	Strategies []strats.Strategy
@@ -25,7 +26,7 @@ type Engine struct {
 	sync.RWMutex
 }
 
-func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *Engine {
+func NewEngine(cfg Config, id int, key *ecdsa.PrivateKey, networkMode string) *Engine {
 	e := &Engine{
 		State: strats.NewState(uint64(id), len(cfg.Nodes)),
 	}
@@ -81,26 +82,26 @@ func newEngine(cfg config, id int, key *ecdsa.PrivateKey, networkMode string) *E
 		EnableMsgEvents: false,
 		Logger:          log.Root(),
 	}
-	e.config = cfg
+	e.Config = cfg
 	e.server = &p2p.Server{Net: p2p.Consensus, Config: p2pConfig, Transport: transport}
 
-	enodesToResolve := make([]string, len(e.config.Nodes))
+	enodesToResolve := make([]string, len(e.Config.Nodes))
 	for i := range enodesToResolve {
-		enodesToResolve[i] = e.config.Nodes[i].Enode
+		enodesToResolve[i] = e.Config.Nodes[i].Enode
 	}
-	e.enodes = types.NewNodes(enodesToResolve, true).List
-	e.Peers = make([]*Peer, len(e.enodes))
-	e.id = id
+	e.Enodes = types.NewNodes(enodesToResolve, true).List
+	e.Peers = make([]*Peer, len(e.Enodes))
+	e.Id = id
 	return e
 }
 
-func (e *Engine) start() error {
+func (e *Engine) Start() error {
 	// attempt to connect to everyone. Use our logic.
 	if err := e.server.Start(); err != nil {
 		log.Error("error starting p2p server", "err", err)
 		return err
 	}
-	e.server.UpdateConsensusEnodes(e.enodes, e.enodes)
+	e.server.UpdateConsensusEnodes(e.Enodes, e.Enodes)
 	return nil
 }
 
@@ -110,12 +111,12 @@ func (e *Engine) addPeer(node *p2p.Peer, rw p2p.MsgReadWriter) (*Peer, error) {
 	p := &Peer{
 		Peer:          node,
 		MsgReadWriter: rw,
-		connected:     true,
+		Connected:     true,
 		requests:      make(map[uint64]chan any),
 	}
-	for i := 0; i < len(e.config.Nodes); i++ {
-		if e.enodes[i].ID() == node.ID() {
-			p.ip = e.enodes[i].IP().String()
+	for i := 0; i < len(e.Config.Nodes); i++ {
+		if e.Enodes[i].ID() == node.ID() {
+			p.Ip = e.Enodes[i].IP().String()
 			p.id = i
 			e.Peers[i] = p
 			break
