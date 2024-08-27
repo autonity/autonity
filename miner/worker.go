@@ -155,12 +155,6 @@ type task struct {
 	stateLock sync.RWMutex
 }
 
-func (t *task) stateCopy() *state.StateDB {
-	t.stateLock.RLock()
-	defer t.stateLock.RUnlock()
-	return t.st.Copy()
-}
-
 const (
 	commitInterruptNone int32 = iota
 	commitInterruptNewHead
@@ -351,8 +345,8 @@ func (w *worker) pending() (*types.Block, *state.StateDB) {
 	//t := w.pendingTasks[w.pendingHash]
 	//if t == nil {
 	//	w.pendingMu.RUnlock()
-		st, _ := w.chain.State()
-		return w.chain.CurrentBlock(), st
+	st, _ := w.chain.State()
+	return w.chain.CurrentBlock(), st
 	//}
 	//w.pendingMu.RUnlock()
 	//return t.block, t.stateCopy()
