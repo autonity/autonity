@@ -152,7 +152,6 @@ type task struct {
 	st        *state.StateDB
 	block     *types.Block
 	createdAt time.Time
-	stateLock sync.RWMutex
 }
 
 const (
@@ -340,29 +339,13 @@ func (w *worker) enablePreseal() {
 
 // pending returns the pending state and corresponding block.
 func (w *worker) pending() (*types.Block, *state.StateDB) {
-
-	//w.pendingMu.RLock()
-	//t := w.pendingTasks[w.pendingHash]
-	//if t == nil {
-	//	w.pendingMu.RUnlock()
 	st, _ := w.chain.State()
 	return w.chain.CurrentBlock(), st
-	//}
-	//w.pendingMu.RUnlock()
-	//return t.block, t.stateCopy()
 }
 
 // pendingBlock returns pending block.
 func (w *worker) pendingBlock() *types.Block {
 	return w.chain.CurrentBlock()
-	//w.pendingMu.RLock()
-	//t := w.pendingTasks[w.pendingHash]
-	//if t == nil {
-	//	w.pendingMu.RUnlock()
-	//	return w.chain.CurrentBlock()
-	//}
-	//w.pendingMu.RUnlock()
-	//return t.block
 }
 
 // start sets the running status as 1 and triggers new work submitting.
@@ -717,44 +700,10 @@ func (w *worker) resultLoop() {
 					l.BlockHash = block.Hash()
 				}
 			}
-			task.stateLock.Lock()
 			for _, log := range task.st.Logs() {
 				log.BlockHash = block.Hash()
 			}
 
-			// Different block could share same sealhash, deep copy here to prevent write-write conflict.
-			//var (
-			//	receipts = make([]*types.Receipt, len(task.receipts))
-			//	logs     []*types.Log
-			//)
-			//copyStart := time.Now()
-			//for i, taskReceipt := range task.receipts {
-			//	receipt := new(types.Receipt)
-			//	receipts[i] = receipt
-			//	*receipt = *taskReceipt
-			//
-			//	// add block location fields
-			//	receipt.BlockHash = hash
-			//	receipt.BlockNumber = block.Number()
-			//	receipt.TransactionIndex = uint(i)
-			//
-			//	// Update the block hash in all logs since it is now available and not when the
-			//	// receipt/log of individual transactions were created.
-			//	receipt.Logs = make([]*types.Log, len(taskReceipt.Logs))
-			//	for i, taskLog := range taskReceipt.Logs {
-			//		log := new(types.Log)
-			//		receipt.Logs[i] = log
-			//		*log = *taskLog
-			//		log.BlockHash = hash
-			//	}
-			//	logs = append(logs, receipt.Logs...)
-			//}
-			//if metrics.Enabled {
-			//	now := time.Now()
-			//	CopyWorkTimer.Update(now.Sub(copyStart))
-			//	CopyWorkBg.Add(now.Sub(copyStart).Nanoseconds())
-			//}
-			//
 			// Commit block and state to database.
 			persistStart := time.Now()
 			// protect state access, Practically this lock will always be available, by this time
@@ -763,10 +712,8 @@ func (w *worker) resultLoop() {
 			_, err := w.chain.WriteBlockAndSetHead(block, task.receipts, task.st.Logs(), task.st, true)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
-				task.stateLock.Unlock()
 				continue
 			}
-			task.stateLock.Unlock()
 			if metrics.Enabled {
 				now := time.Now()
 				PersistWorkTimer.Update(now.Sub(persistStart))
