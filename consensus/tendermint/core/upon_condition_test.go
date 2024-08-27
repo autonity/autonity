@@ -256,7 +256,7 @@ func TestNewProposal(t *testing.T) {
 		// prepare prevote nil and target the malicious proposer and the corresponding value.
 		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), common.Hash{}, e.clientSigner, e.clientMember, e.committeeSize)
 
-		backendMock.EXPECT().ProposedBlockHash().Return(invalidProposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().VerifyProposal(invalidProposal.Block()).Return(time.Duration(1), errors.New("invalid proposal"))
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
@@ -281,7 +281,7 @@ func TestNewProposal(t *testing.T) {
 		wg.Add(1)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
-		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
@@ -312,7 +312,7 @@ func TestNewProposal(t *testing.T) {
 		wg.Add(1)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
-		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
@@ -347,7 +347,7 @@ func TestNewProposal(t *testing.T) {
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 
-		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
@@ -391,7 +391,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
-		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
 
@@ -440,7 +440,7 @@ func TestOldProposal(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
-		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		e.setupCore(backendMock, e.clientAddress)
 		fakePrevote := message.Fake{
@@ -489,7 +489,7 @@ func TestOldProposal(t *testing.T) {
 
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(0), nil)
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsg)
-		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 
 		err := e.core.handleMsg(context.Background(), e.curProposal)
@@ -620,7 +620,7 @@ func TestOldProposal(t *testing.T) {
 		wg.Add(1)
 
 		backendMock.EXPECT().VerifyProposal(e.curProposal.Block()).Return(time.Duration(1), nil)
-		backendMock.EXPECT().ProposedBlockHash().Return(e.curProposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(e.curProposal.Hash()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), prevoteMsgToBroadcast)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
@@ -664,7 +664,7 @@ func TestProposeTimeout(t *testing.T) {
 		wg.Add(1)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
+		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().VerifyProposal(proposal.Block()).Return(time.Duration(1), nil)
 		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
 		e.setupCore(backendMock, e.clientAddress)
