@@ -121,9 +121,6 @@ func TestHeaderHash(t *testing.T) {
 		},
 	}
 	for i := range testCases {
-		if i != 6 {
-			continue
-		}
 		if !reflect.DeepEqual(testCases[i].hash, testCases[i].header.Hash()) {
 			t.Errorf("test %d, expected: %v, but got: %v", i, testCases[i].hash.Hex(), testCases[i].header.Hash().Hex())
 		}

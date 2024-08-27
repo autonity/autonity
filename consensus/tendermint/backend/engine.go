@@ -151,7 +151,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return consensus.ErrOutOfEpochRange
 	}
 
-	// epoch info integrity check, this is checked at both the proposal verification and block sync phases.
+	// epoch info integrity check.
 	if header.IsEpochHeader() {
 		epoch := header.Epoch
 		if epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||

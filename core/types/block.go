@@ -245,6 +245,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Epoch = hExtra.Epoch
 
 		if h.IsEpochHeader() {
+			if h.Epoch.Committee == nil {
+				return fmt.Errorf("committee shouldn't be nil")
+			}
+
 			if err = h.Epoch.Committee.Enrich(); err != nil {
 				return err
 			}
