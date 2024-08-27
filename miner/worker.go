@@ -346,27 +346,29 @@ func (w *worker) enablePreseal() {
 
 // pending returns the pending state and corresponding block.
 func (w *worker) pending() (*types.Block, *state.StateDB) {
-	w.pendingMu.RLock()
-	t := w.pendingTasks[w.pendingHash]
-	if t == nil {
-		w.pendingMu.RUnlock()
-		return nil, nil
-	}
-	w.pendingMu.RUnlock()
-	return t.block, t.stateCopy()
 
+	//w.pendingMu.RLock()
+	//t := w.pendingTasks[w.pendingHash]
+	//if t == nil {
+	//	w.pendingMu.RUnlock()
+		st, _ := w.chain.State()
+		return w.chain.CurrentBlock(), st
+	//}
+	//w.pendingMu.RUnlock()
+	//return t.block, t.stateCopy()
 }
 
 // pendingBlock returns pending block.
 func (w *worker) pendingBlock() *types.Block {
-	w.pendingMu.RLock()
-	t := w.pendingTasks[w.pendingHash]
-	if t == nil {
-		w.pendingMu.RUnlock()
-		return nil
-	}
-	w.pendingMu.RUnlock()
-	return t.block
+	return w.chain.CurrentBlock()
+	//w.pendingMu.RLock()
+	//t := w.pendingTasks[w.pendingHash]
+	//if t == nil {
+	//	w.pendingMu.RUnlock()
+	//	return w.chain.CurrentBlock()
+	//}
+	//w.pendingMu.RUnlock()
+	//return t.block
 }
 
 // start sets the running status as 1 and triggers new work submitting.
@@ -469,12 +471,11 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
 			commit(false, commitInterruptNewHead)
-			lastBlock = w.chain.CurrentBlock().Hash()
 
 		case head := <-w.chainHeadCh:
 			clearPending(head.Block.NumberU64())
 			if head.Block.Hash() == lastBlock {
-				log.Debug("Chain head event - sealed block already prepared")
+				log.Debug("Chain head event - block already prepared")
 				continue
 			}
 			timestamp = time.Now().Unix()
@@ -485,10 +486,6 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			commit(false, commitInterruptNewHead)
 
 		case blockHash := <-w.proposalVerifiedEventCh:
-			if blockHash == lastBlock {
-				log.Debug("Proposal verified event - sealed block already prepared")
-				continue
-			}
 			timestamp = time.Now().Unix()
 			if h, ok := w.engine.(consensus.Handler); ok {
 				h.NewChainHead()
