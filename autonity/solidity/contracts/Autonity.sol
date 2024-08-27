@@ -209,7 +209,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     address public deployer;
 
     /**
-     * @notice Address of the liquid logic contract
+     * @notice Address of the `LiquidLogic` contract. This contract contains all the logic for liquid newton related operations.
+     * The state variables are stored in `LiquidState` contract which is different for every validator and is deployed when
+     * registering a new validator. To do any operation related to liquid newton, we call `LiquidState` contract of the related
+     * validator and that contract does a delegate call to `LiquidLogic` contract.
      */
     address public liquidLogicContract;
 

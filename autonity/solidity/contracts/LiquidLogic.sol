@@ -51,7 +51,7 @@ contract LiquidLogic is IERC20, LiquidStorage {
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
 
     constructor() {
-        // autonityContract = Autonity(payable(msg.sender));
+        autonityContract = Autonity(payable(msg.sender));
     }
 
     /**

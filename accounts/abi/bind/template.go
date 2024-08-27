@@ -693,7 +693,8 @@ var (
 
 	{{range .Transacts}}
 		// {{.Normalized.Name}} is a free data retrieval call for a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
-		// Similar to eth_call, it reverts the state after the call and returns the output.
+		// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+		// the same way as done above for view only functions.
 		// Solidity: {{.Original.String}}
 		func (_{{$contract.Type}} *{{$contract.Type}}) Call{{.Normalized.Name}}(r *runner, opts *runOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
 			snap := r.snapshot()
