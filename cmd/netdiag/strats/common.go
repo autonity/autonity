@@ -69,7 +69,7 @@ func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDissem
 		recipients--
 	}
 
-	timer := time.NewTimer(10 * time.Second)
+	timer := time.NewTimer(15 * time.Second)
 
 LOOP:
 	for i := 0; i < recipients; i++ {

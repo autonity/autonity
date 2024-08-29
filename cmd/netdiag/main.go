@@ -165,6 +165,20 @@ The cleanup command deletes all runners`,
 		Description: `
 The run command start a local runner`,
 	}
+
+	// execute command runs an execution strategy and collects statistics
+	executeCommand = cli.Command{
+		Action:    execute,
+		Name:      "execute",
+		Usage:     "Execute a strategy",
+		ArgsUsage: "",
+		Flags: []cli.Flag{
+			configFlag,
+			networkModeFlag,
+			pprofFlag,
+		},
+		Description: `The execute command executes a strategy and collects statistics`,
+	}
 )
 
 var (
@@ -183,6 +197,7 @@ func init() {
 		controlCommand,
 		updateCommand,
 		cleanupCommand,
+		executeCommand,
 		// run flag
 	}
 }
@@ -571,6 +586,120 @@ func update(c *cli.Context) error {
 	log.Info("Cluster deployed and running!", "duration(s)", time.Now().Sub(now).Seconds())
 	return nil
 }
+
+func execute(c *cli.Context) error {
+	log.Info("Executing strategy")
+	targetPeer := c.Int(idFlag.Name)
+	cfg := readConfigFile(c.String(configFlag.Name))
+	client, err := rpc.Dial("tcp", cfg.Nodes[targetPeer].Ip+":1337")
+	if err != nil {
+		log.Error("Dialing error", "err", err)
+		return err
+	}
+	log.Info("Connected!", "ip", cfg.Nodes[targetPeer].Ip)
+	reader := bufio.NewReader(os.Stdin)
+
+	strategy := &api.ArgStrategy{}
+	if err := strategy.AskUserInput(); err != nil {
+		return err
+	}
+
+	outputFile := &api.ArgOutputFile{}
+	if err := outputFile.AskUserInput(); err != nil {
+		return err
+	}
+
+	size := &api.ArgSize{}
+	if err := size.AskUserInput(); err != nil {
+		return err
+	}
+
+	fmt.Println("Enter number of dissemination calls per node:")
+	fmt.Printf("\n%s|%s(%d)>> ", cfg.Nodes[targetPeer].Ip, cfg.Nodes[targetPeer].Zone, targetPeer)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		log.Error("Error reading input", "err", err)
+		return err
+	}
+	input = strings.TrimSpace(input)
+	numCalls, err := strconv.Atoi(input)
+	if err != nil {
+		fmt.Printf("Invalid number of calls.")
+		return errInvalidInput
+	}
+
+	log.Info("Triggering latency broadcast")
+	err = client.Call("P2POp.TriggerLatencyBroadcast", strategy, &api.ArgEmpty{})
+	if err != nil {
+		log.Error("RPC call failed", "err", err)
+		return err
+	}
+	// Wait for broadcast to complete
+	log.Info("Waiting for broadcast to complete..")
+	time.Sleep(5 * time.Second)
+
+	// check graph ready
+	log.Info("Checking if graph is ready for dissemination")
+	result := &api.ResultIsGraphReady{}
+	err = client.Call("P2POp.IsGraphReady", &api.ArgEmpty{}, &result)
+	if err != nil {
+		log.Error("RPC call failed", "err", err)
+		return err
+	}
+	ready, notReady := peersReady(result)
+	for len(notReady) > 0 {
+		log.Info("Graph not ready for peers", "notReady", notReady)
+		time.Sleep(2 * time.Second)
+		err = client.Call("P2POp.IsGraphReady", &api.ArgEmpty{}, &result)
+		if err != nil {
+			log.Error("RPC call failed", "err", err)
+			return err
+		}
+		ready, notReady = peersReady(result)
+	}
+
+	log.Info("Graph ready for all peers", "ready", ready)
+	// Disseminate
+	for i := 0; i < len(cfg.Nodes); i++ {
+		for k := 0; k < numCalls; k++ {
+			log.Info("Connecting to new client", "peer", i)
+			client, err := rpc.Dial("tcp", cfg.Nodes[i].Ip+":1337")
+			if err != nil {
+				log.Error("Dialing error", "err", err)
+				return err
+			}
+			log.Info("Disseminating to peer", "peer", i)
+			res := &api.ResultDissemination{}
+			err = client.Call("P2POp.Disseminate", &api.ArgDisseminate{
+				ArgStrategy:   *strategy,
+				ArgMaxPeers:   api.ArgMaxPeers{MaxPeers: 0},
+				ArgSize:       *size,
+				ArgOutputFile: *outputFile,
+			}, res)
+			if err != nil {
+				log.Error("RPC call failed", "err", err)
+				return err
+			}
+			fmt.Println(res)
+			// Wait for dissemination to complete
+			time.Sleep(4 * time.Second)
+		}
+	}
+
+	return nil
+}
+
+func peersReady(result *api.ResultIsGraphReady) (ready []int, notReady []int) {
+	for _, status := range result.PeerStatus {
+		if status.GraphStatus == "ready" {
+			ready = append(ready, status.Peers...)
+		} else {
+			notReady = append(notReady, status.Peers...)
+		}
+	}
+	return
+}
+
 func waitSSH(instanceName string, maxRetries int, retryInterval time.Duration) error {
 	for i := 0; i < maxRetries; i++ {
 		err := checkSSH(instanceName)

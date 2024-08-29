@@ -17,32 +17,59 @@ func (p *P2POp) TriggerLatencyBroadcast(arg *ArgStrategy, _ *ArgEmpty) error {
 	if err := core.BroadcastLatency(p.Engine, uint64(arg.Strategy), latency); err != nil {
 		return fmt.Errorf("error in broadcast latency: %s", err.Error())
 	}
+	return core.TriggerLatencyBroadcast(p.Engine, uint64(arg.Strategy))
+}
 
-	// then broadcast to all peers
-	errs := make([]<-chan error, len(p.Engine.Peers))
-	for id, peer := range p.Engine.Peers {
-		ch := make(chan error, 1)
-		errs[id] = ch
-		if id == p.Engine.Id {
-			ch <- nil
-			continue
+type ResultBroadcastLatencyArray struct {
+	HasError    bool
+	AckReceived []bool
+	Errors      []string
+}
+
+func (r *ResultBroadcastLatencyArray) String() string {
+	var builder strings.Builder
+
+	if r.HasError {
+		errCount := 0
+		target := make([]int, 0, len(r.Errors))
+		for i, err := range r.Errors {
+			if err != "" {
+				errCount++
+				target = append(target, i)
+			}
 		}
-		if peer == nil || !peer.Connected {
-			ch <- errTargetNotConnected
+		fmt.Fprintf(&builder, "Got %d errors from the following targets\n", errCount)
+		for _, id := range target {
+			fmt.Fprintf(&builder, "%d, ", id)
+		}
+		fmt.Fprintf(&builder, "\n")
+	}
+
+	ackReceived := make([]int, 0, len(r.AckReceived))
+	ackNotReceived := make([]int, 0, len(r.AckReceived))
+	for i, received := range r.AckReceived {
+		if received {
+			ackReceived = append(ackReceived, i)
 		} else {
-			go func(peer *core.Peer, ch chan error) {
-				err := peer.SendTriggerRequest(uint64(arg.Strategy))
-				ch <- err
-			}(peer, ch)
+			ackNotReceived = append(ackNotReceived, i)
 		}
 	}
-	for _, ch := range errs {
-		err := <-ch
-		if err != nil {
-			return fmt.Errorf("error in send trigger request: %s", err.Error())
+
+	fmt.Fprintf(&builder, "\nReceived responses from the following %d targets:\n", len(ackReceived))
+	for _, id := range ackReceived {
+		if r.Errors[id] == "" {
+			fmt.Fprintf(&builder, "%d, ", id)
 		}
 	}
-	return nil
+
+	fmt.Fprintf(&builder, "\nFollowing %d targets did not respond:\n", len(ackNotReceived)-1)
+	for _, id := range ackNotReceived {
+		if r.Errors[id] != "" {
+			fmt.Fprintf(&builder, "%d with error: %s\n", id, r.Errors[id])
+		}
+	}
+	fmt.Fprintf(&builder, "\n")
+	return builder.String()
 }
 
 func (p *P2POp) BroadcastLatencyArray(strat *ArgStrategy, reply *ResultBroadcastLatencyArray) error {

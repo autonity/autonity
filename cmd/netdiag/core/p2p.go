@@ -323,7 +323,7 @@ func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 			if !errors.Is(err, strats.ErrLatencyMatrixNotReady) {
 				log.Error("Error constructing graph", "error", err)
 			} else {
-				log.Debug("Received latency arrya, but latency matrix not complete")
+				log.Debug("Received latency array, but latency matrix not complete")
 			}
 		} else {
 			if err := BroadcastGraphReady(e, strategy); err != nil {

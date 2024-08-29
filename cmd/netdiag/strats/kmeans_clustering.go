@@ -36,7 +36,7 @@ func createKmeansClustering(base BaseStrategy, numClusters int) *KmeansClusterin
 
 func (k *KmeansClustering) Execute(packetId uint64, data []byte, _ int) error {
 	if !k.graph.initiated {
-		return errGraphNotConstructed
+		return ErrGraphNotInitiated
 	}
 	return k.send(k.State.Id, packetId, 1, data)
 }

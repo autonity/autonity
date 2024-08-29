@@ -132,7 +132,7 @@ func BroadcastGraphReady(e *Engine, strategy uint64) error {
 		go func(id int, peer *Peer) {
 			err := peer.sendGraphReady(strategy)
 			if err != nil {
-				log.Error("sendGraphReady err:", err)
+				log.Error("sendGraphReady err:", "err", err)
 				hasError.Store(true)
 				errs[id] = err
 			} else {
@@ -169,13 +169,12 @@ func TriggerLatencyBroadcast(e *Engine, strategy uint64) error {
 			}(peer, ch)
 		}
 	}
-	for _, ch := range errs {
+	errsOut := make([]error, len(e.Peers))
+	for i, ch := range errs {
 		err := <-ch
-		if err != nil {
-			return fmt.Errorf("error in send trigger request: %s", err.Error())
-		}
+		errsOut[i] = err
 	}
-	return nil
+	return errors.Join(errsOut...)
 }
 
 func FilterAveRtt(latency []probing.Statistics) []time.Duration {
