@@ -124,9 +124,8 @@ func (a AggregateSignature) Empty() bool {
 	return a.Signature == nil && a.Signers == nil
 }
 
-// TODO(lorenzo) might be better to just catch this case at rlp decoding.
-func (a AggregateSignature) Incomplete() bool {
-	return a.Signature == nil || a.Signers == nil
+func (a AggregateSignature) Malformed() bool {
+	return (a.Signature != nil && a.Signers == nil) || (a.Signature == nil && a.Signers != nil)
 }
 
 //go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
@@ -288,6 +287,14 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		h.Committee = hExtra.Committee
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
+
+		if h.QuorumCertificate.Malformed() {
+			return fmt.Errorf("malformed header quorum certificate")
+		}
+
+		if h.ActivityProof.Malformed() {
+			return fmt.Errorf("malformed header activity proof")
+		}
 
 		if err := h.Committee.Enrich(); err != nil {
 			return fmt.Errorf("Error while deserializing consensus keys: %w", err)

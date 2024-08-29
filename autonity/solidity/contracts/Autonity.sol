@@ -801,17 +801,18 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         return allowances[owner][spender];
     }
 
-    /** //TODO(lorenzo) restore documentation tags (at symbol before dev, param and return)
-    /** dev finalize is the block state finalisation function. It is called
+    /*
+    * @dev finalize is the block state finalisation function. It is called
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
-    * param isProposerOmissionFaulty is true when the proposer provides invalid activity proof of current height.
-    * param ids stores faulty proposer's ID when isProposerOmissionFaulty is true, otherwise it carries current height
-    * activity proof which is the signers of precommit of current height - dela.
+    * @param absentees, list of absent validators for current height - delta
+    * @param proposer, proposer of the current block
+    * @param proposerEffort, amount of voting power that the proposer has included in the activity proof minus quorum
+    * @param isProposerOmissionFaulty, true when the proposer fails to provide an activity proof for target height
     *
-    * return upgrade Set to true if an autonity contract upgrade is available.
-    * return committee The next block consensus committee.
+    * @return upgrade Set to true if an autonity contract upgrade is available.
+    * @return committee The next block consensus committee.
     */
     function finalize(address[] memory absentees, address proposer, uint256 proposerEffort, bool isProposerOmissionFaulty) external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
         blockEpochMap[block.number] = epochID;

@@ -342,8 +342,9 @@ func TestInactivityScore(t *testing.T) {
 		score := float64(inactiveCounters[i]) / float64(omissionEpochPeriod-tendermint.DeltaBlocks-lookback+1)
 		score = math.Floor(score*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
 		expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + 0*pastPerformanceWeight
+		expectedInactivityScoreFloat = math.Floor(expectedInactivityScoreFloat*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
 		pastInactivityScore[i] = expectedInactivityScoreFloat
-		expectedInactivityScore := int(math.Floor(expectedInactivityScoreFloat * ScaleFactor))
+		expectedInactivityScore := int(math.Round(expectedInactivityScoreFloat * ScaleFactor)) // using round to mitigate precision loss due to floating point arithmetic
 		r.t.Logf("expectedInactivityScore %v, inactivityScore %v", expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 		require.Equal(r.t, expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 	}
@@ -375,8 +376,16 @@ func TestInactivityScore(t *testing.T) {
 		score := float64(inactiveCounters[i]) / float64(omissionEpochPeriod-tendermint.DeltaBlocks-lookback+1)
 		score = math.Floor(score*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
 		expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + pastInactivityScore[i]*pastPerformanceWeight
-		expectedInactivityScore := int(math.Floor(expectedInactivityScoreFloat * ScaleFactor))
-		//TODO(Lorenzo) precision issue here still pops up from time to time
+
+		expectedInactivityScoreFloatScaled := expectedInactivityScoreFloat * ScaleFactor
+		// detect and address floating point precision loss. A bit hackish but it works
+		// this is to address where floating point representation makes us end up with number like 3533.999999999999 instead of 3534
+		if math.Floor(expectedInactivityScoreFloatScaled+0.0000000001) > math.Floor(expectedInactivityScoreFloatScaled) {
+			t.Log("Detected and corrected floating point precision loss")
+			expectedInactivityScoreFloatScaled = math.Floor(expectedInactivityScoreFloatScaled) + 1
+		}
+		expectedInactivityScoreFraction := math.Floor(expectedInactivityScoreFloatScaled) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
+		expectedInactivityScore := int(math.Round(expectedInactivityScoreFraction * ScaleFactor))       // round to mitigate precision loss due to floating point
 		r.t.Logf("expectedInactivityScore %v, inactivityScore %v", expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 		require.Equal(r.t, expectedInactivityScore, inactivityScore(r, val.NodeAddress))
 	}
