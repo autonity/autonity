@@ -39,7 +39,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
     uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
     uint256 public constant WITHHOLDING_THRESHOLD_PRECISION = 10_000;
-    uint256 public constant COMMITTEE_FRACTION_PRECISION = 10 ** 18; // TODO(lorenzo) double check if needed
+    uint256 public constant COMMITTEE_FRACTION_PRECISION = 10_000;
 
     // TODO (tariq): review the values [already tested from stakable-vesting-contract]
     /**

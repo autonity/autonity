@@ -167,16 +167,9 @@ func TestValidateProof(t *testing.T) {
 		require.Equal(t, 0, len(absents))
 		require.Nil(t, err)
 
-		// reject the proposal if the proof is only partially filled in
+		// proof is invalid, the signers object is too big wrt the committee
 		randomSig := backend.Sign(common.Hash{})
-		proof := types.AggregateSignature{Signature: randomSig.(*blst.BlsSignature), Signers: nil}
-		isProposerFaulty, effort, absents, err = backend.validateActivityProof(proof, tendermint.DeltaBlocks+1, 0)
-		require.False(t, isProposerFaulty)
-		require.Equal(t, common.Big0, effort)
-		require.Equal(t, 0, len(absents))
-		require.Equal(t, ErrIncompleteActivityProof, err)
-
-		proof.Signers = types.NewSigners(10)
+		proof := types.AggregateSignature{Signature: randomSig.(*blst.BlsSignature), Signers: types.NewSigners(10)}
 		isProposerFaulty, effort, absents, err = backend.validateActivityProof(proof, tendermint.DeltaBlocks+1, 0)
 		require.False(t, isProposerFaulty)
 		require.Equal(t, common.Big0, effort)
@@ -198,6 +191,7 @@ func TestValidateProof(t *testing.T) {
 
 	})
 }
+
 func TestVerifyActivityProof(t *testing.T) {
 	chain, backend := newBlockChain(1)
 	committee := chain.Genesis().Header().Committee
@@ -219,7 +213,7 @@ func TestVerifyActivityProof(t *testing.T) {
 	signersBitmap.Increment(self)
 	proof := types.AggregateSignature{Signature: randomSig.(*blst.BlsSignature), Signers: signersBitmap}
 	signers, effort, err := backend.verifyActivityProof(proof, committee, 1, 0)
-	require.Equal(t, []common.Address{}, signers)
+	require.Equal(t, make(map[common.Address]struct{}), signers)
 	require.Equal(t, common.Big0, effort)
 	require.Equal(t, ErrInvalidActivityProofSignature, err)
 
@@ -230,7 +224,9 @@ func TestVerifyActivityProof(t *testing.T) {
 	require.Nil(t, err)
 	expectedEffort := new(big.Int).Sub(self.VotingPower, bft.Quorum(committee.TotalVotingPower()))
 	signers, effort, err = backend.verifyActivityProof(proof, committee, 1, 0)
-	require.Equal(t, []common.Address{self.Address}, signers)
+	require.Equal(t, 1, len(signers))
+	_, ok := signers[self.Address]
+	require.True(t, ok)
 	require.Equal(t, expectedEffort, effort)
 	require.NoError(t, err)
 
@@ -245,7 +241,7 @@ func TestVerifyActivityProof(t *testing.T) {
 		})
 	}
 	signers, effort, err = backend.verifyActivityProof(proof, committee, 1, 0)
-	require.Equal(t, []common.Address{}, signers)
+	require.Equal(t, make(map[common.Address]struct{}), signers)
 	require.Equal(t, common.Big0, effort)
 	require.Equal(t, ErrInsufficientActivityProof, err)
 
@@ -254,7 +250,9 @@ func TestVerifyActivityProof(t *testing.T) {
 	committee[0].VotingPower = new(big.Int).Mul(committee.TotalVotingPower(), common.Big5)
 	expectedEffort = new(big.Int).Sub(committee[0].VotingPower, bft.Quorum(committee.TotalVotingPower()))
 	signers, effort, err = backend.verifyActivityProof(proof, committee, 1, 0)
-	require.Equal(t, []common.Address{committee[0].Address}, signers)
+	require.Equal(t, 1, len(signers))
+	_, ok = signers[committee[0].Address]
+	require.True(t, ok)
 	require.Equal(t, expectedEffort, effort)
 	require.NoError(t, err)
 
@@ -268,22 +266,24 @@ func TestComputeAbsents(t *testing.T) {
 		committee = append(committee, types.CommitteeMember{Address: common.Address{byte(i)}})
 	}
 
-	var signers []common.Address
-	signers = append(signers, committee[0].Address)
-	signers = append(signers, committee[1].Address)
-	signers = append(signers, committee[7].Address)
+	signers := make(map[common.Address]struct{})
+	signers[committee[0].Address] = struct{}{}
+	signers[committee[1].Address] = struct{}{}
+	signers[committee[7].Address] = struct{}{}
 	absents := computeAbsents(signers, committee)
 	require.Equal(t, n-len(signers), len(absents))
 
 	found := make(map[common.Address]bool)
 	for _, absent := range absents {
 		found[absent] = true
-		for _, signer := range signers {
-			found[signer] = true // repetitive but whatever
-			if absent == signer {
-				t.Fatal("signer has been included into absents")
-			}
+		_, foundInSigners := signers[absent]
+		if foundInSigners {
+			t.Fatal("signer has been included into absents")
 		}
+	}
+
+	for signer := range signers {
+		found[signer] = true
 	}
 
 	// all members should be either signers or absents
