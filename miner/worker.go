@@ -450,11 +450,14 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			commit(false, commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
-			clearPending(head.Block.NumberU64())
 			if head.Block.Hash() == lastBlock {
-				log.Debug("Chain head event - block already prepared")
+				log.Debug("New chain head event - block already prepared")
+				if h, ok := w.engine.(consensus.Handler); ok {
+					h.NewChainHead()
+				}
 				continue
 			}
+			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
 			if h, ok := w.engine.(consensus.Handler); ok {
 				h.NewChainHead()
@@ -463,10 +466,8 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			commit(false, commitInterruptNewHead)
 
 		case blockHash := <-w.proposalVerifiedEventCh:
+			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
-			if h, ok := w.engine.(consensus.Handler); ok {
-				h.NewChainHead()
-			}
 			commit(false, commitInterruptNewHead)
 			lastBlock = blockHash
 
