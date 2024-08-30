@@ -157,18 +157,16 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// Setup Bindings
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidStateContracts := make([]*autonity.LiquidState, len(valAddrs))
+	liquidStateContracts := make([]*autonity.ILiquidLogic, len(valAddrs))
 	validators := make([]autonity.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidStateContracts[i], _ = autonity.NewLiquidState(validators[i].LiquidStateContract, n.WsClient)
+		liquidStateContracts[i], _ = autonity.NewILiquidLogic(validators[i].LiquidStateContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
-	input, err := MakeCallData(autonity.LiquidLogicABI, "transfer", common.Address{66, 66}, big.NewInt(1337))
-	require.NoError(t, err)
-	tx, err := liquidStateContracts[0].Fallback(
+	tx, err := liquidStateContracts[0].Transfer(
 		transactor,
-		input,
+		common.Address{66, 66}, big.NewInt(1337),
 	)
 
 	require.NoError(t, err)

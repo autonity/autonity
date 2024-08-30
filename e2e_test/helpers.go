@@ -4,11 +4,9 @@ import (
 	"crypto/rand"
 	"math/big"
 	"reflect"
-	"strings"
 	"sync/atomic"
 	"testing"
 
-	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	fuzz "github.com/google/gofuzz"
@@ -125,13 +123,4 @@ func FuzBlock(p *types.Block, height *big.Int) {
 	// nil hash
 	p.SetHash(atmHash)
 	p.SetHeaderNumber(height)
-}
-
-func MakeCallData(methodAbi, method string, params ...any) ([]byte, error) {
-	parsedAbi, err := abi.JSON(strings.NewReader(methodAbi))
-	if err != nil {
-		return nil, err
-	}
-
-	return parsedAbi.Pack(method, params...)
 }

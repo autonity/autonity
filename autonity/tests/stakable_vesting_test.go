@@ -1541,11 +1541,10 @@ func bondAndApply(
 		bondedValidators = append(bondedValidators, key)
 		r.giveMeSomeMoney(r.autonity.address, reward)
 		r.autonity.Mint(operator, liquidStateContract.address, reward)
-		r.CallNoError(
-			liquidStateContract.CallMethod(
-				r.LiquidLogicContractObject().contract,
+		r.NoError(
+			liquidStateContract.Redistribute(
 				fromSender(r.autonity.address, reward),
-				"redistribute", reward,
+				reward,
 			),
 		)
 	}
@@ -1559,10 +1558,9 @@ func bondAndApply(
 			validator := request.validator
 			id := request.contractID.Int64()
 			liquidStateContract := liquidStateContracts[validator]
-			r.CallNoError(
-				liquidStateContract.CallMethod(
-					r.LiquidLogicContractObject().contract,
-					fromAutonity, "mint",
+			r.NoError(
+				liquidStateContract.Mint(
+					fromAutonity,
 					r.stakableVesting.address, request.amount,
 				),
 			)
@@ -1637,9 +1635,9 @@ func unbondAndApply(
 		r.NoError(
 			r.autonity.Mint(operator, liquidStateContract.address, reward),
 		)
-		r.CallNoError(
-			liquidStateContract.CallMethod(
-				r.LiquidLogicContractObject().contract, fromSender(r.autonity.address, reward), "redistribute", reward,
+		r.NoError(
+			liquidStateContract.Redistribute(
+				fromSender(r.autonity.address, reward), reward,
 			),
 		)
 		bondedValidators = append(bondedValidators, key)
@@ -1656,14 +1654,14 @@ func unbondAndApply(
 			id := request.contractID.Int64()
 			validator := request.validator
 			liquidStateContract := liquidStateContracts[validator]
-			r.CallNoError(
-				liquidStateContract.CallMethod(
-					r.LiquidLogicContractObject().contract, fromAutonity, "unlock", r.stakableVesting.address, request.amount,
+			r.NoError(
+				liquidStateContract.Unlock(
+					fromAutonity, r.stakableVesting.address, request.amount,
 				),
 			)
-			r.CallNoError(
-				liquidStateContract.CallMethod(
-					r.LiquidLogicContractObject().contract, fromAutonity, "burn", r.stakableVesting.address, request.amount,
+			r.NoError(
+				liquidStateContract.Burn(
+					fromAutonity, r.stakableVesting.address, request.amount,
 				),
 			)
 			liquid[id][validator].Sub(liquid[id][validator], request.amount)

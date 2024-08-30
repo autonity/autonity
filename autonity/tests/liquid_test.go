@@ -41,52 +41,47 @@ func TestAccess(t *testing.T) {
 	r := setup(t, nil)
 	validator := r.committee.validators[0].NodeAddress
 	treasury := r.committee.validators[0].Treasury
-	liquidLogic := r.LiquidLogicContractObject()
 	liquidState := deployLiquid(r, validator, treasury)
 
 	r.run("only autonity can mint", func(r *runner) {
-		_, _, err := liquidState.CallMethod(
-			liquidLogic.contract, nil, "mint", validator, common.Big1,
-		)
+		_, err := liquidState.Mint(nil, validator, common.Big1)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: Call restricted to the Autonity Contract", err.Error())
 	})
 
 	r.run("only autonity can burn", func(r *runner) {
-		_, _, err := liquidState.CallMethod(
-			liquidLogic.contract, nil, "burn", validator, common.Big1,
-		)
+		_, err := liquidState.Burn(nil, validator, common.Big1)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: Call restricted to the Autonity Contract", err.Error())
 	})
 
 	r.run("only autonity can lock", func(r *runner) {
-		_, _, err := liquidState.CallMethod(
-			liquidLogic.contract, nil, "lock", validator, common.Big1,
+		_, err := liquidState.Lock(
+			nil, validator, common.Big1,
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: Call restricted to the Autonity Contract", err.Error())
 	})
 
 	r.run("only autonity can unlock", func(r *runner) {
-		_, _, err := liquidState.CallMethod(
-			liquidLogic.contract, nil, "unlock", validator, common.Big1,
+		_, err := liquidState.Unlock(
+			nil, validator, common.Big1,
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: Call restricted to the Autonity Contract", err.Error())
 	})
 
 	r.run("only autonity can redistribute", func(r *runner) {
-		_, _, err := liquidState.CallMethod(
-			liquidLogic.contract, nil, "redistribute", common.Big1,
+		_, err := liquidState.Redistribute(
+			nil, common.Big1,
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: Call restricted to the Autonity Contract", err.Error())
 	})
 
 	r.run("only autonity can setCommissionRate", func(r *runner) {
-		_, _, err := liquidState.CallMethod(
-			liquidLogic.contract, nil, "setCommissionRate", common.Big1,
+		_, err := liquidState.SetCommissionRate(
+			nil, common.Big1,
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: Call restricted to the Autonity Contract", err.Error())
@@ -99,36 +94,40 @@ func TestLogicOperation(t *testing.T) {
 
 	validator := r.committee.validators[0].NodeAddress
 	treasury := r.committee.validators[0].Treasury
-	liquidLogic := r.LiquidLogicContractObject()
 	liquidState := deployLiquid(r, validator, treasury)
 
-	// r.run("liquid logic can be updated", func(r *runner) {
-	// 	liquidLogicFromAutonity, _, err := r.autonity.LiquidLogicContract(nil)
-	// 	require.NoError(r.t, err)
-	// 	liquidLogicFromState, _, err := liquidState.LiquidLogicContract(nil)
-	// 	require.NoError(r.t, err)
-	// 	require.Equal(r.t, liquidLogicFromAutonity, liquidLogicFromState)
+	r.run("liquid logic can be updated", func(r *runner) {
+		stateContractAbi, err := LiquidStateMetaData.GetAbi()
+		require.NoError(r.t, err)
+		stateContract := &LiquidState{
+			&contract{liquidState.address, stateContractAbi, r},
+		}
+		liquidLogicFromAutonity, _, err := r.autonity.LiquidLogicContract(nil)
+		require.NoError(r.t, err)
+		liquidLogicFromState, _, err := stateContract.LiquidLogicContract(nil)
+		require.NoError(r.t, err)
+		require.Equal(r.t, liquidLogicFromAutonity, liquidLogicFromState)
 
-	// 	newLiquidLogic, _, _, err := r.deployLiquidLogic(nil)
-	// 	require.NoError(r.t, err)
-	// 	require.NotEqual(r.t, liquidLogicFromAutonity, newLiquidLogic)
+		newLiquidLogic, _, _, err := r.deployLiquidLogic(nil)
+		require.NoError(r.t, err)
+		require.NotEqual(r.t, liquidLogicFromAutonity, newLiquidLogic)
 
-	// 	r.NoError(
-	// 		r.autonity.SetLiquidLogicContract(operator, newLiquidLogic),
-	// 	)
+		r.NoError(
+			r.autonity.SetLiquidLogicContract(operator, newLiquidLogic),
+		)
 
-	// 	liquidLogicFromAutonity, _, err = r.autonity.LiquidLogicContract(nil)
-	// 	require.NoError(r.t, err)
-	// 	require.Equal(r.t, newLiquidLogic, liquidLogicFromAutonity)
-	// 	liquidLogicFromState, _, err = liquidState.LiquidLogicContract(nil)
-	// 	require.NoError(r.t, err)
-	// 	require.Equal(r.t, liquidLogicFromAutonity, liquidLogicFromState)
-	// })
+		liquidLogicFromAutonity, _, err = r.autonity.LiquidLogicContract(nil)
+		require.NoError(r.t, err)
+		require.Equal(r.t, newLiquidLogic, liquidLogicFromAutonity)
+		liquidLogicFromState, _, err = stateContract.LiquidLogicContract(nil)
+		require.NoError(r.t, err)
+		require.Equal(r.t, liquidLogicFromAutonity, liquidLogicFromState)
+	})
 
 	r.run("updating liquid logic does not update state", func(r *runner) {
 		checkLiquidBalance(r, liquidState, validator, common.Big0)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", validator, common.Big1),
+		r.NoError(
+			liquidState.Mint(fromAutonity, validator, common.Big1),
 		)
 		checkLiquidBalance(r, liquidState, validator, common.Big1)
 
@@ -140,13 +139,13 @@ func TestLogicOperation(t *testing.T) {
 		)
 		checkLiquidBalance(r, liquidState, validator, common.Big1)
 
-		_, _, err = liquidState.CallMethod(liquidLogic.contract, nil, "mint", validator, common.Big1)
+		_, err = liquidState.Mint(nil, validator, common.Big1)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: Call restricted to the Autonity Contract", err.Error())
 		checkLiquidBalance(r, liquidState, validator, common.Big1)
 
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", validator, common.Big1),
+		r.NoError(
+			liquidState.Mint(fromAutonity, validator, common.Big1),
 		)
 		checkLiquidBalance(r, liquidState, validator, common.Big2)
 	})
@@ -184,9 +183,9 @@ func TestFunctions(t *testing.T) {
 	liquidState := deployLiquid(r, validator, treasury)
 
 	validatorMint := new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor)
-	r.CallNoError(
-		liquidState.CallMethod(
-			liquidLogic.contract, fromAutonity, "mint", validator, validatorMint,
+	r.NoError(
+		liquidState.Mint(
+			fromAutonity, validator, validatorMint,
 		),
 	)
 
@@ -220,7 +219,7 @@ func TestFunctions(t *testing.T) {
 		liquidReward := new(big.Int).Mul(big.NewInt(10), params.DecimalFactor)
 		out, _ := r.CallNoError(
 			liquidState.SimulateCall(
-				liquidLogic.contract,
+				liquidState.contract,
 				fromSender(r.autonity.address, liquidReward),
 				"redistribute", liquidReward,
 			),
@@ -253,11 +252,11 @@ func TestFunctions(t *testing.T) {
 		// delegatorB bonds 2000 NEW
 		delegatorAMint := new(big.Int).Mul(big.NewInt(8000), params.DecimalFactor)
 		delegatorBMint := new(big.Int).Mul(big.NewInt(2000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorA, delegatorAMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorA, delegatorAMint),
 		)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorB, delegatorBMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorB, delegatorBMint),
 		)
 
 		supply, _, err := liquidState.TotalSupply(nil)
@@ -288,11 +287,11 @@ func TestFunctions(t *testing.T) {
 		// 20 AUT reward
 		delegatorAMint := new(big.Int).Mul(big.NewInt(8000), params.DecimalFactor)
 		delegatorBMint := new(big.Int).Mul(big.NewInt(2000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorA, delegatorAMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorA, delegatorAMint),
 		)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorB, delegatorBMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorB, delegatorBMint),
 		)
 
 		// Send 20 AUT as a reward and check distribution
@@ -301,8 +300,8 @@ func TestFunctions(t *testing.T) {
 
 		// delegatorA gives delegatorC 3000 LNEW
 		transfer := new(big.Int).Mul(big.NewInt(3000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromSender(delegatorA, nil), "transfer", delegatorC, transfer),
+		r.NoError(
+			liquidState.Transfer(fromSender(delegatorA, nil), delegatorC, transfer),
 		)
 
 		supply, _, err := liquidState.TotalSupply(nil)
@@ -334,11 +333,11 @@ func TestFunctions(t *testing.T) {
 		// delegatorA bonds 8000 NEW and burns 3000 LNEW
 		delegatorAMint := new(big.Int).Mul(big.NewInt(8000), params.DecimalFactor)
 		delegatorABurn := new(big.Int).Mul(big.NewInt(3000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorA, delegatorAMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorA, delegatorAMint),
 		)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "burn", delegatorA, delegatorABurn),
+		r.NoError(
+			liquidState.Burn(fromAutonity, delegatorA, delegatorABurn),
 		)
 
 		supply, _, err := liquidState.TotalSupply(nil)
@@ -362,8 +361,8 @@ func TestFunctions(t *testing.T) {
 	r.run("claiming rewards", func(r *runner) {
 		// delegatorA bonds 10000 NEW
 		delegatorAMint := new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorA, delegatorAMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorA, delegatorAMint),
 		)
 
 		// Send 20 AUT as a reward (validator and delegatorA each earns 10). Withdraw and check balance.
@@ -382,8 +381,8 @@ func TestFunctions(t *testing.T) {
 	r.run("accumulating rewards", func(r *runner) {
 		// delegatorA bonds 10000 NEW (total 20000 delegated)
 		delegatorAMint := new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorA, delegatorAMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorA, delegatorAMint),
 		)
 
 		// Send 20 AUT as a reward (delegatorA earns 10)
@@ -393,25 +392,24 @@ func TestFunctions(t *testing.T) {
 		// Other delegators bond 20000 NEW (total of 40000 NEW bonded)
 		delegatorBMint := new(big.Int).Mul(big.NewInt(12000), params.DecimalFactor)
 		delegatorCMint := new(big.Int).Mul(big.NewInt(8000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorB, delegatorBMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorB, delegatorBMint),
 		)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorC, delegatorCMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorC, delegatorCMint),
 		)
 
 		// Send 20 AUT as a reward (delegatorA earns 5)
 		redistributeLiquidReward(r, liquidState, liquidReward)
 
 		// Other delegators bond 10000 NEW (total of 50000 NEW bonded)
-		r.CallNoError(
-			liquidState.CallMethod(
-				liquidLogic.contract, fromAutonity,
-				"mint", validator, new(big.Int).Mul(big.NewInt(2000), params.DecimalFactor),
+		r.NoError(
+			liquidState.Mint(
+				fromAutonity, validator, new(big.Int).Mul(big.NewInt(2000), params.DecimalFactor),
 			),
 		)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorC, delegatorCMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorC, delegatorCMint),
 		)
 
 		// Send 50 AUT as a reward (delegatorA earns 10)
@@ -427,17 +425,17 @@ func TestFunctions(t *testing.T) {
 		// use 50% commission for simplcity
 		newLiquidState := deployLiquid(r, validator, treasury, 50)
 		validatorMint := new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor)
-		r.CallNoError(
-			newLiquidState.CallMethod(
-				liquidLogic.contract, fromAutonity, "mint", validator, validatorMint,
+		r.NoError(
+			newLiquidState.Mint(
+				fromAutonity, validator, validatorMint,
 			),
 		)
 		treasuryBalance := r.getBalanceOf(treasury)
 
 		// delegatorA bonds 10000 NEW (total 20000 delegated)
 		delegatorAMint := new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor)
-		r.CallNoError(
-			newLiquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorA, delegatorAMint),
+		r.NoError(
+			newLiquidState.Mint(fromAutonity, delegatorA, delegatorAMint),
 		)
 
 		// Send 40 AUT as a reward (treasury earns 20, delegatorA earns 10)
@@ -447,24 +445,23 @@ func TestFunctions(t *testing.T) {
 		// Other delegators bond 20000 NEW (total of 40000 NEW bonded)
 		delegatorBMint := new(big.Int).Mul(big.NewInt(12000), params.DecimalFactor)
 		delegatorCMint := new(big.Int).Mul(big.NewInt(8000), params.DecimalFactor)
-		r.CallNoError(
-			newLiquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorB, delegatorBMint),
+		r.NoError(
+			newLiquidState.Mint(fromAutonity, delegatorB, delegatorBMint),
 		)
-		r.CallNoError(
-			newLiquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorC, delegatorCMint),
+		r.NoError(
+			newLiquidState.Mint(fromAutonity, delegatorC, delegatorCMint),
 		)
 
 		// Send 40 AUT as a reward (treasury earns 20 delegatorA earns 5)
 		redistributeLiquidReward(r, newLiquidState, liquidReward)
 		// Other delegators bond 10000 NEW (total of 50000 NEW bonded)
-		r.CallNoError(
-			newLiquidState.CallMethod(
-				liquidLogic.contract, fromAutonity,
-				"mint", validator, new(big.Int).Mul(big.NewInt(2000), params.DecimalFactor),
+		r.NoError(
+			newLiquidState.Mint(
+				fromAutonity, validator, new(big.Int).Mul(big.NewInt(2000), params.DecimalFactor),
 			),
 		)
-		r.CallNoError(
-			newLiquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorC, delegatorCMint),
+		r.NoError(
+			newLiquidState.Mint(fromAutonity, delegatorC, delegatorCMint),
 		)
 
 		// Send 100 AUT as a reward (treasury earns 50, delegatorA earns 10)
@@ -486,8 +483,8 @@ func TestFunctions(t *testing.T) {
 	r.run("allowances", func(r *runner) {
 		// delegatorA bonds 10000 NEW
 		delegatorAMint := new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromAutonity, "mint", delegatorA, delegatorAMint),
+		r.NoError(
+			liquidState.Mint(fromAutonity, delegatorA, delegatorAMint),
 		)
 
 		// delegatorC should not be able to transfer on A's behalf
@@ -495,25 +492,25 @@ func TestFunctions(t *testing.T) {
 		require.NoError(r.t, err)
 		require.True(r.t, allowance.Cmp(common.Big0) == 0)
 		transfer := new(big.Int).Mul(big.NewInt(1000), params.DecimalFactor)
-		_, _, err = liquidState.CallMethod(
-			liquidLogic.contract, fromSender(delegatorC, nil), "transferFrom", delegatorA, delegatorB, transfer,
+		_, err = liquidState.TransferFrom(
+			fromSender(delegatorC, nil), delegatorA, delegatorB, transfer,
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: ERC20: transfer amount exceeds allowance", err.Error())
 
 		// A grants C permission to spend 5000.
 		approval := new(big.Int).Mul(big.NewInt(5000), params.DecimalFactor)
-		r.CallNoError(
-			liquidState.CallMethod(liquidLogic.contract, fromSender(delegatorA, nil), "approve", delegatorC, approval),
+		r.NoError(
+			liquidState.Approve(fromSender(delegatorA, nil), delegatorC, approval),
 		)
 		allowance, _, err = liquidState.Allowance(nil, delegatorA, delegatorC)
 		require.NoError(r.t, err)
 		require.Equal(r.t, approval, allowance)
 
 		// C sends 1000 of A's LNEW to B
-		r.CallNoError(
-			liquidState.CallMethod(
-				liquidLogic.contract, fromSender(delegatorC, nil), "transferFrom", delegatorA, delegatorB, transfer,
+		r.NoError(
+			liquidState.TransferFrom(
+				fromSender(delegatorC, nil), delegatorA, delegatorB, transfer,
 			),
 		)
 
@@ -528,8 +525,8 @@ func TestFunctions(t *testing.T) {
 
 		// Sending 4001 should fail.
 		transfer = new(big.Int).Mul(big.NewInt(4001), params.DecimalFactor)
-		_, _, err = liquidState.CallMethod(
-			liquidLogic.contract, fromSender(delegatorC, nil), "transferFrom", delegatorA, delegatorB, transfer,
+		_, err = liquidState.TransferFrom(
+			fromSender(delegatorC, nil), delegatorA, delegatorB, transfer,
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: ERC20: transfer amount exceeds allowance", err.Error())
@@ -541,25 +538,25 @@ func TestFunctions(t *testing.T) {
 		// increment := new(big.Int).Mul(big.NewInt(100), params.DecimalFactor)
 
 		// mint
-		r.CallNoError(
-			liquidState.CallMethod(
-				liquidLogic.contract, fromAutonity, "mint", delegatorA, balance,
+		r.NoError(
+			liquidState.Mint(
+				fromAutonity, delegatorA, balance,
 			),
 		)
 		checkLiquidBalance(r, liquidState, delegatorA, balance)
 		checkLockedLiquidBalance(r, liquidState, delegatorA, common.Big0)
 
 		// lock more than balance
-		_, _, err = liquidState.CallMethod(
-			liquidLogic.contract, fromAutonity, "lock", delegatorA, new(big.Int).Add(balance, common.Big1),
+		_, err = liquidState.Lock(
+			fromAutonity, delegatorA, new(big.Int).Add(balance, common.Big1),
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: can't lock more funds than available", err.Error())
 
 		// lock less than balance
-		r.CallNoError(
-			liquidState.CallMethod(
-				liquidLogic.contract, fromAutonity, "lock", delegatorA, balanceToLock,
+		r.NoError(
+			liquidState.Lock(
+				fromAutonity, delegatorA, balanceToLock,
 			),
 		)
 		checkLockedLiquidBalance(r, liquidState, delegatorA, balanceToLock)
@@ -567,30 +564,30 @@ func TestFunctions(t *testing.T) {
 
 		maxTransferable := new(big.Int).Sub(balance, balanceToLock)
 		// transfer more than unlocked
-		_, _, err = liquidState.CallMethod(
-			liquidLogic.contract, fromSender(delegatorA, nil), "transfer", delegatorB, new(big.Int).Add(maxTransferable, common.Big1),
+		_, err = liquidState.Transfer(
+			fromSender(delegatorA, nil), delegatorB, new(big.Int).Add(maxTransferable, common.Big1),
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: insufficient unlocked funds", err.Error())
 
 		// burn more than unlocked
-		_, _, err = liquidState.CallMethod(
-			liquidLogic.contract, fromAutonity, "burn", delegatorA, new(big.Int).Add(maxTransferable, common.Big1),
+		_, err = liquidState.Burn(
+			fromAutonity, delegatorA, new(big.Int).Add(maxTransferable, common.Big1),
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: insufficient unlocked funds", err.Error())
 
 		// cannot unlock more than locked
-		_, _, err = liquidState.CallMethod(
-			liquidLogic.contract, fromAutonity, "unlock", delegatorA, new(big.Int).Add(maxTransferable, common.Big1),
+		_, err = liquidState.Unlock(
+			fromAutonity, delegatorA, new(big.Int).Add(maxTransferable, common.Big1),
 		)
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: can't unlock more funds than locked", err.Error())
 
 		// unlock
-		r.CallNoError(
-			liquidState.CallMethod(
-				liquidLogic.contract, fromAutonity, "unlock", delegatorA, balanceToLock,
+		r.NoError(
+			liquidState.Unlock(
+				fromAutonity, delegatorA, balanceToLock,
 			),
 		)
 		checkLiquidBalance(r, liquidState, delegatorA, balance)
@@ -599,16 +596,16 @@ func TestFunctions(t *testing.T) {
 		// transfer and burn whole amount
 		transferAmount := new(big.Int).Add(maxTransferable, common.Big1)
 		burnAmount := new(big.Int).Sub(balance, transferAmount)
-		r.CallNoError(
-			liquidState.CallMethod(
-				liquidLogic.contract, fromSender(delegatorA, nil), "transfer", delegatorB, transferAmount,
+		r.NoError(
+			liquidState.Transfer(
+				fromSender(delegatorA, nil), delegatorB, transferAmount,
 			),
 		)
 		checkLiquidBalance(r, liquidState, delegatorA, burnAmount)
 
-		r.CallNoError(
-			liquidState.CallMethod(
-				liquidLogic.contract, fromAutonity, "burn", delegatorA, burnAmount,
+		r.NoError(
+			liquidState.Burn(
+				fromAutonity, delegatorA, burnAmount,
 			),
 		)
 		checkLiquidBalance(r, liquidState, delegatorA, common.Big0)
@@ -653,8 +650,8 @@ func withdrawAndCheck(
 
 	checkReward(r, liquidState, user, atnReward, ntnReward)
 
-	r.CallNoError(
-		liquidState.CallMethod(liquidLogic.contract, fromSender(user, nil), "claimRewards"),
+	r.NoError(
+		liquidState.ClaimRewards(fromSender(user, nil)),
 	)
 
 	checkReward(r, liquidState, user, common.Big0, common.Big0)
@@ -671,11 +668,10 @@ func redistributeLiquidReward(r *runner, liquidState *ILiquidLogic, reward *big.
 	r.NoError(
 		r.autonity.Mint(operator, liquidState.address, reward),
 	)
-	r.CallNoError(
-		liquidState.CallMethod(
-			r.LiquidLogicContractObject().contract,
+	r.NoError(
+		liquidState.Redistribute(
 			fromSender(r.autonity.address, reward),
-			"redistribute", reward,
+			reward,
 		),
 	)
 }
