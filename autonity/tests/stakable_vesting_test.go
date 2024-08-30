@@ -763,7 +763,7 @@ func TestRwardTracking(t *testing.T) {
 
 		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
 
-		liquidStateContractsMap := make(map[common.Address]*LiquidState)
+		liquidStateContractsMap := make(map[common.Address]*ILiquidLogic)
 
 		for i, liquidStateContract := range liquidStateContracts {
 			liquidStateContractsMap[validators[i]] = liquidStateContract
@@ -1045,7 +1045,7 @@ func TestAccessRestriction(t *testing.T) {
 func initialStakes(
 	r *runner,
 	contractCount int,
-	liquidStateContracts []*LiquidState,
+	liquidStateContracts []*ILiquidLogic,
 	users, validators []common.Address,
 ) (
 	validatorStakes map[common.Address]*big.Int,
@@ -1082,7 +1082,7 @@ func initialStakes(
 func getRewardsAfterOneEpoch(
 	r *runner,
 	contractCount int,
-	liquidStateContracts []*LiquidState,
+	liquidStateContracts []*ILiquidLogic,
 	users, validators []common.Address,
 ) (
 	currentReward Reward,
@@ -1135,7 +1135,7 @@ func checkRewards(
 	contractCount int,
 	totalStake *big.Int,
 	totalReward Reward,
-	liquidStateContracts []*LiquidState,
+	liquidStateContracts []*ILiquidLogic,
 	validators, users []common.Address,
 	validatorStakes map[common.Address]*big.Int,
 	userStakes map[common.Address]map[int]map[common.Address]*big.Int,
@@ -1261,7 +1261,7 @@ func checkRewards(
 
 func setupContracts(
 	r *runner, contractCount, validatorCount int, contractTotalAmount, start, cliff, end int64,
-) (users, validators []common.Address, liquidStateContracts []*LiquidState) {
+) (users, validators []common.Address, liquidStateContracts []*ILiquidLogic) {
 	users = make([]common.Address, 2)
 	users[0] = user
 	users[1] = common.HexToAddress("0x88")
@@ -1276,7 +1276,7 @@ func setupContracts(
 
 	// use multiple validators
 	validators = make([]common.Address, validatorCount)
-	liquidStateContracts = make([]*LiquidState, validatorCount)
+	liquidStateContracts = make([]*ILiquidLogic, validatorCount)
 	for i := 0; i < validatorCount; i++ {
 		validators[i] = r.committee.validators[i].NodeAddress
 		liquidStateContracts[i] = r.committee.liquidStateContracts[i]
@@ -1506,7 +1506,7 @@ func bondAndApply(
 	r *runner, user common.Address, bondingRequests []StakingRequest, bondingID int, bondingGas *big.Int, rejected bool,
 ) (uint64, []uint64) {
 
-	liquidStateContracts := make(map[common.Address]*LiquidState)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 
 	for i, validator := range r.committee.validators {
 		for _, request := range bondingRequests {
@@ -1600,7 +1600,7 @@ func unbondAndApply(
 	r *runner, user common.Address, unbondingRequests []StakingRequest, unbondingID int, unbondingGas *big.Int, rejected bool,
 ) (uint64, []uint64, []uint64) {
 
-	liquidStateContracts := make(map[common.Address]*LiquidState)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 
 	for i, validator := range r.committee.validators {
 		for _, request := range unbondingRequests {
@@ -1729,7 +1729,7 @@ func checkReleaseAllNTN(r *runner, user common.Address, contractID, unlockAmount
 func bondAndFinalize(
 	r *runner, user common.Address, bondingRequests []StakingRequest, bondingGas *big.Int,
 ) {
-	liquidStateContracts := make(map[common.Address]*LiquidState)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 	liquidOfVestingContract := make(map[common.Address]*big.Int)
 	liquidOfUser := make(map[common.Address]map[int64]*big.Int)
 
@@ -1822,7 +1822,7 @@ func bondAndFinalize(
 func unbondAndRelease(
 	r *runner, user common.Address, unbondingRequests []StakingRequest, unbondingGas *big.Int,
 ) {
-	liquidStateContracts := make(map[common.Address]*LiquidState)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 	liquidOfUser := make(map[common.Address]map[int64]*big.Int)
 	liquidOfVestingContract := make(map[common.Address]*big.Int)
 

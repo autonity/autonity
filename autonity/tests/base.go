@@ -125,7 +125,7 @@ func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method st
 
 type Committee struct {
 	validators           []AutonityValidator
-	liquidStateContracts []*LiquidState
+	liquidStateContracts []*ILiquidLogic
 }
 
 type runner struct {
@@ -174,10 +174,10 @@ func (r *runner) LiquidLogicContractObject() *LiquidLogic {
 	}
 }
 
-func (r *runner) liquidStateContract(v AutonityValidator) *LiquidState {
-	abi, err := LiquidStateMetaData.GetAbi()
+func (r *runner) liquidStateContract(v AutonityValidator) *ILiquidLogic {
+	abi, err := ILiquidLogicMetaData.GetAbi()
 	require.NoError(r.t, err)
-	return &LiquidState{&contract{v.LiquidStateContract, abi, r}}
+	return &ILiquidLogic{&contract{v.LiquidStateContract, abi, r}}
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -272,14 +272,13 @@ func (r *runner) waitNextEpoch() { //nolint
 	nextEpochBlock := new(big.Int).Add(epochPeriod, lastEpochBlock)
 	diff := new(big.Int).Sub(nextEpochBlock, r.evm.Context.BlockNumber)
 	r.waitNBlocks(int(diff.Uint64() + 1))
-	r.generateNewCommittee()
 }
 
 func (r *runner) generateNewCommittee() {
 	committeeMembers, _, err := r.autonity.GetCommittee(nil)
 	require.NoError(r.t, err)
 	r.committee.validators = make([]AutonityValidator, len(committeeMembers))
-	r.committee.liquidStateContracts = make([]*LiquidState, len(committeeMembers))
+	r.committee.liquidStateContracts = make([]*ILiquidLogic, len(committeeMembers))
 	for i, member := range committeeMembers {
 		validator, _, err := r.autonity.GetValidator(nil, member.Addr)
 		require.NoError(r.t, err)
@@ -362,7 +361,7 @@ func setup(t *testing.T, _ *params.ChainConfig) *runner {
 	require.Equal(t, r.autonity.address, params.AutonityContractAddress)
 	_, err = r.autonity.FinalizeInitialization(nil)
 	require.NoError(t, err)
-	r.committee.liquidStateContracts = make([]*LiquidState, 0, len(params.TestAutonityContractConfig.Validators))
+	r.committee.liquidStateContracts = make([]*ILiquidLogic, 0, len(params.TestAutonityContractConfig.Validators))
 	for _, v := range params.TestAutonityContractConfig.Validators {
 		validator, _, err := r.autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.t, err)
