@@ -91,7 +91,7 @@ func TestStartRoundVariables(t *testing.T) {
 
 		// Update valid value (we didn't receive quorum prevote in prevote step, also the block changed, ie, locked
 		// value and valid value are different)
-		currentBlock2 := generateBlock(env.curHeight)
+		currentBlock2 := generateBlock(env.curHeight, env.previousValue.Header())
 		env.core.SetValidValue(currentBlock2)
 		env.core.SetValidRound(env.curRound + 1)
 
@@ -113,7 +113,7 @@ func TestStartRound(t *testing.T) {
 		defer waitForExpects(ctrl)
 
 		e := NewConsensusEnv(t, nil)
-		proposal := generateBlockProposal(e.curRound, e.curHeight, -1, false, e.clientSigner, e.clientMember)
+		proposal := generateBlockProposal(e.curRound, e.curHeight, -1, false, e.clientSigner, e.clientMember, e.previousValue.Header())
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
@@ -128,6 +128,7 @@ func TestStartRound(t *testing.T) {
 		e.core.StartRound(context.Background(), e.curRound)
 		e.checkState(t, e.curHeight, e.curRound, Propose, nil, int64(-1), nil, int64(-1))
 	})
+
 	t.Run("client is the proposer and valid value is not nil", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
 			// Valid round can only be set after round 0, hence the smallest value the round can have is 1 for the valid
@@ -140,7 +141,7 @@ func TestStartRound(t *testing.T) {
 			e.validRound = e.curRound - 1
 		}
 		e := NewConsensusEnv(t, customizer)
-		proposal := generateBlockProposal(e.curRound, e.curHeight, e.validRound, false, e.clientSigner, e.clientMember)
+		proposal := generateBlockProposal(e.curRound, e.curHeight, e.validRound, false, e.clientSigner, e.clientMember, e.previousValue.Header())
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -251,7 +252,7 @@ func TestNewProposal(t *testing.T) {
 		// Committee()[e.state.curRound].Address means that the sender is the proposer for the current round
 		// assume that the message is from a member of committee set and the signature is signing the contents, however,
 		// the proposal block inside the message is invalid
-		invalidProposal := generateBlockProposal(e.curRound, e.curHeight, -1, true, signer(e, e.curRound), member(e, e.curRound))
+		invalidProposal := generateBlockProposal(e.curRound, e.curHeight, -1, true, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 		// prepare prevote nil and target the malicious proposer and the corresponding value.
 		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), common.Hash{}, e.clientSigner, e.clientMember, e.committeeSize)
 
@@ -271,7 +272,7 @@ func TestNewProposal(t *testing.T) {
 		}
 		e := NewConsensusEnv(t, customizer)
 
-		proposal := generateBlockProposal(e.curRound, e.curHeight, -1, false, signer(e, e.curRound), member(e, e.curRound))
+		proposal := generateBlockProposal(e.curRound, e.curHeight, -1, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), proposal.Block().Hash(), e.clientSigner, e.clientMember, e.committeeSize)
 
 		ctrl := gomock.NewController(t)
@@ -298,7 +299,7 @@ func TestNewProposal(t *testing.T) {
 			e.lockedRound = 0
 			e.validRound = 0
 
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, -1, false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, -1, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 			e.lockedValue = e.curProposal.Block()
 			e.validValue = e.curProposal.Block()
 		}
@@ -328,9 +329,9 @@ func TestNewProposal(t *testing.T) {
 			e.step = Propose
 			e.lockedRound = 0
 			e.validRound = 0
-			e.lockedValue = generateBlock(e.curHeight)
+			e.lockedValue = generateBlock(e.curHeight, e.previousValue.Header())
 			e.validValue = e.lockedValue
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, -1, false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, -1, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 		}
 		e := NewConsensusEnv(t, customizer)
 
@@ -376,7 +377,7 @@ func TestOldProposal(t *testing.T) {
 			clientLockedRound := int64(rand.Intn(int(proposalValidRound+2) - 1))
 			e.lockedRound = clientLockedRound
 			e.validRound = clientLockedRound
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 		}
 		e := NewConsensusEnv(t, customizer)
 
@@ -422,7 +423,7 @@ func TestOldProposal(t *testing.T) {
 			e.lockedRound = proposalValidRound + 1
 			e.validRound = proposalValidRound + 1
 
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 			e.lockedValue = e.curProposal.Block()
 			e.validValue = e.curProposal.Block()
 		}
@@ -461,11 +462,11 @@ func TestOldProposal(t *testing.T) {
 				currentRound--
 			}
 			e.curRound = currentRound
-			e.lockedValue = generateBlock(e.curHeight)
+			e.lockedValue = generateBlock(e.curHeight, e.previousValue.Header())
 			e.validValue = e.lockedValue
 			// vr >= 0 && vr < round_p
 			proposalValidRound := int64(rand.Intn(int(e.curRound)))
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 			e.lockedRound = proposalValidRound + 1
 			e.validRound = proposalValidRound + 1
 		}
@@ -582,10 +583,10 @@ func TestOldProposal(t *testing.T) {
 			e.lockedRound = clientLockedRound
 			e.validRound = clientLockedRound
 			// the new round proposal
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, proposalValidRound, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 
 			// old proposal some random block
-			e.lockedValue = generateBlock(e.curHeight)
+			e.lockedValue = generateBlock(e.curHeight, e.previousValue.Header())
 			e.validValue = e.lockedValue
 		}
 		e := NewConsensusEnv(t, customizer)
@@ -655,7 +656,7 @@ func TestProposeTimeout(t *testing.T) {
 		e := NewConsensusEnv(t, customizer)
 
 		// proposal with vr > r
-		proposal := generateBlockProposal(e.curRound, e.curHeight, e.curRound+1, false, signer(e, e.curRound), member(e, e.curRound))
+		proposal := generateBlockProposal(e.curRound, e.curHeight, e.curRound+1, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -689,7 +690,8 @@ func TestPrevoteTimeout(t *testing.T) {
 			e.step = Prevote
 		}
 		e := NewConsensusEnv(t, customizer)
-		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
+		lastHeader := &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
+		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -704,7 +706,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		}
 		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote1))
 		prevote2 := message.Fake{
-			FakeValue:   generateBlock(e.curHeight).Hash(),
+			FakeValue:   generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners: signersWithPower(3, e.committeeSize, common.Big1),
 		}
 		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote2))
@@ -725,8 +727,9 @@ func TestPrevoteTimeout(t *testing.T) {
 		}
 		e := NewConsensusEnv(t, customizer)
 
-		prevote1Msg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
-		prevote2Msg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight).Hash(), signer(e, 2), member(e, 2), e.committeeSize)
+		lastHeader := &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
+		prevote1Msg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
+		prevote2Msg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 2), member(e, 2), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -740,8 +743,9 @@ func TestPrevoteTimeout(t *testing.T) {
 			FakeSigners: signersWithPower(3, e.committeeSize, new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big2)),
 		}
 		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote1))
+
 		prevote2 := message.Fake{
-			FakeValue:   generateBlock(e.curHeight).Hash(),
+			FakeValue:   generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners: signersWithPower(0, e.committeeSize, common.Big1),
 		}
 		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote2))
@@ -812,7 +816,7 @@ func TestQuorumPrevote(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
 			//randomly choose prevote or precommit step
 			e.step = Step(rand.Intn(2) + 1) //nolint:gosec
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, int64(rand.Intn(int(e.curRound+1))), false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, int64(rand.Intn(int(e.curRound+1))), false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 		}
 		e := NewConsensusEnv(t, customizer)
 
@@ -858,7 +862,7 @@ func TestQuorumPrevote(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
 			//randomly choose prevote or precommit step
 			e.step = Step(rand.Intn(2) + 1) //nolint:gosec
-			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, e.curRound-1, false, signer(e, e.curRound), member(e, e.curRound))
+			e.curProposal = generateBlockProposal(e.curRound, e.curHeight, e.curRound-1, false, signer(e, e.curRound), member(e, e.curRound), e.previousValue.Header())
 		}
 		e := NewConsensusEnv(t, customizer)
 
@@ -954,7 +958,8 @@ func TestPrecommitTimeout(t *testing.T) {
 			e.step = Propose
 		}
 		e := NewConsensusEnv(t, customizer)
-		precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
+		lastHeader := &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
+		precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -971,7 +976,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		}
 		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1))
 		fakePrecommit2 := message.Fake{
-			FakeValue:     generateBlock(e.curHeight).Hash(),
+			FakeValue:     generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners:   signersWithPower(3, e.committeeSize, common.Big1),
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
@@ -995,7 +1000,8 @@ func TestPrecommitTimeout(t *testing.T) {
 			e.step = Precommit
 		}
 		e := NewConsensusEnv(t, customizer)
-		precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
+		lastHeader := &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
+		precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -1012,7 +1018,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		}
 		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1))
 		fakePrecommit2 := message.Fake{
-			FakeValue:     generateBlock(e.curHeight).Hash(),
+			FakeValue:     generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners:   signersWithPower(3, e.committeeSize, common.Big1),
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
@@ -1037,8 +1043,9 @@ func TestPrecommitTimeout(t *testing.T) {
 		}
 		e := NewConsensusEnv(t, customizer)
 
-		precommitFrom1 := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
-		precommitFrom2 := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight).Hash(), signer(e, 2), member(e, 2), e.committeeSize)
+		lastHeader := &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
+		precommitFrom1 := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
+		precommitFrom2 := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 2), member(e, 2), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -1056,7 +1063,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		}
 		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1))
 		fakePrecommit2 := message.Fake{
-			FakeValue:     generateBlock(e.curHeight).Hash(),
+			FakeValue:     generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners:   signersWithPower(0, e.committeeSize, common.Big1),
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
@@ -1135,8 +1142,10 @@ func TestQuorumPrecommit(t *testing.T) {
 	e := NewConsensusEnv(t, customizer)
 
 	nextHeight := e.curHeight.Uint64() + 1
-	nextProposalMsg := generateBlockProposal(0, big.NewInt(int64(nextHeight)), int64(-1), false, signer(e, 0), member(e, 0))
-	proposal := generateBlockProposal(e.curRound, e.curHeight, e.curRound, false, signer(e, e.curRound), member(e, e.curRound))
+	lastHeader := &types.Header{Number: big.NewInt(int64(nextHeight - 1))}
+	nextProposalMsg := generateBlockProposal(0, big.NewInt(int64(nextHeight)), int64(-1), false, signer(e, 0), member(e, 0), lastHeader)
+	lastHeader = &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
+	proposal := generateBlockProposal(e.curRound, e.curHeight, e.curRound, false, signer(e, e.curRound), member(e, e.curRound), lastHeader)
 	precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), proposal.Block().Hash(), signer(e, 1), member(e, 1), e.committeeSize)
 	sealProposal(t, proposal.Block(), e.committee, e.keys, 1)
 
@@ -1317,9 +1326,10 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 
 	// setup view
 	env.previousHeight = big.NewInt(int64(rand.Intn(100) + 1))
-	env.previousValue = generateBlock(env.previousHeight)
 	env.committeeSize = rand.Intn(maxSize-minSize) + minSize
 	env.committee, env.keys = prepareCommittee(t, env.committeeSize)
+	lastHeader := &types.Header{Number: big.NewInt(env.previousHeight.Int64()).Sub(env.previousHeight, common.Big1), Committee: env.committee.Committee()}
+	env.previousValue = generateBlock(env.previousHeight, lastHeader)
 
 	// setup initial state
 	env.curHeight = big.NewInt(env.previousHeight.Int64() + 1)
@@ -1336,8 +1346,7 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 	env.clientMember = &env.committee.Committee().Members[0]
 	env.clientKey = env.keys[env.clientAddress].consensus
 	env.clientSigner = makeSigner(env.clientKey)
-
-	env.curBlock = generateBlock(env.curHeight)
+	env.curBlock = generateBlock(env.curHeight, env.previousValue.Header())
 
 	if customize != nil {
 		customize(env)

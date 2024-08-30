@@ -20,7 +20,8 @@ import (
 
 func TestGetLockedValueAndValidValue(t *testing.T) {
 	c := &Core{}
-	b := generateBlock(new(big.Int).SetUint64(1))
+	lastHeader := &types.Header{Number: big.NewInt(0)}
+	b := generateBlock(new(big.Int).SetUint64(1), lastHeader)
 	c.lockedValue = b
 	c.validValue = b
 
@@ -72,7 +73,8 @@ func TestGetRoundState(t *testing.T) {
 func TestGetCoreState(t *testing.T) {
 	height := big.NewInt(int64(100) + 1)
 	prevHeight := height.Sub(height, big.NewInt(1))
-	prevBlock := generateBlock(prevHeight)
+	lastHeader := &types.Header{Number: big.NewInt(0)}
+	prevBlock := generateBlock(prevHeight, lastHeader)
 	knownMsgHash := []common.Hash{{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5}, {0, 0, 1, 3, 6}}
 	sender := common.BytesToAddress([]byte("sender"))
 
@@ -162,7 +164,9 @@ func checkRoundState(t *testing.T, s interfaces.RoundState, wantRound int64, wan
 }
 
 func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Address) {
-	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey), testCommitteeMember)
+
+	lastHeader := &types.Header{Number: big.NewInt(h.Int64()).Sub(h, common.Big1)}
+	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey), testCommitteeMember, lastHeader)
 	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
 	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
