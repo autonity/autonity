@@ -25,6 +25,15 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if c.Height().Cmp(block.Number()) != 0 {
 		panic("proposal block height incorrect")
 	}
+
+	// We start preparing block as soon as proposal is verified, but there are situation
+	// that verified proposal is not finalized in the particular round hence this safety
+	// check to ensure that the block parent hash is same as last hash in core
+	if c.LastHeader().Hash() != block.ParentHash() {
+		log.Info("verified proposal was not finalized in the last round", "aborting send proposal", "last header hash", c.lastHeader.Hash(), "block parent hash", block.ParentHash())
+		return
+	}
+
 	if !c.IsProposer() {
 		panic("not proposer")
 	}

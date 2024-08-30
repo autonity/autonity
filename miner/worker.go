@@ -629,9 +629,6 @@ func (w *worker) taskLoop() {
 				continue
 			}
 			// Interrupt previous sealing operation
-			//TODO: this interrupt doesn't seem to do anything, Seal is called synchronously, when interrupt is thrown
-			// no other sealing operation is running
-
 			interrupt()
 			stopCh, prev = make(chan struct{}), sealHash
 
@@ -644,19 +641,23 @@ func (w *worker) taskLoop() {
 			w.pendingHash = sealHash
 			w.pendingMu.Unlock()
 
-			sealStart := time.Now()
-			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
-				w.eth.Logger().Warn("Block sealing failed", "err", err)
-				w.pendingMu.Lock()
-				delete(w.pendingTasks, sealHash)
-				w.pendingMu.Unlock()
-			}
+			// go routine is needed to be able to interrupt the task, in case a more recent block arrives
+			go func() {
+				sealStart := time.Now()
+				if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
+					w.eth.Logger().Warn("Block sealing failed", "err", err)
+					w.pendingMu.Lock()
+					delete(w.pendingTasks, sealHash)
+					w.pendingMu.Unlock()
+					return
+				}
 
-			if metrics.Enabled {
-				now := time.Now()
-				SealWorkTimer.Update(now.Sub(sealStart))
-				SealWorkBg.Add(now.Sub(sealStart).Nanoseconds())
-			}
+				if metrics.Enabled {
+					now := time.Now()
+					SealWorkTimer.Update(now.Sub(sealStart))
+					SealWorkBg.Add(now.Sub(sealStart).Nanoseconds())
+				}
+			}()
 		case <-w.exitCh:
 			interrupt()
 			return
