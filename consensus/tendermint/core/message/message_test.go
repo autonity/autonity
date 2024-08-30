@@ -790,7 +790,7 @@ func newHeader(number uint64, c *types.Committee) *types.Header {
 
 	var epoch types.Epoch
 	epoch.Committee = c
-	epoch.ParentEpochBlock = common.Big0
+	epoch.PreviousEpochBlock = common.Big0
 	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
 	header.Epoch = &epoch
 	if err := header.Epoch.Committee.Enrich(); err != nil {

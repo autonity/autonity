@@ -574,13 +574,13 @@ func (c *AutonityContract) callGetCommitteeByHeight(state vm.StateDB, header *ty
 }
 
 // callGetEpochInfo get the committee and the corresponding epoch boundary base on the input header's state.
-// it returns the committee, parentEpochBlock, curEpochBlock, and the nextEpochBlock.
+// it returns the committee, previousEpochBlock, curEpochBlock, and the nextEpochBlock.
 func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Header) (*types.Committee, uint64, uint64, uint64, error) {
 	type EpochInfo struct {
-		committeeMembers  []types.CommitteeMember
-		parentEpochBlock  *big.Int
-		currentEpochBlock *big.Int
-		nextEpochBlock    *big.Int
+		committeeMembers   []types.CommitteeMember
+		previousEpochBlock *big.Int
+		currentEpochBlock  *big.Int
+		nextEpochBlock     *big.Int
 	}
 	var epochInfo EpochInfo
 	if err := c.AutonityContractCall(state, header, "getEpochInfo", &epochInfo); err != nil {
@@ -591,7 +591,7 @@ func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Head
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
 	}
-	return committee, epochInfo.parentEpochBlock.Uint64(), epochInfo.currentEpochBlock.Uint64(), epochInfo.nextEpochBlock.Uint64(), nil
+	return committee, epochInfo.previousEpochBlock.Uint64(), epochInfo.currentEpochBlock.Uint64(), epochInfo.nextEpochBlock.Uint64(), nil
 }
 
 func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) (*types.Committee, error) {
@@ -629,9 +629,9 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	var updateReady bool
 	var epochEnded bool
 	var committeeMembers []types.CommitteeMember
-	parentEpochBlock := new(big.Int)
+	previousEpochBlock := new(big.Int)
 	nextEpochBlock := new(big.Int)
-	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &epochEnded, &committeeMembers, &parentEpochBlock, &nextEpochBlock}); err != nil {
+	if err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock}); err != nil {
 		return false, nil, err
 	}
 
@@ -647,9 +647,9 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	}
 
 	epoch := &types.Epoch{
-		ParentEpochBlock: parentEpochBlock,
-		NextEpochBlock:   nextEpochBlock,
-		Committee:        committee,
+		PreviousEpochBlock: previousEpochBlock,
+		NextEpochBlock:     nextEpochBlock,
+		Committee:          committee,
 	}
 
 	return updateReady, epoch, nil

@@ -154,12 +154,12 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	// epoch info integrity check.
 	if header.IsEpochHeader() {
 		epoch := header.Epoch
-		if epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
+		if epoch.PreviousEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
 			len(epoch.Committee.Members) == 0 {
 			return consensus.ErrInvalidEpochInfo
 		}
 
-		if nextEHead != header.Number.Uint64() || header.Epoch.ParentEpochBlock.Uint64() != curEpochHead {
+		if nextEHead != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != curEpochHead {
 			return consensus.ErrInvalidEpochBoundary
 		}
 	}

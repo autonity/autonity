@@ -98,7 +98,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		}},
 	}
 
-	epoch := &Epoch{ParentEpochBlock: common.Big1, NextEpochBlock: common.Big256, Committee: c}
+	epoch := &Epoch{PreviousEpochBlock: common.Big1, NextEpochBlock: common.Big256, Committee: c}
 
 	t.Run("encode / decode with none nil epoch in block header", func(t *testing.T) {
 		header := &Header{

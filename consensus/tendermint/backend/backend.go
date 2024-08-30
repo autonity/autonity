@@ -254,7 +254,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// short circuit break.
 	if proposal.IsEpochHead() {
 		epoch := proposal.Header().Epoch
-		if epoch.ParentEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
+		if epoch.PreviousEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
 			len(epoch.Committee.Members) == 0 {
 			return 0, consensus.ErrInvalidEpochInfo
 		}

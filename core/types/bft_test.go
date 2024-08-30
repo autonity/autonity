@@ -56,7 +56,7 @@ func TestHeaderHash(t *testing.T) {
 		},
 	}
 
-	epoch := &Epoch{ParentEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
+	epoch := &Epoch{PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
 	signature := testKey.Sign(testKey.PublicKey().Marshal())
 	proposerSeal := signature.Marshal()
 

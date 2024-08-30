@@ -78,7 +78,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 				bc.committeeCache.Add(height, lastEpoch.Epoch.Committee)
 				return lastEpoch.Epoch.Committee, nil
 			}
-			parentEHead = lastEpoch.Epoch.ParentEpochBlock.Uint64()
+			parentEHead = lastEpoch.Epoch.PreviousEpochBlock.Uint64()
 		}
 	}
 

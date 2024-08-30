@@ -223,6 +223,27 @@ func (h *Header) SanityCheck() error {
 			return fmt.Errorf("too large base fee: bitlen %d", bfLen)
 		}
 	}
+
+	// check sanity of epoch info if the header is an epoch header.
+	if h.IsEpochHeader() {
+		// the integrity of epoch was checked already in rlp decoding phase,
+		// thus the fields of epoch shouldn't be nil, we check the sanity of epoch at here.
+		if !h.Epoch.PreviousEpochBlock.IsUint64() {
+			return fmt.Errorf("too large previous epoch block number: bitlen %d", h.Epoch.PreviousEpochBlock.BitLen())
+		}
+
+		if !h.Epoch.NextEpochBlock.IsUint64() {
+			return fmt.Errorf("too large next epoch block number: bitlen %d", h.Epoch.NextEpochBlock.BitLen())
+		}
+
+		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) > 0 {
+			return fmt.Errorf("previous epoch block number %d is larger than current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
+		}
+
+		if h.Number.Cmp(h.Epoch.NextEpochBlock) > 0 {
+			return fmt.Errorf("current epoch block number %d is larger than next epoch block number %d", h.Number.Uint64(), h.Epoch.NextEpochBlock.Uint64())
+		}
+	}
 	return nil
 }
 
@@ -257,7 +278,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 				return fmt.Errorf("no validator in committee set")
 			}
 
-			if h.Epoch.ParentEpochBlock == nil || h.Epoch.NextEpochBlock == nil {
+			if h.Epoch.PreviousEpochBlock == nil || h.Epoch.NextEpochBlock == nil {
 				return fmt.Errorf("invalid epoch boundary")
 			}
 		}

@@ -79,7 +79,7 @@ func newBlockHeader(height uint64, committee *types.Committee) *types.Header {
 
 	var epoch types.Epoch
 	epoch.Committee = committee
-	epoch.ParentEpochBlock = common.Big0
+	epoch.PreviousEpochBlock = common.Big0
 	epoch.NextEpochBlock = new(big.Int).SetUint64(height + 30)
 
 	header := &types.Header{

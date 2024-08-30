@@ -376,7 +376,7 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
 	header := &types.Header{Number: new(big.Int).SetUint64(number)}
 	var epoch types.Epoch
 	epoch.Committee = cr.committee.Copy()
-	epoch.ParentEpochBlock = common.Big0
+	epoch.PreviousEpochBlock = common.Big0
 	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
 	header.Epoch = &epoch
 	return header

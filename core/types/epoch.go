@@ -20,20 +20,20 @@ import (
 var _ = (*Epoch)(nil)
 
 type Epoch struct {
-	ParentEpochBlock *big.Int   `rlp:"nil" json:"parentEpochBlock" gencodec:"required"`
-	NextEpochBlock   *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`
-	Committee        *Committee `rlp:"nil" json:"committee" gencodec:"required"`
+	PreviousEpochBlock *big.Int   `rlp:"nil" json:"previousEpochBlock" gencodec:"required"`
+	NextEpochBlock     *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`
+	Committee          *Committee `rlp:"nil" json:"committee" gencodec:"required"`
 }
 
 // MarshalJSON marshals as JSON.
 func (e Epoch) MarshalJSON() ([]byte, error) {
 	type epoch struct {
-		ParentEpochBlock *hexutil.Big `json:"parentEpochBlock" gencodec:"required"`
-		NextEpochBlock   *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
-		Committee        Committee    `json:"committee" gencodec:"required"`
+		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
+		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
+		Committee          Committee    `json:"committee" gencodec:"required"`
 	}
 	var enc epoch
-	enc.ParentEpochBlock = (*hexutil.Big)(e.ParentEpochBlock)
+	enc.PreviousEpochBlock = (*hexutil.Big)(e.PreviousEpochBlock)
 	enc.NextEpochBlock = (*hexutil.Big)(e.NextEpochBlock)
 	enc.Committee = Committee{}
 	if e.Committee != nil {
@@ -45,9 +45,9 @@ func (e Epoch) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (e *Epoch) UnmarshalJSON(input []byte) error {
 	type epoch struct {
-		ParentEpochBlock *hexutil.Big `json:"parentEpochBlock" gencodec:"required"`
-		NextEpochBlock   *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
-		Committee        *Committee   `json:"committee" gencodec:"required"`
+		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
+		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
+		Committee          *Committee   `json:"committee" gencodec:"required"`
 	}
 
 	var dec epoch
@@ -55,10 +55,10 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	if dec.ParentEpochBlock == nil {
-		return errors.New("missing required field 'parentEpochBlock' for epoch")
+	if dec.PreviousEpochBlock == nil {
+		return errors.New("missing required field 'previousEpochBlock' for epoch")
 	}
-	e.ParentEpochBlock = dec.ParentEpochBlock.ToInt()
+	e.PreviousEpochBlock = dec.PreviousEpochBlock.ToInt()
 
 	if dec.NextEpochBlock == nil {
 		return errors.New("missing required field 'nextEpochBlock' for epoch")
@@ -75,8 +75,8 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 func (e *Epoch) Copy() *Epoch {
 	cpy := &Epoch{}
 
-	if e.ParentEpochBlock != nil {
-		cpy.ParentEpochBlock = new(big.Int).Set(e.ParentEpochBlock)
+	if e.PreviousEpochBlock != nil {
+		cpy.PreviousEpochBlock = new(big.Int).Set(e.PreviousEpochBlock)
 	}
 
 	if e.NextEpochBlock != nil {
@@ -98,17 +98,13 @@ func (e *Epoch) Equal(other *Epoch) bool {
 		return false
 	}
 
-	if (e.ParentEpochBlock == nil) != (other.ParentEpochBlock == nil) ||
-		(e.NextEpochBlock == nil) != (other.NextEpochBlock == nil) ||
-		(e.Committee == nil) != (other.Committee == nil) {
+	// as all the fields of epoch were checked on the rlp decoding phase,
+	// thus they cannot be nil here.
+	if e.PreviousEpochBlock.Cmp(other.PreviousEpochBlock) != 0 {
 		return false
 	}
 
-	if e.ParentEpochBlock != nil && e.ParentEpochBlock.Cmp(other.ParentEpochBlock) != 0 {
-		return false
-	}
-
-	if e.NextEpochBlock != nil && e.NextEpochBlock.Cmp(other.NextEpochBlock) != 0 {
+	if e.NextEpochBlock.Cmp(other.NextEpochBlock) != 0 {
 		return false
 	}
 
@@ -263,7 +259,7 @@ func (c *Committee) Enrich() error {
 	for i := range c.Members {
 		consensusKey, err := blst.PublicKeyFromBytes(c.Members[i].ConsensusKeyBytes)
 		if err != nil {
-			return fmt.Errorf("Error when decoding bls key: index %d, address: %v, err: %w", i, c.Members[i].Address, err)
+			return fmt.Errorf("error when decoding bls key: index %d, address: %v, err: %w", i, c.Members[i].Address, err)
 		}
 		c.Members[i].ConsensusKey = consensusKey
 		c.Members[i].Index = uint64(i)
