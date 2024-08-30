@@ -614,8 +614,7 @@ func execute(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Println("Enter number of dissemination calls per node:")
-	fmt.Printf("\n%s|%s(%d)>> ", cfg.Nodes[targetPeer].Ip, cfg.Nodes[targetPeer].Zone, targetPeer)
+	fmt.Print("Enter number of dissemination calls per node: ")
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		log.Error("Error reading input", "err", err)

@@ -108,6 +108,11 @@ func (r *RandomClusteringGraphConstructor) RouteBroadcast(originalSender int) ([
 		return nil, ErrGraphConstruction
 	}
 
+	if len(r.graph.rootedConnection) == 0 {
+		log.Error("Graph not initiated, rootedConnection is empty")
+		return nil, ErrGraphConstruction
+	}
+
 	// first collect all peers to send to
 	var destinationPeers []int
 
