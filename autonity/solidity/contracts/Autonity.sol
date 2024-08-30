@@ -5,8 +5,8 @@ pragma solidity ^0.8.19;
 import "./interfaces/IERC20.sol";
 import "./interfaces/IStakeProxy.sol";
 import "./interfaces/INonStakableVestingVault.sol";
-import "./LiquidLogic.sol";
-import "./LiquidState.sol";
+import "./liquid/LiquidLogic.sol";
+import "./liquid/LiquidState.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Helpers.sol";
@@ -19,6 +19,7 @@ import "./interfaces/IAccountability.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import "./interfaces/IInflationController.sol";
+import "./interfaces/ILiquidLogic.sol";
 import "./ReentrancyGuard.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
@@ -1150,7 +1151,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
                     _transfer(address(this), _val.liquidStateContract, _ntnDelegationReward);
-                    _redistributeLiquidReward(_val.liquidStateContract, _ntnDelegationReward, _atnDelegationReward);
+                    ILiquidLogic(_val.liquidStateContract).redistribute{value: _atnDelegationReward}(_ntnDelegationReward);
                 }
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
@@ -1359,10 +1360,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // delegatedStake cannot be 0 because the bonding was applied successfully
             // calculate LNTN using current ratio of NTN:LNTN
             uint256 _liquidAmount = _validator.liquidSupply * _bonding.amount / (_validator.bondedStake - _validator.selfBondedStake);
-            bool _success = _burnLiquid(_validator.liquidStateContract, _bonding.delegator, _liquidAmount);
-            if (_success == false) {
-                return;
-            }
+            ILiquidLogic(_validator.liquidStateContract).burn(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply -= _liquidAmount;
         } else {
             _validator.selfBondedStake -= _bonding.amount;
@@ -1395,12 +1393,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             } else {
                 _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
             }
-            bool _success = _mintLiquid(_validator.liquidStateContract, _bonding.delegator, _liquidAmount);
-            if (_success == false) {
-                accounts[_bonding.delegator] += _bonding.amount;
-                _notifyBondingApplied(id, 0, false, true);
-                return;
-            }
+            ILiquidLogic(_validator.liquidStateContract).mint(_bonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
             _validator.bondedStake += _bonding.amount;
             _notifyBondingApplied(id, _liquidAmount, false, false);
@@ -1417,9 +1410,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         bool selfDelegation = _recipient == _validator.treasury;
         if(!selfDelegation) {
             // Lock LNTN if it was issued (non self-delegated stake case)
-            uint256 liqBalance = LiquidState(payable(_validator.liquidStateContract)).unlockedBalanceOf(_recipient);
+            uint256 liqBalance = ILiquidLogic(_validator.liquidStateContract).unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
-            _lockLiquid(_validator.liquidStateContract, _recipient, _amount);
+            ILiquidLogic(_validator.liquidStateContract).lock(_recipient, _amount);
         } else {
             require(
                 _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
@@ -1493,10 +1486,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             } else {
                 _liquidAmount = (_validator.liquidSupply * _amount) / _delegatedStake;
             }
-            bool _success = _mintLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
-            if (_success == false) {
-                return;
-            }
+            ILiquidLogic(_validator.liquidStateContract).mint(_unbonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
             _unbonding.revertingAmount = _liquidAmount;
         } else {
@@ -1581,10 +1571,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 _newtonAmount;
         if (!_unbonding.selfDelegation){
             uint256 _liquidAmount = _unbonding.amount;
-            bool _success = _mintLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
-            if (_success == false) {
-                return;
-            }
+            ILiquidLogic(_validator.liquidStateContract).mint(_unbonding.delegator, _liquidAmount);
             _validator.liquidSupply += _liquidAmount;
             // calculate newton amount from unbonding share
             _newtonAmount = _unbonding.unbondingShare *  _validator.unbondingStake / _validator.unbondingShares;
@@ -1619,17 +1606,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         if (!_unbonding.selfDelegation){
             // Step 1: Unlock and burn requested liquid newtons
             uint256 _liquidAmount = _unbonding.amount;
-            bool _success = _unlockLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
-            if (_success == false) {
-                _notifyUnbondingApplied(_id, true);
-                return;
-            }
-
-            _success = _burnLiquid(_validator.liquidStateContract, _unbonding.delegator, _liquidAmount);
-            if (_success == false) {
-                _notifyUnbondingApplied(_id, true);
-                return;
-            }
+            ILiquidLogic(_validator.liquidStateContract).unlock(_unbonding.delegator, _liquidAmount);
+            ILiquidLogic(_validator.liquidStateContract).burn(_unbonding.delegator, _liquidAmount);
 
             // Step 2: Calculate the amount of stake to reduce from the delegation pool.
             // Note: validator.liquidSupply cannot be equal to zero here
@@ -1678,11 +1656,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 break;
             }
 
-            // change commission rate for liquid staking accounts
-            bool _success = _setCommissionRate(validators[_curRequest.validator].liquidStateContract, _curRequest.rate);
-            if (_success) {
-                validators[_curRequest.validator].commissionRate = _curRequest.rate;
-            }
+            Validator storage _validator = validators[_curRequest.validator];
+            _validator.commissionRate = _curRequest.rate;
+            ILiquidLogic(_validator.liquidStateContract).setCommissionRate(_curRequest.rate);
 
             delete commissionRateChangeQueue[commissionRateChangeQueueFirst];
 
@@ -1719,60 +1695,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             }
         }
         tailUnbondingID = _processedId;
-    }
-
-    function _mintLiquid(address _contract, address _account, uint256 _amount) internal virtual returns (bool) {
-        (bool _success, bytes memory _returnData) = _contract.call(
-            abi.encodeWithSignature("mint(address,uint256)", _account, _amount)
-        );
-        if (_success == false) {
-            emit CallFailed(_contract, "mint(address,uint256)", _returnData);
-        }
-        return _success;
-    }
-
-    function _burnLiquid(address _contract, address _account, uint256 _amount) internal virtual returns (bool) {
-        (bool _success, bytes memory _returnData) = _contract.call(
-            abi.encodeWithSignature("burn(address,uint256)", _account, _amount)
-        );
-        if (_success == false) {
-            emit CallFailed(_contract, "burn(address,uint256)", _returnData);
-        }
-        return _success;
-    }
-
-    function _redistributeLiquidReward(address _contract, uint256 _ntnReward, uint256 _atnReward) internal virtual {
-        (bool _success, ) = _contract.call{value: _atnReward}(
-            abi.encodeWithSignature("redistribute(uint256)", _ntnReward)
-        );
-        require(_success, "failed to distribute rewards");
-    }
-
-    function _lockLiquid(address _contract, address _account, uint256 _amount) internal virtual {
-        (bool _success, ) = _contract.call(
-            abi.encodeWithSignature("lock(address,uint256)", _account, _amount)
-        );
-        require(_success, "Failed to lock LNTN");
-    }
-
-    function _unlockLiquid(address _contract, address _account, uint256 _amount) internal virtual returns (bool) {
-        (bool _success, bytes memory _returnData) = _contract.call(
-            abi.encodeWithSignature("unlock(address,uint256)", _account, _amount)
-        );
-        if (_success == false) {
-            emit CallFailed(_contract, "unlock(address,uint256)", _returnData);
-        }
-        return _success;
-    }
-
-    function _setCommissionRate(address _contract, uint256 _rate) internal virtual returns (bool) {
-        (bool _success, bytes memory _returnData) = _contract.call(
-            abi.encodeWithSignature("setCommissionRate(uint256)", _rate)
-        );
-        if (_success == false) {
-            emit CallFailed(_contract, "setCommissionRate(uint256)", _returnData);
-        }
-        return _success;
     }
 
     /**

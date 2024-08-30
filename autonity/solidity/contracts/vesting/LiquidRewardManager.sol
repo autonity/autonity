@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "../Autonity.sol";
-import "../LiquidState.sol";
 
 contract LiquidRewardManager {
 
@@ -253,7 +252,7 @@ contract LiquidRewardManager {
      */
     function _updateUnclaimedReward(address _validator) internal {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        LiquidState _contract = LiquidState(_liquidInfo.liquidStateContract);
+        ILiquidLogic _contract = ILiquidLogic(_liquidInfo.liquidStateContract);
         uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid == 0) {
             return;
@@ -275,7 +274,7 @@ contract LiquidRewardManager {
      */
     function _unfetchedFeeFactor(address _validator) private view returns (uint256 _atnFeeFactor, uint256 _ntnFeeFactor) {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        LiquidState _contract = LiquidState(_liquidInfo.liquidStateContract);
+        ILiquidLogic _contract = ILiquidLogic(_liquidInfo.liquidStateContract);
         uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid > 0) {
             // reward is increased by  OFFSET

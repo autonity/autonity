@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
-import "./interfaces/IERC20.sol";
-import "./interfaces/IStakeProxy.sol";
+import "../interfaces/IERC20.sol";
+import "../interfaces/ILiquidLogic.sol";
+import "../interfaces/IStakeProxy.sol";
 import "./LiquidStorage.sol";
 
 // References:
@@ -40,7 +41,7 @@ import "./LiquidStorage.sol";
 //   implementation.
 //
 
-contract LiquidLogic is IERC20, LiquidStorage {
+contract LiquidLogic is ILiquidLogic, LiquidStorage {
 
     // TODO: Better solution to address the fractional terms in fee
     // computations?
@@ -356,36 +357,81 @@ contract LiquidLogic is IERC20, LiquidStorage {
 
     /**
      * @notice Calculates the total claimable fees (ATN and NTN) earned by the delegator to-date.
-     * @param _balance LNTN balance of the delegator account.
+     * @param _account Delegator account.
      */
-    function unclaimedRewards(
-        uint256 _balance,
-        uint256 _atnRealisedFees,
-        uint256 _ntnRealisedFees,
-        uint256 _atnUnrealisedFeeFactor,
-        uint256 _ntnUnrealisedFeeFactor,
-        uint256 _atnLastUnrealisedFeeFactor,
-        uint256 _ntnLastUnrealisedFeeFactor
-    ) external virtual pure returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
-        uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, _atnLastUnrealisedFeeFactor, _atnUnrealisedFeeFactor);
-        _unclaimedATN = _atnRealisedFees + _atnUnrealisedFee;
-        uint256 _ntnUnrealisedFee = _computeUnrealisedFees(_balance, _ntnLastUnrealisedFeeFactor, _ntnUnrealisedFeeFactor);
-        _unclaimedNTN = _ntnRealisedFees + _ntnUnrealisedFee;
+    function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
+        uint256 _balance = balances[_account];
+        uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, atnLastUnrealisedFeeFactor, atnUnrealisedFeeFactors[_account]);
+        _unclaimedATN = atnRealisedFees[_account] + _atnUnrealisedFee;
+        uint256 _ntnUnrealisedFee = _computeUnrealisedFees(_balance, ntnLastUnrealisedFeeFactor, ntnUnrealisedFeeFactors[_account]);
+        _unclaimedNTN = ntnRealisedFees[_account] + _ntnUnrealisedFee;
     }
 
     /**
-     * @notice All of the following getters exist to implement the IRC20 interface. They have no use.
+     * @notice Returns the total amount of stake token issued.
      */
     function totalSupply() external virtual view returns (uint256) {
         return supply;
     }
 
-    function balanceOf(address _account) external virtual view returns (uint256) {
-        return balances[_account];
+    /**
+     * @return uint8 the number of decimals the LNTN token uses.
+     * @dev ERC-20 Optional.
+     */
+    function decimals() external pure returns (uint8) {
+        return DECIMALS;
     }
 
-    function allowance(address _owner, address _spender) external virtual view returns (uint256) {
+    /**
+     * @notice Returns the amount of liquid newtons held by the account (ERC-20).
+     */
+    function balanceOf(address _delegator) external view returns (uint256) {
+        return balances[_delegator];
+    }
+
+    /**
+     * @notice Returns the amount of locked liquid newtons held by the account.
+     */
+    function lockedBalanceOf(address _delegator) external view returns (uint256) {
+        return lockedBalances[_delegator];
+    }
+
+    /**
+     * @notice Returns the amount of unlocked liquid newtons held by the account.
+     */
+    function unlockedBalanceOf(address _delegator) external view returns (uint256) {
+        return  balances[_delegator] - lockedBalances[_delegator];
+    }
+
+    /**
+     * @dev See {IERC20-allowance}.
+     */
+    function allowance(address _owner, address _spender) external view returns (uint256) {
         return allowances[_owner][_spender];
+    }
+
+    function name() external view returns (string memory) {
+        return liquidName;
+    }
+
+    function symbol() external view returns (string memory) {
+        return liquidSymbol;
+    }
+
+    function getValidator() external view returns (address) {
+        return validator;
+    }
+
+    function getTreasury() external view returns (address) {
+        return treasury;
+    }
+
+    function getCommissionRate() external view returns (uint256) {
+        return commissionRate;
+    }
+
+    function getTreasuryUnclaimedATN() external view returns (uint256) {
+        return treasuryUnclaimedATN;
     }
 
 

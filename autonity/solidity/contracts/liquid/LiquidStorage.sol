@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
-import "./Autonity.sol";
+import "../Autonity.sol";
 
 contract LiquidStorage {
     mapping(address => uint256) internal balances;
@@ -17,14 +17,14 @@ contract LiquidStorage {
     mapping(address => uint256) internal ntnUnrealisedFeeFactors;
     uint256 internal ntnLastUnrealisedFeeFactor;
 
-    string public name;
-    string public symbol;
+    string internal liquidName;
+    string internal liquidSymbol;
 
-    address public validator;
-    address payable public treasury;
-    uint256 public commissionRate;
+    address internal validator;
+    address payable internal treasury;
+    uint256 internal commissionRate;
 
-    uint256 public treasuryUnclaimedATN;
+    uint256 internal treasuryUnclaimedATN;
 
     Autonity internal autonityContract; //not hardcoded for testing purposes
 }
