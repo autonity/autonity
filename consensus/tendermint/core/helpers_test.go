@@ -124,18 +124,6 @@ func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer m
 	return message.NewPropose(r, h.Uint64(), vr, block, signer, member)
 }
 
-func generateBlockProposalWithCommittee(r int64, h *big.Int, vr int64, invalid bool, signer message.Signer, member *types.CommitteeMember, lastHeader *types.Header) *message.Propose {
-	var block *types.Block
-	if invalid {
-		header := &types.Header{Number: h, ParentHash: lastHeader.Hash(), Committee: lastHeader.Committee}
-		header.Difficulty = nil
-		block = types.NewBlock(header, nil, nil, nil, new(trie.Trie))
-	} else {
-		block = generateBlock(h, lastHeader)
-	}
-	return message.NewPropose(r, h.Uint64(), vr, block, signer, member)
-}
-
 func randomProposal(t *testing.T) *message.Propose {
 	currentHeight := big.NewInt(int64(rand.Intn(100) + 1))
 	currentRound := int64(rand.Intn(100) + 1)
