@@ -614,7 +614,6 @@ func (w *worker) taskLoop() {
 	interrupt := func() {
 		if stopCh != nil {
 			close(stopCh)
-			stopCh = nil
 		}
 	}
 	for {
@@ -628,13 +627,15 @@ func (w *worker) taskLoop() {
 			if sealHash == prev {
 				continue
 			}
-			// Interrupt previous sealing operation
-			interrupt()
-			stopCh, prev = make(chan struct{}), sealHash
 
 			if w.skipSealHook != nil && w.skipSealHook(task) {
 				continue
 			}
+
+			// Interrupt previous sealing operation
+			interrupt()
+			stopCh, prev = make(chan struct{}), sealHash
+
 			w.eth.Logger().Debug("New block Seal request", "hash", sealHash)
 			w.pendingMu.Lock()
 			w.pendingTasks[sealHash] = task
