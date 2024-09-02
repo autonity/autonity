@@ -643,7 +643,7 @@ func (w *worker) taskLoop() {
 			w.pendingMu.Unlock()
 
 			// go routine is needed to be able to interrupt the task, in case a more recent block arrives
-			go func() {
+			go func(stopCh chan struct{}) { // pass stopCh(creates a copy of reference) to avoid write-read race on stopCh
 				sealStart := time.Now()
 				if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 					w.eth.Logger().Warn("Block sealing failed", "err", err)
@@ -658,7 +658,7 @@ func (w *worker) taskLoop() {
 					SealWorkTimer.Update(now.Sub(sealStart))
 					SealWorkBg.Add(now.Sub(sealStart).Nanoseconds())
 				}
-			}()
+			}(stopCh)
 		case <-w.exitCh:
 			interrupt()
 			return
