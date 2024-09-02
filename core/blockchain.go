@@ -1325,6 +1325,8 @@ func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types
 	}
 	bc.futureBlocks.Remove(block.Hash())
 
+	bc.protocolContracts.Cache.Update(events...)
+
 	if status == CanonStatTy {
 		bc.chainFeed.Send(ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
 		if len(logs) > 0 {
@@ -1339,6 +1341,7 @@ func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types
 			bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
 		}
 	} else {
+		// NEVER
 		bc.chainSideFeed.Send(ChainSideEvent{Block: block})
 	}
 	return status, nil

@@ -55,16 +55,17 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		random = &header.MixDigest
 	}
 	return vm.BlockContext{
-		CanTransfer: CanTransfer,
-		Transfer:    Transfer,
-		GetHash:     GetHashFn(header, chain),
-		Coinbase:    beneficiary,
-		BlockNumber: new(big.Int).Set(header.Number),
-		Time:        new(big.Int).SetUint64(header.Time),
-		Difficulty:  new(big.Int).Set(header.Difficulty),
-		BaseFee:     baseFee,
-		GasLimit:    header.GasLimit,
-		Random:      random,
+		CanTransfer:   CanTransfer,
+		Transfer:      Transfer,
+		GetHash:       GetHashFn(header, chain),
+		Coinbase:      beneficiary,
+		BlockNumber:   new(big.Int).Set(header.Number),
+		Time:          new(big.Int).SetUint64(header.Time),
+		Difficulty:    new(big.Int).Set(header.Difficulty),
+		BaseFee:       baseFee,
+		GasLimit:      header.GasLimit,
+		Random:        random,
+		ActivityProof: header.ActivityProof,
 	}
 }
 
@@ -72,15 +73,16 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 	return func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		evmContext := vm.BlockContext{
-			CanTransfer: CanTransfer,
-			Transfer:    Transfer,
-			GetHash:     GetHashFn(header, chain),
-			Coinbase:    header.Coinbase,
-			BlockNumber: new(big.Int).Set(header.Number),
-			Time:        new(big.Int).SetUint64(header.Time),
-			GasLimit:    header.GasLimit,
-			Difficulty:  header.Difficulty,
-			BaseFee:     header.BaseFee,
+			CanTransfer:   CanTransfer,
+			Transfer:      Transfer,
+			GetHash:       GetHashFn(header, chain),
+			Coinbase:      header.Coinbase,
+			BlockNumber:   new(big.Int).Set(header.Number),
+			Time:          new(big.Int).SetUint64(header.Time),
+			GasLimit:      header.GasLimit,
+			Difficulty:    header.Difficulty,
+			BaseFee:       header.BaseFee,
+			ActivityProof: header.ActivityProof,
 		}
 		txContext := vm.TxContext{
 			Origin:   origin,

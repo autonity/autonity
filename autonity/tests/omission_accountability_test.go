@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
@@ -495,7 +496,6 @@ func TestProposerRewardDistribution(t *testing.T) {
 	t.Run("Rewards are correctly allocated based on config", func(t *testing.T) {
 		r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
 			config.EpochPeriod = uint64(omissionEpochPeriod)
-			config.MaxCommitteeSize = 10 // avoid having to deal with precision loss **in the golang test** (solidity side is fine)
 			return config
 		})
 
@@ -508,6 +508,10 @@ func TestProposerRewardDistribution(t *testing.T) {
 		proposerRewardRatePrecisionBig, _, err := r.autonity.PROPOSERREWARDRATEPRECISION(nil)
 		require.NoError(t, err)
 		proposerRewardRatePrecision := float64(proposerRewardRatePrecisionBig.Uint64())
+		committeeFactorPrecisionBig, _, err := r.autonity.COMMITTEEFRACTIONPRECISION(nil)
+		require.NoError(t, err)
+		committeeFactorPrecision := float64(committeeFactorPrecisionBig.Uint64())
+		fmt.Println(committeeFactorPrecision)
 
 		autonityAtns := new(big.Int).SetInt64(54644455456465)               // random amount
 		ntnRewards := new(big.Int).SetInt64(int64(inflationAfter100Blocks)) // this has to match the ntn inflation unlocked NTNs
@@ -536,6 +540,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 		autonityFinalize(r, []common.Address{}, proposer, common.Big1, false)
 
 		committeeFactor := float64(len(r.committee.validators)) / float64(maxCommitteeSize.Int64())
+		committeeFactor = math.Floor(committeeFactor*committeeFactorPrecision) / committeeFactorPrecision // simulate loss of precision due to fixed point arithmetic
 		atnExpectedReward := (float64(atnRewards.Uint64()) * committeeFactor * float64(proposerRewardRate)) / proposerRewardRatePrecision
 		ntnExpectedReward := (float64(ntnRewards.Uint64()) * committeeFactor * float64(proposerRewardRate)) / proposerRewardRatePrecision
 

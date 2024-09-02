@@ -384,14 +384,15 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 
 func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 	evmContext := vm.BlockContext{
-		CanTransfer: CanTransfer,
-		Transfer:    Transfer,
-		GetHash:     func(n uint64) common.Hash { return common.Hash{} },
-		Coinbase:    genesis.Coinbase,
-		BlockNumber: big.NewInt(0),
-		Time:        new(big.Int).SetUint64(genesis.Timestamp),
-		GasLimit:    genesis.GasLimit,
-		Difficulty:  genesis.Difficulty,
+		CanTransfer:   CanTransfer,
+		Transfer:      Transfer,
+		GetHash:       func(n uint64) common.Hash { return common.Hash{} },
+		Coinbase:      genesis.Coinbase,
+		BlockNumber:   big.NewInt(0),
+		Time:          new(big.Int).SetUint64(genesis.Timestamp),
+		GasLimit:      genesis.GasLimit,
+		Difficulty:    genesis.Difficulty,
+		ActivityProof: types.AggregateSignature{}, //TODO(lorenzo) fine?
 	}
 	txContext := vm.TxContext{
 		Origin:   params.DeployerAddress,

@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"github.com/autonity/autonity/core/types"
 	"math"
 	"math/big"
 	"sync/atomic"
@@ -79,6 +80,8 @@ type BlockContext struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	BaseFee     *big.Int       // Provides information for BASEFEE
 	Random      *common.Hash   // Provides information for RANDOM
+
+	ActivityProof types.AggregateSignature
 }
 
 // TxContext provides the EVM with information about a transaction.

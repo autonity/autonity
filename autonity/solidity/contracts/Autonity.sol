@@ -820,6 +820,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         config.contracts.accountabilityContract.finalize(epochEnded);
 
+        //bytes32[] memory out;
+        //out = Precompiled.activeValidators();
+
         // if height is accountable, call the omission accountability contract
         if(block.number > lastEpochBlock + DELTA) {
             config.contracts.omissionAccountabilityContract.finalize(absentees, proposer, proposerEffort, isProposerOmissionFaulty, epochEnded);

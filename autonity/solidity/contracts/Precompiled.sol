@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
     uint256 constant public SUCCESS = 1;
+    address constant public ACTIVITY_CONTRACT = address(0xf8);
     address constant public UPGRADER_CONTRACT = address(0xf9);
     address constant public COMPUTE_COMMITTEE_CONTRACT = address(0xfa);
     address constant public POP_VERIFIER_CONTRACT = address(0xfb);
@@ -12,6 +13,18 @@ library Precompiled {
     address constant public INNOCENCE_CONTRACT = address(0xfd);
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
     address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
+
+    function activeValidators() internal view returns (bytes32[] memory) {
+        address to = ACTIVITY_CONTRACT;
+        bytes32[] memory out;
+        assembly {
+            if iszero(staticcall(gas(), to, 0,0,0,0)) {
+                revert(0, 0)
+            }
+            returndatacopy(out, 0, returndatasize())
+        }
+        return out;
+    }
 
     function parseEnode(string memory _enode) internal view returns (address, uint) {
         uint[2] memory p;

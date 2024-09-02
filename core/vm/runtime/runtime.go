@@ -97,6 +97,7 @@ func setDefaults(cfg *Config) {
 	if cfg.BaseFee == nil {
 		cfg.BaseFee = big.NewInt(params.InitialBaseFee)
 	}
+	//TODO(lorenzo) add default for activity proof?
 }
 
 // Execute executes the code using the input as call data during the execution.

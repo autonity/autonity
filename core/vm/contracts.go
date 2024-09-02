@@ -69,6 +69,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
+	common.BytesToAddress([]byte{248}): &activeValidators{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -88,6 +89,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
+	common.BytesToAddress([]byte{248}): &activeValidators{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -108,6 +110,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{248}): &activeValidators{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -128,6 +131,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{248}): &activeValidators{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -148,6 +152,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{17}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
+	common.BytesToAddress([]byte{248}): &activeValidators{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -1361,6 +1366,24 @@ func (c checkEnode) Run(input []byte, _ uint64, _ *EVM, _ common.Address) ([]byt
 	address := crypto.PubkeyToAddress(*node.Pubkey())
 	copy(out, address.Bytes())
 	copy(out[32:], false32Byte)
+	return out, nil
+}
+
+type activeValidators struct{}
+
+func (a activeValidators) RequiredGas(_ []byte) uint64 {
+	return params.AutonityEnodeCheckGas
+}
+func (a activeValidators) Run(_ []byte, _ uint64, evm *EVM, _ common.Address) ([]byte, error) {
+	if evm.Context.ActivityProof.Signers == nil {
+		return []byte{}, nil
+	}
+	signers := evm.Context.ActivityProof.Signers.FlattenUniq()
+	out := make([]byte, len(signers))
+	for i, signer := range signers {
+		out[i] = byte(signer)
+	}
+	fmt.Println(out)
 	return out, nil
 }
 
