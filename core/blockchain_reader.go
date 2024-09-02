@@ -47,7 +47,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	}
 
 	// the latest epoch head should be in the most case.
-	committee, parentEHead, curEHead, nextEHead, err := bc.LatestEpoch()
+	committee, _, curEHead, nextEHead, err := bc.LatestEpoch()
 	if err != nil {
 		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
 	}
@@ -61,30 +61,8 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 		return nil, ErrHeightTooFuture
 	}
 
-	// the height belongs to an old epoch, try to search limited hops backward to find the epoch.
-	if height <= curEHead {
-		for i := 0; i < backwardEpochSearchLimit; i++ {
-			lastEpoch := bc.GetHeaderByNumber(parentEHead)
-			if lastEpoch == nil {
-				bc.log.Warn("cannot find parent epoch header, trying to get committee from state DB", "epoch block", parentEHead, "height", height)
-				break
-			}
-
-			if !lastEpoch.IsEpochHeader() {
-				panic(fmt.Sprintf("parent epoch head: %d is not an epoch head.", lastEpoch.Number.Uint64()))
-			}
-
-			if height > lastEpoch.Number.Uint64() && height <= lastEpoch.Epoch.NextEpochBlock.Uint64() {
-				bc.committeeCache.Add(height, lastEpoch.Epoch.Committee)
-				return lastEpoch.Epoch.Committee, nil
-			}
-			parentEHead = lastEpoch.Epoch.PreviousEpochBlock.Uint64()
-		}
-	}
-
 	// otherwise try to get committee from state db of the height.
-	// get the latest epoch info from state db, as snap sync/fast sync
-	// node might miss the epoch header below pivot block.
+	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
 	currentHeader := bc.CurrentHeader()
 	stateDB, err := bc.StateAt(currentHeader.Root)
 	if err != nil {

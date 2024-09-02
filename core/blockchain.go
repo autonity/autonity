@@ -99,15 +99,14 @@ var (
 )
 
 const (
-	backwardEpochSearchLimit = 4
-	bodyCacheLimit           = 256
-	blockCacheLimit          = 256
-	receiptsCacheLimit       = 32
-	txLookupCacheLimit       = 1024
-	maxFutureBlocks          = 256
-	maxTimeFutureBlocks      = 30
-	TriesInMemory            = 128
-	committeeCacheLimit      = 1024
+	bodyCacheLimit      = 256
+	blockCacheLimit     = 256
+	receiptsCacheLimit  = 32
+	txLookupCacheLimit  = 1024
+	maxFutureBlocks     = 256
+	maxTimeFutureBlocks = 30
+	TriesInMemory       = 128
+	committeeCacheLimit = 1024
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
