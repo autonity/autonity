@@ -193,7 +193,7 @@ contract LiquidRewardManager {
         _validators.push(_validator);
         // offset by 1 to handle empty value
         validatorIdx[_id][_validator] = _validators.length;
-        if (liquidInfo[_validator].liquidStateContract == payable(0)) {
+        if (liquidInfo[_validator].liquidStateContract == address(0)) {
             _initiateValidator(_validator);
         }
     }

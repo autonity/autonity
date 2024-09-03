@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.19;
 
-import "./interfaces/IERC20.sol";
 import "./interfaces/IStakeProxy.sol";
 import "./interfaces/INonStakableVestingVault.sol";
 import "./liquid/LiquidLogic.sol";
@@ -694,6 +693,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @custom:restricted-to operator account
      */
     function SetLiquidLogicContract(address _contract) public virtual onlyOperator {
+        require(_contract != address(0), "invalid contract address for liquid logic");
         liquidLogicContract = _contract;
     }
 
@@ -1136,7 +1136,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 // the distribution account for the PAS ratio post-slashing.
                 uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;
                 if (_atnSelfReward > 0) {
-                    // todo: handle failure scenario here although not critical.
                     (bool _sent, bytes memory _returnData) = _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
                     // let the treasury know that call failed
                     if (_sent == false) {
