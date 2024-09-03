@@ -79,9 +79,11 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
-	// get epoch info from header chain should work for most of the case.
-	if committee, parent, cur, next, err := bc.hc.LatestEpoch(); err == nil {
-		return committee, parent, cur, next, nil
+
+	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
+	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {
+		return epochBlock.Header().Epoch.Committee, epochBlock.Header().Epoch.PreviousEpochBlock.Uint64(),
+			epochBlock.Header().Number.Uint64(), epochBlock.Header().Epoch.NextEpochBlock.Uint64(), nil
 	}
 
 	// For snap sync or fast sync case we need to get epoch info from state DB:
@@ -89,11 +91,11 @@ func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, e
 	// pivot block, thus, for header verification after pivot block, we can load
 	// it from state db.
 	currentBLock := bc.CurrentBlock()
-	state, err := bc.State()
+	st, err := bc.StateAt(currentBLock.Header().Root)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
-	return bc.protocolContracts.EpochInfo(currentBLock.Header(), state)
+	return bc.protocolContracts.EpochInfo(currentBLock.Header(), st)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

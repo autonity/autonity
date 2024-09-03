@@ -576,22 +576,20 @@ func (c *AutonityContract) callGetCommitteeByHeight(state vm.StateDB, header *ty
 // callGetEpochInfo get the committee and the corresponding epoch boundary base on the input header's state.
 // it returns the committee, previousEpochBlock, curEpochBlock, and the nextEpochBlock.
 func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Header) (*types.Committee, uint64, uint64, uint64, error) {
-	type EpochInfo struct {
-		committeeMembers   []types.CommitteeMember
-		previousEpochBlock *big.Int
-		currentEpochBlock  *big.Int
-		nextEpochBlock     *big.Int
-	}
-	var epochInfo EpochInfo
-	if err := c.AutonityContractCall(state, header, "getEpochInfo", &epochInfo); err != nil {
+	var committeeMembers []types.CommitteeMember
+	previousEpochBlock := new(big.Int)
+	curEpochBlock := new(big.Int)
+	nextEpochBlock := new(big.Int)
+
+	if err := c.AutonityContractCall(state, header, "getEpochInfo", &[]any{&committeeMembers, &previousEpochBlock, &curEpochBlock, &nextEpochBlock}); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	committee := &types.Committee{}
-	committee.Members = epochInfo.committeeMembers
+	committee.Members = committeeMembers
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
 	}
-	return committee, epochInfo.previousEpochBlock.Uint64(), epochInfo.currentEpochBlock.Uint64(), epochInfo.nextEpochBlock.Uint64(), nil
+	return committee, previousEpochBlock.Uint64(), curEpochBlock.Uint64(), nextEpochBlock.Uint64(), nil
 }
 
 func (c *AutonityContract) callGetCommittee(state vm.StateDB, header *types.Header) (*types.Committee, error) {

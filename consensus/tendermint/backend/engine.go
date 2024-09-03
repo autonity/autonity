@@ -146,7 +146,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 
 	// inserting header number should pass the corresponding epoch boundary check.
 	if header.Number.Uint64() <= curEpochHead || header.Number.Uint64() > nextEHead {
-		sb.logger.Error("verify header", "header is out of epoch range",
+		sb.logger.Error("header is out of epoch range",
 			"height", header.Number.Uint64(), "curEpochHead", curEpochHead, "nextEpochHead", nextEHead)
 		return consensus.ErrOutOfEpochRange
 	}

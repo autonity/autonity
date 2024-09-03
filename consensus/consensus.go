@@ -53,7 +53,8 @@ type ChainHeaderReader interface {
 	GetTd(hash common.Hash, number uint64) *big.Int
 
 	// LatestEpoch retrieves the latest epoch's committee, parentEpochHead, currentEpochHead, and nextEpochHead.
-	// Both header chain and blockchain implement this interface.
+	// Both header chain and blockchain implement this interface with its own context. Note: head of the header chain
+	// may be above the block chain in some sync mode.
 	LatestEpoch() (*types.Committee, uint64, uint64, uint64, error)
 }
 
