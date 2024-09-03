@@ -70,7 +70,7 @@ func PingPeers(e *Engine) []probing.Statistics {
 	return results
 }
 
-func BroadcastLatency(e *Engine, strategy uint64, latency []probing.Statistics) error {
+func BroadcastLatency(e *Engine, strategy uint64, latency []time.Duration) error {
 	errs := make([]error, len(e.Peers))
 	acks := make([]bool, len(e.Peers))
 	var hasError atomic.Bool
@@ -90,7 +90,7 @@ func BroadcastLatency(e *Engine, strategy uint64, latency []probing.Statistics) 
 
 		wg.Add(1)
 		go func(id int, peer *Peer) {
-			_, _, err := peer.SendLatencyArray(strategy, FilterAveRtt(latency))
+			_, _, err := peer.SendLatencyArray(strategy, latency)
 			if err != nil {
 				hasError.Store(true)
 				errs[id] = err

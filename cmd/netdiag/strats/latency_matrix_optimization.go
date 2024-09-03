@@ -41,25 +41,14 @@ func createLatencyMatrixOpimize(base BaseStrategy, peerSetUpperBound int) *Laten
 		peerGraphReady: make([]bool, base.State.Peers),
 	}
 	strategy := &LatencyMatrixOptimize{base, graph, peerSetUpperBound}
-	// go strategy.start()
 	return strategy
-}
-
-func (l *LatencyMatrixOptimize) start() {
-	for {
-		ready, err := l.isLatencyMatrixReady()
-		if err != nil {
-			log.Crit("error in latency matrix", "err", err)
-		}
-		if ready {
-			break
-		}
-	}
-	l.constructGraph(len(l.State.LatencyMatrix))
 }
 
 func (l *LatencyMatrixOptimize) isLatencyMatrixReady() (bool, error) {
 	for id, array := range l.State.LatencyMatrix {
+		if len(array) != l.State.Peers {
+			return false, nil
+		}
 		for peer, latency := range array {
 			if id == peer {
 				if latency != 0 {
@@ -75,48 +64,6 @@ func (l *LatencyMatrixOptimize) isLatencyMatrixReady() (bool, error) {
 	return true, nil
 }
 
-func (l *LatencyMatrixOptimize) constructGraph(peers int) {
-	if l.graph.initiated && l.graph.peers == peers {
-		return
-	}
-	if !l.graph.constructing.CompareAndSwap(false, true) {
-		return
-	}
-	l.graph.peers = peers
-	timeMatrix := make([][]int64, peers)
-	for i := 0; i < peers; i++ {
-		timeMatrix[i] = make([]int64, peers)
-	}
-	l.graph.rootedConnection = make([][]int, peers)
-	maxConnections := int(math.Ceil(float64(l.peerSetUpperBound*peers) / 100))
-	minConnections := int(math.Ceil(math.Sqrt(float64(peers))))
-	maxConnections = max(maxConnections, minConnections)
-
-	for root := 0; root < peers; root++ {
-		for u := 0; u < peers; u++ {
-			for v := 0; v < peers; v++ {
-				timeMatrix[u][v] = (l.State.LatencyMatrix[root][u] + l.State.LatencyMatrix[u][root] +
-					l.State.LatencyMatrix[u][v] + l.State.LatencyMatrix[v][u]).Microseconds()
-			}
-		}
-
-		var low int64 = 0
-		high := 10 * time.Second.Microseconds()
-		for low < high {
-			mid := (low + high) / 2
-			if !l.graph.constructConnection(root, maxConnections, mid, timeMatrix) {
-				low = mid + 1
-			} else {
-				high = mid
-			}
-		}
-		l.graph.constructConnection(root, maxConnections, low, timeMatrix)
-	}
-	l.graph.initiated = true
-	l.graph.peerGraphReady[l.State.Id] = true
-	l.graph.constructing.Store(false)
-}
-
 func (l *LatencyMatrixOptimize) GraphReadyForPeer(peerID int) {
 	l.graph.peerGraphReady[peerID] = true
 }
@@ -126,6 +73,9 @@ func (l *LatencyMatrixOptimize) IsGraphReadyForPeer(peerID int) bool {
 }
 
 func (l *LatencyMatrixOptimize) ConstructGraph(maxPeers int) error {
+	if maxPeers <= int(l.State.Id) {
+		return nil
+	}
 	ready, err := l.isLatencyMatrixReady()
 	if err != nil {
 		return err
@@ -133,8 +83,15 @@ func (l *LatencyMatrixOptimize) ConstructGraph(maxPeers int) error {
 	if !ready {
 		return ErrLatencyMatrixNotReady
 	}
-	l.constructGraph(maxPeers)
+	maxConnections := int(math.Ceil(float64(l.peerSetUpperBound*maxPeers) / 100))
+	connectionsNeeded := make([]bool, maxPeers)
+	connectionsNeeded[l.State.Id] = true
+	l.graph.constructGraph(maxPeers, maxConnections, connectionsNeeded, l.State.LatencyMatrix)
 	return nil
+}
+
+func (l *LatencyMatrixOptimize) IsGraphConstructed() bool {
+	return l.graph.initiated
 }
 
 func (l *LatencyMatrixOptimize) Execute(packetId uint64, data []byte, maxPeers int) error {
@@ -194,6 +151,60 @@ type Graph struct {
 	// the original sender is `root`
 	rootedConnection [][]int
 	peerGraphReady   []bool
+	// do not modify the following, this should be read-only
+	// `latencyMatrix[u][v]` stores the summation of time to send signal
+	// from `u` to `v` and from `v` to `u` in microseconds
+	latencyMatrix [][]int64
+}
+
+func (g *Graph) constructGraph(
+	peers, maxConnections int,
+	connectionsNeeded []bool,
+	latencyMatrix [][]time.Duration,
+) {
+	if g.initiated && g.peers == peers {
+		return
+	}
+	if !g.constructing.CompareAndSwap(false, true) {
+		return
+	}
+	g.latencyMatrix = make([][]int64, peers)
+	for i := 0; i < peers; i++ {
+		g.latencyMatrix[i] = make([]int64, peers)
+		for j := 0; j < peers; j++ {
+			g.latencyMatrix[i][j] = ((latencyMatrix[i][j] + latencyMatrix[j][i]) / 2).Microseconds()
+		}
+	}
+	g.peers = peers
+	g.rootedConnection = make([][]int, peers)
+	minConnections := int(math.Ceil(math.Sqrt(float64(peers))))
+	maxConnections = max(maxConnections, minConnections)
+
+	connections := make([][][]int, peers)
+	wg := sync.WaitGroup{}
+	for root := 0; root < peers; root++ {
+
+		wg.Add(1)
+		go func(root int) {
+			var low int64 = 0
+			high := time.Second.Microseconds()
+			for low < high {
+				mid := (low + high) / 2
+				if ready, _ := g.constructConnection(root, maxConnections, mid, connectionsNeeded); !ready {
+					low = mid + 1
+				} else {
+					high = mid
+				}
+			}
+			_, connections[root] = g.constructConnection(root, maxConnections, low, connectionsNeeded)
+			g.rootedConnection[root] = connections[root][g.id]
+			wg.Done()
+		}(root)
+	}
+	wg.Wait()
+	g.initiated = true
+	g.peerGraphReady[g.id] = true
+	g.constructing.Store(false)
 }
 
 // Returns `false` if construction is not possible otherwise returns `true`.
@@ -201,8 +212,8 @@ type Graph struct {
 func (g *Graph) constructConnection(
 	root, maxConnection int,
 	maxTime int64,
-	timeMatrix [][]int64,
-) bool {
+	connectionNeeded []bool,
+) (ready bool, connections [][]int) {
 	degreeInRemain := make([]int, g.peers)
 	degreeOut := make([]int, g.peers)
 	maxDegreeOut := make([]int, g.peers)
@@ -212,7 +223,7 @@ func (g *Graph) constructConnection(
 	isRootChild[root] = true
 	for u := 0; u < g.peers; u++ {
 		for v := 0; v < g.peers; v++ {
-			if v == root || v == u || timeMatrix[u][v] > maxTime {
+			if v == root || v == u || g.msgPropagationTime(root, u, v) > maxTime {
 				continue
 			}
 			degreeInRemain[v]++
@@ -220,7 +231,12 @@ func (g *Graph) constructConnection(
 		}
 	}
 
-	connection := make([]int, 0, g.peers-1)
+	connections = make([][]int, g.peers)
+	for node, needed := range connectionNeeded {
+		if needed {
+			connections[node] = make([]int, 0, g.peers-1)
+		}
+	}
 	for {
 		node := -1
 		for u := 0; u < g.peers; u++ {
@@ -232,12 +248,12 @@ func (g *Graph) constructConnection(
 			break
 		}
 		if degreeInRemain[node] == 0 {
-			return false
+			return false, nil
 		}
 		// connect `node` with `root` or someone connected to `root`
 		parent := -1
 		for u := 0; u < g.peers; u++ {
-			if u == node || degreeOut[u] >= maxConnection || timeMatrix[u][node] > maxTime {
+			if u == node || degreeOut[u] >= maxConnection || g.msgPropagationTime(root, u, node) > maxTime {
 				continue
 			}
 
@@ -250,36 +266,42 @@ func (g *Graph) constructConnection(
 			}
 		}
 		if parent == -1 {
-			return false // Sure?
+			return false, nil // Sure?
 		}
 
 		connectNode := func(node, parent int) {
 			degreeOut[parent]++
 			for u := 0; u < g.peers; u++ {
-				if u == node || timeMatrix[u][node] > maxTime {
+				if u == parent || u == node || g.msgPropagationTime(root, u, node) > maxTime {
 					continue
 				}
-				if u != parent {
-					maxDegreeOut[u]--
-				}
-				if parent != root {
-					degreeInRemain[u]--
-				}
+				maxDegreeOut[u]--
 			}
 			isConnected[node] = true
 			if parent == root {
 				isRootChild[node] = true
+			} else {
+				for u := 0; u < g.peers; u++ {
+					if isConnected[u] || g.msgPropagationTime(root, node, u) > maxTime {
+						continue
+					}
+					degreeInRemain[u]--
+				}
 			}
-			if parent == g.id {
-				connection = append(connection, node)
+			if connectionNeeded[parent] {
+				connections[parent] = append(connections[parent], node)
 			}
 		}
-		if !isRootChild[parent] {
+		if !isConnected[parent] {
 			// Need to connect `parent` with `root`
 			connectNode(parent, root)
 		}
 		connectNode(node, parent)
 	}
-	g.rootedConnection[root] = connection
-	return true
+	return true, connections
+}
+
+// computes msg propagation time in microseconds from `root` to `v` via `u`
+func (g *Graph) msgPropagationTime(root, u, v int) int64 {
+	return g.latencyMatrix[root][u] + g.latencyMatrix[u][v]
 }

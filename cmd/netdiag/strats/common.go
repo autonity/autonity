@@ -44,6 +44,7 @@ type State struct {
 	ReceivedReports map[uint64]chan *IndividualDisseminateResult
 	AverageRTT      []time.Duration
 	LatencyMatrix   [][]time.Duration
+	PingReceived    bool
 	InfoChannel     chan any
 }
 

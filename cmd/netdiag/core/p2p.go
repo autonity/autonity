@@ -373,13 +373,22 @@ func handleTriggerRequest(e *Engine, p *Peer, data io.Reader) error {
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	go func(e *Engine, p *Peer, trigger *TriggerPacket) {
-		// get latency for all peers
-		latency := PingPeers(e)
+		if !e.State.PingReceived {
+			// get latency for all peers
+			latency := PingPeers(e)
 
-		// set our own latency in the matrix
-		e.State.LatencyMatrix[e.Id] = FilterAveRtt(latency)
+			// set our own latency in the matrix
+			e.State.LatencyMatrix[e.Id] = FilterAveRtt(latency)
+			e.State.PingReceived = true
+			for peerId, l := range e.State.LatencyMatrix[e.Id] {
+				if e.Id != peerId && l == 0 {
+					e.State.PingReceived = false
+					break
+				}
+			}
+		}
 
-		if err := BroadcastLatency(e, trigger.Strategy, latency); err != nil {
+		if err := BroadcastLatency(e, trigger.Strategy, e.State.LatencyMatrix[e.Id]); err != nil {
 			log.Error("Error in broadcast latency", "error", err)
 		}
 	}(e, p, &trigger)

@@ -174,6 +174,7 @@ The run command start a local runner`,
 		ArgsUsage: "",
 		Flags: []cli.Flag{
 			configFlag,
+			idFlag,
 			networkModeFlag,
 			pprofFlag,
 		},
@@ -713,7 +714,7 @@ func waitSSH(instanceName string, maxRetries int, retryInterval time.Duration) e
 
 func addKeyToAgent() error {
 	// Build the command
-	cmd := exec.Command("ssh-add", "~/.ssh/id_rsa-corp")
+	cmd := exec.Command("ssh-add", "~/.ssh/id_rsa")
 
 	// Capture output and errors
 	var out bytes.Buffer
@@ -733,7 +734,7 @@ func addKeyToAgent() error {
 func checkSSH(instanceName string) error {
 	// Set a short timeout for connection attempt
 	timeout := time.Second * 5
-	key, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa-corp"))
+	key, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".ssh", "id_rsa"))
 	if err != nil {
 		log.Error("Failed to read ssh file, err:", err)
 		return err
