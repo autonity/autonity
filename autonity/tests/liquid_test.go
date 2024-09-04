@@ -94,14 +94,9 @@ func TestLogicOperation(t *testing.T) {
 
 	validator := r.committee.validators[0].NodeAddress
 	treasury := r.committee.validators[0].Treasury
-	liquidState := deployLiquid(r, validator, treasury)
 
 	r.run("liquid logic can be updated", func(r *runner) {
-		stateContractAbi, err := LiquidStateMetaData.GetAbi()
-		require.NoError(r.t, err)
-		stateContract := &LiquidState{
-			&contract{liquidState.address, stateContractAbi, r},
-		}
+		stateContract := deployLiquidTest(r, validator, treasury)
 		liquidLogicFromAutonity, _, err := r.autonity.LiquidLogicContract(nil)
 		require.NoError(r.t, err)
 		liquidLogicFromState, _, err := stateContract.LiquidLogicContract(nil)
@@ -123,6 +118,8 @@ func TestLogicOperation(t *testing.T) {
 		require.NoError(r.t, err)
 		require.Equal(r.t, liquidLogicFromAutonity, liquidLogicFromState)
 	})
+
+	liquidState := deployLiquid(r, validator, treasury)
 
 	r.run("updating liquid logic does not update state", func(r *runner) {
 		checkLiquidBalance(r, liquidState, validator, common.Big0)
@@ -698,4 +695,24 @@ func deployLiquid(
 	return &ILiquidLogic{
 		&contract{liquidState.address, abi, r},
 	}
+}
+
+func deployLiquidTest(
+	r *runner, validator, treasury common.Address, commissionRatePercent ...int64,
+) *LiquidStateTest {
+
+	liquidLogic, _, err := r.autonity.LiquidLogicContract(nil)
+	require.NoError(r.t, err)
+
+	var commissionRate int64
+	if len(commissionRatePercent) > 0 {
+		commissionRate = commissionRatePercent[0]
+	}
+
+	_, _, liquidState, err := r.deployLiquidStateTest(
+		fromAutonity, validator, treasury,
+		big.NewInt(commissionRate*100), "27", liquidLogic,
+	)
+	require.NoError(r.t, err)
+	return liquidState
 }
