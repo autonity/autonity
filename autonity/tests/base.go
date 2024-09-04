@@ -74,14 +74,6 @@ func (c *contract) Contract() *contract {
 	return c
 }
 
-// call a contract function and then revert. helpful to get output of the function without changing state
-func (r *Runner) SimulateCall(c *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
-	snap := r.snapshot()
-	out, consumed, err := c.call(opts, method, params...)
-	r.revertSnapshot(snap)
-	return out, consumed, err
-}
-
 func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
@@ -332,111 +324,6 @@ func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) { //n
 	require.True(r.T, r.Evm.StateDB.GetBalance(sender).Cmp(value) >= 0, "not enough balance to transfer")
 	r.Evm.StateDB.SubBalance(sender, value)
 	r.Evm.StateDB.AddBalance(recipient, value)
-}
-
-func (r *Runner) CheckClaimedRewards(
-	account common.Address,
-	unclaimedAtnRewards *big.Int,
-	unclaimedNtnRewards *big.Int,
-	claimFunc func(opts *runOptions) (uint64, error),
-) {
-	atnBalance := r.GetBalanceOf(account)
-	ntnBalance, _, err := r.Autonity.BalanceOf(nil, account)
-	require.NoError(r.T, err)
-
-	r.NoError(
-		claimFunc(FromSender(account, nil)),
-	)
-
-	newAtnBalance := r.GetBalanceOf(account)
-	newNtnBalance, _, err := r.Autonity.BalanceOf(nil, account)
-	require.NoError(r.T, err)
-
-	atnRewards := new(big.Int).Sub(newAtnBalance, atnBalance)
-	ntnRewards := new(big.Int).Sub(newNtnBalance, ntnBalance)
-
-	require.True(
-		r.T,
-		atnRewards.Cmp(unclaimedAtnRewards) == 0,
-		"claimed atn rewards mismatch",
-	)
-
-	require.True(
-		r.T,
-		ntnRewards.Cmp(unclaimedNtnRewards) == 0,
-		"claimed ntn rewards mismatch",
-	)
-}
-
-func (r *Runner) CheckClaimedRewards1(
-	account common.Address,
-	unclaimedAtnRewards *big.Int,
-	unclaimedNtnRewards *big.Int,
-	claimFunc func(opts *runOptions, id *big.Int) (uint64, error),
-	id *big.Int,
-) {
-	atnBalance := r.GetBalanceOf(account)
-	ntnBalance, _, err := r.Autonity.BalanceOf(nil, account)
-	require.NoError(r.T, err)
-
-	r.NoError(
-		claimFunc(FromSender(account, nil), id),
-	)
-
-	newAtnBalance := r.GetBalanceOf(account)
-	newNtnBalance, _, err := r.Autonity.BalanceOf(nil, account)
-	require.NoError(r.T, err)
-
-	atnRewards := new(big.Int).Sub(newAtnBalance, atnBalance)
-	ntnRewards := new(big.Int).Sub(newNtnBalance, ntnBalance)
-
-	require.True(
-		r.T,
-		atnRewards.Cmp(unclaimedAtnRewards) == 0,
-		"claimed atn rewards mismatch",
-	)
-
-	require.True(
-		r.T,
-		ntnRewards.Cmp(unclaimedNtnRewards) == 0,
-		"claimed ntn rewards mismatch",
-	)
-}
-
-func (r *Runner) CheckClaimedRewards2(
-	account common.Address,
-	unclaimedAtnRewards *big.Int,
-	unclaimedNtnRewards *big.Int,
-	claimFunc func(opts *runOptions, id *big.Int, validator common.Address) (uint64, error),
-	id *big.Int,
-	validator common.Address,
-) {
-	atnBalance := r.GetBalanceOf(account)
-	ntnBalance, _, err := r.Autonity.BalanceOf(nil, account)
-	require.NoError(r.T, err)
-
-	r.NoError(
-		claimFunc(FromSender(account, nil), id, validator),
-	)
-
-	newAtnBalance := r.GetBalanceOf(account)
-	newNtnBalance, _, err := r.Autonity.BalanceOf(nil, account)
-	require.NoError(r.T, err)
-
-	atnRewards := new(big.Int).Sub(newAtnBalance, atnBalance)
-	ntnRewards := new(big.Int).Sub(newNtnBalance, ntnBalance)
-
-	require.True(
-		r.T,
-		atnRewards.Cmp(unclaimedAtnRewards) == 0,
-		"claimed atn rewards mismatch",
-	)
-
-	require.True(
-		r.T,
-		ntnRewards.Cmp(unclaimedNtnRewards) == 0,
-		"claimed ntn rewards mismatch",
-	)
 }
 
 func initializeEVM() (*vm.EVM, error) {

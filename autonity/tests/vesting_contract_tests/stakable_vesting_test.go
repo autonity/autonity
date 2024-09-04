@@ -500,15 +500,36 @@ func TestRwardTracking(t *testing.T) {
 
 		// checking all the variations of claim rewards function
 		r.RunAndRevert(func(r *tests.Runner) {
-			r.CheckClaimedRewards(beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards, r.StakableVesting.ClaimRewards0)
+			checkClaimRewardsFunction(
+				r, beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards,
+				func() {
+					r.NoError(
+						r.StakableVesting.ClaimRewards0(tests.FromSender(beneficiary, nil)),
+					)
+				},
+			)
 		})
 
 		r.RunAndRevert(func(r *tests.Runner) {
-			r.CheckClaimedRewards1(beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards, r.StakableVesting.ClaimRewards, contractID)
+			checkClaimRewardsFunction(
+				r, beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards,
+				func() {
+					r.NoError(
+						r.StakableVesting.ClaimRewards(tests.FromSender(beneficiary, nil), contractID),
+					)
+				},
+			)
 		})
 
 		r.RunAndRevert(func(r *tests.Runner) {
-			r.CheckClaimedRewards2(beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards, r.StakableVesting.ClaimRewards1, contractID, validator)
+			checkClaimRewardsFunction(
+				r, beneficiary, rewardOfUser.AtnRewards, rewardOfUser.NtnRewards,
+				func() {
+					r.NoError(
+						r.StakableVesting.ClaimRewards1(tests.FromSender(beneficiary, nil), contractID, validator),
+					)
+				},
+			)
 		})
 	})
 
@@ -621,8 +642,79 @@ func TestRwardTracking(t *testing.T) {
 				userStakes[user][id][validator].Add(userStakes[user][id][validator], amount)
 				totalStake.Add(totalStake, amount)
 			}
+		}
+	})
 
+	r.Run("multiple bonding in same epoch and track rewards", func(r *tests.Runner) {
+		extraBondsArray := make([][]StakingRequest, 0)
+		extraBonds := make([]StakingRequest, 0)
+
+		for _, user := range users {
+			for contractID := 0; contractID < contractCount; contractID++ {
+				for _, validator := range validators {
+					extraBonds = append(extraBonds, StakingRequest{user, validator, big.NewInt(int64(contractID)), bondingAmount, "", true})
+				}
+			}
+		}
+
+		testCount := 2
+		for testCount > 0 {
+			extraBondsArray = append(extraBondsArray, extraBonds)
+			testCount--
+		}
+		// dummy
+		extraBondsArray = append(extraBondsArray, nil)
+
+		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
+
+		require.True(
+			r.T,
+			isAllRewardsZero(r, contractCount, liquidContracts, users, validators),
+			"all rewards should be zero initially",
+		)
+
+		for _, requests := range extraBondsArray {
+			for _, request := range requests {
+
+				user := request.staker
+				r.NoError(
+					r.StakableVesting.Bond(
+						tests.FromSender(user, nil), request.contractID, request.validator, request.amount,
+					),
+				)
+			}
+
+			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
+			oldRewardsFromValidator, oldUserRewards := unclaimedRewards(r, contractCount, liquidContracts, users, validators)
+			totalReward := rewardsAfterOneEpoch(r)
 			r.WaitNextEpoch()
+
+			// request is not applied yet
+			checkRewards(
+				r, contractCount, totalStake, totalReward,
+				liquidContracts, validators, users, validatorStakes,
+				userStakes, oldRewardsFromValidator, oldUserRewards,
+			)
+
+			for _, request := range requests {
+				// request is applied, because checkRewards progress 1 epoch
+				user := request.staker
+				amount := request.amount
+				validator := request.validator
+				id := int(request.contractID.Int64())
+				validatorStakes[validator].Add(validatorStakes[validator], amount)
+				userStakes[user][id][validator].Add(userStakes[user][id][validator], amount)
+				totalStake.Add(totalStake, amount)
+			}
+		}
+
+		validatorNewStakes, userNewStakes, totalNewStake := initialStakes(r, contractCount, liquidContracts, users, validators)
+		require.Equal(r.T, totalStake, totalNewStake)
+		for validator, newStake := range validatorNewStakes {
+			require.Equal(r.T, validatorStakes[validator], newStake)
+		}
+		for user, newStake := range userNewStakes {
+			require.Equal(r.T, userStakes[user], newStake)
 		}
 	})
 
@@ -991,6 +1083,38 @@ func rewardsAfterOneEpoch(r *tests.Runner) (rewardsToDistribute Reward) {
 	return rewardsToDistribute
 }
 
+func checkClaimRewardsFunction(
+	r *tests.Runner,
+	account common.Address,
+	unclaimedAtnRewards *big.Int,
+	unclaimedNtnRewards *big.Int,
+	claimRewards func(),
+) {
+	atnBalance := r.GetBalanceOf(account)
+	ntnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+	claimRewards()
+
+	newAtnBalance := r.GetBalanceOf(account)
+	newNtnBalance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+
+	atnRewards := new(big.Int).Sub(newAtnBalance, atnBalance)
+	ntnRewards := new(big.Int).Sub(newNtnBalance, ntnBalance)
+
+	require.True(
+		r.T,
+		atnRewards.Cmp(unclaimedAtnRewards) == 0,
+		"claimed atn rewards mismatch",
+	)
+
+	require.True(
+		r.T,
+		ntnRewards.Cmp(unclaimedNtnRewards) == 0,
+		"claimed ntn rewards mismatch",
+	)
+}
+
 func checkRewards(
 	r *tests.Runner,
 	contractCount int,
@@ -1095,8 +1219,13 @@ func checkRewards(
 
 				// so that following code snippet reverts
 				r.RunAndRevert(func(r *tests.Runner) {
-					r.CheckClaimedRewards2(
-						user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards, r.StakableVesting.ClaimRewards1, big.NewInt(int64(i)), validator,
+					checkClaimRewardsFunction(
+						r, user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards,
+						func() {
+							r.NoError(
+								r.StakableVesting.ClaimRewards1(tests.FromSender(user, nil), big.NewInt(int64(i)), validator),
+							)
+						},
 					)
 
 				})
@@ -1113,8 +1242,13 @@ func checkRewards(
 
 			// so that following code snippet reverts
 			r.RunAndRevert(func(r *tests.Runner) {
-				r.CheckClaimedRewards1(
-					user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards, r.StakableVesting.ClaimRewards, big.NewInt(int64(i)),
+				checkClaimRewardsFunction(
+					r, user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards,
+					func() {
+						r.NoError(
+							r.StakableVesting.ClaimRewards(tests.FromSender(user, nil), big.NewInt(int64(i))),
+						)
+					},
 				)
 			})
 		}
@@ -1138,8 +1272,13 @@ func checkRewards(
 
 		// so that following code snippet reverts
 		r.RunAndRevert(func(r *tests.Runner) {
-			r.CheckClaimedRewards(
-				user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards, r.StakableVesting.ClaimRewards0,
+			checkClaimRewardsFunction(
+				r, user, unclaimedReward.AtnRewards, unclaimedReward.NtnRewards,
+				func() {
+					r.NoError(
+						r.StakableVesting.ClaimRewards0(tests.FromSender(user, nil)),
+					)
+				},
 			)
 		})
 	}
