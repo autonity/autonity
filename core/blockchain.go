@@ -205,11 +205,13 @@ type BlockChain struct {
 	// Readers don't need to take it, they can just read the database.
 	chainmu *syncx.ClosableMutex
 
-	// Current head epoch block of the block chain is the epoch block that was inserted to blockchain, it is different
-	// than the epoch header of header chain as epoch header of header chain can go beyond the blockchain head.
+	// Current head epoch block of the blockchain, it is the latest epoch block that was inserted to blockchain.
+	// This epoch block of the blockchain can grow slower than the epoch head of header chain in some sync mode, i.e.
+	// in snap sync the header chain can grow faster than the blockchain. Thus, we create two different references
+	// of epoch head for the blockchain synchronization context and the header chain synchronization context.
 	currentEpochBlock atomic.Value
 
-	currentBlock     atomic.Value // Current head of the block chain
+	currentBlock     atomic.Value // Current head of the blockchain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
 	stateCache     state.Database // State database to reuse between imports (contains state cache)
@@ -221,10 +223,10 @@ type BlockChain struct {
 	txLookupCache  *lru.Cache     // Cache for the most recent transaction lookup data.
 	futureBlocks   *lru.Cache     // future blocks are blocks added for later processing
 
-	wg            sync.WaitGroup //
-	quit          chan struct{}  // shutdown signal, closed in Stop.
-	running       int32          // 0 if chain is running, 1 when stopped
-	procInterrupt int32          // interrupt signaler for block processing
+	wg            sync.WaitGroup
+	quit          chan struct{} // shutdown signal, closed in Stop.
+	running       int32         // 0 if chain is running, 1 when stopped
+	procInterrupt int32         // interrupt signaler for block processing
 
 	engine     consensus.Engine
 	validator  Validator // Block and state validator interface
@@ -473,7 +475,7 @@ func (bc *BlockChain) empty() bool {
 }
 
 // loadLastState loads the last known chain state from the database. This method
-// assumes that the chain manager mutex is held.
+// assumes that the chain manager mutex is held. It is called on chain startup and after the chain rewind too.
 func (bc *BlockChain) loadLastState() error {
 	// Restore the last known head block
 	head := rawdb.ReadHeadBlockHash(bc.db)
@@ -493,20 +495,21 @@ func (bc *BlockChain) loadLastState() error {
 	bc.currentBlock.Store(currentBlock)
 	headBlockGauge.Update(int64(currentBlock.NumberU64()))
 
+	// Restore the last known epoch head block
 	epochHead := rawdb.ReadEpochBlockHash(bc.db)
 	if epochHead == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		bc.log.Warn("Empty database, resetting chain")
 		return bc.Reset()
 	}
-	// Make sure the entire head block is available
+	// Make sure the entire head epoch block is available
 	epochBlock := bc.GetBlockByHash(epochHead)
 	if epochBlock == nil {
 		// Corrupt or empty database, init from scratch
 		bc.log.Warn("Epoch head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
-	// Everything seems to be fine, set as the head block
+	// Everything seems to be fine, set as the head epoch block
 	bc.currentEpochBlock.Store(epochBlock)
 
 	// Restore the last known head header
@@ -536,6 +539,7 @@ func (bc *BlockChain) loadLastState() error {
 	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
 	bc.log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(int64(currentHeader.Time), 0)))
+	bc.log.Info("Loaded most recent local epoch block", "number", epochBlock.Number(), "hash", epochBlock.Hash(), "previousEpochBlock", epochBlock.Header().Epoch.PreviousEpochBlock, "curEpochBlock", epochBlock.Number(), "nextEpochBlock", epochBlock.Header().Epoch.NextEpochBlock)
 	bc.log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd, "age", common.PrettyAge(time.Unix(int64(currentBlock.Time()), 0)))
 	bc.log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd, "age", common.PrettyAge(time.Unix(int64(currentFastBlock.Time()), 0)))
 	if pivot := rawdb.ReadLastPivotNumber(bc.db); pivot != nil {
@@ -695,6 +699,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 	bc.txLookupCache.Purge()
 	bc.futureBlocks.Purge()
 
+	// load last state from DB after chain rewind.
 	return rootNumber, bc.loadLastState()
 }
 
@@ -723,12 +728,12 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 	// replicates the entire world state of pivot block.
 	if block.IsEpochHead() {
 		batch := bc.db.NewBatch()
-		bc.currentEpochBlock.Store(block)
 		rawdb.WriteEpochBlockHash(batch, block.Hash())
 		rawdb.WriteEpochHeaderHash(batch, block.Hash())
 		if err := batch.Write(); err != nil {
 			bc.log.Crit("Failed to update epoch header markers", "err", err)
 		}
+		bc.currentEpochBlock.Store(block)
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
 		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}
@@ -825,10 +830,10 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	// Add the block to the canonical chain number scheme and mark as the head
 	batch := bc.db.NewBatch()
-	// update head epoch header hash in DB.
+	// update head epoch markers in DB for both blockchain and the header chain.
 	if block.IsEpochHead() {
-		bc.currentEpochBlock.Store(block)
 		rawdb.WriteEpochBlockHash(batch, block.Hash())
+		rawdb.WriteEpochHeaderHash(batch, block.Hash())
 	}
 	rawdb.WriteHeadHeaderHash(batch, block.Hash())
 	rawdb.WriteHeadFastBlockHash(batch, block.Hash())
@@ -844,6 +849,7 @@ func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	// Update all in-memory chain markers in the last step
 	bc.hc.SetCurrentHeader(block.Header())
 	if block.IsEpochHead() {
+		bc.currentEpochBlock.Store(block)
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
 		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}

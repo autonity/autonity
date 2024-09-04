@@ -198,7 +198,7 @@ func ReadEpochBlockHash(db ethdb.KeyValueReader) common.Hash {
 	return common.BytesToHash(data)
 }
 
-// WriteEpochBlockHash stores the hash of the current canonical epoch block of blockchain.
+// WriteEpochBlockHash stores the hash of the current canonical epoch block for blockchain.
 func WriteEpochBlockHash(db ethdb.KeyValueWriter, hash common.Hash) {
 	if err := db.Put(headEpochBlockKey, hash.Bytes()); err != nil {
 		log.Crit("Failed to store last epoch header's hash", "err", err)
@@ -214,7 +214,7 @@ func ReadEpochHeaderHash(db ethdb.KeyValueReader) common.Hash {
 	return common.BytesToHash(data)
 }
 
-// WriteEpochHeaderHash stores the hash of the current canonical epoch header of header chain.
+// WriteEpochHeaderHash stores the hash of the current canonical epoch header for header chain.
 func WriteEpochHeaderHash(db ethdb.KeyValueWriter, hash common.Hash) {
 	if err := db.Put(headEpochHeaderKey, hash.Bytes()); err != nil {
 		log.Crit("Failed to store last epoch header's hash", "err", err)

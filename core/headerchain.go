@@ -63,7 +63,11 @@ type HeaderChain struct {
 	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
-	currentEpochHeader atomic.Value // Current epoch header of the header chain.
+	// Current head epoch header of the header chain, it is the latest epoch header that was inserted to header chain.
+	// This epoch head of the header chain can grow faster than the epoch head of blockchain in some sync mode, i.e.
+	// in snap sync the header chain can grow faster than the blockchain. Thus, we create two different references
+	// of epoch head for the blockchain synchronization context and the header chain synchronization context.
+	currentEpochHeader atomic.Value
 	currentHeader      atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash  common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
@@ -675,6 +679,9 @@ func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, d
 			if newHeadEpochHeader == nil {
 				log.Crit("cannot find parent epoch header from header chain", "num", hdr.Epoch.PreviousEpochBlock.Uint64())
 			}
+			// reset both the epoch markers of blockchain and header chain, the epoch head
+			// in-memory marker of blockchain is reset when rewind is done.
+			rawdb.WriteEpochBlockHash(markerBatch, newHeadEpochHeader.Hash())
 			rawdb.WriteEpochHeaderHash(markerBatch, newHeadEpochHeader.Hash())
 			hc.currentEpochHeader.Store(newHeadEpochHeader)
 			headEpochHeaderGauge.Update(newHeadEpochHeader.Number.Int64())
