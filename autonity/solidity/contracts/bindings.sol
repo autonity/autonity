@@ -11,6 +11,7 @@ import "./Autonity.sol";
 import "./Accountability.sol";
 import "./liquid/LiquidLogic.sol";
 import "./liquid/LiquidState.sol";
+import "./liquid/LiquidStateTest.sol";
 import "./Oracle.sol";
 import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";

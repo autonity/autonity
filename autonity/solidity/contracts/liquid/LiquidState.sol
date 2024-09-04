@@ -25,22 +25,22 @@ contract LiquidState is LiquidStorage {
     }
 
     /**
-     * @dev Fallback function that delegates calls to the address returned by `liquidLogicContract()`. Will run if no other
+     * @dev Fallback function that delegates calls to the address returned by `_liquidLogicContract()`. Will run if no other
      * function in the contract matches the call data.
      */
     fallback() payable external {
         _delegate(
-            liquidLogicContract()
+            _liquidLogicContract()
         );
     }
 
     /**
-     * @dev Fallback function that delegates calls to the address returned by `liquidLogicContract()`. Will run if call data
+     * @dev Fallback function that delegates calls to the address returned by `_liquidLogicContract()`. Will run if call data
      * is empty.
      */
     receive() payable external {
         _delegate(
-            liquidLogicContract()
+            _liquidLogicContract()
         );
     }
 
@@ -53,9 +53,9 @@ contract LiquidState is LiquidStorage {
      */
 
     /**
-     * @notice Fetch liquid logic contract address from autonity
+     * @dev Fetch liquid logic contract address from autonity
      */
-    function liquidLogicContract() public view returns (address) {
+    function _liquidLogicContract() internal view returns (address) {
         address _address = autonityContract.liquidLogicContract();
         require(_address != address(0), "liquid logic contract not set");
         return _address;

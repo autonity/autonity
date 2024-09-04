@@ -165,7 +165,7 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
      *
      * Requirements:
      *
-     * - `spender` cannot be the zero address.
+     * - `_spender` cannot be the zero address.
      */
     function approve(address _spender, uint256 _amount) external virtual returns (bool) {
         _approve(msg.sender, _spender, _amount);
@@ -179,10 +179,10 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
      *
      * Requirements:
      *
-     * - `sender` and `recipient` must be allowed to hold stake.
-     * - `sender` must have a balance of at least `amount`.
-     * - the caller must have allowance for ``sender``'s tokens of at least
-     * `amount`.
+     * - `_sender` and `_recipient` must be allowed to hold stake.
+     * - `_sender` must have a balance of at least `_amount`.
+     * - the caller must have allowance for ``_sender``'s tokens of at least
+     * `_amount`.
      */
     function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual returns (bool) {
         uint256 _currentAllowance = allowances[_sender][msg.sender];
@@ -323,9 +323,9 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
     }
 
     /**
-     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
+     * @dev Sets `_amount` as the allowance of `_spender` over the `_owner` s tokens.
      *
-     * This internal function is equivalent to `approve`, and can be used to
+     * This internal function is equivalent to `_approve`, and can be used to
      * e.g. set automatic allowances for certain subsystems, etc.
      *
      * Emits an {Approval} event.
@@ -358,7 +358,7 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
      * @notice Calculates the total claimable fees (ATN and NTN) earned by the delegator to-date.
      * @param _account Delegator account.
      */
-    function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN) {
+    function unclaimedRewards(address _account) external virtual view returns (uint256 _unclaimedATN, uint256 _unclaimedNTN) {
         uint256 _balance = balances[_account];
         uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, atnLastUnrealisedFeeFactor, atnUnrealisedFeeFactors[_account]);
         _unclaimedATN = atnRealisedFees[_account] + _atnUnrealisedFee;
@@ -377,59 +377,63 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
      * @return uint8 the number of decimals the LNTN token uses.
      * @dev ERC-20 Optional.
      */
-    function decimals() external pure returns (uint8) {
+    function decimals() external virtual pure returns (uint8) {
         return DECIMALS;
     }
 
     /**
      * @notice Returns the amount of liquid newtons held by the account (ERC-20).
      */
-    function balanceOf(address _delegator) external view returns (uint256) {
+    function balanceOf(address _delegator) external virtual view returns (uint256) {
         return balances[_delegator];
     }
 
     /**
      * @notice Returns the amount of locked liquid newtons held by the account.
      */
-    function lockedBalanceOf(address _delegator) external view returns (uint256) {
+    function lockedBalanceOf(address _delegator) external virtual view returns (uint256) {
         return lockedBalances[_delegator];
     }
 
     /**
      * @notice Returns the amount of unlocked liquid newtons held by the account.
      */
-    function unlockedBalanceOf(address _delegator) external view returns (uint256) {
+    function unlockedBalanceOf(address _delegator) external virtual view returns (uint256) {
         return  balances[_delegator] - lockedBalances[_delegator];
     }
 
     /**
-     * @dev See {IERC20-allowance}.
+     * @notice See {IERC20-allowance}.
      */
-    function allowance(address _owner, address _spender) external view returns (uint256) {
+    function allowance(address _owner, address _spender) external virtual view returns (uint256) {
         return allowances[_owner][_spender];
     }
 
-    function name() external view returns (string memory) {
+    function name() external virtual view returns (string memory) {
         return liquidName;
     }
 
-    function symbol() external view returns (string memory) {
+    function symbol() external virtual view returns (string memory) {
         return liquidSymbol;
     }
 
-    function getValidator() external view returns (address) {
+    function getValidator() external virtual view returns (address) {
         return validator;
     }
 
-    function getTreasury() external view returns (address) {
+    function getTreasury() external virtual view returns (address) {
         return treasury;
     }
 
-    function getCommissionRate() external view returns (uint256) {
+    function getCommissionRate() external virtual view returns (uint256) {
         return commissionRate;
     }
 
-    function getTreasuryUnclaimedATN() external view returns (uint256) {
+    /**
+     * @notice Returns the ATN amount that is yet to claim by treasury.
+     * Call function `claimTreasuryATN()` to claim.
+     */
+    function getTreasuryUnclaimedATN() external virtual view returns (uint256) {
         return treasuryUnclaimedATN;
     }
 
