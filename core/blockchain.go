@@ -539,7 +539,6 @@ func (bc *BlockChain) loadLastState() error {
 	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
 	bc.log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(int64(currentHeader.Time), 0)))
-	bc.log.Info("Loaded most recent local epoch block", "number", epochBlock.Number(), "hash", epochBlock.Hash(), "previousEpochBlock", epochBlock.Header().Epoch.PreviousEpochBlock, "curEpochBlock", epochBlock.Number(), "nextEpochBlock", epochBlock.Header().Epoch.NextEpochBlock)
 	bc.log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd, "age", common.PrettyAge(time.Unix(int64(currentBlock.Time()), 0)))
 	bc.log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd, "age", common.PrettyAge(time.Unix(int64(currentFastBlock.Time()), 0)))
 	if pivot := rawdb.ReadLastPivotNumber(bc.db); pivot != nil {
