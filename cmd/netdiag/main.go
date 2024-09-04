@@ -90,6 +90,10 @@ var (
 		Name: "log-download",
 	}
 
+	skipLatencyBroadcastFlag = cli.BoolFlag{
+		Name: "skip-broadcast",
+	}
+
 	setupCommand = cli.Command{
 		Action:    setup,
 		Name:      "setup",
@@ -176,6 +180,7 @@ The run command start a local runner`,
 			configFlag,
 			idFlag,
 			networkModeFlag,
+			skipLatencyBroadcastFlag,
 			pprofFlag,
 		},
 		Description: `The execute command executes a strategy and collects statistics`,
@@ -628,15 +633,19 @@ func execute(c *cli.Context) error {
 		return errInvalidInput
 	}
 
-	log.Info("Triggering latency broadcast")
-	err = client.Call("P2POp.TriggerLatencyBroadcast", strategy, &api.ArgEmpty{})
-	if err != nil {
-		log.Error("RPC call failed", "err", err)
-		return err
+	if c.Bool(skipLatencyBroadcastFlag.Name) {
+		log.Info("Skipping latency broadcast")
+	} else {
+		log.Info("Triggering latency broadcast")
+		err = client.Call("P2POp.TriggerLatencyBroadcast", strategy, &api.ArgEmpty{})
+		if err != nil {
+			log.Error("RPC call failed", "err", err)
+			return err
+		}
+		// Wait for broadcast to complete
+		log.Info("Waiting for broadcast to complete..")
+		time.Sleep(5 * time.Second)
 	}
-	// Wait for broadcast to complete
-	log.Info("Waiting for broadcast to complete..")
-	time.Sleep(5 * time.Second)
 
 	// check graph ready
 	log.Info("Checking if graph is ready for dissemination")

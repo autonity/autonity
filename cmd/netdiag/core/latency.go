@@ -51,6 +51,11 @@ func pingIcmp(address string) <-chan *probing.Statistics {
 }
 
 func PingPeers(e *Engine) []probing.Statistics {
+	// small cache to avoid pinging multiple times
+	if e.State.PingResults != nil {
+		log.Debug("Using cached ping results", "results", e.State.PingResults)
+		return e.State.PingResults
+	}
 	replyChannels := make([]<-chan *probing.Statistics, len(e.Peers))
 	results := make([]probing.Statistics, len(e.Peers))
 	for i, peer := range e.Peers {
@@ -67,10 +72,11 @@ func PingPeers(e *Engine) []probing.Statistics {
 		peerStats := <-ch
 		results[i] = *peerStats
 	}
+	e.State.PingResults = results
 	return results
 }
 
-func BroadcastLatency(e *Engine, strategy uint64, latency []time.Duration) error {
+func BroadcastLatency(e *Engine, strategy uint64, latency []probing.Statistics) error {
 	errs := make([]error, len(e.Peers))
 	acks := make([]bool, len(e.Peers))
 	var hasError atomic.Bool
@@ -90,7 +96,7 @@ func BroadcastLatency(e *Engine, strategy uint64, latency []time.Duration) error
 
 		wg.Add(1)
 		go func(id int, peer *Peer) {
-			_, _, err := peer.SendLatencyArray(strategy, latency)
+			_, _, err := peer.SendLatencyArray(strategy, FilterAveRtt(latency))
 			if err != nil {
 				hasError.Store(true)
 				errs[id] = err

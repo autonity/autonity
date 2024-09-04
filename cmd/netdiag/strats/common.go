@@ -2,6 +2,8 @@ package strats
 
 import (
 	"time"
+
+	probing "github.com/prometheus-community/pro-bing"
 )
 
 var StrategyRegistry []registeredStrategy
@@ -44,7 +46,7 @@ type State struct {
 	ReceivedReports map[uint64]chan *IndividualDisseminateResult
 	AverageRTT      []time.Duration
 	LatencyMatrix   [][]time.Duration
-	PingReceived    bool
+	PingResults     []probing.Statistics
 	InfoChannel     chan any
 }
 

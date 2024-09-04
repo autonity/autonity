@@ -12,18 +12,9 @@ import (
 
 func (p *P2POp) TriggerLatencyBroadcast(arg *ArgStrategy, _ *ArgEmpty) error {
 	// first set our own latency matrix
-	if !p.Engine.State.PingReceived {
-		latency := core.PingPeers(p.Engine)
-		p.Engine.State.LatencyMatrix[p.Engine.Id] = core.FilterAveRtt(latency)
-		p.Engine.State.PingReceived = true
-		for peerId, l := range p.Engine.State.LatencyMatrix[p.Engine.Id] {
-			if p.Engine.Id != peerId && l == 0 {
-				p.Engine.State.PingReceived = false
-				break
-			}
-		}
-	}
-	if err := core.BroadcastLatency(p.Engine, uint64(arg.Strategy), p.Engine.State.LatencyMatrix[p.Engine.Id]); err != nil {
+	latency := core.PingPeers(p.Engine)
+	p.Engine.State.LatencyMatrix[p.Engine.Id] = core.FilterAveRtt(latency)
+	if err := core.BroadcastLatency(p.Engine, uint64(arg.Strategy), latency); err != nil {
 		return fmt.Errorf("error in broadcast latency: %s", err.Error())
 	}
 	return core.TriggerLatencyBroadcast(p.Engine, uint64(arg.Strategy))
