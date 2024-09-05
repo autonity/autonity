@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.3;
 import "../interfaces/ILiquidLogic.sol";
-import "../interfaces/IStakeProxy.sol";
 import "./LiquidStorage.sol";
 
 // References:
@@ -136,11 +135,6 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
             require(_sent, "Failed to send NTN");
         }
 
-        // Send the AUT
-        if (_isContract(msg.sender)) {
-            IStakeProxy(msg.sender).receiveATN{value: _atnRealisedFees}();
-            return;
-        }
         //   solhint-disable-next-line avoid-low-level-calls
         (_sent, ) = msg.sender.call{value: _atnRealisedFees}("");
         require(_sent, "Failed to send ATN");
@@ -340,19 +334,19 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
         emit Approval(_owner, _spender, _amount);
     }
 
-    function _isContract(address _to) private view returns (bool) {
-        uint _size;
-        assembly {
-            _size := extcodesize(_to)
-        }
-        return _size > 0;
-    }
-
     /*
      ============================================================
         Getters
      ============================================================
      */
+
+    /**
+     * @notice Returns the fees that are realised until this point.
+     * @param _account account address
+     */
+    function realisedFees(address _account) external virtual view returns (uint256, uint256) {
+        return (atnRealisedFees[_account], ntnRealisedFees[_account]);
+    }
 
     /**
      * @notice Calculates the total claimable fees (ATN and NTN) earned by the delegator to-date.

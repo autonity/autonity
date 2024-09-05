@@ -11,6 +11,7 @@ interface ILiquidLogic is IERC20 {
     function claimTreasuryATN() external;
     function burn(address _account, uint256 _amount) external;
     function redistribute(uint256 _ntnReward) external payable returns (uint256, uint256);
+    function realisedFees(address _account) external view returns (uint256, uint256);
     function unclaimedRewards(address _account) external view returns(uint256 _unclaimedATN, uint256 _unclaimedNTN);
     function decimals() external pure returns (uint8);
     function lockedBalanceOf(address _delegator) external view returns (uint256);

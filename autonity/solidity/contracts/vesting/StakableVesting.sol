@@ -408,7 +408,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
 
     function _updateAndTransferLNTN(uint256 _contractID, address _to, uint256 _amount, address _validator) internal {
         _burnLiquid(_contractID, _validator, _amount, _getEpochID()-1);
-        bool _sent = ILiquidLogic(_liquidStateContract(_validator)).transfer(_to, _amount);
+        bool _sent = _liquidStateContract(_validator).transfer(_to, _amount);
         require(_sent, "LNTN transfer failed");
 
         // this transfer decreases the total liquid balance, which will affect pending reward event

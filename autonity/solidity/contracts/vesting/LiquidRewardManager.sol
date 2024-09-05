@@ -313,7 +313,7 @@ contract LiquidRewardManager {
         // if there is already a pending event, replacing it is fine
         _rewardTracker.pendingRewardEvent = RewardEvent(
             _getEpochID(),
-            _liquidContract(_validator).balanceOf(address(this)),
+            _liquidStateContract(_validator).balanceOf(address(this)),
             _stakingRequestID,
             _isBonding,
             true,
@@ -330,7 +330,7 @@ contract LiquidRewardManager {
         RewardTracker storage _rewardTracker = rewardTracker[_validator];
         RewardEvent storage _pending = _rewardTracker.pendingRewardEvent;
         if (_pending.eventExist == true && _pending.epochID == _getEpochID()) {
-            _pending.totalLiquid = _liquidContract(_validator).balanceOf(address(this));
+            _pending.totalLiquid = _liquidStateContract(_validator).balanceOf(address(this));
         }
     }
 
@@ -425,7 +425,7 @@ contract LiquidRewardManager {
         // as we are fetching the last reward, input epochID needs to match last epochID
         // for which rewards are distributed
         require(_getEpochID()-1 == _epochID, "cannot update rewards for input epochID");
-        Liquid _contract = _liquidContract(_validator);
+        ILiquidLogic _contract = _liquidStateContract(_validator);
         (uint256 _atnReward, uint256 _ntnReward) = _contract.unclaimedRewards(address(this));
         _updateLastUnrealisedFeeFactor(_rewardTracker, _epochID, _atnReward, _ntnReward, _contract.balanceOf(address(this)));
 
@@ -551,7 +551,7 @@ contract LiquidRewardManager {
 
         // need to fetch latest reward update
         require(_epochID == _getEpochID()-1, "cannot generate unrealised fee factor");
-        (_atnFeeFactorFetched, _ntnFeeFactorFetched) = _unfetchedFeeFactor(_rewardTracker.liquidContract, _atnReward, _ntnReward);
+        (_atnFeeFactorFetched, _ntnFeeFactorFetched) = _unfetchedFeeFactor(_rewardTracker.liquidStateContract, _atnReward, _ntnReward);
         _atnUnrealisedFeeFactor += _atnFeeFactorFetched;
         _ntnUnrealisedFeeFactor += _ntnFeeFactorFetched;
     }
