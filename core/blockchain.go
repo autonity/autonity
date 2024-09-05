@@ -703,7 +703,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 }
 
 // SnapSyncCommitHead sets the current head block to the one defined by the hash
-// irrelevant what the chain contents were prior.
+// irrelevant what the chain contents were prior, it updates the corresponding chain head markers.
 func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 	// Make sure that both the block as well at its state trie exists
 	block := bc.GetBlockByHash(hash)
@@ -718,13 +718,12 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 	if !bc.chainmu.TryLock() {
 		return errChainStopped
 	}
+
+	// update chain head markers as this pivot block is resolved for the completion of snap sync.
+	// from now on, it will start full sync.
 	bc.currentBlock.Store(block)
 	headBlockGauge.Update(int64(block.NumberU64()))
-	// On snap sync mode, this function commits a pivot block as the current chain head, if the pivot is an epoch block,
-	// we need to update the markers in DB and in-memory. Note that as pivot block cannot always be an epoch block,
-	// thus the pivot's corresponding epoch block could be missing from the snap sync, which could causes header verification
-	// failure after pivot. In this scenario, the epoch info will be fetched from the state DB as snap sync dumps and
-	// replicates the entire world state of pivot block.
+	// update epoch header markers as well if the pivot block is an epoch head.
 	if block.IsEpochHead() {
 		batch := bc.db.NewBatch()
 		rawdb.WriteEpochBlockHash(batch, block.Hash())

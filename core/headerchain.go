@@ -116,9 +116,9 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 
 	// load head epoch header from db on start up.
 	hc.currentEpochHeader.Store(hc.genesisHeader)
-	if eHead := rawdb.ReadEpochHeaderHash(chainDb); eHead != (common.Hash{}) {
-		if cEHead := hc.GetHeaderByHash(eHead); cEHead != nil {
-			hc.currentEpochHeader.Store(cEHead)
+	if hash := rawdb.ReadEpochHeaderHash(chainDb); hash != (common.Hash{}) {
+		if curEpochHead := hc.GetHeaderByHash(hash); curEpochHead != nil {
+			hc.currentEpochHeader.Store(curEpochHead)
 		}
 	}
 	headEpochHeaderGauge.Update(hc.CurrentHeadEpochHeader().Number.Int64())

@@ -47,17 +47,17 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	}
 
 	// the latest epoch head should be in the most case.
-	committee, _, curEHead, nextEHead, err := bc.LatestEpoch()
+	committee, _, curEpochHead, nextEpochHead, err := bc.LatestEpoch()
 	if err != nil {
 		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
 	}
 
-	if height > curEHead && height <= nextEHead {
+	if height > curEpochHead && height <= nextEpochHead {
 		bc.committeeCache.Add(height, committee)
 		return committee, nil
 	}
 
-	if height > nextEHead {
+	if height > nextEpochHead {
 		return nil, ErrHeightTooFuture
 	}
 

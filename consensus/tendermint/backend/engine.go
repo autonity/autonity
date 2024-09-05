@@ -83,18 +83,18 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 	}
 
 	// get latest epoch info for signature checks and epoch boundary checks latter on.
-	committee, _, curEHead, nexEHead, err := chain.LatestEpoch()
+	committee, _, cureEpochHead, nextEpochHead, err := chain.LatestEpoch()
 	if err != nil {
 		return err
 	}
 
-	return sb.verifyHeader(chain, header, parent, committee, curEHead, nexEHead)
+	return sb.verifyHeader(chain, header, parent, committee, cureEpochHead, nextEpochHead)
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
 // to be provided unless header is the genesis header, it expects the epoch header chain to be linked correctly as well.
 func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
-	committee *types.Committee, curEpochHead, nextEHead uint64) error {
+	committee *types.Committee, curEpochHead, nextEpochHead uint64) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -145,9 +145,9 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	}
 
 	// inserting header number should pass the corresponding epoch boundary check.
-	if header.Number.Uint64() <= curEpochHead || header.Number.Uint64() > nextEHead {
+	if header.Number.Uint64() <= curEpochHead || header.Number.Uint64() > nextEpochHead {
 		sb.logger.Error("header is out of epoch range",
-			"height", header.Number.Uint64(), "curEpochHead", curEpochHead, "nextEpochHead", nextEHead)
+			"height", header.Number.Uint64(), "curEpochHead", curEpochHead, "nextEpochHead", nextEpochHead)
 		return consensus.ErrOutOfEpochRange
 	}
 
@@ -159,7 +159,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 			return consensus.ErrInvalidEpochInfo
 		}
 
-		if nextEHead != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != curEpochHead {
+		if nextEpochHead != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != curEpochHead {
 			return consensus.ErrInvalidEpochBoundary
 		}
 	}
@@ -197,11 +197,11 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
+	committee, _, curEpochHead, nextEpochHead, err := chain.LatestEpoch()
+	if err != nil {
+		panic(err)
+	}
 	go func() {
-		committee, _, curEHead, nextEHead, err := chain.LatestEpoch()
-		if err != nil {
-			panic(err)
-		}
 		for i, header := range headers {
 			var parent *types.Header
 			switch {
@@ -211,14 +211,18 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				parent = chain.GetHeaderByHash(header.ParentHash)
 			}
 
-			// check header against parent and parent epoch head.
-			err = sb.verifyHeader(chain, header, parent, committee, curEHead, nextEHead)
-
+			if parent == nil {
+				sb.logger.Error("VerifyHeaders", "cannot find parent header", header.ParentHash)
+				err = consensus.ErrUnknownAncestor
+			} else {
+				// check header against parent and parent epoch head.
+				err = sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead)
+			}
 			// if the processing header is a new epoch header, update the epoch info for un-processed headers .
 			if header.IsEpochHeader() {
 				committee = header.Epoch.Committee
-				curEHead = header.Number.Uint64()
-				nextEHead = header.Epoch.NextEpochBlock.Uint64()
+				curEpochHead = header.Number.Uint64()
+				nextEpochHead = header.Epoch.NextEpochBlock.Uint64()
 			}
 
 			select {
