@@ -184,7 +184,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
-    // epochInfos, saves epoch info for per epoch in the history
+    // epochInfos, save epoch info per epoch in the history
     mapping(uint256=>EpochInfo) internal epochInfos;
 
     CommitteeMember[] internal committee;
