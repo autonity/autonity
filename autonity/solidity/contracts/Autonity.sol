@@ -324,7 +324,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // init epoch info for genesis deployment of contract.
         blockEpochMap[block.number] = epochID; // genesis block is mapped to the 1st epoch with epoch #0
         previousEpochBlock = 0;
-        nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
+        nextEpochBlock = config.protocol.epochPeriod;
         // add epochID => Epoch info mapping for genesis block.
         _addEpochInfo(epochID, EpochInfo(committee, previousEpochBlock, block.number, nextEpochBlock));
     }
