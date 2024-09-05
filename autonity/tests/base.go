@@ -98,15 +98,6 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, 
 	return res, consumed, nil
 }
 
-// call a contract function and then revert. helpful to get output of the function without changing state.
-// similar to making a method.call() in truffle
-func (c *contract) SimulateCall(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
-	snap := c.r.snapshot()
-	out, consumed, err := c.CallMethod(methodHouse, opts, method, params...)
-	c.r.revertSnapshot(snap)
-	return out, consumed, err
-}
-
 // call a method that does not belong to the contract, `c`.
 // instead the method can be found in the contract, `methodHouse`.
 func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
@@ -160,34 +151,17 @@ type Runner struct {
 	Committee Committee // genesis validators for easy access
 }
 
-func (r *Runner) CallNoError(output []any, gasConsumed uint64, err error) ([]any, uint64) {
-	require.NoError(r.T, err)
-	return output, gasConsumed
-}
-
 func (r *Runner) NoError(gasConsumed uint64, err error) uint64 {
 	require.NoError(r.T, err)
 	return gasConsumed
 }
 
-// returns an object of LiquidLogic contract with address set to 0
-func (r *Runner) LiquidLogicContractObject() *LiquidLogic {
-	parsed, err := LiquidLogicMetaData.GetAbi()
+func (r *Runner) LiquidStateContract(validatorAddress common.Address) *ILiquidLogic {
+	validator, _, err := r.Autonity.GetValidator(nil, validatorAddress)
 	require.NoError(r.T, err)
-	require.NotEqual(r.T, nil, parsed)
-	return &LiquidLogic{
-		contract: &contract{
-			common.Address{},
-			parsed,
-			r,
-		},
-	}
-}
-
-func (r *Runner) LiquidStateContract(v AutonityValidator) *ILiquidLogic {
 	abi, err := ILiquidLogicMetaData.GetAbi()
 	require.NoError(r.T, err)
-	return &ILiquidLogic{&contract{v.LiquidStateContract, abi, r}}
+	return &ILiquidLogic{&contract{validator.LiquidStateContract, abi, r}}
 }
 
 func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -301,7 +275,7 @@ func (r *Runner) generateNewCommittee() {
 		validator, _, err := r.Autonity.GetValidator(nil, member.Addr)
 		require.NoError(r.T, err)
 		r.Committee.Validators[i] = validator
-		r.Committee.LiquidStateContracts[i] = r.LiquidStateContract(validator)
+		r.Committee.LiquidStateContracts[i] = r.LiquidStateContract(validator.NodeAddress)
 	}
 }
 
@@ -383,7 +357,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	for _, v := range params.TestAutonityContractConfig.Validators {
 		validator, _, err := r.Autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.T, err)
-		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.LiquidStateContract(validator))
+		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.LiquidStateContract(validator.NodeAddress))
 	}
 	//
 	// Step 2: Accountability Contract Deployment
