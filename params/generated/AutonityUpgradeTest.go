@@ -1,7 +1,8 @@
 package generated
 
-import (
-	"strings"
+import "strings"
+import "github.com/autonity/autonity/accounts/abi"
+import "github.com/autonity/autonity/common"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
@@ -1335,7 +1336,7 @@ var AutonityUpgradeTestAbi, _ = abi.JSON(strings.NewReader(`[
                   "type" : "uint256"
                },
                {
-                  "internalType" : "address payable",
+                  "internalType" : "contract ILiquidLogic",
                   "name" : "liquidStateContract",
                   "type" : "address"
                },
@@ -1494,58 +1495,6 @@ var AutonityUpgradeTestAbi, _ = abi.JSON(strings.NewReader(`[
             "internalType" : "address",
             "name" : "",
             "type" : "address"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "maxBondAppliedGas",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "maxRewardsDistributionGas",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "maxUnbondAppliedGas",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
-         }
-      ],
-      "stateMutability" : "view",
-      "type" : "function"
-   },
-   {
-      "inputs" : [],
-      "name" : "maxUnbondReleasedGas",
-      "outputs" : [
-         {
-            "internalType" : "uint256",
-            "name" : "",
-            "type" : "uint256"
          }
       ],
       "stateMutability" : "view",
@@ -2011,7 +1960,7 @@ var AutonityUpgradeTestAbi, _ = abi.JSON(strings.NewReader(`[
                   "type" : "uint256"
                },
                {
-                  "internalType" : "address payable",
+                  "internalType" : "contract ILiquidLogic",
                   "name" : "liquidStateContract",
                   "type" : "address"
                },

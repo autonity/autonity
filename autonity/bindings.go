@@ -2217,10 +2217,6 @@ var AutonityMetaData = &bind.MetaData{
 		"89c614b8": "lastEpochTime()",
 		"ae1da0b5": "lastFinalizedBlock()",
 		"96f18a32": "liquidLogicContract()",
-		"cef98450": "maxBondAppliedGas()",
-		"5bdedd16": "maxRewardsDistributionGas()",
-		"386a827b": "maxUnbondAppliedGas()",
-		"71d1bc59": "maxUnbondReleasedGas()",
 		"40c10f19": "mint(address,uint256)",
 		"06fdde03": "name()",
 		"0ae65e7a": "pauseValidator(address)",
@@ -3661,130 +3657,6 @@ func (_Autonity *AutonitySession) LiquidLogicContract() (common.Address, error) 
 // Solidity: function liquidLogicContract() view returns(address)
 func (_Autonity *AutonityCallerSession) LiquidLogicContract() (common.Address, error) {
 	return _Autonity.Contract.LiquidLogicContract(&_Autonity.CallOpts)
-}
-
-// MaxBondAppliedGas is a free data retrieval call binding the contract method 0xcef98450.
-//
-// Solidity: function maxBondAppliedGas() view returns(uint256)
-func (_Autonity *AutonityCaller) MaxBondAppliedGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "maxBondAppliedGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxBondAppliedGas is a free data retrieval call binding the contract method 0xcef98450.
-//
-// Solidity: function maxBondAppliedGas() view returns(uint256)
-func (_Autonity *AutonitySession) MaxBondAppliedGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxBondAppliedGas(&_Autonity.CallOpts)
-}
-
-// MaxBondAppliedGas is a free data retrieval call binding the contract method 0xcef98450.
-//
-// Solidity: function maxBondAppliedGas() view returns(uint256)
-func (_Autonity *AutonityCallerSession) MaxBondAppliedGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxBondAppliedGas(&_Autonity.CallOpts)
-}
-
-// MaxRewardsDistributionGas is a free data retrieval call binding the contract method 0x5bdedd16.
-//
-// Solidity: function maxRewardsDistributionGas() view returns(uint256)
-func (_Autonity *AutonityCaller) MaxRewardsDistributionGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "maxRewardsDistributionGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxRewardsDistributionGas is a free data retrieval call binding the contract method 0x5bdedd16.
-//
-// Solidity: function maxRewardsDistributionGas() view returns(uint256)
-func (_Autonity *AutonitySession) MaxRewardsDistributionGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxRewardsDistributionGas(&_Autonity.CallOpts)
-}
-
-// MaxRewardsDistributionGas is a free data retrieval call binding the contract method 0x5bdedd16.
-//
-// Solidity: function maxRewardsDistributionGas() view returns(uint256)
-func (_Autonity *AutonityCallerSession) MaxRewardsDistributionGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxRewardsDistributionGas(&_Autonity.CallOpts)
-}
-
-// MaxUnbondAppliedGas is a free data retrieval call binding the contract method 0x386a827b.
-//
-// Solidity: function maxUnbondAppliedGas() view returns(uint256)
-func (_Autonity *AutonityCaller) MaxUnbondAppliedGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "maxUnbondAppliedGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxUnbondAppliedGas is a free data retrieval call binding the contract method 0x386a827b.
-//
-// Solidity: function maxUnbondAppliedGas() view returns(uint256)
-func (_Autonity *AutonitySession) MaxUnbondAppliedGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxUnbondAppliedGas(&_Autonity.CallOpts)
-}
-
-// MaxUnbondAppliedGas is a free data retrieval call binding the contract method 0x386a827b.
-//
-// Solidity: function maxUnbondAppliedGas() view returns(uint256)
-func (_Autonity *AutonityCallerSession) MaxUnbondAppliedGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxUnbondAppliedGas(&_Autonity.CallOpts)
-}
-
-// MaxUnbondReleasedGas is a free data retrieval call binding the contract method 0x71d1bc59.
-//
-// Solidity: function maxUnbondReleasedGas() view returns(uint256)
-func (_Autonity *AutonityCaller) MaxUnbondReleasedGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Autonity.contract.Call(opts, &out, "maxUnbondReleasedGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxUnbondReleasedGas is a free data retrieval call binding the contract method 0x71d1bc59.
-//
-// Solidity: function maxUnbondReleasedGas() view returns(uint256)
-func (_Autonity *AutonitySession) MaxUnbondReleasedGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxUnbondReleasedGas(&_Autonity.CallOpts)
-}
-
-// MaxUnbondReleasedGas is a free data retrieval call binding the contract method 0x71d1bc59.
-//
-// Solidity: function maxUnbondReleasedGas() view returns(uint256)
-func (_Autonity *AutonityCallerSession) MaxUnbondReleasedGas() (*big.Int, error) {
-	return _Autonity.Contract.MaxUnbondReleasedGas(&_Autonity.CallOpts)
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
@@ -7181,10 +7053,6 @@ var AutonityUpgradeTestMetaData = &bind.MetaData{
 		"89c614b8": "lastEpochTime()",
 		"ae1da0b5": "lastFinalizedBlock()",
 		"96f18a32": "liquidLogicContract()",
-		"cef98450": "maxBondAppliedGas()",
-		"5bdedd16": "maxRewardsDistributionGas()",
-		"386a827b": "maxUnbondAppliedGas()",
-		"71d1bc59": "maxUnbondReleasedGas()",
 		"40c10f19": "mint(address,uint256)",
 		"06fdde03": "name()",
 		"0ae65e7a": "pauseValidator(address)",
@@ -8598,6 +8466,7 @@ func (_AutonityUpgradeTest *AutonityUpgradeTestCallerSession) LastFinalizedBlock
 
 // LiquidLogicContract is a free data retrieval call binding the contract method 0x96f18a32.
 //
+// Solidity: function liquidLogicContract() view returns(address)
 func (_AutonityUpgradeTest *AutonityUpgradeTestCaller) LiquidLogicContract(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _AutonityUpgradeTest.contract.Call(opts, &out, "liquidLogicContract")
@@ -8626,131 +8495,9 @@ func (_AutonityUpgradeTest *AutonityUpgradeTestCallerSession) LiquidLogicContrac
 	return _AutonityUpgradeTest.Contract.LiquidLogicContract(&_AutonityUpgradeTest.CallOpts)
 }
 
-// MaxBondAppliedGas is a free data retrieval call binding the contract method 0xcef98450.
-//
-// Solidity: function maxBondAppliedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCaller) MaxBondAppliedGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _AutonityUpgradeTest.contract.Call(opts, &out, "maxBondAppliedGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxBondAppliedGas is a free data retrieval call binding the contract method 0xcef98450.
-//
-// Solidity: function maxBondAppliedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestSession) MaxBondAppliedGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxBondAppliedGas(&_AutonityUpgradeTest.CallOpts)
-}
-
-// MaxBondAppliedGas is a free data retrieval call binding the contract method 0xcef98450.
-//
-// Solidity: function maxBondAppliedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCallerSession) MaxBondAppliedGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxBondAppliedGas(&_AutonityUpgradeTest.CallOpts)
-}
-
-// MaxRewardsDistributionGas is a free data retrieval call binding the contract method 0x5bdedd16.
-//
-// Solidity: function maxRewardsDistributionGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCaller) MaxRewardsDistributionGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _AutonityUpgradeTest.contract.Call(opts, &out, "maxRewardsDistributionGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxRewardsDistributionGas is a free data retrieval call binding the contract method 0x5bdedd16.
-//
-// Solidity: function maxRewardsDistributionGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestSession) MaxRewardsDistributionGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxRewardsDistributionGas(&_AutonityUpgradeTest.CallOpts)
-}
-
-// MaxRewardsDistributionGas is a free data retrieval call binding the contract method 0x5bdedd16.
-//
-// Solidity: function maxRewardsDistributionGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCallerSession) MaxRewardsDistributionGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxRewardsDistributionGas(&_AutonityUpgradeTest.CallOpts)
-}
-
-// MaxUnbondAppliedGas is a free data retrieval call binding the contract method 0x386a827b.
-//
-// Solidity: function maxUnbondAppliedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCaller) MaxUnbondAppliedGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _AutonityUpgradeTest.contract.Call(opts, &out, "maxUnbondAppliedGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxUnbondAppliedGas is a free data retrieval call binding the contract method 0x386a827b.
-//
-// Solidity: function maxUnbondAppliedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestSession) MaxUnbondAppliedGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxUnbondAppliedGas(&_AutonityUpgradeTest.CallOpts)
-}
-
-// MaxUnbondAppliedGas is a free data retrieval call binding the contract method 0x386a827b.
-//
-// Solidity: function maxUnbondAppliedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCallerSession) MaxUnbondAppliedGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxUnbondAppliedGas(&_AutonityUpgradeTest.CallOpts)
-}
-
-// MaxUnbondReleasedGas is a free data retrieval call binding the contract method 0x71d1bc59.
-//
-// Solidity: function maxUnbondReleasedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCaller) MaxUnbondReleasedGas(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _AutonityUpgradeTest.contract.Call(opts, &out, "maxUnbondReleasedGas")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// MaxUnbondReleasedGas is a free data retrieval call binding the contract method 0x71d1bc59.
-//
-// Solidity: function maxUnbondReleasedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestSession) MaxUnbondReleasedGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxUnbondReleasedGas(&_AutonityUpgradeTest.CallOpts)
-}
-
-// MaxUnbondReleasedGas is a free data retrieval call binding the contract method 0x71d1bc59.
-//
-// Solidity: function maxUnbondReleasedGas() view returns(uint256)
-func (_AutonityUpgradeTest *AutonityUpgradeTestCallerSession) MaxUnbondReleasedGas() (*big.Int, error) {
-	return _AutonityUpgradeTest.Contract.MaxUnbondReleasedGas(&_AutonityUpgradeTest.CallOpts)
-}
-
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
+//
+// Solidity: function name() pure returns(string)
 func (_AutonityUpgradeTest *AutonityUpgradeTestCaller) Name(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _AutonityUpgradeTest.contract.Call(opts, &out, "name")
@@ -14804,7 +14551,7 @@ func (_IInflationController *IInflationControllerCallerSession) CalculateSupplyD
 
 // ILiquidLogicMetaData contains all meta data concerning the ILiquidLogic contract.
 var ILiquidLogicMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimTreasuryATN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommissionRate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasury\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasuryUnclaimedATN\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValidator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"lock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"lockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"name\":\"redistribute\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rate\",\"type\":\"uint256\"}],\"name\":\"setCommissionRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_unclaimedATN\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_unclaimedNTN\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"unlockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimTreasuryATN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommissionRate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasury\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasuryUnclaimedATN\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValidator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"lock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"lockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"realisedFees\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"name\":\"redistribute\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rate\",\"type\":\"uint256\"}],\"name\":\"setCommissionRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_unclaimedATN\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_unclaimedNTN\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"unlockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 	Sigs: map[string]string{
 		"dd62ed3e": "allowance(address,address)",
 		"095ea7b3": "approve(address,uint256)",
@@ -14821,6 +14568,7 @@ var ILiquidLogicMetaData = &bind.MetaData{
 		"59355736": "lockedBalanceOf(address)",
 		"40c10f19": "mint(address,uint256)",
 		"06fdde03": "name()",
+		"58af672c": "realisedFees(address)",
 		"a0ce552d": "redistribute(uint256)",
 		"19fac8fd": "setCommissionRate(uint256)",
 		"95d89b41": "symbol()",
@@ -15260,6 +15008,38 @@ func (_ILiquidLogic *ILiquidLogicSession) Name() (string, error) {
 // Solidity: function name() view returns(string)
 func (_ILiquidLogic *ILiquidLogicCallerSession) Name() (string, error) {
 	return _ILiquidLogic.Contract.Name(&_ILiquidLogic.CallOpts)
+}
+
+// RealisedFees is a free data retrieval call binding the contract method 0x58af672c.
+//
+// Solidity: function realisedFees(address _account) view returns(uint256, uint256)
+func (_ILiquidLogic *ILiquidLogicCaller) RealisedFees(opts *bind.CallOpts, _account common.Address) (*big.Int, *big.Int, error) {
+	var out []interface{}
+	err := _ILiquidLogic.contract.Call(opts, &out, "realisedFees", _account)
+
+	if err != nil {
+		return *new(*big.Int), *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	out1 := *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+
+	return out0, out1, err
+
+}
+
+// RealisedFees is a free data retrieval call binding the contract method 0x58af672c.
+//
+// Solidity: function realisedFees(address _account) view returns(uint256, uint256)
+func (_ILiquidLogic *ILiquidLogicSession) RealisedFees(_account common.Address) (*big.Int, *big.Int, error) {
+	return _ILiquidLogic.Contract.RealisedFees(&_ILiquidLogic.CallOpts, _account)
+}
+
+// RealisedFees is a free data retrieval call binding the contract method 0x58af672c.
+//
+// Solidity: function realisedFees(address _account) view returns(uint256, uint256)
+func (_ILiquidLogic *ILiquidLogicCallerSession) RealisedFees(_account common.Address) (*big.Int, *big.Int, error) {
+	return _ILiquidLogic.Contract.RealisedFees(&_ILiquidLogic.CallOpts, _account)
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -18111,7 +17891,7 @@ func (_InflationController *InflationControllerCallerSession) Params() (struct {
 
 // LiquidLogicMetaData contains all meta data concerning the LiquidLogic contract.
 var LiquidLogicMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"COMMISSION_RATE_PRECISION\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"FEE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimTreasuryATN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommissionRate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasury\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasuryUnclaimedATN\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValidator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"lock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"lockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"name\":\"redistribute\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rate\",\"type\":\"uint256\"}],\"name\":\"setCommissionRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"_success\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_unclaimedATN\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_unclaimedNTN\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"unlockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"COMMISSION_RATE_PRECISION\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"FEE_FACTOR_UNIT_RECIP\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimRewards\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"claimTreasuryATN\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommissionRate\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasury\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasuryUnclaimedATN\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValidator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"lock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"lockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"realisedFees\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_ntnReward\",\"type\":\"uint256\"}],\"name\":\"redistribute\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_rate\",\"type\":\"uint256\"}],\"name\":\"setCommissionRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"_success\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"unclaimedRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"_unclaimedATN\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_unclaimedNTN\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unlock\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_delegator\",\"type\":\"address\"}],\"name\":\"unlockedBalanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
 	Sigs: map[string]string{
 		"2f2c3f2e": "COMMISSION_RATE_PRECISION()",
 		"187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
@@ -18654,6 +18434,38 @@ func (_LiquidLogic *LiquidLogicSession) Name() (string, error) {
 // Solidity: function name() view returns(string)
 func (_LiquidLogic *LiquidLogicCallerSession) Name() (string, error) {
 	return _LiquidLogic.Contract.Name(&_LiquidLogic.CallOpts)
+}
+
+// RealisedFees is a free data retrieval call binding the contract method 0x58af672c.
+//
+// Solidity: function realisedFees(address _account) view returns(uint256, uint256)
+func (_LiquidLogic *LiquidLogicCaller) RealisedFees(opts *bind.CallOpts, _account common.Address) (*big.Int, *big.Int, error) {
+	var out []interface{}
+	err := _LiquidLogic.contract.Call(opts, &out, "realisedFees", _account)
+
+	if err != nil {
+		return *new(*big.Int), *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	out1 := *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+
+	return out0, out1, err
+
+}
+
+// RealisedFees is a free data retrieval call binding the contract method 0x58af672c.
+//
+// Solidity: function realisedFees(address _account) view returns(uint256, uint256)
+func (_LiquidLogic *LiquidLogicSession) RealisedFees(_account common.Address) (*big.Int, *big.Int, error) {
+	return _LiquidLogic.Contract.RealisedFees(&_LiquidLogic.CallOpts, _account)
+}
+
+// RealisedFees is a free data retrieval call binding the contract method 0x58af672c.
+//
+// Solidity: function realisedFees(address _account) view returns(uint256, uint256)
+func (_LiquidLogic *LiquidLogicCallerSession) RealisedFees(_account common.Address) (*big.Int, *big.Int, error) {
+	return _LiquidLogic.Contract.RealisedFees(&_LiquidLogic.CallOpts, _account)
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -19586,6 +19398,68 @@ func (_LiquidRewardManager *LiquidRewardManagerSession) FEEFACTORUNITRECIP() (*b
 // Solidity: function FEE_FACTOR_UNIT_RECIP() view returns(uint256)
 func (_LiquidRewardManager *LiquidRewardManagerCallerSession) FEEFACTORUNITRECIP() (*big.Int, error) {
 	return _LiquidRewardManager.Contract.FEEFACTORUNITRECIP(&_LiquidRewardManager.CallOpts)
+}
+
+// GetLastRewardEvent is a free data retrieval call binding the contract method 0x35bac03c.
+//
+// Solidity: function getLastRewardEvent(address _validator) view returns((uint256,uint256,uint256,bool,bool,bool))
+func (_LiquidRewardManager *LiquidRewardManagerCaller) GetLastRewardEvent(opts *bind.CallOpts, _validator common.Address) (LiquidRewardManagerRewardEvent, error) {
+	var out []interface{}
+	err := _LiquidRewardManager.contract.Call(opts, &out, "getLastRewardEvent", _validator)
+
+	if err != nil {
+		return *new(LiquidRewardManagerRewardEvent), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(LiquidRewardManagerRewardEvent)).(*LiquidRewardManagerRewardEvent)
+
+	return out0, err
+
+}
+
+// GetLastRewardEvent is a free data retrieval call binding the contract method 0x35bac03c.
+//
+// Solidity: function getLastRewardEvent(address _validator) view returns((uint256,uint256,uint256,bool,bool,bool))
+func (_LiquidRewardManager *LiquidRewardManagerSession) GetLastRewardEvent(_validator common.Address) (LiquidRewardManagerRewardEvent, error) {
+	return _LiquidRewardManager.Contract.GetLastRewardEvent(&_LiquidRewardManager.CallOpts, _validator)
+}
+
+// GetLastRewardEvent is a free data retrieval call binding the contract method 0x35bac03c.
+//
+// Solidity: function getLastRewardEvent(address _validator) view returns((uint256,uint256,uint256,bool,bool,bool))
+func (_LiquidRewardManager *LiquidRewardManagerCallerSession) GetLastRewardEvent(_validator common.Address) (LiquidRewardManagerRewardEvent, error) {
+	return _LiquidRewardManager.Contract.GetLastRewardEvent(&_LiquidRewardManager.CallOpts, _validator)
+}
+
+// GetPendingRewardEvent is a free data retrieval call binding the contract method 0x929c49bb.
+//
+// Solidity: function getPendingRewardEvent(address _validator) view returns((uint256,uint256,uint256,bool,bool,bool))
+func (_LiquidRewardManager *LiquidRewardManagerCaller) GetPendingRewardEvent(opts *bind.CallOpts, _validator common.Address) (LiquidRewardManagerRewardEvent, error) {
+	var out []interface{}
+	err := _LiquidRewardManager.contract.Call(opts, &out, "getPendingRewardEvent", _validator)
+
+	if err != nil {
+		return *new(LiquidRewardManagerRewardEvent), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(LiquidRewardManagerRewardEvent)).(*LiquidRewardManagerRewardEvent)
+
+	return out0, err
+
+}
+
+// GetPendingRewardEvent is a free data retrieval call binding the contract method 0x929c49bb.
+//
+// Solidity: function getPendingRewardEvent(address _validator) view returns((uint256,uint256,uint256,bool,bool,bool))
+func (_LiquidRewardManager *LiquidRewardManagerSession) GetPendingRewardEvent(_validator common.Address) (LiquidRewardManagerRewardEvent, error) {
+	return _LiquidRewardManager.Contract.GetPendingRewardEvent(&_LiquidRewardManager.CallOpts, _validator)
+}
+
+// GetPendingRewardEvent is a free data retrieval call binding the contract method 0x929c49bb.
+//
+// Solidity: function getPendingRewardEvent(address _validator) view returns((uint256,uint256,uint256,bool,bool,bool))
+func (_LiquidRewardManager *LiquidRewardManagerCallerSession) GetPendingRewardEvent(_validator common.Address) (LiquidRewardManagerRewardEvent, error) {
+	return _LiquidRewardManager.Contract.GetPendingRewardEvent(&_LiquidRewardManager.CallOpts, _validator)
 }
 
 // LiquidStateMetaData contains all meta data concerning the LiquidState contract.

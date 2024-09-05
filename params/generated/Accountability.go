@@ -1,7 +1,8 @@
 package generated
 
-import (
-	"strings"
+import "strings"
+import "github.com/autonity/autonity/accounts/abi"
+import "github.com/autonity/autonity/common"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
