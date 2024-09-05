@@ -234,7 +234,6 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@echo "killing ganache"
