@@ -375,13 +375,13 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 }
 
 func (sb *Backend) GetCommitteeByHeight(height *big.Int) (*types.Committee, error) {
-	sb.contractsMu.Lock()
-	defer sb.contractsMu.Unlock()
 	header := sb.BlockChain().CurrentHeader()
 	stateDB, err := sb.blockchain.StateAt(header.Root)
 	if err != nil {
 		return nil, err
 	}
+	sb.contractsMu.Lock()
+	defer sb.contractsMu.Unlock()
 	return sb.BlockChain().ProtocolContracts().GetCommitteeByHeight(header, stateDB, height)
 }
 
