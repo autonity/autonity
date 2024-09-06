@@ -265,11 +265,9 @@ func (r *runner) waitNBlocks(n int) { //nolint
 }
 
 func (r *runner) waitNextEpoch() { //nolint
-	epochPeriod, _, err := r.autonity.GetEpochPeriod(nil)
+	_, _, _, nextEpochBlock, _, err := r.autonity.GetEpochInfo(nil)
 	require.NoError(r.t, err)
-	lastEpochBlock, _, err := r.autonity.LastEpochBlock(nil)
-	require.NoError(r.t, err)
-	nextEpochBlock := new(big.Int).Add(epochPeriod, lastEpochBlock)
+
 	diff := new(big.Int).Sub(nextEpochBlock, r.evm.Context.BlockNumber)
 	r.waitNBlocks(int(diff.Uint64() + 1))
 }

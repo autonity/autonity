@@ -173,15 +173,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public epochID;
     mapping(uint256 => uint256) internal blockEpochMap;
 
-    uint256 public previousEpochBlock;
-    uint256 public nextEpochBlock;
-
     // save new epoch period on epoch period update,
     // it is applied to the protocol right after the end of current epoch.
     uint256 public epochPeriodToBeApplied;
 
     uint256 public lastFinalizedBlock;
-    uint256 public lastEpochBlock;
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
@@ -193,7 +189,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
-
 
     /* For callback function at epoch end to notify about staking operations */
     mapping(address => mapping(address => uint256)) isValidatorStaked;
@@ -306,6 +301,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         Config memory _config
     ) internal {
         config = _config;
+        epochPeriodToBeApplied = _config.protocol.epochPeriod;
         inflationReserve = config.policy.initialInflationReserve;
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
@@ -339,12 +335,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         computeCommittee();
         lastEpochTime = block.timestamp;
         lastFinalizedBlock = block.number;
-        // init epoch info for genesis deployment of contract.
-        blockEpochMap[block.number] = epochID; // genesis block is mapped to the 1st epoch with epoch #0
-        previousEpochBlock = 0;
-        nextEpochBlock = config.protocol.epochPeriod;
-        // add epochID => Epoch info mapping for genesis block.
-        _addEpochInfo(epochID, EpochInfo(committee, previousEpochBlock, block.number, nextEpochBlock));
+        // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
+        blockEpochMap[block.number] = 0;
+        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod));
     }
 
     /**
@@ -503,7 +496,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
         require(_val.state != ValidatorState.jailbound, "validator jailed permanently");
         _val.state = ValidatorState.active;
-        emit ActivatedValidator(_val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
+        emit ActivatedValidator(_val.treasury, _address, epochInfos[epochID].nextEpochBlock);
     }
 
     /**
@@ -598,7 +591,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // todo: shall we need to limit a minimum epoch period?
         // the new epoch period will be activated until current epoch ends.
         epochPeriodToBeApplied = _period;
-        uint256 toBeAppliedAtBlock = nextEpochBlock;
+        uint256 toBeAppliedAtBlock = epochInfos[epochID].nextEpochBlock;
         emit EpochPeriodUpdated(_period, toBeAppliedAtBlock);
     }
 
@@ -804,13 +797,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
 
-        // todo: jason here to remove the helper variables used for epoch rotation, they can replaced with epoch info.
         // Making this condition change to make the Autonity contract to have a chance to
         // finish the epoch rotation in the truffle test context, as in truffle test the
         // chain height might go beyond the lastEpochBlock+EpochPeriod making the epoch rotation
         // never happen as the new epoch period is going to be activated on epoch rotation.
-        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod <= block.number;
-
+        bool epochEnded = epochInfos[epochID].nextEpochBlock <= block.number;
         config.contracts.accountabilityContract.finalize(epochEnded);
 
         if (epochEnded) {
@@ -849,16 +840,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
             address[] memory _voters = computeCommittee();
             config.contracts.oracleContract.setVoters(_voters);
-            previousEpochBlock = lastEpochBlock;
-            lastEpochBlock = block.number;
 
+            uint256 previousEpochBlock = epochInfos[epochID].epochBlock;
             // apply new epoch period.
             if (config.protocol.epochPeriod != epochPeriodToBeApplied && epochPeriodToBeApplied != 0) {
                 config.protocol.epochPeriod = epochPeriodToBeApplied;
                 config.contracts.accountabilityContract.setEpochPeriod(epochPeriodToBeApplied);
             }
-
-            nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
+            uint256 nextEpochBlock = block.number + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
             epochID += 1;
             _addEpochInfo(epochID, EpochInfo(committee, previousEpochBlock, block.number, nextEpochBlock));
@@ -871,7 +860,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             catch {}
         }
 
-        return (contractUpgradeReady, epochEnded, committee, previousEpochBlock, nextEpochBlock);
+        return (contractUpgradeReady, epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock);
     }
 
     /**
@@ -957,7 +946,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the last epoch's end block height.
     */
     function getLastEpochBlock() external view virtual returns (uint256) {
-        return lastEpochBlock;
+        return epochInfos[epochID].epochBlock;
+        //return lastEpochBlock;
     }
 
     /**
@@ -972,10 +962,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function getEpochInfo() external view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
         CommitteeMember[] memory members = epochInfos[epochID].committee;
-        uint256 previousEpochBlock = epochInfos[epochID].previousEpochBlock;
-        uint256 currentEpochBlock = epochInfos[epochID].epochBlock;
-        uint256 nextEpochBlock = epochInfos[epochID].nextEpochBlock;
-        return (members, previousEpochBlock, currentEpochBlock, nextEpochBlock);
+        uint256 previous = epochInfos[epochID].previousEpochBlock;
+        uint256 current = epochInfos[epochID].epochBlock;
+        uint256 next = epochInfos[epochID].nextEpochBlock;
+        return (members, previous, current, next);
     }
 
     /**
@@ -1011,7 +1001,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @notice Returns the next epoch block.
      */
     function getNextEpochBlock() external view virtual returns(uint256) {
-        return nextEpochBlock;
+        return epochInfos[epochID].nextEpochBlock;
     }
 
     /**
@@ -1320,7 +1310,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         val.state = ValidatorState.paused;
         //effectiveBlock may not be accurate if the epoch duration gets modified.
-        emit PausedValidator(val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
+        emit PausedValidator(val.treasury, _address, epochInfos[epochID].nextEpochBlock);
     }
 
     function _isContract(address _to) private view returns (bool) {
