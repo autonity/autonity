@@ -114,7 +114,7 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ 
 
 	committee, err := committeeByHeight(p.Message.H(), e, a.address)
 	if err != nil {
-		return failureReturn, nil
+		return failureReturn, err
 	}
 
 	if err = verifyProofSignatures(committee, p); err != nil {
@@ -237,7 +237,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, e *vm.EVM, _ common.A
 
 	committee, err := committeeByHeight(p.Message.H(), e, c.address)
 	if err != nil {
-		return failureReturn, nil
+		return failureReturn, err
 	}
 
 	if err = verifyProofSignatures(committee, p); err != nil {
@@ -616,7 +616,7 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ c
 
 	committee, err := committeeByHeight(p.Message.H(), e, c.address)
 	if err != nil {
-		return failureReturn, nil
+		return failureReturn, err
 	}
 
 	if err = verifyProofSignatures(committee, p); err != nil {
