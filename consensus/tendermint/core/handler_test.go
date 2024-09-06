@@ -51,8 +51,8 @@ func TestHandleMessage(t *testing.T) {
 	defer ctrl.Finish()
 
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	currentValidator, _ := committeeSet.GetByIndex(0)
-	sender, _ := committeeSet.GetByIndex(1)
+	currentValidator, _ := committeeSet.MemberByIndex(0)
+	sender, _ := committeeSet.MemberByIndex(1)
 	senderKey := keysMap[sender.Address].consensus
 
 	createPrevote := func(round int64, height int64) message.Msg {
@@ -235,8 +235,8 @@ func TestHandleFutureRound(t *testing.T) {
 	defer ctrl.Finish()
 
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(10)
-	sender1, _ := committeeSet.GetByIndex(0)
-	sender2, _ := committeeSet.GetByIndex(1)
+	sender1, _ := committeeSet.MemberByIndex(0)
+	sender2, _ := committeeSet.MemberByIndex(1)
 
 	currentHeight := big.NewInt(1)
 	currentRound := int64(0)

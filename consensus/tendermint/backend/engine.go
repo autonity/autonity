@@ -151,14 +151,8 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return consensus.ErrOutOfEpochRange
 	}
 
-	// epoch info integrity check.
+	// epoch boundary check, as the rlp decoding of header already done the value checking of epoch.
 	if header.IsEpochHeader() {
-		epoch := header.Epoch
-		if epoch.PreviousEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
-			len(epoch.Committee.Members) == 0 {
-			return consensus.ErrInvalidEpochInfo
-		}
-
 		if nextEpochHead != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != curEpochHead {
 			return consensus.ErrInvalidEpochBoundary
 		}

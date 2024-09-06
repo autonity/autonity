@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -31,9 +32,9 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Prevoting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-	self, err := c.CommitteeSet().GetByAddress(c.address)
+	self, err := c.CommitteeSet().MemberByAddress(c.address)
 	if err != nil {
-		c.logger.Crit("validator is no longer in current committee", "err", err)
+		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
 	}
 	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)

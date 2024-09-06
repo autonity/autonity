@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"reflect"
 	"sync"
@@ -691,7 +692,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 
 	committee, err := a.backend.BlockChain().CommitteeOfHeight(msg.H())
 	if err != nil {
-		a.logger.Crit("cannot find epoch head for height", "height", msg.H(), "err", err)
+		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
 

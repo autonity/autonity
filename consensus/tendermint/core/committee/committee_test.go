@@ -112,7 +112,7 @@ func TestSet_GetByIndex(t *testing.T) {
 
 	t.Run("can get member by index", func(t *testing.T) {
 		expectedMember := &c.Members[1]
-		gotMember, err := set.GetByIndex(1)
+		gotMember, err := set.MemberByIndex(1)
 		assertNilError(t, err)
 
 		if !reflect.DeepEqual(expectedMember, gotMember) {
@@ -121,7 +121,7 @@ func TestSet_GetByIndex(t *testing.T) {
 	})
 
 	t.Run("error on accessing member index not in committee", func(t *testing.T) {
-		_, err := set.GetByIndex(6)
+		_, err := set.MemberByIndex(6)
 		assertError(t, consensus.ErrCommitteeMemberNotFound, err)
 	})
 }
@@ -134,7 +134,7 @@ func TestSet_GetByAddress(t *testing.T) {
 
 	t.Run("can get member by Address", func(t *testing.T) {
 		expectedMember := &c.Members[1]
-		gotMember, err := set.GetByAddress(expectedMember.Address)
+		gotMember, err := set.MemberByAddress(expectedMember.Address)
 		assertNilError(t, err)
 
 		if !reflect.DeepEqual(expectedMember, gotMember) {
@@ -143,7 +143,7 @@ func TestSet_GetByAddress(t *testing.T) {
 	})
 
 	t.Run("error on accessing member address not in committee", func(t *testing.T) {
-		_, err := set.GetByAddress(common.HexToAddress("testaddress"))
+		_, err := set.MemberByAddress(common.HexToAddress("testaddress"))
 		assertError(t, consensus.ErrCommitteeMemberNotFound, err)
 	})
 }

@@ -121,7 +121,12 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 			hc.currentEpochHeader.Store(curEpochHead)
 		}
 	}
-	headEpochHeaderGauge.Update(hc.CurrentHeadEpochHeader().Number.Int64())
+
+	epochHead := hc.CurrentHeadEpochHeader()
+	if epochHead != nil {
+		headEpochHeaderGauge.Update(epochHead.Number.Int64())
+	}
+
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
 	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 	return hc, nil
@@ -235,7 +240,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	// mark in-memory epoch header if there is any epoch header been store in db.
 	if headEpochHeader != nil {
 		hc.currentEpochHeader.Store(types.CopyHeader(headEpochHeader))
-		headEpochHeaderGauge.Update(hc.CurrentHeadEpochHeader().Number.Int64())
+		headEpochHeaderGauge.Update(headEpochHeader.Number.Int64())
 	}
 	return nil
 }

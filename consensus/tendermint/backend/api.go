@@ -17,6 +17,7 @@
 package backend
 
 import (
+	"fmt"
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -35,6 +36,9 @@ type API struct {
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
 func (api *API) GetCommittee(number *rpc.BlockNumber) (*types.Committee, error) {
+	if number == nil {
+		return nil, fmt.Errorf("block number cannot be nil")
+	}
 	return api.tendermint.GetCommitteeByHeight(new(big.Int).SetUint64(uint64(*number)))
 }
 

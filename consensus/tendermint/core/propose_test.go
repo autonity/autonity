@@ -276,7 +276,7 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposer, err := committeeSet.GetByIndex(3)
+		proposer, err := committeeSet.MemberByIndex(3)
 		require.NoError(t, err)
 		proposalBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
@@ -310,7 +310,7 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
 		for i := 0; i < 3; i++ {
-			val, _ := committeeSet.GetByIndex(i)
+			val, _ := committeeSet.MemberByIndex(i)
 			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus), val, csize)
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			require.NoError(t, err)
@@ -375,7 +375,7 @@ func TestHandleProposal(t *testing.T) {
 		proposal := message.NewPropose(round, height, round-1, block, signer, signerMember)
 
 		for i := 0; i < 3; i++ {
-			val, _ := committeeSet.GetByIndex(i)
+			val, _ := committeeSet.MemberByIndex(i)
 			prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), makeSigner(keys[val.Address].consensus), val, csize)
 			messages.GetOrCreate(round - 1).AddPrevote(prevote)
 		}
@@ -443,7 +443,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 	t.Run("candidate block is the one missed, proposal is broadcast", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
-		proposer, _ := committeeSet.GetByIndex(0)
+		proposer, _ := committeeSet.MemberByIndex(0)
 		proposerKey := keys[proposer.Address].consensus
 		height := new(big.Int).SetUint64(1)
 

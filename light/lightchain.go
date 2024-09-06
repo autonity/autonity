@@ -182,6 +182,9 @@ func (lc *LightChain) loadLastState() error {
 	// Issue a status log and return
 	header := lc.hc.CurrentHeader()
 	epochHeader := lc.hc.CurrentHeadEpochHeader()
+	if epochHeader == nil {
+		panic("your chain database might be corrupted")
+	}
 	headerTd := lc.GetTd(header.Hash(), header.Number.Uint64())
 	log.Info("Loaded most recent local header", "number", header.Number, "hash", header.Hash(), "epoch head", epochHeader.Number, "td", headerTd, "age", common.PrettyAge(time.Unix(int64(header.Time), 0)))
 	return nil
@@ -369,8 +372,12 @@ func (lc *LightChain) Rollback(chain []common.Hash) {
 			lc.hc.SetCurrentHeader(newHeadHeader)
 
 			// if the rollback header is an epoch header, then header chain's epoch header with its parent epoch header.
-			if lc.hc.CurrentHeadEpochHeader().Hash() == hash {
-				num := lc.hc.CurrentHeadEpochHeader().Epoch.PreviousEpochBlock.Uint64()
+			epochHead := lc.hc.CurrentHeadEpochHeader()
+			if epochHead == nil {
+				panic("your chain database might be corrupted")
+			}
+			if epochHead.Hash() == hash {
+				num := epochHead.Epoch.PreviousEpochBlock.Uint64()
 				newEpochHeader := lc.GetHeaderByNumber(num)
 				if newEpochHeader == nil || !newEpochHeader.IsEpochHeader() {
 					log.Error("cannot find parent epoch header from header chain", "number", num)
@@ -591,8 +598,13 @@ func (lc *LightChain) SyncCheckpoint(ctx context.Context, checkpoint *params.Tru
 				rawdb.WriteEpochHeaderHash(lc.chainDb, header.Hash())
 				lc.hc.SetCurrentHeadEpochHeader(header)
 			}
+
+			epochHead := lc.hc.CurrentHeadEpochHeader()
+			if epochHead == nil {
+				panic("your chain database might be corrupted")
+			}
 			log.Info("Updated latest header based on CHT", "number", header.Number, "hash", header.Hash(),
-				"epoch head", lc.hc.CurrentHeadEpochHeader().Number, "age", common.PrettyAge(time.Unix(int64(header.Time), 0)))
+				"epoch head", epochHead.Number, "age", common.PrettyAge(time.Unix(int64(header.Time), 0)))
 		}
 		return true
 	}

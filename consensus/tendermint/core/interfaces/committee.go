@@ -10,11 +10,11 @@ type Committee interface {
 	// Committee Return the underlying types.Committee
 	Committee() *types.Committee
 
-	// GetByIndex Get validator by index
-	GetByIndex(i int) (*types.CommitteeMember, error)
+	// MemberByIndex Get validator by index
+	MemberByIndex(i int) (*types.CommitteeMember, error)
 
-	// GetByAddress Get validator by given address
-	GetByAddress(addr common.Address) (*types.CommitteeMember, error)
+	// MemberByAddress Get validator by given address
+	MemberByAddress(addr common.Address) (*types.CommitteeMember, error)
 
 	// GetProposer Get the round proposer
 	GetProposer(round int64) *types.CommitteeMember

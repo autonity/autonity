@@ -67,7 +67,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-		currentValidator, _ := committeeSet.GetByIndex(0)
+		currentValidator, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
@@ -122,7 +122,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, _ := NewTestCommitteeSetWithKeys(4)
-		currentValidator, _ := committeeSet.GetByIndex(0)
+		currentValidator, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 
 		messages := message.NewMap()

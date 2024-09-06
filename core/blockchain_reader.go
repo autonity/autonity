@@ -90,12 +90,12 @@ func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, e
 	// as snap sync/fast sync mode might miss the latest epoch block before the
 	// pivot block, thus, for header verification after pivot block, we can load
 	// it from state db.
-	currentBLock := bc.CurrentBlock()
-	st, err := bc.StateAt(currentBLock.Header().Root)
+	currentBlock := bc.CurrentBlock()
+	st, err := bc.StateAt(currentBlock.Header().Root)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
-	return bc.protocolContracts.EpochInfo(currentBLock.Header(), st)
+	return bc.protocolContracts.EpochInfo(currentBlock.Header(), st)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

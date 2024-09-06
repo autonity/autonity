@@ -45,9 +45,9 @@ func TestSendPrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, keys := NewTestCommitteeSetWithKeys(7)
-		me, _ := committeeSet.GetByIndex(0)
+		me, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		val, _ := committeeSet.GetByIndex(2)
+		val, _ := committeeSet.MemberByIndex(2)
 		addr := val.Address
 
 		proposal := message.NewPropose(
@@ -86,9 +86,9 @@ func TestSendPrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, keys := NewTestCommitteeSetWithKeys(7)
-		me, _ := committeeSet.GetByIndex(0)
+		me, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
-		val, _ := committeeSet.GetByIndex(2)
+		val, _ := committeeSet.MemberByIndex(2)
 		addr := val.Address
 
 		proposal := message.NewPropose(
@@ -131,7 +131,7 @@ func TestHandlePrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-		member, _ := committeeSet.GetByIndex(1)
+		member, _ := committeeSet.MemberByIndex(1)
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 		preCommit := newUnverifiedPrecommit(2, 3, curRoundMessages.ProposalHash(), makeSigner(keys[member.Address].consensus), member, 4)
@@ -166,7 +166,7 @@ func TestHandlePrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
-		member, _ := committeeSet.GetByIndex(0)
+		member, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 
 		proposal := generateBlockProposal(2, big.NewInt(3), 1, false, makeSigner(keys[member.Address].consensus), member)
@@ -219,7 +219,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		committeeSet, keys := NewTestCommitteeSetWithKeys(7)
-		me, _ := committeeSet.GetByIndex(0)
+		me, _ := committeeSet.MemberByIndex(0)
 		proposal := message.NewPropose(
 			2,
 			3,

@@ -251,15 +251,6 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		return 0, core.ErrBannedHash
 	}
 
-	// short circuit break.
-	if proposal.IsEpochHead() {
-		epoch := proposal.Header().Epoch
-		if epoch.PreviousEpochBlock == nil || epoch.NextEpochBlock == nil || epoch.Committee == nil ||
-			len(epoch.Committee.Members) == 0 {
-			return 0, consensus.ErrInvalidEpochInfo
-		}
-	}
-
 	// verify if the proposal block is already included in the node's local chain.
 	// This scenario can happen when we are processing a proposal, but in the meantime other peers already reached quorum on it,
 	// therefore we already received the finalized block through p2p block propagation.

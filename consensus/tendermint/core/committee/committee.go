@@ -61,7 +61,7 @@ func (set *RoundRobinCommittee) SetCommittee(committee *types.Committee) {
 	set.committee = committee
 }
 
-func (set *RoundRobinCommittee) GetByIndex(i int) (*types.CommitteeMember, error) {
+func (set *RoundRobinCommittee) MemberByIndex(i int) (*types.CommitteeMember, error) {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
 	m := set.committee.MemberByIndex(i)
@@ -71,7 +71,7 @@ func (set *RoundRobinCommittee) GetByIndex(i int) (*types.CommitteeMember, error
 	return m, nil
 }
 
-func (set *RoundRobinCommittee) GetByAddress(addr common.Address) (*types.CommitteeMember, error) {
+func (set *RoundRobinCommittee) MemberByAddress(addr common.Address) (*types.CommitteeMember, error) {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
 	m := set.committee.MemberByAddress(addr)
@@ -154,7 +154,7 @@ func (w *WeightedRandomSamplingCommittee) SetLastHeader(header *types.Header) {
 }
 
 // Get validator by index
-func (w *WeightedRandomSamplingCommittee) GetByIndex(i int) (*types.CommitteeMember, error) {
+func (w *WeightedRandomSamplingCommittee) MemberByIndex(i int) (*types.CommitteeMember, error) {
 	m := w.committee.MemberByIndex(i)
 	if m == nil {
 		return nil, consensus.ErrCommitteeMemberNotFound
@@ -162,9 +162,8 @@ func (w *WeightedRandomSamplingCommittee) GetByIndex(i int) (*types.CommitteeMem
 	return m, nil
 }
 
-// Get validator by given address
-// GetByAddress Get validator by given address
-func (w *WeightedRandomSamplingCommittee) GetByAddress(addr common.Address) (*types.CommitteeMember, error) {
+// MemberByAddress Get validator by given address
+func (w *WeightedRandomSamplingCommittee) MemberByAddress(addr common.Address) (*types.CommitteeMember, error) {
 	m := w.committee.MemberByAddress(addr)
 	if m == nil {
 		return nil, consensus.ErrCommitteeMemberNotFound

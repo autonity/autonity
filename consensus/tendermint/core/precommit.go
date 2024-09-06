@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -32,9 +33,9 @@ func (c *Precommiter) SendPrecommit(_ context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-	self, err := c.CommitteeSet().GetByAddress(c.address)
+	self, err := c.CommitteeSet().MemberByAddress(c.address)
 	if err != nil {
-		c.logger.Crit("validator is no longer in current committee", "err", err)
+		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
 	}
 	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrecommitMessageEvent("Precommit sent", precommit)

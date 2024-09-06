@@ -188,11 +188,13 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	msgHeight := proof.Message.H()
 	committee, err := fd.blockchain.CommitteeOfHeight(msgHeight)
 	if err != nil {
+		fd.logger.Error("cannot get committee for height", "error", err, "height", msgHeight)
 		return err
 	}
 
 	memberShip := committee.MemberByAddress(sender)
 	if memberShip == nil {
+		fd.logger.Info("accusation from a none validator node", "height", msgHeight, "sender", sender)
 		return errAccusationFromNoneValidator
 	}
 
@@ -330,7 +332,7 @@ func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
 	for _, accusation := range escalatedOnes {
 		committee, err := fd.blockchain.CommitteeOfHeight(accusation.Message.H())
 		if err != nil {
-			fd.logger.Crit("escalateExpiredAccusations", "cannot find committee", "height", accusation.Message.H(), "err", err)
+			panic(fmt.Sprintf("cannot get committee of height: %d", accusation.Message.H()))
 		}
 		offender := committee.Members[accusation.OffenderIndex].Address
 		fd.removeOffChainAccusation(accusation)

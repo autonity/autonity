@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -32,9 +33,9 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 		return
 	}
 
-	self, err := c.CommitteeSet().GetByAddress(c.address)
+	self, err := c.CommitteeSet().MemberByAddress(c.address)
 	if err != nil {
-		c.logger.Crit("validator is no longer in current committee", "err", err)
+		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
 	}
 
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)
