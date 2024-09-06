@@ -112,7 +112,7 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ 
 		return failureReturn, nil
 	}
 
-	committee, err := committeeOfHeight(p.Message.H(), e, a.address)
+	committee, err := committeeByHeight(p.Message.H(), e, a.address)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -235,7 +235,7 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, e *vm.EVM, _ common.A
 		return failureReturn, nil
 	}
 
-	committee, err := committeeOfHeight(p.Message.H(), e, c.address)
+	committee, err := committeeByHeight(p.Message.H(), e, c.address)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -613,7 +613,7 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ c
 		return failureReturn, nil
 	}
 
-	committee, err := committeeOfHeight(p.Message.H(), e, c.address)
+	committee, err := committeeByHeight(p.Message.H(), e, c.address)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -942,7 +942,7 @@ func maxEvidenceMessages(committeeSize int) int {
 	return constants.MaxRound + 1
 }
 
-func committeeOfHeight(height uint64, evm *vm.EVM, caller common.Address) (*types.Committee, error) {
+func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*types.Committee, error) {
 	var committeeSet []types.CommitteeMember
 	err := acCall(evm, caller, "getCommitteeByHeight", &committeeSet, new(big.Int).SetUint64(height))
 	if err != nil {
