@@ -265,7 +265,8 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee *types.Committe
 	case autonity.InvalidProposer:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
 			proposer := committee.Proposer(lightProposal.H()-1, lightProposal.R())
-			valid = proposer != lightProposal.Signer() && committee.Members[p.OffenderIndex].Address == lightProposal.Signer()
+			valid = (proposer != lightProposal.Signer()) && (committee.Members[p.OffenderIndex].Address == lightProposal.Signer())
+
 		}
 	case autonity.Equivocation:
 		valid = validMisbehaviourOfEquivocation(p, committee)
