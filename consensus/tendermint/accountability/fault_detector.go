@@ -1284,7 +1284,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 	var err error
 	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
 	if err != nil {
-		fd.logger.Crit("cannot find committee for height", "err", err, "height", m.H())
+		panic(fmt.Sprintf("cannot find committee for height %d", m.H()))
 	}
 
 	for _, signerIndex := range m.Signers().FlattenUniq() {
@@ -1316,7 +1316,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 	var err error
 	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
 	if err != nil {
-		fd.logger.Crit("cannot find committee for height", "err", err, "height", m.H())
+		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
 	}
 	for _, signerIndex := range m.Signers().FlattenUniq() {
 		signer := committee.Members[signerIndex].Address
