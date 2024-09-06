@@ -173,5 +173,6 @@
   "ddb073ce": "getEpochInfo1()",
   "628ea573": "curEpochID()",
   "ae1da0b5": "lastFinalizedBlock()",
-  "d29fb778": "previousEpochBlock()"
+  "d29fb778": "previousEpochBlock()",
+  "573963b8": "epochPeriodToBeApplied()"
 }

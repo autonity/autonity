@@ -177,7 +177,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
     // save new epoch period on epoch period update,
     // it is applied to the protocol right after the end of current epoch.
-    uint256 public newEpochPeriod;
+    uint256 public epochPeriodToBeApplied;
 
     uint256 public lastFinalizedBlock;
     uint256 public lastEpochBlock;
@@ -262,7 +262,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
-    event EpochPeriodUpdated(uint256 period);
+    event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock);
     event NewEpoch(uint256 epoch);
 
     /**
@@ -577,9 +577,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @param _period Positive integer.
     */
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
+        // todo: shall we need to limit a minimum epoch period?
         // the new epoch period will be activated until current epoch ends.
-        newEpochPeriod = _period;
-        emit EpochPeriodUpdated(_period);
+        epochPeriodToBeApplied = _period;
+        uint256 toBeAppliedAtBlock = nextEpochBlock;
+        emit EpochPeriodUpdated(_period, toBeAppliedAtBlock);
     }
 
     /*
@@ -775,6 +777,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
 
+        // todo: jason here to remove the helper variables used for epoch rotation, they can replaced with epoch info.
         // Making this condition change to make the Autonity contract to have a chance to
         // finish the epoch rotation in the truffle test context, as in truffle test the
         // chain height might go beyond the lastEpochBlock+EpochPeriod making the epoch rotation
@@ -823,9 +826,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             lastEpochBlock = block.number;
 
             // apply new epoch period.
-            if (config.protocol.epochPeriod != newEpochPeriod && newEpochPeriod != 0) {
-                config.protocol.epochPeriod = newEpochPeriod;
-                config.contracts.accountabilityContract.setEpochPeriod(newEpochPeriod);
+            if (config.protocol.epochPeriod != epochPeriodToBeApplied && epochPeriodToBeApplied != 0) {
+                config.protocol.epochPeriod = epochPeriodToBeApplied;
+                config.contracts.accountabilityContract.setEpochPeriod(epochPeriodToBeApplied);
             }
 
             nextEpochBlock = lastEpochBlock + config.protocol.epochPeriod;
@@ -901,6 +904,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the epoch period.
     */
     function getEpochPeriod() external view virtual returns (uint256) {
+        // if the new epoch period haven't being applied yet, return it anyway.
+        if (config.protocol.epochPeriod != epochPeriodToBeApplied) {
+            return epochPeriodToBeApplied;
+        }
+        // otherwise we return the current applied epoch period.
         return config.protocol.epochPeriod;
     }
 
