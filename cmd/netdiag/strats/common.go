@@ -104,7 +104,7 @@ type Strategy interface {
 	// The strategy should disseminate packets with recipient from id = 0 to id = maxPeers-1
 	Execute(packetId uint64, data []byte, maxPeers int) error
 	// HandlePacket has the logic when receiving a packet.
-	HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error
+	HandlePacket(packetId uint64, hop uint8, originalSender uint64, receivedFrom uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error
 	// ConstructGraph constructs the graph to disseminate packet for `maxPeers`
 	ConstructGraph(maxPeers int) error
 	// GraphReadyForPeer is called when the graph for peer `peerID` is constructed

@@ -67,7 +67,7 @@ func (p *BaseStrategy) randomDissemination(randomPc int, packetId uint64, data [
 	return nil
 }
 
-func (p *Random) HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
+func (p *Random) HandlePacket(packetId uint64, hop uint8, originalSender uint64, _ uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	if hop == 1 {
 		return p.randomDissemination(p.RandomPC, packetId, data, int(maxPeers), originalSender, 0, partial, seqNum, total)
 	}

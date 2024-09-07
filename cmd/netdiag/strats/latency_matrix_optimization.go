@@ -105,7 +105,7 @@ func (l *LatencyMatrixOptimize) Execute(packetId uint64, data []byte, maxPeers i
 	return l.send(l.State.Id, packetId, uint64(maxPeers), 1, data)
 }
 
-func (l *LatencyMatrixOptimize) HandlePacket(packetId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
+func (l *LatencyMatrixOptimize) HandlePacket(packetId uint64, hop uint8, originalSender uint64, _ uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	if !l.graph.initiated || maxPeers != uint64(l.graph.peers) {
 		return errGraphNotConstructed
 	}

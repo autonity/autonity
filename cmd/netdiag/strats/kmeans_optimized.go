@@ -1,35 +1,47 @@
 package strats
 
 import (
-	"errors"
 	"fmt"
+	"math/rand"
 
 	"github.com/autonity/autonity/cmd/netdiag/strats/kmeans"
 	"github.com/autonity/autonity/log"
 )
 
-var ErrGraphNotInitiated = errors.New("graph not initiated")
-var ErrGraphConstruction = errors.New("invalid graph construction")
-
-type KmeansClusteringGraphConstructor struct {
+type KmeansOptimizedGraphConstructor struct {
 	BaseStrategy
-	graph        Graph
-	localLeaders []int
-	NumClusters  int
+	ByzantineChance float64
+	NumClusters     int
+
+	graph           Graph
+	localLeaders    []int
+	clusters        [][]int
+	assignedCluster int
 }
 
 func init() {
-	registerStrategy("K-Means Clustering - 6 clusters", func(base BaseStrategy) Strategy {
-		return createKmeansClustering(base, 6)
+	registerStrategy("K-Means Optimized - (k=6, byz=30%)", func(base BaseStrategy) Strategy {
+		return createKmeansOptimized(base, 6, 0.3)
+	})
+	registerStrategy("K-Means Optimized - (k=6, byz=0%)", func(base BaseStrategy) Strategy {
+		return createKmeansOptimized(base, 6, 0)
 	})
 }
 
-func createKmeansClustering(base BaseStrategy, numClusters int) *GraphStrategy {
+func createKmeansOptimized(base BaseStrategy, numClusters int, byzantineChance float64) *GraphStrategy {
 	graph := Graph{
 		id:             int(base.State.Id),
 		peerGraphReady: make([]bool, base.State.Peers),
 	}
-	constructor := &KmeansClusteringGraphConstructor{base, graph, nil, numClusters}
+	constructor := &KmeansOptimizedGraphConstructor{
+		BaseStrategy:    base,
+		ByzantineChance: byzantineChance,
+		NumClusters:     numClusters,
+		graph:           graph,
+		localLeaders:    nil,
+		clusters:        nil,
+		assignedCluster: -1,
+	}
 	return &GraphStrategy{
 		BaseStrategy:     base,
 		GraphConstructor: constructor,
@@ -37,7 +49,7 @@ func createKmeansClustering(base BaseStrategy, numClusters int) *GraphStrategy {
 	}
 }
 
-func (k *KmeansClusteringGraphConstructor) ConstructGraph(_ int) error {
+func (k *KmeansOptimizedGraphConstructor) ConstructGraph(_ int) error {
 	ready, err := k.isLatencyMatrixReady()
 	if err != nil {
 		return err
@@ -48,8 +60,13 @@ func (k *KmeansClusteringGraphConstructor) ConstructGraph(_ int) error {
 	return k.constructGraph()
 }
 
-func (k *KmeansClusteringGraphConstructor) RouteBroadcast(originalSender int, _ int) ([]int, error) {
+func (k *KmeansOptimizedGraphConstructor) RouteBroadcast(originalSender int, from int) ([]int, error) {
 	log.Debug("Routing packet", "originalSender", originalSender, "localId", k.State.Id)
+	if rand.Float64() < k.ByzantineChance {
+		log.Debug("Byzantine behavior, not routing packet", "localId", k.State.Id)
+		return nil, nil
+	}
+
 	if len(k.graph.rootedConnection) == 0 {
 		log.Error("Graph not initiated, rootedConnection is empty")
 		return nil, ErrGraphConstruction
@@ -76,10 +93,37 @@ func (k *KmeansClusteringGraphConstructor) RouteBroadcast(originalSender int, _ 
 			})...,
 		)
 	}
+
+	// if we are a leaf node, and the original sender is in our cluster,
+	// we can forward it to a random peer in another cluster
+	if len(destinationPeers) == 0 && from == k.localLeaders[k.assignedCluster] {
+		log.Debug("Forwarding packet to random peer in another cluster", "localId", k.State.Id)
+		randCluster := randNotEqual(k.NumClusters, k.assignedCluster)
+		destinationPeers = append(destinationPeers, k.clusters[randCluster][randNotEqual(len(k.clusters[randCluster]), k.localLeaders[randCluster])])
+	}
+
+	// if we receive from someone other than our local leader, we can forward it to our local leader
+	if len(destinationPeers) == 0 && from != k.localLeaders[k.assignedCluster] && !inCluster(from, k.assignedCluster, k.clusters) {
+		log.Debug(
+			"Forwarding packet to local cluster",
+			"localId",
+			k.State.Id,
+			"assignedCluster",
+			k.assignedCluster,
+			"cluster",
+			k.clusters[k.assignedCluster],
+		)
+		destinationPeers = append(
+			destinationPeers,
+			filterArray(k.clusters[k.assignedCluster], func(i int) bool {
+				return i != int(k.State.Id) && i != k.localLeaders[k.assignedCluster]
+			})...,
+		)
+	}
 	return destinationPeers, nil
 }
 
-func (k *KmeansClusteringGraphConstructor) isLatencyMatrixReady() (bool, error) {
+func (k *KmeansOptimizedGraphConstructor) isLatencyMatrixReady() (bool, error) {
 	for id, array := range k.State.LatencyMatrix {
 		if len(array) != k.State.Peers {
 			return false, nil
@@ -99,7 +143,7 @@ func (k *KmeansClusteringGraphConstructor) isLatencyMatrixReady() (bool, error) 
 	return true, nil
 }
 
-func (k *KmeansClusteringGraphConstructor) constructGraph() error {
+func (k *KmeansOptimizedGraphConstructor) constructGraph() error {
 	log.Debug("Constructing graph")
 	if k.graph.initiated {
 		return nil
@@ -117,45 +161,45 @@ func (k *KmeansClusteringGraphConstructor) constructGraph() error {
 	log.Debug("Clusters assigned", "clusters", fmt.Sprintf("%v", clusters))
 
 	var rootedConnection = make([][]int, k.State.Peers)
-	var localLeaders []int
+	k.localLeaders = make([]int, k.NumClusters)
 	for i := 0; i < k.State.Peers; i++ {
 		rootedConnection[i] = make([]int, 0)
 	}
 	for i, c := range clusters {
 		clusterLeader := minArray(c)
 		log.Debug("Cluster leader elected", "iCluster", i, "clusterLeader", clusterLeader)
-		localLeaders = append(localLeaders, clusterLeader)
+		k.localLeaders[i] = clusterLeader
 		for _, peer := range c {
 			if peer != clusterLeader {
 				rootedConnection[clusterLeader] = append(rootedConnection[clusterLeader], peer)
+			}
+			if peer == int(k.State.Id) {
+				k.assignedCluster = i
 			}
 		}
 	}
 
 	k.graph.rootedConnection = rootedConnection
-	k.localLeaders = localLeaders
 	k.graph.initiated = true
 	k.graph.peerGraphReady[k.State.Id] = true
 	k.graph.constructing.Store(false)
+	k.clusters = clusters
 	return nil
 }
 
-func minArray(a []int) int {
-	minimum := a[0]
-	for _, v := range a {
-		if v < minimum {
-			minimum = v
+func inCluster(peer int, cluster int, clusters [][]int) bool {
+	for _, c := range clusters[cluster] {
+		if c == peer {
+			return true
 		}
 	}
-	return minimum
+	return false
 }
 
-func filterArray(a []int, f func(int) bool) []int {
-	var result []int
-	for _, v := range a {
-		if f(v) {
-			result = append(result, v)
-		}
+func randNotEqual(max, b int) int {
+	r := rand.Intn(max)
+	if r != b {
+		return r
 	}
-	return result
+	return randNotEqual(max, b)
 }

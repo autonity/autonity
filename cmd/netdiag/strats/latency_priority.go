@@ -41,7 +41,7 @@ func (l *LowRTT) Execute(packetId uint64, data []byte, maxPeers int) error {
 	return nil
 }
 
-func (l *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
+func (l *LowRTT) HandlePacket(requestId uint64, hop uint8, originalSender uint64, _ uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	// randomDissemination is defined in random.go
 	return l.randomDissemination(l.RandomRatio, requestId, data, int(maxPeers), originalSender, int(hop+1), partial, seqNum, total)
 }

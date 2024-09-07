@@ -8,7 +8,7 @@ import (
 
 type GraphConstructor interface {
 	ConstructGraph(maxPeers int) error
-	RouteBroadcast(originalSender int) ([]int, error)
+	RouteBroadcast(originalSender int, fromNode int) ([]int, error)
 }
 
 type GraphStrategy struct {
@@ -31,20 +31,17 @@ func (g *GraphStrategy) IsGraphReadyForPeer(peerID int) bool {
 }
 
 func (g *GraphStrategy) Execute(packetId uint64, data []byte, _ int) error {
-	return g.send(g.State.Id, packetId, 1, data)
+	return g.send(g.State.Id, g.State.Id, packetId, 1, data)
 }
 
-func (g *GraphStrategy) HandlePacket(packetId uint64, hop uint8, originalSender uint64, _ uint64, data []byte, partial bool, seqNum, total uint16) error {
-	if hop == 0 {
-		return nil
-	}
-	return g.send(originalSender, packetId, 0, data)
+func (g *GraphStrategy) HandlePacket(packetId uint64, hop uint8, originalSender uint64, fromNode uint64, _ uint64, data []byte, partial bool, seqNum, total uint16) error {
+	return g.send(originalSender, fromNode, packetId, 0, data)
 }
 
-func (g *GraphStrategy) send(root, packetId uint64, hop uint8, data []byte) error {
+func (g *GraphStrategy) send(root, from, packetId uint64, hop uint8, data []byte) error {
 	log.Debug("Sending packet", "root", root, "packetId", packetId, "hop", hop, "localId", g.State.Id)
 	// first collect all peers to send to
-	destinationPeers, err := g.RouteBroadcast(int(root))
+	destinationPeers, err := g.RouteBroadcast(int(root), int(from))
 	if err != nil {
 		log.Error("RouteBroadcast err", "error", err)
 		return err

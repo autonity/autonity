@@ -103,7 +103,7 @@ func (r *RandomClusteringGraphConstructor) ConstructGraph(maxPeers int) error {
 	return nil
 }
 
-func (r *RandomClusteringGraphConstructor) RouteBroadcast(originalSender int) ([]int, error) {
+func (r *RandomClusteringGraphConstructor) RouteBroadcast(originalSender int, _ int) ([]int, error) {
 	if !r.graph.initiated {
 		return nil, ErrGraphConstruction
 	}

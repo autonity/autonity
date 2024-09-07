@@ -53,7 +53,7 @@ func (p *Simple) Execute(packetId uint64, data []byte, maxPeers int) error {
 	return nil
 }
 
-func (p *Simple) HandlePacket(requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
+func (p *Simple) HandlePacket(requestId uint64, hop uint8, originalSender uint64, _ uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	if hop == 1 {
 		// need to disseminate in the group
 		allPeers := make([]Peer, maxPeers)

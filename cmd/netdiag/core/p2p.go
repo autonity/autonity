@@ -496,7 +496,6 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	}
 
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	//fmt.Println("[DisseminatePacket] << ", packet.RequestId, "FROM:", p.ID(), "ORIGIN", packet.OriginalSender, "HOP", packet.Hop)
 	// check if first time received.
 	if pktInfo, ok := e.State.ReceivedPackets[packet.RequestId]; ok {
 		// check if the seqNum is already received
@@ -512,7 +511,17 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	}
 	cacheDisseminatePacket(e, &packet)
 
-	if err := e.Strategies[packet.StrategyCode].HandlePacket(packet.RequestId, packet.Hop, packet.OriginalSender, packet.MaxPeers, packet.Data, packet.Partial, packet.Seq, packet.Total); err != nil {
+	if err := e.Strategies[packet.StrategyCode].HandlePacket(
+		packet.RequestId,
+		packet.Hop,
+		packet.OriginalSender,
+		uint64(p.id),
+		packet.MaxPeers,
+		packet.Data,
+		packet.Partial,
+		packet.Seq,
+		packet.Total,
+	); err != nil {
 		log.Error("Error handling packet: ", err)
 	}
 	if e.Peers[packet.OriginalSender] == nil {
