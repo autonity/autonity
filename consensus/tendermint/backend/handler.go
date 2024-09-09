@@ -215,7 +215,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		sb.logger.Crit("Tendermint backend processing unknown message")
 	}
 
-	//TODO: remove this
 	sb.Post(events.UnverifiedMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,

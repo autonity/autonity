@@ -905,7 +905,6 @@ loop:
 							signatureInput := sameValueVotes[0].Message.SignatureInput() // all votes have same (h,r,c,v)
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
 						}
-
 						delete(a.messages[h], r)
 						roundMapSize.Dec(1)
 						continue
