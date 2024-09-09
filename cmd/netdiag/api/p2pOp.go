@@ -533,7 +533,7 @@ func (r *ResultDissemination) String() string {
 		return builder.String()
 	}
 	sort.Slice(results, func(a, b int) bool {
-		return results[a].ReceptionTime.Before(results[b].ReceptionTime)
+		return (results[a].Full == results[b].Full && results[a].ReceptionTime.Before(results[b].ReceptionTime)) || (results[a].Full != results[b].Full && results[a].Full)
 	})
 	n := len(results)
 	fmt.Fprintf(&builder, "min: %s, median:%s 2/3rd:%s max: %s\n", results[0].ReceptionTime.Sub(r.StartTime), results[n/2].ReceptionTime.Sub(r.StartTime), results[(2*n)/3].ReceptionTime.Sub(r.StartTime), results[n-1].ReceptionTime.Sub(r.StartTime))
@@ -547,8 +547,8 @@ func (r *ResultDissemination) String() string {
 		}
 		defer file.Close()
 		for _, res := range r.IndividualResults {
-			// numPeers, packetSize, sender, duration, hops, relay, timedOut
-			fmt.Fprintf(file, "%d,%d,%d,%s,%d,%d,%d\n", r.MaxPeers, r.Size, res.Sender, res.ReceptionTime.Sub(r.StartTime), res.Hop, res.Relay, btoi(res.ErrorTimeout))
+			// numPeers, packetSize, sender, duration, hops, relay, full, timedOut
+			fmt.Fprintf(file, "%d,%d,%d,%s,%d,%d,%v,%d\n", r.MaxPeers, r.Size, res.Sender, res.ReceptionTime.Sub(r.StartTime), res.Hop, res.Relay, res.Full, btoi(res.ErrorTimeout))
 		}
 	} else {
 		log.Info("No output file specified")

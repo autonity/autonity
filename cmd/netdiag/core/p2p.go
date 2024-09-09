@@ -461,12 +461,38 @@ type DisseminateReportPacket struct {
 	Sender    uint64
 	Hop       uint8
 	Time      uint64
+	Full      bool
+}
+
+// Returns `true` if the packet is a duplicate
+func readDisseminateChunk(e *Engine, packet *DisseminatePacket) bool {
+	e.RLock()
+	defer e.RUnlock()
+
+	if pktInfo, ok := e.State.ReceivedPackets[packet.RequestId]; ok {
+		// check if the seqNum is already received
+		if len(pktInfo.SeqReceived) <= int(packet.Seq) {
+			log.Crit("invalid seqNum", "packet Info", pktInfo, "received packet", packet)
+		}
+
+		if !packet.Partial || (packet.Partial && pktInfo.SeqReceived[packet.Seq]) {
+			//log.Info("packet has already arrived", "packet", packet.Seq)
+			// do nothing
+			return true
+		}
+	}
+	return false
 }
 
 func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 
+	e.Lock()
+	defer e.Unlock()
 	chunkInfo, ok := e.State.ReceivedPackets[packet.RequestId]
 	if ok {
+		if chunkInfo.SeqReceived[packet.Seq] {
+			return nil
+		}
 		chunkInfo.SeqReceived[packet.Seq] = true
 		chunkInfo.TotalReceived++
 		if chunkInfo.TotalReceived == len(chunkInfo.SeqReceived) {
@@ -497,17 +523,8 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	// check if first time received.
-	if pktInfo, ok := e.State.ReceivedPackets[packet.RequestId]; ok {
-		// check if the seqNum is already received
-		if len(pktInfo.SeqReceived) <= int(packet.Seq) {
-			log.Crit("invalid seqNum", "packet Info", pktInfo, "received packet", packet)
-		}
-
-		if !packet.Partial || (packet.Partial && pktInfo.SeqReceived[packet.Seq]) {
-			//log.Info("packet has already arrived", "packet", packet.Seq)
-			// do nothing
-			return nil
-		}
+	if readDisseminateChunk(e, &packet) {
+		return nil
 	}
 	cacheDisseminatePacket(e, &packet)
 
@@ -537,6 +554,16 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 			Sender:    uint64(p.id),
 			Hop:       packet.Hop,
 			Time:      now,
+			Full:      true,
+		}) // should we ask for ACK?
+	} else if pktInfo.TotalReceived == (len(pktInfo.SeqReceived)+1)/2 {
+		log.Info("half packet received, sending report", "total chunks", pktInfo.TotalReceived)
+		return p2p.Send(e.Peers[packet.OriginalSender], DisseminateReport, DisseminateReportPacket{
+			RequestId: packet.RequestId,
+			Sender:    uint64(p.id),
+			Hop:       packet.Hop,
+			Time:      now,
+			Full:      false,
 		}) // should we ask for ACK?
 	} else {
 		//log.Info("partial packet received", "chunks", pktInfo.SeqNum, "current chunk", packet.Seq)
@@ -559,6 +586,7 @@ func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 		Relay:         int(packet.Sender),
 		Hop:           int(packet.Hop),
 		ReceptionTime: time.Unix(int64(packet.Time)/int64(time.Second), int64(packet.Time)%int64(time.Second)),
+		Full:          packet.Full,
 	}
 	return nil
 }

@@ -73,12 +73,18 @@ func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDissem
 	}
 
 	timer := time.NewTimer(20 * time.Second)
+	fullReportReceived := 0
 
 LOOP:
-	for i := 0; i < recipients; i++ {
+	for fullReportReceived < recipients {
 		select {
 		case report := <-s.ReceivedReports[packetId]:
-			individualResults[report.Sender] = *report
+			if report.Full {
+				fullReportReceived++
+				individualResults[report.Sender] = *report
+			} else if individualResults[report.Sender].ReceptionTime.IsZero() {
+				individualResults[report.Sender] = *report
+			}
 		case <-timer.C:
 			break LOOP
 		}
@@ -126,6 +132,7 @@ type IndividualDisseminateResult struct {
 	Hop           int
 	ReceptionTime time.Time
 	ErrorTimeout  bool
+	Full          bool
 }
 
 type BaseStrategy struct {
