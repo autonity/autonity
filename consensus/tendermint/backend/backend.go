@@ -126,8 +126,8 @@ type Backend struct {
 
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
-	contractsMu sync.RWMutex //todo(youssef): is that necessary?
-	vmConfig    *vm.Config
+	//contractsMu sync.RWMutex //todo(youssef): is that necessary?
+	vmConfig *vm.Config
 
 	MsgStore   *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 	jailed     map[common.Address]uint64

@@ -362,8 +362,8 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 // committee field containaining the list of committee members allowed to participate in consensus for the next block.
 func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
 	_ []*types.Transaction, _ []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
-	sb.contractsMu.Lock()
-	defer sb.contractsMu.Unlock()
+	//sb.contractsMu.Lock()
+	//defer sb.contractsMu.Unlock()
 
 	receipt, epochInfo, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
@@ -380,8 +380,8 @@ func (sb *Backend) GetCommitteeByHeight(height *big.Int) (*types.Committee, erro
 	if err != nil {
 		return nil, err
 	}
-	sb.contractsMu.Lock()
-	defer sb.contractsMu.Unlock()
+	//sb.contractsMu.Lock()
+	//defer sb.contractsMu.Unlock()
 	return sb.BlockChain().ProtocolContracts().GetCommitteeByHeight(header, stateDB, height)
 }
 
