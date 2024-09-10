@@ -87,6 +87,10 @@ func (p *Simple) IsGraphReadyForPeer(peerID int) bool {
 	return true
 }
 
+func (p *Simple) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, p.State.Peers
+}
+
 func disseminationGroup(id int, peers []Peer) []Peer {
 	groupSize := int(math.Sqrt(float64(len(peers))))
 	groupCount := groupSize

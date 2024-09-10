@@ -8,6 +8,15 @@ import (
 
 var StrategyRegistry []registeredStrategy
 
+type LatencyType int
+
+const (
+	// LatencyTypeRTT is the round trip time
+	LatencyTypeRelative LatencyType = iota
+	// LatencyTypeLatency is the latency
+	LatencyTypeFixed
+)
+
 type registeredStrategy struct {
 	Name        string
 	Code        uint64
@@ -59,7 +68,6 @@ func NewState(id uint64, peers int) *State {
 		AverageRTT:      make([]time.Duration, peers),
 		LatencyMatrix:   make([][]time.Duration, peers),
 	}
-	state.LatencyMatrix[id] = make([]time.Duration, peers)
 	return state
 }
 
@@ -117,6 +125,8 @@ type Strategy interface {
 	GraphReadyForPeer(peerID int)
 	// IsGraphReadyForPeer Returns `true` if graph is constructed for all peers
 	IsGraphReadyForPeer(peerID int) bool
+	// Returns the latency type and size
+	LatencyType() (LatencyType, int)
 }
 
 type Peer interface {

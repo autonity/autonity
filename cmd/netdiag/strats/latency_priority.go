@@ -55,3 +55,7 @@ func (l *LowRTT) GraphReadyForPeer(peerID int) {}
 func (l *LowRTT) IsGraphReadyForPeer(peerID int) bool {
 	return true
 }
+
+func (l *LowRTT) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, l.State.Peers
+}

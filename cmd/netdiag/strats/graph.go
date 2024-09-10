@@ -9,6 +9,7 @@ import (
 type GraphConstructor interface {
 	ConstructGraph(maxPeers int) error
 	RouteBroadcast(originalSender int, fromNode int) ([]int, error)
+	LatencyType() (LatencyType, int)
 }
 
 type GraphStrategy struct {

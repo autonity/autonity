@@ -1,17 +1,13 @@
 package strats
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/autonity/autonity/cmd/netdiag/strats/kmeans"
 	"github.com/autonity/autonity/log"
 )
 
-var ErrGraphNotInitiated = errors.New("graph not initiated")
-var ErrGraphConstruction = errors.New("invalid graph construction")
-
-type KmeansClusteringGraphConstructor struct {
+type KmeansNTPGraphConstructor struct {
 	BaseStrategy
 	graph        Graph
 	localLeaders []int
@@ -19,17 +15,17 @@ type KmeansClusteringGraphConstructor struct {
 }
 
 func init() {
-	registerStrategy("K-Means Clustering - 6 clusters", func(base BaseStrategy) Strategy {
-		return createKmeansClustering(base, 6)
+	registerStrategy("K-Means Fixed NTP - 6 clusters", func(base BaseStrategy) Strategy {
+		return createKmeansNTP(base, 6)
 	})
 }
 
-func createKmeansClustering(base BaseStrategy, numClusters int) *GraphStrategy {
+func createKmeansNTP(base BaseStrategy, numClusters int) *GraphStrategy {
 	graph := Graph{
 		id:             int(base.State.Id),
 		peerGraphReady: make([]bool, base.State.Peers),
 	}
-	constructor := &KmeansClusteringGraphConstructor{base, graph, nil, numClusters}
+	constructor := &KmeansNTPGraphConstructor{base, graph, nil, numClusters}
 	return &GraphStrategy{
 		BaseStrategy:     base,
 		GraphConstructor: constructor,
@@ -37,11 +33,11 @@ func createKmeansClustering(base BaseStrategy, numClusters int) *GraphStrategy {
 	}
 }
 
-func (k *KmeansClusteringGraphConstructor) LatencyType() (LatencyType, int) {
-	return LatencyTypeRelative, k.State.Peers
+func (k *KmeansNTPGraphConstructor) LatencyType() (LatencyType, int) {
+	return LatencyTypeFixed, 6
 }
 
-func (k *KmeansClusteringGraphConstructor) ConstructGraph(_ int) error {
+func (k *KmeansNTPGraphConstructor) ConstructGraph(_ int) error {
 	ready, err := k.isLatencyMatrixReady()
 	if err != nil {
 		return err
@@ -52,7 +48,7 @@ func (k *KmeansClusteringGraphConstructor) ConstructGraph(_ int) error {
 	return k.constructGraph()
 }
 
-func (k *KmeansClusteringGraphConstructor) RouteBroadcast(originalSender int, _ int) ([]int, error) {
+func (k *KmeansNTPGraphConstructor) RouteBroadcast(originalSender int, _ int) ([]int, error) {
 	log.Debug("Routing packet", "originalSender", originalSender, "localId", k.State.Id)
 	if len(k.graph.rootedConnection) == 0 {
 		log.Error("Graph not initiated, rootedConnection is empty")
@@ -83,19 +79,15 @@ func (k *KmeansClusteringGraphConstructor) RouteBroadcast(originalSender int, _ 
 	return destinationPeers, nil
 }
 
-func (k *KmeansClusteringGraphConstructor) isLatencyMatrixReady() (bool, error) {
+func (k *KmeansNTPGraphConstructor) isLatencyMatrixReady() (bool, error) {
+	_, latencyLen := k.LatencyType()
 	for id, array := range k.State.LatencyMatrix {
-		if len(array) != k.State.Peers {
+		if len(array) != latencyLen {
 			return false, nil
 		}
 		for peer, latency := range array {
-			if id == peer {
-				if latency != 0 {
-					return false, errInvalidLatencyMatrix
-				}
-				continue
-			}
 			if latency == 0 {
+				log.Debug("Latency matrix at zero", "id", id, "peer", peer)
 				return false, nil
 			}
 		}
@@ -103,7 +95,7 @@ func (k *KmeansClusteringGraphConstructor) isLatencyMatrixReady() (bool, error) 
 	return true, nil
 }
 
-func (k *KmeansClusteringGraphConstructor) constructGraph() error {
+func (k *KmeansNTPGraphConstructor) constructGraph() error {
 	log.Debug("Constructing graph")
 	if k.graph.initiated {
 		return nil
@@ -142,24 +134,4 @@ func (k *KmeansClusteringGraphConstructor) constructGraph() error {
 	k.graph.peerGraphReady[k.State.Id] = true
 	k.graph.constructing.Store(false)
 	return nil
-}
-
-func minArray(a []int) int {
-	minimum := a[0]
-	for _, v := range a {
-		if v < minimum {
-			minimum = v
-		}
-	}
-	return minimum
-}
-
-func filterArray(a []int, f func(int) bool) []int {
-	var result []int
-	for _, v := range a {
-		if f(v) {
-			result = append(result, v)
-		}
-	}
-	return result
 }

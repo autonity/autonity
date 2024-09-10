@@ -145,6 +145,10 @@ func (r *RandomClusteringGraphConstructor) RouteBroadcast(originalSender int, _ 
 	return destinationPeers, nil
 }
 
+func (r *RandomClusteringGraphConstructor) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, r.numClusters
+}
+
 func alreadyIn(item int, list []int) bool {
 	for _, i := range list {
 		if i == item {

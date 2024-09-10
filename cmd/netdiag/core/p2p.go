@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	probing "github.com/prometheus-community/pro-bing"
+
 	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -310,7 +312,9 @@ func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	log.Debug("[LatencyArrayPacket] << ", "id", latencyPacket.RequestId)
-	e.State.LatencyMatrix[p.id] = make([]time.Duration, len(e.Peers))
+	_, lenLatencyArray := e.Strategies[latencyPacket.Strategy].LatencyType()
+	e.State.LatencyMatrix[p.id] = make([]time.Duration, lenLatencyArray)
+
 	for i, l := range latencyPacket.LatencyArray {
 		if i >= len(e.Peers) {
 			log.Error("Invalid latency array received from peer", "peer", p.id, "len", len(e.Peers), "index", i)
@@ -318,6 +322,7 @@ func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 		}
 		e.State.LatencyMatrix[p.id][i] = time.Duration(l)
 	}
+
 	go func(e *Engine, strategy uint64) {
 		if err := e.Strategies[int(strategy)].ConstructGraph(len(e.Peers)); err != nil {
 			if !errors.Is(err, strats.ErrLatencyMatrixNotReady) {
@@ -348,7 +353,8 @@ func (p *Peer) SendTriggerRequest(strategy uint64) error {
 	id := rand.Uint64()
 	log.Debug("[TriggerPacket][TriggerRequest] >> ", "id", id)
 	req, err := p.dispatchRequest(
-		id, TriggerRequest,
+		id,
+		TriggerRequest,
 		TriggerPacket{RequestId: id, Strategy: strategy},
 	)
 	if err != nil {
@@ -372,12 +378,19 @@ func handleTriggerRequest(e *Engine, p *Peer, data io.Reader) error {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
+
+	latencyType, _ := e.Strategies[trigger.Strategy].LatencyType()
 	go func(e *Engine, p *Peer, trigger *TriggerPacket) {
-		// get latency for all peers
-		latency := PingPeers(e)
+		// get latency for all peers or fixed server set
+		var latency []probing.Statistics
+		if latencyType == strats.LatencyTypeRelative {
+			latency = PingPeers(e)
+		} else {
+			latency = PingFixedNTP(e)
+		}
 
 		// set our own latency in the matrix
-		e.State.LatencyMatrix[e.Id] = FilterAveRtt(latency)
+		e.State.LatencyMatrix[e.Id] = FilterAveRtt(latency, latencyType)
 
 		if err := BroadcastLatency(e, trigger.Strategy, latency); err != nil {
 			log.Error("Error in broadcast latency", "error", err)

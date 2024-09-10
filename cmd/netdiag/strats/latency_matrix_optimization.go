@@ -94,6 +94,10 @@ func (l *LatencyMatrixOptimize) IsGraphConstructed() bool {
 	return l.graph.initiated
 }
 
+func (l *LatencyMatrixOptimize) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, l.State.Peers
+}
+
 func (l *LatencyMatrixOptimize) Execute(packetId uint64, data []byte, maxPeers int) error {
 	if !l.graph.initiated || maxPeers != l.graph.peers {
 		return errGraphNotConstructed

@@ -60,6 +60,10 @@ func (k *KmeansOptimizedGraphConstructor) ConstructGraph(_ int) error {
 	return k.constructGraph()
 }
 
+func (k *KmeansOptimizedGraphConstructor) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, k.State.Peers
+}
+
 func (k *KmeansOptimizedGraphConstructor) RouteBroadcast(originalSender int, from int) ([]int, error) {
 	log.Debug("Routing packet", "originalSender", originalSender, "localId", k.State.Id)
 	if rand.Float64() < k.ByzantineChance {

@@ -86,3 +86,7 @@ func (p *Random) GraphReadyForPeer(peerID int) {}
 func (p *Random) IsGraphReadyForPeer(peerID int) bool {
 	return true
 }
+
+func (p *Random) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, p.State.Peers
+}

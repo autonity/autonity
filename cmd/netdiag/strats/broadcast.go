@@ -58,6 +58,10 @@ func (p *Broadcast) IsGraphReadyForPeer(peerID int) bool {
 	return true
 }
 
+func (p *Broadcast) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, p.State.Peers
+}
+
 func (p *BroadcastBlocking) Execute(packetId uint64, data []byte, maxPeers int) error {
 	for i := 0; i < maxPeers; i++ {
 		peer := p.Peers(i)
@@ -84,4 +88,8 @@ func (p *BroadcastBlocking) GraphReadyForPeer(peerID int) {}
 
 func (p *BroadcastBlocking) IsGraphReadyForPeer(peerID int) bool {
 	return true
+}
+
+func (p *BroadcastBlocking) LatencyType() (LatencyType, int) {
+	return LatencyTypeRelative, p.State.Peers
 }

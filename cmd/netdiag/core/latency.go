@@ -9,6 +9,7 @@ import (
 
 	probing "github.com/prometheus-community/pro-bing"
 
+	"github.com/autonity/autonity/cmd/netdiag/strats"
 	"github.com/autonity/autonity/log"
 )
 
@@ -20,14 +21,26 @@ func pingIcmp(address string) <-chan *probing.Statistics {
 		panic(err)
 	}
 	pinger.Count = 5
+	pinger.Timeout = 1 * time.Second
 	pinger.OnRecv = func(pkt *probing.Packet) {
-		fmt.Printf("%d bytes from %s: icmp_seq=%d time=%v\n",
-			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt)
+		log.Debug(
+			"Ping response received",
+			"bytes", pkt.Nbytes,
+			"from", pkt.IPAddr,
+			"icmp_seq", pkt.Seq,
+			"rtt", pkt.Rtt,
+		)
 	}
 
 	pinger.OnDuplicateRecv = func(pkt *probing.Packet) {
-		fmt.Printf("%d bytes from %s: icmp_seq=%d time=%v ttl=%v (DUP!)\n",
-			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt, pkt.TTL)
+		log.Debug(
+			"(DUP!) Ping response received",
+			"bytes", pkt.Nbytes,
+			"from", pkt.IPAddr,
+			"icmp_seq", pkt.Seq,
+			"rtt", pkt.Rtt,
+			"ttl", pkt.TTL,
+		)
 	}
 
 	pinger.OnFinish = func(stats *probing.Statistics) {
@@ -76,12 +89,27 @@ func PingPeers(e *Engine) []probing.Statistics {
 	return results
 }
 
+func PingFixedNTP(e *Engine) []probing.Statistics {
+	replyChannels := make([]<-chan *probing.Statistics, len(NtpServers))
+	results := make([]probing.Statistics, len(NtpServers))
+	for i, serverIP := range NtpServers {
+		log.Debug("Pinging NTP server", "server", serverIP)
+		replyChannels[i] = pingIcmp(serverIP)
+	}
+	for i, ch := range replyChannels {
+		peerStats := <-ch
+		results[i] = *peerStats
+	}
+	return results
+}
+
 func BroadcastLatency(e *Engine, strategy uint64, latency []probing.Statistics) error {
 	errs := make([]error, len(e.Peers))
 	acks := make([]bool, len(e.Peers))
 	var hasError atomic.Bool
 	var wg sync.WaitGroup
 
+	latencyType, _ := e.Strategies[strategy].LatencyType()
 	for i, peer := range e.Peers {
 		if i == e.Id {
 			errs[i] = nil
@@ -96,7 +124,7 @@ func BroadcastLatency(e *Engine, strategy uint64, latency []probing.Statistics) 
 
 		wg.Add(1)
 		go func(id int, peer *Peer) {
-			_, _, err := peer.SendLatencyArray(strategy, FilterAveRtt(latency))
+			_, _, err := peer.SendLatencyArray(strategy, FilterAveRtt(latency, latencyType))
 			if err != nil {
 				hasError.Store(true)
 				errs[id] = err
@@ -183,10 +211,15 @@ func TriggerLatencyBroadcast(e *Engine, strategy uint64) error {
 	return errors.Join(errsOut...)
 }
 
-func FilterAveRtt(latency []probing.Statistics) []time.Duration {
+func FilterAveRtt(latency []probing.Statistics, latencyType strats.LatencyType) []time.Duration {
 	rtts := make([]time.Duration, len(latency))
 	for i, stat := range latency {
-		rtts[i] = stat.AvgRtt
+		if stat.AvgRtt == 0 && latencyType == strats.LatencyTypeFixed {
+			// somehow this should be a very high value
+			rtts[i] = time.Second * 10000
+		} else {
+			rtts[i] = stat.AvgRtt
+		}
 	}
 	return rtts
 }

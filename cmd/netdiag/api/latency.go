@@ -7,13 +7,27 @@ import (
 	"sync/atomic"
 	"time"
 
+	probing "github.com/prometheus-community/pro-bing"
+
 	"github.com/autonity/autonity/cmd/netdiag/core"
+	"github.com/autonity/autonity/cmd/netdiag/strats"
+	"github.com/autonity/autonity/log"
 )
 
 func (p *P2POp) TriggerLatencyBroadcast(arg *ArgStrategy, _ *ArgEmpty) error {
 	// first set our own latency matrix
-	latency := core.PingPeers(p.Engine)
-	p.Engine.State.LatencyMatrix[p.Engine.Id] = core.FilterAveRtt(latency)
+	var latency []probing.Statistics
+	t, _ := p.Engine.Strategies[arg.Strategy].LatencyType()
+	if t == strats.LatencyTypeRelative {
+		log.Debug("Pinging all peers", "strategy", arg.Strategy, "latencyType", "relative")
+		latency = core.PingPeers(p.Engine)
+	} else {
+		log.Debug("Pinging NTP servers", "strategy", arg.Strategy, "latencyType", "fixed")
+		latency = core.PingFixedNTP(p.Engine)
+	}
+	log.Debug("Got latency results", "results", "aveRTT", core.FilterAveRtt(latency, t))
+
+	p.Engine.State.LatencyMatrix[p.Engine.Id] = core.FilterAveRtt(latency, t)
 	if err := core.BroadcastLatency(p.Engine, uint64(arg.Strategy), latency); err != nil {
 		return fmt.Errorf("error in broadcast latency: %s", err.Error())
 	}
