@@ -89,7 +89,7 @@ type Backend interface {
 	MessageCh() <-chan events.UnverifiedMessageEvent
 
 	// ProposalVerified notifies miner a proposal is verified
-	ProposalVerified(hash common.Hash)
+	ProposalVerified(block *types.Block)
 }
 
 type Core interface {

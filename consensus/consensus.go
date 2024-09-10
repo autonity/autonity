@@ -117,7 +117,7 @@ type Engine interface {
 	//
 	// Note, the method returns immediately and will send the result async. More
 	// than one result may also be returned depending on the consensus algorithm.
-	Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error
+	Seal(parent *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error
 
 	// SealHash returns the hash of a block prior to it being sealed.
 	SealHash(header *types.Header) common.Hash
@@ -136,7 +136,7 @@ type Engine interface {
 	SetResultChan(results chan<- *types.Block)
 
 	// SetProposalVerifiedEventCh sets the proposal verified event channel to trigger new block preparation
-	SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- common.Hash)
+	SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block)
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message

@@ -162,7 +162,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	// notify miner
-	go c.Backend().ProposalVerified(proposal.Hash())
+	go c.Backend().ProposalVerified(proposal.Block())
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal)

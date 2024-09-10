@@ -324,20 +324,15 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	header.MixDigest = types.BFTDigest
 
 	// copy the parent extra data as the header extra data
-	number := header.Number.Uint64()
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
+	//number := header.Number.Uint64()
+	//TODO: should we keep this check, parent's parent should be in our chain ideally
+	//parent := chain.GetHeader(header.ParentHash, number-1)
+	//if parent == nil {
+	//	return consensus.ErrUnknownAncestor
+	//}
 	// use the same difficulty for all blocks
 	header.Difficulty = defaultDifficulty
 
-	// set header's timestamp
-	// todo: block period from contract
-	header.Time = parent.Time + 1
-	if int64(header.Time) < time.Now().Unix() {
-		header.Time = uint64(time.Now().Unix())
-	}
 	return nil
 }
 
@@ -398,7 +393,7 @@ func (sb *Backend) EpochByHeight(height *big.Int) (*types.EpochInfo, error) {
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<- *types.Block, stop <-chan struct{}) error {
+func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *types.Block, stop <-chan struct{}) error {
 	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
@@ -443,12 +438,12 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 	return nil
 }
 
-func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- common.Hash) {
+func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- *types.Block) {
 	sb.proposalVerifiedCh = proposalVerifiedCh
 }
 
-func (sb *Backend) ProposalVerified(hash common.Hash) {
-	sb.proposalVerifiedCh <- hash
+func (sb *Backend) ProposalVerified(block *types.Block) {
+	sb.proposalVerifiedCh <- block
 }
 
 func (sb *Backend) SetResultChan(results chan<- *types.Block) {

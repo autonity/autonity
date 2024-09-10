@@ -308,15 +308,15 @@ func (mr *MockBackendMockRecorder) ProcessFutureMsgs(height any) *gomock.Call {
 }
 
 // ProposalVerified mocks base method.
-func (m *MockBackend) ProposalVerified(hash common.Hash) {
+func (m *MockBackend) ProposalVerified(block *types.Block) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ProposalVerified", hash)
+	m.ctrl.Call(m, "ProposalVerified", block)
 }
 
 // ProposalVerified indicates an expected call of ProposalVerified.
-func (mr *MockBackendMockRecorder) ProposalVerified(hash any) *gomock.Call {
+func (mr *MockBackendMockRecorder) ProposalVerified(block any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposalVerified", reflect.TypeOf((*MockBackend)(nil).ProposalVerified), hash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposalVerified", reflect.TypeOf((*MockBackend)(nil).ProposalVerified), block)
 }
 
 // ProposedBlockHash mocks base method.

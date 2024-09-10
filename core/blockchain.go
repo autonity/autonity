@@ -467,6 +467,11 @@ func (bc *BlockChain) CacheProposalState(hash common.Hash, receipts types.Receip
 	bc.cachedState.Store(&blockStateCache{hash: hash, receipts: receipts, usedGas: usedGas, stateDb: db})
 }
 
+func (bc *BlockChain) LoadProposalState() (*state.StateDB, common.Hash) {
+	st := bc.cachedState.Load()
+	return st.stateDb, st.hash
+}
+
 // empty returns an indicator whether the blockchain is empty.
 // Note, it's a special case that we connect a non-empty ancient
 // database with an empty node, so that we can plugin the ancient
