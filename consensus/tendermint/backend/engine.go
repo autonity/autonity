@@ -83,12 +83,12 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 	}
 
 	// get latest epoch info for signature checks and epoch boundary checks latter on.
-	committee, _, cureEpochHead, nextEpochHead, err := chain.LatestEpoch()
+	committee, _, curEpochHead, nextEpochHead, err := chain.LatestEpoch()
 	if err != nil {
 		return err
 	}
 
-	return sb.verifyHeader(chain, header, parent, committee, cureEpochHead, nextEpochHead)
+	return sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead)
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header

@@ -187,7 +187,14 @@ func (c *Committee) Copy() *Committee {
 	if c.membersMap != nil {
 		clone.membersMap = make(map[common.Address]*CommitteeMember)
 		for k, v := range c.membersMap {
-			clone.membersMap[k] = v
+			var member CommitteeMember
+			member.Address = v.Address
+			member.VotingPower = new(big.Int).Set(v.VotingPower)
+			member.Index = v.Index
+			member.ConsensusKeyBytes = make([]byte, len(v.ConsensusKeyBytes))
+			copy(member.ConsensusKeyBytes, v.ConsensusKeyBytes)
+			member.ConsensusKey = v.ConsensusKey.Copy()
+			clone.membersMap[k] = &member
 		}
 	}
 
@@ -225,6 +232,26 @@ func (c *Committee) MemberByIndex(index int) *CommitteeMember {
 }
 
 func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
+	c.lock.RLock()
+	if c.membersMap != nil {
+		defer c.lock.RUnlock()
+		return c.membersMap[address]
+	}
+	c.lock.RUnlock() // Release read lock before acquiring write lock
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	// Double-check if the map was initialized while waiting for the lock
+	if c.membersMap == nil {
+		c.membersMap = make(map[common.Address]*CommitteeMember)
+		for i := range c.Members {
+			c.membersMap[c.Members[i].Address] = &c.Members[i]
+		}
+	}
+	return c.membersMap[address]
+}
+
+/*
+func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.membersMap == nil {
@@ -235,8 +262,32 @@ func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
 		}
 	}
 	return c.membersMap[address]
+}*/
+
+func (c *Committee) TotalVotingPower() *big.Int {
+	c.lock.RLock() // Acquire read lock
+	if c.totalVotingPower != nil {
+		defer c.lock.RUnlock()                      // Release read lock
+		return new(big.Int).Set(c.totalVotingPower) // Return a copy of the cached value
+	}
+	c.lock.RUnlock() // Release read lock before acquiring write lock
+	c.lock.Lock()    // Acquire write lock
+	defer c.lock.Unlock()
+
+	// Double-check if the value was initialized while waiting for the lock
+	if c.totalVotingPower == nil {
+		total := new(big.Int)
+		for _, m := range c.Members {
+			total.Add(total, m.VotingPower)
+		}
+		c.totalVotingPower = total
+	}
+
+	// Return a copy of the cached value
+	return new(big.Int).Set(c.totalVotingPower)
 }
 
+/*
 // TotalVotingPower returns the total voting power contained in the committee.
 func (c *Committee) TotalVotingPower() *big.Int {
 	c.lock.Lock()
@@ -252,7 +303,7 @@ func (c *Committee) TotalVotingPower() *big.Int {
 
 	// return a copy of the cached value to prevent un-expected modification of the cached value.
 	return new(big.Int).Set(c.totalVotingPower)
-}
+}*/
 
 // Enrich adds some convenience information to the committee member structs
 func (c *Committee) Enrich() error {
