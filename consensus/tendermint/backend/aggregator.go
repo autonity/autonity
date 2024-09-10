@@ -42,6 +42,8 @@ var (
 	BatchesBg                  = metrics.NewRegisteredBufferedGauge("aggregator/batches", nil, metrics.GetIntPointer(100))          // size of batches (aggregated together with a single fastAggregateVerify)
 	InvalidBg                  = metrics.NewRegisteredBufferedGauge("aggregator/invalid", nil, metrics.GetIntPointer(100))          // number of invalid sigs
 	BackendAggregatorTransitBg = metrics.NewRegisteredBufferedGauge("aggregator/backend/transit", nil, metrics.GetIntPointer(1000)) // measures time for message passing from backend to aggregator
+	roundMapSize               = metrics.NewRegisteredGauge("aggregator/rounds/all", nil)
+	heightMapSize              = metrics.NewRegisteredGauge("aggregator/height/all", nil)
 )
 
 func recordMessageProcessingTime(code uint8, start time.Time) {
@@ -184,10 +186,12 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 	if _, ok := a.messages[h]; !ok {
 		a.messages[h] = make(map[int64]*RoundInfo)
+		heightMapSize.Inc(1)
 	}
 
 	if _, ok := a.messages[h][r]; !ok {
 		a.messages[h][r] = NewRoundInfo()
+		roundMapSize.Inc(1)
 	}
 
 	roundInfo := a.messages[h][r]
@@ -324,8 +328,11 @@ func (a *aggregator) processRound(h uint64, r int64) {
 
 	a.processBatches(batches, currentHeightEventBuilder)
 
-	//clean up
-	delete(a.messages[h], r)
+	if _, ok := a.messages[h][r]; ok {
+		//clean up
+		delete(a.messages[h], r)
+		roundMapSize.Dec(1)
+	}
 }
 
 func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
@@ -899,10 +906,15 @@ loop:
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
 						}
 						delete(a.messages[h], r)
+						roundMapSize.Dec(1)
 						continue
 					}
 					// if current height, process them
 					a.processRound(h, r)
+				}
+				if h < coreHeight {
+					delete(a.messages, h)
+					heightMapSize.Dec(1)
 				}
 			}
 			// cleanup
