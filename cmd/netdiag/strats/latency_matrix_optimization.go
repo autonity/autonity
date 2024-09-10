@@ -102,7 +102,7 @@ func (l *LatencyMatrixOptimize) Execute(packetId uint64, data []byte, maxPeers i
 		return errGraphConstruction
 	}
 
-	return l.send(l.State.Id, packetId, uint64(maxPeers), 1, data)
+	return l.send(l.State.Id, packetId, uint64(maxPeers), 1, data, false, 0, 0)
 }
 
 func (l *LatencyMatrixOptimize) HandlePacket(packetId uint64, hop uint8, originalSender uint64, _ uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
@@ -116,10 +116,10 @@ func (l *LatencyMatrixOptimize) HandlePacket(packetId uint64, hop uint8, origina
 		return errInvalidArgumentHop
 	}
 
-	return l.send(originalSender, packetId, maxPeers, 0, data)
+	return l.send(originalSender, packetId, maxPeers, 0, data, partial, seqNum, total)
 }
 
-func (l *LatencyMatrixOptimize) send(root, packetId, maxPeers uint64, hop uint8, data []byte) error {
+func (l *LatencyMatrixOptimize) send(root, packetId, maxPeers uint64, hop uint8, data []byte, partial bool, seqNum, total uint16) error {
 	for _, peerID := range l.graph.rootedConnection[root] {
 		if peer := l.Peers(peerID); peer == nil {
 			return errPeerNotFound
@@ -131,7 +131,7 @@ func (l *LatencyMatrixOptimize) send(root, packetId, maxPeers uint64, hop uint8,
 		peer := l.Peers(peerID)
 		wg.Add(1)
 		go func() {
-			err := peer.DisseminateRequest(l.Code, packetId, hop, root, uint64(maxPeers), data, false, 0, 0)
+			err := peer.DisseminateRequest(l.Code, packetId, hop, root, uint64(maxPeers), data, partial, seqNum, total)
 			if err != nil {
 				log.Error("DisseminateRequest err:", err)
 			}
