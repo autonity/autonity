@@ -32,14 +32,14 @@ func (g *GraphStrategy) IsGraphReadyForPeer(peerID int) bool {
 }
 
 func (g *GraphStrategy) Execute(packetId uint64, data []byte, _ int) error {
-	return g.send(g.State.Id, g.State.Id, packetId, 1, data)
+	return g.send(g.State.Id, g.State.Id, packetId, 1, data, false, 0, 0)
 }
 
 func (g *GraphStrategy) HandlePacket(packetId uint64, hop uint8, originalSender uint64, fromNode uint64, _ uint64, data []byte, partial bool, seqNum, total uint16) error {
-	return g.send(originalSender, fromNode, packetId, 0, data)
+	return g.send(originalSender, fromNode, packetId, 0, data, partial, seqNum, total)
 }
 
-func (g *GraphStrategy) send(root, from, packetId uint64, hop uint8, data []byte) error {
+func (g *GraphStrategy) send(root, from, packetId uint64, hop uint8, data []byte, partial bool, seqNum, total uint16) error {
 	log.Debug("Sending packet", "root", root, "packetId", packetId, "hop", hop, "localId", g.State.Id)
 	// first collect all peers to send to
 	destinationPeers, err := g.RouteBroadcast(int(root), int(from))
@@ -67,7 +67,7 @@ func (g *GraphStrategy) send(root, from, packetId uint64, hop uint8, data []byte
 		peerID := peerID
 		go func(p Peer) {
 			log.Debug("Sending packet to peer", "peerID", peerID)
-			err := p.DisseminateRequest(g.Code, packetId, hop, root, uint64(0), data, false, 0, 0)
+			err := p.DisseminateRequest(g.Code, packetId, hop, root, uint64(0), data, partial, seqNum, total)
 			if err != nil {
 				log.Error("DisseminateRequest err:", err)
 			}
