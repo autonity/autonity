@@ -406,17 +406,17 @@ func (mr *MockEngineMockRecorder) Prepare(chain, header any) *gomock.Call {
 }
 
 // Seal mocks base method.
-func (m *MockEngine) Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (m *MockEngine) Seal(parent *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "Seal", parent, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Seal indicates an expected call of Seal.
-func (mr *MockEngineMockRecorder) Seal(chain, block, results, stop any) *gomock.Call {
+func (mr *MockEngineMockRecorder) Seal(parent, block, results, stop any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockEngine)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockEngine)(nil).Seal), parent, block, results, stop)
 }
 
 // SealHash mocks base method.
@@ -434,7 +434,7 @@ func (mr *MockEngineMockRecorder) SealHash(header any) *gomock.Call {
 }
 
 // SetProposalVerifiedEventChan mocks base method.
-func (m *MockEngine) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- common.Hash) {
+func (m *MockEngine) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
 }
@@ -716,17 +716,17 @@ func (mr *MockPoWMockRecorder) Prepare(chain, header any) *gomock.Call {
 }
 
 // Seal mocks base method.
-func (m *MockPoW) Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (m *MockPoW) Seal(parent *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "Seal", parent, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Seal indicates an expected call of Seal.
-func (mr *MockPoWMockRecorder) Seal(chain, block, results, stop any) *gomock.Call {
+func (mr *MockPoWMockRecorder) Seal(parent, block, results, stop any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockPoW)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockPoW)(nil).Seal), parent, block, results, stop)
 }
 
 // SealHash mocks base method.
@@ -744,7 +744,7 @@ func (mr *MockPoWMockRecorder) SealHash(header any) *gomock.Call {
 }
 
 // SetProposalVerifiedEventChan mocks base method.
-func (m *MockPoW) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- common.Hash) {
+func (m *MockPoW) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
 }
@@ -936,17 +936,17 @@ func (mr *MockBFTMockRecorder) Prepare(chain, header any) *gomock.Call {
 }
 
 // Seal mocks base method.
-func (m *MockBFT) Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (m *MockBFT) Seal(parent *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "Seal", parent, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Seal indicates an expected call of Seal.
-func (mr *MockBFTMockRecorder) Seal(chain, block, results, stop any) *gomock.Call {
+func (mr *MockBFTMockRecorder) Seal(parent, block, results, stop any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockBFT)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockBFT)(nil).Seal), parent, block, results, stop)
 }
 
 // SealHash mocks base method.
@@ -964,7 +964,7 @@ func (mr *MockBFTMockRecorder) SealHash(header any) *gomock.Call {
 }
 
 // SetProposalVerifiedEventChan mocks base method.
-func (m *MockBFT) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- common.Hash) {
+func (m *MockBFT) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
 }
