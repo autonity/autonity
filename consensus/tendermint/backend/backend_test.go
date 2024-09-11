@@ -458,7 +458,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := tdmcore.NewMsgStore()
 	// Use the first key as private key
-	b := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
+	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

@@ -668,6 +668,15 @@ func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*
 	return &config, err
 }
 
+func (c *AutonityContract) callEpochID(state vm.StateDB, header *types.Header) (*big.Int, error) {
+	epochID := new(big.Int)
+	_, err := c.AutonityContractCall(state, header, "epochID", &epochID)
+	if err != nil {
+		return nil, err
+	}
+	return epochID, nil
+}
+
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, error) {
 	var updateReady bool
 	var epochEnded bool
