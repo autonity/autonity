@@ -751,18 +751,23 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		hash  common.Hash
 	)
 	if optimisticCandidate {
-		state, hash = w.chain.LoadProposalState()
-		if parent.Hash() != hash { //TODO: fix for own proposal
+		if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
 			sealHash := w.engine.SealHash(parent.Header())
 			w.pendingMu.RLock()
 			task, exist := w.pendingTasks[sealHash]
 			w.pendingMu.RUnlock()
-			if !exist {
-				return nil, fmt.Errorf("no state cache available for optimistic block")
-			} else {
+			if exist {
 				state = task.env.state
+				log.Info("state found from proposer cache", "root", state.IntermediateRoot(true))
+			} else {
+				return nil, fmt.Errorf("no state cache available for optimistic block")
 			}
-
+		} else {
+			state, hash = w.chain.LoadProposalState()
+			if parent.Hash() != hash {
+				return nil, fmt.Errorf("no state cache available for optimistic block")
+			}
+			log.Info("state found in state cache", "root", state.IntermediateRoot(true))
 		}
 	} else {
 		state, err = w.chain.StateAt(parent.Root())
@@ -779,14 +784,14 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		if err != nil {
 			return nil, err
 		}
+		state.StartPrefetcher("miner")
 	}
-	state.StartPrefetcher("miner")
 
 	//TODO: remove ancestors and family, uncles
 	// Note the passed coinbase may be different with header.Coinbase.
 	env := &environment{
 		signer:       types.MakeSigner(w.chainConfig, header.Number),
-		state:        state,
+		state:        state.Copy(),
 		coinbase:     coinbase,
 		ancestors:    mapset.NewSet(),
 		family:       mapset.NewSet(),
@@ -795,13 +800,13 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		parentHeader: parent.Header(),
 	}
 	// when 08 is processed ancestors contain 07 (quick block)
-	for _, ancestor := range w.chain.GetBlocksFromHash(parent.Hash(), 7) {
-		for _, uncle := range ancestor.Uncles() {
-			env.family.Add(uncle.Hash())
-		}
-		env.family.Add(ancestor.Hash())
-		env.ancestors.Add(ancestor.Hash())
-	}
+	//for _, ancestor := range w.chain.GetBlocksFromHash(parent.Hash(), 7) {
+	//	for _, uncle := range ancestor.Uncles() {
+	//		env.family.Add(uncle.Hash())
+	//	}
+	//	env.family.Add(ancestor.Hash())
+	//	env.ancestors.Add(ancestor.Hash())
+	//}
 	// Keep track of transactions which return errors so they can be removed
 	env.tcount = 0
 	return env, nil
