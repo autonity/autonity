@@ -187,7 +187,7 @@ func TestSignerJailed(t *testing.T) {
 	setupMocks(backend, ctrl, t)
 
 	backend.jailedLock.Lock()
-	backend.jailed[member.Address] = 0
+	backend.jailed[member.Address] = true
 	backend.jailedLock.Unlock()
 
 	errCh := make(chan error, 1)
