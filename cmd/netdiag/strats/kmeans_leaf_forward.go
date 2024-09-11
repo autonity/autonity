@@ -8,9 +8,10 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-type KmeansOptimizedGraphConstructor struct {
+type KmeansLeafForwardGraphConstructor struct {
 	BaseStrategy
 	ByzantineChance float64
+	NForward        int
 	NumClusters     int
 
 	graph           Graph
@@ -20,23 +21,27 @@ type KmeansOptimizedGraphConstructor struct {
 }
 
 func init() {
-	registerStrategy("K-Means Optimized - (k=6, byz=30%)", func(base BaseStrategy) Strategy {
-		return createKmeansOptimized(base, 6, 0.3)
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, nForward=8)", func(base BaseStrategy) Strategy {
+		return createKmeansLeafForward(base, 6, 0.3, 8)
 	})
-	registerStrategy("K-Means Optimized - (k=6, byz=0%)", func(base BaseStrategy) Strategy {
-		return createKmeansOptimized(base, 6, 0)
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=0%, nForward=8)", func(base BaseStrategy) Strategy {
+		return createKmeansLeafForward(base, 6, 0, 8)
+	})
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, nForward=4)", func(base BaseStrategy) Strategy {
+		return createKmeansLeafForward(base, 6, 0.3, 4)
 	})
 }
 
-func createKmeansOptimized(base BaseStrategy, numClusters int, byzantineChance float64) *GraphStrategy {
+func createKmeansLeafForward(base BaseStrategy, numClusters int, byzantineChance float64, nForward int) *GraphStrategy {
 	graph := Graph{
 		id:             int(base.State.Id),
 		peerGraphReady: make([]bool, base.State.Peers),
 	}
-	constructor := &KmeansOptimizedGraphConstructor{
+	constructor := &KmeansLeafForwardGraphConstructor{
 		BaseStrategy:    base,
 		ByzantineChance: byzantineChance,
 		NumClusters:     numClusters,
+		NForward:        nForward,
 		graph:           graph,
 		localLeaders:    nil,
 		clusters:        nil,
@@ -49,7 +54,7 @@ func createKmeansOptimized(base BaseStrategy, numClusters int, byzantineChance f
 	}
 }
 
-func (k *KmeansOptimizedGraphConstructor) ConstructGraph(_ int) error {
+func (k *KmeansLeafForwardGraphConstructor) ConstructGraph(_ int) error {
 	ready, err := k.isLatencyMatrixReady()
 	if err != nil {
 		return err
@@ -60,11 +65,11 @@ func (k *KmeansOptimizedGraphConstructor) ConstructGraph(_ int) error {
 	return k.constructGraph()
 }
 
-func (k *KmeansOptimizedGraphConstructor) LatencyType() (LatencyType, int) {
+func (k *KmeansLeafForwardGraphConstructor) LatencyType() (LatencyType, int) {
 	return LatencyTypeRelative, k.State.Peers
 }
 
-func (k *KmeansOptimizedGraphConstructor) RouteBroadcast(originalSender int, from int) ([]int, error) {
+func (k *KmeansLeafForwardGraphConstructor) RouteBroadcast(originalSender int, from int) ([]int, error) {
 	log.Debug("Routing packet", "originalSender", originalSender, "localId", k.State.Id)
 	// we should only cut the packet if we are not the originator of the packet
 	if rand.Float64() < k.ByzantineChance && originalSender != int(k.State.Id) {
@@ -128,7 +133,7 @@ func (k *KmeansOptimizedGraphConstructor) RouteBroadcast(originalSender int, fro
 	return destinationPeers, nil
 }
 
-func (k *KmeansOptimizedGraphConstructor) isLatencyMatrixReady() (bool, error) {
+func (k *KmeansLeafForwardGraphConstructor) isLatencyMatrixReady() (bool, error) {
 	for id, array := range k.State.LatencyMatrix {
 		if len(array) != k.State.Peers {
 			return false, nil
@@ -148,7 +153,7 @@ func (k *KmeansOptimizedGraphConstructor) isLatencyMatrixReady() (bool, error) {
 	return true, nil
 }
 
-func (k *KmeansOptimizedGraphConstructor) constructGraph() error {
+func (k *KmeansLeafForwardGraphConstructor) constructGraph() error {
 	log.Debug("Constructing graph")
 	if k.graph.initiated {
 		return nil
@@ -190,21 +195,4 @@ func (k *KmeansOptimizedGraphConstructor) constructGraph() error {
 	k.graph.constructing.Store(false)
 	k.clusters = clusters
 	return nil
-}
-
-func inCluster(peer int, cluster int, clusters [][]int) bool {
-	for _, c := range clusters[cluster] {
-		if c == peer {
-			return true
-		}
-	}
-	return false
-}
-
-func randNotEqual(max, b int) int {
-	r := rand.Intn(max)
-	if r != b {
-		return r
-	}
-	return randNotEqual(max, b)
 }
