@@ -186,18 +186,11 @@ func (c *Committee) Copy() *Committee {
 
 	if c.membersMap != nil {
 		clone.membersMap = make(map[common.Address]*CommitteeMember)
-		for k, v := range c.membersMap {
-			var member CommitteeMember
-			member.Address = v.Address
-			member.VotingPower = new(big.Int).Set(v.VotingPower)
-			member.Index = v.Index
-			member.ConsensusKeyBytes = make([]byte, len(v.ConsensusKeyBytes))
-			copy(member.ConsensusKeyBytes, v.ConsensusKeyBytes)
-			member.ConsensusKey = v.ConsensusKey.Copy()
-			clone.membersMap[k] = &member
+		for _, v := range clone.Members {
+			member := v
+			clone.membersMap[v.Address] = &member
 		}
 	}
-
 	return clone
 }
 

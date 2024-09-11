@@ -169,7 +169,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	// If the parent of the (first) block is already the canon header,
 	// we don't have to go backwards to delete canon blocks, but simply
 	// pile them onto the existing chain. Otherwise, do the necessary
-	// reorgs.
+	// reorgs. Reorgs does not happen to tendermint BFT chain since its instant finality of blocks.
 	var (
 		first = headers[0]
 		last  = headers[len(headers)-1]
@@ -206,16 +206,14 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	}
 
 	// Extend the canonical chain in db with the new headers
-	var headEpochHeader *types.Header
+	var newEpochHeader *types.Header
 	for i := 0; i < len(headers)-1; i++ {
 		hash := headers[i+1].ParentHash // Save some extra hashing
 		num := headers[i].Number.Uint64()
 		rawdb.WriteCanonicalHash(batch, hash, num)
 		rawdb.WriteHeadHeaderHash(batch, hash)
-		// if the new header is an epoch header, mark the new epoch header hash in db.
 		if headers[i].IsEpochHeader() {
-			headEpochHeader = headers[i]
-			rawdb.WriteEpochHeaderHash(batch, hash)
+			newEpochHeader = headers[i]
 		}
 	}
 	// Write the last header
@@ -223,10 +221,14 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	num := headers[len(headers)-1].Number.Uint64()
 	rawdb.WriteCanonicalHash(batch, hash, num)
 	rawdb.WriteHeadHeaderHash(batch, hash)
-	// if the last header is an epoch header, mark it too in db.
+	// if the last header is an epoch header, save it too.
 	if headers[len(headers)-1].IsEpochHeader() {
-		headEpochHeader = headers[len(headers)-1]
-		rawdb.WriteEpochHeaderHash(batch, hash)
+		newEpochHeader = headers[len(headers)-1]
+	}
+
+	// update in database epoch header hash.
+	if newEpochHeader != nil {
+		rawdb.WriteEpochHeaderHash(batch, newEpochHeader.Hash())
 	}
 
 	if err := batch.Write(); err != nil {
@@ -237,10 +239,10 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	hc.currentHeaderHash = last.Hash()
 	hc.currentHeader.Store(types.CopyHeader(last))
 	headHeaderGauge.Update(last.Number.Int64())
-	// mark in-memory epoch header if there is any epoch header been store in db.
-	if headEpochHeader != nil {
-		hc.currentEpochHeader.Store(types.CopyHeader(headEpochHeader))
-		headEpochHeaderGauge.Update(headEpochHeader.Number.Int64())
+	// update in-memory epoch header
+	if newEpochHeader != nil {
+		hc.currentEpochHeader.Store(types.CopyHeader(newEpochHeader))
+		headEpochHeaderGauge.Update(newEpochHeader.Number.Int64())
 	}
 	return nil
 }
