@@ -392,7 +392,7 @@ func InspectDatabase(db ethdb.Database, keyPrefix, keyStart []byte) error {
 				databaseVersionKey, headHeaderKey, headEpochHeaderKey, headEpochBlockKey, headBlockKey, headFastBlockKey, lastPivotKey,
 				fastTrieProgressKey, snapshotDisabledKey, SnapshotRootKey, snapshotJournalKey,
 				snapshotGeneratorKey, snapshotRecoveryKey, txIndexTailKey, fastTxLookupLimitKey,
-				uncleanShutdownKey, badBlockKey, transitionStatusKey,
+				uncleanShutdownKey, badBlockKey, transitionStatusKey, jailedValidatorCount, jailedValidatorAddress,
 			} {
 				if bytes.Equal(key, meta) {
 					metadata.Add(size)

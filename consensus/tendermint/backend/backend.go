@@ -25,6 +25,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )
@@ -50,17 +51,21 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(nodeKey *ecdsa.PrivateKey,
+func New(
+	database ethdb.Database,
+	nodeKey *ecdsa.PrivateKey,
 	consensusKey blst.SecretKey,
 	vmConfig *vm.Config,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger, noGossip bool) *Backend {
+	log log.Logger, noGossip bool,
+) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
+		database:        database,
 		eventMux:        event.NewTypeMuxSilent(evMux, log),
 		nodeKey:         nodeKey,
 		consensusKey:    consensusKey,
@@ -70,7 +75,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 		vmConfig:        vmConfig,
 		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 		messageCh:       make(chan events.UnverifiedMessageEvent, 1000),
-		jailed:          make(map[common.Address]uint64),
+		jailed:          make(map[common.Address]bool),
 		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
 		futureMinHeight: math.MaxUint64,
 	}
@@ -100,6 +105,7 @@ type Backend struct {
 	address      common.Address
 	logger       log.Logger
 	blockchain   *core.BlockChain
+	database     ethdb.Database
 	currentBlock func() *types.Block
 	hasBadBlock  func(hash common.Hash) bool
 
@@ -129,7 +135,7 @@ type Backend struct {
 	vmConfig *vm.Config
 
 	MsgStore   *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-	jailed     map[common.Address]uint64
+	jailed     map[common.Address]bool
 	jailedLock sync.RWMutex
 
 	aggregator *aggregator
