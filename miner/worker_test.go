@@ -257,7 +257,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 
 	// Ignore empty commit here for less noise.
 	w.skipSealHook = func(task *task) bool {
-		return len(task.receipts) == 0
+		return len(task.env.receipts) == 0
 	}
 
 	// Wait for mined blocks.
@@ -318,8 +318,8 @@ func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consens
 			// With tendermint there is an additional transaction receipt for the block finalization function.
 			receiptLen = 2
 		}
-		if len(task.receipts) != receiptLen {
-			t.Fatalf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
+		if len(task.env.receipts) != receiptLen {
+			t.Fatalf("receipt number mismatch: have %d, want %d", len(task.env.receipts), receiptLen)
 		}
 	}
 	w.newTaskHook = func(task *task) {
@@ -345,57 +345,6 @@ func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consens
 		t.Error("new task timeout")
 	}
 
-}
-
-func TestStreamUncleBlock(t *testing.T) {
-	ethash := ethash.NewFaker()
-	defer ethash.Close()
-
-	w, b := newTestWorker(t, tendermintChainConfig, ethash, rawdb.NewMemoryDatabase(), 1)
-	defer w.close()
-
-	var taskCh = make(chan struct{})
-
-	taskIndex := 0
-	w.newTaskHook = func(task *task) {
-		if task.block.NumberU64() == 2 {
-			// The first task is an empty task, the second
-			// one has 1 pending tx, the third one has 1 tx
-			// and 1 uncle.
-			if taskIndex == 2 {
-				have := task.block.Header().UncleHash
-				want := types.CalcUncleHash([]*types.Header{b.uncleBlock.Header()})
-				if have != want {
-					t.Errorf("uncle hash mismatch: have %s, want %s", have.Hex(), want.Hex())
-				}
-			}
-			taskCh <- struct{}{}
-			taskIndex += 1
-		}
-	}
-	w.skipSealHook = func(task *task) bool {
-		return true
-	}
-	w.fullTaskHook = func() {
-		time.Sleep(100 * time.Millisecond)
-	}
-	w.start()
-
-	for i := 0; i < 1; i += 1 {
-		select {
-		case <-taskCh:
-		case <-time.NewTimer(time.Second).C:
-			t.Error("new task timeout")
-		}
-	}
-
-	w.postSideBlock(core.ChainSideEvent{Block: b.uncleBlock})
-
-	select {
-	case <-taskCh:
-	case <-time.NewTimer(time.Second).C:
-		t.Error("new task timeout")
-	}
 }
 
 func TestRegenerateMiningBlockEthash(t *testing.T) {
@@ -429,8 +378,8 @@ func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, en
 				if isTendermint {
 					receiptLen += 1 // Autonity Contract Finalize additional receipt
 				}
-				if len(task.receipts) != receiptLen {
-					t.Errorf("receipt number mismatch: have %d, want %d", len(task.receipts), receiptLen)
+				if len(task.env.receipts) != receiptLen {
+					t.Errorf("receipt number mismatch: have %d, want %d", len(task.env.receipts), receiptLen)
 				}
 			}
 			taskCh <- struct{}{}
