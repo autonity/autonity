@@ -1130,9 +1130,7 @@ func copyReceipts(receipts []*types.Receipt) []*types.Receipt {
 }
 
 // postSideBlock fires a side chain event, only use it for testing.
-func (w *worker) postSideBlock(event core.ChainSideEvent) {
-	return
-}
+func (w *worker) postSideBlock(_ core.ChainSideEvent) {}
 
 // totalFees computes total consumed miner fees in ETH. Block transactions and receipts have to have the same order.
 func totalFees(block *types.Block, receipts []*types.Receipt) *big.Float {
