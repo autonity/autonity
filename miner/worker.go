@@ -28,8 +28,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/metrics"
 
-	mapset "github.com/deckarep/golang-set"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
@@ -39,7 +37,6 @@ import (
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/trie"
 )
 
 const (
@@ -52,9 +49,6 @@ const (
 
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
-
-	// chainSideChanSize is the size of channel listening to ChainSideEvent.
-	chainSideChanSize = 10
 
 	// resubmitAdjustChanSize is the size of resubmitting interval adjustment channel.
 	resubmitAdjustChanSize = 10
@@ -87,17 +81,14 @@ const (
 type environment struct {
 	signer types.Signer
 
-	state     *state.StateDB // apply state changes here
-	ancestors mapset.Set     // ancestor set (used for checking uncle parent validity)
-	family    mapset.Set     // family set (used for checking uncle invalidity)
-	tcount    int            // tx count in cycle
-	gasPool   *core.GasPool  // available gas used to pack transactions
-	coinbase  common.Address
+	state    *state.StateDB // apply state changes here
+	tcount   int            // tx count in cycle
+	gasPool  *core.GasPool  // available gas used to pack transactions
+	coinbase common.Address
 
 	header       *types.Header
 	txs          []*types.Transaction
 	receipts     []*types.Receipt
-	uncles       map[common.Hash]*types.Header
 	parentHeader *types.Header
 }
 
@@ -106,8 +97,6 @@ func (env *environment) copy() *environment {
 	cpy := &environment{
 		signer:       env.signer,
 		state:        env.state.Copy(),
-		ancestors:    env.ancestors.Clone(),
-		family:       env.family.Clone(),
 		tcount:       env.tcount,
 		coinbase:     env.coinbase,
 		header:       types.CopyHeader(env.header),
@@ -118,23 +107,16 @@ func (env *environment) copy() *environment {
 		gasPool := *env.gasPool
 		cpy.gasPool = &gasPool
 	}
-	// The content of txs and uncles are immutable, unnecessary
+	// The content of txs are immutable, unnecessary
 	// to do the expensive deep copy for them.
 	cpy.txs = make([]*types.Transaction, len(env.txs))
 	copy(cpy.txs, env.txs)
-	cpy.uncles = make(map[common.Hash]*types.Header)
-	for hash, uncle := range env.uncles {
-		cpy.uncles[hash] = uncle
-	}
 	return cpy
 }
 
 // unclelist returns the contained uncles as the list format.
 func (env *environment) unclelist() []*types.Header {
 	var uncles []*types.Header
-	for _, uncle := range env.uncles {
-		uncles = append(uncles, uncle)
-	}
 	return uncles
 }
 
@@ -200,8 +182,6 @@ type worker struct {
 	txsSub       event.Subscription
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
-	chainSideCh  chan core.ChainSideEvent
-	chainSideSub event.Subscription
 
 	// Channels
 	newWorkCh               chan *newWorkReq
@@ -216,9 +196,7 @@ type worker struct {
 
 	wg sync.WaitGroup
 
-	current      *environment                 // An environment for current running cycle.
-	localUncles  map[common.Hash]*types.Block // A set of side blocks generated locally as the possible uncle blocks.
-	remoteUncles map[common.Hash]*types.Block // A set of side blocks as the possible uncle blocks.
+	current *environment // An environment for current running cycle.
 
 	mu       sync.RWMutex // The lock used to protect the coinbase and extra fields
 	coinbase common.Address
@@ -264,12 +242,9 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		mux:                     mux,
 		chain:                   eth.BlockChain(),
 		isLocalBlock:            isLocalBlock,
-		localUncles:             make(map[common.Hash]*types.Block),
-		remoteUncles:            make(map[common.Hash]*types.Block),
 		pendingTasks:            make(map[common.Hash]*task),
 		txsCh:                   make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:             make(chan core.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:             make(chan core.ChainSideEvent, chainSideChanSize),
 		newWorkCh:               make(chan *newWorkReq),
 		getWorkCh:               make(chan *getWorkReq),
 		taskCh:                  make(chan *task),
@@ -284,7 +259,6 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
-	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 	worker.engine.SetResultChan(worker.resultCh)
 	worker.engine.SetProposalVerifiedEventChan(worker.proposalVerifiedEventCh)
 
@@ -532,15 +506,11 @@ func (w *worker) mainLoop() {
 	defer w.wg.Done()
 	defer w.txsSub.Unsubscribe()
 	defer w.chainHeadSub.Unsubscribe()
-	defer w.chainSideSub.Unsubscribe()
 	defer func() {
 		if w.current != nil {
 			w.current.discard()
 		}
 	}()
-
-	cleanTicker := time.NewTicker(time.Second * 10)
-	defer cleanTicker.Stop()
 
 	for {
 		select {
@@ -556,42 +526,6 @@ func (w *worker) mainLoop() {
 				req.result <- block
 			}
 
-		case ev := <-w.chainSideCh:
-			// Short circuit for duplicate side blocks
-			if _, exist := w.localUncles[ev.Block.Hash()]; exist {
-				continue
-			}
-			if _, exist := w.remoteUncles[ev.Block.Hash()]; exist {
-				continue
-			}
-			// Add side block to possible uncle block set depending on the author.
-			if w.isLocalBlock != nil && w.isLocalBlock(ev.Block.Header()) {
-				w.localUncles[ev.Block.Hash()] = ev.Block
-			} else {
-				w.remoteUncles[ev.Block.Hash()] = ev.Block
-			}
-			// If our sealing block contains less than 2 uncle blocks,
-			// add the new uncle block if valid and regenerate a new
-			// sealing block for higher profit.
-			if w.isRunning() && w.current != nil && len(w.current.uncles) < 2 {
-				start := time.Now()
-				if err := w.commitUncle(w.current, ev.Block.Header()); err == nil {
-					w.commit(w.current.copy(), nil, true, start)
-				}
-			}
-
-		case <-cleanTicker.C:
-			chainHead := w.chain.CurrentBlock()
-			for hash, uncle := range w.localUncles {
-				if uncle.NumberU64()+staleThreshold <= chainHead.NumberU64() {
-					delete(w.localUncles, hash)
-				}
-			}
-			for hash, uncle := range w.remoteUncles {
-				if uncle.NumberU64()+staleThreshold <= chainHead.NumberU64() {
-					delete(w.remoteUncles, hash)
-				}
-			}
 		case ev := <-w.txsCh:
 			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
 		// System stopped
@@ -600,8 +534,6 @@ func (w *worker) mainLoop() {
 		case <-w.txsSub.Err():
 			return
 		case <-w.chainHeadSub.Err():
-			return
-		case <-w.chainSideSub.Err():
 			return
 		}
 	}
@@ -787,64 +719,17 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		state.StartPrefetcher("miner")
 	}
 
-	//TODO: remove ancestors and family, uncles
 	// Note the passed coinbase may be different with header.Coinbase.
 	env := &environment{
 		signer:       types.MakeSigner(w.chainConfig, header.Number),
 		state:        state.Copy(),
 		coinbase:     coinbase,
-		ancestors:    mapset.NewSet(),
-		family:       mapset.NewSet(),
 		header:       header,
-		uncles:       make(map[common.Hash]*types.Header),
 		parentHeader: parent.Header(),
 	}
-	// when 08 is processed ancestors contain 07 (quick block)
-	//for _, ancestor := range w.chain.GetBlocksFromHash(parent.Hash(), 7) {
-	//	for _, uncle := range ancestor.Uncles() {
-	//		env.family.Add(uncle.Hash())
-	//	}
-	//	env.family.Add(ancestor.Hash())
-	//	env.ancestors.Add(ancestor.Hash())
-	//}
 	// Keep track of transactions which return errors so they can be removed
 	env.tcount = 0
 	return env, nil
-}
-
-// commitUncle adds the given block to uncle block set, returns error if failed to add.
-func (w *worker) commitUncle(env *environment, uncle *types.Header) error {
-	hash := uncle.Hash()
-	if _, exist := env.uncles[hash]; exist {
-		return errors.New("uncle not unique")
-	}
-	if env.header.ParentHash == uncle.ParentHash {
-		return errors.New("uncle is sibling")
-	}
-	if !env.ancestors.Contains(uncle.ParentHash) {
-		return errors.New("uncle's parent unknown")
-	}
-	if env.family.Contains(hash) {
-		return errors.New("uncle already included")
-	}
-	env.uncles[hash] = uncle
-	return nil
-}
-
-// updateSnapshot updates pending snapshot block, receipts and state.
-func (w *worker) updateSnapshot(env *environment) {
-	w.snapshotMu.Lock()
-	defer w.snapshotMu.Unlock()
-
-	w.snapshotBlock = types.NewBlock(
-		env.header,
-		env.txs,
-		env.unclelist(),
-		env.receipts,
-		trie.NewStackTrie(nil),
-	)
-	w.snapshotReceipts = copyReceipts(env.receipts)
-	w.snapshotState = env.state.Copy()
 }
 
 func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*types.Log, error) {
@@ -992,8 +877,10 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	optimisticCandidate := false
-	var parentHeader *types.Header
+	var (
+		optimisticCandidate bool
+		parentHeader        *types.Header
+	)
 
 	// Find the parent block for sealing task
 	if parent == nil {
@@ -1047,15 +934,9 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 		}
 	}
 	// Run the consensus preparation with the default or customized consensus engine.
-	if err := w.engine.Prepare(w.chain, header); err != nil {
+	if err := w.engine.Prepare(w.chain, parentHeader, header); err != nil {
 		log.Error("Failed to prepare header for sealing", "err", err)
 		return nil, err
-	}
-	// set header's timestamp
-	// todo: block period from contract
-	header.Time = parentHeader.Time + 1
-	if int64(header.Time) < time.Now().Unix() {
-		header.Time = uint64(time.Now().Unix())
 	}
 	// Could potentially happen if starting to mine in an odd state.
 	// Note genParams.coinbase can be different with header.Coinbase
@@ -1064,25 +945,6 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 	if err != nil {
 		w.eth.Logger().Error("Failed to create sealing context", "err", err)
 		return nil, err
-	}
-	//TODO: check if this can be removed
-	// Accumulate the uncles for the sealing work only if it's allowed.
-	if !genParams.noUncle && w.chainConfig.Ethash != nil {
-		commitUncles := func(blocks map[common.Hash]*types.Block) {
-			for hash, uncle := range blocks {
-				if len(env.uncles) == 2 {
-					break
-				}
-				if err := w.commitUncle(env, uncle.Header()); err != nil {
-					w.eth.Logger().Trace("Possible uncle rejected", "hash", hash, "reason", err)
-				} else {
-					w.eth.Logger().Debug("Committing new uncle to block", "hash", hash)
-				}
-			}
-		}
-		// Prefer to locally generated uncle
-		commitUncles(w.localUncles)
-		commitUncles(w.remoteUncles)
 	}
 	return env, nil
 }
@@ -1213,7 +1075,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 				TotalTaskPrepareBg.Add(time.Since(start).Nanoseconds())
 			}
 			w.eth.Logger().Info("Preparing new block proposal", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
-				"uncles", len(env.uncles), "txs", env.tcount,
+				"txs", env.tcount,
 				"gas", block.GasUsed(), "fees", totalFees(block, env.receipts),
 				"elapsed", common.PrettyDuration(time.Since(start))) // Consider moving that to DEBUG level
 
@@ -1269,10 +1131,7 @@ func copyReceipts(receipts []*types.Receipt) []*types.Receipt {
 
 // postSideBlock fires a side chain event, only use it for testing.
 func (w *worker) postSideBlock(event core.ChainSideEvent) {
-	select {
-	case w.chainSideCh <- event:
-	case <-w.exitCh:
-	}
+	return
 }
 
 // totalFees computes total consumed miner fees in ETH. Block transactions and receipts have to have the same order.

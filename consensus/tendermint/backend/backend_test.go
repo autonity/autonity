@@ -618,7 +618,7 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, chain)
-	_ = engine.Prepare(chain, header)
+	_ = engine.Prepare(chain, parent.Header(), header)
 
 	state, errS := chain.StateAt(parent.Root())
 	if errS != nil {

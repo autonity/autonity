@@ -105,7 +105,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
-		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposalVerified(proposal.Block()).Do(func(i any) { wg.Done() })
 		c := &Core{
 			address:          addr,
 			messages:         messages,
@@ -259,7 +259,7 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(round)
 		proposal := message.NewPropose(round, height, 2, block, signer, signerMember)
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposalVerified(proposal.Block()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().ProposedBlockHash().Return(proposal.Hash())
 
 		c := &Core{
@@ -298,7 +298,7 @@ func TestHandleProposal(t *testing.T) {
 		proposal := message.NewPropose(round, height, 2, block, signer, signerMember)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
-		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposalVerified(proposal.Block()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 
 		c := &Core{
@@ -372,7 +372,7 @@ func TestHandleProposal(t *testing.T) {
 		wg.Add(1)
 
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
-		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposalVerified(proposal.Block()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ types.AggregateSignature) {
 			require.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
@@ -398,7 +398,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
-		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposalVerified(proposal.Block()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(gomock.Any(), prevote)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
 		c := &Core{
@@ -448,7 +448,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
-		backendMock.EXPECT().ProposalVerified(proposal.Hash()).Do(func(i any) { wg.Done() })
+		backendMock.EXPECT().ProposalVerified(proposal.Block()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().Broadcast(gomock.Any(), message.NewPrevote(round, height, proposal.Block().Hash(), signer, signerMember, csize))
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
 

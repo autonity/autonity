@@ -317,22 +317,19 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
-func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *types.Header) error {
 	// unused fields, force to set to empty
 	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
 	header.MixDigest = types.BFTDigest
-
-	// copy the parent extra data as the header extra data
-	//number := header.Number.Uint64()
-	//TODO: should we keep this check, parent's parent should be in our chain ideally
-	//parent := chain.GetHeader(header.ParentHash, number-1)
-	//if parent == nil {
-	//	return consensus.ErrUnknownAncestor
-	//}
-	// use the same difficulty for all blocks
 	header.Difficulty = defaultDifficulty
 
+	// set header's timestamp
+	// todo: block period from contract
+	header.Time = parentHeader.Time + 1
+	if int64(header.Time) < time.Now().Unix() {
+		header.Time = uint64(time.Now().Unix())
+	}
 	return nil
 }
 
