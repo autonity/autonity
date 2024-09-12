@@ -94,7 +94,7 @@ type Engine interface {
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	Prepare(consensus ChainHeaderReader, parentHeader,  header *types.Header) error
+	Prepare(consensus ChainHeaderReader, parentHeader, header *types.Header) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// but does not assemble the block.
