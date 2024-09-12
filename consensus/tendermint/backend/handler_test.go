@@ -17,6 +17,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -86,6 +87,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
+			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
 			eventMux: eventMux,
 		}
@@ -107,6 +109,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
+			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
 			eventMux: eventMux,
 		}
@@ -129,7 +132,8 @@ func TestSynchronisationMessage(t *testing.T) {
 
 func TestNewChainHead(t *testing.T) {
 	t.Run("engine not started, error returned", func(t *testing.T) {
-		b := &Backend{}
+		b := &Backend{
+			database: rawdb.NewMemoryDatabase()}
 
 		err := b.NewChainHead()
 		if err != ErrStoppedEngine {
@@ -151,6 +155,7 @@ func TestNewChainHead(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
+			database:     rawdb.NewMemoryDatabase(),
 			core:         tendermintC,
 			evDispatcher: evDispathcer,
 			gossiper:     g,

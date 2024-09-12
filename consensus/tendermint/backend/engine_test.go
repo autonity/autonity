@@ -24,6 +24,7 @@ import (
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
@@ -460,7 +461,8 @@ OUT3:
 }
 
 func TestAPIs(t *testing.T) {
-	b := &Backend{}
+	b := &Backend{
+		database: rawdb.NewMemoryDatabase()}
 
 	APIS := b.APIs(nil)
 	if len(APIS) < 1 {
@@ -493,7 +495,8 @@ func fakeAggregator() *aggregator {
 
 func TestClose(t *testing.T) {
 	t.Run("engine is not running, error returned", func(t *testing.T) {
-		b := &Backend{}
+		b := &Backend{
+			database: rawdb.NewMemoryDatabase()}
 
 		err := b.Close()
 		assertError(t, ErrStoppedEngine, err)
@@ -508,6 +511,7 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
+			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			aggregator: fakeAggregator(),
 			stopped:    make(chan struct{}),
@@ -528,6 +532,7 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
+			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			aggregator: fakeAggregator(),
 			stopped:    make(chan struct{}),
@@ -552,6 +557,7 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
+			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			aggregator: fakeAggregator(),
 			stopped:    make(chan struct{}),
@@ -607,6 +613,7 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
+			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			gossiper:   g,
 			blockchain: chain,
@@ -620,7 +627,8 @@ func TestStart(t *testing.T) {
 	})
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
-		b := &Backend{}
+		b := &Backend{
+			database: rawdb.NewMemoryDatabase()}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
 
@@ -642,6 +650,7 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
+			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			gossiper:   g,
 			blockchain: chain,
@@ -671,6 +680,7 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
+			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			gossiper:   g,
 			blockchain: chain,
@@ -729,6 +739,7 @@ func TestMultipleRestart(t *testing.T) {
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 
 	b := &Backend{
+		database:   rawdb.NewMemoryDatabase(),
 		core:       tendermintC,
 		gossiper:   g,
 		blockchain: chain,
@@ -777,7 +788,8 @@ func assertNotCoreStarted(t *testing.T, b *Backend) {
 }
 
 func TestBackendSealHash(t *testing.T) {
-	b := &Backend{}
+	b := &Backend{
+		database: rawdb.NewMemoryDatabase()}
 
 	res := b.SealHash(&types.Header{})
 	if res.Hex() == "" {
