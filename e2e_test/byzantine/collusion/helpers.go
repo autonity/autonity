@@ -122,11 +122,7 @@ func validProposer(address common.Address, h uint64, r int64, contract *autonity
 func sendPrevote(c *core.Core, rule autonity.Rule) {
 	h, r, v := getCollusion(rule).context()
 	// if the leader haven't set up the context, skip.
-	if v == nil {
-		return
-	}
-
-	if c.Height().Uint64() != h {
+	if v == nil || c.Height().Uint64() < h {
 		return
 	}
 
@@ -161,7 +157,7 @@ func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
 	}
 
 	h, r, v := ctx.context()
-	if h < c.Height().Uint64() {
+	if rule == autonity.PVN && h < c.Height().Uint64() {
 		c.SetupCollusionContext()
 		c.BroadcastAll(msg)
 		return
