@@ -565,6 +565,9 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	if err != nil {
 		sb.logger.Crit("Could not retrieve epoch id", "err", err)
 	}
+	if !epochID.IsUint64() {
+		sb.logger.Crit("epoch id not in uint64")
+	}
 	lastEpochID := epochID.Uint64()
 	jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
 	for i := 0; i < int(jailedCount); i++ {
@@ -631,6 +634,9 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				delete(sb.jailed, k)
 			}
 			sb.jailedLock.Unlock()
+			if !ev.Epoch.IsUint64() {
+				sb.logger.Crit("epoch id not in uint64")
+			}
 			lastEpochID = ev.Epoch.Uint64()
 		}
 	}
