@@ -79,6 +79,23 @@ func NextProposeRound(currentRound int64, c *core.Core) int64 {
 func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, eventType autonity.AccountabilityEventType,
 	rule autonity.Rule, network Network) error {
 
+	var lastEpochID int64 = -1
+	for _, n := range network {
+		header := n.Eth.BlockChain().CurrentHeader()
+		db, err := n.Eth.BlockChain().StateAt(header.Root)
+		require.NoError(t, err)
+		epochID, err := n.Eth.BlockChain().ProtocolContracts().AutonityContract.EpochID(header, db)
+		require.NoError(t, err)
+		if !epochID.IsInt64() {
+			require.Fail(t, "fatal error: epoch id does not fit in int64")
+		}
+		if lastEpochID == -1 {
+			lastEpochID = epochID.Int64()
+		} else {
+			require.Equal(t, lastEpochID, epochID.Int64(), "epoch id does not match for nodes")
+		}
+	}
+
 	n := network[1]
 	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
 	var events []autonity.AccountabilityEvent
