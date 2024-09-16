@@ -94,6 +94,11 @@ var (
 		Name: "skip-broadcast",
 	}
 
+	startExecuteFromFlag = cli.IntFlag{
+		Name:  "start-execute-from",
+		Value: 0,
+	}
+
 	setupCommand = cli.Command{
 		Action:    setup,
 		Name:      "setup",
@@ -182,6 +187,7 @@ The run command start a local runner`,
 			networkModeFlag,
 			skipLatencyBroadcastFlag,
 			pprofFlag,
+			startExecuteFromFlag,
 		},
 		Description: `The execute command executes a strategy and collects statistics`,
 	}
@@ -596,6 +602,7 @@ func update(c *cli.Context) error {
 func execute(c *cli.Context) error {
 	log.Info("Executing strategy")
 	targetPeer := c.Int(idFlag.Name)
+	startFrom := c.Int(startExecuteFromFlag.Name)
 	cfg := readConfigFile(c.String(configFlag.Name))
 	client, err := rpc.Dial("tcp", cfg.Nodes[targetPeer].Ip+":1337")
 	if err != nil {
@@ -669,7 +676,7 @@ func execute(c *cli.Context) error {
 
 	log.Info("Graph ready for all peers", "ready", ready)
 	// Disseminate
-	for i := 0; i < len(cfg.Nodes); i++ {
+	for i := startFrom; i < len(cfg.Nodes); i++ {
 		for k := 0; k < numCalls; k++ {
 			log.Info("Connecting to new client", "peer", i)
 			client, err := rpc.Dial("tcp", cfg.Nodes[i].Ip+":1337")

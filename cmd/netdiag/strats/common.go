@@ -1,6 +1,7 @@
 package strats
 
 import (
+	"sync"
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
@@ -48,6 +49,7 @@ type ChunkInfo struct {
 
 // State is a shared object amongst strategies.
 type State struct {
+	mu    sync.Mutex
 	Id    uint64
 	Peers int
 	// Those need to be protected
@@ -69,6 +71,19 @@ func NewState(id uint64, peers int) *State {
 		LatencyMatrix:   make([][]time.Duration, peers),
 	}
 	return state
+}
+
+func (s *State) ReceivedPacketsFor(requestId uint64) (ChunkInfo, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cnk, ok := s.ReceivedPackets[requestId]
+	return cnk, ok
+}
+
+func (s *State) SetReceivedPacketsFor(requestId uint64, info ChunkInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ReceivedPackets[requestId] = info
 }
 
 func (s *State) CollectReports(packetId uint64, maxPeers int) []IndividualDisseminateResult {

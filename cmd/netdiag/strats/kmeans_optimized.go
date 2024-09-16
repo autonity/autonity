@@ -201,10 +201,19 @@ func inCluster(peer int, cluster int, clusters [][]int) bool {
 	return false
 }
 
-func randNotEqual(max, b int) int {
+func inArray(i int, a []int) bool {
+	for _, v := range a {
+		if v == i {
+			return true
+		}
+	}
+	return false
+}
+
+func randNotEqual(max int, b ...int) int {
 	r := rand.Intn(max)
-	if r != b {
+	if !inArray(r, b) {
 		return r
 	}
-	return randNotEqual(max, b)
+	return randNotEqual(max, b...)
 }

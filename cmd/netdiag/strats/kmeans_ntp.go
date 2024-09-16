@@ -80,9 +80,8 @@ func (k *KmeansNTPGraphConstructor) RouteBroadcast(originalSender int, _ int) ([
 }
 
 func (k *KmeansNTPGraphConstructor) isLatencyMatrixReady() (bool, error) {
-	_, latencyLen := k.LatencyType()
 	for id, array := range k.State.LatencyMatrix {
-		if len(array) != latencyLen {
+		if len(array) == 0 {
 			return false, nil
 		}
 		for peer, latency := range array {

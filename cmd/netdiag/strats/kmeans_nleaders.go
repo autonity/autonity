@@ -3,48 +3,51 @@ package strats
 import (
 	"fmt"
 	"math/rand"
+	"sort"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/autonity/autonity/cmd/netdiag/strats/kmeans"
 	"github.com/autonity/autonity/log"
 )
 
-type KmeansLeafForwardGraphConstructor struct {
+type KmeansNLeadersGraphConstructor struct {
 	BaseStrategy
 	ByzantineChance float64
-	NForward        int
 	NumClusters     int
+	NLeaders        int
 
 	graph           Graph
-	localLeaders    []int
+	localLeaders    [][]int
 	clusters        [][]int
 	assignedCluster int
 }
 
 func init() {
-	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, nForward=8)", func(base BaseStrategy) Strategy {
-		return createKmeansLeafForward(base, 6, 0.3, 8)
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, n=3)", func(base BaseStrategy) Strategy {
+		return createKMeansNLeaders(base, 6, 3, 0.3)
 	})
-	registerStrategy("K-Means Leaf Forward - (k=6, byz=0%, nForward=8)", func(base BaseStrategy) Strategy {
-		return createKmeansLeafForward(base, 6, 0, 8)
+	registerStrategy("K-Means NLeaders - (k=6, byz=0%, n=3)", func(base BaseStrategy) Strategy {
+		return createKMeansNLeaders(base, 6, 3, 0)
 	})
-	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, nForward=4)", func(base BaseStrategy) Strategy {
-		return createKmeansLeafForward(base, 6, 0.3, 4)
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=0%, leaders=6)", func(base BaseStrategy) Strategy {
+		return createKMeansNLeaders(base, 6, 6, 0)
 	})
 }
 
-func createKmeansLeafForward(base BaseStrategy, numClusters int, byzantineChance float64, nForward int) *GraphStrategy {
+func createKMeansNLeaders(base BaseStrategy, numClusters int, nleaders int, byzantineChance float64) *GraphStrategy {
 	graph := Graph{
 		id:             int(base.State.Id),
 		peerGraphReady: make([]bool, base.State.Peers),
 	}
-	constructor := &KmeansLeafForwardGraphConstructor{
+	constructor := &KmeansNLeadersGraphConstructor{
 		BaseStrategy:    base,
 		ByzantineChance: byzantineChance,
 		NumClusters:     numClusters,
-		NForward:        nForward,
+		NLeaders:        nleaders,
 		graph:           graph,
-		localLeaders:    nil,
-		clusters:        nil,
+		localLeaders:    make([][]int, numClusters),
+		clusters:        make([][]int, numClusters),
 		assignedCluster: -1,
 	}
 	return &GraphStrategy{
@@ -54,7 +57,7 @@ func createKmeansLeafForward(base BaseStrategy, numClusters int, byzantineChance
 	}
 }
 
-func (k *KmeansLeafForwardGraphConstructor) ConstructGraph(_ int) error {
+func (k *KmeansNLeadersGraphConstructor) ConstructGraph(_ int) error {
 	ready, err := k.isLatencyMatrixReady()
 	if err != nil {
 		return err
@@ -65,11 +68,11 @@ func (k *KmeansLeafForwardGraphConstructor) ConstructGraph(_ int) error {
 	return k.constructGraph()
 }
 
-func (k *KmeansLeafForwardGraphConstructor) LatencyType() (LatencyType, int) {
+func (k *KmeansNLeadersGraphConstructor) LatencyType() (LatencyType, int) {
 	return LatencyTypeRelative, k.State.Peers
 }
 
-func (k *KmeansLeafForwardGraphConstructor) RouteBroadcast(originalSender int, from int) ([]int, error) {
+func (k *KmeansNLeadersGraphConstructor) RouteBroadcast(originalSender int, from int) ([]int, error) {
 	log.Debug("Routing packet", "originalSender", originalSender, "localId", k.State.Id)
 	// we should only cut the packet if we are not the originator of the packet
 	if rand.Float64() < k.ByzantineChance && originalSender != int(k.State.Id) {
@@ -88,7 +91,7 @@ func (k *KmeansLeafForwardGraphConstructor) RouteBroadcast(originalSender int, f
 	if originalSender == int(k.State.Id) {
 		log.Debug("Original sender, adding all local leaders", "localLeaders", fmt.Sprintf("%v", k.localLeaders), "originalSender", originalSender)
 		// we don't need to send it to ourselves
-		destinationPeers = filterArray(k.localLeaders, func(i int) bool {
+		destinationPeers = filterArray(flatten(k.localLeaders), func(i int) bool {
 			return i != int(k.State.Id)
 		})
 	}
@@ -104,22 +107,12 @@ func (k *KmeansLeafForwardGraphConstructor) RouteBroadcast(originalSender int, f
 		)
 	}
 
-	// if we are a leaf node, and the original sender is in our cluster,
-	// we can forward it to a random peer in another cluster
-	if len(destinationPeers) == 0 && from == k.localLeaders[k.assignedCluster] {
-		log.Debug("Forwarding packet to random peer in another cluster", "localId", k.State.Id)
-		for i := 0; i < k.NForward; i++ {
-			destinationPeers = append(destinationPeers, randNotEqual(k.State.Peers, int(k.State.Id), from))
-		}
-	}
-
 	return destinationPeers, nil
 }
 
-func (k *KmeansLeafForwardGraphConstructor) isLatencyMatrixReady() (bool, error) {
+func (k *KmeansNLeadersGraphConstructor) isLatencyMatrixReady() (bool, error) {
 	for id, array := range k.State.LatencyMatrix {
 		if len(array) != k.State.Peers {
-			log.Debug("Latency matrix not ready, latency vector wrong size", "fromId", id, "latency", fmt.Sprintf("%v", array))
 			return false, nil
 		}
 		for peer, latency := range array {
@@ -130,7 +123,6 @@ func (k *KmeansLeafForwardGraphConstructor) isLatencyMatrixReady() (bool, error)
 				continue
 			}
 			if latency == 0 {
-				log.Debug("Latency matrix not ready, latency vector has zero entry for non self-latency", "fromId", id, "peerId", peer, "latency", fmt.Sprintf("%v", array))
 				return false, nil
 			}
 		}
@@ -138,7 +130,7 @@ func (k *KmeansLeafForwardGraphConstructor) isLatencyMatrixReady() (bool, error)
 	return true, nil
 }
 
-func (k *KmeansLeafForwardGraphConstructor) constructGraph() error {
+func (k *KmeansNLeadersGraphConstructor) constructGraph() error {
 	log.Debug("Constructing graph")
 	if k.graph.initiated {
 		return nil
@@ -156,21 +148,20 @@ func (k *KmeansLeafForwardGraphConstructor) constructGraph() error {
 	log.Debug("Clusters assigned", "clusters", fmt.Sprintf("%v", clusters))
 
 	var rootedConnection = make([][]int, k.State.Peers)
-	k.localLeaders = make([]int, k.NumClusters)
 	for i := 0; i < k.State.Peers; i++ {
 		rootedConnection[i] = make([]int, 0)
 	}
 	for i, c := range clusters {
-		clusterLeader := minArray(c)
-		log.Debug("Cluster leader elected", "iCluster", i, "clusterLeader", clusterLeader)
-		k.localLeaders[i] = clusterLeader
-		for _, peer := range c {
-			if peer != clusterLeader {
-				rootedConnection[clusterLeader] = append(rootedConnection[clusterLeader], peer)
-			}
-			if peer == int(k.State.Id) {
-				k.assignedCluster = i
-			}
+		clusterLeaders := minNItems(c, k.NLeaders)
+		log.Debug("Cluster leader elected", "iCluster", i, "clusterLeader", clusterLeaders)
+		k.localLeaders[i] = minNItems(c, k.NLeaders)
+		for _, clusterLeader := range clusterLeaders {
+			rootedConnection[clusterLeader] = filterArray(c, func(i int) bool {
+				return i != clusterLeader
+			})
+		}
+		if slices.Contains(clusterLeaders, int(k.State.Id)) {
+			k.assignedCluster = i
 		}
 	}
 
@@ -180,4 +171,21 @@ func (k *KmeansLeafForwardGraphConstructor) constructGraph() error {
 	k.graph.constructing.Store(false)
 	k.clusters = clusters
 	return nil
+}
+
+func minNItems(slice []int, n int) []int {
+	if n >= len(slice) {
+		return slice
+	}
+	sliceCopy := append([]int(nil), slice...)
+	sort.Ints(sliceCopy)
+	return sliceCopy[:n]
+}
+
+func flatten(slice [][]int) []int {
+	var result []int
+	for _, subSlice := range slice {
+		result = append(result, subSlice...)
+	}
+	return result
 }

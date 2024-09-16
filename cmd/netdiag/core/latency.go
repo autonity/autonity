@@ -21,7 +21,7 @@ func pingIcmp(address string) <-chan *probing.Statistics {
 		panic(err)
 	}
 	pinger.Count = 5
-	pinger.Timeout = 1 * time.Second
+	pinger.Timeout = 5 * time.Second
 	pinger.OnRecv = func(pkt *probing.Packet) {
 		log.Debug(
 			"Ping response received",
@@ -89,7 +89,7 @@ func PingPeers(e *Engine) []probing.Statistics {
 	return results
 }
 
-func PingFixedNTP(e *Engine) []probing.Statistics {
+func PingFixedNTP() []probing.Statistics {
 	replyChannels := make([]<-chan *probing.Statistics, len(NtpServers))
 	results := make([]probing.Statistics, len(NtpServers))
 	for i, serverIP := range NtpServers {

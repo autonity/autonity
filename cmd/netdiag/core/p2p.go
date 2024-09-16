@@ -312,11 +312,19 @@ func handleLatencyArray(e *Engine, p *Peer, data io.Reader) error {
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
 	log.Debug("[LatencyArrayPacket] << ", "id", latencyPacket.RequestId)
-	_, lenLatencyArray := e.Strategies[latencyPacket.Strategy].LatencyType()
-	e.State.LatencyMatrix[p.id] = make([]time.Duration, lenLatencyArray)
+
+	latencyType, _ := e.Strategies[latencyPacket.Strategy].LatencyType()
+	var latencyLen int
+	if latencyType == strats.LatencyTypeRelative {
+		latencyLen = len(e.Peers)
+	} else {
+		latencyLen = len(NtpServers)
+	}
+
+	e.State.LatencyMatrix[p.id] = make([]time.Duration, latencyLen)
 
 	for i, l := range latencyPacket.LatencyArray {
-		if i >= len(e.Peers) {
+		if i >= latencyLen {
 			log.Error("Invalid latency array received from peer", "peer", p.id, "len", len(e.Peers), "index", i)
 			break
 		}
@@ -386,7 +394,7 @@ func handleTriggerRequest(e *Engine, p *Peer, data io.Reader) error {
 		if latencyType == strats.LatencyTypeRelative {
 			latency = PingPeers(e)
 		} else {
-			latency = PingFixedNTP(e)
+			latency = PingFixedNTP()
 		}
 
 		// set our own latency in the matrix
@@ -482,7 +490,7 @@ func readDisseminateChunk(e *Engine, packet *DisseminatePacket) bool {
 	e.RLock()
 	defer e.RUnlock()
 
-	if pktInfo, ok := e.State.ReceivedPackets[packet.RequestId]; ok {
+	if pktInfo, ok := e.State.ReceivedPacketsFor(packet.RequestId); ok {
 		// check if the seqNum is already received
 		if len(pktInfo.SeqReceived) <= int(packet.Seq) {
 			log.Crit("invalid seqNum", "packet Info", pktInfo, "received packet", packet)
@@ -498,10 +506,9 @@ func readDisseminateChunk(e *Engine, packet *DisseminatePacket) bool {
 }
 
 func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
-
 	e.Lock()
 	defer e.Unlock()
-	chunkInfo, ok := e.State.ReceivedPackets[packet.RequestId]
+	chunkInfo, ok := e.State.ReceivedPacketsFor(packet.RequestId)
 	if ok {
 		if chunkInfo.SeqReceived[packet.Seq] {
 			return nil
@@ -511,7 +518,7 @@ func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 		if chunkInfo.TotalReceived == len(chunkInfo.SeqReceived) {
 			chunkInfo.Partial = false
 		}
-		e.State.ReceivedPackets[packet.RequestId] = chunkInfo
+		e.State.SetReceivedPacketsFor(packet.RequestId, chunkInfo)
 	} else {
 		chunkInfo := strats.ChunkInfo{
 			TotalReceived: 1,
@@ -523,7 +530,7 @@ func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 		if chunkInfo.TotalReceived == len(chunkInfo.SeqReceived) {
 			chunkInfo.Partial = false
 		}
-		e.State.ReceivedPackets[packet.RequestId] = chunkInfo
+		e.State.SetReceivedPacketsFor(packet.RequestId, chunkInfo)
 	}
 	return nil
 }
@@ -558,7 +565,7 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 		fmt.Println("ERROR ORIGINAL SENDER NOT FOUND", packet.OriginalSender)
 		return nil
 	}
-	pktInfo := e.State.ReceivedPackets[packet.RequestId]
+	pktInfo, _ := e.State.ReceivedPacketsFor(packet.RequestId)
 	// all packets related to this requestID has been received
 	if !pktInfo.Partial {
 		log.Info("complete packet received, sending report", "total chunks", len(pktInfo.SeqReceived))

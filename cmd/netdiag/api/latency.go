@@ -23,9 +23,9 @@ func (p *P2POp) TriggerLatencyBroadcast(arg *ArgStrategy, _ *ArgEmpty) error {
 		latency = core.PingPeers(p.Engine)
 	} else {
 		log.Debug("Pinging NTP servers", "strategy", arg.Strategy, "latencyType", "fixed")
-		latency = core.PingFixedNTP(p.Engine)
+		latency = core.PingFixedNTP()
 	}
-	log.Debug("Got latency results", "results", "aveRTT", core.FilterAveRtt(latency, t))
+	log.Debug("Got latency results", "aveRTT", core.FilterAveRtt(latency, t))
 
 	p.Engine.State.LatencyMatrix[p.Engine.Id] = core.FilterAveRtt(latency, t)
 	if err := core.BroadcastLatency(p.Engine, uint64(arg.Strategy), latency); err != nil {
@@ -139,7 +139,7 @@ func (r *ResultLatencyMatrix) String() string {
 				if l != 0 {
 					valid = false
 				}
-				fmt.Fprintf(&builder, "0\t")
+				fmt.Fprintf(&builder, "%d\t", l)
 				continue
 			}
 			if l == 0 {
