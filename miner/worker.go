@@ -685,21 +685,20 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 	if optimisticCandidate {
 		if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
 			sealHash := w.engine.SealHash(parent.Header())
-			w.pendingMu.RLock()
+			w.pendingMu.Lock()
 			task, exist := w.pendingTasks[sealHash]
-			w.pendingMu.RUnlock()
 			if exist {
 				state = task.env.state.Copy()
-				log.Info("state found from proposer cache", "root", state.IntermediateRoot(true))
 			} else {
+				w.pendingMu.Unlock()
 				return nil, fmt.Errorf("no state cache available for optimistic block")
 			}
+			w.pendingMu.Unlock()
 		} else {
 			state, hash = w.chain.LoadProposalState()
 			if parent.Hash() != hash {
 				return nil, fmt.Errorf("no state cache available for optimistic block")
 			}
-			log.Info("state found in state cache", "root", state.IntermediateRoot(true))
 		}
 	} else {
 		state, err = w.chain.StateAt(parent.Root())
