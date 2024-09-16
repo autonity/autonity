@@ -31,6 +31,8 @@ const (
 	ProtocolMessages
 )
 
+var DuplicateDisseminatePacket = errors.New("duplicate disseminate packet")
+
 var protocolHandlers = map[uint64]func(e *Engine, p *Peer, data io.Reader) error{
 	PingMsg:            handlePing,
 	PongMsg:            handlePong,
@@ -504,7 +506,7 @@ func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 	chunkInfo, ok := e.State.ReceivedPackets[packet.RequestId]
 	if ok {
 		if chunkInfo.SeqReceived[packet.Seq] {
-			return nil
+			return DuplicateDisseminatePacket
 		}
 		chunkInfo.SeqReceived[packet.Seq] = true
 		chunkInfo.TotalReceived++
@@ -539,7 +541,11 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	if readDisseminateChunk(e, &packet) {
 		return nil
 	}
-	cacheDisseminatePacket(e, &packet)
+	if err := cacheDisseminatePacket(e, &packet); err != nil {
+		log.Warn("Cannot cache disseminate packet", "err", err)
+		// cannot return the error, handler will stop
+		return nil
+	}
 
 	if err := e.Strategies[packet.StrategyCode].HandlePacket(
 		packet.RequestId,
