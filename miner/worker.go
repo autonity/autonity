@@ -689,7 +689,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 			task, exist := w.pendingTasks[sealHash]
 			w.pendingMu.RUnlock()
 			if exist {
-				state = task.env.state
+				state = task.env.state.Copy()
 				log.Info("state found from proposer cache", "root", state.IntermediateRoot(true))
 			} else {
 				return nil, fmt.Errorf("no state cache available for optimistic block")
@@ -722,7 +722,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 	// Note the passed coinbase may be different with header.Coinbase.
 	env := &environment{
 		signer:       types.MakeSigner(w.chainConfig, header.Number),
-		state:        state.Copy(),
+		state:        state,
 		coinbase:     coinbase,
 		header:       header,
 		parentHeader: parent.Header(),

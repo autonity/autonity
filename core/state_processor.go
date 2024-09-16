@@ -78,7 +78,7 @@ func (p *StateProcessor) ProcessFromCache(block *types.Block, statedb *state.Sta
 			allLogs = append(allLogs, r.Logs...)
 		}
 		usedGas = st.usedGas
-		statedb = st.stateDb
+		statedb = st.stateDb.Copy()
 	} else {
 		receipts, allLogs, usedGas, _, err = p.Process(block, statedb, cfg)
 	}
