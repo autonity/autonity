@@ -39,7 +39,7 @@ func TestBondingGasConsumption(t *testing.T) {
 		createContract(r, user, contractTotalAmount, start, cliff, end)
 	}
 	validator := r.committee.validators[0].NodeAddress
-	liquidContract := r.committee.liquidContracts[0]
+	liquidStateContract := r.committee.liquidStateContracts[0]
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
 	stakingGas, _, err := r.autonity.StakingGasPrice(nil)
@@ -70,7 +70,7 @@ func TestBondingGasConsumption(t *testing.T) {
 	})
 
 	r.run("single bond after a successful bonding", func(r *runner) {
-		oldLiquidBalance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		oldLiquidBalance, _, err := liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		bondingID := len(r.committee.validators) + 1
 		bondingAmount = big.NewInt(contractTotalAmount)
@@ -82,7 +82,7 @@ func TestBondingGasConsumption(t *testing.T) {
 		}
 		r.waitNextEpoch()
 		delegatedStake := big.NewInt(contractTotalAmount * int64(contractCount-1))
-		liquidBalance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		liquidBalance, _, err := liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		require.Equal(r.t, oldLiquidBalance.Add(oldLiquidBalance, delegatedStake), liquidBalance)
 		for i := 1; i < contractCount; i++ {
@@ -294,7 +294,7 @@ func TestBonding(t *testing.T) {
 	cliff := 500 + start
 	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
 	end := contractTotalAmount + start
-	users, validators, liquidContracts := setupContracts(r, 2, 2, contractTotalAmount, start, cliff, end)
+	users, validators, liquidStateContracts := setupContracts(r, 2, 2, contractTotalAmount, start, cliff, end)
 
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
@@ -302,7 +302,7 @@ func TestBonding(t *testing.T) {
 	beneficiary := users[0]
 	contractID := common.Big0
 	validator := validators[0]
-	liquidContract := liquidContracts[0]
+	liquidStateContract := liquidStateContracts[0]
 
 	r.run("can bond all funds before cliff but not before start", func(r *runner) {
 		require.True(r.t, r.evm.Context.Time.Cmp(big.NewInt(start+1)) < 0, "contract started already")
@@ -355,10 +355,10 @@ func TestBonding(t *testing.T) {
 			r.t, big.NewInt(contractTotalAmount-unlocked), liquid,
 			"liquid release don't follow epoch based linear function",
 		)
-		liquid, _, err = liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		liquid, _, err = liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		require.Equal(r.t, big.NewInt(contractTotalAmount-unlocked), liquid, "liquid not transferred")
-		liquid, _, err = liquidContract.BalanceOf(nil, beneficiary)
+		liquid, _, err = liquidStateContract.BalanceOf(nil, beneficiary)
 		require.NoError(r.t, err)
 		require.Equal(r.t, big.NewInt(unlocked), liquid, "liquid not received")
 		r.waitSomeEpoch(end + 1)
@@ -370,10 +370,10 @@ func TestBonding(t *testing.T) {
 		liquid, _, err = r.stakableVesting.LiquidBalanceOf(nil, beneficiary, contractID, validator)
 		require.NoError(r.t, err)
 		require.True(r.t, liquid.Cmp(common.Big0) == 0, "all liquid tokens not released")
-		liquid, _, err = liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		liquid, _, err = liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		require.True(r.t, liquid.Cmp(common.Big0) == 0, "liquid not transferred")
-		liquid, _, err = liquidContract.BalanceOf(nil, beneficiary)
+		liquid, _, err = liquidStateContract.BalanceOf(nil, beneficiary)
 		require.NoError(r.t, err)
 		require.Equal(r.t, big.NewInt(contractTotalAmount), liquid, "liquid not received")
 	})
@@ -580,7 +580,7 @@ func TestRwardTracking(t *testing.T) {
 	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
 	end := contractTotalAmount + start
 	contractCount := 2
-	users, validators, liquidContracts := setupContracts(r, contractCount, 2, contractTotalAmount, start, cliff, end)
+	users, validators, liquidStateContracts := setupContracts(r, contractCount, 2, contractTotalAmount, start, cliff, end)
 
 	bondingGas, _, err := r.stakableVesting.RequiredBondingGasCost(nil)
 	require.NoError(r.t, err)
@@ -594,7 +594,7 @@ func TestRwardTracking(t *testing.T) {
 		beneficiary := users[0]
 		contractID := common.Big0
 		validator := validators[0]
-		liquidContract := liquidContracts[0]
+		liquidStateContract := liquidStateContracts[0]
 		bondingAmount := big.NewInt(contractTotalAmount)
 		r.NoError(
 			r.stakableVesting.Bond(
@@ -609,7 +609,7 @@ func TestRwardTracking(t *testing.T) {
 			),
 		)
 		r.waitNextEpoch()
-		rewardOfContract, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
+		rewardOfContract, _, err := liquidStateContract.UnclaimedRewards(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		require.True(r.t, rewardOfContract.UnclaimedNTN.Cmp(common.Big0) > 0, "no NTN reward")
 		require.True(r.t, rewardOfContract.UnclaimedATN.Cmp(common.Big0) > 0, "no ATN reward")
@@ -677,7 +677,7 @@ func TestRwardTracking(t *testing.T) {
 	for i, validator := range r.committee.validators {
 		require.Equal(r.t, eachValidatorStake, validator.BondedStake)
 		require.True(r.t, validator.SelfBondedStake.Cmp(common.Big0) == 0)
-		balance, _, err := r.committee.liquidContracts[i].BalanceOf(nil, r.stakableVesting.address)
+		balance, _, err := r.committee.liquidStateContracts[i].BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		require.Equal(r.t, eachValidatorStake, balance)
 	}
@@ -694,7 +694,7 @@ func TestRwardTracking(t *testing.T) {
 		// dummy
 		extraBonds[4] = StakingRequest{common.Big0, common.Big0, validators[0], "", true}
 
-		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
+		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
 
 		for _, user := range users {
 			for _, request := range extraBonds {
@@ -708,12 +708,12 @@ func TestRwardTracking(t *testing.T) {
 				}
 
 				r.giveMeSomeMoney(r.autonity.address, reward)
-				totalReward, oldRewardsFromValidator, oldUserRewards := getRewardsAfterOneEpoch(r, contractCount, liquidContracts, users, validators)
+				totalReward, oldRewardsFromValidator, oldUserRewards := getRewardsAfterOneEpoch(r, contractCount, liquidStateContracts, users, validators)
 				r.waitNextEpoch()
 				// request is not applied yet
 				checkRewards(
 					r, contractCount, totalStake, totalReward,
-					liquidContracts, validators, users, validatorStakes,
+					liquidStateContracts, validators, users, validatorStakes,
 					userStakes, oldRewardsFromValidator, oldUserRewards,
 				)
 
@@ -761,12 +761,12 @@ func TestRwardTracking(t *testing.T) {
 		// dummy
 		releaseRequests[4] = StakingRequest{common.Big0, common.Big0, validators[0], "", false}
 
-		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
+		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
 
-		liquidContractsMap := make(map[common.Address]*Liquid)
+		liquidStateContractsMap := make(map[common.Address]*ILiquidLogic)
 
-		for i, liquidContract := range liquidContracts {
-			liquidContractsMap[validators[i]] = liquidContract
+		for i, liquidStateContract := range liquidStateContracts {
+			liquidStateContractsMap[validators[i]] = liquidStateContract
 		}
 
 		for _, user := range users {
@@ -782,7 +782,7 @@ func TestRwardTracking(t *testing.T) {
 				// but we don't know about it because we did not get notified
 				// or we did not claim them or call unclaimedRewards
 				r.giveMeSomeMoney(r.autonity.address, reward)
-				totalReward, oldRewardsFromValidator, oldUserRewards := getRewardsAfterOneEpoch(r, contractCount, liquidContracts, users, validators)
+				totalReward, oldRewardsFromValidator, oldUserRewards := getRewardsAfterOneEpoch(r, contractCount, liquidStateContracts, users, validators)
 				r.waitNextEpoch()
 
 				// we release some LNTN and it is applied immediately
@@ -802,13 +802,13 @@ func TestRwardTracking(t *testing.T) {
 				amount := request.amount
 				validator := request.validator
 				userLiquidBalance[validator].Add(userLiquidBalance[validator], amount)
-				balance, _, err := liquidContractsMap[validator].BalanceOf(nil, user)
+				balance, _, err := liquidStateContractsMap[validator].BalanceOf(nil, user)
 				require.NoError(r.t, err)
 				require.Equal(r.t, userLiquidBalance[validator], balance, "liquid not transferred")
 
 				checkRewards(
 					r, contractCount, totalStake, totalReward,
-					liquidContracts, validators, users, validatorStakes,
+					liquidStateContracts, validators, users, validatorStakes,
 					userStakes, oldRewardsFromValidator, oldUserRewards,
 				)
 
@@ -830,7 +830,7 @@ func TestRwardTracking(t *testing.T) {
 		// dummy
 		extraUnbonds[4] = StakingRequest{common.Big0, common.Big0, validators[0], "", false}
 
-		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidContracts, users, validators)
+		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
 
 		for _, user := range users {
 			for _, request := range extraUnbonds {
@@ -844,12 +844,12 @@ func TestRwardTracking(t *testing.T) {
 				}
 
 				r.giveMeSomeMoney(r.autonity.address, reward)
-				totalReward, oldRewardsFromValidator, oldUserRewards := getRewardsAfterOneEpoch(r, contractCount, liquidContracts, users, validators)
+				totalReward, oldRewardsFromValidator, oldUserRewards := getRewardsAfterOneEpoch(r, contractCount, liquidStateContracts, users, validators)
 				r.waitNextEpoch()
 				// request is not applied yet
 				checkRewards(
 					r, contractCount, totalStake, totalReward,
-					liquidContracts, validators, users, validatorStakes,
+					liquidStateContracts, validators, users, validatorStakes,
 					userStakes, oldRewardsFromValidator, oldUserRewards,
 				)
 
@@ -1045,7 +1045,7 @@ func TestAccessRestriction(t *testing.T) {
 func initialStakes(
 	r *runner,
 	contractCount int,
-	liquidContracts []*Liquid,
+	liquidStateContracts []*ILiquidLogic,
 	users, validators []common.Address,
 ) (
 	validatorStakes map[common.Address]*big.Int,
@@ -1057,8 +1057,8 @@ func initialStakes(
 
 	validatorStakes = make(map[common.Address]*big.Int)
 	for i, validator := range validators {
-		liquidContract := liquidContracts[i]
-		balance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		liquidStateContract := liquidStateContracts[i]
+		balance, _, err := liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		validatorStakes[validator] = balance
 	}
@@ -1082,7 +1082,7 @@ func initialStakes(
 func getRewardsAfterOneEpoch(
 	r *runner,
 	contractCount int,
-	liquidContracts []*Liquid,
+	liquidStateContracts []*ILiquidLogic,
 	users, validators []common.Address,
 ) (
 	currentReward Reward,
@@ -1091,8 +1091,8 @@ func getRewardsAfterOneEpoch(
 ) {
 	oldRewardsFromValidator = make(map[common.Address]Reward)
 	for i, validator := range validators {
-		liquidContract := liquidContracts[i]
-		unclaimedReward, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
+		liquidStateContract := liquidStateContracts[i]
+		unclaimedReward, _, err := liquidStateContract.UnclaimedRewards(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		oldRewardsFromValidator[validator] = Reward{unclaimedReward.UnclaimedATN, unclaimedReward.UnclaimedNTN}
 	}
@@ -1135,7 +1135,7 @@ func checkRewards(
 	contractCount int,
 	totalStake *big.Int,
 	totalReward Reward,
-	liquidContracts []*Liquid,
+	liquidStateContracts []*ILiquidLogic,
 	validators, users []common.Address,
 	validatorStakes map[common.Address]*big.Int,
 	userStakes map[common.Address]map[int]map[common.Address]*big.Int,
@@ -1153,8 +1153,8 @@ func checkRewards(
 			validatorTotalRewardNTN = validatorTotalRewardNTN.Div(validatorTotalRewardNTN, totalStake)
 		}
 
-		liquidContract := liquidContracts[i]
-		unclaimedReward, _, err := liquidContract.UnclaimedRewards(nil, r.stakableVesting.address)
+		liquidStateContract := liquidStateContracts[i]
+		unclaimedReward, _, err := liquidStateContract.UnclaimedRewards(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 
 		diff := new(big.Int).Sub(
@@ -1261,7 +1261,7 @@ func checkRewards(
 
 func setupContracts(
 	r *runner, contractCount, validatorCount int, contractTotalAmount, start, cliff, end int64,
-) (users, validators []common.Address, liquidContracts []*Liquid) {
+) (users, validators []common.Address, liquidStateContracts []*ILiquidLogic) {
 	users = make([]common.Address, 2)
 	users[0] = user
 	users[1] = common.HexToAddress("0x88")
@@ -1276,10 +1276,10 @@ func setupContracts(
 
 	// use multiple validators
 	validators = make([]common.Address, validatorCount)
-	liquidContracts = make([]*Liquid, validatorCount)
+	liquidStateContracts = make([]*ILiquidLogic, validatorCount)
 	for i := 0; i < validatorCount; i++ {
 		validators[i] = r.committee.validators[i].NodeAddress
-		liquidContracts[i] = r.committee.liquidContracts[i]
+		liquidStateContracts[i] = r.committee.liquidStateContracts[i]
 	}
 	return
 }
@@ -1506,12 +1506,12 @@ func bondAndApply(
 	r *runner, user common.Address, bondingRequests []StakingRequest, bondingID int, bondingGas *big.Int, rejected bool,
 ) (uint64, []uint64) {
 
-	liquidContracts := make(map[common.Address]*Liquid)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 
 	for i, validator := range r.committee.validators {
 		for _, request := range bondingRequests {
 			if request.validator == validator.NodeAddress {
-				liquidContracts[request.validator] = r.committee.liquidContracts[i]
+				liquidStateContracts[request.validator] = r.committee.liquidStateContracts[i]
 				break
 			}
 		}
@@ -1537,12 +1537,15 @@ func bondAndApply(
 
 	bondedValidators := make([]common.Address, 0)
 	for key := range validatorExist {
-		liquidContract := liquidContracts[key]
+		liquidStateContract := liquidStateContracts[key]
 		bondedValidators = append(bondedValidators, key)
 		r.giveMeSomeMoney(r.autonity.address, reward)
-		r.autonity.Mint(operator, liquidContract.address, reward)
+		r.autonity.Mint(operator, liquidStateContract.address, reward)
 		r.NoError(
-			liquidContract.Redistribute(fromSender(r.autonity.address, reward), reward),
+			liquidStateContract.Redistribute(
+				fromSender(r.autonity.address, reward),
+				reward,
+			),
 		)
 	}
 
@@ -1554,9 +1557,12 @@ func bondAndApply(
 		for _, request := range bondingRequests {
 			validator := request.validator
 			id := request.contractID.Int64()
-			liquidContract := liquidContracts[validator]
+			liquidStateContract := liquidStateContracts[validator]
 			r.NoError(
-				liquidContract.Mint(fromAutonity, r.stakableVesting.address, request.amount),
+				liquidStateContract.Mint(
+					fromAutonity,
+					r.stakableVesting.address, request.amount,
+				),
 			)
 			liquid[id][validator].Add(liquid[id][validator], request.amount)
 		}
@@ -1578,13 +1584,13 @@ func bondAndApply(
 		gasUsedBond = append(gasUsedBond, gasUsed)
 	}
 
-	// for _, request := range bondingRequests {
-	// 	validator := request.validator
-	// 	id := request.contractID.Int64()
-	// 	newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
-	// 	require.NoError(r.t, err)
-	// 	require.Equal(r.t, liquid[id][validator], newLiquid)
-	// }
+	for _, request := range bondingRequests {
+		validator := request.validator
+		id := request.contractID.Int64()
+		newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, request.contractID, validator)
+		require.NoError(r.t, err)
+		require.Equal(r.t, liquid[id][validator], newLiquid)
+	}
 	return gasUsedDistribute, gasUsedBond
 }
 
@@ -1592,12 +1598,12 @@ func unbondAndApply(
 	r *runner, user common.Address, unbondingRequests []StakingRequest, unbondingID int, unbondingGas *big.Int, rejected bool,
 ) (uint64, []uint64, []uint64) {
 
-	liquidContracts := make(map[common.Address]*Liquid)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 
 	for i, validator := range r.committee.validators {
 		for _, request := range unbondingRequests {
 			if request.validator == validator.NodeAddress {
-				liquidContracts[request.validator] = r.committee.liquidContracts[i]
+				liquidStateContracts[request.validator] = r.committee.liquidStateContracts[i]
 				break
 			}
 		}
@@ -1621,21 +1627,18 @@ func unbondAndApply(
 		)
 		validatorExist[validator] = true
 	}
-	// liquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
-	// require.NoError(r.t, err)
-	// r.NoError(
-	// 	r.stakableVesting.Unbond(fromSender(user, unbondingGas), contractID, validatorAddress, unbondingAmount),
-	// )
 
 	bondedValidators := make([]common.Address, 0)
 	for key := range validatorExist {
-		liquidContract := liquidContracts[key]
+		liquidStateContract := liquidStateContracts[key]
 		r.giveMeSomeMoney(r.autonity.address, reward)
 		r.NoError(
-			r.autonity.Mint(operator, liquidContract.address, reward),
+			r.autonity.Mint(operator, liquidStateContract.address, reward),
 		)
 		r.NoError(
-			liquidContract.Redistribute(fromSender(r.autonity.address, reward), reward),
+			liquidStateContract.Redistribute(
+				fromSender(r.autonity.address, reward), reward,
+			),
 		)
 		bondedValidators = append(bondedValidators, key)
 	}
@@ -1646,23 +1649,20 @@ func unbondAndApply(
 	)
 
 	if rejected == false {
-		// r.NoError(
-		// 	liquidContract.Unlock(fromAutonity, r.stakableVesting.address, unbondingAmount),
-		// )
-		// r.NoError(
-		// 	liquidContract.Burn(fromAutonity, r.stakableVesting.address, unbondingAmount),
-		// )
-		// liquid = liquid.Sub(liquid, unbondingAmount)
 
 		for _, request := range unbondingRequests {
 			id := request.contractID.Int64()
 			validator := request.validator
-			liquidContract := liquidContracts[validator]
+			liquidStateContract := liquidStateContracts[validator]
 			r.NoError(
-				liquidContract.Unlock(fromAutonity, r.stakableVesting.address, request.amount),
+				liquidStateContract.Unlock(
+					fromAutonity, r.stakableVesting.address, request.amount,
+				),
 			)
 			r.NoError(
-				liquidContract.Burn(fromAutonity, r.stakableVesting.address, request.amount),
+				liquidStateContract.Burn(
+					fromAutonity, r.stakableVesting.address, request.amount,
+				),
 			)
 			liquid[id][validator].Sub(liquid[id][validator], request.amount)
 		}
@@ -1670,9 +1670,6 @@ func unbondAndApply(
 
 	gasUsedUnbond := make([]uint64, 0)
 	for i, request := range unbondingRequests {
-		// gasUsedUnbond := r.NoError(
-		// 	r.stakableVesting.UnbondingApplied(fromAutonity, big.NewInt(int64(unbondingID)), validatorAddress, rejected),
-		// )
 		validator := request.validator
 		id := request.contractID.Int64()
 		curBondingID := new(big.Int).Add(big.NewInt(int64(unbondingID)), big.NewInt(int64(i)))
@@ -1685,10 +1682,6 @@ func unbondAndApply(
 		require.Equal(r.t, liquid[id][validator], newLiquid)
 		gasUsedUnbond = append(gasUsedUnbond, gasUsed)
 	}
-
-	// newLiquid, _, err := r.stakableVesting.LiquidBalanceOf(nil, user, contractID, validatorAddress)
-	// require.NoError(r.t, err)
-	// require.Equal(r.t, liquid, newLiquid)
 
 	gasUsedRelease := make([]uint64, 0)
 	for i, request := range unbondingRequests {
@@ -1734,17 +1727,17 @@ func checkReleaseAllNTN(r *runner, user common.Address, contractID, unlockAmount
 func bondAndFinalize(
 	r *runner, user common.Address, bondingRequests []StakingRequest, bondingGas *big.Int,
 ) {
-	liquidContracts := make(map[common.Address]*Liquid)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 	liquidOfVestingContract := make(map[common.Address]*big.Int)
 	liquidOfUser := make(map[common.Address]map[int64]*big.Int)
 
 	for i, validator := range r.committee.validators {
 		for _, request := range bondingRequests {
 			if request.validator == validator.NodeAddress {
-				liquidContract := r.committee.liquidContracts[i]
-				liquidContracts[request.validator] = liquidContract
+				liquidStateContract := r.committee.liquidStateContracts[i]
+				liquidStateContracts[request.validator] = liquidStateContract
 
-				balance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+				balance, _, err := liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 				require.NoError(r.t, err)
 				liquidOfVestingContract[request.validator] = balance
 
@@ -1800,8 +1793,8 @@ func bondAndFinalize(
 		validator := request.validator
 		id := request.contractID.Int64()
 
-		liquidContract := liquidContracts[validator]
-		totalLiquid, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		liquidStateContract := liquidStateContracts[validator]
+		totalLiquid, _, err := liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		require.True(
 			r.t,
@@ -1827,17 +1820,17 @@ func bondAndFinalize(
 func unbondAndRelease(
 	r *runner, user common.Address, unbondingRequests []StakingRequest, unbondingGas *big.Int,
 ) {
-	liquidContracts := make(map[common.Address]*Liquid)
+	liquidStateContracts := make(map[common.Address]*ILiquidLogic)
 	liquidOfUser := make(map[common.Address]map[int64]*big.Int)
 	liquidOfVestingContract := make(map[common.Address]*big.Int)
 
 	for i, validator := range r.committee.validators {
 		for _, request := range unbondingRequests {
 			if request.validator == validator.NodeAddress {
-				liquidContract := r.committee.liquidContracts[i]
-				liquidContracts[request.validator] = liquidContract
+				liquidStateContract := r.committee.liquidStateContracts[i]
+				liquidStateContracts[request.validator] = liquidStateContract
 
-				balance, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+				balance, _, err := liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 				require.NoError(r.t, err)
 				liquidOfVestingContract[request.validator] = balance
 
@@ -1909,9 +1902,9 @@ func unbondAndRelease(
 	for _, request := range unbondingRequests {
 		validator := request.validator
 		id := request.contractID.Int64()
-		liquidContract := liquidContracts[validator]
+		liquidStateContract := liquidStateContracts[validator]
 
-		totalLiquid, _, err := liquidContract.BalanceOf(nil, r.stakableVesting.address)
+		totalLiquid, _, err := liquidStateContract.BalanceOf(nil, r.stakableVesting.address)
 		require.NoError(r.t, err)
 		require.True(
 			r.t,

@@ -2,7 +2,7 @@
 const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
-const liquidContract = artifacts.require("Liquid")
+const liquidStateContract = artifacts.require("ILiquidLogic")
 const AccountabilityTest = artifacts.require("AccountabilityTest")
 const config = require("./config");
 
@@ -168,7 +168,7 @@ async function unbondAndSlash(config, autonity, accountability, delegators, vali
 async function bondSlashUnbond(config, autonity, accountability, delegators, validator, tokenBond, tokenUnbond, operator, deployer) {
   // not applicable for 100% slash
   let valInfo = await autonity.getValidator(validator);
-  const valLiquid = await liquidContract.at(valInfo.liquidContract);
+  const valLiquid = await liquidStateContract.at(valInfo.liquidStateContract);
   let balances = [];
   let tokenBondArray = [];
   let tokenUnbondArray = [];

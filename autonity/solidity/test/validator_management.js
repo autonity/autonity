@@ -3,7 +3,7 @@ const assert = require('assert');
 const { Buffer } = require('node:buffer');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
-const liquidContract = artifacts.require("Liquid")
+const liquidStateContract = artifacts.require("ILiquidLogic")
 const AccountabilityTest = artifacts.require("AccountabilityTest")
 const config = require('./config.js')
 
@@ -102,8 +102,8 @@ contract('Autonity', function (accounts) {
 
             let v = await autonity.getValidator(node, {from: treasury});
 
-            const liquidABI = liquidContract["abi"]
-            const liquid = new web3.eth.Contract(liquidABI, v.liquidContract);
+            const liquidABI = liquidStateContract["abi"]
+            const liquid = new web3.eth.Contract(liquidABI, v.liquidStateContract);
             assert.equal(await liquid.methods.name().call(),"LNTN-"+(vals.length-1))
             assert.equal(await liquid.methods.symbol().call(),"LNTN-"+(vals.length-1))
             assert.equal(v.treasury.toString(), treasury.toString(), "treasury addr is not expected");

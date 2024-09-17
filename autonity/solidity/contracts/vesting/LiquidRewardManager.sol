@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "../Autonity.sol";
-import "../Liquid.sol";
 
 contract LiquidRewardManager {
 
@@ -19,7 +18,7 @@ contract LiquidRewardManager {
         uint256 atnUnclaimedRewards;
         uint256 ntnLastUnrealisedFeeFactor;
         uint256 ntnUnclaimedRewards;
-        Liquid liquidContract;
+        address payable liquidStateContract;
     }
 
     struct Account {
@@ -34,7 +33,7 @@ contract LiquidRewardManager {
     }
 
     // stores total liquid and lastUnrealisedFeeFactor for each validator
-    // lastUnrealisedFeeFactor is used to calculate unrealised rewards for schedules with the same logic as done in Liquid.sol
+    // lastUnrealisedFeeFactor is used to calculate unrealised rewards for schedules with the same logic as done in LiquidLogic.sol
     mapping(address => LiquidInfo) private liquidInfo;
 
     // stores the array of validators bonded to a schedule
@@ -81,7 +80,7 @@ contract LiquidRewardManager {
     }
 
     /**
-     * @dev _decreaseLiquid, _increaseLiquid, _realiseFees follow the same logic as done in Liquid.sol
+     * @dev _decreaseLiquid, _increaseLiquid, _realiseFees follow the same logic as done in LiquidLogic.sol
      * the only difference is we update unclaimed rewards from the validator first, because this contract does not know
      * when the epoch ends, and so cannot claim rewards at each epoch end.
      * _updateUnclaimedReward or _claimRewards must be called before calling _decreaseLiquid, _increaseLiquid functions.
@@ -148,7 +147,10 @@ contract LiquidRewardManager {
         // offset by 1
         _liquidInfo.atnUnclaimedRewards = OFFSET;
         _liquidInfo.ntnUnclaimedRewards = OFFSET;
-        _liquidInfo.liquidContract.claimRewards();
+        (bool _success, ) = _liquidInfo.liquidStateContract.call(
+            abi.encodeWithSignature("claimRewards()")
+        );
+        require(_success, "claimRewards() from liquid state contract reverted");
     }
 
     /**
@@ -175,9 +177,11 @@ contract LiquidRewardManager {
     }
 
     function _initiateValidator(address _validator) private {
-        Liquid _contract = autonity.getValidator(_validator).liquidContract;
         // offset by 1
-        liquidInfo[_validator] = LiquidInfo(OFFSET, OFFSET, OFFSET, OFFSET, _contract);
+        liquidInfo[_validator] = LiquidInfo(
+            OFFSET, OFFSET, OFFSET, OFFSET,
+            autonity.getValidator(_validator).liquidStateContract
+        );
     }
 
     /**
@@ -189,7 +193,7 @@ contract LiquidRewardManager {
         _validators.push(_validator);
         // offset by 1 to handle empty value
         validatorIdx[_id][_validator] = _validators.length;
-        if (address(liquidInfo[_validator].liquidContract) == address(0)) {
+        if (liquidInfo[_validator].liquidStateContract == address(0)) {
             _initiateValidator(_validator);
         }
     }
@@ -248,7 +252,7 @@ contract LiquidRewardManager {
      */
     function _updateUnclaimedReward(address _validator) internal {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        Liquid _contract = _liquidInfo.liquidContract;
+        ILiquidLogic _contract = ILiquidLogic(_liquidInfo.liquidStateContract);
         uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid == 0) {
             return;
@@ -270,7 +274,7 @@ contract LiquidRewardManager {
      */
     function _unfetchedFeeFactor(address _validator) private view returns (uint256 _atnFeeFactor, uint256 _ntnFeeFactor) {
         LiquidInfo storage _liquidInfo = liquidInfo[_validator];
-        Liquid _contract = _liquidInfo.liquidContract;
+        ILiquidLogic _contract = ILiquidLogic(_liquidInfo.liquidStateContract);
         uint256 _totalLiquid = _contract.balanceOf(address(this));
         if (_totalLiquid > 0) {
             // reward is increased by  OFFSET
@@ -354,8 +358,8 @@ contract LiquidRewardManager {
         return bondedValidators[_id];
     }
 
-    function _liquidContract(address _validator) internal view returns (Liquid) {
-        return liquidInfo[_validator].liquidContract;
+    function _liquidStateContract(address _validator) internal view returns (address) {
+        return liquidInfo[_validator].liquidStateContract;
     }
 
 }
