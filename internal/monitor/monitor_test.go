@@ -24,7 +24,7 @@ func setupService(cfg *Config) *monitorService {
 }
 
 // Test case for profile count limit breach
-func Test_checkSystemState_ProfileLimitBreach(t *testing.T) {
+func Test_ProfileLimitBreach(t *testing.T) {
 	mockCPUUsage := func(_ time.Duration, _ bool) ([]float64, error) {
 		return []float64{90.0}, nil // Simulate high CPU usage
 	}
@@ -42,7 +42,7 @@ func Test_checkSystemState_ProfileLimitBreach(t *testing.T) {
 	cfg.profileDir = os.TempDir()
 	defer os.RemoveAll(cfg.profileDir)
 
-	ms := setupService(cfg)
+	ms := setupService(&cfg)
 	ms.getCpuPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
@@ -67,9 +67,9 @@ func Test_checkSystemState_ProfileLimitBreach(t *testing.T) {
 }
 
 // Test case for date change resetting profile count
-func Test_checkSystemState_DateChangeResetsProfileCount(t *testing.T) {
+func Test_DateChangeResetsProfileCount(t *testing.T) {
 	mockCPUUsage := func(_ time.Duration, _ bool) ([]float64, error) {
-		return []float64{85.0}, nil // Simulate high CPU usage
+		return []float64{75.0}, nil // Simulate high CPU usage
 	}
 
 	mockMemUsage := func(stats *runtime.MemStats) {
@@ -78,7 +78,9 @@ func Test_checkSystemState_DateChangeResetsProfileCount(t *testing.T) {
 
 	cfg := DefaultMonitorConfig
 	cfg.monitoringInterval = time.Second * 2
-	ms := setupService(cfg)
+	cfg.profileDir = os.TempDir()
+	defer os.RemoveAll(cfg.profileDir)
+	ms := setupService(&cfg)
 	ms.getCpuPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
@@ -101,7 +103,7 @@ func Test_checkSystemState_DateChangeResetsProfileCount(t *testing.T) {
 }
 
 // Test case for error handling in CPU and memory fetching
-func Test_checkSystemState_ErrorHandling(t *testing.T) {
+func Test_ErrorHandling(t *testing.T) {
 	mockCPUUsage := func(_ time.Duration, _ bool) ([]float64, error) {
 		return nil, fmt.Errorf("error fetching CPU usage") // Simulate error in CPU usage fetching
 	}
@@ -115,7 +117,9 @@ func Test_checkSystemState_ErrorHandling(t *testing.T) {
 	cfg.monitoringInterval = time.Second * 2
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
-	ms := setupService(cfg)
+	cfg.profileDir = os.TempDir()
+	defer os.RemoveAll(cfg.profileDir)
+	ms := setupService(&cfg)
 	ms.getCpuPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
@@ -137,7 +141,7 @@ func Test_checkSystemState_ErrorHandling(t *testing.T) {
 }
 
 // Test case for CPU threshold breach
-func Test_checkSystemState_ResourceThresholdBreach(t *testing.T) {
+func Test_ResourceThresholdBreach(t *testing.T) {
 	mockCPUUsage := func(_ time.Duration, _ bool) ([]float64, error) {
 		return []float64{85.0}, nil // Simulate CPU usage exceeding threshold
 	}
@@ -147,13 +151,13 @@ func Test_checkSystemState_ResourceThresholdBreach(t *testing.T) {
 	}
 
 	cfg := DefaultMonitorConfig
-	cfg.monitoringInterval = time.Second * 5
-	cfg.cpuProfilingDuration = time.Second * 2
+	cfg.monitoringInterval = time.Second * 2
+	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
 	cfg.profileDir = os.TempDir()
 	defer os.RemoveAll(cfg.profileDir)
 
-	ms := setupService(cfg)
+	ms := setupService(&cfg)
 	ms.getCpuPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
@@ -168,9 +172,9 @@ func Test_checkSystemState_ResourceThresholdBreach(t *testing.T) {
 	// Sleep to let the service collect diagnostics
 	time.Sleep(ms.config.monitoringInterval * 10)
 
-	require.Equal(t, ms.config.cpuThreshold, cpuThreshold*1.2)                  // CPU threshold should be updated
-	require.Equal(t, ms.config.memThreshold, uint64(float64(memThreshold)*1.2)) // CPU threshold should be updated
-	require.Equal(t, ms.config.numGoroutines, int(float64(grThreshold)*1.2))    // CPU threshold should be updated
+	require.Equal(t, ms.config.cpuThreshold, cpuThreshold*1.2, "cpu threshold is not as expected")                     // CPU threshold should be updated
+	require.Equal(t, ms.config.memThreshold, uint64(float64(memThreshold)*1.2), "mem threshold is not as expected")    // CPU threshold should be updated
+	require.Equal(t, ms.config.numGoroutines, int(float64(grThreshold)*1.2), "goroutine threshold is not as expected") // CPU threshold should be updated
 	postfix := "_" + strconv.Itoa(ms.profileCount)
 	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, cpuDumpFile+postfix), "cpu profile doesn't exist")
 	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, memDumpFile+postfix), "mem profile doesn't exist")

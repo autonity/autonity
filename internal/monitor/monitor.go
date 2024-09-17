@@ -36,7 +36,7 @@ type Config struct {
 	profileDir           string
 }
 
-var DefaultMonitorConfig = &Config{
+var DefaultMonitorConfig = Config{
 	cpuThreshold:         80,
 	numGoroutines:        1000,
 	memThreshold:         4 * 1024 * 1024,
