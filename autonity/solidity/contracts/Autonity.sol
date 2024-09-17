@@ -159,22 +159,36 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 contractVersion;
     }
 
+    struct EpochInfo {
+        CommitteeMember[] committee;
+        uint256 previousEpochBlock;
+        uint256 epochBlock;
+        uint256 nextEpochBlock;
+    }
+
     Config public config;
     address[] internal validatorList;
 
     // Stake token state transitions happen every epoch.
     uint256 public epochID;
     mapping(uint256 => uint256) internal blockEpochMap;
-    uint256 public lastEpochBlock;
+
+    // save new epoch period on epoch period update,
+    // it is applied to the protocol right after the end of current epoch.
+    uint256 public epochPeriodToBeApplied;
+
+    uint256 public lastFinalizedBlock;
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
+
+    // epochInfos, save epoch info per epoch in the history
+    mapping(uint256=>EpochInfo) internal epochInfos;
 
     CommitteeMember[] internal committee;
     uint256 public atnTotalRedistributed;
     uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
-
 
     /* For callback function at epoch end to notify about staking operations */
     mapping(address => mapping(address => uint256)) isValidatorStaked;
@@ -252,7 +266,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
-    event EpochPeriodUpdated(uint256 period);
+    event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock);
     event NewEpoch(uint256 epoch);
 
     /**
@@ -287,6 +301,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         Config memory _config
     ) internal {
         config = _config;
+        epochPeriodToBeApplied = _config.protocol.epochPeriod;
         inflationReserve = config.policy.initialInflationReserve;
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
@@ -319,6 +334,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
+        lastFinalizedBlock = block.number;
+        // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
+        blockEpochMap[block.number] = 0;
+        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod));
     }
 
     /**
@@ -477,7 +496,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         require(!(_val.state == ValidatorState.jailed && _val.jailReleaseBlock > block.number), "validator still in jail");
         require(_val.state != ValidatorState.jailbound, "validator jailed permanently");
         _val.state = ValidatorState.active;
-        emit ActivatedValidator(_val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
+        emit ActivatedValidator(_val.treasury, _address, epochInfos[epochID].nextEpochBlock);
     }
 
     /**
@@ -569,17 +588,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @param _period Positive integer.
     */
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
-        // to decrease the epoch period, we need to check if current chain head already exceed the window:
-        // lastBlockEpoch + _newPeriod, if so, the _newPeriod cannot be applied since the finalization of current epoch
-        // at finalize function will never be triggered, in such case, operator need to find better timing to do so.
-        if (_period < config.protocol.epochPeriod) {
-            if (block.number >= lastEpochBlock + _period) {
-                revert("current chain head exceed the window: lastBlockEpoch + _newPeriod, try again latter on.");
-            }
-        }
-        config.protocol.epochPeriod = _period;
-        config.contracts.accountabilityContract.setEpochPeriod(_period);
-        emit EpochPeriodUpdated(_period);
+        // todo: shall we need to limit a minimum epoch period?
+        // the new epoch period will be activated until current epoch ends.
+        epochPeriodToBeApplied = _period;
+        uint256 toBeAppliedAtBlock = epochInfos[epochID].nextEpochBlock;
+        emit EpochPeriodUpdated(_period, toBeAppliedAtBlock);
     }
 
     /*
@@ -775,12 +788,20 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * protocol only.
     *
     * @return upgrade Set to true if an autonity contract upgrade is available.
-    * @return committee The next block consensus committee.
+    * @return epochEnded Set to true if an epoch is ended.
+    * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
+    * @return previousEpochBlock The previous epoch block number.
+    * @return nextEpochBlock The next epoch block number.
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (bool, CommitteeMember[] memory) {
+    function finalize() external virtual onlyProtocol nonReentrant returns (bool, bool, CommitteeMember[] memory, uint256, uint256) {
+        lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
-        bool epochEnded = lastEpochBlock + config.protocol.epochPeriod == block.number;
 
+        // Making this condition change to make the Autonity contract to have a chance to
+        // finish the epoch rotation in the truffle test context, as in truffle test the
+        // chain height might go beyond the lastEpochBlock+EpochPeriod making the epoch rotation
+        // never happen as the new epoch period is going to be activated on epoch rotation.
+        bool epochEnded = epochInfos[epochID].nextEpochBlock <= block.number;
         config.contracts.accountabilityContract.finalize(epochEnded);
 
         if (epochEnded) {
@@ -816,13 +837,21 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _stakingOperations();
             _removeContractAddresses();
             _applyNewCommissionRates();
+
             (address[] memory newOracles, address[] memory newCommittee) = computeCommittee();
             config.contracts.oracleContract.setVoters(newOracles);
             config.contracts.accountabilityContract.setCommittee(newCommittee);
 
-            lastEpochBlock = block.number;
+            uint256 previousEpochBlock = epochInfos[epochID].epochBlock;
+            // apply new epoch period.
+            if (config.protocol.epochPeriod != epochPeriodToBeApplied && epochPeriodToBeApplied != 0) {
+                config.protocol.epochPeriod = epochPeriodToBeApplied;
+                config.contracts.accountabilityContract.setEpochPeriod(epochPeriodToBeApplied);
+            }
+            uint256 nextEpochBlock = block.number + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
             epochID += 1;
+            _addEpochInfo(epochID, EpochInfo(committee, previousEpochBlock, block.number, nextEpochBlock));
             emit NewEpoch(epochID);
         }
 
@@ -831,7 +860,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             try config.contracts.acuContract.update() {}
             catch {}
         }
-        return (contractUpgradeReady, committee);
+
+        return (contractUpgradeReady, epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock);
     }
 
     /**
@@ -893,6 +923,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the epoch period.
     */
     function getEpochPeriod() external view virtual returns (uint256) {
+        // if the new epoch period haven't being applied yet, return it anyway.
+        if (config.protocol.epochPeriod != epochPeriodToBeApplied) {
+            return epochPeriodToBeApplied;
+        }
+        // otherwise we return the current applied epoch period.
         return config.protocol.epochPeriod;
     }
 
@@ -914,7 +949,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the last epoch's end block height.
     */
     function getLastEpochBlock() external view virtual returns (uint256) {
-        return lastEpochBlock;
+        return epochInfos[epochID].epochBlock;
     }
 
     /**
@@ -925,8 +960,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
+    * @notice Returns the current epoch info of the chain.
+    */
+    function getEpochInfo() external view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
+        CommitteeMember[] memory members = epochInfos[epochID].committee;
+        uint256 previous = epochInfos[epochID].previousEpochBlock;
+        uint256 current = epochInfos[epochID].epochBlock;
+        uint256 next = epochInfos[epochID].nextEpochBlock;
+        return (members, previous, current, next);
+    }
+
+    /**
      * @notice Returns the block committee.
-     * @dev Current block committee if called before finalize(), next block if called after.
+     * @return Current block committee if called before finalize(), next block if called after.
      */
     function getCommittee() external view virtual returns (CommitteeMember[] memory) {
         return committee;
@@ -951,6 +997,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     function getTreasuryFee() external view virtual returns (uint256) {
         return config.policy.treasuryFee;
+    }
+
+    /**
+     * @notice Returns the next epoch block.
+     */
+    function getNextEpochBlock() external view virtual returns(uint256) {
+        return epochInfos[epochID].nextEpochBlock;
     }
 
     /**
@@ -1013,37 +1066,22 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @notice getProposer returns the address of the proposer for the given height and
-    * round. The proposer is selected from the committee via weighted random
-    * sampling, with selection probability determined by the voting power of
-    * each committee member. The selection mechanism is deterministic and will
-    * always select the same address, given the same height, round and contract
-    * state.
-    */
-    function getProposer(uint256 height, uint256 round) external view virtual returns (address) {
-        // calculate total voting power from current committee, the system does not allow validator with 0 stake/power.
-        uint256 total_voting_power = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            total_voting_power += committee[i].votingPower;
+     * @notice Returns the committee of a specific height.
+     * @param _height the input block number
+     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
+     */
+    function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
+        require(_height <= block.number, "cannot get committee for a future height");
+
+        // if the block was already finalized, get committee by its corresponding epoch id.
+        if (_height <= lastFinalizedBlock) {
+            uint256 blockEpochID = blockEpochMap[_height];
+            CommitteeMember[] memory members = epochInfos[blockEpochID].committee;
+            return members;
         }
 
-        require(total_voting_power != 0, "The committee is not staking");
-
-        // distribute seed into a 256bits key-space.
-        uint256 key = height * MAX_ROUND + round;
-        uint256 value = uint256(keccak256(abi.encodePacked(key)));
-        uint256 index = value % total_voting_power;
-
-        // find the index hit which committee member which line up in the committee list.
-        // we assume there is no 0 stake/power validators.
-        uint256 counter = 0;
-        for (uint256 i = 0; i < committee.length; i++) {
-            counter += committee[i].votingPower;
-            if (index <= counter - 1) {
-                return committee[i].addr;
-            }
-        }
-        revert("There is no validator left in the network");
+        // otherwise, this _height is the latest consensus instance, return current committee.
+        return committee;
     }
 
     /**
@@ -1051,7 +1089,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @param _block the input block number.
     */
     function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
-        return blockEpochMap[_block];
+        require(_block <= block.number, "cannot get epoch for a future block");
+        if (_block <= lastFinalizedBlock) {
+            return blockEpochMap[_block];
+        }
+        return epochID;
     }
 
     /*
@@ -1270,7 +1312,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         val.state = ValidatorState.paused;
         //effectiveBlock may not be accurate if the epoch duration gets modified.
-        emit PausedValidator(val.treasury, _address, lastEpochBlock + config.protocol.epochPeriod);
+        emit PausedValidator(val.treasury, _address, epochInfos[epochID].nextEpochBlock);
     }
 
     function _isContract(address _to) private view returns (bool) {
@@ -1771,4 +1813,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         return false;
     }
 
+    function _addEpochInfo(uint256 _epochID, EpochInfo memory _epoch) internal {
+        EpochInfo storage epoch = epochInfos[_epochID];
+        epoch.previousEpochBlock = _epoch.previousEpochBlock;
+        epoch.epochBlock = _epoch.epochBlock;
+        epoch.nextEpochBlock = _epoch.nextEpochBlock;
+        for (uint256 i=0; i<_epoch.committee.length; i++) {
+            epoch.committee.push(_epoch.committee[i]);
+        }
+    }
 }

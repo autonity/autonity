@@ -42,7 +42,7 @@ type Msg interface {
 
 	// PreValidate attaches auxiliary information to the message (e.g. aggregated key and power)
 	// as the name suggests, it needs to be executed before validating the message
-	PreValidate(header *types.Header) error
+	PreValidate(committee *types.Committee) error
 
 	// Validate verifies the signature of this message
 	Validate() error

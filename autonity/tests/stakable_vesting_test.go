@@ -572,7 +572,7 @@ func TestStakingRevert(t *testing.T) {
 	})
 }
 
-func TestRwardTracking(t *testing.T) {
+func TestRewardTracking(t *testing.T) {
 	r := setup(t, nil)
 	var contractTotalAmount int64 = 1000
 	start := 100 + r.evm.Context.Time.Int64()
@@ -685,7 +685,7 @@ func TestRwardTracking(t *testing.T) {
 		r.waitNextEpoch()
 	}
 
-	r.run("bond in differenet epoch and track reward", func(r *runner) {
+	r.run("bond in different epoch and track reward", func(r *runner) {
 		extraBonds := make([]StakingRequest, 5)
 		extraBonds[0] = StakingRequest{bondingAmount, common.Big0, validators[0], "", true}
 		extraBonds[1] = StakingRequest{bondingAmount, common.Big1, validators[0], "", true}

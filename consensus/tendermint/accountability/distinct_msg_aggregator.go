@@ -77,15 +77,15 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 }
 
 // PreValidate computes the aggregated public key and set the preValidated flag.
-func (r *Signers) PreValidate(parentHeader *types.Header) error {
-	committeeSize := parentHeader.Committee.Len()
+func (r *Signers) PreValidate(committee *types.Committee) error {
+	committeeSize := committee.Len()
 	publicKeys := make([]blst.PublicKey, len(r.Signers))
 	r.hasSigners = make(map[int]struct{})
 	for i, idx := range r.Signers {
 		if idx >= committeeSize || idx < 0 {
 			return ErrInvalidSignerIndex
 		}
-		publicKeys[i] = parentHeader.Committee[idx].ConsensusKey
+		publicKeys[i] = committee.Members[idx].ConsensusKey
 		r.hasSigners[idx] = struct{}{}
 	}
 
@@ -142,9 +142,9 @@ func (h *HighlyAggregatedPrecommit) Len() int {
 }
 
 // PreValidate checks if the index of each sub set are reasonable, and aggregate public keys for each sub set.
-func (h *HighlyAggregatedPrecommit) PreValidate(parentHeader *types.Header) error {
+func (h *HighlyAggregatedPrecommit) PreValidate(committee *types.Committee, eventHeight uint64) error {
 
-	if h.Height-1 != parentHeader.Number.Uint64() {
+	if h.Height != eventHeight {
 		return errBadHeight
 	}
 
@@ -163,7 +163,7 @@ func (h *HighlyAggregatedPrecommit) PreValidate(parentHeader *types.Header) erro
 
 		roundMap[m.Value] = struct{}{}
 
-		if err := m.PreValidate(parentHeader); err != nil {
+		if err := m.PreValidate(committee); err != nil {
 			return err
 		}
 	}

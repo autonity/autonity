@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -19,7 +20,7 @@ type Precommiter struct {
 	*Core
 }
 
-func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
+func (c *Precommiter) SendPrecommit(_ context.Context, isNil bool) {
 	value := common.Hash{}
 	if !isNil {
 		proposal := c.curRoundMessages.Proposal()
@@ -32,8 +33,11 @@ func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Precommiting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-	self := c.LastHeader().CommitteeMember(c.address)
-	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
+	self, err := c.CommitteeSet().MemberByAddress(c.address)
+	if err != nil {
+		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
+	}
+	precommit := message.NewPrecommit(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrecommitMessageEvent("Precommit sent", precommit)
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
@@ -100,7 +104,7 @@ func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *messag
 		"msgRound", precommit.R(),
 		"currentStep", c.step,
 		"isProposer", log.Lazy{Fn: c.IsProposer},
-		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
+		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", precommit.Value() == common.Hash{},
 		"value", precommit.Value(),
 		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrecommitsTotalPower},

@@ -41,18 +41,18 @@ func TestSendPropose(t *testing.T) {
 		logger := log.New("backend", "test", "id", 0)
 
 		testCommittee := types.Committee{
-			types.CommitteeMember{
+			Members: []types.CommitteeMember{{
 				Address:           proposer,
 				VotingPower:       big.NewInt(1),
 				ConsensusKey:      proposerConsensusKey.PublicKey(),
 				ConsensusKeyBytes: proposerConsensusKey.PublicKey().Marshal(),
 				Index:             0,
-			},
+			}},
 		}
 
-		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerConsensusKey), &testCommittee[0])
+		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerConsensusKey), &testCommittee.Members[0])
 
-		valSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee[0].Address)
+		valSet, err := committee.NewRoundRobinSet(&testCommittee, testCommittee.Members[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
@@ -72,7 +72,6 @@ func TestSendPropose(t *testing.T) {
 			height:           big.NewInt(1),
 			validRound:       validRound,
 			committee:        valSet,
-			lastHeader:       &types.Header{Committee: testCommittee},
 		}
 
 		c.SetDefaultHandlers()
@@ -82,12 +81,12 @@ func TestSendPropose(t *testing.T) {
 
 func TestHandleProposal(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-	addr := committeeSet.Committee()[0].Address // round 3 - height 1 proposer
+	addr := committeeSet.Committee().Members[0].Address // round 3 - height 1 proposer
 	height := uint64(1)
 	round := int64(3)
 	signer := makeSigner(keys[addr].consensus)
-	signerMember := &committeeSet.Committee()[0]
-	csize := len(committeeSet.Committee())
+	signerMember := &committeeSet.Committee().Members[0]
+	csize := committeeSet.Committee().Len()
 
 	t.Run("2 proposals received, only first one is accepted", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
@@ -151,7 +150,7 @@ func TestHandleProposal(t *testing.T) {
 
 		logger := log.New("backend", "test", "id", 0)
 
-		nonProposer := &committeeSet.Committee()[1]
+		nonProposer := &committeeSet.Committee().Members[1]
 		proposal := message.NewPropose(round, height, 1, block, makeSigner(keys[nonProposer.Address].consensus), nonProposer)
 
 		c := &Core{
@@ -277,7 +276,7 @@ func TestHandleProposal(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		logger := log.New("backend", "test", "id", 0)
-		proposer, err := committeeSet.GetByIndex(3)
+		proposer, err := committeeSet.MemberByIndex(3)
 		require.NoError(t, err)
 		proposalBlock := types.NewBlockWithHeader(&types.Header{
 			Number: big.NewInt(1),
@@ -286,12 +285,12 @@ func TestHandleProposal(t *testing.T) {
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
 
-		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address].consensus), &proposer)
+		proposal := message.NewPropose(2, 1, 2, proposalBlock, makeSigner(keys[proposer.Address].consensus), proposer)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
 		c := &Core{
-			address:          committeeSet.Committee()[0].Address,
+			address:          committeeSet.Committee().Members[0].Address,
 			backend:          backendMock,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
@@ -311,8 +310,8 @@ func TestHandleProposal(t *testing.T) {
 		// Handle a quorum of precommits for this proposal
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
 		for i := 0; i < 3; i++ {
-			val, _ := committeeSet.GetByIndex(i)
-			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus), &val, csize)
+			val, _ := committeeSet.MemberByIndex(i)
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus), val, csize)
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			require.NoError(t, err)
 		}
@@ -355,7 +354,6 @@ func TestHandleProposal(t *testing.T) {
 			precommitTimeout: NewTimeout(Precommit, logger),
 			validRound:       -1,
 			committee:        committeeSet,
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 
 		c.SetDefaultHandlers()
@@ -377,8 +375,8 @@ func TestHandleProposal(t *testing.T) {
 		proposal := message.NewPropose(round, height, round-1, block, signer, signerMember)
 
 		for i := 0; i < 3; i++ {
-			val, _ := committeeSet.GetByIndex(i)
-			prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), makeSigner(keys[val.Address].consensus), &val, csize)
+			val, _ := committeeSet.MemberByIndex(i)
+			prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), makeSigner(keys[val.Address].consensus), val, csize)
 			messages.GetOrCreate(round - 1).AddPrevote(prevote)
 		}
 
@@ -402,7 +400,6 @@ func TestHandleProposal(t *testing.T) {
 			precommitTimeout: NewTimeout(Precommit, log.Root()),
 			validRound:       0,
 			committee:        committeeSet,
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 
 		c.SetDefaultHandlers()
@@ -446,7 +443,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 	t.Run("candidate block is the one missed, proposal is broadcast", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
-		proposer, _ := committeeSet.GetByIndex(0)
+		proposer, _ := committeeSet.MemberByIndex(0)
 		proposerKey := keys[proposer.Address].consensus
 		height := new(big.Int).SetUint64(1)
 
@@ -459,7 +456,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := generateBlockProposal(1, height, validRound, false, makeSigner(proposerKey), &proposer)
+		proposal := generateBlockProposal(1, height, validRound, false, makeSigner(proposerKey), proposer)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
@@ -477,7 +474,6 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 			height:                 big.NewInt(1),
 			validRound:             validRound,
 			committee:              committeeSet,
-			lastHeader:             &types.Header{Committee: committeeSet.Committee()},
 		}
 		c.SetDefaultHandlers()
 		c.pendingCandidateBlocks[uint64(0)] = preBlock

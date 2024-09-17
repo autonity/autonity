@@ -217,12 +217,12 @@ func (p *Propose) SignerIndex() int {
 	return p.signerIndex
 }
 
-func (p *Propose) PreValidate(header *types.Header) error {
+func (p *Propose) PreValidate(committee *types.Committee) error {
 	if p.preverified {
 		return nil
 	}
 
-	validator := header.CommitteeMember(p.signer)
+	validator := committee.MemberByAddress(p.signer)
 	if validator == nil {
 		return ErrUnauthorizedAddress
 	}
@@ -376,12 +376,12 @@ func (p *LightProposal) SignerIndex() int {
 	return p.signerIndex
 }
 
-func (p *LightProposal) PreValidate(header *types.Header) error {
+func (p *LightProposal) PreValidate(committee *types.Committee) error {
 	if p.preverified {
 		return nil
 	}
 
-	validator := header.CommitteeMember(p.signer)
+	validator := committee.MemberByAddress(p.signer)
 	if validator == nil {
 		return ErrUnauthorizedAddress
 	}
@@ -420,12 +420,12 @@ func (v *vote) Power() *big.Int {
 	return v.signers.Power()
 }
 
-func (v *vote) PreValidate(header *types.Header) error {
+func (v *vote) PreValidate(committee *types.Committee) error {
 	if v.preverified {
 		return nil
 	}
 
-	if err := v.signers.Validate(len(header.Committee)); err != nil {
+	if err := v.signers.Validate(committee.Len()); err != nil {
 		return fmt.Errorf("Invalid signers information: %w", err)
 	}
 
@@ -436,7 +436,7 @@ func (v *vote) PreValidate(header *types.Header) error {
 	power := new(big.Int)
 
 	for i, index := range indexes {
-		member := header.Committee[index]
+		member := committee.Members[index]
 
 		keys[i] = member.ConsensusKey
 		_, alreadyPresent := powers[index]
@@ -447,7 +447,7 @@ func (v *vote) PreValidate(header *types.Header) error {
 	}
 
 	// if the aggregate is a complex aggregate, it needs to carry quorum
-	if v.signers.IsComplex() && power.Cmp(bft.Quorum(header.TotalVotingPower())) < 0 {
+	if v.signers.IsComplex() && power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
 		return ErrInvalidComplexAggregate
 	}
 
@@ -904,21 +904,21 @@ type Fake struct {
 	FakeVerified      bool // for prevote and precommits this is set to true by default for now
 }
 
-func (f Fake) Code() uint8                       { return f.FakeCode }
-func (f Fake) R() int64                          { return int64(f.FakeRound) }
-func (f Fake) H() uint64                         { return f.FakeHeight }
-func (f Fake) Value() common.Hash                { return f.FakeValue }
-func (f Fake) Power() *big.Int                   { return f.FakePower }
-func (f Fake) String() string                    { return "{fake}" }
-func (f Fake) Hash() common.Hash                 { return f.FakeHash }
-func (f Fake) Payload() []byte                   { return f.FakePayload }
-func (f Fake) Signature() blst.Signature         { return f.FakeSignature }
-func (f Fake) PreValidate(_ *types.Header) error { return nil }
-func (f Fake) Validate() error                   { return nil }
-func (f Fake) SignatureInput() common.Hash       { return f.FakeSignatureInput }
-func (f Fake) SignerKey() blst.PublicKey         { return f.FakeSignerKey }
-func (f Fake) Verified() bool                    { return true }
-func (f Fake) PreVerified() bool                 { return true }
+func (f Fake) Code() uint8                          { return f.FakeCode }
+func (f Fake) R() int64                             { return int64(f.FakeRound) }
+func (f Fake) H() uint64                            { return f.FakeHeight }
+func (f Fake) Value() common.Hash                   { return f.FakeValue }
+func (f Fake) Power() *big.Int                      { return f.FakePower }
+func (f Fake) String() string                       { return "{fake}" }
+func (f Fake) Hash() common.Hash                    { return f.FakeHash }
+func (f Fake) Payload() []byte                      { return f.FakePayload }
+func (f Fake) Signature() blst.Signature            { return f.FakeSignature }
+func (f Fake) PreValidate(_ *types.Committee) error { return nil }
+func (f Fake) Validate() error                      { return nil }
+func (f Fake) SignatureInput() common.Hash          { return f.FakeSignatureInput }
+func (f Fake) SignerKey() blst.PublicKey            { return f.FakeSignerKey }
+func (f Fake) Verified() bool                       { return true }
+func (f Fake) PreVerified() bool                    { return true }
 
 func NewFakePropose(f Fake) *Propose {
 	var vr int64

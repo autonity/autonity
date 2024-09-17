@@ -66,7 +66,7 @@ func TestHighlyAggregatedPrecommit(t *testing.T) {
 	err = rlp.DecodeBytes(payload, decodedPrecomit)
 	require.NoError(t, err)
 
-	err = decodedPrecomit.PreValidate(parentHeader)
+	err = decodedPrecomit.PreValidate(parentHeader.Epoch.Committee, h)
 	require.NoError(t, err)
 	require.Equal(t, true, decodedPrecomit.preValidated)
 	err = decodedPrecomit.Validate()
@@ -92,7 +92,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 		err = rlp.DecodeBytes(payload, decodedPrecomit)
 		require.NoError(t, err)
 		header := newBlockHeader(height-1, committee)
-		err = decodedPrecomit.PreValidate(header)
+		err = decodedPrecomit.PreValidate(header.Epoch.Committee, height)
 		require.Error(t, errBadHeight, err)
 		require.Equal(t, false, decodedPrecomit.preValidated)
 	})
@@ -107,7 +107,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 		err = rlp.DecodeBytes(payload, decodedPrecomit)
 		require.NoError(t, err)
 		header := newBlockHeader(height-1, committee)
-		err = decodedPrecomit.PreValidate(header)
+		err = decodedPrecomit.PreValidate(header.Epoch.Committee, height)
 		require.NoError(t, err)
 		require.Equal(t, true, decodedPrecomit.preValidated)
 		err = decodedPrecomit.Validate()
@@ -125,7 +125,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 		err = rlp.DecodeBytes(payload, decodedPrecomit)
 		require.NoError(t, err)
 		header := newBlockHeader(height-1, committee)
-		err = decodedPrecomit.PreValidate(header)
+		err = decodedPrecomit.PreValidate(header.Epoch.Committee, height)
 		require.NoError(t, err)
 		require.Equal(t, true, decodedPrecomit.preValidated)
 		err = decodedPrecomit.Validate()
@@ -143,7 +143,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 		err = rlp.DecodeBytes(payload, decodedPrecomit)
 		require.NoError(t, err)
 		header := newBlockHeader(height-1, committee)
-		err = decodedPrecomit.PreValidate(header)
+		err = decodedPrecomit.PreValidate(header.Epoch.Committee, height)
 		require.NoError(t, err)
 		require.Equal(t, true, decodedPrecomit.preValidated)
 		err = decodedPrecomit.Validate()
@@ -155,7 +155,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 func fastAggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int) *message.Precommit {
 	precommits := make([]message.Vote, len(signers))
 	for i, s := range signers {
-		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee[s], cSize)
+		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], cSize)
 	}
 	return message.AggregatePrecommits(precommits)
 }

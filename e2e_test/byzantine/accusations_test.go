@@ -1,7 +1,6 @@
 package byzantine
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -15,11 +14,12 @@ import (
 )
 
 func selfAndCsize(c *core.Core, h uint64) (*types.CommitteeMember, int) {
-	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
-	if header == nil {
-		panic(fmt.Sprintf("cannot fetch header, h: %d", (h - 1)))
+	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	if err != nil {
+		panic(err)
 	}
-	return header.CommitteeMember(c.Address()), len(header.Committee)
+
+	return committee.MemberByAddress(c.Address()), committee.Len()
 }
 
 type AccusationPO struct {
@@ -161,16 +161,6 @@ func TestAccusationFlow(t *testing.T) {
 		rule := autonity.PVN
 		runTest(t, handler, tp, rule, 100)
 	})
-	/*
-		Not supported, require more complicated setup
-		we need to be able to handle more than one byzantine validator
-		t.Run("AccusationRulePVO", func(t *testing.T) {
-			handler := &interfaces.Services{Broadcaster: &AccusationPVO{}}
-			tp := autonity.Accusation
-			rule := autonity.PVO
-			runTest(t, handler, tp, rule, 60)
-		})
-	*/
 	t.Run("AccusationRuleC1", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newAccusationC1}
 		tp := autonity.Accusation
