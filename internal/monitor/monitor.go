@@ -158,7 +158,7 @@ func (ms *monitorService) collectDiagnostics(currentDate string) {
 		log.Error("Couldn't create file to write goroutines", "error", err)
 		return
 	}
-	err = pprof.Lookup("goroutine").WriteTo(f, 0)
+	err = pprof.Lookup("goroutine").WriteTo(f, 2)
 	if err != nil {
 		f.Close()
 		log.Error("Couldn't write goroutines", "error", err)
