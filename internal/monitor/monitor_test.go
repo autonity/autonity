@@ -17,7 +17,7 @@ import (
 func setupService(cfg *Config) *monitorService {
 	ms := &monitorService{
 		config:        cfg,
-		getCpuPercent: cpu.Percent,          // Use real CPU percent function in production
+		getCPUPercent: cpu.Percent,          // Use real CPU percent function in production
 		getMemUsage:   runtime.ReadMemStats, // Use real MemStats function in production
 	}
 	return ms
@@ -43,7 +43,7 @@ func Test_ProfileLimitBreach(t *testing.T) {
 	defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
-	ms.getCpuPercent = mockCPUUsage
+	ms.getCPUPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
 	// Start the monitoring service
@@ -81,7 +81,7 @@ func Test_DateChangeResetsProfileCount(t *testing.T) {
 	cfg.profileDir = os.TempDir()
 	defer os.RemoveAll(cfg.profileDir)
 	ms := setupService(&cfg)
-	ms.getCpuPercent = mockCPUUsage
+	ms.getCPUPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
 	// Simulate reaching the profile count limit
@@ -120,7 +120,7 @@ func Test_ErrorHandling(t *testing.T) {
 	cfg.profileDir = os.TempDir()
 	defer os.RemoveAll(cfg.profileDir)
 	ms := setupService(&cfg)
-	ms.getCpuPercent = mockCPUUsage
+	ms.getCPUPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
 	// Start the monitoring service
@@ -158,7 +158,7 @@ func Test_ResourceThresholdBreach(t *testing.T) {
 	defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
-	ms.getCpuPercent = mockCPUUsage
+	ms.getCPUPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
 
 	// Start the monitoring service

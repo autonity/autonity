@@ -54,7 +54,7 @@ type monitorService struct {
 	lastProfileDay string
 	profileCount   int
 	wg             sync.WaitGroup
-	getCpuPercent  func(interval time.Duration, perCpu bool) ([]float64, error)
+	getCPUPercent  func(interval time.Duration, perCpu bool) ([]float64, error)
 	getMemUsage    func(stats *runtime.MemStats)
 }
 
@@ -62,7 +62,7 @@ func New(stack *node.Node, cfg *Config) {
 	ms := &monitorService{
 		config:        cfg,
 		wg:            sync.WaitGroup{},
-		getCpuPercent: cpu.Percent,
+		getCPUPercent: cpu.Percent,
 		getMemUsage:   runtime.ReadMemStats,
 	}
 	stack.RegisterLifecycle(ms)
@@ -196,7 +196,7 @@ func (ms *monitorService) checkSystemState() {
 		return
 	}
 
-	cpuUsage, err := ms.getCpuPercent(time.Second, false)
+	cpuUsage, err := ms.getCPUPercent(time.Second, false)
 	if err != nil {
 		log.Error("fetching cpu usage", "error", err)
 		return
