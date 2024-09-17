@@ -90,7 +90,7 @@ func TestAccusationTiming(t *testing.T) {
 
 	currentHeight := uint64(1024) // height of current consensus instance
 	r.Evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
-	r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
+	r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 	lastCommittedHeight := currentHeight - 1 // height of last committed block
 
 	r.Run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *Runner) {

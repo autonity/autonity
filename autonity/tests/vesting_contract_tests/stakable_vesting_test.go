@@ -450,7 +450,7 @@ func TestUnbonding(t *testing.T) {
 	})
 }
 
-func TestRwardTracking(t *testing.T) {
+func TestRewardTracking(t *testing.T) {
 	r := tests.Setup(t, nil)
 	var contractTotalAmount int64 = 1000
 	start := 100 + r.Evm.Context.Time.Int64()
@@ -590,7 +590,7 @@ func TestRwardTracking(t *testing.T) {
 		require.Equal(r.T, eachValidatorStake, balance)
 	}
 
-	r.Run("bond in differenet epoch and track reward", func(r *tests.Runner) {
+	r.Run("bond in different epoch and track reward", func(r *tests.Runner) {
 		extraBonds := make([]StakingRequest, 0)
 
 		for _, user := range users {

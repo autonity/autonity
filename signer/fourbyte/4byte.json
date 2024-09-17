@@ -137,5 +137,12 @@
   "d18736ab": "rewardsDistributed(address[])",
   "a8920241": "unbondingApplied(uint256,address,bool)",
   "3c54c290": "unbondingReleased(uint256,uint256,bool)",
-  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()"
+  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
+  "ff9831b6": "getBondedLiquid(uint256)",
+  "f1b47e4b": "getReleasedStake(uint256)",
+  "c3d802f4": "getRewardsTillBonding(uint256)",
+  "eb386749": "getRewardsTillUnbonding(uint256)",
+  "cc4269bb": "isBondingRejected(uint256)",
+  "e294df7c": "isUnbondingReleased(uint256)",
+  "58af672c": "realisedFees(address)"
 }
