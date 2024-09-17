@@ -75,7 +75,7 @@ func New(
 		vmConfig:        vmConfig,
 		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 		messageCh:       make(chan events.UnverifiedMessageEvent, 1000),
-		jailed:          make(map[common.Address]bool),
+		jailed:          make(map[common.Address]struct{}),
 		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
 		futureMinHeight: math.MaxUint64,
 	}
@@ -135,7 +135,7 @@ type Backend struct {
 	vmConfig *vm.Config
 
 	MsgStore   *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-	jailed     map[common.Address]bool
+	jailed     map[common.Address]struct{}
 	jailedLock sync.RWMutex
 
 	aggregator *aggregator

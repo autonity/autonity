@@ -154,12 +154,12 @@ func encodeBlockNumber(number uint64) []byte {
 	return enc
 }
 
-// jailedCountKeyPrefix = jailedValidatorCount + num (uint64 big endian)
+// jailedCountKeyPrefix = jailedValidatorCount + epochID (uint64 big endian)
 func jailedCountKeyPrefix(number uint64) []byte {
 	return append(jailedValidatorCount, encodeBlockNumber(number)...)
 }
 
-// jailedAddressKeyPrefix = jailedValidatorAddress + num (uint64 big endian)
+// jailedAddressKeyPrefix = jailedValidatorAddress + jaildCount (uint64 big endian)
 func jailedAddressKeyPrefix(number uint64) []byte {
 	return append(jailedValidatorAddress, encodeBlockNumber(number)...)
 }

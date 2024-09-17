@@ -559,7 +559,9 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	for i := 0; i < int(jailedCount); i++ {
 		address := rawdb.ReadJailedAddress(sb.database, uint64(i))
 		if len(address) > 0 {
-			sb.jailed[address] = true
+			sb.jailedLock.Lock()
+			sb.jailed[address] = struct{}{}
+			sb.jailedLock.Unlock()
 		}
 	}
 
@@ -590,7 +592,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				sb.jailedLock.Lock()
 				// the validator is in a perpetual jailed state
 				// which should only be temporary until it gets updated at the next epoch event.
-				sb.jailed[ev.Offender] = true
+				sb.jailed[ev.Offender] = struct{}{}
 				sb.jailedLock.Unlock()
 
 				// persist in db
