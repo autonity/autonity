@@ -1676,7 +1676,7 @@ func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uin
 }
 
 func RegisterMonitorService(stack *node.Node) {
-	monitor.New(stack, monitor.DefaultMonitorConfig)
+	monitor.New(stack, &monitor.DefaultMonitorConfig)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
