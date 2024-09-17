@@ -4,8 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
@@ -21,11 +19,10 @@ import (
 )
 
 var (
-	offenderNodeKey, _      = crypto.GenerateKey()
-	offenderConsensusKey, _ = blst.RandKey()
+	offenderNodeKey, _      = crypto.HexToECDSA(params.TestNodeKeys[0])
+	offenderConsensusKey, _ = blst.SecretKeyFromHex(params.TestConsensusKeys[0])
 	offender                = crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
 	cm                      = types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
-	header                  = &types.Header{Committee: []types.CommitteeMember{cm}}
 	signer                  = func(hash common.Hash) blst.Signature {
 		return offenderConsensusKey.Sign(hash[:])
 	}
@@ -63,11 +60,7 @@ func TestAccusation(t *testing.T) {
 	r := setup(t, nil)
 
 	// load the accountability precompiles into the EVM
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	chainMock := accountability.NewMockChainContext(ctrl)
-	chainMock.EXPECT().GetHeaderByNumber(gomock.Any()).AnyTimes().Return(header)
-	accountability.LoadPrecompiles(chainMock)
+	accountability.LoadPrecompiles()
 
 	// setup current height
 	currentHeight := uint64(1024)
@@ -77,17 +70,13 @@ func TestAccusation(t *testing.T) {
 	// TODO(lorenzo) add similar tests for PVO and C1
 	r.run("PVN accusation with prevote nil should revert", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
-
-		chainMock.EXPECT().GetBlock(common.Hash{}, accusationHeight).Return(nil)
-
+		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0x1} }
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
 	r.run("accusation for committed value should revert", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
-
-		chainMock.EXPECT().GetBlock(common.Hash{0xca, 0xfe}, accusationHeight).Return(&types.Block{})
-
+		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0xca, 0xfe} }
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
@@ -96,28 +85,17 @@ func TestAccusation(t *testing.T) {
 func TestAccusationTiming(t *testing.T) {
 	r := setup(t, nil)
 
-	// TODO(lorenzo) Integrate this into the `setup` function
-	// if possible enable snapshotting of EXPECT() on the mocks as well
-	// e.g. if I do here
-	// r.chainMock.EXPECT().GetHeaderByNumber(accusationHeight - 1).Return(header)
-	// it will be EXPECTed for all tests
-
-	// load the accountability precompiles into the EVM
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	chainMock := accountability.NewMockChainContext(ctrl)
-	chainMock.EXPECT().GetHeaderByNumber(gomock.Any()).AnyTimes().Return(header)
-	// set value to not committed for all tests, here we want to really tests only the height related checks
-	chainMock.EXPECT().GetBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
-	accountability.LoadPrecompiles(chainMock)
+	// no more dependency of blockchain now.
+	accountability.LoadPrecompiles()
 
 	currentHeight := uint64(1024) // height of current consensus instance
 	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
+	r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 	lastCommittedHeight := currentHeight - 1 // height of last committed block
 
 	r.run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
-
+		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})
@@ -151,9 +129,10 @@ func TestAccusationTiming(t *testing.T) {
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.ErrorIs(r.t, err, vm.ErrExecutionReverted)
 	})
+
 	r.run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *runner) {
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
-
+		r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 		_, err := r.accountability.HandleEvent(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}))
 		require.NoError(r.t, err)
 	})

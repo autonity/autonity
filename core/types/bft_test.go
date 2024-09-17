@@ -30,13 +30,35 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0xebec6824a0f6a3870d987f61c23909c0e0248b4fbc46ef64457a7011fd761a61")
+	posHeaderHash := common.HexToHash("0x9d465e9557b41bff471c11c5ebf0ac5eeaf64dd508242b268cd318f1eaa206ab")
 
 	quorumCertificate := AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
 	quorumCertificate.Signature = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
 	quorumCertificate.Signers = NewSigners(1)
 	quorumCertificate.Signers.increment(0)
+
+	// add committee to header's EpochExtra.
+	c := &Committee{
+		Members: []CommitteeMember{
+			{
+				Address:           common.HexToAddress("0x1234566"),
+				VotingPower:       new(big.Int).SetUint64(12),
+				ConsensusKeyBytes: testKey.PublicKey().Marshal(),
+				ConsensusKey:      testKey.PublicKey(),
+			},
+			{
+				Address:           common.HexToAddress("0x13371337"),
+				VotingPower:       new(big.Int).SetUint64(1337),
+				ConsensusKeyBytes: testKey.PublicKey().Marshal(),
+				ConsensusKey:      testKey.PublicKey(),
+			},
+		},
+	}
+
+	epoch := &Epoch{PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c}
+	signature := testKey.Sign(testKey.PublicKey().Marshal())
+	proposerSeal := signature.Marshal()
 
 	testCases := []struct {
 		header Header
@@ -69,28 +91,15 @@ func TestHeaderHash(t *testing.T) {
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				Committee: Committee{
-					{
-						Address:           common.HexToAddress("0x1234566"),
-						VotingPower:       new(big.Int).SetUint64(12),
-						ConsensusKeyBytes: testKey.PublicKey().Marshal(),
-						ConsensusKey:      testKey.PublicKey(),
-					},
-					{
-						Address:           common.HexToAddress("0x13371337"),
-						VotingPower:       new(big.Int).SetUint64(1337),
-						ConsensusKeyBytes: testKey.PublicKey().Marshal(),
-						ConsensusKey:      testKey.PublicKey(),
-					},
-				},
+				Epoch: epoch,
 			}),
-			common.HexToHash("0xe81df587da3150a831fa0f13f9386ef3abd962f880251e65963547dbba84a703"),
+			common.HexToHash("0xb2f1911b3792b6dc69fb287b23d13e966cecff18114e8dca614b960c1316e29b"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
-				ProposerSeal: common.Hex2Bytes("0xbebedead"),
+				ProposerSeal: proposerSeal,
 			}),
-			common.HexToHash("0xebec6824a0f6a3870d987f61c23909c0e0248b4fbc46ef64457a7011fd761a61"),
+			common.HexToHash("0x19d1ba63cb5ce5d6b0de64f7d9efd0540a026ce886f62e379323cd52046e1572"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
@@ -119,7 +128,7 @@ func TestHeaderHash(t *testing.T) {
 }
 
 func setExtra(h Header, hExtra headerExtra) Header {
-	h.Committee = hExtra.Committee
+	h.Epoch = hExtra.Epoch
 	h.ProposerSeal = hExtra.ProposerSeal
 	h.Round = hExtra.Round
 	h.QuorumCertificate = hExtra.QuorumCertificate

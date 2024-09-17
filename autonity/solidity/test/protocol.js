@@ -269,6 +269,7 @@ contract('Protocol', function (accounts) {
 
   let autonity;
   let accountability;
+
   describe('After effects of slashing 1', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);

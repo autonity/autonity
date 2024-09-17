@@ -43,6 +43,8 @@ const (
 	numberCacheLimit = 2048
 )
 
+var ErrMissingEpochHeader = errors.New("missing epoch header")
+
 // HeaderChain implements the basic block header chain logic that is shared by
 // core.BlockChain and light.LightChain. It is not usable in itself, only as
 // a part of either structure.
@@ -61,8 +63,13 @@ type HeaderChain struct {
 	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
-	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
-	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
+	// Current head epoch header of the header chain, it is the latest epoch header that was inserted to header chain.
+	// This epoch head of the header chain can grow faster than the epoch head of blockchain in some sync mode, i.e.
+	// in snap sync the header chain can grow faster than the blockchain. Thus, we create two different references
+	// of epoch head for the blockchain synchronization context and the header chain synchronization context.
+	currentEpochHeader atomic.Value
+	currentHeader      atomic.Value // Current head of the header chain (may be above the block chain!)
+	currentHeaderHash  common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
 	headerCache *lru.Cache // Cache for the most recent block headers
 	tdCache     *lru.Cache // Cache for the most recent block total difficulties
@@ -106,6 +113,20 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 			hc.currentHeader.Store(chead)
 		}
 	}
+
+	// load head epoch header from db on start up.
+	hc.currentEpochHeader.Store(hc.genesisHeader)
+	if hash := rawdb.ReadEpochHeaderHash(chainDb); hash != (common.Hash{}) {
+		if curEpochHead := hc.GetHeaderByHash(hash); curEpochHead != nil {
+			hc.currentEpochHeader.Store(curEpochHead)
+		}
+	}
+
+	epochHead := hc.CurrentHeadEpochHeader()
+	if epochHead != nil {
+		headEpochHeaderGauge.Update(epochHead.Number.Int64())
+	}
+
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
 	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 	return hc, nil
@@ -148,7 +169,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	// If the parent of the (first) block is already the canon header,
 	// we don't have to go backwards to delete canon blocks, but simply
 	// pile them onto the existing chain. Otherwise, do the necessary
-	// reorgs.
+	// reorgs. Reorgs does not happen to tendermint BFT chain since its instant finality of blocks.
 	var (
 		first = headers[0]
 		last  = headers[len(headers)-1]
@@ -183,26 +204,46 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 			}
 		}
 	}
-	// Extend the canonical chain with the new headers
+
+	// Extend the canonical chain in db with the new headers
+	var newEpochHeader *types.Header
 	for i := 0; i < len(headers)-1; i++ {
 		hash := headers[i+1].ParentHash // Save some extra hashing
 		num := headers[i].Number.Uint64()
 		rawdb.WriteCanonicalHash(batch, hash, num)
 		rawdb.WriteHeadHeaderHash(batch, hash)
+		if headers[i].IsEpochHeader() {
+			newEpochHeader = headers[i]
+		}
 	}
 	// Write the last header
 	hash := headers[len(headers)-1].Hash()
 	num := headers[len(headers)-1].Number.Uint64()
 	rawdb.WriteCanonicalHash(batch, hash, num)
 	rawdb.WriteHeadHeaderHash(batch, hash)
+	// if the last header is an epoch header, save it too.
+	if headers[len(headers)-1].IsEpochHeader() {
+		newEpochHeader = headers[len(headers)-1]
+	}
+
+	// update in database epoch header hash.
+	if newEpochHeader != nil {
+		rawdb.WriteEpochHeaderHash(batch, newEpochHeader.Hash())
+	}
 
 	if err := batch.Write(); err != nil {
 		return err
 	}
+
 	// Last step update all in-memory head header markers
 	hc.currentHeaderHash = last.Hash()
 	hc.currentHeader.Store(types.CopyHeader(last))
 	headHeaderGauge.Update(last.Number.Int64())
+	// update in-memory epoch header
+	if newEpochHeader != nil {
+		hc.currentEpochHeader.Store(types.CopyHeader(newEpochHeader))
+		headEpochHeaderGauge.Update(newEpochHeader.Number.Int64())
+	}
 	return nil
 }
 
@@ -287,7 +328,13 @@ func (hc *HeaderChain) writeHeadersAndSetHead(headers []*types.Header, forker *F
 			lastHeader: lastHeader,
 		}
 	)
-	// Ask the fork choicer if the reorg is necessary
+	// Ask the fork choicer if the reorg is necessary.
+	// Forker is the fork chooser based on the highest total difficulty of the
+	// chain(the fork choice used in the eth1) and the external fork choice (the fork
+	// choice used in the eth2). This main goal of this ForkChoice is not only for
+	// offering fork choice during the eth1/2 merge phase, but also keep the compatibility
+	// for all other proof-of-work networks. As Tendermint is an instant consensus protocol, thus
+	// the reorg shouldn't happen in tendermint at all.
 	if reorg, err := forker.ReorgNeeded(hc.CurrentHeader(), lastHeader); err != nil {
 		return nil, err
 	} else if !reorg {
@@ -503,6 +550,16 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	return hc.GetHeader(hash, number)
 }
 
+// LatestEpoch retrieves the latest epoch header of the header chain, it can be ahead of blockchain's epoch header.
+func (hc *HeaderChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+	head := hc.CurrentHeadEpochHeader()
+	if head == nil {
+		return nil, 0, 0, 0, ErrMissingEpochHeader
+	}
+
+	return head.Epoch.Committee, head.Epoch.PreviousEpochBlock.Uint64(), head.Number.Uint64(), head.Epoch.NextEpochBlock.Uint64(), nil
+}
+
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going
 // backwards from the given number.
 // If the 'number' is higher than the highest local header, this method will
@@ -551,6 +608,22 @@ func (hc *HeaderChain) GetCanonicalHash(number uint64) common.Hash {
 // header is retrieved from the HeaderChain's internal cache.
 func (hc *HeaderChain) CurrentHeader() *types.Header {
 	return hc.currentHeader.Load().(*types.Header)
+}
+
+// CurrentHeadEpochHeader retrieves the current head epoch header of the canonical chain. The
+// header is retrieved from the HeaderChain's internal cache.
+func (hc *HeaderChain) CurrentHeadEpochHeader() *types.Header {
+	header, ok := hc.currentEpochHeader.Load().(*types.Header)
+	if !ok {
+		return nil
+	}
+	return header
+}
+
+// SetCurrentHeadEpochHeader sets the in-memory head epoch header marker of the canonical chan
+// as the given header.
+func (hc *HeaderChain) SetCurrentHeadEpochHeader(head *types.Header) {
+	hc.currentEpochHeader.Store(head)
 }
 
 // SetCurrentHeader sets the in-memory head header marker of the canonical chan
@@ -606,6 +679,21 @@ func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, d
 				head = newHead
 			}
 		}
+
+		// if the rollback one is an epoch header, then update the epoch head with the parent epoch head.
+		if hdr.IsEpochHeader() {
+			newHeadEpochHeader := hc.GetHeaderByNumber(hdr.Epoch.PreviousEpochBlock.Uint64())
+			if newHeadEpochHeader == nil {
+				log.Crit("cannot find parent epoch header from header chain", "num", hdr.Epoch.PreviousEpochBlock.Uint64())
+			}
+			// reset both the epoch markers of blockchain and header chain, the epoch head
+			// in-memory marker of blockchain is reset when rewind is done.
+			rawdb.WriteEpochBlockHash(markerBatch, newHeadEpochHeader.Hash())
+			rawdb.WriteEpochHeaderHash(markerBatch, newHeadEpochHeader.Hash())
+			hc.currentEpochHeader.Store(newHeadEpochHeader)
+			headEpochHeaderGauge.Update(newHeadEpochHeader.Number.Int64())
+		}
+
 		// Update head header then.
 		rawdb.WriteHeadHeaderHash(markerBatch, parentHash)
 		if err := markerBatch.Write(); err != nil {

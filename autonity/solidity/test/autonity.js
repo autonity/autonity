@@ -414,10 +414,11 @@ contract('Autonity', function (accounts) {
 
     it('test extend epoch period by operator', async function () {
       await autonity.setEpochPeriod(98, {from: operator});
+      await utils.endEpoch(autonity, operator, deployer);
       let eP = await autonity.getEpochPeriod({from: operator});
       assert.equal("98",eP.toString())
     });
-    
+
     it('test regular validator cannot extend epoch period', async function () {
       let initEP = await autonity.getEpochPeriod({from: operator});
       
@@ -747,6 +748,8 @@ contract('Autonity', function (accounts) {
       );
     });
 
+    // todo: Jason, rewrite this test, it might failed due to the timing of the ending of an epoch.
+
     it('un-bond from a valid validator (selfBonded)', async function () {
       let tokenUnBond = 10;
       let from = validators[0].treasury;
@@ -853,7 +856,9 @@ contract('Autonity', function (accounts) {
 
      
     });
+
   });
+
 
   describe('Bonding and unbonding requests - 3', function () {
     beforeEach(async function () {
@@ -1080,7 +1085,7 @@ contract('Autonity', function (accounts) {
       let copyParams = autonityConfig;
       let token;
       beforeEach(async function () {
-          // set short epoch period 
+          // set short epoch period
           let customizedEpochPeriod = 20;
           copyParams.protocol.epochPeriod = customizedEpochPeriod;
 

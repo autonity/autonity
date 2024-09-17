@@ -28,36 +28,23 @@ const ValidatorState = {
   jailbound : 3
 }
 
-
-// end epoch so the LastEpochBlock is closer
-// then set epoch period 
-async function shortenEpochPeriod(autonity, epochPeriod, operator, deployer) {
-  await endEpoch(autonity, operator, deployer);
-  await autonity.setEpochPeriod(epochPeriod, {from: operator});
-}
-
-// while testing we might ran into situations were currentHeight > lastEpochBlock + epochPeriod
-// in this case in order to be able to finalize we need to setEpochPeriod to a bigger value
-// also we need to take into account that if we are running against autonity, the network will keep mining as we do these operations
 async function endEpoch(contract,operator,deployer){
-  let lastEpochBlock = (await contract.getLastEpochBlock()).toNumber();
-  let currentHeight = await web3.eth.getBlockNumber();
-  let currentEpoch = (await contract.epochID()).toNumber()
-  let delta = currentHeight - lastEpochBlock
-  let epochPeriod = delta + 5
+  let epochPeriod = (await contract.getEpochPeriod()).toNumber();
+  let currentEpoch = (await contract.epochID()).toNumber();
+  let nextEpochBlock = (await contract.getNextEpochBlock()).toNumber();
 
-  await contract.setEpochPeriod(epochPeriod,{from: operator})
-
-  assert.equal(epochPeriod,(await contract.getEpochPeriod()).toNumber())
-
-  // close epoch
-  for (let i=0;i<(lastEpochBlock + epochPeriod) - currentHeight;i++) {
-    let height = await web3.eth.getBlockNumber()
-    contract.finalize({from: deployer})
-    await waitForNewBlock(height);
-  }
-  let newEpoch = (await contract.epochID()).toNumber()
-  assert.equal(currentEpoch+1,newEpoch)
+    for (let i=0;i<=epochPeriod;i++) {
+      contract.finalize({from: deployer})
+      let newEpochID = (await contract.epochID()).toNumber()
+      if (newEpochID === currentEpoch+1) {
+        console.log("epoch ended successfully", "new epoch ID: ", newEpochID)
+        break;
+      }
+      let height = await web3.eth.getBlockNumber()
+      console.log("end epoch for AC contract, ", "current height: ", height, "epoch ID: ",
+          newEpochID, "nextEpochBlock", nextEpochBlock, "epoch period: ", epochPeriod);
+      await waitForNewBlock(height);
+    }
 }
 
 async function validatorState(autonity, validatorAddresses) {
@@ -220,7 +207,7 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
   return AutonityTest.new(validators, autonityConfig, deployer);
 }
 
-async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch) {
+async function initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator) {
   await autonity.finalizeInitialization({from: deployer});
 
   // accountability contract
@@ -253,10 +240,6 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await autonity.setNonStakableVestingContract(nonStakableVesting.address, {from: operator})
-
-  if (shortenEpoch) {
-    await shortenEpochPeriod(autonity, autonityConfig.protocol.epochPeriod, operator, deployer);
-  }
 }
 
 // deploys protocol contracts
@@ -267,11 +250,12 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // we can't really simulate a proper genesis sequence with truffle. As consequence all calculations
     // regarding the inflation rate will be wrong here which should be tested using the native go framework.
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG ,{from:deployer})
-    // autonity contract
-    const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
-    await autonity.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch);
 
+    const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
+
+    // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
+    await autonity.setInflationControllerContract(inflationController.address, {from:operator});
+    await initialize(autonity, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonity;
 };
 
@@ -279,9 +263,13 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 // set shortenEpoch = false if no need to call utils.endEpoch
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
+
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
+
+    // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
     await autonityTest.setInflationControllerContract(inflationController.address, {from:operator});
-    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator, shortenEpoch);
+
+    await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, deployer, operator);
     return autonityTest;
 };
 

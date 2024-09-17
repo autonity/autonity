@@ -33,9 +33,6 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-// TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
-//  simple and stable than the legacy one.
-
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
 func TestSendingValue(t *testing.T) {
@@ -817,24 +814,19 @@ func TestLargeNetwork(t *testing.T) {
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 	require.NoError(t, err)
 
-	getNetworkState := func() (height uint64, committee types.Committee) {
+	getNetworkState := func() (height uint64, committee *types.Committee) {
 		for _, n := range network {
 			nodeHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 			if nodeHeight > height {
 				height = nodeHeight
-				committee = n.Eth.BlockChain().CurrentHeader().Committee
+				committee, _, _, _, _ = n.Eth.BlockChain().LatestEpoch()
 			}
 		}
 		return
 	}
 
-	inCommittee := func(address common.Address, committee types.Committee) bool {
-		for i := range committee {
-			if committee[i].Address == address {
-				return true
-			}
-		}
-		return false
+	inCommittee := func(address common.Address, committee *types.Committee) bool {
+		return committee.MemberByAddress(address) != nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)

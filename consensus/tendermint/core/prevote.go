@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -31,8 +32,11 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	} else {
 		c.logger.Info("Prevoting on nil", "round", c.Round(), "height", c.Height().Uint64())
 	}
-	self := c.LastHeader().CommitteeMember(c.address)
-	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, len(c.CommitteeSet().Committee()))
+	self, err := c.CommitteeSet().MemberByAddress(c.address)
+	if err != nil {
+		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
+	}
+	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)
@@ -86,7 +90,7 @@ func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevo
 		"msgRound", prevote.R(),
 		"currentStep", c.step,
 		"isProposer", log.Lazy{Fn: c.IsProposer},
-		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
+		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", prevote.Value() == common.Hash{},
 		"value", prevote.Value(),
 		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrevotesTotalPower},

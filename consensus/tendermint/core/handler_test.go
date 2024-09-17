@@ -51,16 +51,16 @@ func TestHandleMessage(t *testing.T) {
 	defer ctrl.Finish()
 
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(4)
-	currentValidator, _ := committeeSet.GetByIndex(0)
-	sender, _ := committeeSet.GetByIndex(1)
+	currentValidator, _ := committeeSet.MemberByIndex(0)
+	sender, _ := committeeSet.MemberByIndex(1)
 	senderKey := keysMap[sender.Address].consensus
 
 	createPrevote := func(round int64, height int64) message.Msg {
-		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), &sender, 4)
+		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), sender, 4)
 	}
 
 	createPrecommit := func(round int64, height int64) message.Msg {
-		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), &sender, 4)
+		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), sender, 4)
 	}
 
 	cases := []testCase{
@@ -159,7 +159,7 @@ func TestHandleMessage(t *testing.T) {
 			1,
 			big.NewInt(2),
 			Propose,
-			message.NewPropose(1, 2, -1, types.NewBlockWithHeader(&types.Header{}), makeSigner(senderKey), &sender),
+			message.NewPropose(1, 2, -1, types.NewBlockWithHeader(&types.Header{}), makeSigner(senderKey), sender),
 			constants.ErrNotFromProposer,
 			false,
 			true,
@@ -235,8 +235,8 @@ func TestHandleFutureRound(t *testing.T) {
 	defer ctrl.Finish()
 
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(10)
-	sender1, _ := committeeSet.GetByIndex(0)
-	sender2, _ := committeeSet.GetByIndex(1)
+	sender1, _ := committeeSet.MemberByIndex(0)
+	sender2, _ := committeeSet.MemberByIndex(1)
 
 	currentHeight := big.NewInt(1)
 	currentRound := int64(0)
@@ -263,7 +263,7 @@ func TestHandleFutureRound(t *testing.T) {
 	engine.SetDefaultHandlers()
 
 	// handling vote
-	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), &sender2, 4)
+	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, 4)
 	err := engine.handleMsg(context.Background(), vote)
 	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
 
@@ -273,7 +273,7 @@ func TestHandleFutureRound(t *testing.T) {
 	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Power())
 
 	// same thing for future round proposal
-	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight), makeSigner(keysMap[sender1.Address].consensus), &sender1)
+	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight), makeSigner(keysMap[sender1.Address].consensus), sender1)
 	err = engine.handleMsg(context.Background(), propose)
 	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
 

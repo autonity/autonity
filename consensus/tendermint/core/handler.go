@@ -8,7 +8,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/committee"
+	com "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
@@ -20,10 +20,14 @@ const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
+	committee, _, _, _, err := c.backend.BlockChain().LatestEpoch()
+	if err != nil {
+		panic(err)
+	}
+	chainHead := c.backend.BlockChain().CurrentBlock().Header()
+
 	c.protocolContracts = contract
-	committeeSet := committee.NewWeightedRandomSamplingCommittee(c.backend.BlockChain().CurrentBlock(),
-		c.protocolContracts,
-		c.backend.BlockChain())
+	committeeSet := com.NewWeightedRandomSamplingCommittee(chainHead, committee, c.protocolContracts)
 	c.setCommitteeSet(committeeSet)
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
@@ -280,7 +284,7 @@ func (c *Core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.LastHeader())
+	c.backend.AskSync(c.committee.Committee())
 
 eventLoop:
 	for {
@@ -293,7 +297,7 @@ eventLoop:
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
-				c.backend.AskSync(c.LastHeader())
+				c.backend.AskSync(c.committee.Committee())
 			}
 			round = currentRound
 			height = currentHeight
