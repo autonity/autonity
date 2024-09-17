@@ -21,13 +21,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/core"
 	"math/big"
 	"os"
 	"reflect"
 	"unicode"
 
+	"github.com/autonity/autonity/core"
+
 	"gopkg.in/urfave/cli.v1"
+
+	"github.com/naoina/toml"
 
 	"github.com/autonity/autonity/accounts/external"
 	"github.com/autonity/autonity/accounts/keystore"
@@ -40,7 +43,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/params"
-	"github.com/naoina/toml"
 )
 
 var (
@@ -226,6 +228,7 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	}
 	backend, ethBackend := utils.RegisterEthService(stack, &cfg.Eth)
 	utils.RegisterConsensusService(stack, ethBackend, cfg.Eth.NetworkID)
+	utils.RegisterMonitorService(stack)
 
 	// Configure GraphQL if requested
 	if ctx.GlobalIsSet(utils.GraphQLEnabledFlag.Name) {
