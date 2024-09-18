@@ -85,7 +85,6 @@ type Core struct {
 	db          ethdb.Database
 	roundsState RoundsState
 	committee   interfaces.Committee
-	lastHeader  *types.Header
 	stateMu     sync.RWMutex
 
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
@@ -357,7 +356,11 @@ func (c *Core) setInitialState(r int64) {
 		c.SetHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
-		c.setLastHeader(lastHeader)
+		// on epoch rotation, update committee.
+		if lastBlockMined.IsEpochHead() {
+			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
+			c.committee.SetCommittee(lastBlockMined.Header().Epoch.Committee)
+		}
 
 		c.futureRoundLock.Lock()
 		c.futureRound = make(map[int64][]message.Msg)
@@ -463,12 +466,6 @@ func (c *Core) setCommitteeSet(set interfaces.Committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committee = set
-}
-
-func (c *Core) setLastHeader(lastHeader *types.Header) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.lastHeader = lastHeader
 }
 
 // state readers:
@@ -615,12 +612,6 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
-}
-
-func (c *Core) LastHeader() *types.Header {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.lastHeader
 }
 
 func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {

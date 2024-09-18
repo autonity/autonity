@@ -42,7 +42,7 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 		ValidRound:  c.ValidRound(),
 
 		// committee state
-		Committee:       c.CommitteeSet().Committee(),
+		Committee:       *c.CommitteeSet().Committee().Copy(),
 		Proposer:        c.CommitteeSet().GetProposer(c.Round()).Address,
 		IsProposer:      c.IsProposer(),
 		QuorumVotePower: c.CommitteeSet().Quorum(),

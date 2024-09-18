@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -30,6 +31,72 @@ import (
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
+
+// CommitteeOfHeight resolve committee of height, it is used by consensus engine and AFD modules only.
+// It get committee from LRU cache first, otherwise it trys to search backward epoch with limited hops, if the
+// committee of the height cannot be find still, then it try to query it from the state DB.
+func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
+
+	if height == 0 {
+		return bc.genesisBlock.Header().Epoch.Committee, nil
+	}
+
+	// always get it from LRU cache first
+	if committee, ok := bc.committeeCache.Get(height); ok {
+		return committee.(*types.Committee), nil
+	}
+
+	// the latest epoch head should be in the most case.
+	committee, _, curEpochHead, nextEpochHead, err := bc.LatestEpoch()
+	if err != nil {
+		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
+	}
+
+	if height > curEpochHead && height <= nextEpochHead {
+		bc.committeeCache.Add(height, committee)
+		return committee, nil
+	}
+
+	if height > nextEpochHead {
+		return nil, ErrHeightTooFuture
+	}
+
+	// otherwise try to get committee from state db of the height.
+	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
+	currentHeader := bc.CurrentHeader()
+	stateDB, err := bc.StateAt(currentHeader.Root)
+	if err != nil {
+		return nil, err
+	}
+	committee, err = bc.protocolContracts.GetCommitteeByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	bc.committeeCache.Add(height, committee)
+	return committee, nil
+}
+
+// LatestEpoch retrieves the latest epoch header of the blockchain.
+func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+
+	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
+	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {
+		return epochBlock.Header().Epoch.Committee, epochBlock.Header().Epoch.PreviousEpochBlock.Uint64(),
+			epochBlock.Header().Number.Uint64(), epochBlock.Header().Epoch.NextEpochBlock.Uint64(), nil
+	}
+
+	// For snap sync or fast sync case we need to get epoch info from state DB:
+	// as snap sync/fast sync mode might miss the latest epoch block before the
+	// pivot block, thus, for header verification after pivot block, we can load
+	// it from state db.
+	currentBlock := bc.CurrentBlock()
+	st, err := bc.StateAt(currentBlock.Header().Root)
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	return bc.protocolContracts.EpochInfo(currentBlock.Header(), st)
+}
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
@@ -369,6 +436,11 @@ func (bc *BlockChain) SubscribeRemovedLogsEvent(ch chan<- RemovedLogsEvent) even
 // SubscribeChainEvent registers a subscription of ChainEvent.
 func (bc *BlockChain) SubscribeChainEvent(ch chan<- ChainEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
+}
+
+// SubscribeEpochHeadEvent registers a subscription of EpochHeadEvent.
+func (bc *BlockChain) SubscribeEpochHeadEvent(ch chan<- EpochHeadEvent) event.Subscription {
+	return bc.scope.Track(bc.epochHeadFeed.Subscribe(ch))
 }
 
 // SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.

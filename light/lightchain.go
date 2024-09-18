@@ -165,10 +165,28 @@ func (lc *LightChain) loadLastState() error {
 			lc.hc.SetCurrentHeader(header)
 		}
 	}
+	// load last epoch header from db on startup, if it is missing, reset light chain.
+	if eHead := rawdb.ReadEpochHeaderHash(lc.chainDb); eHead == (common.Hash{}) {
+		// Corrupt or empty database, init from scratch
+		lc.Reset()
+	} else {
+		eHeader := lc.GetHeaderByHash(eHead)
+		if eHeader == nil {
+			// Corrupt or empty database, init from scratch
+			lc.Reset()
+		} else {
+			lc.hc.SetCurrentHeadEpochHeader(eHeader)
+		}
+	}
+
 	// Issue a status log and return
 	header := lc.hc.CurrentHeader()
+	epochHeader := lc.hc.CurrentHeadEpochHeader()
+	if epochHeader == nil {
+		panic("your chain database might be corrupted")
+	}
 	headerTd := lc.GetTd(header.Hash(), header.Number.Uint64())
-	log.Info("Loaded most recent local header", "number", header.Number, "hash", header.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(int64(header.Time), 0)))
+	log.Info("Loaded most recent local header", "number", header.Number, "hash", header.Hash(), "epoch head", epochHeader.Number, "td", headerTd, "age", common.PrettyAge(time.Unix(int64(header.Time), 0)))
 	return nil
 }
 
@@ -206,12 +224,15 @@ func (lc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 	rawdb.WriteTd(batch, genesis.Hash(), genesis.NumberU64(), genesis.Difficulty())
 	rawdb.WriteBlock(batch, genesis)
 	rawdb.WriteHeadHeaderHash(batch, genesis.Hash())
+	// as genesis block is an epoch block, thus we always mark it for header chain and blockchain.
+	rawdb.WriteEpochHeaderHash(batch, genesis.Hash())
 	if err := batch.Write(); err != nil {
 		log.Crit("Failed to reset genesis block", "err", err)
 	}
 	lc.genesisBlock = genesis
 	lc.hc.SetGenesis(lc.genesisBlock.Header())
 	lc.hc.SetCurrentHeader(lc.genesisBlock.Header())
+	lc.hc.SetCurrentHeadEpochHeader(lc.genesisBlock.Header())
 }
 
 // Accessors
@@ -347,7 +368,24 @@ func (lc *LightChain) Rollback(chain []common.Hash) {
 		// to low, so it's safe the update in-memory markers directly.
 		if head := lc.hc.CurrentHeader(); head.Hash() == hash {
 			rawdb.WriteHeadHeaderHash(batch, head.ParentHash)
-			lc.hc.SetCurrentHeader(lc.GetHeader(head.ParentHash, head.Number.Uint64()-1))
+			newHeadHeader := lc.GetHeader(head.ParentHash, head.Number.Uint64()-1)
+			lc.hc.SetCurrentHeader(newHeadHeader)
+
+			// if the rollback header is an epoch header, then header chain's epoch header with its parent epoch header.
+			epochHead := lc.hc.CurrentHeadEpochHeader()
+			if epochHead == nil {
+				panic("your chain database might be corrupted")
+			}
+			if epochHead.Hash() == hash {
+				num := epochHead.Epoch.PreviousEpochBlock.Uint64()
+				newEpochHeader := lc.GetHeaderByNumber(num)
+				if newEpochHeader == nil || !newEpochHeader.IsEpochHeader() {
+					log.Error("cannot find parent epoch header from header chain", "number", num)
+					panic("cannot find parent epoch header from header chain")
+				}
+				rawdb.WriteEpochHeaderHash(batch, newHeadHeader.Hash())
+				lc.hc.SetCurrentHeadEpochHeader(newEpochHeader)
+			}
 		}
 	}
 	if err := batch.Write(); err != nil {
@@ -466,6 +504,11 @@ func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return lc.hc.GetTd(hash, number)
 }
 
+// LatestEpoch retrieves the latest epoch header of the light chain.
+func (lc *LightChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+	return lc.hc.LatestEpoch()
+}
+
 // GetHeaderByNumberOdr retrieves the total difficult from the database or
 // network by hash and number, caching it (associated with its hash) if found.
 func (lc *LightChain) GetTdOdr(ctx context.Context, hash common.Hash, number uint64) *big.Int {
@@ -549,9 +592,19 @@ func (lc *LightChain) SyncCheckpoint(ctx context.Context, checkpoint *params.Tru
 
 		// Ensure the chain didn't move past the latest block while retrieving it
 		if lc.hc.CurrentHeader().Number.Uint64() < header.Number.Uint64() {
-			log.Info("Updated latest header based on CHT", "number", header.Number, "hash", header.Hash(), "age", common.PrettyAge(time.Unix(int64(header.Time), 0)))
 			rawdb.WriteHeadHeaderHash(lc.chainDb, header.Hash())
 			lc.hc.SetCurrentHeader(header)
+			if header.IsEpochHeader() {
+				rawdb.WriteEpochHeaderHash(lc.chainDb, header.Hash())
+				lc.hc.SetCurrentHeadEpochHeader(header)
+			}
+
+			epochHead := lc.hc.CurrentHeadEpochHeader()
+			if epochHead == nil {
+				panic("your chain database might be corrupted")
+			}
+			log.Info("Updated latest header based on CHT", "number", header.Number, "hash", header.Hash(),
+				"epoch head", epochHead.Number, "age", common.PrettyAge(time.Unix(int64(header.Time), 0)))
 		}
 		return true
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/core/committee"
+	com "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
@@ -25,14 +25,19 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	// load tendermint state from WAL, otherwise it would load with default state of tendermint.
 	c.roundsState = newTendermintState(c.logger, c.db, c.backend.BlockChain())
 	c.protocolContracts = contract
+
+	committee, _, _, _, err := c.backend.BlockChain().LatestEpoch()
+	if err != nil {
+		panic(err)
+	}
+	chainHead := c.backend.BlockChain().CurrentBlock().Header()
+
+	c.protocolContracts = contract
+	committeeSet := com.NewWeightedRandomSamplingCommittee(chainHead, committee, c.protocolContracts)
+	c.setCommitteeSet(committeeSet)
+	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
-	// construct committee for consensus engine with chain head by default.
-	latestView := c.backend.BlockChain().CurrentBlock()
-	committeeSet := committee.NewWeightedRandomSamplingCommittee(latestView, c.protocolContracts, c.backend.BlockChain())
-	c.setCommitteeSet(committeeSet)
-
-	ctx, c.cancel = context.WithCancel(ctx)
 	c.startWithState(ctx)
 
 	// Tendermint Finite State Machine discrete event loop
@@ -48,17 +53,15 @@ func (c *Core) startWithState(ctx context.Context) {
 		return
 	}
 
-	// the state is not stale, the decision haven't been made, start engine with the recovered state.
+	// if the state is not stale and the decision haven't been made, start engine with the recovered state.
 	if c.Decision() == nil {
-		c.setLastHeader(c.Backend().HeadBlock().Header())
 		c.StartWithRecoveredState(ctx)
 		return
 	}
 
 	// decision was made, but it wasn't be committed, update the view, commit the decision and start new height.
-	latestView := c.Decision()
-	c.setLastHeader(latestView.Header())
-	c.committee.SetLastHeader(latestView.Header())
+	//latestView := c.Decision()
+	//c.committee.SetLastHeader(latestView.Header())
 	go c.startWithRecoveredDecision(ctx)
 }
 
@@ -348,7 +351,7 @@ func (c *Core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.LastHeader())
+	c.backend.AskSync(c.committee.Committee())
 
 eventLoop:
 	for {
@@ -361,7 +364,7 @@ eventLoop:
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
-				c.backend.AskSync(c.LastHeader())
+				c.backend.AskSync(c.committee.Committee())
 			}
 			round = currentRound
 			height = currentHeight

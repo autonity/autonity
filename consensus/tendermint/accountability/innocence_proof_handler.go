@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	errNoParentHeader              = errors.New("no parent header")
 	errInvalidAccusation           = errors.New("invalid accusation")
 	errPeerDuplicatedAccusation    = errors.New("remote peer is sending duplicated accusation")
 	errInvalidInnocenceProof       = errors.New("invalid proof of innocence")
@@ -187,12 +186,15 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if the proof does not come from a committee member
 	msgHeight := proof.Message.H()
-	lastHeader := fd.blockchain.GetHeaderByNumber(msgHeight - 1)
-	if lastHeader == nil {
-		return errNoParentHeader
+	committee, err := fd.blockchain.CommitteeOfHeight(msgHeight)
+	if err != nil {
+		fd.logger.Error("cannot get committee for height", "error", err, "height", msgHeight)
+		return err
 	}
-	memberShip := lastHeader.CommitteeMember(sender)
+
+	memberShip := committee.MemberByAddress(sender)
 	if memberShip == nil {
+		fd.logger.Info("accusation from a none validator node", "height", msgHeight, "sender", sender)
 		return errAccusationFromNoneValidator
 	}
 
@@ -204,33 +206,40 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	}
 
 	// verify proof signatures at last since it is more cost-full than other checkers.
-	if err = verifyProofSignatures(lastHeader, proof); err != nil {
+	if err = verifyProofSignatures(committee, proof); err != nil {
 		return err
 	}
 
 	// handle accusation and provide innocence proof.
 	if proof.Type == autonity.Accusation {
-		return fd.handleOffChainAccusation(proof, sender, msgHash, lastHeader.Committee)
+		return fd.handleOffChainAccusation(proof, sender, msgHash, committee)
 	}
 
 	// handle innocence proof and to withdraw those pending accusation.
 	if proof.Type == autonity.Innocence {
-		return fd.handleOffChainProofOfInnocence(proof, sender, lastHeader.Committee)
+		return fd.handleOffChainProofOfInnocence(proof, sender, committee)
 	}
 	return fmt.Errorf("wrong proof type for off chain accusation events")
 }
 
 func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender common.Address, accusationHash common.Hash,
-	committee types.Committee) error {
+	committee *types.Committee) error {
 	// offenderIndex range was checked, now if the suspected msg's sender is not current peer,
 	// then it would be a DoS attack, drop the peer with an error returned.
-	if committee[accusation.OffenderIndex].Address != fd.address {
+	if committee.Members[accusation.OffenderIndex].Address != fd.address {
 		return errInvalidAccusation
 	}
 
 	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(fd.blockchain, accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
 		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
+		return nil
+	}
+
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation. This could
+	// happen due to the timing and delay.
+	if fd.blockchain.GetBlock(accusation.Message.Value(), accusation.Message.H()) != nil {
+		fd.logger.Info("reject an accusation over a committed block", "sender", sender, "block", accusation.Message.H())
 		return nil
 	}
 
@@ -258,9 +267,9 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	return nil
 }
 
-func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender common.Address, committee types.Committee) error {
+func (fd *FaultDetector) handleOffChainProofOfInnocence(proof *Proof, sender common.Address, committee *types.Committee) error {
 	// if the sender is not the one being challenged against, then drop the peer by returning error.
-	if committee[proof.OffenderIndex].Address != sender {
+	if committee.Members[proof.OffenderIndex].Address != sender {
 		return errInvalidInnocenceProof
 	}
 
@@ -321,8 +330,11 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
 	escalatedOnes := fd.getExpiredOffChainAccusation(currentChainHeight)
 	for _, accusation := range escalatedOnes {
-		lastHeader := fd.blockchain.GetHeaderByNumber(accusation.Message.H() - 1)
-		offender := lastHeader.Committee[accusation.OffenderIndex].Address
+		committee, err := fd.blockchain.CommitteeOfHeight(accusation.Message.H())
+		if err != nil {
+			panic(fmt.Sprintf("cannot get committee of height: %d", accusation.Message.H()))
+		}
+		offender := committee.Members[accusation.OffenderIndex].Address
 		fd.removeOffChainAccusation(accusation)
 		p := fd.eventFromProof(accusation, offender)
 		// push it to the on chain accountability event list
@@ -331,14 +343,14 @@ func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
 }
 
 // send the off chain accusation msg to the peer suspected
-func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof, committee types.Committee) {
+func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof, committee *types.Committee) {
 	// send the off chain accusation msg to the suspected one,
 	if fd.broadcaster == nil {
 		fd.logger.Warn("p2p protocol handler is not ready yet")
 		return
 	}
 
-	target := committee[accusation.OffenderIndex].Address
+	target := committee.Members[accusation.OffenderIndex].Address
 	peer, ok := fd.broadcaster.FindPeer(target)
 	if !ok {
 		//todo: if we need to gossip this message in case of there are no direct peer connection.

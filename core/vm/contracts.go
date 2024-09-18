@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"slices"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -230,6 +229,7 @@ var (
 	errBadValidatorSize   = errors.New("invalid size of validator list")
 	errNoActiveValidator  = errors.New("no active validators with positive stake")
 	errBadConsensusKeyLen = errors.New("invalid consensus key length")
+	errExcludedValidator  = errors.New("excluding validator")
 )
 
 type Upgrader struct{}
@@ -305,12 +305,11 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	// get validators from DB
 	// scope to improve: read validators from DB concurrently
 	// NOTE: (if read concurrently) the order of the validators in the array after reading is done should not be depenedent on concurrent thread completion (ideally)
-	validators := make([]*types.CommitteeMember, 0, validatorListSize)
+	validators := make([]types.CommitteeMember, 0, validatorListSize)
 	mapKey := make([]byte, DataLen*2)
 	copy(mapKey[DataLen:], inputs.validatorsSlot)
 	for i := 0; i < validatorListSize; i++ {
-		user := a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB)
-		if user != nil {
+		if user, err := a.getValidatorInfo(mapKey, addressOffset.Bytes(), stakeThreshold, activeState, caller, stateDB); err == nil {
 			validators = append(validators, user)
 		}
 		// goto next slot
@@ -322,18 +321,13 @@ func (a *CommitteeSelector) Run(input []byte, _ uint64, evm *EVM, caller common.
 	}
 
 	committeeSize := min(len(validators), int(inputs.maxCommitteeSize))
-	// sort validators according to their voting power in descending order
-	// stable sort keeps the original order of equal elements
-	slices.SortStableFunc(validators, func(a, b *types.CommitteeMember) int {
-		return b.VotingPower.Cmp(a.VotingPower)
-	})
-
+	types.SortCommitteeMembers(validators)
 	err := a.updateCommittee(inputs, validators, committeeSize, caller, stateDB)
 	return nil, err
 }
 
 func (a *CommitteeSelector) updateCommittee(
-	inputs *CommitteeInput, validators []*types.CommitteeMember, committeeSize int, caller common.Address, stateDB StateDB,
+	inputs *CommitteeInput, validators []types.CommitteeMember, committeeSize int, caller common.Address, stateDB StateDB,
 ) error {
 	// write committee to persistent storage
 	oldCommitteeSize := int(stateDB.GetState(caller, common.BytesToHash(inputs.committeeSlot)).Big().Uint64())
@@ -431,7 +425,7 @@ func (a *CommitteeSelector) updateCommittee(
 // solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
 func (a *CommitteeSelector) getValidatorInfo(
 	mapKey []byte, addressSlot []byte, stakeThreshold *big.Int, expectedState *big.Int, caller common.Address, stateDB StateDB,
-) *types.CommitteeMember {
+) (types.CommitteeMember, error) {
 
 	nodeAddress := common.BytesToAddress(stateDB.GetState(caller, common.BytesToHash(addressSlot)).Bytes())
 	// We need reference of validator mapping + relative offset of bondedStake + relavtive offset of state
@@ -443,12 +437,12 @@ func (a *CommitteeSelector) getValidatorInfo(
 	state := stateDB.GetState(caller, common.BytesToHash(stateSlot)).Big()
 	// take validator if the stake is greater than threshold, for now threshold = 0
 	if bondedStake.Cmp(stakeThreshold) == 1 && state.Cmp(expectedState) == 0 {
-		return &types.CommitteeMember{
+		return types.CommitteeMember{
 			Address:     nodeAddress,
 			VotingPower: bondedStake,
-		}
+		}, nil
 	}
-	return nil
+	return types.CommitteeMember{}, errExcludedValidator
 }
 
 // ECRECOVER implemented as a native contract.

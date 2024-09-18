@@ -1,39 +1,24 @@
 package backend
 
 import (
-	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 	"github.com/autonity/autonity/rpc"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCommittee(t *testing.T) {
-	want := types.Committee{}
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	c := consensus.NewMockChainReader(ctrl)
-	h := &types.Header{Number: big.NewInt(1)}
-	c.EXPECT().GetHeaderByNumber(uint64(1)).Return(h)
+	chain, engine := newBlockChain(1)
+	want := chain.Genesis().Header().Epoch.Committee
+	bn := rpc.BlockNumber(0)
 	api := &API{
-		chain: c,
-		getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
-			if header == h && chain == c {
-				return want, nil
-			}
-			return nil, nil
-		},
+		chain:      chain,
+		tendermint: engine,
 	}
-
-	bn := rpc.BlockNumber(1)
-
 	got, err := api.GetCommittee(&bn)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
@@ -41,18 +26,12 @@ func TestGetCommittee(t *testing.T) {
 
 func TestGetCommitteeAtHash(t *testing.T) {
 	t.Run("unknown block given, error returned", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
 		hash := common.HexToHash("0x0123456789")
-
-		chain := consensus.NewMockChainReader(ctrl)
-		chain.EXPECT().GetHeaderByHash(hash).Return(nil)
-
+		chain, engine := newBlockChain(1)
 		api := &API{
-			chain: chain,
+			chain:      chain,
+			tendermint: engine,
 		}
-
 		_, err := api.GetCommitteeAtHash(hash)
 		if err != errUnknownBlock {
 			t.Fatalf("expected %v, got %v", errUnknownBlock, err)
@@ -60,27 +39,14 @@ func TestGetCommitteeAtHash(t *testing.T) {
 	})
 
 	t.Run("valid block given, committee returned", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		hash := common.HexToHash("0x0123456789")
-
-		c := consensus.NewMockChainReader(ctrl)
-		h := &types.Header{Number: big.NewInt(1)}
-		c.EXPECT().GetHeaderByHash(hash).Return(h)
-
-		want := types.Committee{}
-
+		chain, engine := newBlockChain(1)
 		api := &API{
-			chain: c,
-			getCommittee: func(header *types.Header, chain consensus.ChainReader) (types.Committee, error) {
-				if header == h && chain == c {
-					return want, nil
-				}
-				return nil, nil
-			},
+			chain:      chain,
+			tendermint: engine,
 		}
 
+		hash := chain.Genesis().Hash()
+		want := chain.Genesis().Header().Epoch.Committee
 		got, err := api.GetCommitteeAtHash(hash)
 		assert.NoError(t, err)
 		assert.Equal(t, want, got)

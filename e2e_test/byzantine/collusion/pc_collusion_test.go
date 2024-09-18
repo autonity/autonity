@@ -90,11 +90,11 @@ func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
 	}
 
 	// send precommit for the planned invalid proposal.
-	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
-	if header == nil {
-		panic("cannot fetch header")
+	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	if err != nil {
+		panic(err)
 	}
-	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
+	precommit := message.NewPrecommit(r, h, v.Hash(), c.Backend().Sign, committee.MemberByAddress(c.Address()), committee.Len())
 	c.SetSentPrecommit()
 	c.Broadcaster().Broadcast(precommit)
 }
