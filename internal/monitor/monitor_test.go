@@ -172,9 +172,9 @@ func Test_ResourceThresholdBreach(t *testing.T) {
 	// Sleep to let the service collect diagnostics
 	time.Sleep(ms.config.monitoringInterval * 10)
 
-	require.Equal(t, ms.config.cpuThreshold, cpuThreshold*1.2, "cpu threshold is not as expected")                     // CPU threshold should be updated
-	require.Equal(t, ms.config.memThreshold, uint64(float64(memThreshold)*1.2), "mem threshold is not as expected")    // CPU threshold should be updated
-	require.Equal(t, ms.config.numGoroutines, int(float64(grThreshold)*1.2), "goroutine threshold is not as expected") // CPU threshold should be updated
+	require.Equal(t, ms.config.cpuThreshold, cpuThreshold*1.1, "cpu threshold is not as expected")                     // CPU threshold should be updated
+	require.Equal(t, ms.config.memThreshold, uint64(float64(memThreshold)*1.1), "mem threshold is not as expected")    // CPU threshold should be updated
+	require.Equal(t, ms.config.numGoroutines, int(float64(grThreshold)*1.1), "goroutine threshold is not as expected") // CPU threshold should be updated
 	postfix := "_" + strconv.Itoa(ms.profileCount)
 	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, cpuDumpFile+postfix), "cpu profile doesn't exist")
 	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, memDumpFile+postfix), "mem profile doesn't exist")

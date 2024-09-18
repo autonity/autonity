@@ -77,6 +77,7 @@ require (
 )
 
 require (
+	github.com/ALTree/bigfloat v0.2.0 // indirect
 	github.com/Azure/azure-pipeline-go v0.2.1 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.18 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
