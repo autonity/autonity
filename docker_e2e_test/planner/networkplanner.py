@@ -148,7 +148,16 @@ class NetworkPlanner(object):
                     "jailFactor": 60,
                     "slashingRatePrecision": 10000
                 },
-                "omissionAccountability": {},
+                "omissionAccountability": {
+                    "inactivityThreshold": 1000,
+                    "lookbackWindow": 10,
+                    "pastPerformanceWeight": 1000,
+                    "initialJailingPeriod": 300,
+                    "initialProbationPeriod": 300,
+                    "initialSlashingRate": 1000,
+                    "slashingRatePrecision": 10000,
+                    "delta": 10
+                },
             },
             "nonce": "0x0",
             "timestamp": "0x66428631",
