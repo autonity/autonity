@@ -204,7 +204,7 @@ func TestVerifyHeaders(t *testing.T) {
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
-	defer func() { now = time.Now }()
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	_, results := engine.VerifyHeaders(chain, headers, nil)
 
@@ -230,6 +230,8 @@ OUT1:
 			break OUT1
 		}
 	}
+	// avoid data race for the re-assignment of now to time.Now
+	chain.Stop()
 }
 
 // The logic of this needs to change with respect of Autonity contact
@@ -268,7 +270,7 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
-	defer func() { now = time.Now }()
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	const timeoutDura = 2 * time.Second
 
@@ -298,6 +300,8 @@ OUT2:
 			break OUT2
 		}
 	}
+	// avoid data race for the re-assignment of now to time.Now
+	chain.Stop()
 }
 
 // The logic of this needs to change with respect of Autonity contact
@@ -336,7 +340,7 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	now = func() time.Time {
 		return time.Unix(int64(headers[size-1].Time), 0)
 	}
-	defer func() { now = time.Now }()
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	const timeoutDura = 2 * time.Second
 
@@ -368,6 +372,8 @@ OUT3:
 			break OUT3
 		}
 	}
+	// avoid data race for the re-assignment of now to time.Now
+	chain.Stop()
 }
 
 func TestWriteQuorumCertificate(t *testing.T) {
