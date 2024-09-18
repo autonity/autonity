@@ -60,9 +60,14 @@ func (c *Core) startWithState(ctx context.Context) {
 	}
 
 	// decision was made, but it wasn't be committed, update the view, commit the decision and start new height.
-	//latestView := c.Decision()
-	//c.committee.SetLastHeader(latestView.Header())
-	go c.startWithRecoveredDecision(ctx)
+	if c.Decision().ParentHash() == c.Backend().HeadBlock().Hash() {
+		go c.startWithRecoveredDecision(ctx)
+		return
+	}
+
+	// decision was made, however it missed parent block, chain might be roll back, thus start round 0 on top of
+	// current chain head.
+	c.StartRound(ctx, 0)
 }
 
 // Stop implements Core.Engine.Stop
