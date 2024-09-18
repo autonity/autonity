@@ -38,7 +38,7 @@ type Config struct {
 
 var DefaultMonitorConfig = Config{
 	cpuThreshold:         80,
-	numGoroutines:        1000,
+	numGoroutines:        3000,
 	memThreshold:         4 * 1024 * 1024,
 	profilePerDay:        5,
 	monitoringInterval:   time.Second * 60,
@@ -104,10 +104,10 @@ func (ms *monitorService) Protocols() []p2p.Protocol {
 }
 
 func (ms *monitorService) updateThresholds() {
-	//TODO: reset thresholds, when should we reset thresholds or resetting is not at all required
-	ms.config.cpuThreshold = ms.config.cpuThreshold * 1.2
-	ms.config.memThreshold = uint64(float64(ms.config.memThreshold) * 1.2)
-	ms.config.numGoroutines = int(float64(ms.config.numGoroutines) * 1.2)
+	// update threshold by 10%
+	ms.config.cpuThreshold = ms.config.cpuThreshold * 1.1
+	ms.config.memThreshold = uint64(float64(ms.config.memThreshold) * 1.1)
+	ms.config.numGoroutines = int(float64(ms.config.numGoroutines) * 1.1)
 }
 
 func (ms *monitorService) collectDiagnostics(currentDate string) {
