@@ -369,7 +369,8 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     /*
-    * @notice gets the delta used to determine how many block to wait before generating the activity proof
+    * @notice gets the delta used to determine how many block to wait before generating the activity proof. If the delta will change at epoch end,
+    * the new value will be returned
     * @return the delta number of blocks to wait before generating the activity proof
     */
     function getDelta() external view virtual returns (uint256) {
@@ -377,7 +378,16 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     /*
-    * @notice retrieves the lookback window value and whether an update of it is in progress.
+    * @notice gets the **current** delta used to determine how many block to wait before generating the activity proof. Used to initialize autonity cache.
+    * @return the **current** delta number of blocks to wait before generating the activity proof
+    */
+    function getCurrentDelta() external view virtual returns (uint256) {
+        return config.delta;
+    }
+
+    /*
+    * @notice retrieves the lookback window value and whether an update of it is in progress. If the lookback window will change at epoch end,
+    * the new value will be returned
     * @return the lookback window current value
     */
     function getLookbackWindow() external view virtual returns (uint256) {

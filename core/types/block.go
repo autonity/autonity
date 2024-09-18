@@ -519,6 +519,11 @@ func CopyHeader(h *Header) *Header {
 		activityProof = h.ActivityProof.Copy()
 	}
 
+	var epoch *Epoch
+	if h.Epoch != nil {
+		epoch = h.Epoch.Copy()
+	}
+
 	cpy := &Header{
 		ParentHash:         h.ParentHash,
 		UncleHash:          h.UncleHash,
@@ -539,12 +544,9 @@ func CopyHeader(h *Header) *Header {
 		BaseFee:            baseFee,
 		Round:              h.Round,
 		QuorumCertificate:  quorumCertificate,
+		Epoch:              epoch,
 		ActivityProof:      activityProof,
 		ActivityProofRound: h.ActivityProofRound,
-	}
-
-	if h.Epoch != nil {
-		cpy.Epoch = h.Epoch.Copy()
 	}
 
 	return cpy

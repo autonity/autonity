@@ -107,7 +107,7 @@ func newCache(ac *AutonityContract, omissionAccountabilityContract *OmissionAcco
 	}
 
 	// initialize delta and subscribe to updated event
-	delta, err := omissionAccountabilityContract.GetDelta(nil)
+	delta, err := omissionAccountabilityContract.GetCurrentDelta(nil)
 	if err != nil {
 		return nil, err
 	}

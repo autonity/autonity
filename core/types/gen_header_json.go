@@ -16,29 +16,29 @@ var _ = (*headerMarshaling)(nil)
 // MarshalJSON marshals as JSON.
 func (h Header) MarshalJSON() ([]byte, error) {
 	type Header struct {
-		ParentHash        common.Hash        `json:"parentHash"       gencodec:"required"`
-		UncleHash         common.Hash        `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase          common.Address     `json:"miner"            gencodec:"required"`
-		Root              common.Hash        `json:"stateRoot"        gencodec:"required"`
-		TxHash            common.Hash        `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash       common.Hash        `json:"receiptsRoot"     gencodec:"required"`
-		Bloom             Bloom              `json:"logsBloom"        gencodec:"required"`
-		Difficulty        *hexutil.Big       `json:"difficulty"       gencodec:"required"`
-		Number            *hexutil.Big       `json:"number"           gencodec:"required"`
-		GasLimit          hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
-		GasUsed           hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
-		Time              hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
-		Extra             hexutil.Bytes      `json:"extraData"        gencodec:"required"`
-		MixDigest         common.Hash        `json:"mixHash"`
-		Nonce             BlockNonce         `json:"nonce"`
-		BaseFee           *hexutil.Big       `json:"baseFeePerGas"`
-		ProposerSeal      hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
-		Round             hexutil.Uint64     `json:"round"               gencodec:"required"`
-		QuorumCertificate AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		ParentHash         common.Hash        `json:"parentHash"       gencodec:"required"`
+		UncleHash          common.Hash        `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase           common.Address     `json:"miner"            gencodec:"required"`
+		Root               common.Hash        `json:"stateRoot"        gencodec:"required"`
+		TxHash             common.Hash        `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash        common.Hash        `json:"receiptsRoot"     gencodec:"required"`
+		Bloom              Bloom              `json:"logsBloom"        gencodec:"required"`
+		Difficulty         *hexutil.Big       `json:"difficulty"       gencodec:"required"`
+		Number             *hexutil.Big       `json:"number"           gencodec:"required"`
+		GasLimit           hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
+		GasUsed            hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
+		Time               hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
+		Extra              hexutil.Bytes      `json:"extraData"        gencodec:"required"`
+		MixDigest          common.Hash        `json:"mixHash"`
+		Nonce              BlockNonce         `json:"nonce"`
+		BaseFee            *hexutil.Big       `json:"baseFeePerGas"`
+		ProposerSeal       hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
+		Round              hexutil.Uint64     `json:"round"               gencodec:"required"`
+		QuorumCertificate  AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		Epoch              *Epoch             `json:"epoch"               gencodec:"optional"`
 		ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
 		ActivityProofRound hexutil.Uint64     `json:"activityProofRound"  gencodec:"required"`
-		Epoch             *Epoch              `json:"epoch"              gencodec:"optional"`
-		Hash              common.Hash        `json:"hash"`
+		Hash               common.Hash        `json:"hash"`
 	}
 	var enc Header
 	enc.ParentHash = h.ParentHash
@@ -60,11 +60,9 @@ func (h Header) MarshalJSON() ([]byte, error) {
 	enc.ProposerSeal = h.ProposerSeal
 	enc.Round = hexutil.Uint64(h.Round)
 	enc.QuorumCertificate = h.QuorumCertificate
+	enc.Epoch = h.Epoch
 	enc.ActivityProof = h.ActivityProof
 	enc.ActivityProofRound = hexutil.Uint64(h.ActivityProofRound)
-	if h.Epoch != nil {
-		enc.Epoch = h.Epoch
-	}
 	enc.Hash = h.Hash()
 	return json.Marshal(&enc)
 }
@@ -72,28 +70,28 @@ func (h Header) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (h *Header) UnmarshalJSON(input []byte) error {
 	type Header struct {
-		ParentHash        *common.Hash        `json:"parentHash"       gencodec:"required"`
-		UncleHash         *common.Hash        `json:"sha3Uncles"       gencodec:"required"`
-		Coinbase          *common.Address     `json:"miner"            gencodec:"required"`
-		Root              *common.Hash        `json:"stateRoot"        gencodec:"required"`
-		TxHash            *common.Hash        `json:"transactionsRoot" gencodec:"required"`
-		ReceiptHash       *common.Hash        `json:"receiptsRoot"     gencodec:"required"`
-		Bloom             *Bloom              `json:"logsBloom"        gencodec:"required"`
-		Difficulty        *hexutil.Big        `json:"difficulty"       gencodec:"required"`
-		Number            *hexutil.Big        `json:"number"           gencodec:"required"`
-		GasLimit          *hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
-		GasUsed           *hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
-		Time              *hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
-		Extra             *hexutil.Bytes      `json:"extraData"        gencodec:"required"`
-		MixDigest         *common.Hash        `json:"mixHash"`
-		Nonce             *BlockNonce         `json:"nonce"`
-		BaseFee           *hexutil.Big        `json:"baseFeePerGas"`
-		ProposerSeal      *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
-		Round             *hexutil.Uint64     `json:"round"               gencodec:"required"`
-		QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		ParentHash         *common.Hash        `json:"parentHash"       gencodec:"required"`
+		UncleHash          *common.Hash        `json:"sha3Uncles"       gencodec:"required"`
+		Coinbase           *common.Address     `json:"miner"            gencodec:"required"`
+		Root               *common.Hash        `json:"stateRoot"        gencodec:"required"`
+		TxHash             *common.Hash        `json:"transactionsRoot" gencodec:"required"`
+		ReceiptHash        *common.Hash        `json:"receiptsRoot"     gencodec:"required"`
+		Bloom              *Bloom              `json:"logsBloom"        gencodec:"required"`
+		Difficulty         *hexutil.Big        `json:"difficulty"       gencodec:"required"`
+		Number             *hexutil.Big        `json:"number"           gencodec:"required"`
+		GasLimit           *hexutil.Uint64     `json:"gasLimit"         gencodec:"required"`
+		GasUsed            *hexutil.Uint64     `json:"gasUsed"          gencodec:"required"`
+		Time               *hexutil.Uint64     `json:"timestamp"        gencodec:"required"`
+		Extra              *hexutil.Bytes      `json:"extraData"        gencodec:"required"`
+		MixDigest          *common.Hash        `json:"mixHash"`
+		Nonce              *BlockNonce         `json:"nonce"`
+		BaseFee            *hexutil.Big        `json:"baseFeePerGas"`
+		ProposerSeal       *hexutil.Bytes      `json:"proposerSeal"        gencodec:"required"`
+		Round              *hexutil.Uint64     `json:"round"               gencodec:"required"`
+		QuorumCertificate  *AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
+		Epoch              *Epoch              `json:"epoch"               gencodec:"optional"`
 		ActivityProof      *AggregateSignature `json:"activityProof"       gencodec:"required"`
 		ActivityProofRound *hexutil.Uint64     `json:"activityProofRound"  gencodec:"required"`
-		Epoch             *Epoch              `json:"epoch"              gencodec:"optional"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -160,12 +158,10 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 	if dec.BaseFee != nil {
 		h.BaseFee = (*big.Int)(dec.BaseFee)
 	}
-
 	if dec.ProposerSeal == nil {
 		return errors.New("missing required field 'proposerSeal' for Header")
 	}
 	h.ProposerSeal = *dec.ProposerSeal
-
 	if dec.Round == nil {
 		return errors.New("missing required field 'round' for Header")
 	}
@@ -174,15 +170,6 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'quorumCertificate' for Header")
 	}
 	h.QuorumCertificate = *dec.QuorumCertificate
-	if dec.ActivityProof == nil {
-		return errors.New("missing required field 'activityProof' for Header")
-	}
-	h.ActivityProof = *dec.ActivityProof
-	if dec.ActivityProofRound == nil {
-		return errors.New("missing required field 'activityProofRound' for Header")
-	}
-	h.ActivityProofRound = uint64(*dec.ActivityProofRound)
-
 	if dec.Epoch != nil {
 		h.Epoch = dec.Epoch
 		//TODO: This needs to be added manually to make the e2e test work.
@@ -192,6 +179,13 @@ func (h *Header) UnmarshalJSON(input []byte) error {
 			return err
 		}
 	}
-
+	if dec.ActivityProof == nil {
+		return errors.New("missing required field 'activityProof' for Header")
+	}
+	h.ActivityProof = *dec.ActivityProof
+	if dec.ActivityProofRound == nil {
+		return errors.New("missing required field 'activityProofRound' for Header")
+	}
+	h.ActivityProofRound = uint64(*dec.ActivityProofRound)
 	return nil
 }

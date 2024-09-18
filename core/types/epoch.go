@@ -15,8 +15,6 @@ import (
 	"sync"
 )
 
-//go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
-
 var _ = (*Epoch)(nil)
 
 type Epoch struct {
@@ -114,6 +112,8 @@ func (e *Epoch) Equal(other *Epoch) bool {
 
 	return true
 }
+
+//go:generate gencodec -type CommitteeMember -field-override committeeMemberMarshaling -out gen_member_json.go
 
 type CommitteeMember struct {
 	Address           common.Address `json:"address"            gencodec:"required"       abi:"addr"`
