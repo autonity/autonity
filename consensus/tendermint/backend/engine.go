@@ -291,7 +291,7 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
 // Finaize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+	_ []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
 
 	committeeSet, receipt, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
@@ -324,7 +324,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
 // committee field containaining the list of committee members allowed to participate in consensus for the next block.
 func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+	_ []*types.Transaction, _ []*types.Receipt) (types.Committee, *types.Receipt, error) {
 	sb.contractsMu.Lock()
 	defer sb.contractsMu.Unlock()
 

@@ -24,9 +24,6 @@ var (
 		ConsensusKeyBytes: testConsensusKey.PublicKey().Marshal(),
 		Index:             0,
 	}
-	testHeader = &types.Header{
-		Committee: types.Committee{*testCommitteeMember},
-	}
 
 	testCommittee = types.Committee{{
 		Address:           common.HexToAddress("0x76a685e4bf8cbcd25d7d3b6c342f64a30b503380"),
