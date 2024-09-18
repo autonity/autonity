@@ -48,7 +48,7 @@ const BASE_VALIDATOR = {
         "liquidSupply": 0,
         "registrationBlock": 0,
         "state": 0,
-        "liquidContract": ZERO_ADDRESS,
+        "liquidStateContract": ZERO_ADDRESS,
         "selfUnbondingStake": 0,
         "selfUnbondingShares": 0,
         "unbondingStake": 0,

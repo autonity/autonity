@@ -36,6 +36,8 @@ __pycache__/
 /package.json
 /params/generated/**/*.abi
 /params/generated/**/*.bin
+/params/generated/**/*.docdev
+/params/generated/**/*.docuser
 nohup.out
 
 # travis

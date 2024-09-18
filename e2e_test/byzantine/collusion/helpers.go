@@ -13,7 +13,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
 )
@@ -38,7 +37,6 @@ type faultyBroadcaster interface {
 	Height() *big.Int
 	Backend() interfaces.Backend
 	Address() common.Address
-	LastHeader() *types.Header
 }
 
 // configurations for different testcases
@@ -116,14 +114,8 @@ func initCollusion(vals []*gengen.Validator, rule autonity.Rule, planer collusio
 	collusions[rule] = b
 }
 
-func validProposer(address common.Address, h uint64, r int64, core faultyBroadcaster) bool {
-	contract := core.Backend().BlockChain().ProtocolContracts()
-	db := core.Backend().BlockChain().StateCache()
-	statedb, err := state.New(core.LastHeader().Root, db, nil)
-	if err != nil {
-		panic("cannot load state from block chain.")
-	}
-	return address == contract.Proposer(core.LastHeader(), statedb, h, r)
+func validProposer(address common.Address, h uint64, r int64, contract *autonity.ProtocolContracts, committee *types.Committee) bool {
+	return address == contract.Proposer(committee, nil, h-1, r)
 }
 
 func sendPrevote(c *core.Core, rule autonity.Rule) {
@@ -133,15 +125,16 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 		return
 	}
 
-	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
-	if header == nil {
-		panic("cannot fetch header")
+	// send prevote for the planned invalid proposal.
+	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	if err != nil {
+		panic(err)
 	}
 
 	if rule == autonity.PVO && h == c.Height().Uint64() {
 		log.Debug("prevote collusion simulated", "rule", rule, "h", c.Height(), "r", r, "v", v.Hash(), "node", c.Address())
 		// send prevote for the planned invalid proposal for PVO.
-		vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
+		vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, committee.MemberByAddress(c.Address()), committee.Len())
 		c.SetSentPrevote()
 		c.BroadcastAll(vote)
 		return
@@ -149,7 +142,7 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 
 	// send prevote for the planned invalid proposal for PVN
 	log.Debug("prevote collusion simulated", "rule", rule, "h", c.Height(), "r", r, "v", v.Hash(), "node", c.Address())
-	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, header.CommitteeMember(c.Address()), len(header.Committee))
+	vote := message.NewPrevote(r, h, v.Hash(), c.Backend().Sign, committee.MemberByAddress(c.Address()), committee.Len())
 	c.SetSentPrevote()
 	c.BroadcastAll(vote)
 }
@@ -174,11 +167,11 @@ func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
 	}
 
 	// send invalid proposal with the planed data.
-	header := c.Backend().BlockChain().GetHeaderByNumber(h - 1)
-	if header == nil {
-		panic("cannot fetch header")
+	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	if err != nil {
+		panic(err)
 	}
-	p := message.NewPropose(r, h, vr, v, c.Backend().Sign, header.CommitteeMember(c.Address()))
+	p := message.NewPropose(r, h, vr, v, c.Backend().Sign, committee.MemberByAddress(c.Address()))
 	c.BroadcastAll(p)
 }
 
@@ -186,15 +179,17 @@ func setupCollusionContext(c faultyBroadcaster, rule autonity.Rule) {
 	leader := c.Address()
 	futureHeight := c.Height().Uint64() + 5
 	round := int64(0)
+	committee, _, _, _, _ := c.Backend().BlockChain().LatestEpoch()
 
+	contract := c.Backend().BlockChain().ProtocolContracts()
 	for ; ; round++ {
 		// select a none proposer to propose faulty value in PVN context.
-		if rule == autonity.PVN && !validProposer(leader, futureHeight, round, c) {
+		if rule == autonity.PVN && !validProposer(leader, futureHeight, round, contract, committee) {
 			break
 		}
 
 		// select a proposer to propose faulty value in PVO and C1 context
-		if round != 0 && rule != autonity.PVN && validProposer(leader, futureHeight, round, c) {
+		if round != 0 && rule != autonity.PVN && validProposer(leader, futureHeight, round, contract, committee) {
 			break
 		}
 	}

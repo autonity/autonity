@@ -41,3 +41,4 @@ type ChainSideEvent struct {
 }
 
 type ChainHeadEvent struct{ Block *types.Block }
+type EpochHeadEvent struct{ Header *types.Header }

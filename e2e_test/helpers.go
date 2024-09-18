@@ -2,13 +2,14 @@ package e2e
 
 import (
 	"crypto/rand"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/params"
-	fuzz "github.com/google/gofuzz"
 	"math/big"
 	"reflect"
 	"sync/atomic"
 	"testing"
+
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
+	fuzz "github.com/google/gofuzz"
 
 	"github.com/stretchr/testify/require"
 

@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"reflect"
 	"sync"
@@ -81,14 +82,14 @@ func oldHeightEventBuilder(msg message.Msg, errCh chan<- error) interface{} {
 }
 
 // computes how much new voting power will the messages in the aggregator apport to core
-func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committee types.Committee) *big.Int {
+func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committee *types.Committee) *big.Int {
 	contribution := message.Contribution(aggregatorSigners, coreSigners)
 	if contribution.Cmp(common.Big0) == 0 {
 		return new(big.Int) // no power contribution
 	}
 	// there is a contribution, compute how much
 	contributionPower := new(big.Int)
-	for i, member := range committee {
+	for i, member := range committee.Members {
 		if contribution.Bit(i) == 1 {
 			contributionPower.Add(contributionPower, member.VotingPower)
 		}
@@ -618,7 +619,7 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 // assumes current or old round vote
 // if add == true, the msg is saved in the aggregator.
 // if add == false, the msg is not saved and only the power checks are done.
-func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committee types.Committee, quorum *big.Int, add bool) {
+func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committee *types.Committee, quorum *big.Int, add bool) {
 	vote := voteEvent.Message.(message.Vote)
 	errCh := voteEvent.ErrCh
 	sender := voteEvent.Sender
@@ -689,12 +690,11 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		a.logger.Crit("future message in aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 	}
 
-	header := a.backend.BlockChain().GetHeaderByNumber(msg.H() - 1)
-	if header == nil { //nolint
-		a.logger.Crit("cannot fetch header for non-future message", "headerHeight", msg.H()-1, "coreHeight", coreHeight)
+	committee, err := a.backend.BlockChain().CommitteeOfHeight(msg.H())
+	if err != nil {
+		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
-	committee := header.Committee //nolint
-	quorum := bft.Quorum(header.TotalVotingPower())
+	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	coreRound := a.core.Round()
 	if msg.R() > coreRound {
@@ -703,8 +703,8 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		// check if power is enough for a round skip
 		aggregatorPower := a.power(msg.H(), msg.R())
 		corePower := a.core.Power(msg.H(), msg.R())
-		contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), header.Committee)
-		if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(header.TotalVotingPower())) > 0 {
+		contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
+		if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
 			a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
 			a.processRound(msg.H(), msg.R())
 		}
@@ -781,12 +781,11 @@ loop:
 				//clean up
 				roundInfo.proposals = make([]events.UnverifiedMessageEvent, 0)
 
-				header := a.backend.BlockChain().GetHeaderByNumber(height - 1)
-				if header == nil { //nolint
-					a.logger.Crit("cannot fetch header for non-future height", "height", height-1)
+				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				if err != nil {
+					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
-				quorum := bft.Quorum(header.TotalVotingPower())
-				committee := header.Committee //nolint
+				quorum := bft.Quorum(committee.TotalVotingPower())
 
 				for _, evs := range roundInfo.precommits {
 					if len(evs) == 0 {
@@ -817,12 +816,12 @@ loop:
 				}
 
 				roundInfo := a.messages[height][round]
-				header := a.backend.BlockChain().GetHeaderByNumber(height - 1)
-				if header == nil {
-					panic("cannot fetch header for non-future message")
+
+				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				if err != nil {
+					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
-				quorum := bft.Quorum(header.TotalVotingPower())
-				committee := header.Committee
+				quorum := bft.Quorum(committee.TotalVotingPower())
 
 				var votesEvent []events.UnverifiedMessageEvent
 				var ok bool
@@ -848,17 +847,16 @@ loop:
 				height := e.Height
 				round := e.Round
 
-				header := a.backend.BlockChain().GetHeaderByNumber(height - 1)
-				if header == nil { //nolint
-					a.logger.Crit("cannot fetch header for non-future message", "height", height-1)
+				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				if err != nil {
+					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
-				committee := header.Committee //nolint
 
 				// check in future round messages power, check again for round skip
 				aggregatorPower := a.power(height, round)
 				corePower := a.core.Power(height, round)
 				contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
-				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(header.TotalVotingPower())) > 0 {
+				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
 					a.processRound(height, round)
 				}
 				if metrics.Enabled {

@@ -99,7 +99,7 @@ type Node struct {
 	ID          int
 }
 
-// NewNode creates a new running node as the given user with the provided
+// NewValidatorNode creates a new running node as the given user with the provided
 // genesis.
 //
 // Unfortunately we need to provide a genesis file here to be able to set the
@@ -107,7 +107,7 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
+func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
 	address := crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
@@ -179,6 +179,76 @@ func NewNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node,
 		Address:      address,
 		Tracker:      NewTransactionTracker(),
 		CustHandler:  validator.TendermintServices,
+		ID:           id,
+	}
+
+	return n, nil
+}
+
+// NewNoneValidatorNode creates a new running client with different roles: light client, snap sync client, etc...
+func NewNoneValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int, syncMode downloader.SyncMode) (*Node, error) {
+	address := crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
+
+	// Copy the base node config, so we can modify it without damaging the
+	// original.
+	nodeConfig := copyNodeConfig(baseNodeConfig)
+
+	// p2p key and address
+	nodeConfig.ExecutionP2P.PrivateKey = validator.NodeKey
+	nodeConfig.ExecutionP2P.ListenAddr = fmt.Sprintf("%s:%d", localhost, validator.NodePort)
+
+	// set the eNode of validators of the core network as static nodes,
+	// thus the none validator node can discover them without connecting with bootstrap node.
+	eNodes := make([]string, len(genesis.Config.AutonityContractConfig.Validators))
+	for i, n := range genesis.Config.AutonityContractConfig.Validators {
+		eNodes[i] = n.Enode
+	}
+	nodes := types.NewNodes(eNodes, false)
+	nodeConfig.ExecutionP2P.StaticNodes = nodes.List
+
+	// consensus key used by consensus engine.
+	nodeConfig.ConsensusKey = validator.ConsensusKey
+	nodeConfig.ConsensusP2P.PrivateKey = validator.NodeKey
+	nodeConfig.ConsensusP2P.ListenAddr = fmt.Sprintf("%s:%d", localhost, validator.AcnPort)
+
+	nodeConfig.DataDir = ""
+
+	// copy the base eth config, so we can modify it without damaging the
+	// original.
+	ethConfig := &ethconfig.Config{}
+	ethconfig.Defaults.SyncMode = syncMode
+	ethconfig.Defaults.Miner.Recommit = time.Second
+	if err := copyConfig(&ethconfig.Defaults, ethConfig); err != nil {
+		return nil, err
+	}
+	ethConfig.Genesis = genesis
+	ethConfig.NetworkID = genesis.Config.ChainID.Uint64()
+
+	// Give this logger context based on the node address so that we can easily
+	// trace single node execution in the logs. We set the logger only on the
+	// copy, since it is not useful for black box testing and it is also not
+	// marshalable since the implementation contains unexported fields.
+	logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
+		b := log.TerminalFormat(false).Format(record)
+		if id < len(terminalColors) {
+			prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
+			suffix := []byte("\x1b[0;K\033[0m\n")
+			return append(append(prefix, b[:len(b)-1]...), suffix...)
+		}
+		return b
+	})))
+
+	logger.Verbosity(verbosity)
+	nodeConfig.Logger = log.New()
+	nodeConfig.Logger.SetHandler(logger)
+
+	n := &Node{
+		Config:       nodeConfig,
+		EthConfig:    ethConfig,
+		Key:          validator.NodeKey,
+		ConsensusKey: validator.ConsensusKey,
+		Address:      address,
+		Tracker:      NewTransactionTracker(),
 		ID:           id,
 	}
 
@@ -530,7 +600,7 @@ func NewNetworkFromValidators(_ *testing.T, validators []*gengen.Validator, star
 	}
 	network := make([]*Node, len(validators))
 	for i, u := range validators {
-		n, err := NewNode(u, g, i)
+		n, err := NewValidatorNode(u, g, i)
 		if len(validators) > 21 {
 			n.EthConfig.DatabaseCache = 16
 			n.EthConfig.DatabaseHandles = 8
@@ -634,7 +704,7 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 	for i, u := range validators {
 		wg.Add(1)
 		go func(id int, val *gengen.Validator) {
-			n, _ := NewNode(val, g, id)
+			n, _ := NewValidatorNode(val, g, id)
 			if id == 0 {
 				n.Config.WSPort = freeport.GetOne(t)
 			}

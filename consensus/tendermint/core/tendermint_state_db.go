@@ -393,6 +393,12 @@ func (rsdb *TendermintStateDB) RoundMsgsFromDB(chain consensus.ChainHeaderReader
 		return roundMsgs
 	}
 
+	committee, _, _, _, err := chain.LatestEpoch()
+	if err != nil {
+		rsdb.logger.Error("failed to get latest epoch", "err", err)
+		return roundMsgs
+	}
+
 	for id := uint64(1); id <= rsdb.lastConsensusMsgID; id++ {
 		msg, verified, err := rsdb.GetMsg(id)
 		if err != nil {
@@ -400,8 +406,7 @@ func (rsdb *TendermintStateDB) RoundMsgsFromDB(chain consensus.ChainHeaderReader
 			continue
 		}
 
-		lastHeader := chain.GetHeaderByNumber(msg.H() - 1)
-		if err = msg.PreValidate(lastHeader); err != nil {
+		if err = msg.PreValidate(committee); err != nil {
 			rsdb.logger.Warn("failed to pre-validate msg from WAL", "error", err)
 			continue
 		}

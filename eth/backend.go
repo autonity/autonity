@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/ethdb/badgerdb"
 	"math/big"
 	"path/filepath"
@@ -293,7 +294,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
 	//start to apply accountability TXs if there were any, otherwise it would cause sync failure.
-	accountability.LoadPrecompiles(eth.blockchain)
+	accountability.LoadPrecompiles()
 	// Create Fault Detector for each full node for the time being.
 	//TODO: I think it would make more sense to move this into the tendermint backend if possible
 	eth.accountability = accountability.NewFaultDetector(
@@ -566,15 +567,21 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
-	go s.accountability.Start()
-
-	go func() {
-		header := s.blockchain.CurrentHeader()
-		if header.Number.BitLen() == 0 && header.Time > uint64(time.Now().Unix()) {
-			s.genesisCountdown()
-		}
-		s.validatorController()
-	}()
+	// let only tendermint bft engine to start its sub modules
+	switch s.engine.(type) {
+	case *backend.Backend:
+		s.log.Info("starting sub modules for Tendermint BFT engine")
+		go s.accountability.Start()
+		go func() {
+			header := s.blockchain.CurrentHeader()
+			if header.Number.BitLen() == 0 && header.Time > uint64(time.Now().Unix()) {
+				s.genesisCountdown()
+			}
+			s.validatorController()
+		}()
+	default:
+		s.log.Info("running eth backend without Tendermint BFT engine")
+	}
 
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
 	// Start the bloom bits servicing goroutines
@@ -598,18 +605,20 @@ func (s *Ethereum) Start() error {
 
 // This routine is responsible to communicate to devp2p who are the other consensus members
 // if the local node is part of the consensus committee or not. It also control the miner start/stop functions.
-// todo(youssef): listen to new epoch events instead
 func (s *Ethereum) validatorController() {
 	chainHeadCh := make(chan core.ChainHeadEvent)
 	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
 
-	updateConsensusEnodes := func(block *types.Block) {
-		state, err := s.blockchain.StateAt(block.Header().Root)
+	epochHeadCh := make(chan core.EpochHeadEvent)
+	epochHeadSub := s.blockchain.SubscribeEpochHeadEvent(epochHeadCh)
+
+	updateConsensusEnodes := func(header *types.Header) {
+		state, err := s.blockchain.StateAt(header.Root)
 		if err != nil {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(block, state, false)
+		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(header, state, false)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -619,9 +628,19 @@ func (s *Ethereum) validatorController() {
 		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, index), committee.List)
 	}
 	wasValidating := false
-	currentBlock := s.blockchain.CurrentBlock()
-	if currentBlock.Header().CommitteeMember(s.address) != nil {
-		updateConsensusEnodes(currentBlock)
+
+	// read the committee base on latest state.
+	currentHead := s.blockchain.CurrentHeader()
+	currentState, err := s.blockchain.StateAt(currentHead.Root)
+	if err != nil {
+		panic(err)
+	}
+	committee, err := s.blockchain.ProtocolContracts().GetCommitteeByHeight(currentHead, currentState, currentHead.Number)
+	if err != nil {
+		panic(err)
+	}
+	if committee.MemberByAddress(s.address) != nil {
+		updateConsensusEnodes(currentHead)
 		s.miner.Start()
 		s.log.Info("Starting node as validator")
 		wasValidating = true
@@ -632,9 +651,11 @@ func (s *Ethereum) validatorController() {
 		case ev := <-chainHeadCh:
 			// current block number is cached in server
 			s.p2pServer.SetCurrentBlockNumber(ev.Block.NumberU64())
-			header := ev.Block.Header()
+		case ev := <-epochHeadCh:
+			// epoch head change comes with the committee rotation:
+			committee = ev.Header.Epoch.Committee
 			// check if the local node belongs to the consensus committee.
-			if header.CommitteeMember(s.address) == nil {
+			if committee.MemberByAddress(s.address) == nil {
 				// if the local node was part of the committee set for the previous block
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
@@ -646,7 +667,7 @@ func (s *Ethereum) validatorController() {
 				}
 				continue
 			}
-			updateConsensusEnodes(ev.Block)
+			updateConsensusEnodes(ev.Header)
 			// if we were not committee in the past block we need to enable the mining engine.
 			if !wasValidating {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
@@ -655,6 +676,8 @@ func (s *Ethereum) validatorController() {
 			wasValidating = true
 		// Err() channel will be closed when unsubscribing.
 		case <-chainHeadSub.Err():
+			return
+		case <-epochHeadSub.Err():
 			return
 		}
 	}
@@ -692,7 +715,8 @@ func (s *Ethereum) Stop() error {
 func (s *Ethereum) genesisCountdown() {
 	genesisTime := time.Unix(int64(s.blockchain.Genesis().Time()), 0)
 	s.log.Info(fmt.Sprintf("Chain genesis time: %v", genesisTime))
-	if s.blockchain.Genesis().Header().CommitteeMember(s.address) != nil {
+	committee := s.blockchain.Genesis().Header().Epoch.Committee
+	if committee.MemberByAddress(s.address) != nil {
 		s.log.Warn("**************************************************************")
 		s.log.Warn("Local node is detected GENESIS VALIDATOR")
 		s.log.Warn("Please remain tuned to our Telegram channel for announcements")

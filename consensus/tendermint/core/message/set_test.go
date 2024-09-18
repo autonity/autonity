@@ -25,23 +25,28 @@ var (
 		Index:             0,
 	}
 
-	testCommittee = types.Committee{{
-		Address:           common.HexToAddress("0x76a685e4bf8cbcd25d7d3b6c342f64a30b503380"),
-		ConsensusKeyBytes: hexutil.MustDecode("0x951f3f7ab473eb0d00eaaa569ba1a0be2877b794e29e0cbf504b7f00cb879a824b0b913397e0071a87cebaae2740002b"),
-		VotingPower:       hexutil.MustDecodeBig("0x3029"),
-	}, {
-		Address:           common.HexToAddress("0xc44276975a6c2d12e62e18d814b507c38fc3646f"),
-		ConsensusKeyBytes: hexutil.MustDecode("0x8bddc21fca7f3a920064729547605c73e55c17e20917eddc8788b97990c0d7e9420e51a97ea400fb58a5c28fa63984eb"),
-		VotingPower:       hexutil.MustDecodeBig("0x3139"),
-	}, {
-		Address:           common.HexToAddress("0x1a72cb9d17c9e7acad03b4d3505f160e3782f2d5"),
-		ConsensusKeyBytes: hexutil.MustDecode("0x9679c8ebd47d18b93acd90cd380debdcfdb140f38eca207c61463a47be85398ec3082a66f7f30635c11470f5c8e5cf6b"),
-		VotingPower:       hexutil.MustDecodeBig("0x3056"),
-	}, {
-		Address:           common.HexToAddress("0xbaa58a01e5ca81dc288e2c46a8a467776bdb81c6"),
-		ConsensusKeyBytes: hexutil.MustDecode("0xa460c204c407b6272f7731b0d15daca8f2564cf7ace301769e3b42de2482fc3bf8116dd13c0545e806441d074d02dcc2"),
-		VotingPower:       hexutil.MustDecodeBig("0x39"),
-	}}
+	testCommittee = types.Committee{Members: []types.CommitteeMember{
+		{
+			Address:           common.HexToAddress("0x76a685e4bf8cbcd25d7d3b6c342f64a30b503380"),
+			ConsensusKeyBytes: hexutil.MustDecode("0x951f3f7ab473eb0d00eaaa569ba1a0be2877b794e29e0cbf504b7f00cb879a824b0b913397e0071a87cebaae2740002b"),
+			VotingPower:       hexutil.MustDecodeBig("0x3029"),
+		},
+		{
+			Address:           common.HexToAddress("0xc44276975a6c2d12e62e18d814b507c38fc3646f"),
+			ConsensusKeyBytes: hexutil.MustDecode("0x8bddc21fca7f3a920064729547605c73e55c17e20917eddc8788b97990c0d7e9420e51a97ea400fb58a5c28fa63984eb"),
+			VotingPower:       hexutil.MustDecodeBig("0x3139"),
+		},
+		{
+			Address:           common.HexToAddress("0x1a72cb9d17c9e7acad03b4d3505f160e3782f2d5"),
+			ConsensusKeyBytes: hexutil.MustDecode("0x9679c8ebd47d18b93acd90cd380debdcfdb140f38eca207c61463a47be85398ec3082a66f7f30635c11470f5c8e5cf6b"),
+			VotingPower:       hexutil.MustDecodeBig("0x3056"),
+		},
+		{
+			Address:           common.HexToAddress("0xbaa58a01e5ca81dc288e2c46a8a467776bdb81c6"),
+			ConsensusKeyBytes: hexutil.MustDecode("0xa460c204c407b6272f7731b0d15daca8f2564cf7ace301769e3b42de2482fc3bf8116dd13c0545e806441d074d02dcc2"),
+			VotingPower:       hexutil.MustDecodeBig("0x39"),
+		}},
+	}
 	blockHash  = common.BytesToHash([]byte("123456789"))
 	blockHash2 = common.BytesToHash([]byte("7890"))
 )
@@ -64,7 +69,7 @@ func defaultSigner(h common.Hash) blst.Signature {
 func TestMessageSetAggregationAndPower(t *testing.T) {
 	r := int64(1)
 	h := uint64(1)
-	csize := len(testCommittee)
+	csize := testCommittee.Len()
 
 	ms := NewSet()
 
@@ -150,7 +155,7 @@ func TestMessageSetAddNilVote(t *testing.T) {
 
 func TestMessageSetTotalSize(t *testing.T) {
 	nilHash := common.Hash{}
-	csize := len(testCommittee)
+	csize := testCommittee.Len()
 
 	testCases := []struct {
 		voteList      []Vote

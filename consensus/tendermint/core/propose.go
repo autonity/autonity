@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -31,7 +32,12 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if c.SentProposal() {
 		return
 	}
-	self := c.LastHeader().CommitteeMember(c.address)
+
+	self, err := c.CommitteeSet().MemberByAddress(c.address)
+	if err != nil {
+		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
+	}
+
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), block, c.backend.Sign, self)
 	c.SetSentProposal()
 	c.backend.SetProposedBlockHash(block.Hash())
@@ -191,7 +197,7 @@ func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Pro
 		"msgRound", proposal.R(),
 		"currentStep", c.Step(),
 		"isProposer", log.Lazy{Fn: c.IsProposer},
-		"currentProposer", log.Lazy{Fn: func() types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
+		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", log.Lazy{Fn: func() bool { return proposal.Block().Hash() == common.Hash{} }},
 		"value", log.Lazy{Fn: func() common.Hash { return proposal.Block().Hash() }},
 		"proposal", log.Lazy{Fn: func() string { return proposal.String() }},
