@@ -346,15 +346,15 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, uint64, error) {
 
 	// TODO(lorenzo) I think that when assembling proof taking the latest epoch should always be correct, but verify
-	committee, _, lastEpochBlock, _, err := sb.BlockChain().LatestEpoch()
+	committee, _, epochBlock, _, err := sb.BlockChain().LatestEpoch()
 	if err != nil {
 		return types.AggregateSignature{}, 0, fmt.Errorf("error while fetching latest epoch %w", err)
 	}
 
 	// for the 1st delta blocks of the epoch, the proposer does not have to provide an activity proof
 	delta := sb.BlockChain().ProtocolContracts().OmissionDelta().Uint64()
-	if h <= lastEpochBlock+delta {
-		sb.logger.Debug("Skip to assemble activity proof at the start of epoch", "height", h, "lastEpochBlock", lastEpochBlock)
+	if h <= epochBlock+delta {
+		sb.logger.Debug("Skip to assemble activity proof at the start of epoch", "height", h, "epochBlock", epochBlock)
 		return types.AggregateSignature{}, 0, nil
 	}
 

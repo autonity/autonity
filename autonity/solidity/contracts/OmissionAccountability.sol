@@ -26,7 +26,7 @@ contract OmissionAccountability is IOmissionAccountability {
     // shadow copies of variables in Autonity.sol, updated once a epoch
     Autonity.CommitteeMember[] private committee;
     address[] private treasuries; // treasuries of the committee members
-    uint256 private lastEpochBlock;
+    uint256 private epochBlock;
 
     uint256 private newLookbackWindow; // applied at epoch end
     uint256 private newDelta; // applied at epoch end
@@ -76,7 +76,7 @@ contract OmissionAccountability is IOmissionAccountability {
     */
     function finalize(bool _epochEnded) external virtual onlyAutonity {
         // if we are at the first delta blocks of the epoch, the activity proof should be empty
-        bool _mustBeEmpty = block.number <= lastEpochBlock + config.delta;
+        bool _mustBeEmpty = block.number <= epochBlock + config.delta;
 
         uint256[1] memory _committeeSlot; // declare it as array to easily access from assembly
         assembly{
@@ -130,7 +130,7 @@ contract OmissionAccountability is IOmissionAccountability {
             inactiveValidators[targetHeight][_absentees[i]] = true;
         }
 
-        if(targetHeight < lastEpochBlock + config.lookbackWindow) {
+        if(targetHeight < epochBlock + config.lookbackWindow) {
             return;
         }
 
@@ -143,7 +143,7 @@ contract OmissionAccountability is IOmissionAccountability {
             for(uint256 h = targetHeight-1; h >targetHeight-initialLookBackWindow; h--) {
                 if(faultyProposers[h]) {
                     // we do not have data for h, extend the lookback window if possible
-                    if(targetHeight-lastEpochBlock <= initialLookBackWindow) {
+                    if(targetHeight-epochBlock <= initialLookBackWindow) {
                         // we do not have enough blocks to extend the window. let's consider the validator not absent.
                         confirmedAbsent=false;
                         break;
@@ -406,12 +406,12 @@ contract OmissionAccountability is IOmissionAccountability {
         treasuries = _treasuries;
     }
 
-    /* @notice sets the lastEpochBlock in the omission contract
+    /* @notice sets the current epoch block in the omission contract
     * @dev restricted to the Autonity contract. It is used to mirror this information when it is updated at epoch finalize.
-    * @param _lastEpochBlock, last block of the past epoch
+    * @param _epochBlock, epoch block of the current epoch
     */
-    function setLastEpochBlock(uint256 _lastEpochBlock) external virtual onlyAutonity {
-        lastEpochBlock = _lastEpochBlock;
+    function setEpochBlock(uint256 _epochBlock) external virtual onlyAutonity {
+        epochBlock = _epochBlock;
     }
 
     /* @notice sets the operator in the omission contract

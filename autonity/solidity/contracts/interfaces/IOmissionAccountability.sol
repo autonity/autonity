@@ -6,7 +6,7 @@ import "../Autonity.sol";
 interface IOmissionAccountability {
     function finalize(bool _epochEnded) external;
     function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external;
-    function setLastEpochBlock(uint256 _lastEpochBlock) external;
+    function setEpochBlock(uint256 _epochBlock) external;
     function setOperator(address _operator) external;
     function getInactivityScore(address _validator) external view returns (uint256);
     function getScaleFactor() external pure returns (uint256);

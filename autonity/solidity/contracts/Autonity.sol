@@ -900,7 +900,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             }
 
             // update epoch information
-            config.contracts.omissionAccountabilityContract.setLastEpochBlock(block.number);
+            config.contracts.omissionAccountabilityContract.setEpochBlock(block.number);
             uint256 previousEpochBlock = epochInfos[epochID].epochBlock;
             uint256 nextEpochBlock = block.number + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
