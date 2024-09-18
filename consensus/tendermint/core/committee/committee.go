@@ -211,7 +211,7 @@ func (w *WeightedRandomSamplingCommittee) F() *big.Int {
 
 func copyMembers(members types.Committee) types.Committee {
 	membersCopy := make(types.Committee, len(members))
-	for i, val := range members {
+	for i, val := range members { //nolint
 		membersCopy[i] = val
 	}
 	return membersCopy

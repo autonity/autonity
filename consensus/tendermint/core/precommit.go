@@ -19,7 +19,7 @@ type Precommiter struct {
 	*Core
 }
 
-func (c *Precommiter) SendPrecommit(ctx context.Context, isNil bool) {
+func (c *Precommiter) SendPrecommit(_ context.Context, isNil bool) {
 	value := common.Hash{}
 	if !isNil {
 		proposal := c.roundsState.CurRoundMessages().Proposal()

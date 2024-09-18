@@ -523,7 +523,7 @@ func (nw Network) WaitForHeight(height uint64, numSec int) error {
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
+func NewNetworkFromValidators(_ *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
 	g, err := Genesis(validators, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed the genesis: %w", err)

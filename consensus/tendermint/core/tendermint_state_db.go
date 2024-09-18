@@ -202,11 +202,15 @@ func (rsdb *TendermintStateDB) GetLastTendermintState() ExtTendermintState {
 	viewKey := lastTendermintStateKey
 	rawEntry, err := rsdb.db.Get(viewKey)
 	if err != nil {
+		entry.IsValidRoundNil = true
+		entry.IsLockedRoundNil = true
 		rsdb.logger.Warn("failed to read tendermint state from WAL", "error", err)
 		return entry
 	}
 
 	if err = rlp.DecodeBytes(rawEntry, &entry); err != nil {
+		entry.IsValidRoundNil = true
+		entry.IsLockedRoundNil = true
 		rsdb.logger.Warn("failed to read tendermint state from WAL", "error", err)
 		return entry
 	}

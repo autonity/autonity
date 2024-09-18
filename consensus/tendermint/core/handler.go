@@ -22,8 +22,7 @@ const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
-	// on the core construction phase, blockchain isn't ready yet,
-	// thus we load tendermint state at here before the engine start.
+	// load tendermint state from WAL, otherwise it would load with default state of tendermint.
 	c.roundsState = newTendermintState(c.logger, c.db, c.backend.BlockChain())
 	c.protocolContracts = contract
 	c.subscribeEvents()
@@ -34,28 +33,33 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	c.setCommitteeSet(committeeSet)
 
 	ctx, c.cancel = context.WithCancel(ctx)
-	// If the state in WAL is stale, then we start round 0 for new heights.
-	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
-		c.StartRound(ctx, 0)
-	} else {
-		// start round on top of the recovered tendermint states
-		if c.Decision() == nil {
-			c.setLastHeader(c.Backend().HeadBlock().Header())
-			c.StartWithRecoveredState(ctx)
-		} else {
-			// decision was made, however it wasn't be committed.
-			// reset the view, commit the decision and start new height.
-			latestView = c.Decision()
-			c.setLastHeader(latestView.Header())
-			c.committee.SetLastHeader(latestView.Header())
-			// this is a blocking op, thus we create a routine to do it.
-			go c.startWithRecoveredDecision(ctx)
-		}
-	}
+	c.startWithState(ctx)
 
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
 	go c.backend.HandleUnhandledMsgs(ctx)
+}
+
+// startWithState, it resolves the start of tendermint consensus engine with recovered tendermint state.
+func (c *Core) startWithState(ctx context.Context) {
+	// If the state in WAL is stale, then we start round 0 for new heights.
+	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
+		c.StartRound(ctx, 0)
+		return
+	}
+
+	// the state is not stale, the decision haven't been made, start engine with the recovered state.
+	if c.Decision() == nil {
+		c.setLastHeader(c.Backend().HeadBlock().Header())
+		c.StartWithRecoveredState(ctx)
+		return
+	}
+
+	// decision was made, but it wasn't be committed, update the view, commit the decision and start new height.
+	latestView := c.Decision()
+	c.setLastHeader(latestView.Header())
+	c.committee.SetLastHeader(latestView.Header())
+	go c.startWithRecoveredDecision(ctx)
 }
 
 // Stop implements Core.Engine.Stop
@@ -86,7 +90,7 @@ func (c *Core) startWithRecoveredDecision(ctx context.Context) {
 	// On start up, this commit operation will be blocked until the block
 	// fetcher starts to handle the block inserted by the enqueuer.
 	if err := c.backend.Commit(c.Decision(), c.DecisionRound(), quorumCertificate); err != nil {
-		c.logger.Error("failed to commit the decision from WAL", "err", err)
+		panic(err)
 	}
 
 	// wait until the block is inserted in the blockchain, then start the new height with round 0.
