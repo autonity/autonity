@@ -377,7 +377,7 @@ OUT3:
 }
 
 func TestWriteQuorumCertificate(t *testing.T) {
-	expectedQuorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
+	expectedQuorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
 	expectedQuorumCertificate.Signers.Increment(testCommitteeMember)
 	h := &types.Header{}
 
@@ -392,7 +392,7 @@ func TestWriteQuorumCertificate(t *testing.T) {
 	}
 
 	// invalid seal
-	err = types.WriteQuorumCertificate(h, types.AggregateSignature{})
+	err = types.WriteQuorumCertificate(h, &types.AggregateSignature{})
 	if err != types.ErrInvalidQuorumCertificate {
 		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidQuorumCertificate)
 	}

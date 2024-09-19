@@ -532,7 +532,7 @@ func (c *noActivityProposalSender) SendProposal(ctx context.Context, p *types.Bl
 	header := p.Header()
 
 	var proposal *types.Block
-	if !header.ActivityProof.Empty() {
+	if header.ActivityProof != nil {
 		c.Core.Logger().Warn("Scrubbing activity proof from proposal...")
 		c.lockedSlice.Lock()
 		defer c.lockedSlice.Unlock()
@@ -541,8 +541,7 @@ func (c *noActivityProposalSender) SendProposal(ctx context.Context, p *types.Bl
 		c.lockedSlice.slice = append(c.lockedSlice.slice, header.Number.Uint64())
 
 		// scrub activity proof, recompute state root and resign block
-		header.ActivityProof.Signers = nil
-		header.ActivityProof.Signature = nil
+		header.ActivityProof = nil
 		header.ActivityProofRound = 0
 		backend, ok := c.Core.Backend().(*backend.Backend)
 		if !ok {
@@ -639,7 +638,7 @@ func (c *effortTrackerProposer) SendProposal(ctx context.Context, proposal *type
 	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
-	if !header.ActivityProof.Empty() {
+	if header.ActivityProof != nil {
 		c.Core.Logger().Warn("Local node is the proposer, saving activity proof effort!")
 
 		c.lockedBigInt.Lock()

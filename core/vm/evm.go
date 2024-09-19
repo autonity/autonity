@@ -81,7 +81,7 @@ type BlockContext struct {
 	BaseFee     *big.Int       // Provides information for BASEFEE
 	Random      *common.Hash   // Provides information for RANDOM
 
-	ActivityProof      types.AggregateSignature
+	ActivityProof      *types.AggregateSignature
 	ActivityProofRound uint64
 }
 

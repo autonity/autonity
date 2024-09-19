@@ -1433,14 +1433,14 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 
 	// during the first delta blocks of the epoch, the proof should be empty. If not, reject proposal
 	if mustBeEmpty {
-		if !proof.Empty() {
+		if proof != nil {
 			return nil, errNonEmptyProof
 		}
 		return makeReturnData(false, new(big.Int), []common.Address{}), nil
 	}
 
 	// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
-	if proof.Empty() {
+	if proof == nil {
 		return makeReturnData(true, new(big.Int), []common.Address{}), nil
 	}
 

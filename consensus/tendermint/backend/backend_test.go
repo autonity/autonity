@@ -243,7 +243,7 @@ func TestVerifyProposal(t *testing.T) {
 		committedSeal := backend.Sign(message.PrepareCommittedSeal(block.Hash(), 0, block.Number()))
 
 		// Append quorum certificate into extra-data
-		quorumCertificate := types.AggregateSignature{
+		quorumCertificate := &types.AggregateSignature{
 			Signature: committedSeal.(*blst.BlsSignature),
 			Signers:   types.NewSigners(committee.Len()),
 		}
@@ -303,13 +303,13 @@ func TestCommit(t *testing.T) {
 		backend.SetResultChan(commitCh)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
-		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
+		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
 		quorumCertificate.Signers.Increment(&committee.Members[0])
 
 		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
 		testCases := []struct {
 			expectedErr               error
-			expectedQuorumCertificate types.AggregateSignature
+			expectedQuorumCertificate *types.AggregateSignature
 			expectedBlock             func() *types.Block
 		}{
 			{
@@ -329,7 +329,7 @@ func TestCommit(t *testing.T) {
 			{
 				// invalid signature
 				types.ErrInvalidQuorumCertificate,
-				types.AggregateSignature{Signature: nil, Signers: types.NewSigners(4)},
+				&types.AggregateSignature{Signature: nil, Signers: types.NewSigners(4)},
 				func() *types.Block {
 					chain, engine := newBlockChain(1)
 					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -397,7 +397,7 @@ func TestCommit(t *testing.T) {
 		b.SetEnqueuer(enqueuer)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
-		quorumCertificate := types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
+		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
 		quorumCertificate.Signers.Increment(&committee.Members[0])
 
 		err = b.Commit(newBlock, 0, quorumCertificate)

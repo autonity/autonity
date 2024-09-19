@@ -30,9 +30,9 @@ func TestHeaderHash(t *testing.T) {
 	PosHeader.MixDigest = BFTDigest
 
 	originalHeaderHash := common.HexToHash("0xda0ef4df9161184d34a5af7e80b181626f197781e1c51557522047b0eaa63605")
-	posHeaderHash := common.HexToHash("0xc1baba79e0c591d03dff86ed1a2e1a612bba7dde7c4eaa588a6a106fb0bb9b60")
+	posHeaderHash := common.HexToHash("0x5cf94f58b040fca7c695f41a18f447f85955cda27247c98ed24d65bc798cc2f5")
 
-	quorumCertificate := AggregateSignature{}
+	quorumCertificate := &AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
 	quorumCertificate.Signature = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
 	quorumCertificate.Signers = NewSigners(1)
@@ -95,32 +95,32 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				Epoch: epoch,
 			}),
-			common.HexToHash("0x4429e362109095b8b26dc2b562c20baf0ac9f0ae7691131a3ca3dd1e79799239"),
+			common.HexToHash("0x2536e3e6b2dbe014cd1f876c280703fa70c08be29032bb96ad58788e57222401"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ProposerSeal: proposerSeal,
 			}),
-			common.HexToHash("0x8e89c040c96dee171875b4127032b51f32b8d92be8144befbad7798bafb42e0b"),
+			common.HexToHash("0xd327f4e2e84d68da696a1aab40ae628c63256d186b2201249e06df5898677d2b"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ActivityProof: activityProof,
 			}),
-			common.HexToHash("0xdf76b7d1c578314a7dc4e5a6dd93e17a5d754bc7ebbb5deece3e2c843de81cbe"),
+			common.HexToHash("0xed56b294e28b72c062a85e0d8a6df84f5215fb433d2d66960f27a2c675fa62f4"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ActivityProofRound: uint64(7),
 			}),
-			common.HexToHash("0x2eaeb68590ba4b86564e52849d66a9bae61104ab1d1c547a0d28e3a4103d0cb9"),
+			common.HexToHash("0x8f67bc27393f87eca2aab3d6c67de572a3dfbc0f0f7e6d96a977fb7285230c2a"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				ActivityProof:      activityProof,
 				ActivityProofRound: uint64(7),
 			}),
-			common.HexToHash("0x3b093edc9a33bb5d22de9252861221880fd260cc889b461f02b7ac02116a199d"),
+			common.HexToHash("0xd5ceac2d0f738b13bd838f5f8ecf4741c25143bac9b01674118c9596b67ed6f7"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{

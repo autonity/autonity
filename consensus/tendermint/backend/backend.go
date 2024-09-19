@@ -195,7 +195,7 @@ func (sb *Backend) Gossiper() interfaces.Gossiper {
 }
 
 // Commit implements tendermint.Backend.Commit
-func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
+func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate *types.AggregateSignature) error {
 	h := proposal.Header()
 	// Append quorum certificate and round into extra-data
 	if err := types.WriteQuorumCertificate(h, quorumCertificate); err != nil {

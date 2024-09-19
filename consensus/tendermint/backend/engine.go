@@ -267,8 +267,8 @@ func (sb *Backend) verifySigner(header *types.Header, committee *types.Committee
 // verifyQuorumCertificate validates that the quorum certificate for header come from
 // committee members and that the voting power constitute a quorum.
 func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *types.Committee) error {
-	// un-finalized proposals will have these fields set to nil
-	if header.QuorumCertificate.Signature == nil || header.QuorumCertificate.Signers == nil {
+	// un-finalized proposals will have quorum certificate set to nil
+	if header.QuorumCertificate == nil {
 		return types.ErrEmptyQuorumCertificate
 	}
 	// TODO(lorenzo) do we need this copy
@@ -344,17 +344,17 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 // assembleActivityProof assembles the nodes' activity proof of height `h` with the aggregated precommit
 // of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
-func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, uint64, error) {
+func (sb *Backend) assembleActivityProof(h uint64) (*types.AggregateSignature, uint64, error) {
 	committee, _, epochBlock, _, err := sb.BlockChain().LatestEpoch()
 	if err != nil {
-		return types.AggregateSignature{}, 0, fmt.Errorf("error while fetching latest epoch %w", err)
+		return nil, 0, fmt.Errorf("error while fetching latest epoch %w", err)
 	}
 
 	// for the 1st delta blocks of the epoch, the proposer does not have to provide an activity proof
 	delta := sb.BlockChain().ProtocolContracts().OmissionDelta().Uint64()
 	if h <= epochBlock+delta {
 		sb.logger.Debug("Skip to assemble activity proof at the start of epoch", "height", h, "epochBlock", epochBlock)
-		return types.AggregateSignature{}, 0, nil
+		return nil, 0, nil
 	}
 
 	// after delta blocks, get quorum certificates from height h-delta.
@@ -369,7 +369,7 @@ func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, ui
 	// we should have provided an activity proof, but we do not have past messages
 	if len(precommits) == 0 {
 		sb.logger.Warn("Failed to provide activity valid activity proof as proposer", "height", h, "targetHeight", targetHeight)
-		return types.AggregateSignature{}, 0, nil
+		return nil, 0, nil
 	}
 
 	votes := make([]message.Vote, len(precommits))
@@ -383,7 +383,7 @@ func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, ui
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	if aggregatePrecommit.Power().Cmp(quorum) < 0 {
 		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "power", aggregatePrecommit.Power(), "quorum", quorum)
-		return types.AggregateSignature{}, 0, nil
+		return nil, 0, nil
 	}
 
 	return types.NewAggregateSignature(aggregatePrecommit.Signature().(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil

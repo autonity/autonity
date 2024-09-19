@@ -43,7 +43,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	if !keepSeal {
 		newHeader.ProposerSeal = []byte{}
 	}
-	newHeader.QuorumCertificate = AggregateSignature{}
+	newHeader.QuorumCertificate = nil
 	newHeader.Round = 0
 	newHeader.Extra = []byte{}
 	return newHeader
@@ -82,7 +82,7 @@ func ECRecover(header *Header) (common.Address, error) {
 	return addr, nil
 }
 
-// TODO: All these Write* functions do useless checks as we always create the input ourselves. Remove them?
+// TODO(lorenzo): All these Write* functions do useless checks as we always create the input ourselves. Remove them?
 
 // WriteSeal writes the extra-data field of the given header with the given seals.
 func WriteSeal(h *Header, seal []byte) error {
@@ -104,9 +104,8 @@ func WriteRound(h *Header, round int64) error {
 }
 
 // WriteQuorumCertificate writes the extra-data field of a block header with given quorumCertificate
-func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) error {
-	// TODO(Lorenzo) I think these cases can never happen and could be removed. same goes for the other Write* functions
-	if quorumCertificate.Signature == nil || quorumCertificate.Signers == nil || quorumCertificate.Signers.Len() == 0 {
+func WriteQuorumCertificate(h *Header, quorumCertificate *AggregateSignature) error {
+	if quorumCertificate == nil || quorumCertificate.Malformed() || quorumCertificate.Signers.Len() == 0 {
 		return ErrInvalidQuorumCertificate
 	}
 	h.QuorumCertificate = quorumCertificate.Copy()
@@ -114,9 +113,9 @@ func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) err
 }
 
 // WriteActivityProof writes the extra-data field of a block header with given activity proof
-func WriteActivityProof(h *Header, proof AggregateSignature, round uint64) {
+func WriteActivityProof(h *Header, proof *AggregateSignature, round uint64) {
 	// if the proof is empty, do not copy anything
-	if proof.Signature == nil || proof.Signers == nil || proof.Signers.Len() == 0 {
+	if proof == nil || proof.Malformed() || proof.Signers.Len() == 0 {
 		return
 	}
 	h.ActivityProof = proof.Copy()

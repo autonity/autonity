@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 )
 
 func TestAssembleProof(t *testing.T) {
@@ -18,9 +17,7 @@ func TestAssembleProof(t *testing.T) {
 		delta := chain.ProtocolContracts().OmissionDelta().Uint64()
 
 		proof, round, err := backend.assembleActivityProof(0)
-		require.Equal(t, types.AggregateSignature{}, proof)
-		require.Nil(t, proof.Signature)
-		require.Nil(t, proof.Signers)
+		require.Nil(t, proof)
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 
@@ -29,9 +26,7 @@ func TestAssembleProof(t *testing.T) {
 		}
 
 		proof, round, err = backend.assembleActivityProof(delta)
-		require.Equal(t, types.AggregateSignature{}, proof)
-		require.Nil(t, proof.Signature)
-		require.Nil(t, proof.Signers)
+		require.Nil(t, proof)
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 	})
@@ -51,9 +46,8 @@ func TestAssembleProof(t *testing.T) {
 		}
 
 		proof, round, err := backend.assembleActivityProof(delta + 1)
-		require.NotEqual(t, types.AggregateSignature{}, proof)
-		require.NotNil(t, proof.Signature)
-		require.NotNil(t, proof.Signers)
+		require.NotNil(t, proof)
+		require.False(t, proof.Malformed())
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 
@@ -67,9 +61,8 @@ func TestAssembleProof(t *testing.T) {
 		}
 
 		proof, round, err = backend.assembleActivityProof(delta*2 + 1)
-		require.NotEqual(t, types.AggregateSignature{}, proof)
-		require.NotNil(t, proof.Signature)
-		require.NotNil(t, proof.Signers)
+		require.NotNil(t, proof)
+		require.False(t, proof.Malformed())
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 
@@ -80,9 +73,7 @@ func TestAssembleProof(t *testing.T) {
 		}
 
 		proof, round, err = backend.assembleActivityProof(delta*3 + 1)
-		require.Equal(t, types.AggregateSignature{}, proof)
-		require.Nil(t, proof.Signature)
-		require.Nil(t, proof.Signers)
+		require.Nil(t, proof)
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 
@@ -119,9 +110,7 @@ func TestAssembleProof(t *testing.T) {
 		}
 
 		proof, round, err := backend.assembleActivityProof(delta + 1)
-		require.Equal(t, types.AggregateSignature{}, proof)
-		require.Nil(t, proof.Signature)
-		require.Nil(t, proof.Signers)
+		require.Nil(t, proof)
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 	})

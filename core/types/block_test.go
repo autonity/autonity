@@ -100,7 +100,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 
 	epoch := &Epoch{PreviousEpochBlock: common.Big1, NextEpochBlock: common.Big256, Committee: c}
 
-	t.Run("encode / decode with none nil epoch in block header", func(t *testing.T) {
+	t.Run("encode / decode with not nil epoch in block header", func(t *testing.T) {
 		header := &Header{
 			ParentHash:        common.HexToHash("0a5843ac1cb04865017cb35a57b50b07084e5fcee39b5acadade33149f4fff9e"),
 			UncleHash:         common.HexToHash("0a5843ac1c124732472342342387423897431293123020912dade33149f4fffe"),
@@ -120,7 +120,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 			Epoch:             epoch,
 			ProposerSeal:      bytes.Repeat([]byte("c"), 65),
 			Round:             uint64(3),
-			QuorumCertificate: AggregateSignature{},
+			QuorumCertificate: &AggregateSignature{},
 		}
 
 		err := header.Epoch.Committee.Enrich()
@@ -137,11 +137,16 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
+		header.ActivityProof = header.QuorumCertificate.Copy()
+		header.ActivityProofRound = 12
+
 		hExtra := headerExtra{
-			Epoch:             epoch,
-			ProposerSeal:      header.ProposerSeal,
-			Round:             header.Round,
-			QuorumCertificate: header.QuorumCertificate,
+			Epoch:              epoch,
+			ProposerSeal:       header.ProposerSeal,
+			Round:              header.Round,
+			QuorumCertificate:  header.QuorumCertificate,
+			ActivityProof:      header.ActivityProof,
+			ActivityProofRound: header.ActivityProofRound,
 		}
 
 		extra, err := rlp.EncodeToBytes(hExtra)
@@ -187,7 +192,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 			Epoch:             nil,
 			ProposerSeal:      bytes.Repeat([]byte("c"), 65),
 			Round:             uint64(3),
-			QuorumCertificate: AggregateSignature{},
+			QuorumCertificate: &AggregateSignature{},
 		}
 
 		// fill in some additional fields
@@ -201,11 +206,16 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
+		header.ActivityProof = header.QuorumCertificate.Copy()
+		header.ActivityProofRound = 12
+
 		hExtra := headerExtra{
-			Epoch:             nil,
-			ProposerSeal:      header.ProposerSeal,
-			Round:             header.Round,
-			QuorumCertificate: header.QuorumCertificate,
+			Epoch:              nil,
+			ProposerSeal:       header.ProposerSeal,
+			Round:              header.Round,
+			QuorumCertificate:  header.QuorumCertificate,
+			ActivityProof:      header.ActivityProof,
+			ActivityProofRound: header.ActivityProofRound,
 		}
 
 		extra, err := rlp.EncodeToBytes(hExtra)
@@ -367,27 +377,163 @@ func TestUncleHash(t *testing.T) {
 	}
 }
 
+func headerWithQuorumCertificate(quorumCertificate *AggregateSignature) *Header {
+	return &Header{
+		MixDigest:         BFTDigest,
+		QuorumCertificate: quorumCertificate,
+		// need to assign these fields because rlp decode will instantiate them even if the decoding fails
+		// since they have no rlp:"nil" tag
+		Difficulty:   new(big.Int),
+		Number:       new(big.Int),
+		BaseFee:      new(big.Int),
+		ProposerSeal: make([]byte, 0),
+	}
+}
+
 func TestQuorumCertificateDeserialization(t *testing.T) {
 	// if nil when encoded, should be nil when decoded
-	header := &Header{QuorumCertificate: AggregateSignature{Signature: nil, Signers: nil}}
+	header := headerWithQuorumCertificate(nil)
 	b, err := rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded := &Header{}
 	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
 	require.NoError(t, err)
-	require.Nil(t, headerDecoded.QuorumCertificate.Signature)
-	require.Nil(t, headerDecoded.QuorumCertificate.Signers)
+	require.Nil(t, headerDecoded.QuorumCertificate)
+	require.Equal(t, headerWithQuorumCertificate(nil), headerDecoded)
 
-	// if signature != nil, but signature.s == nil --> decoded signature should still be nil
-	// same for signers
-	header = &Header{QuorumCertificate: AggregateSignature{Signature: &blst.BlsSignature{}, Signers: &Signers{}}}
+	// if signature or signers is nil, decode should error out
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: nil})
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	sig, err := blst.SignatureFromBytes(hexutil.MustDecode("0xb0a87fe1d955b5526110f5eb2c9681e8ab5bddf77dd68a92480789b684f3b5e14586979bb64d84b6b885d12429ec92a6129598be4ba56bf2dccecfac0bead996a105c55f5b6c816384aa312cfc66dc648e8e7851eadfaa7091c2c472c732d021"))
+	require.NoError(t, err)
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: nil})
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: NewSigners(10)})
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	// empty signers is not allowed
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: &Signers{}})
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(10)}
+	header = headerWithQuorumCertificate(validQuorumCertificate)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
 	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
 	require.NoError(t, err)
-	require.Nil(t, headerDecoded.QuorumCertificate.Signature)
-	require.Nil(t, headerDecoded.QuorumCertificate.Signers)
+	require.NotNil(t, headerDecoded.QuorumCertificate)
+	require.NotNil(t, headerDecoded.QuorumCertificate.Signature)
+	require.NotNil(t, headerDecoded.QuorumCertificate.Signers)
+	require.Equal(t, validQuorumCertificate.Signers.Bits, headerDecoded.QuorumCertificate.Signers.Bits)
+	require.Equal(t, validQuorumCertificate.Signers.Coefficients, headerDecoded.QuorumCertificate.Signers.Coefficients)
+}
+
+func headerWithActivityProof(activityProof *AggregateSignature, activityProofRound uint64) *Header {
+	return &Header{
+		MixDigest:          BFTDigest,
+		ActivityProof:      activityProof,
+		ActivityProofRound: activityProofRound,
+		// need to assign these fields because rlp decode will instantiate them even if the decoding fails
+		// since they have no rlp:"nil" tag
+		Difficulty:   new(big.Int),
+		Number:       new(big.Int),
+		BaseFee:      new(big.Int),
+		ProposerSeal: make([]byte, 0),
+	}
+}
+
+func TestActivityProofDeserialization(t *testing.T) {
+	// if nil when encoded, should be nil when decoded
+	header := headerWithActivityProof(nil, 0)
+	b, err := rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded := &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.NoError(t, err)
+	require.Nil(t, headerDecoded.ActivityProof)
+	require.Equal(t, headerWithActivityProof(nil, 0), headerDecoded)
+
+	// if nil when encoded, having non zero activity proof round will make the decoding fail
+	header = headerWithActivityProof(nil, 12)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	// if signature or signers is nil, decode should error out
+	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: nil}, 0)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	sig, err := blst.SignatureFromBytes(hexutil.MustDecode("0xb0a87fe1d955b5526110f5eb2c9681e8ab5bddf77dd68a92480789b684f3b5e14586979bb64d84b6b885d12429ec92a6129598be4ba56bf2dccecfac0bead996a105c55f5b6c816384aa312cfc66dc648e8e7851eadfaa7091c2c472c732d021"))
+	require.NoError(t, err)
+	header = headerWithActivityProof(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: nil}, 12)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: NewSigners(10)}, 0)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	// empty signers is not allowed
+	header = headerWithActivityProof(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: &Signers{}}, 4)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+
+	validActivityProof := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(10)}
+	header = headerWithActivityProof(validActivityProof, 4)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.NoError(t, err)
+	require.NotNil(t, headerDecoded.ActivityProof)
+	require.NotNil(t, headerDecoded.ActivityProof.Signature)
+	require.NotNil(t, headerDecoded.ActivityProof.Signers)
+	require.Equal(t, validActivityProof.Signers.Bits, headerDecoded.ActivityProof.Signers.Bits)
+	require.Equal(t, validActivityProof.Signers.Coefficients, headerDecoded.ActivityProof.Signers.Coefficients)
+	require.Equal(t, uint64(4), headerDecoded.ActivityProofRound)
 }
 
 var benchBuffer = bytes.NewBuffer(make([]byte, 0, 32000))

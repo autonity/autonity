@@ -55,9 +55,9 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		random = &header.MixDigest
 	}
 
-	var activityProofCopy types.AggregateSignature
 	// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
-	if !header.ActivityProof.Empty() {
+	var activityProofCopy *types.AggregateSignature
+	if header.ActivityProof != nil {
 		activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
 	}
 
@@ -81,9 +81,9 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 // Used by the Autonity Contract
 func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 	return func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
-		var activityProofCopy types.AggregateSignature
 		// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
-		if !header.ActivityProof.Empty() {
+		var activityProofCopy *types.AggregateSignature
+		if header.ActivityProof != nil {
 			activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
 		}
 

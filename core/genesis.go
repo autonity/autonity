@@ -401,7 +401,7 @@ func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 		GasLimit:    genesis.GasLimit,
 		Difficulty:  genesis.Difficulty,
 
-		ActivityProof:      types.AggregateSignature{},
+		ActivityProof:      nil,
 		ActivityProofRound: 0,
 	}
 	txContext := vm.TxContext{

@@ -87,16 +87,15 @@ type Header struct {
 	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
 	BaseFee *big.Int `json:"baseFeePerGas"`
 
-	/*
-		PoS header fields, round & quorumCertificate not taken into account
-		for computing the sigHash.
-	*/
-	ProposerSeal       []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round              uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate  AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	Epoch              *Epoch             `json:"epoch"               gencodec:"optional"`
-	ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
-	ActivityProofRound uint64             `json:"activityProofRound"  gencodec:"required"`
+	// autonity custom fields
+	ProposerSeal       []byte `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64 `json:"round"               gencodec:"required"`
+	ActivityProofRound uint64 `json:"activityProofRound"  gencodec:"required"`
+	// the following fields will be left nil if they were nil when encoded.
+	// see the headerExtra struct for rlp:nil tags and the custom decodeRLP method for Header. This is where sanity checks are done.
+	QuorumCertificate *AggregateSignature `json:"quorumCertificate"   gencodec:"optional"`
+	Epoch             *Epoch              `json:"epoch"               gencodec:"optional"`
+	ActivityProof     *AggregateSignature `json:"activityProof"       gencodec:"optional"`
 }
 
 type AggregateSignature struct {
@@ -107,20 +106,16 @@ type AggregateSignature struct {
 	Signers   *Signers           `rlp:"nil"`
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) AggregateSignature {
-	return AggregateSignature{Signature: signature, Signers: signers}
+func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) *AggregateSignature {
+	return &AggregateSignature{Signature: signature, Signers: signers}
 }
 
-func (a AggregateSignature) Copy() AggregateSignature {
-	return AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
+func (a *AggregateSignature) Copy() *AggregateSignature {
+	return &AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
 }
 
-func (a AggregateSignature) Empty() bool {
-	return a.Signature == nil && a.Signers == nil
-}
-
-func (a AggregateSignature) Malformed() bool {
-	return (a.Signature != nil && a.Signers == nil) || (a.Signature == nil && a.Signers != nil)
+func (a *AggregateSignature) Malformed() bool {
+	return a.Signature == nil || a.Signers == nil || len(a.Signers.Bits) == 0
 }
 
 // originalHeader represents the ethereum blockchain header.
@@ -152,12 +147,13 @@ type originalHeader struct {
 }
 
 type headerExtra struct {
-	ProposerSeal       []byte             `json:"proposerSeal"        gencodec:"required"`
-	Round              uint64             `json:"round"               gencodec:"required"`
-	QuorumCertificate  AggregateSignature `json:"quorumCertificate"   gencodec:"required"`
-	Epoch              *Epoch             `rlp:"nil"                  gencodec:"required"`
-	ActivityProof      AggregateSignature `json:"activityProof"       gencodec:"required"`
-	ActivityProofRound uint64             `json:"activityProofRound"  gencodec:"required"`
+	ProposerSeal       []byte `json:"proposerSeal"        gencodec:"required"`
+	Round              uint64 `json:"round"               gencodec:"required"`
+	ActivityProofRound uint64 `json:"activityProofRound"  gencodec:"required"`
+
+	QuorumCertificate *AggregateSignature `rlp:"nil" json:"quorumCertificate" gencodec:"required"`
+	Epoch             *Epoch              `rlp:"nil" json:"epoch"             gencodec:"required"`
+	ActivityProof     *AggregateSignature `rlp:"nil" json:"activityProof"     gencodec:"required"`
 }
 
 // headerMarshaling is used by gencodec (which can be invoked by running go
@@ -273,42 +269,44 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		if err != nil {
 			return err
 		}
+
+		// sanity checks
+		if hExtra.QuorumCertificate != nil && hExtra.QuorumCertificate.Malformed() {
+			return fmt.Errorf("malformed header quorum certificate")
+		}
+
+		if hExtra.ActivityProof != nil && hExtra.ActivityProof.Malformed() {
+			return fmt.Errorf("malformed header activity proof")
+		}
+
+		if hExtra.ActivityProof == nil && hExtra.ActivityProofRound != 0 {
+			return fmt.Errorf("activity proof round should be 0 if proof is empty")
+		}
+
+		if hExtra.Epoch != nil {
+			if hExtra.Epoch.Committee == nil {
+				return fmt.Errorf("committee shouldn't be nil")
+			}
+
+			if err = hExtra.Epoch.Committee.Enrich(); err != nil {
+				return fmt.Errorf("error while deserializing consensus keys: %w", err)
+			}
+
+			if len(hExtra.Epoch.Committee.Members) == 0 {
+				return fmt.Errorf("no validator in committee set")
+			}
+
+			if hExtra.Epoch.PreviousEpochBlock == nil || hExtra.Epoch.NextEpochBlock == nil {
+				return fmt.Errorf("invalid epoch boundary")
+			}
+		}
+
 		h.QuorumCertificate = hExtra.QuorumCertificate
 		h.ActivityProof = hExtra.ActivityProof
 		h.ActivityProofRound = hExtra.ActivityProofRound
 		h.ProposerSeal = hExtra.ProposerSeal
 		h.Round = hExtra.Round
 		h.Epoch = hExtra.Epoch
-
-		if h.QuorumCertificate.Malformed() {
-			return fmt.Errorf("malformed header quorum certificate")
-		}
-
-		if h.ActivityProof.Malformed() {
-			return fmt.Errorf("malformed header activity proof")
-		}
-
-		if h.ActivityProof.Empty() && h.ActivityProofRound != 0 {
-			return fmt.Errorf("activity proof round should be 0 if proof is empty")
-		}
-
-		if h.IsEpochHeader() {
-			if h.Epoch.Committee == nil {
-				return fmt.Errorf("committee shouldn't be nil")
-			}
-
-			if err = h.Epoch.Committee.Enrich(); err != nil {
-				return fmt.Errorf("error while deserializing consensus keys: %w", err)
-			}
-
-			if len(h.Epoch.Committee.Members) == 0 {
-				return fmt.Errorf("no validator in committee set")
-			}
-
-			if h.Epoch.PreviousEpochBlock == nil || h.Epoch.NextEpochBlock == nil {
-				return fmt.Errorf("invalid epoch boundary")
-			}
-		}
 	} else {
 		h.Extra = origin.Extra
 	}
@@ -509,13 +507,13 @@ func CopyHeader(h *Header) *Header {
 		copy(proposerSeal, h.ProposerSeal)
 	}
 
-	quorumCertificate := AggregateSignature{}
-	if h.QuorumCertificate.Signature != nil && h.QuorumCertificate.Signers != nil {
+	var quorumCertificate *AggregateSignature
+	if h.QuorumCertificate != nil {
 		quorumCertificate = h.QuorumCertificate.Copy()
 	}
 
-	activityProof := AggregateSignature{}
-	if h.ActivityProof.Signature != nil && h.ActivityProof.Signers != nil {
+	var activityProof *AggregateSignature
+	if h.ActivityProof != nil {
 		activityProof = h.ActivityProof.Copy()
 	}
 
