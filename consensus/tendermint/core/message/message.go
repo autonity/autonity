@@ -426,7 +426,7 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 	}
 
 	if err := v.signers.Validate(committee.Len()); err != nil {
-		return fmt.Errorf("Invalid signers information: %w", err)
+		return fmt.Errorf("invalid signers information: %w", err)
 	}
 
 	// compute aggregated key and auxiliary data structures

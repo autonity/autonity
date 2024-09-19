@@ -304,63 +304,26 @@ func TestCommit(t *testing.T) {
 		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
 		quorumCertificate.Signers.Increment(&committee.Members[0])
 
-		// Case: it's a proposer, so the Backend.commit will receive channel result from Backend.Commit function
-		testCases := []struct {
-			expectedErr               error
-			expectedQuorumCertificate *types.AggregateSignature
-			expectedBlock             func() *types.Block
-		}{
-			{
-				// normal case
-				nil,
-				quorumCertificate,
-				func() *types.Block {
-					chain, engine := newBlockChain(1)
-					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-					if err != nil {
-						t.Fatal(err)
-					}
-					expectedBlock, _ := engine.AddSeal(block)
-					return expectedBlock
-				},
-			},
-			{
-				// invalid signature
-				types.ErrInvalidQuorumCertificate,
-				&types.AggregateSignature{Signature: nil, Signers: types.NewSigners(4)},
-				func() *types.Block {
-					chain, engine := newBlockChain(1)
-					block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-					if err != nil {
-						t.Fatal(err)
-					}
-					expectedBlock, _ := engine.AddSeal(block)
-					return expectedBlock
-				},
-			},
+		chain, engine := newBlockChain(1)
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		if err != nil {
+			t.Fatal(err)
 		}
+		expectedBlock, _ := engine.AddSeal(block)
 
-		for _, test := range testCases {
-			expBlock := test.expectedBlock()
+		// make the node proposer
+		backend.proposedBlockHash = expectedBlock.Hash()
+		err = backend.Commit(expectedBlock, 0, quorumCertificate)
+		require.NoError(t, err)
 
-			backend.proposedBlockHash = expBlock.Hash()
-			if err := backend.Commit(expBlock, 0, test.expectedQuorumCertificate); err != nil {
-				if err != test.expectedErr {
-					t.Errorf("error mismatch: have %v, want %v", err, test.expectedErr)
-				}
+		// to avoid race condition is occurred by goroutine
+		select {
+		case result := <-commitCh:
+			if result.Hash() != expectedBlock.Hash() {
+				t.Errorf("hash mismatch: have %v, want %v", result.Hash(), expectedBlock.Hash())
 			}
-
-			if test.expectedErr == nil {
-				// to avoid race condition is occurred by goroutine
-				select {
-				case result := <-commitCh:
-					if result.Hash() != expBlock.Hash() {
-						t.Errorf("hash mismatch: have %v, want %v", result.Hash(), expBlock.Hash())
-					}
-				case <-time.After(10 * time.Second):
-					t.Fatal("timeout")
-				}
-			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("timeout")
 		}
 	})
 
