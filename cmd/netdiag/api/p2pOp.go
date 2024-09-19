@@ -522,7 +522,7 @@ func (r *ResultDissemination) String() string {
 	var results []strats.IndividualDisseminateResult
 	for i, res := range r.IndividualResults {
 		if res.ErrorTimeout {
-			fmt.Println("Error time out")
+			fmt.Printf("Error time out. Node %d did not respond\n", i)
 			continue
 		}
 		results = append(results, r.IndividualResults[i])

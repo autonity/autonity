@@ -24,13 +24,13 @@ type KmeansNLeadersGraphConstructor struct {
 }
 
 func init() {
-	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, n=3)", func(base BaseStrategy) Strategy {
+	registerStrategy("K-Means NLeaders - (k=6, byz=30%, n=3)", func(base BaseStrategy) Strategy {
 		return createKMeansNLeaders(base, 6, 3, 0.3)
 	})
 	registerStrategy("K-Means NLeaders - (k=6, byz=0%, n=3)", func(base BaseStrategy) Strategy {
 		return createKMeansNLeaders(base, 6, 3, 0)
 	})
-	registerStrategy("K-Means Leaf Forward - (k=6, byz=0%, leaders=6)", func(base BaseStrategy) Strategy {
+	registerStrategy("K-Means NLeaders - (k=6, byz=0%, n=6)", func(base BaseStrategy) Strategy {
 		return createKMeansNLeaders(base, 6, 6, 0)
 	})
 }
@@ -98,6 +98,10 @@ func (k *KmeansNLeadersGraphConstructor) RouteBroadcast(originalSender int, from
 
 	// if we are not the originator of the packet we only need to send it if we are the local leader
 	if len(k.graph.rootedConnection[k.State.Id]) > 0 {
+		// don't need to forward it if we received from someone other than the original sender
+		if from != originalSender {
+			return nil, nil
+		}
 		destinationPeers = append(
 			destinationPeers,
 			// we don't need to send it to the originator
@@ -142,6 +146,7 @@ func (k *KmeansNLeadersGraphConstructor) constructGraph() error {
 
 	log.Debug("Assigning clusters ", "numClusters", k.NumClusters)
 	clusters, err := kmeans.AssignClusters(k.State.LatencyMatrix, k.NumClusters)
+
 	if err != nil {
 		return err
 	}

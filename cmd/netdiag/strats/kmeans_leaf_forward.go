@@ -21,6 +21,15 @@ type KmeansLeafForwardGraphConstructor struct {
 }
 
 func init() {
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, nForward=2", func(base BaseStrategy) Strategy {
+		return createKmeansLeafForward(base, 6, 0.3, 2)
+	})
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=0%, nForward=2)", func(base BaseStrategy) Strategy {
+		return createKmeansLeafForward(base, 6, 0, 2)
+	})
+	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, nForward=0)", func(base BaseStrategy) Strategy {
+		return createKmeansLeafForward(base, 6, 0.3, 0)
+	})
 	registerStrategy("K-Means Leaf Forward - (k=6, byz=30%, nForward=8)", func(base BaseStrategy) Strategy {
 		return createKmeansLeafForward(base, 6, 0.3, 8)
 	})

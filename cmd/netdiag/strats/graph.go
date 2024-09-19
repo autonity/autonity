@@ -36,6 +36,7 @@ func (g *GraphStrategy) Execute(packetId uint64, data []byte, _ int) error {
 }
 
 func (g *GraphStrategy) HandlePacket(packetId uint64, hop uint8, originalSender uint64, fromNode uint64, _ uint64, data []byte, partial bool, seqNum, total uint16) error {
+	log.Debug("Handling packet", "packetId", packetId, "hop", hop, "originalSender", originalSender, "fromNode", fromNode, "localId", g.State.Id)
 	return g.send(originalSender, fromNode, packetId, 0, data, partial, seqNum, total)
 }
 
@@ -66,7 +67,7 @@ func (g *GraphStrategy) send(root, from, packetId uint64, hop uint8, data []byte
 		wg.Add(1)
 		peerID := peerID
 		go func(p Peer) {
-			log.Debug("Sending packet to peer", "peerID", peerID)
+			log.Debug("Sending packet to peer", "peerID", peerID, "packetId", packetId)
 			err := p.DisseminateRequest(g.Code, packetId, hop, root, uint64(0), data, partial, seqNum, total)
 			if err != nil {
 				log.Error("DisseminateRequest err:", err)

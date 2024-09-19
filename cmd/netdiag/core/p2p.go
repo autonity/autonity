@@ -50,6 +50,7 @@ var (
 	errInvalidMsgCode   = errors.New("invalid message code")
 	errUnknownRequest   = errors.New("no matching request id")
 	errPeerNotConnected = errors.New("peer not connected")
+	errPacketAlreadyRcv = errors.New("packet already received")
 	errTimeout          = errors.New("request timed out")
 )
 
@@ -81,7 +82,7 @@ type DisseminatePacket struct {
 func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, originalSender uint64, maxPeers uint64, data []byte, partial bool, seqNum, total uint16) error {
 	var chunks []DisseminatePacket
 	maxSize := 20_000
-	log.Info("Disseminate Packet")
+	log.Info("Disseminate Packet", "requestId", requestId, "originalSender", originalSender)
 	if (p.IsUDP() || p.IsQuic()) && len(data) > maxSize {
 		snum := 0
 		total := len(data) / maxSize
@@ -125,14 +126,10 @@ func (p *Peer) DisseminateRequest(code uint64, requestId uint64, hop uint8, orig
 	now := time.Now()
 	for _, chunk := range chunks {
 		packet := chunk
-		//go func() {
 		err := p2p.Send(p.MsgReadWriter, DisseminateRequest, packet)
 		if err != nil {
 			log.Error("Disseminate Request", "err", err)
-		} else {
-			//log.Info("[DISSEMINATE]", " ip ", p.ip, "maxPeers", maxPeers, "originalSender", originalSender, "chunkID", packet.Seq)
 		}
-		//}()
 	}
 	log.Info("Total time to send", "num chunks", len(chunks), "time taken", time.Since(now).Microseconds())
 
@@ -229,7 +226,7 @@ type AckDataPacket struct {
 func (p *Peer) SendData(data []byte) (uint64, time.Duration, error) {
 	startTime := time.Now()
 	id := rand.Uint64()
-	log.Debug("[DATAPACKET] >> ", "id", id)
+	log.Debug("Sending data to peer", "requestId", id, "peerId", p.id)
 	req, err := p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 	if err != nil {
 		log.Error("Unable to dispatch request", "error", err)
@@ -247,7 +244,7 @@ func (p *Peer) SendData(data []byte) (uint64, time.Duration, error) {
 
 func (p *Peer) sendDataAsync(data []byte) (chan any, error) {
 	id := rand.Uint64()
-	log.Debug("[DATAPACKET] >> ", "id", id)
+	log.Debug("Sending data to peer (async) ", "requestId", id, "peerId", p.id)
 	return p.dispatchRequest(id, DataMsg, DataPacket{id, data})
 }
 
@@ -257,7 +254,7 @@ func handleData(_ *Engine, p *Peer, data io.Reader) error {
 		return err
 	}
 	now := uint64(time.Now().UnixNano()) // <-- We could add a timestamp before decoding too ?
-	log.Debug("[DATAPACKET] << ", "requestId", dataPacket.RequestId)
+	log.Debug("Received data packet", "requestId", dataPacket.RequestId, "fromPeer", p.id)
 	return p2p.Send(p, AckDataMsg, AckDataPacket{dataPacket.RequestId, now})
 }
 
@@ -266,7 +263,7 @@ func handleAckData(_ *Engine, p *Peer, msg io.Reader) error {
 	if err := rlp.Decode(msg, &ack); err != nil {
 		return err
 	}
-	log.Debug("[ACKDATA] << ", "requestId", ack.RequestId)
+	log.Debug("[ACKDATA] << ", "requestId", ack.RequestId, "fromPeer", p.id)
 	return p.dispatchResponse(ack.RequestId, ack)
 }
 
@@ -511,7 +508,7 @@ func cacheDisseminatePacket(e *Engine, packet *DisseminatePacket) error {
 	chunkInfo, ok := e.State.ReceivedPacketsFor(packet.RequestId)
 	if ok {
 		if chunkInfo.SeqReceived[packet.Seq] {
-			return nil
+			return errPacketAlreadyRcv
 		}
 		chunkInfo.SeqReceived[packet.Seq] = true
 		chunkInfo.TotalReceived++
@@ -546,7 +543,13 @@ func handleDisseminatePacket(e *Engine, p *Peer, data io.Reader) error {
 	if readDisseminateChunk(e, &packet) {
 		return nil
 	}
-	cacheDisseminatePacket(e, &packet)
+	log.Info("Received packet", "from", p.id, "requestId", packet.RequestId, "seq", packet.Seq, "total", packet.Total, "partial", packet.Partial)
+	if err := cacheDisseminatePacket(e, &packet); err != nil {
+		log.Warn("Error caching packet", "error", err)
+		if errors.Is(err, errPacketAlreadyRcv) {
+			return nil
+		}
+	}
 
 	if err := e.Strategies[packet.StrategyCode].HandlePacket(
 		packet.RequestId,
