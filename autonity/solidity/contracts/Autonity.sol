@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.19;
 
-import "./interfaces/INonStakableVestingVault.sol";
 import "./liquid/LiquidState.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
@@ -17,12 +16,13 @@ import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import "./interfaces/IInflationController.sol";
 import "./ReentrancyGuard.sol";
+import "./ScheduleController.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 enum ValidatorState {active, paused, jailed, jailbound}
 uint8 constant DECIMALS = 18;
 
-contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
+contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable {
     uint256 internal constant MAX_ROUND = 99;
     uint256 internal constant CONSENSUS_KEY_LEN = 48;
     uint256 internal constant BLS_PROOF_LEN = 96;
@@ -119,7 +119,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         IStabilization stabilizationContract;
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
-        INonStakableVestingVault nonStakableVestingContract;
     }
 
     struct Policy {
@@ -136,6 +135,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         uint256 epochPeriod;
         uint256 blockPeriod;
         uint256 committeeSize;
+        uint256 maxScheduleDuration;
     }
 
     struct Config {
@@ -181,6 +181,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
     uint256 internal stakeSupply;
+    uint256 internal stakeCirculating;
     uint256 public inflationReserve;
 
     /*
@@ -242,11 +243,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @param returnData low level return data
      */
     event CallFailed(address to, string methodSignature, bytes returnData);
-
-    /**
-     * @dev event to notify the failure in unlocking mechanism of the non-stakable schedules
-     */
-    event UnlockingScheduleFailed(uint256 epochTime);
 
     /**
      * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
@@ -340,6 +336,26 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function decimals() public virtual pure returns (uint8) {
         return DECIMALS;
+    }
+
+    /**
+     * @notice Creates a new schedule.
+     * @dev Locked schedules do not contribute to circulating supply. So minted amount = `_amount` is subtracted from `stakeCirculating`.
+     * @param _amount total amount of the schedule
+     * @param _startTime start time
+     * @param _totalDuration total duration of the schedule
+     * @custom:restricted-to operator account
+     */
+    function createSchedule(
+        address _scheduleVault,
+        uint256 _amount,
+        uint256 _startTime,
+        uint256 _totalDuration
+    ) public virtual onlyOperator {
+        require(config.protocol.maxScheduleDuration >= _totalDuration, "schedule total duration exceeds max allowed duration");
+        _mint(_scheduleVault, _amount);
+        stakeCirculating -= _amount;
+        _createSchedule(_scheduleVault, _amount, _startTime, _totalDuration);
     }
 
     /**
@@ -485,6 +501,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
+     * @notice Sets the max allowed duration of any schedule or contract.
+     * @custom:restricted-to operator account
+     */
+    function setMaxAllowedDuration(uint256 _newMaxDuration) virtual external onlyOperator {
+        config.protocol.maxScheduleDuration = _newMaxDuration;
+    }
+
+    /**
     * @notice Set the minimum gas price. Restricted to the operator account.
     * @param _price Positive integer.
     * @dev Emit a {MinimumBaseFeeUpdated} event.
@@ -623,13 +647,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-     * @notice Set the Non-stakable Vesting contract address.
-     */
-    function setNonStakableVestingContract(INonStakableVestingVault _address) public virtual onlyOperator {
-        config.contracts.nonStakableVestingContract = _address;
-    }
-
-    /**
      * @notice Set address of the liquid logic contact.
      * @custom:restricted-to operator account
      */
@@ -735,7 +752,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         if (epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
             uint256 _inflationReward = config.contracts.inflationControllerContract.calculateSupplyDelta(
-                stakeSupply,
+                stakeCirculating,
                 inflationReserve,
                 lastEpochTime,
                 block.timestamp
@@ -749,15 +766,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             // all rewards belong to the Autonity Contract before redistribution.
             _mint(address(this), _inflationReward);
             inflationReserve -= _inflationReward;
-            try config.contracts.nonStakableVestingContract.unlockTokens() returns (uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed) {
-                // mint unsubsribed tokens to treasury account
-                _mint(config.policy.treasuryAccount, _newUnlockedUnsubscribed);
-                // and the subsribed tokens to the vault of non-stakable vesting contract
-                _mint(address(config.contracts.nonStakableVestingContract), _newUnlockedSubscribed);
-            } catch {
-                // need immediate attention
-                emit UnlockingScheduleFailed(block.timestamp);
-            }
+            stakeCirculating += _unlockSchedules(block.timestamp);
             // redistribute ATN tx fees and newly minted NTN inflation reward
             _performRedistribution(address(this).balance, _inflationReward);
             // end of epoch here
@@ -934,6 +943,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function balanceOf(address _addr) external view virtual override returns (uint256) {
         return accounts[_addr];
+    }
+
+    /**
+    * @notice Returns the amount of tokens circulating in the network.
+    */
+    function circulatingSupply() external view virtual returns (uint256) {
+        return stakeCirculating;
     }
 
     /**
@@ -1172,6 +1188,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     function _mint(address _addr, uint256 _amount) internal virtual {
         accounts[_addr] += _amount;
         stakeSupply += _amount;
+        stakeCirculating += _amount;
         emit MintedStake(_addr, _amount);
     }
 

@@ -88,7 +88,7 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
         require(_startTime + _cliffDuration >= autonity.lastEpochTime(), "contract cliff duration is past");
         require(totalNominal >= _amount, "not enough stake reserved to create a new contract");
 
-        _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
+        _createContract(_beneficiary, _amount, 0, _startTime, _cliffDuration, _totalDuration, true);
         totalNominal -= _amount;
     }
 
@@ -397,13 +397,33 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
         _contract.withdrawnValue += _availableUnlockedFunds - _remaining;
     }
 
+
+    /**
+     * @dev Calculates total unlocked funds while assuming cliff period has passed.
+     * Check if cliff is passed before calling this function.
+     */
+    function _calculateTotalUnlockedFunds(
+        uint256 _start, uint256 _totalDuration, uint256 _time, uint256 _totalAmount
+    ) internal pure returns (uint256) {
+        if (_time >= _totalDuration + _start) {
+            return _totalAmount;
+        }
+        return (_totalAmount * (_time - _start)) / _totalDuration;
+    }
+
     /**
      * @dev Calculates the amount of unlocked funds in NTN until last epoch time.
      */
     function _unlockedFunds(uint256 _contractID) internal view returns (uint256) {
-        return _calculateAvailableUnlockedFunds(
-            _contractID, _calculateTotalValue(_contractID), autonity.lastEpochTime()
-        );
+        Contract storage _contract = contracts[_contractID];
+        uint256 _time = autonity.lastEpochTime();
+        require(_time >= _contract.start + _contract.cliffDuration, "cliff period not reached yet");
+
+        uint256 _unlocked = _calculateTotalUnlockedFunds(_contract.start, _contract.totalDuration, _time, _calculateTotalValue(_contractID));
+        if (_unlocked > _contract.withdrawnValue) {
+            return _unlocked - _contract.withdrawnValue;
+        }
+        return 0;
     }
 
     function _updateAndTransferLNTN(uint256 _contractID, address _to, uint256 _amount, address _validator) internal {
