@@ -29,8 +29,8 @@ var (
 	ErrInvalidSingleSig    = errors.New("individual signature has coefficient != 1")
 	ErrInvalidCoefficient  = errors.New("coefficient exceeds maximum boundary (committee size)")
 
-	ErrNotValidated  = errors.New("Using un-validated signers information")
-	ErrDifferentSize = errors.New("Comparing signers information with different committee size")
+	ErrNotValidated  = errors.New("using un-validated signers information")
+	ErrDifferentSize = errors.New("comparing signers information with different committee size")
 )
 
 // represents the senders of an aggregated signature

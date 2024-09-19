@@ -271,6 +271,7 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 	if header.QuorumCertificate.Signature == nil || header.QuorumCertificate.Signers == nil {
 		return types.ErrEmptyQuorumCertificate
 	}
+	// TODO(lorenzo) do we need this copy
 	quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
 	if err := quorumCertificate.Signers.Validate(committee.Len()); err != nil {
 		return fmt.Errorf("invalid quorum certificate signers information: %w", err)
@@ -344,8 +345,6 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 // of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
 func (sb *Backend) assembleActivityProof(h uint64) (types.AggregateSignature, uint64, error) {
-
-	// TODO(lorenzo) I think that when assembling proof taking the latest epoch should always be correct, but verify
 	committee, _, epochBlock, _, err := sb.BlockChain().LatestEpoch()
 	if err != nil {
 		return types.AggregateSignature{}, 0, fmt.Errorf("error while fetching latest epoch %w", err)

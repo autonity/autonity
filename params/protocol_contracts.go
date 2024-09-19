@@ -163,10 +163,8 @@ func (g *AutonityContractGenesis) Prepare(lookbackWindow uint64, delta uint64) e
 		g.ABI = &generated.AutonityAbi
 		g.Bytecode = generated.AutonityBytecode
 	}
-	// TODO(lorenzo) if we have the omission accountability config empty this check will fail because both delta and lookback will be 0
-	// this is because we assign the default config only later. To be fixed.
 	if g.EpochPeriod <= delta+lookbackWindow-1 {
-		return errors.New("epoch period cannot be lower or equal than delta+lookbackWindow-1")
+		return fmt.Errorf("epoch period cannot be lower or equal than delta+lookbackWindow-1. epoch period: %d, delta: %d, lookback: %d", g.EpochPeriod, delta, lookbackWindow)
 	}
 	if g.MaxCommitteeSize == 0 {
 		return errors.New("invalid max committee size")

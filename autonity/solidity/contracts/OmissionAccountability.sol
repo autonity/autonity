@@ -325,6 +325,11 @@ contract OmissionAccountability is IOmissionAccountability {
     * @param _ntnRewards, amount of NTN reserved for proposer rewards
     */
     function distributeProposerRewards(uint256 _ntnReward) external payable virtual onlyAutonity {
+        // short-circuit if total effort is 0 --> all proposer effort entries will be 0 as well
+        if(totalEffort == 0){
+            return;
+        }
+
         uint256 atnReward = msg.value;
 
         for(uint256 i=0; i < committee.length; i++) {

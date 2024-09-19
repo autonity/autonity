@@ -173,7 +173,8 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
-	// Make AutonityContract and Tendermint consensus mandatory for the time being.
+
+	// check mandatory configs
 	if genesis.Config == nil {
 		utils.Fatalf("No config section in genesis.json")
 	}
@@ -182,6 +183,9 @@ func initGenesis(ctx *cli.Context) error {
 	}
 	if genesis.Config.OracleContractConfig == nil {
 		utils.Fatalf("No Oracle Contract config section in genesis.json")
+	}
+	if genesis.Config.OmissionAccountabilityConfig == nil {
+		utils.Fatalf("No Omission accountability config section in genesis.json")
 	}
 
 	if err := genesis.Config.AutonityContractConfig.Prepare(genesis.Config.OmissionAccountabilityConfig.LookbackWindow, genesis.Config.OmissionAccountabilityConfig.Delta); err != nil {
