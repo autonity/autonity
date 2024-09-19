@@ -237,7 +237,6 @@ var (
 	errBadConsensusKeyLen = errors.New("invalid consensus key length")
 	errExcludedValidator  = errors.New("excluding validator")
 	errNonEmptyProof      = errors.New("activity proof should be empty")
-	errInvalidSignature   = errors.New("activity proof contains invalid signature")
 	errInsufficientPower  = errors.New("activity proof does not contain quorum voting power")
 )
 
@@ -1406,10 +1405,44 @@ func readCommittee(db StateDB, caller common.Address, committeeSlot common.Hash)
 	return committee
 }
 
+type ActivityInfo struct {
+	isProposerFaulty bool
+	proposerEffort   *big.Int
+	absentees        []common.Address
+}
+
+func newActivityInfo(isProposerFaulty bool, proposerEffort *big.Int, absentees []common.Address) *ActivityInfo {
+	return &ActivityInfo{
+		isProposerFaulty: isProposerFaulty,
+		proposerEffort:   proposerEffort,
+		absentees:        absentees,
+	}
+}
+
+func ValidateActivityProof(proof *types.AggregateSignature, headerSeal common.Hash, committee *types.Committee) (*ActivityInfo, error) {
+	signers, power, err := proof.Validate(headerSeal, committee)
+	if err != nil {
+		return nil, err
+	}
+
+	// We need at least a quorum for the activity proof.
+	quorum := bft.Quorum(committee.TotalVotingPower())
+	if power.Cmp(quorum) < 0 {
+		return nil, errInsufficientPower
+	}
+
+	proposerEffort := new(big.Int).Set(power)
+	proposerEffort.Sub(proposerEffort, quorum)
+
+	absentees := deriveAbsentees(signers, committee)
+	return newActivityInfo(false, proposerEffort, absentees), nil
+
+}
+
 func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, caller common.Address) ([]byte, error) {
 	// if we are in testMode (used by truffle tests) just return no absents
 	if evm.chainConfig.TestMode {
-		return makeReturnData(false, common.Big0, []common.Address{}), nil
+		return makeReturnData(newActivityInfo(false, common.Big0, []common.Address{})), nil
 	}
 
 	if caller != params.OmissionAccountabilityContractAddress {
@@ -1428,85 +1461,51 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	delta := new(big.Int).SetBytes(input[1:33])
 	committeeSlot := common.BytesToHash(input[33:])
 
-	proof := evm.Context.ActivityProof
 	committee := readCommittee(evm.StateDB, caller, committeeSlot)
+	proof := evm.Context.ActivityProof
+	targetRound := evm.Context.ActivityProofRound
 
 	// during the first delta blocks of the epoch, the proof should be empty. If not, reject proposal
 	if mustBeEmpty {
 		if proof != nil {
 			return nil, errNonEmptyProof
 		}
-		return makeReturnData(false, new(big.Int), []common.Address{}), nil
+		return makeReturnData(newActivityInfo(false, new(big.Int), []common.Address{})), nil
 	}
 
 	// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
 	if proof == nil {
-		return makeReturnData(true, new(big.Int), []common.Address{}), nil
+		return makeReturnData(newActivityInfo(true, new(big.Int), []common.Address{})), nil
 	}
-
-	// if the activity proof is malformed however, reject the proposal. We cannot accept arbitrary data in the proposal
-	if err := proof.Signers.Validate(committee.Len()); err != nil {
-		return nil, fmt.Errorf("invalid activity proof signers information: %w", err)
-	}
-
-	// verification
 
 	targetHeight := blockNumber - delta.Uint64()
-	targetHeaderHash := evm.Context.GetHash(targetHeight)
-	activityProofRound := evm.Context.ActivityProofRound
-	headerSeal := message.PrepareCommittedSeal(targetHeaderHash, int64(activityProofRound), new(big.Int).SetUint64(targetHeight))
+	targetHash := evm.Context.GetHash(targetHeight)
 
-	// Total assembled voting power for the activity proof
-	power := new(big.Int)
-	signers := make(map[common.Address]struct{})
-	for _, index := range proof.Signers.FlattenUniq() {
-		power.Add(power, committee.Members[index].VotingPower)
-		signers[committee.Members[index].Address] = struct{}{}
-	}
-
-	// verify signature
-	var keys []blst.PublicKey //nolint
-	for _, index := range proof.Signers.Flatten() {
-		keys = append(keys, committee.Members[index].ConsensusKey)
-	}
-	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	headerSeal := message.PrepareCommittedSeal(targetHash, int64(targetRound), new(big.Int).SetUint64(targetHeight))
+	info, err := ValidateActivityProof(proof, headerSeal, committee)
 	if err != nil {
-		panic("Failed to aggregate keys from committee members: " + err.Error())
+		return nil, fmt.Errorf("invalid activity proof: %w", err)
 	}
-	valid := proof.Signature.Verify(aggregatedKey, headerSeal[:])
-	if !valid {
-		return nil, errInvalidSignature
-	}
-
-	// We need at least a quorum for the activity proof.
-	quorum := bft.Quorum(committee.TotalVotingPower())
-	if power.Cmp(quorum) < 0 {
-		return nil, errInsufficientPower
-	}
-
-	proposerEffort := new(big.Int).Set(power)
-	proposerEffort.Sub(proposerEffort, quorum)
-
-	absentees := deriveAbsentees(signers, committee)
-	return makeReturnData(false, proposerEffort, absentees), nil
+	return makeReturnData(info), nil
 }
 
-func makeReturnData(isProposerFaulty bool, proposerEffort *big.Int, absentees []common.Address) []byte {
+// func makeReturnData(isProposerFaulty bool, proposerEffort *big.Int, absentees []common.Address) []byte {
+func makeReturnData(a *ActivityInfo) []byte {
 	// do not pack the bool to make decoding easier in precompiled.sol
 	length := DataLen + DataLen + DataLen + DataLen // 1 bool + 1 uint256 + the offset of the dynamic addresses array + the length of the dynamic addresses array
 
 	out := make([]byte, length)
-	if isProposerFaulty {
+	if a.isProposerFaulty {
 		copy(out[0:DataLen], common.LeftPadBytes([]byte{1}, DataLen))
 	} else {
 		copy(out[0:DataLen], common.LeftPadBytes([]byte{0}, DataLen))
 	}
-	copy(out[DataLen:DataLen*2], common.LeftPadBytes(proposerEffort.Bytes(), DataLen))
+	copy(out[DataLen:DataLen*2], common.LeftPadBytes(a.proposerEffort.Bytes(), DataLen))
 
-	copy(out[DataLen*2:DataLen*3], common.LeftPadBytes(new(big.Int).SetUint64(DataLen*3).Bytes(), DataLen))              // offset
-	copy(out[DataLen*3:DataLen*4], common.LeftPadBytes(new(big.Int).SetUint64(uint64(len(absentees))).Bytes(), DataLen)) // length
+	copy(out[DataLen*2:DataLen*3], common.LeftPadBytes(new(big.Int).SetUint64(DataLen*3).Bytes(), DataLen))                // offset
+	copy(out[DataLen*3:DataLen*4], common.LeftPadBytes(new(big.Int).SetUint64(uint64(len(a.absentees))).Bytes(), DataLen)) // length
 
-	for _, absent := range absentees {
+	for _, absent := range a.absentees {
 		out = append(out, common.LeftPadBytes(absent.Bytes(), DataLen)...)
 	}
 

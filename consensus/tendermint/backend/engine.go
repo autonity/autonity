@@ -53,7 +53,11 @@ var (
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidRound is returned if the round exceed maximum round number.
-	errInvalidRound = errors.New("invalid round")
+	errInvalidRound             = errors.New("invalid round")
+	errNotEmptyActivityProof    = errors.New("activity proof should be empty")
+	errInvalidActivityProof     = errors.New("invalid activity proof")
+	errInvalidQuorumCertificate = errors.New("invalid quorum certificate")
+	errEmptyQuorumCertificate   = errors.New("empty quorum certificate")
 )
 var (
 	defaultDifficulty             = big.NewInt(1)
@@ -90,13 +94,19 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return err
 	}
 
-	return sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead)
+	hash := func(h uint64) common.Hash {
+		return sb.BlockChain().GetHeaderByNumber(h).Hash()
+	}
+
+	return sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead, hash)
 }
+
+type HashGetter func(h uint64) common.Hash
 
 // verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
 // to be provided unless header is the genesis header, it expects the epoch header chain to be linked correctly as well.
 func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
-	committee *types.Committee, curEpochHead, nextEpochHead uint64) error {
+	committee *types.Committee, curEpochHead, nextEpochHead uint64, hash HashGetter) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -164,13 +174,13 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	if parent == nil {
 		return errUnknownBlock
 	}
-	// check quorum certificates of consensus participants
-	return sb.verifyHeaderAgainstLastView(header, parent, committee)
+	// check quorum certificates of consensus participants and activity proof
+	return sb.verifyHeaderAgainstLastView(header, parent, committee, curEpochHead, hash)
 }
 
 // verifyHeaderAgainstLastView verifies that the given header is valid with respect to its parent block and the
 // corresponding epoch's committee.
-func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, committee *types.Committee) error {
+func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, committee *types.Committee, epochBlock uint64, hash HashGetter) error {
 	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
@@ -183,11 +193,27 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 		return err
 	}
 
-	// TODO(lorenzo) this will currently cause syncing issues, because we are not be able to fetch the consensus view.
-	// It needs to be implemented after Epoch header gets merged. With that we should be able to fetch the committee
-	//if _, _, _, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound); err != nil {
-	//	return err
-	//}
+	delta := sb.BlockChain().ProtocolContracts().OmissionDelta().Uint64()
+	mustBeEmpty := header.Number.Uint64() <= epochBlock+delta
+
+	if mustBeEmpty && header.ActivityProof != nil {
+		return errNotEmptyActivityProof
+	}
+
+	if header.ActivityProof != nil {
+		targetHeight := header.Number.Uint64() - delta
+		headerSeal := message.PrepareCommittedSeal(hash(targetHeight), int64(header.ActivityProofRound), new(big.Int).SetUint64(targetHeight))
+		_, power, err := header.ActivityProof.Validate(headerSeal, committee)
+		if err != nil {
+			return errors.Join(errInvalidActivityProof, err)
+		}
+
+		// We need at least a quorum for the activity proof.
+		quorum := bft.Quorum(committee.TotalVotingPower())
+		if power.Cmp(quorum) < 0 {
+			return errInvalidActivityProof
+		}
+	}
 
 	return sb.verifyQuorumCertificate(header, committee)
 }
@@ -203,6 +229,15 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	if err != nil {
 		panic(err)
 	}
+
+	hash := func(h uint64) common.Hash {
+		if h >= headers[0].Number.Uint64() {
+			index := h - headers[0].Number.Uint64()
+			return headers[index].Hash()
+		}
+		return sb.BlockChain().GetHeaderByNumber(h).Hash()
+	}
+
 	go func() {
 		for i, header := range headers {
 			var parent *types.Header
@@ -218,7 +253,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				err = consensus.ErrUnknownAncestor
 			} else {
 				// check header against parent and parent epoch head.
-				err = sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead)
+				err = sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead, hash)
 			}
 			// if the processing header is a new epoch header, update the epoch info for un-processed headers .
 			if header.IsEpochHeader() {
@@ -269,41 +304,18 @@ func (sb *Backend) verifySigner(header *types.Header, committee *types.Committee
 func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *types.Committee) error {
 	// un-finalized proposals will have quorum certificate set to nil
 	if header.QuorumCertificate == nil {
-		return types.ErrEmptyQuorumCertificate
+		return errEmptyQuorumCertificate
 	}
-	// TODO(lorenzo) do we need this copy
-	quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
-	if err := quorumCertificate.Signers.Validate(committee.Len()); err != nil {
-		return fmt.Errorf("invalid quorum certificate signers information: %w", err)
-	}
-
 	// The data that was signed over for this block
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
-
-	// Total Voting power for this block
-	power := new(big.Int)
-	for _, index := range quorumCertificate.Signers.FlattenUniq() {
-		power.Add(power, committee.Members[index].VotingPower)
-	}
-
-	// verify signature
-	var keys []blst.PublicKey //nolint
-	for _, index := range quorumCertificate.Signers.Flatten() {
-		keys = append(keys, committee.Members[index].ConsensusKey)
-	}
-	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	_, power, err := header.QuorumCertificate.Validate(headerSeal, committee)
 	if err != nil {
-		sb.logger.Crit("Failed to aggregate keys from committee members", "err", err)
-	}
-	valid := quorumCertificate.Signature.Verify(aggregatedKey, headerSeal[:])
-	if !valid {
-		sb.logger.Error("block had invalid committed seal")
-		return types.ErrInvalidQuorumCertificate
+		return errors.Join(errInvalidQuorumCertificate, err)
 	}
 
 	// We need at least a quorum for the block to be considered valid
 	if power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
-		return types.ErrInvalidQuorumCertificate
+		return errInvalidQuorumCertificate
 	}
 
 	return nil

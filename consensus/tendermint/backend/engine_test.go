@@ -25,36 +25,30 @@ import (
 
 func TestPrepare(t *testing.T) {
 	chain, engine := newBlockChain(1)
+
 	header := makeHeader(chain.Genesis(), chain)
 	err := engine.Prepare(chain, header)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
+	require.NoError(t, err)
+
 	header.ParentHash = common.BytesToHash([]byte("1234567890"))
 	err = engine.Prepare(chain, header)
-	if err != consensus.ErrUnknownAncestor {
-		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrUnknownAncestor)
-	}
+	require.True(t, errors.Is(err, consensus.ErrUnknownAncestor))
 }
 
 func TestSealCommitted(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedBlock, _ := engine.AddSeal(block)
+	require.NoError(t, err)
+	expectedBlock, err := engine.AddSeal(block)
+	require.NoError(t, err)
 
 	resultCh := make(chan *types.Block)
 	engine.SetResultChan(resultCh)
 	err = engine.Seal(chain, block, resultCh, nil)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
+	require.NoError(t, err)
+
 	finalBlock := <-resultCh
-	if finalBlock.Hash() != expectedBlock.Hash() {
-		t.Errorf("hash mismatch: have %v, want %v", finalBlock.Hash(), expectedBlock.Hash())
-	}
+	require.Equal(t, expectedBlock.Hash(), finalBlock.Hash())
 }
 
 func TestVerifyHeader(t *testing.T) {
@@ -62,95 +56,70 @@ func TestVerifyHeader(t *testing.T) {
 
 	// errEmptyQuorumCertificate case
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	block, _ = engine.AddSeal(block)
+	require.NoError(t, err)
+	block, err = engine.AddSeal(block)
+	require.NoError(t, err)
+
 	err = engine.VerifyHeader(chain, block.Header(), false)
-	if err != types.ErrEmptyQuorumCertificate {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrEmptyQuorumCertificate)
-	}
+	require.True(t, errors.Is(err, errEmptyQuorumCertificate))
 
 	header := block.Header()
 
 	// non zero MixDigest
 	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	header = block.Header()
 	header.MixDigest = common.BytesToHash([]byte("123456789"))
 	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidMixDigest {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidMixDigest)
-	}
+	require.True(t, errors.Is(err, errInvalidMixDigest))
 
 	// invalid uncles hash
 	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	header = block.Header()
 	header.UncleHash = common.BytesToHash([]byte("123456789"))
 	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidUncleHash {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidUncleHash)
-	}
+	require.True(t, errors.Is(err, errInvalidUncleHash))
 
 	// invalid difficulty
 	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	header = block.Header()
 	header.Difficulty = big.NewInt(2)
 	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidDifficulty {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidDifficulty)
-	}
+	require.True(t, errors.Is(err, errInvalidDifficulty))
 
 	// invalid timestamp
 	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	header = block.Header()
 	header.Time = 0
 	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidTimestamp {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidTimestamp)
-	}
+	require.True(t, errors.Is(err, errInvalidTimestamp))
 
 	// future block
 	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	header = block.Header()
 	header.Time = new(big.Int).Add(big.NewInt(now().Unix()), new(big.Int).SetUint64(10)).Uint64()
 	err = engine.VerifyHeader(chain, header, false)
-	if err != consensus.ErrFutureTimestampBlock {
-		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrFutureTimestampBlock)
-	}
+	require.True(t, errors.Is(err, consensus.ErrFutureTimestampBlock))
 
 	// invalid nonce
 	block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	header = block.Header()
 	copy(header.Nonce[:], hexutil.MustDecode("0x111111111111"))
 	err = engine.VerifyHeader(chain, header, false)
-	if err != errInvalidNonce {
-		t.Errorf("error mismatch: have %v, want %v", err, errInvalidNonce)
-	}
+	require.True(t, errors.Is(err, errInvalidNonce))
 }
 
 // insert block with valid quorum certificate in the chain.
 // It also add the precommit to the msgStore so that we can successfully create activity proof for the following blocks
 // It assumes that we have a single committee member
 // This is needed for `makeBlockWithoutSeal` to generate another block correctly.
-func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types.Block) {
+// It returns the block with the quorum certificate
+func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types.Block) *types.Block {
 	self := &chain.Genesis().Header().Epoch.Committee.Members[0]
 
 	header := b.Header()
@@ -162,6 +131,7 @@ func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types
 	require.NoError(t, err)
 
 	engine.MsgStore.Save(precommit)
+	return blockWithCertificate
 }
 
 // The logic of this needs to change with respect of Autonity contact
@@ -182,13 +152,12 @@ func TestVerifyHeaders(t *testing.T) {
 		} else {
 			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		b, _ = engine.AddSeal(b)
+		b, err = engine.AddSeal(b)
+		require.NoError(t, err)
 
-		insertBlock(t, chain, engine, b)
+		b = insertBlock(t, chain, engine, b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
@@ -212,19 +181,13 @@ OUT1:
 	for {
 		select {
 		case err := <-results:
-			if err != nil {
-				//  The two following errors mean that the processing has gone right
-				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
-					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
-					break OUT1
-				}
-			}
+			require.NoError(t, err)
 			index++
 			if index == size {
 				break OUT1
 			}
 		case <-timeout.C:
-			break OUT1
+			t.Fatal("timeout expired")
 		}
 	}
 	// avoid data race for the re-assignment of now to time.Now
@@ -248,13 +211,12 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 		} else {
 			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		b, _ = engine.AddSeal(b)
+		b, err = engine.AddSeal(b)
+		require.NoError(t, err)
 
-		insertBlock(t, chain, engine, b)
+		b = insertBlock(t, chain, engine, b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
@@ -279,24 +241,20 @@ OUT2:
 	for {
 		select {
 		case err := <-results:
-			if err != nil {
-				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
-					t.Errorf("error mismatch: have %v, want errEmptyQuorumCertificate|errInvalidQuorumCertificate", err)
-					break OUT2
-				}
-			}
+			require.NoError(t, err)
 			index++
 			if index == 5 {
 				abort <- struct{}{}
 			}
-			if index >= size {
-				t.Errorf("verifyheaders should be aborted")
+			if index >= 15 {
+				t.Errorf("verifyheaders should be aborted rapidly")
 				break OUT2
 			}
 		case <-timeout.C:
 			break OUT2
 		}
 	}
+	t.Log(index)
 	// avoid data race for the re-assignment of now to time.Now
 	chain.Stop()
 }
@@ -318,13 +276,12 @@ func TestVerifyErrorHeaders(t *testing.T) {
 		} else {
 			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
-		b, _ = engine.AddSeal(b)
+		b, err = engine.AddSeal(b)
+		require.NoError(t, err)
 
-		insertBlock(t, chain, engine, b)
+		b = insertBlock(t, chain, engine, b)
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
@@ -347,26 +304,24 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	timeout := time.NewTimer(timeoutDura)
 	index := 0
 	errorCount := 0
-	expectedErrors := 2
+	// header[2] out of epoch range | header[3] != header[2]+1 | header[12] invalid activity proof
+	expectedErrors := 3
 
 OUT3:
 	for {
 		select {
 		case err := <-results:
 			if err != nil {
-				if !errors.Is(err, types.ErrEmptyQuorumCertificate) && !errors.Is(err, types.ErrInvalidQuorumCertificate) {
-					errorCount++
-				}
+				t.Logf("received error: %v", err)
+				errorCount++
 			}
 			index++
 			if index == size {
-				if errorCount != expectedErrors {
-					t.Errorf("error mismatch: have %v, want %v", err, expectedErrors)
-				}
+				require.Equal(t, expectedErrors, errorCount)
 				break OUT3
 			}
 		case <-timeout.C:
-			break OUT3
+			t.Fatal("timeout expired")
 		}
 	}
 	// avoid data race for the re-assignment of now to time.Now

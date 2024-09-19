@@ -19,6 +19,7 @@ package types
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -33,8 +34,9 @@ import (
 )
 
 var (
-	EmptyRootHash  = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	EmptyUncleHash = rlpHash([]*Header(nil))
+	EmptyRootHash       = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	EmptyUncleHash      = rlpHash([]*Header(nil))
+	errInvalidSignature = errors.New("aggregate signature is invalid")
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
@@ -116,6 +118,38 @@ func (a *AggregateSignature) Copy() *AggregateSignature {
 
 func (a *AggregateSignature) Malformed() bool {
 	return a.Signature == nil || a.Signers == nil || len(a.Signers.Bits) == 0
+}
+
+// validates the aggregate signature. It does not modify any internal data structure nor does any caching
+// returns map of signers and total power of the signers
+func (a *AggregateSignature) Validate(message common.Hash, committee *Committee) (map[common.Address]struct{}, *big.Int, error) {
+	if _, err := a.Signers.validate(committee.Len()); err != nil {
+		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
+	}
+
+	// verify signature
+	var keys []blst.PublicKey //nolint
+	for _, index := range a.Signers.flatten(committee.Len()) {
+		keys = append(keys, committee.Members[index].ConsensusKey)
+	}
+	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	if err != nil {
+		panic("Failed to aggregate keys from committee members: " + err.Error())
+	}
+	valid := a.Signature.Verify(aggregatedKey, message[:])
+	if !valid {
+		return nil, nil, errInvalidSignature
+	}
+
+	// Total assembled voting power for the activity proof
+	power := new(big.Int)
+	signers := make(map[common.Address]struct{})
+	for _, index := range a.Signers.flattenUniq(committee.Len()) {
+		power.Add(power, committee.Members[index].VotingPower)
+		signers[committee.Members[index].Address] = struct{}{}
+	}
+
+	return signers, power, nil
 }
 
 // originalHeader represents the ethereum blockchain header.
