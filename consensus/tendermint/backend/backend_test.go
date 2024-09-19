@@ -249,9 +249,7 @@ func TestVerifyProposal(t *testing.T) {
 		}
 		quorumCertificate.Signers.Increment(&committee.Members[0])
 		header := block.Header()
-		if err := types.WriteQuorumCertificate(header, quorumCertificate); err != nil {
-			t.Fatalf("could not write quorum certificate %d, err=%s", i, err)
-		}
+		header.QuorumCertificate = quorumCertificate
 		block = block.WithSeal(header)
 
 		if _, errW := blockchain.InsertChain(types.Blocks{block}); errW != nil {

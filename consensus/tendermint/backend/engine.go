@@ -337,7 +337,8 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 	if err != nil {
 		return fmt.Errorf("error while assembling activity proof: %w", err)
 	}
-	types.WriteActivityProof(header, proof, round)
+	header.ActivityProof = proof
+	header.ActivityProofRound = round
 	return nil
 }
 
@@ -530,9 +531,7 @@ func (sb *Backend) AddSeal(block *types.Block) (*types.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := types.WriteSeal(header, signature); err != nil {
-		return nil, err
-	}
+	header.ProposerSeal = signature
 	return block.WithSeal(header), nil
 }
 

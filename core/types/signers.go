@@ -407,9 +407,12 @@ func (s *Signers) AssignPower(powers map[int]*big.Int, power *big.Int) {
 }
 
 func (s *Signers) Copy() *Signers {
-	powers := make(map[int]*big.Int)
-	for index, power := range s.powers {
-		powers[index] = new(big.Int).Set(power)
+	var powers map[int]*big.Int
+	if s.powers != nil {
+		powers = make(map[int]*big.Int)
+		for index, power := range s.powers {
+			powers[index] = new(big.Int).Set(power)
+		}
 	}
 	return &Signers{
 		Bits:          append(s.Bits[:0:0], s.Bits...),

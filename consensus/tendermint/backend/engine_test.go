@@ -7,7 +7,6 @@ import (
 	"github.com/autonity/autonity/core"
 	"github.com/stretchr/testify/require"
 	"math/big"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -156,12 +155,10 @@ func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types
 
 	header := b.Header()
 	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, 1)
-	quorumCertificate := types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers())
-	err := types.WriteQuorumCertificate(header, quorumCertificate)
-	require.NoError(t, err)
+	header.QuorumCertificate = types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers())
 	blockWithCertificate := b.WithSeal(header) // improper use, we use the WithSeal function to substitute the header with the one with quorumCertificate set
 	time.Sleep(1 * time.Second)                // wait a couple seconds so that the block has not future timestamp anymore and the block import is done
-	_, err = chain.InsertChain(types.Blocks{blockWithCertificate})
+	_, err := chain.InsertChain(types.Blocks{blockWithCertificate})
 	require.NoError(t, err)
 
 	engine.MsgStore.Save(precommit)
@@ -374,28 +371,6 @@ OUT3:
 	}
 	// avoid data race for the re-assignment of now to time.Now
 	chain.Stop()
-}
-
-func TestWriteQuorumCertificate(t *testing.T) {
-	expectedQuorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
-	expectedQuorumCertificate.Signers.Increment(testCommitteeMember)
-	h := &types.Header{}
-
-	// normal case
-	err := types.WriteQuorumCertificate(h, expectedQuorumCertificate)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want %v", err, nil)
-	}
-
-	if !reflect.DeepEqual(h.QuorumCertificate, expectedQuorumCertificate) {
-		t.Errorf("extra data mismatch: have %v, want %v", h.QuorumCertificate, expectedQuorumCertificate)
-	}
-
-	// invalid seal
-	err = types.WriteQuorumCertificate(h, &types.AggregateSignature{})
-	if err != types.ErrInvalidQuorumCertificate {
-		t.Errorf("error mismatch: have %v, want %v", err, types.ErrInvalidQuorumCertificate)
-	}
 }
 
 func TestAPIs(t *testing.T) {
