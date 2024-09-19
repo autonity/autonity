@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/v4/cpu"
 
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/node"
