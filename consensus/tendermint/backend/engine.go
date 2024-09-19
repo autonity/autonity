@@ -272,7 +272,8 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 		return types.ErrEmptyQuorumCertificate
 	}
 	// TODO(lorenzo) do we need this copy
-	quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
+	//quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
+	quorumCertificate := header.QuorumCertificate
 	if err := quorumCertificate.Signers.Validate(committee.Len()); err != nil {
 		return fmt.Errorf("invalid quorum certificate signers information: %w", err)
 	}

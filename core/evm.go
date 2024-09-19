@@ -58,7 +58,8 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 	// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
 	var activityProofCopy *types.AggregateSignature
 	if header.ActivityProof != nil {
-		activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
+		//activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
+		activityProofCopy = header.ActivityProof
 	}
 
 	return vm.BlockContext{
@@ -84,7 +85,8 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 		// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
 		var activityProofCopy *types.AggregateSignature
 		if header.ActivityProof != nil {
-			activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
+			//activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
+			activityProofCopy = header.ActivityProof
 		}
 
 		evmContext := vm.BlockContext{
