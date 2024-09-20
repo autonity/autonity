@@ -19,7 +19,7 @@ var (
 	ErrDuplicatedPrecommits = errors.New("Duplicated precommits")
 )
 
-// Signers is set that contains signers of the same message with the using of fastAggregate().
+// Signers is a set that contains signers of the same message with the using of fastAggregate().
 type Signers struct {
 	Round   int64
 	Value   common.Hash
@@ -210,11 +210,14 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 
 	for i := 1; i < len(precommits); i++ {
 		// skip duplicated msg.
-		if _, ok := presentedMsgs[precommits[i].R()]; !ok {
-			presentedMsgs[precommits[i].R()] = make(map[common.Hash]struct{})
+		roundMap, ok := presentedMsgs[precommits[i].R()]
+		if !ok {
+			roundMap = make(map[common.Hash]struct{})
+			presentedMsgs[precommits[i].R()] = roundMap
 		}
-		if _, ok := presentedMsgs[precommits[i].R()][precommits[i].Value()]; !ok {
-			presentedMsgs[precommits[i].R()][precommits[i].Value()] = struct{}{}
+
+		if _, ok := roundMap[precommits[i].Value()]; !ok {
+			roundMap[precommits[i].Value()] = struct{}{}
 			precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[i])
 		}
 	}

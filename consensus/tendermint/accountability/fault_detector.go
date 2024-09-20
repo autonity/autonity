@@ -451,6 +451,13 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof) (*autonity.AccountabilityEve
 		return m.Value() == precommit.Value() && m.R() == precommit.R()
 	})
 
+	// although we checked over quorum prevotes for V at the round of precommit, however due to
+	// off-chain accusation handler can run in different routine, thus GC of msg store could potentially
+	// delete the prevotes.
+	if len(prevotesForV) == 0 {
+		return nil, errNoEvidenceForC1
+	}
+
 	// fast aggregate quorum prevotes for V into single one.
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotesForV[0]
@@ -492,6 +499,13 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof) (*autonity.AccountabilityEve
 	prevotes := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
 		return m.R() == validRound && m.Value() == liteProposal.Value()
 	})
+
+	// although we checked over quorum prevotes for the lite proposal at vr, however due to
+	// off-chain accusation handler runs in different routine, thus GC of msg store could potentially
+	// delete the prevotes.
+	if len(prevotes) == 0 {
+		return nil, errNoEvidenceForPO
+	}
 
 	// fast aggregate quorum prevotes into single one.
 	evidences := make([]message.Msg, 1)
@@ -563,6 +577,13 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof) (*autonity.AccountabilityEv
 	prevotes := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
 		return m.Value() == oldProposal.Value() && m.R() == validRound
 	})
+
+	// although we checked over quorum prevotes for old proposal at vr, however due to
+	// off-chain accusation handler runs in different routine, thus GC of msg store could potentially
+	// delete the prevotes.
+	if len(prevotes) == 0 {
+		return nil, errNoEvidenceForPVO
+	}
 
 	// fast aggregate quorum prevotes into single one.
 	evidences := make([]message.Msg, 1)
