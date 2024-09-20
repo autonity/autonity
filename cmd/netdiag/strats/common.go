@@ -5,6 +5,8 @@ import (
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
+
+	"github.com/autonity/autonity/log"
 )
 
 var StrategyRegistry []registeredStrategy
@@ -53,22 +55,24 @@ type State struct {
 	Id    uint64
 	Peers int
 	// Those need to be protected
-	ReceivedPackets map[uint64]ChunkInfo
-	ReceivedReports map[uint64]chan *IndividualDisseminateResult
-	AverageRTT      []time.Duration
-	LatencyMatrix   [][]time.Duration
-	PingResults     []probing.Statistics
-	InfoChannel     chan any
+	ReceivedPackets   map[uint64]ChunkInfo
+	ReceivedReports   map[uint64]chan *IndividualDisseminateResult
+	ReportingComplete map[uint64]bool
+	AverageRTT        []time.Duration
+	LatencyMatrix     [][]time.Duration
+	PingResults       []probing.Statistics
+	InfoChannel       chan any
 }
 
 func NewState(id uint64, peers int) *State {
 	state := &State{
-		Id:              id,
-		Peers:           peers,
-		ReceivedPackets: make(map[uint64]ChunkInfo),
-		ReceivedReports: make(map[uint64]chan *IndividualDisseminateResult),
-		AverageRTT:      make([]time.Duration, peers),
-		LatencyMatrix:   make([][]time.Duration, peers),
+		Id:                id,
+		Peers:             peers,
+		ReceivedPackets:   make(map[uint64]ChunkInfo),
+		ReceivedReports:   make(map[uint64]chan *IndividualDisseminateResult),
+		ReportingComplete: make(map[uint64]bool),
+		AverageRTT:        make([]time.Duration, peers),
+		LatencyMatrix:     make([][]time.Duration, peers),
 	}
 	return state
 }
@@ -109,6 +113,8 @@ LOOP:
 				individualResults[report.Sender] = *report
 			}
 		case <-timer.C:
+			log.Info("Timeout waiting for reports, closing ")
+			s.ReportingComplete[packetId] = true
 			break LOOP
 		}
 	}

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"net/rpc"
 	"os"
 	"os/exec"
@@ -253,6 +255,11 @@ func run(c *cli.Context) error {
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
+		go func() {
+			if err := http.ListenAndServe(":6060", nil); err != nil {
+				log.Crit("error pprof", err)
+			}
+		}()
 	}
 
 	user, _ := user.Current()

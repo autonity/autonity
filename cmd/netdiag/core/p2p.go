@@ -191,6 +191,7 @@ func (p *Peer) SendPing() (uint64, error) {
 }
 
 func handlePing(_ *Engine, p *Peer, data io.Reader) error {
+	log.Debug("Netdiag: Received ping")
 	now := uint64(time.Now().UnixNano())
 	var ping PingPacket
 	if err := rlp.Decode(data, &ping); err != nil {
@@ -201,6 +202,7 @@ func handlePing(_ *Engine, p *Peer, data io.Reader) error {
 }
 
 func handlePong(_ *Engine, p *Peer, msg io.Reader) error {
+	log.Debug("Netdiag: Received pong")
 	var pong PongPacket
 	if err := rlp.Decode(msg, &pong); err != nil {
 		return err
@@ -599,6 +601,12 @@ func handleDisseminateReport(e *Engine, p *Peer, data io.Reader) error {
 	if err := rlp.Decode(data, &packet); err != nil {
 		return err
 	}
+	log.Info("Received report", "from", p.id, "requestId", packet.RequestId, "full", packet.Full)
+	if e.State.ReportingComplete[packet.RequestId] {
+		log.Warn("Dissemination report already collected", "requestId", packet.RequestId)
+		return nil
+	}
+
 	channel, ok := e.State.ReceivedReports[packet.RequestId]
 	if !ok {
 		log.Error("Dissemination report id not found!")

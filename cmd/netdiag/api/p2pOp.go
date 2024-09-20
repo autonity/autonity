@@ -217,7 +217,7 @@ func (p *P2POp) PingDevP2P(args *ArgTarget, reply *ResultPing) error {
 	}
 	result.ReceiverReceptionTime = time.Unix(int64(timeReceived)/int64(time.Second), int64(timeReceived)%int64(time.Second))
 	result.PongReceivedTime = time.Now()
-	p.Engine.State.LatencyMatrix[p.Engine.Id][args.Target] = result.rtt()
+	// p.Engine.State.LatencyMatrix[p.Engine.Id][args.Target] = result.rtt()
 	*reply = result
 	return nil
 }

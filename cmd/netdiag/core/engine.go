@@ -46,14 +46,17 @@ func NewEngine(cfg Config, id int, key *ecdsa.PrivateKey, networkMode string) *E
 				log.Error("Reading loop fatal error", "error", err)
 				return err
 			}
+			log.Debug("Received message", "id", peer.ID(), "code", msg.Code, "size", msg.Size)
 			handler, ok := protocolHandlers[msg.Code]
 			if !ok {
+				log.Error("Invalid message code", "code", msg.Code)
 				return errInvalidMsgCode
 			}
 			if err = handler(e, node, msg.Payload); err != nil {
 				log.Debug("Peer handler error", "id", peer.String(), "error", err)
 				return err
 			}
+			log.Debug("Message handled", "id", peer.ID(), "code", msg.Code, "addr", peer.RemoteAddr().String())
 		}
 	}
 	transport := p2p.TCP
