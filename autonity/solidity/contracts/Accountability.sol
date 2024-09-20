@@ -548,12 +548,18 @@ contract Accountability is IAccountability {
 
     function _grantReportAccess(address[] memory _members) internal onlyAutonity {
         for (uint256 i=0; i < _members.length; i++) {
+            if (allowedReporters[_members[i]] == true) {
+                continue;
+            }
             allowedReporters[_members[i]] = true;
         }
     }
 
     function _revokeReportAccess(address[] memory _members) internal onlyAutonity {
         for (uint256 i=0; i < _members.length; i++) {
+            if (allowedReporters[_members[i]] == false) {
+                continue;
+            }
             delete allowedReporters[_members[i]];
         }
     }
