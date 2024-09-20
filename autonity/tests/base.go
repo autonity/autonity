@@ -46,10 +46,11 @@ var (
 			InflationControllerContract: params.InflationControllerContractAddress,
 		},
 		Protocol: AutonityProtocol{
-			OperatorAccount: params.TestAutonityContractConfig.Operator,
-			EpochPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
-			BlockPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
-			CommitteeSize:   new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
+			OperatorAccount:     params.TestAutonityContractConfig.Operator,
+			EpochPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
+			BlockPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
+			CommitteeSize:       new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
+			MaxScheduleDuration: new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxScheduleDuration),
 		},
 		ContractVersion: big.NewInt(1),
 	}
@@ -483,12 +484,6 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	)
 	require.NoError(t, err)
 	require.Equal(t, r.NonStakableVesting.address, params.NonStakableVestingContractAddress)
-	r.NoError(
-		r.NonStakableVesting.SetTotalNominal(Operator, params.DefaultNonStakableVestingGenesis.TotalNominal),
-	)
-	r.NoError(
-		r.NonStakableVesting.SetMaxAllowedDuration(Operator, params.DefaultNonStakableVestingGenesis.MaxAllowedDuration),
-	)
 
 	// set protocol contracts
 	r.NoError(
@@ -511,9 +506,6 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	)
 	r.NoError(
 		r.Autonity.SetUpgradeManagerContract(Operator, r.UpgradeManager.address),
-	)
-	r.NoError(
-		r.Autonity.SetNonStakableVestingContract(Operator, r.NonStakableVesting.address),
 	)
 
 	r.Evm.Context.BlockNumber = common.Big1
