@@ -90,13 +90,19 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return err
 	}
 
-	return sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead)
+	hash := func(h uint64) common.Hash {
+		return sb.BlockChain().GetHeaderByNumber(h).Hash()
+	}
+
+	return sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead, hash)
 }
+
+type HashGetter func(h uint64) common.Hash
 
 // verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
 // to be provided unless header is the genesis header, it expects the epoch header chain to be linked correctly as well.
 func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
-	committee *types.Committee, curEpochHead, nextEpochHead uint64) error {
+	committee *types.Committee, curEpochHead, nextEpochHead uint64, hash HashGetter) error {
 	if header.Number == nil {
 		return errUnknownBlock
 	}
@@ -164,13 +170,13 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	if parent == nil {
 		return errUnknownBlock
 	}
-	// check quorum certificates of consensus participants
-	return sb.verifyHeaderAgainstLastView(header, parent, committee)
+	// check quorum certificates of consensus participants and activity proof
+	return sb.verifyHeaderAgainstLastView(header, parent, committee, curEpochHead, hash)
 }
 
 // verifyHeaderAgainstLastView verifies that the given header is valid with respect to its parent block and the
 // corresponding epoch's committee.
-func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, committee *types.Committee) error {
+func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, committee *types.Committee, epochBlock uint64, hash HashGetter) error {
 	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
@@ -183,11 +189,19 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 		return err
 	}
 
-	// TODO(lorenzo) this will currently cause syncing issues, because we are not be able to fetch the consensus view.
-	// It needs to be implemented after Epoch header gets merged. With that we should be able to fetch the committee
-	//if _, _, _, err := sb.validateActivityProof(header.ActivityProof, header.Number.Uint64(), header.ActivityProofRound); err != nil {
-	//	return err
-	//}
+	delta := sb.BlockChain().ProtocolContracts().OmissionDelta().Uint64()
+	mustBeEmpty := header.Number.Uint64() <= epochBlock+delta
+
+	if mustBeEmpty && header.ActivityProof != nil {
+		return fmt.Errorf("proof should be empty")
+	}
+
+	if header.ActivityProof != nil {
+		targetHeight := header.Number.Uint64() - delta
+		if _, err := vm.ValidateActivityProof(header.ActivityProof, targetHeight, header.ActivityProofRound, hash(targetHeight), committee); err != nil {
+			return fmt.Errorf("invalid activity proof: %w", err)
+		}
+	}
 
 	return sb.verifyQuorumCertificate(header, committee)
 }
@@ -203,6 +217,15 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	if err != nil {
 		panic(err)
 	}
+
+	hash := func(h uint64) common.Hash {
+		if h >= headers[0].Number.Uint64() {
+			index := h - headers[0].Number.Uint64()
+			return headers[index].Hash()
+		}
+		return sb.BlockChain().GetHeaderByNumber(h).Hash()
+	}
+
 	go func() {
 		for i, header := range headers {
 			var parent *types.Header
@@ -218,7 +241,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				err = consensus.ErrUnknownAncestor
 			} else {
 				// check header against parent and parent epoch head.
-				err = sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead)
+				err = sb.verifyHeader(chain, header, parent, committee, curEpochHead, nextEpochHead, hash)
 			}
 			// if the processing header is a new epoch header, update the epoch info for un-processed headers .
 			if header.IsEpochHeader() {
