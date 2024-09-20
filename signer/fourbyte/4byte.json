@@ -144,5 +144,10 @@
   "eb386749": "getRewardsTillUnbonding(uint256)",
   "cc4269bb": "isBondingRejected(uint256)",
   "e294df7c": "isUnbondingReleased(uint256)",
-  "58af672c": "realisedFees(address)"
+  "58af672c": "realisedFees(address)",
+  "9358928b": "circulatingSupply()",
+  "354c40a7": "createSchedule(address,uint256,uint256,uint256)",
+  "7264c4da": "getSchedule(address,uint256)",
+  "088566e9": "getTotalSchedules(address)",
+  "4e974657": "setMaxAllowedDuration(uint256)"
 }
