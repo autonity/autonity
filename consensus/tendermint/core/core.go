@@ -21,7 +21,7 @@ import (
 
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger,
-	noGossip bool, db ethdb.Database) *Core {
+	noGossip bool, db ethdb.WALDatabase) *Core {
 	c := &Core{
 		blockPeriod:            1, // todo: retrieve it from contract
 		address:                address,
@@ -39,7 +39,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
-		db:                     db,
+		walDB:                  db,
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -82,7 +82,7 @@ type Core struct {
 	roundChangeMu sync.Mutex
 
 	// Tendermint SM state, and its underlying WAL storage.
-	db          ethdb.Database
+	walDB       ethdb.WALDatabase
 	roundsState RoundsState
 	committee   interfaces.Committee
 	stateMu     sync.RWMutex

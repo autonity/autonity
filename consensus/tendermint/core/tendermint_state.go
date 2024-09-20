@@ -97,7 +97,7 @@ type TendermintStateImpl struct {
 }
 
 // newTendermintState, load rounds state from underlying database if there was state stored, otherwise return default state.
-func newTendermintState(logger log.Logger, db ethdb.Database, chain consensus.ChainHeaderReader) RoundsState {
+func newTendermintState(logger log.Logger, db ethdb.WALDatabase, chain consensus.ChainHeaderReader) RoundsState {
 
 	// if the WAL logging is not enabled, return default state on start up.
 	// the default state will be overwritten on consensus engine start phase by respecting chain height.

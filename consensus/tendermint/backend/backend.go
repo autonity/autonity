@@ -57,7 +57,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger, noGossip bool, db ethdb.Database) *Backend {
+	log log.Logger, noGossip bool, db ethdb.WALDatabase) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 

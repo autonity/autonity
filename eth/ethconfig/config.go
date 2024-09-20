@@ -215,7 +215,7 @@ type Config struct {
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool,
-	vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore, db ethdb.Database) consensus.Engine {
+	vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore, db ethdb.WALDatabase) consensus.Engine {
 	if chainConfig.Ethash != nil {
 		ethConfig := config.Ethash
 		switch ethConfig.PowMode {

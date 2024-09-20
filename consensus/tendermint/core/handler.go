@@ -23,7 +23,7 @@ const syncTimeOut = 30 * time.Second
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	// load tendermint state from WAL, otherwise it would load with default state of tendermint.
-	c.roundsState = newTendermintState(c.logger, c.db, c.backend.BlockChain())
+	c.roundsState = newTendermintState(c.logger, c.walDB, c.backend.BlockChain())
 	c.protocolContracts = contract
 
 	committee, _, _, _, err := c.backend.BlockChain().LatestEpoch()

@@ -85,8 +85,8 @@ type Ethereum struct {
 	snapDialCandidates enode.Iterator
 
 	// DB interfaces
-	walDB   ethdb.Database // wal database.
-	chainDb ethdb.Database // Block chain database
+	walDB   ethdb.WALDatabase
+	chainDb ethdb.Database
 
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
@@ -184,7 +184,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
 
-	// todo: Jason, refine this with flags for WAL directory. Now it is created at wal under node directory.
+	// WAL db is created under the data dir in a subdirectory.
 	wal := filepath.Join(stack.Config().DataDir, stack.Config().Name, "wal")
 	walDB, err := badgerdb.New(wal)
 	if err != nil {

@@ -155,3 +155,11 @@ type Database interface {
 	Compacter
 	io.Closer
 }
+
+// WAL Database contains all the methods required by the consensus engine's WAL database to access the WAL
+type WALDatabase interface {
+	KeyValueReader
+	KeyValueWriter
+	Batcher
+	io.Closer
+}

@@ -38,7 +38,7 @@ var (
 )
 
 type TendermintStateDB struct {
-	db ethdb.Database // WAL db which share the same key-value DB of blockchain DB.
+	db ethdb.WALDatabase // WAL db which share the same key-value DB of blockchain DB.
 
 	maxMsgID           uint64 // cache for max MSG ID
 	lastConsensusMsgID uint64 // cache for last consensus msg ID of a height.
@@ -55,7 +55,7 @@ type TendermintStateDB struct {
 }
 
 // newTendermintStateDB create the context of WAL database, it shares the same key-value store of blockchain DB.
-func newTendermintStateDB(logger log.Logger, db ethdb.Database) *TendermintStateDB {
+func newTendermintStateDB(logger log.Logger, db ethdb.WALDatabase) *TendermintStateDB {
 	rsdb := &TendermintStateDB{
 		db:     db,
 		logger: logger,
