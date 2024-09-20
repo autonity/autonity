@@ -23,7 +23,7 @@ contract NonStakableVesting is ContractBase {
 
     /**
      * @notice Creates a new non-stakable contract which subscribes to some schedule.
-     * @dev If the contract is created before cliff period has passed, the beneficiary is entitled to all the NTN after cliff period.
+     * @dev If the contract is created before start time of the subscibed schedule, the beneficiary is entitled to all the NTN after cliff period.
      * Otherwise, the contract already has some unlocked NTN which is not entitled to beneficiary. However, NTN that will
      * be unlocked in future will be entitled to beneficiary.
      * @param _beneficiary address of the beneficiary
@@ -47,9 +47,11 @@ contract NonStakableVesting is ContractBase {
         }
         require(_scheduleTracker.unsubscribedAmount >= _amount, "not enough funds to create a new contract under schedule");
 
+        // `_expiredFunds` = the amount of funds that have been unlocked already, in case the contract was created later than the `_schedule.start`
+        // the `_expiredFunds` belongs to the treasury account, not the `_beneficiary`
         uint256 _expiredFunds = _calculateUnlockedFunds(_schedule.unlockedAmount, _schedule.totalAmount, _amount);
         uint256 _contractID = _createContract(
-            _beneficiary, _amount, _expiredFunds, _schedule.start, _cliffDuration, _schedule.totalDuration, false
+            _beneficiary, _amount - _expiredFunds, _expiredFunds, _schedule.start, _cliffDuration, _schedule.totalDuration, false
         );
 
         subscribedTo[_contractID] = _scheduleID;
@@ -57,8 +59,7 @@ contract NonStakableVesting is ContractBase {
         _scheduleTracker.expiredFromContract += _expiredFunds;
     }
 
-    function releaseFundsForTreasury(uint256 _scheduleID) external virtual {
-        require(msg.sender == autonity.getTreasuryAccount(), "caller is not treasury account");
+    function releaseFundsForTreasury(uint256 _scheduleID) virtual external onlyTreasury {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
@@ -112,6 +113,11 @@ contract NonStakableVesting is ContractBase {
         );
     }
 
+    function _initiateSchedule(ScheduleTracker storage _scheduleTracker, uint256 _totalAmount) internal {
+        _scheduleTracker.unsubscribedAmount = _totalAmount;
+        _scheduleTracker.initiated = true;
+    }
+
     /**
      * @dev Calculates the total value of the contract, which is constant for non stakable contracts.
      * @param _contractID unique global id of the contract
@@ -126,8 +132,9 @@ contract NonStakableVesting is ContractBase {
      * where schedule = schedule subsribed by the contract.
      */
     function _unlockedFunds(uint256 _contractID) internal view returns (uint256) {
-        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), subscribedTo[_contractID]);
         Contract storage _contract = contracts[_contractID];
+        require(_contract.start + _contract.cliffDuration <= block.timestamp, "cliff period not reached yet");
+        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), subscribedTo[_contractID]);
         return _calculateUnlockedFunds(
             _schedule.unlockedAmount,
             _schedule.totalAmount,
@@ -154,5 +161,10 @@ contract NonStakableVesting is ContractBase {
         address _beneficiary, uint256 _id
     ) virtual external view returns (uint256) {
         return _unlockedFunds(_getUniqueContractID(_beneficiary, _id));
+    }
+
+    modifier onlyTreasury {
+        require(msg.sender == autonity.getTreasuryAccount(), "caller is not treasury account");
+        _;
     }
 }

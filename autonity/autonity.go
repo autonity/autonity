@@ -572,6 +572,10 @@ func (c *GenesisEVMContracts) DeployAutonityContract(bytecode []byte, validators
 	return c.AutonityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, validators, config)
 }
 
+func (c *GenesisEVMContracts) CreateNonStakableSchedule(schedule params.Schedule) error {
+	return c.AutonityContract.CreateSchedule(nil, c.statedb, params.NonStakableVestingContractAddress, schedule)
+}
+
 func (c *GenesisEVMContracts) DeployAccountabilityContract(autonityAddress common.Address, config AccountabilityConfig, bytecode []byte) error {
 	return c.AccountabilityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, config)
 }
@@ -653,18 +657,6 @@ func (c *GenesisEVMContracts) NewStakableContract(contract params.StakableVestin
 
 func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
 	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
-}
-
-func (c *GenesisEVMContracts) SetNonStakableTotalNominal(totalNominal *big.Int) error {
-	return c.NonStakableVestingContract.SetTotalNominal(nil, c.statedb, totalNominal)
-}
-
-func (c *GenesisEVMContracts) SetMaxAllowedDuration(maxAllowedDuration *big.Int) error {
-	return c.NonStakableVestingContract.SetMaxAllowedDuration(nil, c.statedb, maxAllowedDuration)
-}
-
-func (c *GenesisEVMContracts) CreateNonStakableSchedule(schedule params.NonStakableSchedule) error {
-	return c.NonStakableVestingContract.CreateSchedule(nil, c.statedb, schedule)
 }
 
 func (c *GenesisEVMContracts) NewNonStakableContract(contract params.NonStakableVestingData) error {

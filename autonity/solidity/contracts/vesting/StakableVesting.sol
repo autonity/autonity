@@ -217,10 +217,11 @@ contract StakableVesting is ContractBase, LiquidRewardManager {
      * @notice Set the value of totalNominal.
      * In case totalNominal is increased, the increased amount should be minted
      * and transferred to the address of this contract, otherwise newly created vesting
-     * contracts will not have funds to withdraw or bond. See `ewContract()`.
+     * contracts will not have funds to withdraw or bond. See `newContract()`.
      * @custom:restricted-to operator account
      */
     function setTotalNominal(uint256 _newTotalNominal) virtual external onlyOperator {
+        require(_newTotalNominal <= autonity.balanceOf(address(this)), "not enough NTN balance");
         totalNominal = _newTotalNominal;
     }
 
