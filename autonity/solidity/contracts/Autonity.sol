@@ -1295,8 +1295,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // send withheld funds to the appropriate pool
         if (atnTotalWithheld > 0) {
             // Using "call" to let the treasury contract do any kind of computation on receive.
-            //TODO(lorenzo) check return value?
-            config.policy.withheldRewardsPool.call{value: atnTotalWithheld}("");
+            (bool _sent, bytes memory _returnData) = config.policy.withheldRewardsPool.call{value: atnTotalWithheld}("");
+            if (_sent == false) {
+                emit CallFailed(config.policy.withheldRewardsPool, "", _returnData);
+            }
             atnTotalRedistributed -= atnTotalWithheld;
         }
         if(ntnTotalWithheld > 0){
