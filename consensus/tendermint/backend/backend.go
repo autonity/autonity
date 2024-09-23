@@ -318,7 +318,11 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			sb.logger.Error("proposal proposed, bad root state", err)
 			return 0, err
 		}
-
+		// As the epoch infos(committee, lastEpochBlock, nextEpochBlock) are saving in the contract state, thus the
+		// consistency of them are checked by the state validation, moreover that since the epoch info in block header
+		// is a factor to compute the block hash, thus they are immutable in the hash chain once there are quorum
+		// certificates to finalize the block. Thus, the epoch boundary checking is not required anymore, however
+		// the epoch info in the proposal's header should be equal to the epoch info dumped from the contract state.
 		if !proposal.Header().Epoch.Equal(epochInfo) {
 			sb.logger.Error("inconsistent epoch info",
 				"currentVerifier", sb.address.String(),
