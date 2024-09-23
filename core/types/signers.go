@@ -524,7 +524,6 @@ func (s *Signers) Powers() map[int]*big.Int {
 	return s.powers
 }
 
-// Len returns how many committee members the Signers contains
 func (s *Signers) CommitteeSize() int {
 	if !s.validated {
 		panic("Using un-validated signers information")

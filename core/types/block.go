@@ -123,6 +123,7 @@ func (a *AggregateSignature) Malformed() bool {
 // validates the aggregate signature. It does not modify any internal data structure nor does any caching
 // returns map of signers and total power of the signers
 func (a *AggregateSignature) Validate(message common.Hash, committee *Committee) (map[common.Address]struct{}, *big.Int, error) {
+	// validate signers information first
 	if _, err := a.Signers.validate(committee.Len()); err != nil {
 		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
 	}
