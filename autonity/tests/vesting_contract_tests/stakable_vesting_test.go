@@ -13,6 +13,8 @@ import (
 // 1 million NTN
 var reward = new(big.Int).Mul(big.NewInt(1000_000_000_000_000_000), big.NewInt(1000_000))
 
+type Reward tests.EpochReward
+
 type StakingRequest struct {
 	staker      common.Address
 	validator   common.Address
@@ -20,11 +22,6 @@ type StakingRequest struct {
 	amount      *big.Int
 	expectedErr string
 	bond        bool
-}
-
-type Reward struct {
-	rewardATN *big.Int
-	rewardNTN *big.Int
 }
 
 func TestReleaseFromStakableContract(t *testing.T) {
@@ -623,7 +620,7 @@ func TestRewardTracking(t *testing.T) {
 
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
 			oldRewardsFromValidator, oldUserRewards := unclaimedRewards(r, contractCount, liquidStateContracts, users, validators)
-			totalReward := rewardsAfterOneEpoch(r)
+			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 
 			// request is not applied yet
@@ -686,7 +683,7 @@ func TestRewardTracking(t *testing.T) {
 
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
 			oldRewardsFromValidator, oldUserRewards := unclaimedRewards(r, contractCount, liquidStateContracts, users, validators)
-			totalReward := rewardsAfterOneEpoch(r)
+			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 
 			// request is not applied yet
@@ -774,7 +771,7 @@ func TestRewardTracking(t *testing.T) {
 			// or we did not claim them or call unclaimedRewards
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
 			oldRewardsFromValidator, oldUserRewards := unclaimedRewards(r, contractCount, liquidStateContracts, users, validators)
-			totalReward := rewardsAfterOneEpoch(r)
+			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 
 			// we release some LNTN and it is applied immediately
@@ -841,7 +838,7 @@ func TestRewardTracking(t *testing.T) {
 
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
 			oldRewardsFromValidator, oldUserRewards := unclaimedRewards(r, contractCount, liquidStateContracts, users, validators)
-			totalReward := rewardsAfterOneEpoch(r)
+			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 			// request is not applied yet
 			checkRewards(
@@ -1061,28 +1058,6 @@ func unclaimedRewards(
 	return oldRewardsFromValidator, oldUserRewards
 }
 
-func rewardsAfterOneEpoch(r *tests.Runner) (rewardsToDistribute Reward) {
-
-	// get supply and inflationReserve to calculate inflation reward
-	supply, _, err := r.Autonity.TotalSupply(nil)
-	require.NoError(r.T, err)
-	inflationReserve, _, err := r.Autonity.InflationReserve(nil)
-	require.NoError(r.T, err)
-	epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
-	require.NoError(r.T, err)
-
-	// get inflation reward
-	lastEpochTime, _, err := r.Autonity.LastEpochTime(nil)
-	require.NoError(r.T, err)
-	currentEpochTime := new(big.Int).Add(lastEpochTime, epochPeriod)
-	rewardsToDistribute.rewardNTN, _, err = r.InflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
-	require.NoError(r.T, err)
-
-	// get atn reward
-	rewardsToDistribute.rewardATN = r.GetBalanceOf(r.Autonity.Address())
-	return rewardsToDistribute
-}
-
 func checkClaimRewardsFunction(
 	r *tests.Runner,
 	account common.Address,
@@ -1119,7 +1094,7 @@ func checkRewards(
 	r *tests.Runner,
 	contractCount int,
 	totalStake *big.Int,
-	totalReward Reward,
+	totalReward tests.EpochReward,
 	liquidStateContracts []*tests.ILiquidLogic,
 	validators, users []common.Address,
 	validatorStakes map[common.Address]*big.Int,
@@ -1131,8 +1106,8 @@ func checkRewards(
 	currentRewards := make(map[common.Address]Reward)
 	// check total rewards from each validator
 	for i, validator := range validators {
-		validatorTotalRewardATN := new(big.Int).Mul(validatorStakes[validator], totalReward.rewardATN)
-		validatorTotalRewardNTN := new(big.Int).Mul(validatorStakes[validator], totalReward.rewardNTN)
+		validatorTotalRewardATN := new(big.Int).Mul(validatorStakes[validator], totalReward.RewardATN)
+		validatorTotalRewardNTN := new(big.Int).Mul(validatorStakes[validator], totalReward.RewardNTN)
 
 		if totalStake.Cmp(common.Big0) != 0 {
 			validatorTotalRewardATN = validatorTotalRewardATN.Div(validatorTotalRewardATN, totalStake)
@@ -1144,7 +1119,7 @@ func checkRewards(
 		require.NoError(r.T, err)
 
 		diff := new(big.Int).Sub(
-			new(big.Int).Add(validatorTotalRewardATN, oldRewardsFromValidator[validator].rewardATN),
+			new(big.Int).Add(validatorTotalRewardATN, oldRewardsFromValidator[validator].RewardATN),
 			unclaimedReward.UnclaimedATN,
 		)
 		diff.Abs(diff)
@@ -1156,7 +1131,7 @@ func checkRewards(
 		)
 
 		diff = new(big.Int).Sub(
-			new(big.Int).Add(validatorTotalRewardNTN, oldRewardsFromValidator[validator].rewardNTN),
+			new(big.Int).Add(validatorTotalRewardNTN, oldRewardsFromValidator[validator].RewardNTN),
 			unclaimedReward.UnclaimedNTN,
 		)
 		diff.Abs(diff)
@@ -1167,8 +1142,8 @@ func checkRewards(
 			"unclaimed ntn reward not updated in liquid contract",
 		)
 		currentRewards[validator] = Reward{
-			new(big.Int).Sub(unclaimedReward.UnclaimedATN, oldRewardsFromValidator[validator].rewardATN),
-			new(big.Int).Sub(unclaimedReward.UnclaimedNTN, oldRewardsFromValidator[validator].rewardNTN),
+			new(big.Int).Sub(unclaimedReward.UnclaimedATN, oldRewardsFromValidator[validator].RewardATN),
+			new(big.Int).Sub(unclaimedReward.UnclaimedNTN, oldRewardsFromValidator[validator].RewardNTN),
 		}
 	}
 
@@ -1183,16 +1158,16 @@ func checkRewards(
 			unclaimedRewardForContractATN := new(big.Int)
 			unclaimedRewardForContractNTN := new(big.Int)
 			for _, validator := range validators {
-				calculatedRewardATN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].rewardATN)
-				calculatedRewardNTN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].rewardNTN)
+				calculatedRewardATN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].RewardATN)
+				calculatedRewardNTN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].RewardNTN)
 
 				if validatorStakes[validator].Cmp(common.Big0) != 0 {
 					calculatedRewardATN.Div(calculatedRewardATN, validatorStakes[validator])
 					calculatedRewardNTN.Div(calculatedRewardNTN, validatorStakes[validator])
 				}
-				calculatedRewardATN.Add(calculatedRewardATN, oldUserRewards[user][i][validator].rewardATN)
+				calculatedRewardATN.Add(calculatedRewardATN, oldUserRewards[user][i][validator].RewardATN)
 
-				calculatedRewardNTN.Add(calculatedRewardNTN, oldUserRewards[user][i][validator].rewardNTN)
+				calculatedRewardNTN.Add(calculatedRewardNTN, oldUserRewards[user][i][validator].RewardNTN)
 
 				unclaimedReward, _, err := r.StakableVesting.UnclaimedRewards(nil, user, big.NewInt(int64(i)), validator)
 				require.NoError(r.T, err)

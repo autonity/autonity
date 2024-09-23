@@ -301,6 +301,33 @@ func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) { //n
 	r.Evm.StateDB.AddBalance(recipient, value)
 }
 
+type EpochReward struct {
+	RewardATN *big.Int
+	RewardNTN *big.Int
+}
+
+func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
+
+	// get supply and inflationReserve to calculate inflation reward
+	supply, _, err := r.Autonity.CirculatingSupply(nil)
+	require.NoError(r.T, err)
+	inflationReserve, _, err := r.Autonity.InflationReserve(nil)
+	require.NoError(r.T, err)
+	_, _, currentEpochBlock, nextEpochBlock, _, err := r.Autonity.GetEpochInfo(nil)
+	require.NoError(r.T, err)
+
+	// get inflation reward
+	lastEpochTime, _, err := r.Autonity.LastEpochTime(nil)
+	require.NoError(r.T, err)
+	currentEpochTime := new(big.Int).Add(lastEpochTime, new(big.Int).Sub(nextEpochBlock, currentEpochBlock))
+	rewardsToDistribute.RewardNTN, _, err = r.InflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
+	require.NoError(r.T, err)
+
+	// get atn reward
+	rewardsToDistribute.RewardATN = r.GetBalanceOf(r.Autonity.Address())
+	return rewardsToDistribute
+}
+
 func initializeEVM() (*vm.EVM, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)

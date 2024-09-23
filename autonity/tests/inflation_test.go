@@ -39,19 +39,19 @@ func newGoParams(p *InflationControllerParams, genesisTime *big.Int) goParams {
 	}
 }
 
-func (p goParams) calculateSupplyDelta(currentSupply, inflationReserve, lastEpochTime, currentTime *big.Int) *big.Int {
+func (p goParams) calculateSupplyDelta(circulatingSupply, inflationReserve, lastEpochTime, currentTime *big.Int) *big.Int {
 
 	t0 := new(big.Int).Sub(lastEpochTime, p.genesisTime)
 	t1 := new(big.Int).Sub(currentTime, p.genesisTime)
 
 	if new(big.Float).SetInt(t1).Cmp(p.transitionPeriod) <= 0 {
-		return p.calculateSupplyDeltaTrans(currentSupply, t0, t1)
+		return p.calculateSupplyDeltaTrans(circulatingSupply, t0, t1)
 	}
 
 	// t1 > p.t from here
 	if new(big.Float).SetInt(t0).Cmp(p.transitionPeriod) < 0 {
 		pT, _ := p.transitionPeriod.Int(nil)
-		untilT := p.calculateSupplyDeltaTrans(currentSupply, t0, pT)
+		untilT := p.calculateSupplyDeltaTrans(circulatingSupply, t0, pT)
 		afterT := p.calculateSupplyDeltaPerm(inflationReserve, pT, t1)
 		return new(big.Int).Add(untilT, afterT)
 	}
@@ -86,15 +86,15 @@ func (p goParams) calculateSupplyDelta(currentSupply, inflationReserve, lastEpoc
 	// expTerm1.Add(expTerm1, temp4)
 	// expTerm1 = bigfloat.Exp(expTerm1)
 
-	// currentSupplyFloat := new(big.Float).SetPrec(GoFloatPrecision).SetInt(currentSupply)
-	// expTerm1.Mul(expTerm1, currentSupplyFloat)
-	// expTerm1.Sub(expTerm1, currentSupplyFloat)
+	// circulatingSupplyFloat := new(big.Float).SetPrec(GoFloatPrecision).SetInt(circulatingSupply)
+	// expTerm1.Mul(expTerm1, circulatingSupplyFloat)
+	// expTerm1.Sub(expTerm1, circulatingSupplyFloat)
 
 	// res, _ := expTerm1.Int(nil)
 	// return res
 }
 
-func (p goParams) calculateSupplyDeltaTrans(currentSupply, lastEpochTime, currentTime *big.Int) *big.Int {
+func (p goParams) calculateSupplyDeltaTrans(circulatingSupply, lastEpochTime, currentTime *big.Int) *big.Int {
 	one := new(big.Float).SetPrec(GoFloatPrecision).SetInt64(1)
 
 	t0 := new(big.Float).SetPrec(GoFloatPrecision).SetInt(lastEpochTime)
@@ -129,9 +129,9 @@ func (p goParams) calculateSupplyDeltaTrans(currentSupply, lastEpochTime, curren
 	expTerm1.Add(expTerm1, temp4)
 	expTerm1 = bigfloat.Exp(expTerm1)
 
-	currentSupplyFloat := new(big.Float).SetPrec(GoFloatPrecision).SetInt(currentSupply)
-	expTerm1.Mul(expTerm1, currentSupplyFloat)
-	expTerm1.Sub(expTerm1, currentSupplyFloat)
+	circulatingSupplyFloat := new(big.Float).SetPrec(GoFloatPrecision).SetInt(circulatingSupply)
+	expTerm1.Mul(expTerm1, circulatingSupplyFloat)
+	expTerm1.Sub(expTerm1, circulatingSupplyFloat)
 
 	res, _ := expTerm1.Int(nil)
 	return res
@@ -166,7 +166,7 @@ func TestInflationContract(t *testing.T) {
 	goP := newGoParams(p, genesisTime)
 	_, _, inflationControllerContract, err := r.DeployInflationController(nil, *p)
 	require.NoError(r.T, err)
-	currentSupply := new(big.Int).Mul(big.NewInt(60_000_000), params.NTNDecimalFactor) // NTN precision is 18
+	circulatingSupply := new(big.Int).Mul(big.NewInt(60_000_000), params.NTNDecimalFactor) // NTN precision is 18
 	epochPeriod := big.NewInt(4 * 60 * 60)
 	epochCount := new(big.Int).Div(T, epochPeriod)
 	r.T.Log("total epoch", epochCount)
@@ -177,19 +177,19 @@ func TestInflationContract(t *testing.T) {
 		days := currentTime.Day()
 		years := currentTime.Year()
 
-		delta, gasConsumed, err := inflationControllerContract.CalculateSupplyDelta(nil, currentSupply, inflationReserve, lastEpochTime, currentEpochTime)
+		delta, gasConsumed, err := inflationControllerContract.CalculateSupplyDelta(nil, circulatingSupply, inflationReserve, lastEpochTime, currentEpochTime)
 		require.NoError(r.T, err)
 		require.LessOrEqual(r.T, gasConsumed, uint64(30_000))
-		goDeltaComputation := goP.calculateSupplyDelta(currentSupply, inflationReserve, lastEpochTime, currentEpochTime)
+		goDeltaComputation := goP.calculateSupplyDelta(circulatingSupply, inflationReserve, lastEpochTime, currentEpochTime)
 		inflationReserve.Sub(inflationReserve, delta)
 
 		// Compare the go implementation with the solidity one
 		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
-		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
+		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", circulatingSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
 		require.True(r.T, diffSolWithGoBasis.Cmp(common.Big0) == 0, "inflation reward calculation mismatch")
 
-		currentSupply.Add(currentSupply, delta)
+		circulatingSupply.Add(circulatingSupply, delta)
 	}
-	r.T.Log("final NTN supply", new(big.Int).Div(currentSupply, params.NTNDecimalFactor))
+	r.T.Log("final NTN supply", new(big.Int).Div(circulatingSupply, params.NTNDecimalFactor))
 }

@@ -946,8 +946,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Returns the amount of tokens circulating in the network.
-    */
+     * @notice Returns the amount of tokens circulating in the network.
+     */
     function circulatingSupply() external view virtual returns (uint256) {
         return stakeCirculating;
     }

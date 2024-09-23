@@ -361,10 +361,11 @@ func autonityTestConfig() AutonityConfig {
 			InflationControllerContract: params.InflationControllerContractAddress,
 		},
 		Protocol: AutonityProtocol{
-			OperatorAccount: params.TestAutonityContractConfig.Operator,
-			EpochPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
-			BlockPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
-			CommitteeSize:   new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
+			OperatorAccount:     params.TestAutonityContractConfig.Operator,
+			EpochPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
+			BlockPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
+			CommitteeSize:       new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
+			MaxScheduleDuration: new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxScheduleDuration),
 		},
 		ContractVersion: big.NewInt(1),
 	}

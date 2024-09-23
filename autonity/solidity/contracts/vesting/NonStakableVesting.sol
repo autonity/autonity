@@ -42,8 +42,7 @@ contract NonStakableVesting is ContractBase {
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
         if (!_scheduleTracker.initiated) {
-            _scheduleTracker.unsubscribedAmount = _schedule.totalAmount;
-            _scheduleTracker.initiated = true;
+            _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         require(_scheduleTracker.unsubscribedAmount >= _amount, "not enough funds to create a new contract under schedule");
 
@@ -61,14 +60,13 @@ contract NonStakableVesting is ContractBase {
 
     function releaseFundsForTreasury(uint256 _scheduleID) virtual external onlyTreasury {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
+        require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
         if (!_scheduleTracker.initiated) {
-            _scheduleTracker.unsubscribedAmount = _schedule.totalAmount;
-            _scheduleTracker.initiated = true;
+            _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
         }
-        uint256 _unlocked = _calculateUnlockedFunds(_schedule.unlockedAmount, _schedule.totalAmount, _scheduleTracker.unsubscribedAmount)
-                            + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
+        uint256 _unlocked = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
         bool _sent = autonity.transfer(msg.sender, _unlocked);
         require(_sent, "transfer failed");
         _scheduleTracker.withdrawnAmount += _unlocked;
