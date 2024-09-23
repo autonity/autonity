@@ -203,15 +203,9 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 	if header.ActivityProof != nil {
 		targetHeight := header.Number.Uint64() - delta
 		headerSeal := message.PrepareCommittedSeal(hash(targetHeight), int64(header.ActivityProofRound), new(big.Int).SetUint64(targetHeight))
-		_, power, err := header.ActivityProof.Validate(headerSeal, committee)
+		_, _, err := header.ActivityProof.Validate(headerSeal, committee, true)
 		if err != nil {
 			return errors.Join(errInvalidActivityProof, err)
-		}
-
-		// We need at least a quorum for the activity proof.
-		quorum := bft.Quorum(committee.TotalVotingPower())
-		if power.Cmp(quorum) < 0 {
-			return errInvalidActivityProof
 		}
 	}
 
@@ -308,14 +302,9 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 	}
 	// The data that was signed over for this block
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
-	_, power, err := header.QuorumCertificate.Validate(headerSeal, committee)
+	_, _, err := header.QuorumCertificate.Validate(headerSeal, committee, true)
 	if err != nil {
 		return errors.Join(errInvalidQuorumCertificate, err)
-	}
-
-	// We need at least a quorum for the block to be considered valid
-	if power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
-		return errInvalidQuorumCertificate
 	}
 
 	return nil

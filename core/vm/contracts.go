@@ -237,7 +237,6 @@ var (
 	errBadConsensusKeyLen = errors.New("invalid consensus key length")
 	errExcludedValidator  = errors.New("excluding validator")
 	errNonEmptyProof      = errors.New("activity proof should be empty")
-	errInsufficientPower  = errors.New("activity proof does not contain quorum voting power")
 )
 
 type Upgrader struct{}
@@ -1448,19 +1447,13 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	targetHash := evm.Context.GetHash(targetHeight)
 
 	headerSeal := message.PrepareCommittedSeal(targetHash, int64(targetRound), new(big.Int).SetUint64(targetHeight))
-	signers, power, err := proof.Validate(headerSeal, committee)
+	signers, power, err := proof.Validate(headerSeal, committee, true)
 	if err != nil {
 		return nil, fmt.Errorf("invalid activity proof: %w", err)
 	}
 
-	// We need at least a quorum for the activity proof.
-	quorum := bft.Quorum(committee.TotalVotingPower())
-	if power.Cmp(quorum) < 0 {
-		return nil, errInsufficientPower
-	}
-
 	proposerEffort := new(big.Int).Set(power)
-	proposerEffort.Sub(proposerEffort, quorum)
+	proposerEffort.Sub(proposerEffort, bft.Quorum(committee.TotalVotingPower()))
 
 	absentees := deriveAbsentees(signers, committee)
 	return makeReturnData(false, proposerEffort, absentees), nil

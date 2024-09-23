@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"io"
 	"math/big"
 	"reflect"
@@ -37,6 +38,7 @@ var (
 	EmptyRootHash       = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 	EmptyUncleHash      = rlpHash([]*Header(nil))
 	errInvalidSignature = errors.New("aggregate signature is invalid")
+	errNoQuorum         = errors.New("aggregate signature does not contain quorum voting power")
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
@@ -122,7 +124,7 @@ func (a *AggregateSignature) Malformed() bool {
 
 // validates the aggregate signature. It does not modify any internal data structure nor does any caching
 // returns map of signers and total power of the signers
-func (a *AggregateSignature) Validate(message common.Hash, committee *Committee) (map[common.Address]struct{}, *big.Int, error) {
+func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
 	// validate signers information first
 	if _, err := a.Signers.validate(committee.Len()); err != nil {
 		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
@@ -148,6 +150,10 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee)
 	for _, index := range a.Signers.flattenUniq(committee.Len()) {
 		power.Add(power, committee.Members[index].VotingPower)
 		signers[committee.Members[index].Address] = struct{}{}
+	}
+
+	if checkQuorum && power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
+		return nil, nil, errNoQuorum
 	}
 
 	return signers, power, nil
