@@ -10,10 +10,16 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 	"math/big"
 	"reflect"
+)
+
+var (
+	finalizeGas      = metrics.NewRegisteredBufferedGauge("autonity/finalize", nil, nil)
+	epochFinalizeGas = metrics.NewRegisteredBufferedGauge("autonity/epoch/finalize", nil, nil)
 )
 
 type raw []byte
@@ -725,6 +731,20 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 	return epochPeriod, nil
 }
 
+func recordFinalizeGasUsage(isEpochHeader bool, number uint64, usedGas int64) {
+	if isEpochHeader {
+		log.Debug("gas used to finalize epoch block", "number", number, "usedGas", usedGas)
+		if metrics.Enabled {
+			epochFinalizeGas.Add(usedGas)
+		}
+	} else {
+		log.Debug("gas used to finalize block", "number", number, "usedGas", usedGas)
+		if metrics.Enabled {
+			finalizeGas.Add(usedGas)
+		}
+	}
+}
+
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, error) {
 	var updateReady bool
 	var epochEnded bool
@@ -732,7 +752,7 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	previousEpochBlock := new(big.Int)
 	nextEpochBlock := new(big.Int)
 	usedGas, err := c.AutonityContractCall(state, header, "finalize", &[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock})
-	log.Debug("gas used to call finalize", "usedGas", usedGas)
+	recordFinalizeGasUsage(header.IsEpochHeader(), header.Number.Uint64(), int64(usedGas))
 	if err != nil {
 		return false, nil, err
 	}
