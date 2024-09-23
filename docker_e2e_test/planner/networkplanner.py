@@ -149,7 +149,7 @@ class NetworkPlanner(object):
                     "slashingRatePrecision": 10000
                 },
                 "omissionAccountability": {
-                    "inactivityThreshold": 10000, # TODO(lorenzo) reset to 1000 once docker e2e test fixed
+                    "inactivityThreshold": 1000,
                     "lookbackWindow": 10,
                     "pastPerformanceWeight": 1000,
                     "initialJailingPeriod": 300,
