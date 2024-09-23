@@ -75,6 +75,8 @@ var (
 		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
 	}
 
+	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{}
+
 	DeployerAddress                    = common.Address{}
 	AutonityContractAddress            = crypto.CreateAddress(DeployerAddress, 0)
 	AccountabilityContractAddress      = crypto.CreateAddress(DeployerAddress, 1)

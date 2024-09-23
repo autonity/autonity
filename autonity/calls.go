@@ -189,6 +189,10 @@ func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *Gen
 }
 
 func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	if config.NonStakableVestingConfig == nil {
+		log.Info("Config missing, using default parameters for the Non-Stakable Vesting contract")
+		config.NonStakableVestingConfig = params.DefaultNonStakableVestingGenesis
+	}
 	if err := evmContracts.DeployNonStakableVestingContract(
 		generated.NonStakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
 	); err != nil {
@@ -318,8 +322,8 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 	}
 
 	for _, schedule := range genesisConfig.Schedules {
-		if err := evmContracts.CreateNonStakableSchedule(schedule); err != nil {
-			return fmt.Errorf("error while creating new non-stakable schedule: %w", err)
+		if err := evmContracts.CreateSchedule(params.NonStakableVestingContractAddress, schedule); err != nil {
+			return fmt.Errorf("error while creating new schedule: %w", err)
 		}
 	}
 
