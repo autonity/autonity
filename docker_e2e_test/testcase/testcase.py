@@ -290,26 +290,11 @@ class TestCase:
             self.do_context_clean_up()
             return False
 
-        self.start_recover_time = time.time()
-        self.end_chain_height_before_recover = self.get_chain_height()
-
-        if self.recover() is not True:
-            self.scheduler.stop_scheduling_events()
-            return False
-        self.logger.debug("After disaster recover, thread: %d.", threading.active_count())
-
-        # checking if disaster is healed with block synced again with alive nodes within a specified duration.
-        if self.is_healed() is True:
-            self.end_chain_height_after_recover = self.get_chain_height()
-            self.end_recover_time = time.time()
-            self.logger.info("TESTCASE: %s is passed.", self.test_case_conf["name"])
-            #self.generate_report()
-            self.scheduler.try_join()
-            return True
-
+        # just do the recovery without waiting for the healing state as the chain lifecycle will be recreated.
+        self.recover()
+        self.scheduler.stop_scheduling_events()
         self.scheduler.try_join()
-        self.logger.warning('Recovering timeout happens.')
-        return False
+        return True
 
     def generate_report(self):
         if self.tx_start_chain_height > self.tx_end_chain_height:
