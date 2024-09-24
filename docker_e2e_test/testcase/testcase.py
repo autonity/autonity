@@ -265,8 +265,8 @@ class TestCase:
 
     def start_test(self):
         if self.run() is False:
-            self.collect_test_case_context_log()
-            self.collect_system_log()
+            #self.collect_test_case_context_log()
+            #self.collect_system_log()
             return False
         return True
 
