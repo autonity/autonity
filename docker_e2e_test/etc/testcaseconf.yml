@@ -45,11 +45,12 @@ playbook:
           - delay: 60
             action: "start"
             target: [0, 1, 2, 3, 4, 5]
-          - delay: 65 # stop the node after test running for 5 seconds.
+          - delay: 70 # stop the node after test running for 5 seconds.
             action: "stop"
             target: [0, 1] # select candidates from crashNodes.
       input:
-        duration: 180 # num of seconds the transaction sending duration.
+        startAt: 70
+        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -67,14 +68,15 @@ playbook:
           - delay: 60
             action: "start"
             target: [0, 1, 2, 3, 4, 5]
-          - delay: 65 # stop the node after test running for 65 seconds.
+          - delay: 70 # stop the node after test running for 65 seconds.
             action: "stop"
             target: [0, 1] # select candidates from crashNodes.
           - delay: 90 # start the node after test running for 60 seconds.
             action: "start"
             target: [0] # select candidates from crashNodes.
       input:
-        duration: 180 # num of seconds the transaction sending duration.
+        startAt: 70
+        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -92,14 +94,15 @@ playbook:
           - delay: 60
             action: "start"
             target: [0, 1, 2, 3, 4, 5]
-          - delay: 65 # stop the node after test running for 5 seconds.
+          - delay: 70 # stop the node after test running for 5 seconds.
             action: "stop"
             target: [0, 1] # select candidates from crashNodes.
           - delay: 90 # start the node after test running for 60 seconds.
             action: "start"
             target: [0, 1] # select candidates from crashNodes.
       input:
-        duration: 180 # num of seconds the transaction sending duration.
+        startAt: 70
+        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -139,10 +142,10 @@ playbook:
           - delay: 60
             action: "start"
             target: [ 0, 1, 2, 3, 4, 5 ]
-          - delay: 65 # stop the node after test running for seconds.
+          - delay: 70 # stop the node after test running for seconds.
             action: "stop"
             target: [0, 1, 4] # select candidates from crashNodes.
-          - delay: 90 # start the node after test running for 45 seconds.
+          - delay: 80 # start the node after test running for 45 seconds.
             action: "start"
             target: [0] # select candidates from crashNodes.
       input:
@@ -165,10 +168,10 @@ playbook:
           - delay: 60
             action: "start"
             target: [0, 1, 2, 3, 4, 5]
-          - delay: 65 # stop the node after test running for 2 seconds.
+          - delay: 70 # stop the node after test running for 2 seconds.
             action: "stop"
             target: [0, 1, 4] # select candidates from crashNodes.
-          - delay: 90 # start the node after test running for 30 seconds.
+          - delay: 80 # start the node after test running for 30 seconds.
             action: "start"
             target: [0, 1] # select candidates from crashNodes.
       input:
@@ -478,17 +481,17 @@ playbook:
         scenario:
           - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
             action: "re-deploy"
-          - delay: 30 # seconds
+          - delay: 60 # seconds
             action: "start"
             target: [0, 1, 2, 3, 5, 4] # start the specific node within 30s after test case start.
-          - delay: 60 # seconds
+          - delay: 70 # seconds
             action: "stop"
             target: [0, 1, 2] # start the specific node within 90s after test case start.
-          - delay: 120 # seconds
+          - delay: 80 # seconds
             action: "start"
             target: [2] # start the specific node within 120s after test case start.
       input:
-        startAt: 120 # start the TX issuing from 180th seconds.
+        startAt: 90 # start the TX issuing from 180th seconds.
         duration: 90 # num of seconds the transaction sending duration.
         senderNode: 5  # node coin_base address will be used as default sender address.
         receiverNode: 4  # node coin_base address wil be used as default receiver address.
@@ -504,17 +507,17 @@ playbook:
         scenario:
           - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
             action: "re-deploy"
-          - delay: 30 # seconds
+          - delay: 60 # seconds
             action: "start"
             target: [0, 1, 2, 3] # start the specific nodes within 30s after test case start.
-          - delay: 150 # seconds
+          - delay: 70 # seconds
             action: "stop"
-            target: [0, 1, 2, 3] # start the specific node within 90s after test case start.
-          - delay: 180 # seconds
+            target: [0, 1, 2, 3] # stop the specific node within 90s after test case start.
+          - delay: 80 # seconds
             action: "start"
             target: [2, 3, 5, 4] # start the specific node within 120s after test case start.
       input:
-        startAt: 200  # start the TX issuing from 180th seconds.
+        startAt: 80  # start the TX issuing from 180th seconds.
         duration: 120 # num of seconds the transaction sending duration.
         senderNode: 4  # node coin_base address will be used as default sender address.
         receiverNode: 5  # node coin_base address wil be used as default receiver address.
