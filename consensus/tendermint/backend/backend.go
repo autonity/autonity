@@ -259,7 +259,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// verify the header of proposed proposal
 	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
 	// ignore errEmptyQuorumCertificate error because we don't have the quorum certificate yet
-	if err == nil || errors.Is(err, types.ErrEmptyQuorumCertificate) {
+	if err == nil || errors.Is(err, errEmptyQuorumCertificate) {
 		var (
 			receipts types.Receipts
 

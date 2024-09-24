@@ -237,8 +237,6 @@ var (
 	errBadConsensusKeyLen = errors.New("invalid consensus key length")
 	errExcludedValidator  = errors.New("excluding validator")
 	errNonEmptyProof      = errors.New("activity proof should be empty")
-	errInvalidSignature   = errors.New("activity proof contains invalid signature")
-	errInsufficientPower  = errors.New("activity proof does not contain quorum voting power")
 )
 
 type Upgrader struct{}
@@ -1367,12 +1365,6 @@ func (c checkEnode) Run(input []byte, _ uint64, _ *EVM, _ common.Address) ([]byt
 	return out, nil
 }
 
-type absenteesComputer struct{}
-
-func (c absenteesComputer) RequiredGas(_ []byte) uint64 {
-	return params.AbsenteesComputerGas
-}
-
 // TODO(lorenzo) add tests for this function
 func readCommittee(db StateDB, caller common.Address, committeeSlot common.Hash) *types.Committee {
 	committeeSize := int(db.GetState(caller, committeeSlot).Big().Uint64())
@@ -1406,62 +1398,10 @@ func readCommittee(db StateDB, caller common.Address, committeeSlot common.Hash)
 	return committee
 }
 
-type ActivityInfo struct {
-	isProposerFaulty bool
-	proposerEffort   *big.Int
-	absentees        []common.Address
-}
+type absenteesComputer struct{}
 
-func newActivityInfo(isProposerFaulty bool, proposerEffort *big.Int, absentees []common.Address) *ActivityInfo {
-	return &ActivityInfo{
-		isProposerFaulty: isProposerFaulty,
-		proposerEffort:   proposerEffort,
-		absentees:        absentees,
-	}
-}
-
-func ValidateActivityProof(proof *types.AggregateSignature, targetHeight uint64, targetRound uint64, targetHash common.Hash, committee *types.Committee) (*ActivityInfo, error) {
-	// if the activity proof is malformed however, reject the proposal. We cannot accept arbitrary data in the proposal
-	if err := proof.Signers.Validate(committee.Len()); err != nil {
-		return nil, fmt.Errorf("invalid activity proof signers information: %w", err)
-	}
-
-	headerSeal := message.PrepareCommittedSeal(targetHash, int64(targetRound), new(big.Int).SetUint64(targetHeight))
-
-	// Total assembled voting power for the activity proof
-	power := new(big.Int)
-	signers := make(map[common.Address]struct{})
-	for _, index := range proof.Signers.FlattenUniq() {
-		power.Add(power, committee.Members[index].VotingPower)
-		signers[committee.Members[index].Address] = struct{}{}
-	}
-
-	// verify signature
-	var keys []blst.PublicKey //nolint
-	for _, index := range proof.Signers.Flatten() {
-		keys = append(keys, committee.Members[index].ConsensusKey)
-	}
-	aggregatedKey, err := blst.AggregatePublicKeys(keys)
-	if err != nil {
-		panic("Failed to aggregate keys from committee members: " + err.Error())
-	}
-	valid := proof.Signature.Verify(aggregatedKey, headerSeal[:])
-	if !valid {
-		return nil, errInvalidSignature
-	}
-
-	// We need at least a quorum for the activity proof.
-	quorum := bft.Quorum(committee.TotalVotingPower())
-	if power.Cmp(quorum) < 0 {
-		return nil, errInsufficientPower
-	}
-
-	proposerEffort := new(big.Int).Set(power)
-	proposerEffort.Sub(proposerEffort, quorum)
-
-	absentees := deriveAbsentees(signers, committee)
-	return newActivityInfo(false, proposerEffort, absentees), nil
-
+func (c absenteesComputer) RequiredGas(_ []byte) uint64 {
+	return params.AbsenteesComputerGas
 }
 
 func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, caller common.Address) ([]byte, error) {
@@ -1506,45 +1446,14 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	targetHeight := blockNumber - delta.Uint64()
 	targetHash := evm.Context.GetHash(targetHeight)
 
-	info, err := ValidateActivityProof(proof, targetHeight, targetRound, targetHash, committee)
+	headerSeal := message.PrepareCommittedSeal(targetHash, int64(targetRound), new(big.Int).SetUint64(targetHeight))
+	signers, power, err := proof.Validate(headerSeal, committee, true)
 	if err != nil {
 		return nil, fmt.Errorf("invalid activity proof: %w", err)
 	}
-	return makeReturnData(info), nil
 
-	/*
-		// during the first delta blocks of the epoch, the proof should be empty. If not, reject proposal
-		if mustBeEmpty {
-			if proof != nil {
-				return nil, errNonEmptyProof
-			}
-			return makeReturnData(false, new(big.Int), []common.Address{}), nil
-		}
-
-		// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
-		if proof == nil {
-			return makeReturnData(true, new(big.Int), []common.Address{}), nil
-		}
-
-		// if the activity proof is malformed however, reject the proposal. We cannot accept arbitrary data in the proposal
-		if err := proof.Signers.Validate(committee.Len()); err != nil {
-			return nil, fmt.Errorf("invalid activity proof signers information: %w", err)
-		}
-
-		// verification
-
-		targetHeight := blockNumber - delta.Uint64()
-		targetHeaderHash := evm.Context.GetHash(targetHeight)
-		activityProofRound := evm.Context.ActivityProofRound
-		headerSeal := message.PrepareCommittedSeal(targetHeaderHash, int64(activityProofRound), new(big.Int).SetUint64(targetHeight))
-
-		// Total assembled voting power for the activity proof
-		power := new(big.Int)
-		signers := make(map[common.Address]struct{})
-		for _, index := range proof.Signers.FlattenUniq() {
-			power.Add(power, committee.Members[index].VotingPower)
-			signers[committee.Members[index].Address] = struct{}{}
-		}
+	proposerEffort := new(big.Int).Set(power)
+	proposerEffort.Sub(proposerEffort, bft.Quorum(committee.TotalVotingPower()))
 
 		// verify signature
 		var keys []blst.PublicKey //nolint
@@ -1588,9 +1497,8 @@ func makeReturnData(a *ActivityInfo) []byte {
 
 	copy(out[DataLen*2:DataLen*3], common.LeftPadBytes(new(big.Int).SetUint64(DataLen*3).Bytes(), DataLen))                // offset
 	copy(out[DataLen*3:DataLen*4], common.LeftPadBytes(new(big.Int).SetUint64(uint64(len(a.absentees))).Bytes(), DataLen)) // length
-
-	for _, absent := range a.absentees {
-		out = append(out, common.LeftPadBytes(absent.Bytes(), DataLen)...)
+	for _, absentee := range absentees {
+		out = append(out, common.LeftPadBytes(absentee.Bytes(), DataLen)...)
 	}
 
 	return out

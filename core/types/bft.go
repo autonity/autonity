@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/autonity/autonity/crypto"
@@ -21,11 +20,6 @@ var (
 
 	inmemoryAddresses  = 500 // Number of recent addresses from ecrecover
 	recentAddresses, _ = lru.NewARC(inmemoryAddresses)
-
-	// ErrInvalidQuorumCertificate is returned if the committed seal is not signed by any of parent validators.
-	ErrInvalidQuorumCertificate = errors.New("invalid quorum certificate")
-	// ErrEmptyQuorumCertificate is returned if the field of quorum certificate is empty.
-	ErrEmptyQuorumCertificate = errors.New("empty quorum certificate")
 )
 
 // BFTFilteredHeader returns a filtered header which some information (like proposerSeal, quorumCertificate)

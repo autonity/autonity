@@ -342,7 +342,6 @@ contract OmissionAccountability is IOmissionAccountability {
                (bool ok, ) = treasuries[i].call{value: atnProposerReward, gas: 2300}("");
                // well, too bad, it goes to the autonity global treasury.
                if(!ok) {
-                   // TODO(lorenzo) check return value?
                    autonity.getTreasuryAccount().call{value:atnProposerReward}("");
                }
 

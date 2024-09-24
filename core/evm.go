@@ -55,13 +55,6 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		random = &header.MixDigest
 	}
 
-	// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
-	var activityProofCopy *types.AggregateSignature
-	if header.ActivityProof != nil {
-		//activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
-		activityProofCopy = header.ActivityProof
-	}
-
 	return vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -74,7 +67,7 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		GasLimit:    header.GasLimit,
 		Random:      random,
 
-		ActivityProof:      activityProofCopy,
+		ActivityProof:      header.ActivityProof,
 		ActivityProofRound: header.ActivityProofRound,
 	}
 }
@@ -82,13 +75,6 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 // Used by the Autonity Contract
 func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 	return func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
-		// TODO(lorenzo) double check if we even need a copy, it was due to calling Validate() in absenteesComputer
-		var activityProofCopy *types.AggregateSignature
-		if header.ActivityProof != nil {
-			//activityProofCopy = header.ActivityProof.Copy() // if too computationally expensive, copy it only when needed in absenteesComputer precompile
-			activityProofCopy = header.ActivityProof
-		}
-
 		evmContext := vm.BlockContext{
 			CanTransfer: CanTransfer,
 			Transfer:    Transfer,
@@ -100,7 +86,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			Difficulty:  header.Difficulty,
 			BaseFee:     header.BaseFee,
 
-			ActivityProof:      activityProofCopy,
+			ActivityProof:      header.ActivityProof,
 			ActivityProofRound: header.ActivityProofRound,
 		}
 		txContext := vm.TxContext{

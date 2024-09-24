@@ -61,7 +61,7 @@ func TestVerifyHeader(t *testing.T) {
 	require.NoError(t, err)
 
 	err = engine.VerifyHeader(chain, block.Header(), false)
-	require.True(t, errors.Is(err, types.ErrEmptyQuorumCertificate))
+	require.True(t, errors.Is(err, errEmptyQuorumCertificate))
 
 	header := block.Header()
 

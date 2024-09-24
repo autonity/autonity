@@ -53,7 +53,11 @@ var (
 	// errInvalidTimestamp is returned if the timestamp of a block is lower than the previous block's timestamp + the minimum block period.
 	errInvalidTimestamp = errors.New("invalid timestamp")
 	// errInvalidRound is returned if the round exceed maximum round number.
-	errInvalidRound = errors.New("invalid round")
+	errInvalidRound             = errors.New("invalid round")
+	errNotEmptyActivityProof    = errors.New("activity proof should be empty")
+	errInvalidActivityProof     = errors.New("invalid activity proof")
+	errInvalidQuorumCertificate = errors.New("invalid quorum certificate")
+	errEmptyQuorumCertificate   = errors.New("empty quorum certificate")
 )
 var (
 	defaultDifficulty             = big.NewInt(1)
@@ -193,13 +197,15 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 	mustBeEmpty := header.Number.Uint64() <= epochBlock+delta
 
 	if mustBeEmpty && header.ActivityProof != nil {
-		return fmt.Errorf("proof should be empty")
+		return errNotEmptyActivityProof
 	}
 
 	if header.ActivityProof != nil {
 		targetHeight := header.Number.Uint64() - delta
-		if _, err := vm.ValidateActivityProof(header.ActivityProof, targetHeight, header.ActivityProofRound, hash(targetHeight), committee); err != nil {
-			return fmt.Errorf("invalid activity proof: %w", err)
+		headerSeal := message.PrepareCommittedSeal(hash(targetHeight), int64(header.ActivityProofRound), new(big.Int).SetUint64(targetHeight))
+		_, _, err := header.ActivityProof.Validate(headerSeal, committee, true)
+		if err != nil {
+			return errors.Join(errInvalidActivityProof, err)
 		}
 	}
 
@@ -292,42 +298,13 @@ func (sb *Backend) verifySigner(header *types.Header, committee *types.Committee
 func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *types.Committee) error {
 	// un-finalized proposals will have quorum certificate set to nil
 	if header.QuorumCertificate == nil {
-		return types.ErrEmptyQuorumCertificate
+		return errEmptyQuorumCertificate
 	}
-	// TODO(lorenzo) do we need this copy
-	//quorumCertificate := header.QuorumCertificate.Copy() // copy so that we do not modify the header when doing Signers.Validate()
-	quorumCertificate := header.QuorumCertificate
-	if err := quorumCertificate.Signers.Validate(committee.Len()); err != nil {
-		return fmt.Errorf("invalid quorum certificate signers information: %w", err)
-	}
-
 	// The data that was signed over for this block
 	headerSeal := message.PrepareCommittedSeal(header.Hash(), int64(header.Round), header.Number)
-
-	// Total Voting power for this block
-	power := new(big.Int)
-	for _, index := range quorumCertificate.Signers.FlattenUniq() {
-		power.Add(power, committee.Members[index].VotingPower)
-	}
-
-	// verify signature
-	var keys []blst.PublicKey //nolint
-	for _, index := range quorumCertificate.Signers.Flatten() {
-		keys = append(keys, committee.Members[index].ConsensusKey)
-	}
-	aggregatedKey, err := blst.AggregatePublicKeys(keys)
+	_, _, err := header.QuorumCertificate.Validate(headerSeal, committee, true)
 	if err != nil {
-		sb.logger.Crit("Failed to aggregate keys from committee members", "err", err)
-	}
-	valid := quorumCertificate.Signature.Verify(aggregatedKey, headerSeal[:])
-	if !valid {
-		sb.logger.Error("block had invalid committed seal")
-		return types.ErrInvalidQuorumCertificate
-	}
-
-	// We need at least a quorum for the block to be considered valid
-	if power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
-		return types.ErrInvalidQuorumCertificate
+		return errors.Join(errInvalidQuorumCertificate, err)
 	}
 
 	return nil
