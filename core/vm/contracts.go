@@ -1407,7 +1407,7 @@ func (c absenteesComputer) RequiredGas(_ []byte) uint64 {
 func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, caller common.Address) ([]byte, error) {
 	// if we are in testMode (used by truffle tests) just return no absents
 	if evm.chainConfig.TestMode {
-		return makeReturnData(newActivityInfo(false, common.Big0, []common.Address{})), nil
+		return makeReturnData(false, common.Big0, []common.Address{}), nil
 	}
 
 	if caller != params.OmissionAccountabilityContractAddress {
@@ -1435,12 +1435,12 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 		if proof != nil {
 			return nil, errNonEmptyProof
 		}
-		return makeReturnData(newActivityInfo(false, new(big.Int), []common.Address{})), nil
+		return makeReturnData(false, new(big.Int), []common.Address{}), nil
 	}
 
 	// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
 	if proof == nil {
-		return makeReturnData(newActivityInfo(true, new(big.Int), []common.Address{})), nil
+		return makeReturnData(true, new(big.Int), []common.Address{}), nil
 	}
 
 	targetHeight := blockNumber - delta.Uint64()
@@ -1455,48 +1455,25 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	proposerEffort := new(big.Int).Set(power)
 	proposerEffort.Sub(proposerEffort, bft.Quorum(committee.TotalVotingPower()))
 
-		// verify signature
-		var keys []blst.PublicKey //nolint
-		for _, index := range proof.Signers.Flatten() {
-			keys = append(keys, committee.Members[index].ConsensusKey)
-		}
-		aggregatedKey, err := blst.AggregatePublicKeys(keys)
-		if err != nil {
-			panic("Failed to aggregate keys from committee members: " + err.Error())
-		}
-		valid := proof.Signature.Verify(aggregatedKey, headerSeal[:])
-		if !valid {
-			return nil, errInvalidSignature
-		}
-
-		// We need at least a quorum for the activity proof.
-		quorum := bft.Quorum(committee.TotalVotingPower())
-		if power.Cmp(quorum) < 0 {
-			return nil, errInsufficientPower
-		}
-
-		proposerEffort := new(big.Int).Set(power)
-		proposerEffort.Sub(proposerEffort, quorum)
-
-		absentees := deriveAbsentees(signers, committee)
-		return makeReturnData(false, proposerEffort, absentees), nil*/
+	absentees := deriveAbsentees(signers, committee)
+	return makeReturnData(false, proposerEffort, absentees), nil
 }
 
-// func makeReturnData(isProposerFaulty bool, proposerEffort *big.Int, absentees []common.Address) []byte {
-func makeReturnData(a *ActivityInfo) []byte {
+func makeReturnData(isProposerFaulty bool, proposerEffort *big.Int, absentees []common.Address) []byte {
 	// do not pack the bool to make decoding easier in precompiled.sol
 	length := DataLen + DataLen + DataLen + DataLen // 1 bool + 1 uint256 + the offset of the dynamic addresses array + the length of the dynamic addresses array
 
 	out := make([]byte, length)
-	if a.isProposerFaulty {
+	if isProposerFaulty {
 		copy(out[0:DataLen], common.LeftPadBytes([]byte{1}, DataLen))
 	} else {
 		copy(out[0:DataLen], common.LeftPadBytes([]byte{0}, DataLen))
 	}
-	copy(out[DataLen:DataLen*2], common.LeftPadBytes(a.proposerEffort.Bytes(), DataLen))
+	copy(out[DataLen:DataLen*2], common.LeftPadBytes(proposerEffort.Bytes(), DataLen))
 
-	copy(out[DataLen*2:DataLen*3], common.LeftPadBytes(new(big.Int).SetUint64(DataLen*3).Bytes(), DataLen))                // offset
-	copy(out[DataLen*3:DataLen*4], common.LeftPadBytes(new(big.Int).SetUint64(uint64(len(a.absentees))).Bytes(), DataLen)) // length
+	copy(out[DataLen*2:DataLen*3], common.LeftPadBytes(new(big.Int).SetUint64(DataLen*3).Bytes(), DataLen))              // offset
+	copy(out[DataLen*3:DataLen*4], common.LeftPadBytes(new(big.Int).SetUint64(uint64(len(absentees))).Bytes(), DataLen)) // length
+
 	for _, absentee := range absentees {
 		out = append(out, common.LeftPadBytes(absentee.Bytes(), DataLen)...)
 	}
