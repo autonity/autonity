@@ -207,9 +207,6 @@ func (h *Header) Size() common.StorageSize {
 // that the unbounded fields are stuffed with junk data to add processing
 // overhead
 func (h *Header) SanityCheck() error {
-	if h.Number == nil {
-		return fmt.Errorf("header number is nil")
-	}
 	if h.Number != nil && !h.Number.IsUint64() {
 		return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
 	}
