@@ -178,7 +178,7 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications (the order is that of
 // the input slice).
-func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, _ []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 	committee, _, _, _, err := chain.LatestEpoch()
@@ -199,8 +199,16 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				sb.logger.Error("VerifyHeaders", "cannot find parent header", header.ParentHash)
 				err = consensus.ErrUnknownAncestor
 			} else {
-				// check header against parent and parent epoch head.
-				err = sb.verifyHeader(chain, header, parent, committee)
+				// check not imported header against parent, skip the header that was inserted.
+				// The edge case was addressed by the docker e2e test, that was, the epoch block was inserted by
+				// the enqueuer (a local virtual peer to insert the decision of consensus) consensus engine, however
+				// block sync routine of the execution layer can sync the same epoch block from peers, thus it cause
+				// the epoch boundary check failed due to a wrong epoch resolved. So we skip the known header verification
+				// as the VerifyHeader() interface did.
+				number := header.Number.Uint64()
+				if chain.GetHeader(header.Hash(), number) == nil {
+					err = sb.verifyHeader(chain, header, parent, committee)
+				}
 			}
 			// if the processing header is a new epoch header, update the epoch info for un-processed headers .
 			if header.IsEpochHeader() {
