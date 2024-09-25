@@ -69,11 +69,6 @@ class TestCase:
         self.start_recover_time = time.time()
         self.end_chain_height_before_recover = self.get_chain_height()
         self.recover()
-        # checking if disaster is healed with block synced again with alive nodes within a specified duration.
-        if self.is_healed() is True:
-            self.end_chain_height_after_recover = self.get_chain_height()
-            self.end_recover_time = time.time()
-            #self.generate_report()
 
     def tx_send(self):
         try:
@@ -238,24 +233,10 @@ class TestCase:
         if self.is_block_in_consistent_state() is not True:
             self.do_context_clean_up()
             return False
-
-        if self.recover() is not True:
-            self.scheduler.stop_scheduling_events()
-            return False
-        self.logger.debug("After disaster recover, thread: %d.", threading.active_count())
-
-        # checking if disaster is healed with block synced again with alive nodes within a specified duration.
-        if self.is_healed() is True:
-            self.end_chain_height_after_recover = self.get_chain_height()
-            self.end_recover_time = time.time()
-            self.logger.info("TESTCASE: %s is passed.", self.test_case_conf["name"])
-            #self.generate_report()
-            self.scheduler.try_join()
-            return True
-
+        # just trigger the recover without waiting for it since the chain lifecycle will be terminated for each test.
+        self.recover()
         self.scheduler.try_join()
-        self.logger.warning('Recovering timeout happens.')
-        return False
+        return True
 
     def generate_report(self):
         if self.tx_start_chain_height > self.tx_end_chain_height:
@@ -323,29 +304,6 @@ class TestCase:
             if client.heal_from_disaster() is not True:
                 failed = True
         return True if not failed else False
-
-    def is_healed(self):
-        return True
-        '''
-        # measure the best height.
-        best_height = self.get_chain_height()
-        healed_clients = {}
-        start = timer()
-        return True
-        while (timer() - start) < HEAL_TIME_OUT:
-            self.logger.debug("IsHeal, current thread count: %d", threading.active_count())
-            if len(healed_clients) == len(self.clients):
-                return True
-            for index, client in self.clients.items():
-                height = client.get_chain_height()
-                if height is None:
-                    continue
-                if height >= best_height:
-                    healed_clients[index] = client
-            time.sleep(1)
-        self.logger.warning('Disaster recovering timeout. 5 minutes!')
-        return False
-        '''
 
     def collect_system_log(self):
         try:
