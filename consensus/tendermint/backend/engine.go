@@ -157,7 +157,7 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	// as the VerifyHeader() interface did.
 	if header.Number.Uint64() == curEpochBlock {
 		if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
-			return nil
+			return core.ErrKnownBlock
 		}
 		// panic("current epoch block is not in the chain")
 		return fmt.Errorf("current epoch block is not in the chain")
