@@ -59,8 +59,8 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-4: With 2 node crashed, 1 node back, after the back, consensus should not on-holding."
+      re-deploy: true
       condition:
-        re-deploy: true
         crashNodes: [0, 1] # contain the node domain name we want to crash.
         scenario:
           - delay: 1 # redeploy the network.
@@ -85,8 +85,8 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-5: With 2 node crashed, 2 node back, after the back, consensus should not on-holding."
+      re-deploy: true
       condition:
-        re-deploy: true
         crashNodes: [0, 1] # contain the node domain name we want to crash.
         scenario:
           - delay: 1
