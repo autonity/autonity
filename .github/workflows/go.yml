@@ -360,7 +360,7 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=5 END=8
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=4 END=8
 
   docker-e2e-tests-part3:
     needs: prepare-cache
@@ -386,7 +386,7 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=9 END=13
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=8 END=13
 
   docker-e2e-tests-part4:
     needs: prepare-cache
@@ -412,7 +412,7 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=14 END=17
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=13 END=17
 
   docker-e2e-tests-part5:
     needs: prepare-cache
@@ -438,7 +438,7 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=18 END=22
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=17 END=22
 
   docker-e2e-tests-part6:
     needs: prepare-cache
@@ -464,4 +464,4 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=23 END=26
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=22 END=26
