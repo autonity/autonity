@@ -504,7 +504,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Sets the max allowed duration of any schedule or contract.
      * @custom:restricted-to operator account
      */
-    function setMaxAllowedDuration(uint256 _newMaxDuration) virtual external onlyOperator {
+    function setMaxScheduleDuration(uint256 _newMaxDuration) virtual external onlyOperator {
         config.protocol.maxScheduleDuration = _newMaxDuration;
     }
 
@@ -973,6 +973,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
     function getMaxCommitteeSize() external view virtual returns (uint256) {
         return config.protocol.committeeSize;
+    }
+
+    /**
+     * @notice Returns the max allowed duration of any schedule or contract.
+     */
+    function getMaxScheduleDuration() external virtual view returns (uint256) {
+        return config.protocol.maxScheduleDuration;
     }
 
     /**
