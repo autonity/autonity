@@ -838,8 +838,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             _removeContractAddresses();
             _applyNewCommissionRates();
 
-            address[] memory _voters = computeCommittee();
-            config.contracts.oracleContract.setVoters(_voters);
+            (address[] memory newOracles, address[] memory newCommittee) = computeCommittee();
+            config.contracts.oracleContract.setVoters(newOracles);
+            config.contracts.accountabilityContract.setCommittee(newCommittee);
 
             uint256 previousEpochBlock = epochInfos[epochID].epochBlock;
             // apply new epoch period.
@@ -867,7 +868,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice update the current committee by selecting top staking validators.
     * Restricted to the protocol.
     */
-    function computeCommittee() public virtual onlyProtocol returns (address[] memory){
+    function computeCommittee() public virtual onlyProtocol returns (address[] memory, address[] memory){
         // Left public for testing purposes.
         require(validatorList.length > 0, "There must be validators");
         uint256[5] memory input;
@@ -884,13 +885,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         delete committeeNodes;
         uint256 committeeSize = committee.length;
         require(committeeSize > 0, "committee is empty");
-        address[] memory _voters = new address[](committeeSize);
+        address[] memory _oracleVoters = new address[](committeeSize);
+        address[] memory _afdReporters = new address[](committeeSize);
         for (uint i = 0; i < committeeSize; i++) {
             Validator storage _member = validators[committee[i].addr];
             committeeNodes.push(_member.enode);
-            _voters[i] = _member.oracleAddress;
+            _oracleVoters[i] = _member.oracleAddress;
+            _afdReporters[i] = _member.nodeAddress;
         }
-        return _voters;
+        return (_oracleVoters, _afdReporters);
     }
 
     /*
@@ -947,7 +950,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function getLastEpochBlock() external view virtual returns (uint256) {
         return epochInfos[epochID].epochBlock;
-        //return lastEpochBlock;
     }
 
     /**

@@ -445,6 +445,32 @@ func FuzzFromPayload(f *testing.F) {
 	})
 }
 
+func TestComplexAggregation(t *testing.T) {
+	h := uint64(1)
+	r := int64(0)
+	v1 := common.HexToHash("0a5843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
+	csize := len(testCommittee.Members)
+	err := testCommittee.Enrich()
+	require.NoError(t, err)
+	//header := &types.Header{Committee: testCommittee}
+	t.Run("aggregate same message", func(t *testing.T) {
+		var votes1 []Vote
+		votes1 = append(votes1, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[0], csize))
+		votes1 = append(votes1, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[1], csize))
+		aggregate1 := AggregatePrevotes(votes1)
+		require.Equal(t, 2, len(aggregate1.Signers().Flatten()))
+
+		var votes2 []Vote
+		votes2 = append(votes2, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[0], csize))
+		votes2 = append(votes2, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[2], csize))
+		aggregate2 := AggregatePrevotes(votes2)
+		require.Equal(t, 2, len(aggregate2.Signers().Flatten()))
+
+		aggregate3 := AggregatePrevotes([]Vote{aggregate1, aggregate2})
+		require.Equal(t, 4, len(aggregate3.signers.Flatten()))
+	})
+}
+
 func TestAggregateVotes(t *testing.T) {
 	// Rules:
 	// 1. votes are ordered by decreasing power

@@ -39,14 +39,14 @@ func TestCollusionPVO(t *testing.T) {
 	b := getCollusion(autonity.PVO)
 	// the leader should be slashed by PO accusation, since there is no innocence proof for it.
 	leader := crypto.PubkeyToAddress(b.leader.NodeKey.PublicKey)
-	detected := e2e.AccountabilityEventDetected(t, leader, autonity.Accusation, autonity.PO, network)
-	require.Equal(t, true, detected)
+	err = e2e.AccountabilityEventDetected(t, leader, autonity.Accusation, autonity.PO, network)
+	require.NoError(t, err)
 
 	// while the followers should be slashed by PVO accusation since there are no innocence proof for it.
 	for _, f := range b.followers {
 		faultyAddress := crypto.PubkeyToAddress(f.NodeKey.PublicKey)
-		detected = e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.PVO, network)
-		require.Equal(t, true, detected)
+		err = e2e.AccountabilityEventDetected(t, faultyAddress, autonity.Accusation, autonity.PVO, network)
+		require.NoError(t, err)
 	}
 }
 

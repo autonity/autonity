@@ -38,8 +38,8 @@ func runTest(t *testing.T, services *interfaces.Services, eventType autonity.Acc
 
 	// check if the misbehaviour is presented for faulty node #0
 	faultyAddress := network[faultyNode].Address
-	detected := e2e.AccountabilityEventDetected(t, faultyAddress, eventType, rule, network)
-	require.Equal(t, true, detected)
+	err = e2e.AccountabilityEventDetected(t, faultyAddress, eventType, rule, network)
+	require.NoError(t, err)
 }
 
 func newPNBroadcaster(c interfaces.Core) interfaces.Broadcaster {
