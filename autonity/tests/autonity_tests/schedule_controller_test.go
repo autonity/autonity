@@ -118,7 +118,7 @@ func TestScheduleOperation(t *testing.T) {
 		r.WaitNBlocks(int(produceBlocks))
 		newEpochID, _, err := r.Autonity.EpochID(nil)
 		require.NoError(r.T, err)
-		require.Equal(r.T, epochID, newEpochID, "epoch progessed, cannot test")
+		require.Equal(r.T, epochID, newEpochID, "epoch progressed, cannot test")
 
 		schedule, _, err = r.Autonity.GetSchedule(nil, vaultAddress, common.Big0)
 		require.NoError(r.T, err)
