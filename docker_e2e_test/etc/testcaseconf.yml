@@ -124,7 +124,7 @@ playbook:
             action: "stop"
             target: [0, 1, 4] # select candidates from crashNodes.
       input:
-        startAt: 60
+        startAt: 120
         duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
@@ -150,7 +150,7 @@ playbook:
             action: "start"
             target: [0] # select candidates from crashNodes.
       input:
-        startAt: 90
+        startAt: 120
         duration: 120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.

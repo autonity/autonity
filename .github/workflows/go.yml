@@ -334,7 +334,7 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=0 END=8
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=0 END=4
 
   docker-e2e-tests-part2:
     needs: prepare-cache
@@ -360,7 +360,7 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=9 END=17
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=5 END=8
 
   docker-e2e-tests-part3:
     needs: prepare-cache
@@ -386,4 +386,82 @@ jobs:
         run: make all
 
       - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=18 END=26
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=9 END=13
+
+  docker-e2e-tests-part4:
+    needs: prepare-cache
+    runs-on: ubuntu-20.04
+    #if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+        id: go
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Build
+        run: make all
+
+      - name: Run docker e2e tests
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=14 END=17
+
+  docker-e2e-tests-part5:
+    needs: prepare-cache
+    runs-on: ubuntu-20.04
+    #if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+        id: go
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Build
+        run: make all
+
+      - name: Run docker e2e tests
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=18 END=22
+
+  docker-e2e-tests-part6:
+    needs: prepare-cache
+    runs-on: ubuntu-20.04
+    #if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+        id: go
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Build
+        run: make all
+
+      - name: Run docker e2e tests
+        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=23 END=26

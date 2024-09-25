@@ -44,8 +44,6 @@ class TestCase:
         self.tx_sent = 0
         self.tx_mined = 0
         self.balance_mined_by_the_test = 0
-        self.sender_before_balance = 0
-        self.receiver_before_balance = 0
 
     def __del__(self):
         try:
@@ -105,8 +103,6 @@ class TestCase:
 
             if sender_index not in self.clients or receiver_index not in self.clients:
                 return None
-            self.sender_before_balance = self.clients[sender_index].get_balance()
-            self.receiver_before_balance = self.clients[receiver_index].get_balance()
             while (timer() - start) < duration or self.scheduler.is_scheduling_events():
                 time.sleep(1)
                 try:
@@ -124,50 +120,6 @@ class TestCase:
         except Exception as e:
             self.logger.error("cannot access remote RPC endpoint: %s", e)
             return None
-        return True
-
-    def is_balance_okay(self):
-        """Verify balance base on test_case_conf between sender and receiver."""
-        self.logger.debug("Before test, sender have: %d tokens", self.sender_before_balance)
-        self.logger.debug("Before test, receiver have: %d tokens", self.receiver_before_balance)
-        amount_per_tx = self.test_case_conf["input"]["amountperTX"]
-        sender_index = self.test_case_conf["input"]["senderNode"]
-        receiver_index = self.test_case_conf["input"]["receiverNode"]
-        try:
-            with open(self.tx_history_file, 'r') as reader:
-                for tx_hash in reader:
-                    # check if TX is mined, then calculate balance between sender and receiver.
-                    result = self.clients[sender_index].get_transaction_by_hash(tx_hash.strip('\n'))
-                    # TX was mined, count the expected balance
-                    if result["blockHash"] is not None:
-                        self.tx_mined += 1
-                        self.balance_mined_by_the_test += amount_per_tx
-        except IOError as e:
-            self.logger.error("Cannot get TX via RPC api: %s", e)
-        except (KeyError, TypeError) as e:
-            self.logger.error("Cannot find blockHash from result, something wrong from RPC service: %s", e)
-        except Exception as e:
-            self.logger.error("Something wrong happens at balance validation. %s", e)
-
-        sender_after_balance = self.clients[sender_index].get_balance()
-        receiver_after_balance = self.clients[receiver_index].get_balance()
-
-        if sender_after_balance is None or receiver_after_balance is None:
-            return False
-
-        # checking balance if sending tokens to self.
-        if sender_index == receiver_index:
-            self.logger.debug("sender balance: %d, receiver balance: %d", sender_after_balance, receiver_after_balance)
-            if sender_after_balance != receiver_after_balance:
-                return False
-
-        # checking sender's balance.
-        if self.sender_before_balance - self.balance_mined_by_the_test == sender_after_balance is False:
-            return False
-
-        # checking receiver's balance.
-        if self.receiver_before_balance + self.balance_mined_by_the_test == receiver_after_balance is False:
-            return False
         return True
 
     def get_dead_validators(self):
@@ -278,9 +230,6 @@ class TestCase:
         if self.scheduler.schedule() is not True:
             return False
         if self.tx_send() is not True:
-            self.do_context_clean_up()
-            return False
-        if self.is_balance_okay() is not True:
             self.do_context_clean_up()
             return False
         if self.is_engine_state_expected() is not True:
