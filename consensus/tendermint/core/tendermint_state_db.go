@@ -162,7 +162,7 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs *TendermintState, startNe
 	before := time.Now()
 	entryBytes, err := rlp.EncodeToBytes(&extRoundState)
 	rsdb.rsRLPEncTimer.UpdateSince(before)
-	rsdb.rsRLPEncBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
+	rsdb.rsRLPEncBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds()) //nolint
 	if err != nil {
 		logger.Error("Failed to save roundState in WAL", "reason", "rlp encoding", "err", err)
 		return err
@@ -197,7 +197,7 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs *TendermintState, startNe
 	}
 	err = batch.Write()
 	rsdb.rsDbSaveTimer.UpdateSince(before)
-	rsdb.rsDbSaveBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
+	rsdb.rsDbSaveBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds()) //nolint
 	if err != nil {
 		logger.Error("Failed to save roundState in WAL", "reason", "level db write", "err", err, "func")
 	}
@@ -315,7 +315,7 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 	m := ExtMsg{Msg: msg, Verified: verified}
 	msgBytes, err := rlp.EncodeToBytes(&m)
 	rsdb.msgRLPEncTimer.UpdateSince(before)
-	rsdb.msgRLPEncBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
+	rsdb.msgRLPEncBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds()) //nolint
 	if err != nil {
 		rsdb.logger.Error("Failed to save msg in WAL", "reason", "rlp encoding", "err", err)
 		return err
