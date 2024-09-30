@@ -5,7 +5,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/rawdb"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
@@ -23,14 +22,14 @@ func TestTendermintStateDB(t *testing.T) {
 	require.Equal(t, uint64(0), db.maxMsgID)
 
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-	addr := committeeSet.Committee()[0].Address // round 3 - height 1 proposer
+	addr := committeeSet.Committee().Members[0].Address // round 3 - height 1 proposer
 	height := uint64(1)
 	round := int64(0)
 	signer := makeSigner(keys[addr].consensus)
-	signerMember := &committeeSet.Committee()[0]
-	cSize := len(committeeSet.Committee())
+	signerMember := &committeeSet.Committee().Members[0]
+	cSize := committeeSet.Committee().Len()
 	proposal := generateBlockProposal(round, new(big.Int).SetUint64(height), -1, false, signer, signerMember)
-	header := &types.Header{Number: common.Big0, Committee: committeeSet.Committee()}
+	//header := &types.Header{Number: common.Big0, Committee: committeeSet.Committee()}
 
 	t.Run("flush tendermint state", func(t *testing.T) {
 		state := TendermintState{
@@ -82,7 +81,7 @@ func TestTendermintStateDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, true, verified)
 
-		err = msg.PreValidate(header)
+		err = msg.PreValidate(committeeSet.Committee())
 		require.NoError(t, err)
 		err = msg.Validate()
 		require.NoError(t, err)
@@ -103,7 +102,7 @@ func TestTendermintStateDB(t *testing.T) {
 		require.Equal(t, proposal.Block().Number().Uint64(), actualProposal.Block().Number().Uint64())
 
 		// flush a prevote
-		preVote := message.NewPrevote(round, height, common.Hash{}, signer, &committeeSet.Committee()[0], cSize)
+		preVote := message.NewPrevote(round, height, common.Hash{}, signer, &committeeSet.Committee().Members[0], cSize)
 		err = db.AddMsg(preVote, true)
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), db.maxMsgID)
@@ -118,7 +117,7 @@ func TestTendermintStateDB(t *testing.T) {
 		msg, verified, err = db.GetMsg(db.lastConsensusMsgID)
 		require.NoError(t, err)
 		require.Equal(t, true, verified)
-		err = msg.PreValidate(header)
+		err = msg.PreValidate(committeeSet.Committee())
 		require.NoError(t, err)
 		err = msg.Validate()
 		require.NoError(t, err)
@@ -127,7 +126,7 @@ func TestTendermintStateDB(t *testing.T) {
 		}
 
 		// flush a precommit
-		precomit := message.NewPrecommit(round, height, common.Hash{}, signer, &committeeSet.Committee()[0], cSize)
+		precomit := message.NewPrecommit(round, height, common.Hash{}, signer, &committeeSet.Committee().Members[0], cSize)
 		err = db.AddMsg(precomit, true)
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), db.maxMsgID)
@@ -142,7 +141,7 @@ func TestTendermintStateDB(t *testing.T) {
 		msg, verified, err = db.GetMsg(db.lastConsensusMsgID)
 		require.NoError(t, err)
 		require.Equal(t, true, verified)
-		err = msg.PreValidate(header)
+		err = msg.PreValidate(committeeSet.Committee())
 		require.NoError(t, err)
 		err = msg.Validate()
 		require.NoError(t, err)
@@ -154,7 +153,7 @@ func TestTendermintStateDB(t *testing.T) {
 		ctl := gomock.NewController(t)
 		defer ctl.Finish()
 		chainMock := consensus.NewMockChainHeaderReader(ctl)
-		chainMock.EXPECT().GetHeaderByNumber(height - 1).AnyTimes().Return(header)
+		chainMock.EXPECT().LatestEpoch().AnyTimes().Return(committeeSet.Committee(), uint64(0), uint64(0), uint64(0), nil)
 		messages := db.RoundMsgsFromDB(chainMock)
 		require.Equal(t, 3, len(messages.All()))
 
@@ -186,7 +185,7 @@ func TestTendermintStateDB(t *testing.T) {
 		require.Equal(t, db.maxMsgID, flushedMaxMsgID)
 
 		// flush a prevote msg of the new height.
-		preVote = message.NewPrevote(round, uint64(2), common.Hash{}, signer, &committeeSet.Committee()[0], cSize)
+		preVote = message.NewPrevote(round, uint64(2), common.Hash{}, signer, &committeeSet.Committee().Members[0], cSize)
 		err = db.AddMsg(preVote, true)
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), db.lastConsensusMsgID)

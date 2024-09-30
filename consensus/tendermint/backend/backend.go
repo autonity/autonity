@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"github.com/autonity/autonity/ethdb"
@@ -128,8 +127,7 @@ type Backend struct {
 
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
-	contractsMu sync.RWMutex //todo(youssef): is that necessary?
-	vmConfig    *vm.Config
+	vmConfig *vm.Config
 
 	MsgStore   *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 	jailed     map[common.Address]uint64
@@ -159,7 +157,7 @@ func (sb *Backend) Address() common.Address {
 }
 
 // Broadcast implements tendermint.Backend.Broadcast
-func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
+func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to others
 	sb.Gossip(committee, message)
 	// send to self (directly to Core and FD, no need to verify local messages)
@@ -170,12 +168,12 @@ func (sb *Backend) Broadcast(committee types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(header *types.Header) {
-	sb.gossiper.AskSync(header)
+func (sb *Backend) AskSync(committee *types.Committee) {
+	sb.gossiper.AskSync(committee)
 }
 
 // Gossip implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(committee types.Committee, msg message.Msg) {
+func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg) {
 	sb.gossiper.Gossip(committee, msg)
 }
 
@@ -316,49 +314,28 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		}
 
 		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
-		committee, receipt, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
+		receipt, epochInfo, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
 		if err != nil {
 			return 0, err
 		}
 		receipts = append(receipts, receipt)
-		//Validate the state of the proposal
+		// Validate the state of the proposal
 		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, *usedGas); err != nil {
 			sb.logger.Error("proposal proposed, bad root state", err)
 			return 0, err
 		}
 
-		//Perform the actual comparison
-		if len(header.Committee) != len(committee) {
-			sb.logger.Error("wrong committee set",
+		if !proposal.Header().Epoch.Equal(epochInfo) {
+			sb.logger.Error("inconsistent epoch info",
+				"currentVerifier", sb.address.String(),
 				"proposalNumber", proposalNumber,
-				"extraLen", len(header.Committee),
-				"currentLen", len(committee),
-				"committee", header.Committee,
-				"current", committee,
+				"headerEpoch", header.Epoch,
+				"computedEpoch", epochInfo,
 			)
-			return 0, consensus.ErrInconsistentCommitteeSet
+			return 0, consensus.ErrInconsistentEpochInfo
 		}
 
-		for i := range committee {
-			if header.Committee[i].Address != committee[i].Address ||
-				header.Committee[i].VotingPower.Cmp(committee[i].VotingPower) != 0 ||
-				!bytes.Equal(header.Committee[i].ConsensusKeyBytes, committee[i].ConsensusKeyBytes) ||
-				!bytes.Equal(header.Committee[i].ConsensusKey.Marshal(), committee[i].ConsensusKey.Marshal()) ||
-				header.Committee[i].Index != committee[i].Index {
-				sb.logger.Error("wrong committee member in the set",
-					"index", i,
-					"currentVerifier", sb.address.String(),
-					"proposalNumber", proposalNumber,
-					"headerCommittee", header.Committee[i],
-					"computedCommittee", committee[i],
-					"fullHeader", header.Committee,
-					"fullComputed", committee,
-				)
-				return 0, consensus.ErrInconsistentCommitteeSet
-			}
-		}
 		// At this stage committee field is consistent with the validator list returned by Soma-contract
-
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
@@ -401,12 +378,13 @@ func (sb *Backend) CoreState() interfaces.CoreState {
 
 // CommitteeEnodes retrieve the list of validators enodes for the current block
 func (sb *Backend) CommitteeEnodes() []string {
-	db, err := sb.blockchain.State()
+	header := sb.blockchain.CurrentBlock().Header()
+	stateDB, err := sb.blockchain.StateAt(header.Root)
 	if err != nil {
-		sb.logger.Error("Failed to get state", "err", err)
+		sb.logger.Error("Failed to get state", "err", err, "height", header.Number.Uint64())
 		return nil
 	}
-	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(sb.blockchain.CurrentBlock(), db, false)
+	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(header, stateDB, false)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil

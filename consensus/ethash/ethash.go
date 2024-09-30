@@ -558,7 +558,6 @@ func (ethash *Ethash) cache(block uint64) *cache {
 	epoch := block / epochLength
 	currentI, futureI := ethash.caches.get(epoch)
 	current := currentI.(*cache)
-
 	// Wait for generation finish.
 	current.generate(ethash.config.CacheDir, ethash.config.CachesOnDisk, ethash.config.CachesLockMmap, ethash.config.PowMode == ModeTest)
 

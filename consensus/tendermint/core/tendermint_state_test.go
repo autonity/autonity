@@ -12,12 +12,12 @@ import (
 
 func TestTendermintStateManagement(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-	addr := committeeSet.Committee()[0].Address // round 3 - height 1 proposer
+	addr := committeeSet.Committee().Members[0].Address // round 3 - height 1 proposer
 	height := uint64(1)
 	round := int64(0)
 	signer := makeSigner(keys[addr].consensus)
-	signerMember := &committeeSet.Committee()[0]
-	cSize := len(committeeSet.Committee())
+	signerMember := &committeeSet.Committee().Members[0]
+	cSize := committeeSet.Committee().Len()
 	proposal := generateBlockProposal(round, new(big.Int).SetUint64(height), -1, false, signer, signerMember)
 
 	logger := log.New()
@@ -91,7 +91,7 @@ func TestTendermintStateManagement(t *testing.T) {
 	}
 
 	// add prevote
-	preVote := message.NewPrevote(round, height, common.Hash{}, signer, &committeeSet.Committee()[0], cSize)
+	preVote := message.NewPrevote(round, height, common.Hash{}, signer, &committeeSet.Committee().Members[0], cSize)
 	state.AddPrevote(preVote)
 	preVotes := state.GetOrCreate(round).AllPrevotes()
 	require.Equal(t, 1, len(preVotes))
@@ -100,7 +100,7 @@ func TestTendermintStateManagement(t *testing.T) {
 	}
 
 	// add precommit
-	preCommit := message.NewPrecommit(round, height, common.Hash{}, signer, &committeeSet.Committee()[0], cSize)
+	preCommit := message.NewPrecommit(round, height, common.Hash{}, signer, &committeeSet.Committee().Members[0], cSize)
 	state.AddPrecommit(preCommit)
 	preCommits := state.GetOrCreate(round).AllPrecommits()
 	require.Equal(t, 1, len(preCommits))

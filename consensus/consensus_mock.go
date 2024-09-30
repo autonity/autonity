@@ -360,10 +360,10 @@ func (mr *MockEngineMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(types.Committee)
+	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Receipt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -644,10 +644,10 @@ func (mr *MockPoWMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(types.Committee)
+	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Receipt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -866,10 +866,10 @@ func (mr *MockBFTMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error) {
+func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(types.Committee)
+	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(*types.Receipt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -1192,4 +1192,40 @@ func (m *MockPeer) SendRaw(msgcode uint64, data []byte) error {
 func (mr *MockPeerMockRecorder) SendRaw(msgcode, data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRaw", reflect.TypeOf((*MockPeer)(nil).SendRaw), msgcode, data)
+}
+
+// LatestEpoch mocks base method
+func (m *MockChainHeaderReader) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestEpoch")
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(uint64)
+	ret3, _ := ret[3].(uint64)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
+}
+
+// LatestEpoch indicates an expected call of LatestEpoch
+func (mr *MockChainHeaderReaderMockRecorder) LatestEpoch() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestEpoch))
+}
+
+// LatestEpoch mocks base method
+func (m *MockChainReader) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestEpoch")
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(uint64)
+	ret3, _ := ret[3].(uint64)
+	ret4, _ := ret[4].(error)
+	return ret0, ret1, ret2, ret3, ret4
+}
+
+// LatestEpoch indicates an expected call of LatestEpoch
+func (mr *MockChainReaderMockRecorder) LatestEpoch() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestEpoch))
 }

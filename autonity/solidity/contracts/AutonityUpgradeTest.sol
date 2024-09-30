@@ -3,7 +3,6 @@
 pragma solidity ^0.8.3;
 
 import "./interfaces/IERC20.sol";
-import "./Liquid.sol";
 import "./Upgradeable.sol";
 import "./Precompiled.sol";
 import "./Autonity.sol";

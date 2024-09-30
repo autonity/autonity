@@ -85,7 +85,6 @@ type Core struct {
 	db          ethdb.Database
 	roundsState RoundsState
 	committee   interfaces.Committee
-	lastHeader  *types.Header
 	stateMu     sync.RWMutex
 
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
@@ -207,16 +206,15 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 
 // StartWithRecoveredState starts a validator from a recovered state.
 func (c *Core) StartWithRecoveredState(ctx context.Context) {
-	// start the actions which do not depend on steps:
+
 	// always check rule Line_49 1st since if we have a value which becomes a decision
-	// then we can finish this consensus instance.
+	// then we can finish this consensus instance ASAP.
 	msgs := c.roundsState.Messages()
 	rounds := msgs.GetRounds()
 	for _, r := range rounds {
 		proposal := msgs.GetOrCreate(r).Proposal()
 		if proposal != nil {
 			verified := msgs.GetOrCreate(r).IsProposalVerified()
-			// if a value becomes a committed decision, then finish it.
 			if c.quorumPrecommitsCheck(ctx, proposal, verified) {
 				return
 			}
@@ -227,58 +225,11 @@ func (c *Core) StartWithRecoveredState(ctx context.Context) {
 	// then we check rule Line_47 to schedule timeout of precommit if we could.
 	c.precommitTimeoutCheck()
 
-	// then start actions which depend on steps:
-
 	// actions depend on step propose.
-	// if !sentProposal, send available proposal if current validator is the proposer.
-	// if !sentPrevote, schedule timeoutPropose and check rule Line_22, Line_28 if there is available proposal.
 	if c.Step() == Propose {
-		if c.IsProposer() {
-			if !c.SentProposal() {
-				if c.ValidValue() != nil {
-					c.proposer.SendProposal(ctx, c.ValidValue())
-				} else {
-					newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
-					if ok {
-						c.proposer.SendProposal(ctx, newValue)
-					}
-				}
-			}
-		} else {
-			// for followers, try to send prevote if they haven't.
-			if !c.SentPrevote() {
-				// schedule timeout propose to send prvote nil.
-				timeoutDuration := c.timeoutPropose(c.Round())
-				c.proposeTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPropose)
-				c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
-
-				// run rule Line_22 for new proposal or rule Line_28 for old proposal.
-				proposal := c.roundsState.CurRoundMessages().Proposal()
-				verified := c.roundsState.CurRoundMessages().IsProposalVerified()
-				if proposal != nil && verified {
-					if proposal.ValidRound() == -1 {
-						c.newProposalCheck(ctx, proposal)
-					} else {
-						c.oldProposalCheck(ctx, proposal)
-					}
-				}
-
-				// if the proposal is not yet verified, verify it and re-check rule 22 and 28.
-				if proposal != nil && !verified {
-					if _, err := c.Backend().VerifyProposal(proposal.Block()); err != nil {
-						c.prevoter.SendPrevote(ctx, true)
-						c.SetStep(ctx, Prevote)
-					} else {
-						if proposal.ValidRound() == -1 {
-							c.newProposalCheck(ctx, proposal)
-						} else {
-							c.oldProposalCheck(ctx, proposal)
-						}
-					}
-				}
-			}
-		}
-
+		// if !sentProposal, send available proposal if current validator is the proposer.
+		// if !sentPrevote, schedule timeoutPropose and check rule Line_22, Line_28 if there is available proposal.
+		c.startWithRecoveredProposeStep(ctx)
 		return
 	}
 
@@ -298,6 +249,56 @@ func (c *Core) StartWithRecoveredState(ctx context.Context) {
 		// check rule Line_44
 		if c.Step() == Prevote {
 			c.quorumPrevotesNilCheck(ctx)
+		}
+	}
+}
+
+func (c *Core) startWithRecoveredProposeStep(ctx context.Context) {
+
+	if c.IsProposer() {
+		if !c.SentProposal() {
+			if c.ValidValue() != nil {
+				c.proposer.SendProposal(ctx, c.ValidValue())
+			} else {
+				newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
+				if ok {
+					c.proposer.SendProposal(ctx, newValue)
+				}
+			}
+		}
+		return
+	}
+
+	// for followers, try to send prevote if they haven't.
+	if !c.SentPrevote() {
+		// schedule timeout propose to send prvote nil.
+		timeoutDuration := c.timeoutPropose(c.Round())
+		c.proposeTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPropose)
+		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
+
+		// run rule Line_22 for new proposal or rule Line_28 for old proposal.
+		proposal := c.roundsState.CurRoundMessages().Proposal()
+		verified := c.roundsState.CurRoundMessages().IsProposalVerified()
+		if proposal != nil && verified {
+			if proposal.ValidRound() == -1 {
+				c.newProposalCheck(ctx, proposal)
+			} else {
+				c.oldProposalCheck(ctx, proposal)
+			}
+		}
+
+		// if the proposal is not yet verified, verify it and re-check rule 22 and 28.
+		if proposal != nil && !verified {
+			if _, err := c.Backend().VerifyProposal(proposal.Block()); err != nil {
+				c.prevoter.SendPrevote(ctx, true)
+				c.SetStep(ctx, Prevote)
+			} else {
+				if proposal.ValidRound() == -1 {
+					c.newProposalCheck(ctx, proposal)
+				} else {
+					c.oldProposalCheck(ctx, proposal)
+				}
+			}
 		}
 	}
 }
@@ -355,7 +356,11 @@ func (c *Core) setInitialState(r int64) {
 		c.SetHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
-		c.setLastHeader(lastHeader)
+		// on epoch rotation, update committee.
+		if lastBlockMined.IsEpochHead() {
+			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
+			c.committee.SetCommittee(lastBlockMined.Header().Epoch.Committee)
+		}
 
 		c.futureRoundLock.Lock()
 		c.futureRound = make(map[int64][]message.Msg)
@@ -461,12 +466,6 @@ func (c *Core) setCommitteeSet(set interfaces.Committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committee = set
-}
-
-func (c *Core) setLastHeader(lastHeader *types.Header) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.lastHeader = lastHeader
 }
 
 // state readers:
@@ -613,12 +612,6 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
 	return c.committee
-}
-
-func (c *Core) LastHeader() *types.Header {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.lastHeader
 }
 
 func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {

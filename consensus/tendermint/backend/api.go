@@ -17,6 +17,7 @@
 package backend
 
 import (
+	"fmt"
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -24,39 +25,30 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
+	"math/big"
 )
 
 // API is a user facing RPC API to dump BFT state
 type API struct {
-	chain        consensus.ChainReader
-	tendermint   *Backend
-	getCommittee func(header *types.Header, chain consensus.ChainReader) (types.Committee, error)
+	chain      consensus.ChainReader
+	tendermint *Backend
 }
 
 // GetCommittee retrieves the list of authorized committee at the specified block.
-func (api *API) GetCommittee(number *rpc.BlockNumber) (types.Committee, error) {
-	header := api.chain.GetHeaderByNumber(uint64(*number))
-	if header == nil {
-		return nil, errUnknownBlock
+func (api *API) GetCommittee(number *rpc.BlockNumber) (*types.Committee, error) {
+	if number == nil {
+		return nil, fmt.Errorf("block number cannot be nil")
 	}
-	committee, err := api.getCommittee(header, api.chain)
-	if err != nil {
-		return nil, err
-	}
-	return committee, nil
+	return api.tendermint.GetCommitteeByHeight(new(big.Int).SetUint64(uint64(*number)))
 }
 
 // GetCommitteeAtHash retrieves the state snapshot at a given block.
-func (api *API) GetCommitteeAtHash(hash common.Hash) (types.Committee, error) {
+func (api *API) GetCommitteeAtHash(hash common.Hash) (*types.Committee, error) {
 	header := api.chain.GetHeaderByHash(hash)
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	committee, err := api.getCommittee(header, api.chain)
-	if err != nil {
-		return nil, err
-	}
-	return committee, nil
+	return api.tendermint.GetCommitteeByHeight(header.Number)
 }
 
 // Get Autonity contract address

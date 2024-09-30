@@ -72,8 +72,6 @@ func TestGetRoundState(t *testing.T) {
 
 func TestGetCoreState(t *testing.T) {
 	height := big.NewInt(int64(100) + 1)
-	prevHeight := height.Sub(height, big.NewInt(1))
-	prevBlock := generateBlock(prevHeight)
 	knownMsgHash := []common.Hash{{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5}, {0, 0, 1, 3, 6}}
 	sender := common.BytesToAddress([]byte("sender"))
 
@@ -103,13 +101,14 @@ func TestGetCoreState(t *testing.T) {
 	blsKeys[1] = blsKey.PublicKey()
 
 	one := common.Big1
-	members := []types.CommitteeMember{
+	committee := new(types.Committee)
+	committee.Members = []types.CommitteeMember{
 		{Address: proposers[0], VotingPower: one, ConsensusKey: blsKeys[1], ConsensusKeyBytes: blsKeys[1].Marshal(), Index: 0},
 		{Address: proposers[1], VotingPower: one, ConsensusKey: blsKeys[0], ConsensusKeyBytes: blsKeys[0].Marshal(), Index: 1},
 	}
-	committeeSet, err := tdmcommittee.NewRoundRobinSet(members, proposers[1]) // todo construct set here
+	committeeSet, err := tdmcommittee.NewRoundRobinSet(committee, proposers[1]) // todo construct set here
 	require.NoError(t, err)
-	setCoreState(c, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet, prevBlock.Header())
+	setCoreState(c, rounds[1], Propose, proposals[0].Block(), rounds[0], proposals[0].Block(), rounds[0], committeeSet)
 
 	var e = StateRequestEvent{
 		StateChan: make(chan interfaces.CoreState),
@@ -171,14 +170,13 @@ func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Ad
 	return proposal, proposal.Signer()
 }
 
-func setCoreState(c *Core, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee interfaces.Committee, header *types.Header) {
+func setCoreState(c *Core, r int64, s Step, lv *types.Block, lr int64, vv *types.Block, vr int64, committee interfaces.Committee) {
 	c.SetRound(r)
 	c.SetStep(context.Background(), s)
 	c.SetLockedRoundAndValue(lr, lv)
 	c.SetValidRoundAndValue(vr, vv)
 
 	c.setCommitteeSet(committee)
-	c.setLastHeader(header)
 	c.SetSentProposal()
 	c.SetSentPrevote()
 	c.SetSentPrecommit()
