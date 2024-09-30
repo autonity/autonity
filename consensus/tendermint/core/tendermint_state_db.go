@@ -43,13 +43,17 @@ type TendermintStateDB struct {
 	maxMsgID           uint64 // cache for max MSG ID
 	lastConsensusMsgID uint64 // cache for last consensus msg ID of a height.
 
-	rsRLPMeter    metrics.Meter // Meter for measuring the size of rs RLP-encoded data
-	rsRLPEncTimer metrics.Timer // Timer measuring time required for rs RLP encoding
-	rsDbSaveTimer metrics.Timer // Timer measuring rs DB write latency
+	rsRLPMeter            metrics.Meter // Meter for measuring the size of rs RLP-encoded data
+	rsRLPEncTimer         metrics.Timer // Timer measuring time required for rs RLP encoding
+	rsRLPEncBufferedGauge metrics.BufferedGauge
+	rsDbSaveTimer         metrics.Timer // Timer measuring rs DB write latency
+	rsDbSaveBufferedGauge metrics.BufferedGauge
 
-	msgRLPMeter    metrics.Meter // Meter for measuring the size of received consensus messages RLP-encoded data
-	msgRLPEncTimer metrics.Timer // Timer measuring time required for received consensus messages to be RLP encoded
-	msgDbSaveTimer metrics.Timer // Timer measuring DB write latency for received consensus messages
+	msgRLPMeter            metrics.Meter // Meter for measuring the size of received consensus messages RLP-encoded data
+	msgRLPEncTimer         metrics.Timer // Timer measuring time required for received consensus messages to be RLP encoded
+	msgRLPEncBufferedGauge metrics.BufferedGauge
+	msgDbSaveTimer         metrics.Timer // Timer measuring DB write latency for received consensus messages
+	msgDbSaveBufferedGauge metrics.BufferedGauge
 
 	logger log.Logger
 }
@@ -63,11 +67,15 @@ func newTendermintStateDB(logger log.Logger, db ethdb.Database) *TendermintState
 
 	rsdb.rsRLPMeter = metrics.NewRegisteredMeter("wal/rs/rlp/encoding/size", nil)
 	rsdb.rsRLPEncTimer = metrics.NewRegisteredTimer("wal/rs/rlp/encoding/duration", nil)
+	rsdb.rsRLPEncBufferedGauge = metrics.NewRegisteredBufferedGauge("wal/rs/rlp/encoding.bg", nil, nil)
 	rsdb.rsDbSaveTimer = metrics.NewRegisteredTimer("wal/rs/db/save/time", nil)
+	rsdb.rsDbSaveBufferedGauge = metrics.NewRegisteredBufferedGauge("wal/rs/db/save.bg", nil, nil)
 
 	rsdb.msgRLPMeter = metrics.NewRegisteredMeter("wal/message/rlp/encoding/size", nil)
 	rsdb.msgRLPEncTimer = metrics.NewRegisteredTimer("wal/message/rlp/encoding/duration", nil)
+	rsdb.msgRLPEncBufferedGauge = metrics.NewRegisteredBufferedGauge("wal/message/rlp/encoding.bg", nil, nil)
 	rsdb.msgDbSaveTimer = metrics.NewRegisteredTimer("wal/message/db/save/time", nil)
+	rsdb.msgDbSaveBufferedGauge = metrics.NewRegisteredBufferedGauge("wal/message/db/save.bg", nil, nil)
 
 	lastMsgID, err := rsdb.GetMsgID(lastTBFTInstanceMsgIDKey)
 	if err != nil {
@@ -154,6 +162,7 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs *TendermintState, startNe
 	before := time.Now()
 	entryBytes, err := rlp.EncodeToBytes(&extRoundState)
 	rsdb.rsRLPEncTimer.UpdateSince(before)
+	rsdb.rsRLPEncBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
 	if err != nil {
 		logger.Error("Failed to save roundState in WAL", "reason", "rlp encoding", "err", err)
 		return err
@@ -188,6 +197,7 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs *TendermintState, startNe
 	}
 	err = batch.Write()
 	rsdb.rsDbSaveTimer.UpdateSince(before)
+	rsdb.rsDbSaveBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
 	if err != nil {
 		logger.Error("Failed to save roundState in WAL", "reason", "level db write", "err", err, "func")
 	}
@@ -305,6 +315,7 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 	m := ExtMsg{Msg: msg, Verified: verified}
 	msgBytes, err := rlp.EncodeToBytes(&m)
 	rsdb.msgRLPEncTimer.UpdateSince(before)
+	rsdb.msgRLPEncBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
 	if err != nil {
 		rsdb.logger.Error("Failed to save msg in WAL", "reason", "rlp encoding", "err", err)
 		return err
@@ -335,7 +346,8 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 	}
 
 	err = batch.Write()
-	rsdb.rsDbSaveTimer.UpdateSince(before)
+	rsdb.msgDbSaveTimer.UpdateSince(before)
+	rsdb.msgDbSaveBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
 	if err != nil {
 		rsdb.logger.Error("Failed to save roundState", "reason", "level db write", "err", err, "func")
 		return err
