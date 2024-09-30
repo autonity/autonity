@@ -1,230 +1,157 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../interfaces/INonStakableVestingVault.sol";
+import "./BeneficiaryHandler.sol";
 import "./ContractBase.sol";
 
-contract NonStakableVesting is INonStakableVestingVault, ContractBase {
+contract NonStakableVesting is BeneficiaryHandler, ContractBase {
 
-    /**
-     * @notice The total amount of funds to create new locked non-stakable schedules.
-     * The balance is not immediately available at the vault.
-     * Rather the unlocked amount of schedules is minted at epoch end.
-     * The balance tells us the max size of a newly created schedule.
-     * See createSchedule()
-     */
-    uint256 public totalNominal;
-
-    /**
-     * @notice The maximum duration of any schedule or contract
-     */
-    uint256 public maxAllowedDuration;
-
-    struct Schedule {
-        uint256 start;
-        uint256 cliffDuration;
-        uint256 totalDuration;
-        uint256 amount;
+    struct ScheduleTracker {
         uint256 unsubscribedAmount;
-        uint256 totalUnlocked;
-        uint256 totalUnlockedUnsubscribed;
-        uint256 lastUnlockTime;
+        uint256 expiredFromContract;
+        uint256 withdrawnAmount; // withdrawn by treasury account
+        bool initiated;
     }
 
-    // stores all the schedules, there should not be too many of them, for the sake of efficiency
-    // of unlockTokens() function
-    Schedule[] private schedules;
+    mapping(uint256 => ScheduleTracker) internal scheduleTracker;
 
-    // id of schedule that some contract is subscribed to
-    mapping(uint256 => uint256) private subscribedTo;
+    /** @dev List of all contracts */
+    ContractBase.Contract[] internal contracts;
+    uint256[] internal expiredFundsFromContract;
 
-    constructor(
-        address payable _autonity, address _operator
-    ) ContractBase(_autonity, _operator) {}
+    /** @dev ID of schedule that some contract is subscribed to. */
+    mapping(uint256 => uint256) internal subscribedTo;
 
-    /**
-     * @notice creates a new schedule, restricted to operator
-     * the schedule has totalAmount = 0 initially. As new contracts are subscribed to the schedule, its totalAmount increases
-     * At any point, totalAmount of schedule is the sum of totalValue all the contracts that are subscribed to the schedule.
-     * totalValue of a contract can be calculated via _calculateTotalValue function
-     * @param _amount total amount of the schedule
-     * @param _startTime start time
-     * @param _cliffDuration cliff period, after _cliffDuration + _startTime, the schedule will have claimables
-     * @param _totalDuration total duration of the schedule
-     */
-    function createSchedule(
-        uint256 _amount,
-        uint256 _startTime,
-        uint256 _cliffDuration,
-        uint256 _totalDuration
-    ) virtual public onlyOperator {
-        require(totalNominal >= _amount, "not enough funds to create a new schedule");
-        require(maxAllowedDuration >= _totalDuration, "schedule total duration exceeds max allowed duration");
-
-        schedules.push(Schedule(_startTime, _cliffDuration, _totalDuration, _amount, _amount, 0, 0, 0));
-        totalNominal -= _amount;
-    }
+    constructor(address payable _autonity) AccessAutonity(_autonity) {}
 
     /**
-     * @notice creates a new non-stakable contract, restricted to only operator
+     * @notice Creates a new non-stakable contract which subscribes to some schedule.
+     * @dev If the contract is created before cliff period has passed, the beneficiary is entitled to NTN as it unlocks.
+     * Otherwise, the contract already has some unlocked NTN which is not entitled to beneficiary. However, NTN that will
+     * be unlocked in future will be entitled to beneficiary.
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
      * @param _scheduleID schedule to subscribe
+     * @custom:restricted-to operator account
      */
     function newContract(
         address _beneficiary,
         uint256 _amount,
-        uint256 _scheduleID
+        uint256 _scheduleID,
+        uint256 _cliffDuration
     ) virtual onlyOperator public {
-        require(_scheduleID < schedules.length, "invalid schedule ID");
+        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
+        ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
-        Schedule storage _schedule = schedules[_scheduleID];
-        require(_schedule.unsubscribedAmount >= _amount, "not enough funds to create a new contract under schedule");
+        if (!_scheduleTracker.initiated) {
+            _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
+        }
+        require(_scheduleTracker.unsubscribedAmount >= _amount, "not enough funds to create a new contract under schedule");
+        uint256 _contractID = _newContractCreated(_beneficiary);
+        require(contracts.length == _contractID, "invalid contract id");
 
-        uint256 _contractID = _createContract(
-            _beneficiary, _amount, _schedule.start, _schedule.cliffDuration, _schedule.totalDuration, false
+        // `_expiredFunds` = the amount of funds that have been unlocked already, in case the contract was created later than the `_schedule.start`
+        // the `_expiredFunds` belongs to the treasury account, not the `_beneficiary`
+        uint256 _expiredFunds = _calculateUnlockedFunds(_schedule.unlockedAmount, _schedule.totalAmount, _amount);
+        ContractBase.Contract memory _contract = _createContract(
+            _amount - _expiredFunds, _schedule.start, _cliffDuration, _schedule.totalDuration, false
         );
+        contracts.push(_contract);
+        expiredFundsFromContract.push(_expiredFunds);
 
         subscribedTo[_contractID] = _scheduleID;
+        _scheduleTracker.unsubscribedAmount -= _amount;
+        _scheduleTracker.expiredFromContract += _expiredFunds;
+    }
 
-        if (_schedule.lastUnlockTime >= _schedule.start + _schedule.cliffDuration) {
-            // We have created the contract, but it already have some funds uncloked and claimable
-            // those unlocked funds are unlocked from unsubscribed funds of the schedule total funds
-            // which have already been transferred to treasuryAccount.
-            // So the beneficiary will get the funds that will be unlocked in future
-            
-            // calculate unlocked portion of the unsubscribeds funds from this contract
-            // it is the same as calling _unlockedFunds, but we calculate it this way
-            // to account for all the _schedule.totalUnlockedUnsubscribed funds
-            // otherwise there could be some _schedule.totalUnlockedUnsubscribed funds remaining
-            // due to integer division and precision loss
-            Contract storage _contract = contracts[_contractID];
-            uint256 _unlockedFromUnsubscribed = (_contract.currentNTNAmount * _schedule.totalUnlockedUnsubscribed) / _schedule.unsubscribedAmount;
-            _schedule.totalUnlockedUnsubscribed -= _unlockedFromUnsubscribed;
+    function releaseFundsForTreasury(uint256 _scheduleID) virtual external onlyTreasury {
+        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
+        require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
+        ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
-            // the following will prevent the beneficiary to claim _unlockedFromUnsubscribed amount
-            // but the contract will follow the same linear vesting function
-            _contract.currentNTNAmount -= _unlockedFromUnsubscribed;
-            _contract.withdrawnValue += _unlockedFromUnsubscribed;
+        if (!_scheduleTracker.initiated) {
+            _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
         }
-        _schedule.unsubscribedAmount -= _amount;
+        uint256 _unlocked = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
+        _transferNTN(msg.sender, _unlocked);
+        _scheduleTracker.withdrawnAmount += _unlocked;
     }
 
     /**
-     * @notice Sets the totalNominal to create new contract
-     */
-    function setTotalNominal(uint256 _totalNominal) virtual external onlyOperator {
-        totalNominal = _totalNominal;
-    }
-
-    /**
-     * @notice Sets the max allowed duration of any schedule or contract
-     */
-    function setMaxAllowedDuration(uint256 _newMaxDuration) virtual external onlyOperator {
-        maxAllowedDuration = _newMaxDuration;
-    }
-
-    /**
-     * @notice used by beneficiary to transfer all unlocked NTN of some contract to his own address
-     * @param _id id of the contract numbered from 0 to (n-1) where n = total contracts entitled to
-     * the beneficiary (excluding canceled ones). So any beneficiary can number their contracts
-     * from 0 to (n-1). Beneficiary does not need to know the unique global contract id which can
-     * be retrieved via _getUniqueContractID function
-     */
-    function releaseAllFunds(uint256 _id) virtual external { // onlyActive(_id) {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _releaseNTN(_contractID, _unlockedFunds(_contractID));
-    }
-
-    // do we want this method to allow beneficiary withdraw a fraction of the released amount???
-    /**
-     * @notice used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address
-     * @param _amount amount of NTN to release
-     */
-    function releaseFund(uint256 _id, uint256 _amount) virtual external { // onlyActive(_id) {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        require(_amount <= _unlockedFunds(_contractID), "not enough unlocked funds");
-        _releaseNTN(_contractID, _amount);
-    }
-
-    /**
-     * @notice changes the beneficiary of some contract to the _recipient address. _recipient can release tokens from the contract
-     * only operator is able to call the function
+     * @notice Changes the beneficiary of some contract to the recipient address. The recipient address can release and stake tokens from the contract.
      * @param _beneficiary beneficiary address whose contract will be canceled
-     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
+     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
      * @param _recipient whome the contract is transferred to
+     * @custom:restricted-to operator account
      */
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
-        _changeContractBeneficiary(
-            _getUniqueContractID(_beneficiary, _id),
-            _beneficiary,
-            _recipient
-        );
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        _changeContractBeneficiary(_beneficiary, _contractID, _recipient);
     }
 
     /**
-     * @notice Unlock tokens of all schedules upto current time, restricted to autonity only.
-     * @dev It calculates the newly unlocked tokens upto current time and also updates the amount
-     * of total unlocked tokens and the time of unlock for each schedule
-     * Autonity must mint _totalNewUnlocked tokens, because this contract knows that for each _schedule,
-     * _schedule.totalUnlocked tokens are now unlocked and available to release
+     * @notice Used by beneficiary to transfer all unlocked NTN of some contract to his own address.
+     * @param _id id of the contract numbered from 0 to (n-1) where n = total contracts entitled to
+     * the beneficiary (excluding canceled ones). So any beneficiary can number their contracts
+     * from 0 to (n-1). Beneficiary does not need to know the unique global contract id.
      */
-    function unlockTokens() external onlyAutonity returns (uint256 _newUnlockedSubscribed, uint256 _newUnlockedUnsubscribed) {
-        uint256 _currentTime = block.timestamp;
-        uint256 _totalNewUnlocked;
-        for (uint256 i = 0; i < schedules.length; i++) {
-            Schedule storage _schedule = schedules[i];
-            if (_schedule.cliffDuration + _schedule.start > _currentTime || _schedule.amount == _schedule.totalUnlocked) {
-                // we did not reach cliff, or we have unlocked everything
-                continue;
-            }
+    function releaseAllNTN(uint256 _id) virtual external {
+        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        _releaseNTN(contracts[_contractID], _unlockedFunds(_contractID));
+    }
 
-            _schedule.lastUnlockTime = _currentTime;
-            uint256 _unlocked = _calculateTotalUnlockedFunds(_schedule.start, _schedule.totalDuration, _currentTime, _schedule.amount);
-            
-            if (_unlocked < _schedule.totalUnlocked) {
-                // if this happens, then there is something wrong and it needs immediate attention
-                _unlocked = _schedule.totalUnlocked;
-            }
-            _totalNewUnlocked += _unlocked - _schedule.totalUnlocked;
-            _schedule.totalUnlocked = _unlocked;
+    // do we want this method to allow beneficiary withdraw a fraction of the released amount???
+    /**
+     * @notice Used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address.
+     * @param _amount amount of NTN to release
+     */
+    function releaseNTN(uint256 _id, uint256 _amount) virtual external {
+        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        require(_amount <= _unlockedFunds(_contractID), "not enough unlocked funds");
+        _releaseNTN(contracts[_contractID], _amount);
+    }
 
-            _unlocked = _calculateTotalUnlockedFunds(_schedule.start, _schedule.totalDuration, _currentTime, _schedule.unsubscribedAmount);
+    /*
+    ============================================================
+         Internals
+    ============================================================
+     */
 
-            if (_unlocked < _schedule.totalUnlockedUnsubscribed) {
-                // if this happens, then there is something wrong and it needs immediate attention
-                _unlocked = _schedule.totalUnlockedUnsubscribed;
-            }
-            _newUnlockedUnsubscribed += _unlocked - _schedule.totalUnlockedUnsubscribed;
-            _schedule.totalUnlockedUnsubscribed = _unlocked;
-        }
-        _newUnlockedSubscribed = _totalNewUnlocked - _newUnlockedUnsubscribed;
+    function _initiateSchedule(ScheduleTracker storage _scheduleTracker, uint256 _totalAmount) internal {
+        _scheduleTracker.unsubscribedAmount = _totalAmount;
+        _scheduleTracker.initiated = true;
     }
 
     /**
-     * @dev calculates the total value of the contract, which is constant for non stakable contracts
+     * @dev Calculates the total value of the contract, which is constant for non stakable contracts.
      * @param _contractID unique global id of the contract
      */
-    function _calculateTotalValue(uint256 _contractID) private view returns (uint256) {
+    function _calculateTotalValue(uint256 _contractID) internal view returns (uint256) {
         Contract storage _contract = contracts[_contractID];
-        return _contract.currentNTNAmount + _contract.withdrawnValue;
+        return _contract.currentNTNAmount + _contract.withdrawnValue + expiredFundsFromContract[_contractID];
     }
 
     /**
-     * @dev calculates the amount of funds that are unlocked but not released yet. calculates upto _schedule.lastUnlockTime
-     * where _schedule = schedule subsribed by the contract.
-     * The unlock mechanism is epoch based, but instead of taking time from autonity.lastEpochBlock(), we take the time
-     * from _schedule.lastUnlockTime. Because the locked tokens are not minted from genesis. This way it is ensured that
-     * the unlocked tokens are minted by calling the function unlockTokens()
+     * @dev Calculates the amount of withdrawable funds upto `schedule.lastUnlockTime`, which is the last epoch time,
+     * where schedule = schedule subsribed by the contract.
      */
-    function _unlockedFunds(uint256 _contractID) private view returns (uint256) {
-        return _calculateAvailableUnlockedFunds(
-            _contractID,
-            _calculateTotalValue(_contractID),
-            schedules[subscribedTo[_contractID]].lastUnlockTime
-        );
+    function _unlockedFunds(uint256 _contractID) internal view returns (uint256) {
+        ContractBase.Contract storage _contract = contracts[_contractID];
+        require(_contract.start + _contract.cliffDuration <= block.timestamp, "cliff period not reached yet");
+        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), subscribedTo[_contractID]);
+        return _calculateUnlockedFunds(
+            _schedule.unlockedAmount,
+            _schedule.totalAmount,
+            _calculateTotalValue(_contractID)
+        ) - _contract.withdrawnValue - expiredFundsFromContract[_contractID];
+    }
+
+    function _calculateUnlockedFunds(
+        uint256 _scheduleUnlockAmount, uint256 _scheduleTotalAmount, uint256 _contractTotalAmount
+    ) internal pure returns (uint256) {
+        return (_scheduleUnlockAmount * _contractTotalAmount) / _scheduleTotalAmount;
     }
 
     /*
@@ -234,7 +161,7 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
      */
 
     /**
-     * @notice returns the amount of unlocked but not yet released funds in NTN for some contract
+     * @notice Returns the amount of withdrawable funds upto the last epoch time.
      */
     function unlockedFunds(
         address _beneficiary, uint256 _id
@@ -242,8 +169,33 @@ contract NonStakableVesting is INonStakableVestingVault, ContractBase {
         return _unlockedFunds(_getUniqueContractID(_beneficiary, _id));
     }
 
-    function getSchedule(uint256 _id) external view returns (Schedule memory) {
-        require(schedules.length > _id, "schedule does not exist");
-        return schedules[_id];
+    function getExpiredFunds(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
+        return expiredFundsFromContract[_getUniqueContractID(_beneficiary, _id)];
+    }
+
+    function getContract(address _beneficiary, uint256 _id) virtual external view returns (ContractBase.Contract memory) {
+        return contracts[_getUniqueContractID(_beneficiary, _id)];
+    }
+
+    function getContracts(address _beneficiary) virtual external view returns (ContractBase.Contract[] memory) {
+        uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
+        ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);
+        for (uint256 i = 0; i < _contractIDs.length; i++) {
+            _res[i] = contracts[_contractIDs[i]];
+        }
+        return _res;
+    }
+
+    /*
+    ============================================================
+
+        Modifiers
+
+    ============================================================
+     */
+
+    modifier onlyTreasury {
+        require(msg.sender == autonity.getTreasuryAccount(), "caller is not treasury account");
+        _;
     }
 }
