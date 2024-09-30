@@ -230,16 +230,12 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
 
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
   
-  // non stakable contract
-  const nonStakableVesting = await NonStakableVesting.new(autonity.address, operator, {from: deployer})
-  
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});
   await autonity.setSupplyControlContract(acu.address, {from: operator});
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
-  await autonity.setNonStakableVestingContract(nonStakableVesting.address, {from: operator})
 }
 
 // deploys protocol contracts

@@ -1,250 +1,174 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../interfaces/IStakeProxy.sol";
-import "./LiquidRewardManager.sol";
 import "./ContractBase.sol";
+import "./ValidatorManager.sol";
 
-contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
-    // NTN can be here: LOCKED or UNLOCKED
-    // LOCKED are tokens that can't be withdrawn yet, need to wait for the release contract
-    // UNLOCKED are tokens that can be withdrawn
-    uint256 public contractVersion = 1;
-    uint256 private requiredGasBond = 50_000;
-    uint256 private requiredGasUnbond = 50_000;
+contract StakableVesting is ContractBase, ValidatorManager {
+    
+    address private beneficiary;
+    address private managerContract;
+    ContractBase.Contract private stakableContract;
 
-    /**
-     * @notice stake reserved to create new contracts
-     * each time a new contract is creasted, totalNominal is decreased
-     * address(this) should have totalNominal amount of NTN availabe,
-     * otherwise withdrawing or bonding from a contract is not possible
-     */
-    uint256 public totalNominal;
+    struct ContractValuation {
+        uint256 totalShare;
+        uint256 withdrawnShare;
+    }
 
+    ContractValuation private contractValuation;
+
+    struct StakingNTN {
+        uint256 bondingNTN;
+        uint256 unbondingNTN;
+    }
+
+    StakingNTN private ntnUnderStaking;
 
     struct PendingBondingRequest {
         uint256 amount;
         uint256 epochID;
         address validator;
-        bool processed;
     }
+
+    PendingBondingRequest[] internal bondingQueue;
+    uint256 private bondingQueueTopIndex;
 
     struct PendingUnbondingRequest {
-        uint256 liquidAmount;
+        uint256 unbondingID;
         uint256 epochID;
         address validator;
-        bool rejected;
-        bool applied;
     }
 
-    mapping(uint256 => PendingBondingRequest) private pendingBondingRequest;
-    mapping(uint256 => PendingUnbondingRequest) private pendingUnbondingRequest;
-
-    /**
-     * @dev bondingToContract is needed to handle notification from autonity when bonding is applied.
-     * In case the it fails to notify the vesting contract, contractToBonding is needed to revert the failed requests.
-     * All bonding requests are applied at epoch end, so we can process all of them (failed or successful) together.
-     * See bond and _revertPendingBondingRequest for more clarity
-     */
-
-    mapping(uint256 => uint256) private bondingToContract;
-    mapping(uint256 => uint256[]) private contractToBonding;
-
-    /**
-     * @dev unbondingToContract is needed to handle notification from autonity when unbonding is applied and released.
-     * In case it fails to notify the vesting contract, contractToUnbonding is needed to revert the failed requests.
-     * Not all requests are released together at epoch end, so we cannot process all the request together.
-     * tailPendingUnbondingID and headPendingUnbondingID helps to keep track of contractToUnbonding.
-     * See unbond and _revertPendingUnbondingRequest for more clarity
-     */
-
-    mapping(uint256 => uint256) private unbondingToContract;
-    mapping(uint256 => mapping(uint256 => uint256)) private contractToUnbonding;
-    mapping(uint256 => uint256) private tailPendingUnbondingID;
-    mapping(uint256 => uint256) private headPendingUnbondingID;
-
-    // AUT rewards entitled to some beneficiary for bonding from some contract before it has been cancelled
-    // see cancelContract for more clarity.
-    mapping(address => uint256) private atnRewards;
-    mapping(address => uint256) private ntnRewards;
+    PendingUnbondingRequest[] internal unbondingQueue;
+    uint256 private unbondingQueueTopIndex;
 
     constructor(
-        address payable _autonity, address _operator
-    ) LiquidRewardManager(_autonity) ContractBase(_autonity, _operator) {}
-
-    /**
-     * @notice creates a new stakable contract, restricted to operator only
-     * @dev _amount NTN must be minted and transferred to this contract before creating the contract
-     * otherwise the contract cannot be released or bonded to some validator
-     * @param _beneficiary address of the beneficiary
-     * @param _amount total amount of NTN to be vested
-     * @param _startTime start time of the vesting
-     * @param _cliffDuration cliff period
-     * @param _totalDuration total duration of the contract
-     */
-    function newContract(
+        address payable _autonity,
         address _beneficiary,
         uint256 _amount,
         uint256 _startTime,
         uint256 _cliffDuration,
         uint256 _totalDuration
-    ) virtual onlyOperator public {
-        require(_startTime + _cliffDuration >= autonity.lastEpochTime(), "contract cliff duration is past");
-        require(totalNominal >= _amount, "not enough stake reserved to create a new contract");
-
-        _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
-        totalNominal -= _amount;
+    ) AccessAutonity(_autonity) {
+        beneficiary = _beneficiary;
+        managerContract = msg.sender;
+        stakableContract = _createContract(_amount, _startTime, _cliffDuration, _totalDuration, true);
+        contractValuation = ContractValuation(_amount, 0);
     }
 
 
     /**
-     * @notice used by beneficiary to transfer all unlocked NTN and LNTN of some contract to his own address
-     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
-     * So any beneficiary can number their contracts from 0 to (n-1). Beneficiary does not need to know the 
-     * unique global contract id which can be retrieved via _getUniqueContractID function
+     * @notice Used by beneficiary to transfer all unlocked NTN and LNTN of some contract to his own address.
      */
-    function releaseFunds(uint256 _id) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _updateFunds(_contractID);
-        uint256 _unlocked = _unlockedFunds(_contractID);
+    function releaseFunds() virtual external onlyBeneficiary {
+        _updateFunds();
+        uint256 _unlocked = _unlockedFunds();
         // first NTN is released
-        _unlocked = _releaseNTN(_contractID, _unlocked);
+        _unlocked = _releaseNTN(stakableContract, _unlocked);
         // if there still remains some unlocked funds, i.e. not enough NTN, then LNTN is released
-        _releaseAllUnlockedLNTN(_contractID, _unlocked);
-        _clearValidators(_contractID);
+        _releaseAllUnlockedLNTN(_unlocked);
+        _clearValidators();
     }
 
     /**
-     * @notice used by beneficiary to transfer all unlocked NTN of some contract to his own address
+     * @notice Used by beneficiary to transfer all unlocked NTN of some contract to his own address.
      */
-    function releaseAllNTN(uint256 _id) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _cleanup(_contractID);
-        _releaseNTN(_contractID, _unlockedFunds(_contractID));
+    function releaseAllNTN() virtual external onlyBeneficiary {
+        _cleanup();
+        _releaseNTN(stakableContract, _unlockedFunds());
     }
 
     /**
-     * @notice used by beneficiary to transfer all unlocked LNTN of some contract to his own address
+     * @notice Used by beneficiary to transfer all unlocked LNTN of some contract to his own address.
      */
-    function releaseAllLNTN(uint256 _id) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _updateFunds(_contractID);
-        _releaseAllUnlockedLNTN(_contractID, _unlockedFunds(_contractID));
-        _clearValidators(_contractID);
+    function releaseAllLNTN() virtual external onlyBeneficiary {
+        _updateFunds();
+        _releaseAllUnlockedLNTN(_unlockedFunds());
+        _clearValidators();
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     /**
-     * @notice used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address
+     * @notice Used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address.
      * @param _amount amount to transfer
      */
-    function releaseNTN(uint256 _id, uint256 _amount) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _cleanup(_contractID);
-        require(_amount <= _unlockedFunds(_contractID), "not enough unlocked funds");
-        _releaseNTN(_contractID, _amount);
+    function releaseNTN(uint256 _amount) virtual external onlyBeneficiary {
+        _cleanup();
+        require(_amount <= _unlockedFunds(), "not enough unlocked funds");
+        _releaseNTN(stakableContract, _amount);
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
     /**
-     * @notice used by beneficiary to transfer some amount of unlocked LNTN of some contract to his own address
+     * @notice Used by beneficiary to transfer some amount of unlocked LNTN of some contract to his own address.
      * @param _validator address of the validator
      * @param _amount amount of LNTN to transfer
      */
-    function releaseLNTN(uint256 _id, address _validator, uint256 _amount) virtual external {
+    function releaseLNTN(address _validator, uint256 _amount) virtual external onlyBeneficiary {
         require(_amount > 0, "require positive amount to transfer");
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _updateFunds(_contractID);
+        _updateFunds();
 
-        uint256 _unlockedLiquid = _unlockedLiquidBalanceOf(_contractID, _validator);
+        uint256 _unlockedLiquid = unlockedLiquidBalanceOf(_validator);
         require(_unlockedLiquid >= _amount, "not enough unlocked LNTN");
 
         uint256 _value = _calculateLNTNValue(_validator, _amount);
-        require(_value <= _unlockedFunds(_contractID), "not enough unlocked funds");
+        require(_value <= _unlockedFunds(), "not enough unlocked funds");
 
-        Contract storage _contract = contracts[_contractID];
-        _contract.withdrawnValue += _value;
-        _updateAndTransferLNTN(_contractID, msg.sender, _amount, _validator);
-        _clearValidators(_contractID);
+        stakableContract.withdrawnValue += _value;
+        _transferLNTN(_amount, _validator);
+        _clearValidators();
     }
 
     /**
-     * @notice changes the beneficiary of some contract to the _recipient address. _recipient can release and stake tokens from the contract.
-     * only operator is able to call this function.
-     * rewards which have been entitled to the beneficiary due to bonding from this contract are not transferred to _recipient
-     * @dev rewards earned until this point from this contract are calculated and stored in atnRewards and ntnRewards mapping so that
-     * _beneficiary can later claim them even though _beneficiary is not entitled to this contract.
-     * @param _beneficiary beneficiary address whose contract will be canceled
-     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
+     * @notice Changes the beneficiary of some contract to the recipient address. The recipient address can release and stake tokens from the contract.
+     * Rewards which have been entitled to the beneficiary due to bonding from this contract are not transferred to recipient.
+     * @dev Rewards earned until this point from this contract are calculated and stored in atnRewards and ntnRewards mapping so that
+     * beneficiary can later claim them even though beneficiary is not entitled to this contract.
      * @param _recipient whome the contract is transferred to
+     * @custom:restricted-to operator account
      */
-    function changeContractBeneficiary(
-        address _beneficiary, uint256 _id, address _recipient
-    ) virtual external onlyOperator {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
-        atnRewards[_beneficiary] += _atnReward;
-        ntnRewards[_beneficiary] += _ntnReward;
-        _changeContractBeneficiary(_contractID, _beneficiary, _recipient);
+    function changeContractBeneficiary(address _recipient) virtual external onlyManager {
+        _updateFunds();
+        _claimAndSendRewards();
+        _clearValidators();
+        beneficiary = _recipient;
     }
 
     /**
      * @notice In case some funds are missing due to some pending staking operation that failed,
-     * this function updates the funds of some contract _id entitled to _beneficiary by reverting the failed requests
+     * this function updates the funds of some contract entitled to beneficiary by applying the pending requests.
      */
-    function updateFunds(address _beneficiary, uint256 _id) virtual external {
-        _updateFunds(_getUniqueContractID(_beneficiary, _id));
+    function updateFunds() virtual external onlyBeneficiary {
+        _updateFunds();
     }
 
     /**
-     * @notice Set the value of totalNominal. Restricted to operator account
-     * In case totalNominal is increased, the increased amount should be minted
-     * and transferred to the address of this contract, otherwise newly created vesting
-     * contracts will not have funds to withdraw or bond. See newContract()
+     * @notice Updates the funds of the contract and returns total value of the contract.
      */
-    function setTotalNominal(uint256 _newTotalNominal) virtual external onlyOperator {
-        totalNominal = _newTotalNominal;
+    function updateFundsAndGetContractTotalValue() external onlyBeneficiary returns (uint256) {
+        _updateFunds();
+        return _calculateTotalValue();
     }
 
     /**
-     * @notice Update the required gas to get notified about staking operation
-     * NOTE: before updating, please check if the updated value works. It can be checked by updatting
-     * the hardcoded value of requiredGasBond and then compiling the contracts and running the tests
-     * in stakable_vesting_test.go
+     * @notice Updates the funds of the contract and returns the contract.
      */
-    function setRequiredGasBond(uint256 _gas) external onlyOperator {
-        requiredGasBond = _gas;
-    }
-
-    function setRequiredGasUnbond(uint256 _gas) external onlyOperator {
-        requiredGasUnbond = _gas;
+    function updateFundsAndGetContract() external onlyBeneficiary returns (ContractBase.Contract memory) {
+        _updateFunds();
+        return stakableContract;
     }
 
     /**
-     * @notice Used by beneficiary to bond some NTN of some contract _id.
-     * All bondings are delegated, as vesting manager cannot own a validator
-     * @param _id id of the contract numbered from 0 to (n-1) where n = total contracts entitled to the beneficiary (excluding canceled ones)
+     * @notice Used by beneficiary to bond some NTN of some contract.
+     * All bondings are delegated, as vesting manager cannot own a validator.
      * @param _validator address of the validator for bonding
      * @param _amount amount of NTN to bond
      */
-    function bond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
-        // TODO (tariq): do we need to wait till _contract.start before bonding??
-        require(msg.value >= requiredBondingGasCost(), "not enough gas given for notification on bonding");
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _updateFunds(_contractID);
-        Contract storage _contract = contracts[_contractID];
-        require(_contract.start <= block.timestamp, "contract not started yet");
-        require(_contract.currentNTNAmount >= _amount, "not enough tokens");
-
-        uint256 _bondingID = autonity.bond{value: msg.value}(_validator, _amount);
-        _contract.currentNTNAmount -= _amount;
-        // offset by 1 to handle empty value
-        contractToBonding[_contractID].push(_bondingID);
-        bondingToContract[_bondingID] = _contractID+1;
-        pendingBondingRequest[_bondingID] = PendingBondingRequest(_amount, _epochID(), _validator, false);
-        _initiate(_contractID, _validator);
-        _clearValidators(_contractID);
-        return _bondingID;
+    function bond(address _validator, uint256 _amount) virtual public onlyBeneficiary returns (uint256) {
+        require(stakableContract.start <= block.timestamp, "contract not started yet");
+        bondingQueue.push(PendingBondingRequest(_amount, _getEpochID(), _validator));
+        _newBondingRequested(_validator);
+        return autonity.bond(_validator, _amount);
     }
 
     /**
@@ -252,386 +176,268 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      * @param _validator address of the validator
      * @param _amount amount of LNTN to unbond
      */
-    function unbond(uint256 _id, address _validator, uint256 _amount) virtual public payable returns (uint256) {
-        require(msg.value >= requiredUnbondingGasCost(), "not enough gas given for notification on unbonding");
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        _cleanup(_contractID);
-        _lock(_contractID, _validator, _amount);
-        uint256 _unbondingID = autonity.unbond{value: msg.value}(_validator, _amount);
-        // offset by 1 to handle empty value
-        unbondingToContract[_unbondingID] = _contractID+1;
-        pendingUnbondingRequest[_unbondingID] = PendingUnbondingRequest(_amount, _epochID(), _validator, false, false);
-        uint256 _lastID = headPendingUnbondingID[_contractID];
-        // contractToUnbonding[_contractID][_i] stores the _unbondingID of the i'th unbonding request
-        contractToUnbonding[_contractID][_lastID] = _unbondingID;
-        headPendingUnbondingID[_contractID] = _lastID+1;
+    function unbond(address _validator, uint256 _amount) virtual public onlyBeneficiary returns (uint256) {
+        uint256 _unbondingID = autonity.unbond(_validator, _amount);
+        unbondingQueue.push(PendingUnbondingRequest(_unbondingID, _getEpochID(), _validator));
         return _unbondingID;
     }
 
     /**
-     * @notice used by beneficiary to claim rewards from contract _id from bonding to _validator
-     * @param _id contract ID
+     * @notice Used by beneficiary to claim rewards from bonding some contract to validator.
      * @param _validator validator address
      */
-    function claimRewards(uint256 _id, address _validator) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID, _validator);
-        _sendRewards(_atnReward, _ntnReward);
+    function claimRewards(address _validator) virtual external onlyBeneficiary {
+        _claimAndSendRewards(_validator);
+        _clearValidators();
     }
 
     /**
-     * @notice used by beneficiary to claim rewards from contract _id from bonding
+     * @notice Used by beneficiary to claim rewards from bonding some contract to validator.
      */
-    function claimRewards(uint256 _id) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
-        (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractID);
-        _sendRewards(_atnReward, _ntnReward);
+    function claimRewards() virtual external onlyBeneficiary {
+        _claimAndSendRewards();
+        _clearValidators();
     }
 
     /**
-     * @notice used by beneficiary to claim all rewards which is entitled from bonding
-     * @dev Rewards from some cancelled contracts are stored in atnRewards and ntnRewards mapping. All rewards from
-     * contracts that are still entitled to the beneficiary need to be calculated via _claimRewards
+     * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
      */
-    function claimRewards() virtual external {
-        uint256[] storage _contractIDs = beneficiaryContracts[msg.sender];
-        uint256 _atnTotalFees = atnRewards[msg.sender];
-        uint256 _ntnTotalFees = ntnRewards[msg.sender];
-        atnRewards[msg.sender] = 0;
-        ntnRewards[msg.sender] = 0;
-        
-        for (uint256 i = 0; i < _contractIDs.length; i++) {
-            _updateFunds(_contractIDs[i]);
-            (uint256 _atnReward, uint256 _ntnReward) = _claimRewards(_contractIDs[i]);
-            _atnTotalFees += _atnReward;
-            _ntnTotalFees += _ntnReward;
-            _clearValidators(_contractIDs[i]);
-        }
-        _sendRewards(_atnTotalFees, _ntnTotalFees);
-    }
+    receive() external payable {}
 
-    /**
-     * @notice can be used to send ATN to the contract
+    /*
+    ============================================================
+         Internals
+    ============================================================
      */
-    function receiveATN() external payable {
-        // do nothing
-    }
 
     /**
-     * @notice callback function restricted to autonity to notify the vesting contract to update rewards (AUT) for _validators
-     * @param _validators address of the validators that have staking operations and need to update their rewards (AUT)
-     */
-    function rewardsDistributed(address[] memory _validators) external onlyAutonity {
-        _updateValidatorReward(_validators);
-    }
-
-    /**
-     * @notice implements IStakeProxy.bondingApplied(), a callback function for autonity when bonding is applied
-     * @param _bondingID bonding id from Autonity when bonding was requested
-     * @param _liquid amount of LNTN after bonding applied successfully
-     * @param _selfDelegation true if self bonded, false for delegated bonding
-     * @param _rejected true if bonding request was rejected, false if applied successfully
-     */
-    function bondingApplied(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) external onlyAutonity {
-        _applyBonding(_bondingID, _validator, _liquid, _selfDelegation, _rejected);
-    }
-
-    /**
-     * @notice implements IStakeProxy.unbondingApplied(). callback function for autonity when unbonding is applied
-     * @param _unbondingID unbonding id from Autonity when unbonding was requested
-     * @param _rejected true if unbonding was rejected, false if applied successfully
-     */
-    function unbondingApplied(uint256 _unbondingID, address _validator, bool _rejected) external onlyAutonity {
-        _applyUnbonding(_unbondingID, _validator, _rejected);
-    }
-
-    /**
-     * @dev implements IStakeProxy.unbondingReleased(). callback function for autonity when unbonding is released
-     * @param _unbondingID unbonding id from Autonity when unbonding was requested
-     * @param _amount amount of NTN released
-     * @param _rejected true if unbonding was rejected, false if applied and released successfully
-     */
-    function unbondingReleased(uint256 _unbondingID, uint256 _amount, bool _rejected) external onlyAutonity {
-        _releaseUnbonding(_unbondingID, _amount, _rejected);
-    }
-
-    /**
-     * @dev returns equivalent amount of NTN using the ratio.
+     * @dev Returns equivalent amount of NTN using the current ratio.
      * @param _validator validator address
      * @param _amount amount of LNTN to be converted
      */
-    function _calculateLNTNValue(address _validator, uint256 _amount) private view returns (uint256) {
+    function _calculateLNTNValue(address _validator, uint256 _amount) internal view returns (uint256) {
         Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake) / _validatorInfo.liquidSupply;
     }
 
     /**
-     * @dev returns equivalent amount of LNTN using the ratio.
+     * @dev Returns equivalent amount of LNTN using the current ratio.
      * @param _validator validator address
      * @param _amount amount of NTN to be converted
      */
-    function _getLiquidFromNTN(address _validator, uint256 _amount) private view returns (uint256) {
+    function _getLiquidFromNTN(address _validator, uint256 _amount) internal view returns (uint256) {
         Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * _validatorInfo.liquidSupply / (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake);
     }
 
     /**
-     * @dev calculates the total value of the contract, which can vary if the contract has some LNTN
-     * total value = current_NTN + withdrawn_value + (the value of LNTN converted to NTN)
-     * @param _contractID unique global id of the contract
+     * @dev Calculates the total value of the contract, which can vary if the contract has some LNTN.
+     * `totalValue = currentNTN + withdrawnValue + (the value of LNTN converted to NTN using current ratio)`
      */
-    function _calculateTotalValue(uint256 _contractID) private view returns (uint256) {
-        Contract storage _contract = contracts[_contractID];
-        uint256 _totalValue = _contract.currentNTNAmount + _contract.withdrawnValue;
-        address[] memory _validators = _bondedValidators(_contractID);
-        for (uint256 i = 0; i < _validators.length; i++) {
-            uint256 _balance = _liquidBalanceOf(_contractID, _validators[i]);
+    function _calculateTotalValue() internal view returns (uint256) {
+        uint256 _totalValue = autonity.balanceOf(address(this)) + stakableContract.withdrawnValue;
+        address _validator;
+        uint256 _balance;
+        for (uint256 i = 0; i < bondedValidators.length; i++) {
+            _validator = bondedValidators[i];
+            _balance = liquidBalanceOf(_validator);
             if (_balance == 0) {
                 continue;
             }
-            _totalValue += _calculateLNTNValue(_validators[i], _balance);
+            _totalValue += _calculateLNTNValue(_validator, _balance);
         }
         return _totalValue;
     }
 
     /**
-     * @dev transfers some LNTN equivalent to _availableUnlockedFunds NTN to beneficiary address.
-     * In case the _contractID has LNTN to multiple validators, we pick one validator and try to transfer
+     * @dev Transfers some LNTN equivalent to beneficiary address. The amount of unlocked funds is calculated in NTN
+     * and then converted to LNTN using the current ratio.
+     * In case the contract has LNTN to multiple validators, we pick one validator and try to transfer
      * as much LNTN as possible. If there still remains some more uncloked funds, then we pick another validator.
      * There is no particular order in which validator should be picked first.
      */
     function _releaseAllUnlockedLNTN(
-        uint256 _contractID, uint256 _availableUnlockedFunds
-    ) private returns (uint256 _remaining) {
+        uint256 _availableUnlockedFunds
+    ) internal returns (uint256 _remaining) {
         _remaining = _availableUnlockedFunds;
-        address[] memory _validators = _bondedValidators(_contractID);
-        for (uint256 i = 0; i < _validators.length && _remaining > 0; i++) {
-            uint256 _balance = _unlockedLiquidBalanceOf(_contractID, _validators[i]);
+        address _validator;
+        uint256 _balance;
+        uint256 _value;
+        uint256 _liquid;
+        for (uint256 i = 0; i < bondedValidators.length && _remaining > 0; i++) {
+            _validator = bondedValidators[i];
+            _balance = unlockedLiquidBalanceOf(_validator);
             if (_balance == 0) {
                 continue;
             }
-            uint256 _value = _calculateLNTNValue(_validators[i], _balance);
+            _value = _calculateLNTNValue(_validator, _balance);
             if (_remaining >= _value) {
                 _remaining -= _value;
-                _updateAndTransferLNTN(_contractID, msg.sender, _balance, _validators[i]);
+                _transferLNTN(_balance, _validator);
             }
             else {
-                uint256 _liquid = _getLiquidFromNTN(_validators[i], _remaining);
+                _liquid = _getLiquidFromNTN(_validator, _remaining);
                 require(_liquid <= _balance, "conversion not working");
                 _remaining = 0;
-                _updateAndTransferLNTN(_contractID, msg.sender, _liquid, _validators[i]);
+                _transferLNTN(_liquid, _validator);
             }
         }
-        Contract storage _contract = contracts[_contractID];
-        _contract.withdrawnValue += _availableUnlockedFunds - _remaining;
+        stakableContract.withdrawnValue += _availableUnlockedFunds - _remaining;
     }
 
     /**
-     * @dev calculates the amount of unlocked funds in NTN until last epoch block time
+     * @dev Calculates the amount of unlocked funds in NTN until last epoch time.
      */
-    function _unlockedFunds(uint256 _contractID) private view returns (uint256) {
+    function _unlockedFunds() internal view returns (uint256) {
         return _calculateAvailableUnlockedFunds(
-            _contractID, _calculateTotalValue(_contractID), autonity.lastEpochTime()
+            stakableContract, _calculateTotalValue(), autonity.lastEpochTime()
         );
     }
 
-    function _updateAndTransferLNTN(uint256 _contractID, address _to, uint256 _amount, address _validator) private {
-        _updateUnclaimedReward(_validator);
-        _decreaseLiquid(_contractID, _validator, _amount);
-        _transferLNTN(_to, _amount, _validator);
-    }
-
-    function _transferLNTN(address _to, uint256 _amount, address _validator) private {
-        (bool _sent, ) = _liquidStateContract(_validator).call(
-            abi.encodeWithSignature("transfer(address,uint256)", _to, _amount)
-        );
+    function _transferLNTN(uint256 _amount, address _validator) internal {
+        bool _sent = _liquidStateContract(_validator).transfer(beneficiary, _amount);
         require(_sent, "LNTN transfer failed");
     }
 
-    function _updateValidatorReward(address[] memory _validators) internal {
-        for (uint256 i = 0; i < _validators.length; i++) {
-            _updateUnclaimedReward(_validators[i]);
-        }
-    }
-
-    /**
-     * @dev mimic _applyBonding from Autonity.sol
-     */
-    function _applyBonding(uint256 _bondingID, address _validator, uint256 _liquid, bool _selfDelegation, bool _rejected) internal {
-        require(_selfDelegation == false, "bonding should be delegated");
-        uint256 _contractID = bondingToContract[_bondingID] - 1;
-
-        PendingBondingRequest storage _request = pendingBondingRequest[_bondingID];
-        _request.processed = true;
-
-        if (_rejected) {
-            Contract storage _contract = contracts[_contractID];
-            _contract.currentNTNAmount += _request.amount;
-        }
-        else {
-            _increaseLiquid(_contractID, _validator, _liquid);
-        }
-    }
-
-    /**
-     * @dev mimic _applyUnbonding from Autonity.sol
-     */
-    function _applyUnbonding(uint256 _unbondingID, address _validator, bool _rejected) internal {
-        uint256 _contractID = unbondingToContract[_unbondingID] - 1;
-        PendingUnbondingRequest storage _unbondingRequest = pendingUnbondingRequest[_unbondingID];
-        uint256 _liquid = _unbondingRequest.liquidAmount;
-        _unlock(_contractID, _validator, _liquid);
-
-        if (_rejected) {
-            _unbondingRequest.rejected = true;
-            return;
-        }
-
-        _unbondingRequest.applied = true;
-        _decreaseLiquid(_contractID, _validator, _liquid);
-    }
-
-    function _releaseUnbonding(uint256 _unbondingID, uint256 _amount, bool _rejected) internal {
-        uint256 _contractID = unbondingToContract[_unbondingID] - 1;
-
-        if (_rejected) {
-            // If released of unbonding is rejected, then it is assumed that the applying of unbonding was also rejected
-            // or reverted at Autonity because Autonity could not notify us (_applyUnbonding reverted).
-            // If applying of unbonding was successful, then releasing of unbonding cannot be rejected.
-            // Here we assume that it was rejected at vesting manager as well, otherwise if it was reverted (due to out of gas)
-            // it will revert here as well. In any case, _revertPendingUnbondingRequest will handle the reverted or rejected request
-            return;
-        }
-        Contract storage _contract = contracts[_contractID];
-        _contract.currentNTNAmount += _amount;
-    }
-
-    function _sendRewards(uint256 _atnReward, uint256 _ntnReward) private {
+    function _sendRewards(uint256 _atnReward, uint256 _ntnReward) internal {
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
-        (bool _sent, ) = msg.sender.call{value: _atnReward}("");
-        require(_sent, "Failed to send AUT");
+        (bool _sent, ) = beneficiary.call{value: _atnReward}("");
+        require(_sent, "failed to send ATN");
 
-        _sent = autonity.transfer(msg.sender, _ntnReward);
-        require(_sent, "Failed to send NTN");
-    }
-
-    function _updateFunds(uint256 _contractID) private {
-        _revertPendingBondingRequest(_contractID);
-        _revertPendingUnbondingRequest(_contractID);
+        _transferNTN(beneficiary, _ntnReward);
     }
 
     /**
-     * @dev The contract needs to be cleaned before bonding, unbonding or claiming rewards.
-     * _cleanup removes any unnecessary validator from the list, removes pending bonding or unbonding requests
-     * that have been rejected or reverted but vesting manager could not be notified. If the clean up is not
-     * done, then liquid balance could be incorrect due to not handling the bonding or unbonding request.
-     * @param _contractID unique global contract id
+     * @dev Updates the funds by applying the staking requests.
      */
-    function _cleanup(uint256 _contractID) private {
-        _revertPendingBondingRequest(_contractID);
-        _revertPendingUnbondingRequest(_contractID);
-        _clearValidators(_contractID);
+    function _updateFunds() internal {
+        _handlePendingBondingRequest();
+        _handlePendingUnbondingRequest();
+        stakableContract.currentNTNAmount = autonity.balanceOf(address(this));
     }
 
     /**
-     * @dev in case some bonding request from some previous epoch was unsuccessful and vesting contract was not notified,
-     * this function handles such requests. All the requests from past epoch can be handled as the bonding requests are
-     * applied at epoch end immediately. Requests from current epoch are not handled.
-     * @param _contractID unique global id of the contract
+     * @dev Updates the funds and removes any unnecessary validator from the list.
      */
-    function _revertPendingBondingRequest(uint256 _contractID) private {
-        uint256[] storage _bondingIDs = contractToBonding[_contractID];
-        uint256 _length = _bondingIDs.length;
-        if (_length == 0) {
-            return;
-        }
+    function _cleanup() internal {
+        _updateFunds();
+        _clearValidators();
+    }
 
-        uint256 _oldBondingID;
-        PendingBondingRequest storage _oldBondingRequest;
-        uint256 _totalAmount = 0;
-        uint256 _currentEpochID = _epochID();
-        for (uint256 i = 0; i < _length; i++) {
-            _oldBondingID = _bondingIDs[i];
-            _oldBondingRequest = pendingBondingRequest[_oldBondingID];
-            // will revert request from some previous epoch, request from current epoch will not be reverted
-            if (_oldBondingRequest.epochID == _currentEpochID) {
-                // all the request in the array are from current epoch
-                return;
+    function _deleteBondingRequest(PendingBondingRequest storage _bondingRequest) private {
+        _bondingRequest.amount = 0;
+        _bondingRequest.epochID = 0;
+        _bondingRequest.validator = address(0);
+    }
+
+    /**
+     * @dev Handles all the pending bonding requests.
+     * All the requests from past epoch can be deleted as the bonding requests are
+     * applied at epoch end immediately. Requests from current epoch are used to calculated `bondingNTN`.
+     */
+    function _handlePendingBondingRequest() internal {
+        PendingBondingRequest storage _bondingRequest;
+        uint256 _currentEpochID = _getEpochID();
+        uint256 _length = bondingQueue.length;
+        uint256 _topIndex = bondingQueueTopIndex;
+
+        // first delete all bonding requests from the queue
+        for (uint256 i = _topIndex; i < _length; i++) {
+            _bondingRequest = bondingQueue[i];
+            if (_bondingRequest.epochID < _currentEpochID) {
+                _bondingRequestExpired(_bondingRequest.validator);
+                _deleteBondingRequest(_bondingRequest);
+                _topIndex++;
             }
-            _bondingRequestExpired(_contractID, _oldBondingRequest.validator);
-            // if the request is not processed successfully, then we need to revert it
-            if (_oldBondingRequest.processed == false) {
-                _totalAmount += _oldBondingRequest.amount;
-            }
-            delete pendingBondingRequest[_oldBondingID];
-            delete bondingToContract[_oldBondingID];
+            else break;
         }
 
-        delete contractToBonding[_contractID];
-        if (_totalAmount == 0) {
-            return;
+        // now calculate total `ntnUnderStaking.bondingNTN`
+        // doing it in seperate loop may reduce gas cost by reducing state reading
+        uint256 _bondingNTN;
+        for (uint256 i = _topIndex; i < _length; i++) {
+            _bondingNTN += bondingQueue[i].amount;
         }
-        Contract storage _contract = contracts[_contractID];
-        _contract.currentNTNAmount += _totalAmount;
+        ntnUnderStaking.bondingNTN = _bondingNTN;
+        bondingQueueTopIndex = _topIndex;
+    }
+
+    function _deleteUnbondingRequest(PendingUnbondingRequest storage _unbondingRequest) private {
+        _unbondingRequest.unbondingID = 0;
+        _unbondingRequest.epochID = 0;
+        _unbondingRequest.validator = address(0);
     }
 
     /**
-     * @dev in case some unbonding request from some previous epoch was unsuccessful (not applied successfully or
-     * not released successfully) and vesting contract was not notified, this function handles such requests.
-     * Any request that has been processed in _releaseUnbondingStake function can be handled here.
-     * Other requests need to wait.
-     * @param _contractID unique global id of the contract
+     * @dev Handles all the pending unbonding requests. All unbonding requests from past epoch are applied.
+     * Unbonding request that are released in Autonity can be deleted.
      */
-    function _revertPendingUnbondingRequest(uint256 _contractID) private {
-        uint256 _unbondingID;
+    function _handlePendingUnbondingRequest() internal {
         PendingUnbondingRequest storage _unbondingRequest;
-        mapping(uint256 => uint256) storage _unbondingIDs = contractToUnbonding[_contractID];
-        uint256 _lastID = headPendingUnbondingID[_contractID];
-        uint256 _processingID = tailPendingUnbondingID[_contractID];
-        for (; _processingID < _lastID; _processingID++) {
-            _unbondingID = _unbondingIDs[_processingID];
-            Autonity.UnbondingReleaseState _releaseState = autonity.getUnbondingReleaseState(_unbondingID);
-            if (_releaseState == Autonity.UnbondingReleaseState.notReleased) {
-                // all the rest have not been released yet
-                break;
-            }
-            delete _unbondingIDs[_processingID];
-            delete unbondingToContract[_unbondingID];
-            
-            if (_releaseState == Autonity.UnbondingReleaseState.released) {
-                // unbonding was released successfully
-                delete pendingUnbondingRequest[_unbondingID];
-                continue;
-            }
+        uint256 _length = unbondingQueue.length;
+        uint256 _topIndex = unbondingQueueTopIndex;
 
-            _unbondingRequest = pendingUnbondingRequest[_unbondingID];
-            address _validator = _unbondingRequest.validator;
-
-            if (_releaseState == Autonity.UnbondingReleaseState.reverted) {
-                // it means the unbonding was released, but later reverted due to failing to notify us
-                // that means unbonding was applied successfully
-                require(_unbondingRequest.applied, "unbonding was released but not applied succesfully");
-                _updateUnclaimedReward(_validator);
-                _increaseLiquid(_contractID, _validator, autonity.getRevertingAmount(_unbondingID));
-            }
-            else if (_releaseState == Autonity.UnbondingReleaseState.rejected) {
-                require(_unbondingRequest.applied == false, "unbonding was applied successfully but release was rejected");
-                // _unbondingRequest.rejected = true means we already rejected it
-                if (_unbondingRequest.rejected == false) {
-                    _unlock(_contractID, _validator, _unbondingRequest.liquidAmount);
-                }
+        // first delete all unbonding request from queue that are released
+        for (uint256 i = _topIndex; i < _length; i++) {
+            _unbondingRequest = unbondingQueue[i];
+            if (autonity.isUnbondingReleased(_unbondingRequest.unbondingID)) {
+                _deleteUnbondingRequest(_unbondingRequest);
+                _topIndex++;
             }
             else {
-                require(false, "unknown UnbondingReleaseState, need to implement");
+                break;
             }
-            
-            delete pendingUnbondingRequest[_unbondingID];
         }
-        tailPendingUnbondingID[_contractID] = _processingID;
+
+        // now calculate total `ntnUnderStaking.unbondingNTN`
+        // doing it in seperate loop may reduce gas cost by reducing state reading
+        uint256 _unbondingNTN;
+        uint256 _unbondingShare;
+        Autonity.Validator memory _validator;
+        uint256 _currentEpochID = _getEpochID();
+        for (uint256 i = _topIndex; i < _length; i++) {
+            _unbondingRequest = unbondingQueue[i];
+            if (_unbondingRequest.epochID == _currentEpochID) {
+                break;
+            }
+            _unbondingShare = autonity.getUnbondingShare(_unbondingRequest.unbondingID);
+            if (_unbondingShare == 0) {
+                continue;
+            }
+            _validator = autonity.getValidator(_unbondingRequest.validator);
+            _unbondingNTN += (_unbondingShare * _validator.unbondingStake) / _validator.unbondingShares;
+        }
+        ntnUnderStaking.unbondingNTN = _unbondingNTN;
+        unbondingQueueTopIndex = _topIndex;
     }
 
-    function _epochID() private view returns (uint256) {
+    /**
+     * @dev Claims all rewards from the liquid contract of the validator.
+     * @param _validator validator address
+     */
+    function _claimAndSendRewards(address _validator) internal {
+        address _myAddress = address(this);
+        uint256 _atnBalance = _myAddress.balance;
+        uint256 _ntnBalance = autonity.balanceOf(_myAddress);
+        _liquidStateContract(_validator).claimRewards();
+        _sendRewards(_myAddress.balance - _atnBalance, autonity.balanceOf(_myAddress) - _ntnBalance);
+    }
+
+    /**
+     * @dev Claims all rewards from the liquid contract from all bonded validators.
+     */
+    function _claimAndSendRewards() internal {
+        address _myAddress = address(this);
+        uint256 _atnBalance = _myAddress.balance;
+        uint256 _ntnBalance = autonity.balanceOf(_myAddress);
+        for (uint256 i = 0; i < bondedValidators.length; i++) {
+            _liquidStateContract(bondedValidators[i]).claimRewards();
+        }
+        _sendRewards(_myAddress.balance - _atnBalance, autonity.balanceOf(_myAddress) - _ntnBalance);
+    }
+
+    function _getEpochID() internal view returns (uint256) {
         return autonity.epochID();
     }
 
@@ -642,92 +448,60 @@ contract StakableVesting is IStakeProxy, ContractBase, LiquidRewardManager {
      */
 
     /**
-     * @notice returns the gas cost required in "wei" to notify vesting manager when the bonding is applied
-     */
-    function requiredBondingGasCost() public view returns (uint256) {
-        return requiredGasBond * autonity.stakingGasPrice();
-    }
-
-    /**
-     * @notice returns the gas cost required in "wei" to notify vesting manager when the unbonding is applied and released
-     */
-    function requiredUnbondingGasCost() public view returns (uint256) {
-        return requiredGasUnbond * autonity.stakingGasPrice();
-    }
-
-    /**
-     * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding to _validator
-     * @param _beneficiary beneficiary address
-     * @param _id contract ID
+     * @notice Returns unclaimed rewards from some contract entitled to beneficiary from bonding to validator.
      * @param _validator validator address
+     * @return _atnRewards unclaimed ATN rewards
+     * @return _ntnRewards unclaimed NTN rewards
      */
-    function unclaimedRewards(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID, _validator);
+    function unclaimedRewards(address _validator) virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
+        (_atnRewards, _ntnRewards) = _unclaimedRewards(_validator);
     }
 
     /**
-     * @notice returns unclaimed rewards from contract _id entitled to _beneficiary from bonding
+     * @notice Returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to beneficiary.
      */
-    function unclaimedRewards(address _beneficiary, uint256 _id) virtual external view returns (uint256 _atnFee, uint256 _ntnFee) {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
-        (_atnFee, _ntnFee) = _unclaimedRewards(_contractID);
-    }
-
-    /**
-     * @notice returns the amount of all unclaimed rewards due to all the bonding from contracts entitled to _beneficiary
-     */
-    function unclaimedRewards(address _beneficiary) virtual external view returns (uint256 _atnTotalFee, uint256 _ntnTotalFee) {
-        _atnTotalFee = atnRewards[_beneficiary];
-        _ntnTotalFee = ntnRewards[_beneficiary];
-        uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
-        for (uint256 i = 0; i < _contractIDs.length; i++) {
-            (uint256 _atnFee, uint256 _ntnFee) = _unclaimedRewards(_contractIDs[i]);
-            _atnTotalFee += _atnFee;
-            _ntnTotalFee += _ntnFee;
+    function unclaimedRewards() virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
+        for (uint256 i = 0; i < bondedValidators.length; i++) {
+            (uint256 _atn, uint256 _ntn) = _unclaimedRewards(bondedValidators[i]);
+            _atnRewards += _atn;
+            _ntnRewards += _ntn;
         }
     }
 
     /**
-     * @notice returns the amount of LNTN for some contract
-     * @param _beneficiary beneficiary address
-     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
-     * @param _validator validator address
+     * @notice Returns the amount of released funds in NTN for some contract.
      */
-    function liquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
-        return _liquidBalanceOf(_getUniqueContractID(_beneficiary, _id), _validator);
+    function unlockedFunds() virtual external view returns (uint256) {
+        return _unlockedFunds();
     }
 
     /**
-     * @notice returns the amount of locked LNTN for some contract
+     * @notice Returns the current total value of the contract in NTN.
      */
-    function lockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
-        return _lockedLiquidBalanceOf(_getUniqueContractID(_beneficiary, _id), _validator);
+    function contractTotalValue() external view returns (uint256) {
+        return _calculateTotalValue();
     }
 
-    /**
-     * @notice returns the amount of unlocked LNTN for some contract
-     */
-    function unlockedLiquidBalanceOf(address _beneficiary, uint256 _id, address _validator) virtual external view returns (uint256) {
-        return _unlockedLiquidBalanceOf(_getUniqueContractID(_beneficiary, _id), _validator);
+    function getContract() virtual external view returns (ContractBase.Contract memory) {
+        return stakableContract;
     }
 
-    /**
-     * @notice returns the list of validators bonded some contract
+    /*
+    ============================================================
+
+        Modifiers
+
+    ============================================================
      */
-    function getBondedValidators(address _beneficiary, uint256 _id) virtual external view returns (address[] memory) {
-        return _bondedValidators(_getUniqueContractID(_beneficiary, _id));
+
+    modifier onlyBeneficiary {
+        require(msg.sender == beneficiary, "caller is not beneficiary of the contract");
+        _;
     }
 
-    /**
-     * @notice returns the amount of released funds in NTN for some contract
-     */
-    function unlockedFunds(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
-        return _unlockedFunds(_getUniqueContractID(_beneficiary, _id));
-    }
-
-    function contractTotalValue(address _beneficiary, uint256 _id) external view returns (uint256) {
-        return _calculateTotalValue(_getUniqueContractID(_beneficiary, _id));
+    modifier onlyManager {
+        require(msg.sender == managerContract, "caller is not the manager");
+        _;
     }
 
 }
