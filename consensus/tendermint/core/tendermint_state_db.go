@@ -347,7 +347,7 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 
 	err = batch.Write()
 	rsdb.msgDbSaveTimer.UpdateSince(before)
-	rsdb.msgDbSaveBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds())
+	rsdb.msgDbSaveBufferedGauge.Add(before.Sub(time.Now()).Nanoseconds()) //nolint
 	if err != nil {
 		rsdb.logger.Error("Failed to save roundState", "reason", "level db write", "err", err, "func")
 		return err
