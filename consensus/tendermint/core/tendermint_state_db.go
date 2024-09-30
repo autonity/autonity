@@ -43,12 +43,14 @@ type TendermintStateDB struct {
 	maxMsgID           uint64 // cache for max MSG ID
 	lastConsensusMsgID uint64 // cache for last consensus msg ID of a height.
 
+	rsChangesMeter        metrics.Meter // tracking how many rs changes within a period.
 	rsRLPMeter            metrics.Meter // Meter for measuring the size of rs RLP-encoded data
 	rsRLPEncTimer         metrics.Timer // Timer measuring time required for rs RLP encoding
 	rsRLPEncBufferedGauge metrics.BufferedGauge
 	rsDbSaveTimer         metrics.Timer // Timer measuring rs DB write latency
 	rsDbSaveBufferedGauge metrics.BufferedGauge
 
+	msgsMeter              metrics.Meter // tracking how many messages are flushed within a period.
 	msgRLPMeter            metrics.Meter // Meter for measuring the size of received consensus messages RLP-encoded data
 	msgRLPEncTimer         metrics.Timer // Timer measuring time required for received consensus messages to be RLP encoded
 	msgRLPEncBufferedGauge metrics.BufferedGauge
@@ -64,13 +66,14 @@ func newTendermintStateDB(logger log.Logger, db ethdb.Database) *TendermintState
 		db:     db,
 		logger: logger,
 	}
-
+	rsdb.rsChangesMeter = metrics.NewRegisteredMeter("wal/rs/changes/meter", nil)
 	rsdb.rsRLPMeter = metrics.NewRegisteredMeter("wal/rs/rlp/encoding/size", nil)
 	rsdb.rsRLPEncTimer = metrics.NewRegisteredTimer("wal/rs/rlp/encoding/duration", nil)
 	rsdb.rsRLPEncBufferedGauge = metrics.NewRegisteredBufferedGauge("wal/rs/rlp/encoding.bg", nil, nil)
 	rsdb.rsDbSaveTimer = metrics.NewRegisteredTimer("wal/rs/db/save/time", nil)
 	rsdb.rsDbSaveBufferedGauge = metrics.NewRegisteredBufferedGauge("wal/rs/db/save.bg", nil, nil)
 
+	rsdb.msgsMeter = metrics.NewRegisteredMeter("wal/messages/meter", nil)
 	rsdb.msgRLPMeter = metrics.NewRegisteredMeter("wal/message/rlp/encoding/size", nil)
 	rsdb.msgRLPEncTimer = metrics.NewRegisteredTimer("wal/message/rlp/encoding/duration", nil)
 	rsdb.msgRLPEncBufferedGauge = metrics.NewRegisteredBufferedGauge("wal/message/rlp/encoding.bg", nil, nil)
@@ -168,6 +171,7 @@ func (rsdb *TendermintStateDB) UpdateLastRoundState(rs *TendermintState, startNe
 		return err
 	}
 
+	rsdb.rsChangesMeter.Mark(1)
 	rsdb.rsRLPMeter.Mark(int64(len(entryBytes)))
 
 	before = time.Now()
@@ -321,6 +325,7 @@ func (rsdb *TendermintStateDB) AddMsg(msg message.Msg, verified bool) error {
 		return err
 	}
 
+	rsdb.msgsMeter.Mark(1)
 	rsdb.msgRLPMeter.Mark(int64(len(msgBytes)))
 
 	before = time.Now()
