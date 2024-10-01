@@ -766,12 +766,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual override returns (bool){
-        //TODO URGENT require(allowances[_sender][msg.sender] > 0, "no allowance");
-        //require(allowances[_sender][msg.sender] >= _amount, "unsufficient allowance");
+    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual override returns (bool) {
+        uint256 _currentAllowance = allowances[_sender][msg.sender];
+        require(_currentAllowance >= _amount, "ERC20: transfer amount exceeds allowance");
         _transfer(_sender, _recipient, _amount);
-        uint256 newAllowance = allowances[_sender][msg.sender] - _amount;
-        _approve(_sender, msg.sender, newAllowance);
+        _approve(_sender, msg.sender, _currentAllowance - _amount);
         emit Transfer(_sender, _recipient, _amount);
         return true;
     }
@@ -830,8 +829,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
                 // need immediate attention
                 emit UnlockingScheduleFailed(block.timestamp);
             }
-            // redistribute ATN tx fees and newly minted NTN inflation reward
-            _performRedistribution(address(this).balance, _inflationReward);
+            // redistribute ATN tx fees and available NTN inflation reward
+            _performRedistribution(address(this).balance, accounts[address(this)]);
             // end of epoch here
             _notifyRewardsDistribution();
             _stakingOperations();
