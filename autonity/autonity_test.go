@@ -225,7 +225,7 @@ func deployAutonity(
 	committeeSize int, validators []params.Validator, deployer common.Address,
 ) (*state.StateDB, *EVMContract, common.Address, error) {
 	abi := &generated.AutonityAbi
-	stateDB, evm, evmContract, err := initalizeEvm(abi)
+	stateDB, evm, evmContract, err := initializeEvm(abi)
 	if err != nil {
 		return stateDB, evmContract, common.Address{}, err
 	}
@@ -244,7 +244,7 @@ func deployAutonityTest(
 	committeeSize int, validators []params.Validator, deployer common.Address,
 ) (*state.StateDB, *EVMContract, common.Address, error) {
 	abi := &generated.AutonityTestAbi
-	stateDB, evm, evmContract, err := initalizeEvm(abi)
+	stateDB, evm, evmContract, err := initializeEvm(abi)
 	if err != nil {
 		return stateDB, evmContract, common.Address{}, err
 	}
@@ -259,7 +259,7 @@ func deployAutonityTest(
 	return stateDB, evmContract, contractAddress, err
 }
 
-func initalizeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *EVMContract, error) {
+func initializeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *EVMContract, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
 	stateDB, err := state.New(common.Hash{}, db, nil)
@@ -404,10 +404,11 @@ func autonityTestConfig() AutonityConfig {
 			InflationControllerContract: params.InflationControllerContractAddress,
 		},
 		Protocol: AutonityProtocol{
-			OperatorAccount: params.TestAutonityContractConfig.Operator,
-			EpochPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
-			BlockPeriod:     new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
-			CommitteeSize:   new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
+			OperatorAccount:     params.TestAutonityContractConfig.Operator,
+			EpochPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
+			BlockPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
+			CommitteeSize:       new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
+			MaxScheduleDuration: new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxScheduleDuration),
 		},
 		ContractVersion: big.NewInt(1),
 	}
