@@ -321,14 +321,14 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 		}
 	}
 
-	if err := evmContracts.FinalizeInitialization(); err != nil {
-		return fmt.Errorf("error while calling finalizeInitialization: %w", err)
-	}
-
 	for _, schedule := range genesisConfig.Schedules {
 		if err := evmContracts.CreateSchedule(params.NonStakableVestingContractAddress, schedule); err != nil {
 			return fmt.Errorf("error while creating schedules: %w", err)
 		}
+	}
+
+	if err := evmContracts.FinalizeInitialization(); err != nil {
+		return fmt.Errorf("error while calling finalizeInitialization: %w", err)
 	}
 
 	log.Info("Deployed Autonity contract", "address", params.AutonityContractAddress)
@@ -457,7 +457,7 @@ func (c *AutonityContract) CreateSchedule(header *types.Header, statedb vm.State
 }
 
 func (c *NonStakableVestingContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.NonStakableVestingData) error {
-	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.ScheduleID)
+	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.ScheduleID, contract.CliffDuration)
 	if err != nil {
 		return fmt.Errorf("error while generating call data for newContract: %w", err)
 	}
