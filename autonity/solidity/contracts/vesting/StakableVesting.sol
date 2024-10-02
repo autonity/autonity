@@ -6,8 +6,8 @@ import "./ValidatorManager.sol";
 
 contract StakableVesting is ContractBase, ValidatorManager {
     
-    address private beneficiary;
-    address private managerContract;
+    address public beneficiary;
+    address public managerContract;
     ContractBase.Contract private stakableContract;
 
     struct ContractValuation {
@@ -54,6 +54,10 @@ contract StakableVesting is ContractBase, ValidatorManager {
         managerContract = msg.sender;
         stakableContract = _createContract(_amount, _startTime, _cliffDuration, _totalDuration, true);
         contractValuation = ContractValuation(_amount, 0);
+    }
+
+    function setManagerContract(address _managerContract) virtual external onlyOperator {
+        managerContract = _managerContract;
     }
 
 
@@ -108,7 +112,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
         require(_amount > 0, "require positive amount to transfer");
         _updateFunds();
 
-        uint256 _unlockedLiquid = unlockedLiquidBalanceOf(_validator);
+        uint256 _unlockedLiquid = _unlockedLiquidBalance(_liquidStateContract(_validator));
         require(_unlockedLiquid >= _amount, "not enough unlocked LNTN");
 
         uint256 _value = _calculateLNTNValue(_validator, _amount);
@@ -138,14 +142,14 @@ contract StakableVesting is ContractBase, ValidatorManager {
      * @notice In case some funds are missing due to some pending staking operation that failed,
      * this function updates the funds of some contract entitled to beneficiary by applying the pending requests.
      */
-    function updateFunds() virtual external onlyBeneficiary {
+    function updateFunds() virtual external {
         _updateFunds();
     }
 
     /**
      * @notice Updates the funds of the contract and returns total value of the contract.
      */
-    function updateFundsAndGetContractTotalValue() external onlyBeneficiary returns (uint256) {
+    function updateFundsAndGetContractTotalValue() external returns (uint256) {
         _updateFunds();
         return _calculateTotalValue();
     }
@@ -153,7 +157,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
     /**
      * @notice Updates the funds of the contract and returns the contract.
      */
-    function updateFundsAndGetContract() external onlyBeneficiary returns (ContractBase.Contract memory) {
+    function updateFundsAndGetContract() external returns (ContractBase.Contract memory) {
         _updateFunds();
         return stakableContract;
     }
@@ -240,7 +244,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
         uint256 _balance;
         for (uint256 i = 0; i < bondedValidators.length; i++) {
             _validator = bondedValidators[i];
-            _balance = liquidBalanceOf(_validator);
+            _balance = liquidBalance(_validator);
             if (_balance == 0) {
                 continue;
             }
@@ -266,7 +270,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
         uint256 _liquid;
         for (uint256 i = 0; i < bondedValidators.length && _remaining > 0; i++) {
             _validator = bondedValidators[i];
-            _balance = unlockedLiquidBalanceOf(_validator);
+            _balance = _unlockedLiquidBalance(_liquidStateContract(_validator));
             if (_balance == 0) {
                 continue;
             }

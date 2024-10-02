@@ -168,7 +168,7 @@ func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *Gen
 		config.StakableVestingConfig.SetDefaults()
 	}
 	if err := evmContracts.DeployStakableVestingContract(
-		generated.StakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
+		generated.StakableVestingManagerBytecode, params.AutonityContractAddress,
 	); err != nil {
 		log.Error("DeployStakableVestingContract failed", "err", err)
 		return fmt.Errorf("failed to deploy stakeable vesting contract: %w", err)
@@ -194,7 +194,7 @@ func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *
 		config.NonStakableVestingConfig = params.DefaultNonStakableVestingGenesis
 	}
 	if err := evmContracts.DeployNonStakableVestingContract(
-		generated.NonStakableVestingBytecode, params.AutonityContractAddress, config.AutonityContractConfig.Operator,
+		generated.NonStakableVestingBytecode, params.AutonityContractAddress,
 	); err != nil {
 		log.Error("DeployNonStakableVestingContract failed", "err", err)
 		return fmt.Errorf("failed to deploy non-stakeable vesting contract: %w", err)

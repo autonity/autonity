@@ -43,16 +43,17 @@ contract StakableVestingManager is BeneficiaryHandler {
 
         uint256 _contractID = _newContractCreated(_beneficiary);
         require(_contractID == contracts.length, "invalid contract id");
-        contracts.push(
-            new StakableVesting(
-                payable(autonity),
-                _beneficiary,
-                _amount,
-                _startTime,
-                _cliffDuration,
-                _totalDuration
-            )
+        StakableVesting _stakableVestingContract = new StakableVesting(
+            payable(autonity),
+            _beneficiary,
+            _amount,
+            _startTime,
+            _cliffDuration,
+            _totalDuration
         );
+        contracts.push(_stakableVestingContract);
+        bool _sent = autonity.transfer(address(_stakableVestingContract), _amount);
+        require(_sent, "failed to transfer NTN");
         totalNominal -= _amount;
     }
 
