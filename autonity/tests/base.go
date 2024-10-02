@@ -216,6 +216,11 @@ func (r *Runner) Run(name string, f func(r *Runner)) {
 	})
 }
 
+func RunWithSetup(name string, setup func() *Runner, run func(r *Runner)) {
+	r := setup()
+	r.Run(name, run)
+}
+
 func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) { //nolint
 	r.Evm.StateDB.AddBalance(account, amount)
 }
@@ -274,7 +279,7 @@ func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address)
 	return &contract{address, parsed, r}
 }
 
-func (r *Runner) StakableContractObject(user common.Address, contractID *big.Int) *StakableVesting {
+func (r *Runner) StakableVestingContractObject(user common.Address, contractID *big.Int) *StakableVesting {
 	address, _, err := r.StakableVestingManager.GetContractAccount(nil, user, contractID)
 	require.NoError(r.T, err)
 	return &StakableVesting{
