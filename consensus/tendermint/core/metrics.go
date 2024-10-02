@@ -79,4 +79,6 @@ var (
 
 	// temporary metrics to evaluate whether core.roundChangeMu is causing lock contention issues
 	RoundChangeMuBg = metrics.NewRegisteredBufferedGauge("tendermint/roundchangemu.bg", nil, nil)
+
+	// todo: Jason, move the wal metrics here.
 )

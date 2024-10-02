@@ -244,7 +244,7 @@ func TestKeepResettingRandomThreeNodes(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// network should be up and continue to mine blocks
+		// network shouldn't be up and continue to mine blocks
 		err = network.WaitToMineNBlocks(10, 60, false)
 		require.EqualError(t, err, "context deadline exceeded")
 

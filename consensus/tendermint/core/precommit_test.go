@@ -27,15 +27,14 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(0)
 
-		messages := message.NewMap()
 		c := &Core{
-			logger:           log.New("backend", "test", "id", 0),
-			backend:          backendMock,
-			messages:         messages,
-			curRoundMessages: messages.GetOrCreate(0),
-			round:            2,
-			height:           big.NewInt(3),
+			logger:      log.New("backend", "test", "id", 0),
+			backend:     backendMock,
+			roundsState: newTendermintState(log.New(), nil, nil),
 		}
+		c.SetHeight(common.Big3)
+		c.SetRound(2)
+
 		c.SetDefaultHandlers()
 		c.precommiter.SendPrecommit(context.Background(), false)
 	})
@@ -59,25 +58,24 @@ func TestSendPrecommit(t *testing.T) {
 			me,
 		)
 
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(1)
+		backendMock := interfaces.NewMockBackend(ctrl)
+		roundStates := newTendermintState(log.New(), nil, nil)
+		c := &Core{
+			backend:     backendMock,
+			address:     addr,
+			logger:      logger,
+			committee:   committeeSet,
+			roundsState: roundStates,
+		}
+		c.SetHeight(common.Big2)
+		c.SetRound(1)
+		curRoundMessages := roundStates.GetOrCreate(1)
 		curRoundMessages.SetProposal(proposal, false)
 
 		preCommit := message.NewPrecommit(1, 2, curRoundMessages.ProposalHash(), makeSigner(keys[addr].consensus), val, 7)
-		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr].consensus))
 
-		c := &Core{
-			backend:          backendMock,
-			address:          addr,
-			logger:           logger,
-			committee:        committeeSet,
-			messages:         messages,
-			curRoundMessages: curRoundMessages,
-			round:            1,
-			height:           big.NewInt(2),
-		}
 		c.SetDefaultHandlers()
 		c.precommiter.SendPrecommit(context.Background(), false)
 	})
@@ -99,26 +97,22 @@ func TestSendPrecommit(t *testing.T) {
 			makeSigner(keys[me.Address].consensus),
 			me)
 
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(1)
-		curRoundMessages.SetProposal(proposal, true)
-
-		preCommit := message.NewPrecommit(1, 2, common.Hash{}, makeSigner(keys[addr].consensus), val, 7)
 		backendMock := interfaces.NewMockBackend(ctrl)
+		roundStates := newTendermintState(log.New(), nil, nil)
+		c := &Core{
+			backend:     backendMock,
+			address:     addr,
+			logger:      logger,
+			roundsState: roundStates,
+			committee:   committeeSet,
+		}
+		c.SetHeight(common.Big2)
+		c.SetRound(1)
+		curRoundMessages := roundStates.GetOrCreate(1)
+		curRoundMessages.SetProposal(proposal, true)
+		preCommit := message.NewPrecommit(1, 2, common.Hash{}, makeSigner(keys[addr].consensus), val, 7)
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr].consensus))
-
-		c := &Core{
-			backend:          backendMock,
-			address:          addr,
-			logger:           logger,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
-			committee:        committeeSet,
-			height:           big.NewInt(2),
-			round:            1,
-		}
-
 		c.SetDefaultHandlers()
 		c.precommiter.SendPrecommit(context.Background(), true)
 	})
@@ -132,8 +126,8 @@ func TestHandlePrecommit(t *testing.T) {
 
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 		member, _ := committeeSet.MemberByIndex(1)
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
+		roundStates := newTendermintState(log.New(), nil, nil)
+		curRoundMessages := roundStates.GetOrCreate(2)
 		preCommit := newUnverifiedPrecommit(2, 3, curRoundMessages.ProposalHash(), makeSigner(keys[member.Address].consensus), member, 4)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
@@ -141,15 +135,16 @@ func TestHandlePrecommit(t *testing.T) {
 		c := &Core{
 			backend:          backendMock,
 			address:          member.Address,
-			round:            2,
-			height:           big.NewInt(3),
-			curRoundMessages: curRoundMessages,
+			roundsState:      roundStates,
 			logger:           log.New("backend", "test", "id", 0),
 			proposeTimeout:   NewTimeout(Propose, log.New("ProposeTimeout")),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
 			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 			committee:        committeeSet,
 		}
+		c.SetRound(2)
+		c.SetHeight(common.Big3)
+
 		c.SetDefaultHandlers()
 		c.SetStep(context.Background(), Precommit)
 		defer func() {
@@ -171,10 +166,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 		proposal := generateBlockProposal(2, big.NewInt(3), 1, false, makeSigner(keys[member.Address].consensus), member)
 
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
-		curRoundMessages.SetProposal(proposal, true)
-
+		roundStates := newTendermintState(log.New(), nil, nil)
 		msg := message.NewPrecommit(2, 3, proposal.Block().Hash(), makeSigner(keys[member.Address].consensus), member, 1)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
@@ -194,17 +186,18 @@ func TestHandlePrecommit(t *testing.T) {
 		c := &Core{
 			address:          member.Address,
 			backend:          backendMock,
-			messages:         messages,
-			curRoundMessages: curRoundMessages,
+			roundsState:      roundStates,
 			logger:           logger,
-			round:            2,
-			height:           big.NewInt(3),
-			step:             Precommit,
 			committee:        committeeSet,
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 		}
+		c.SetHeight(common.Big3)
+		curRoundMessages := roundStates.GetOrCreate(2)
+		curRoundMessages.SetProposal(proposal, true)
+		c.UpdateStep(Precommit)
+		c.SetRound(2)
 
 		c.SetDefaultHandlers()
 		err := c.precommiter.HandlePrecommit(context.Background(), msg)
@@ -228,22 +221,21 @@ func TestHandlePrecommit(t *testing.T) {
 			makeSigner(keys[me.Address].consensus),
 			me)
 
-		messages := message.NewMap()
-		curRoundMessages := messages.GetOrCreate(2)
-		curRoundMessages.SetProposal(proposal, true)
-
+		roundStates := newTendermintState(log.New(), nil, nil)
 		c := &Core{
 			address:          me.Address,
 			backend:          backendMock,
-			curRoundMessages: curRoundMessages,
-			messages:         messages,
 			logger:           logger,
-			round:            2,
-			height:           big.NewInt(3),
-			step:             Precommit,
+			roundsState:      roundStates,
 			committee:        committeeSet,
 			precommitTimeout: NewTimeout(Precommit, logger),
 		}
+		c.SetHeight(common.Big3)
+		c.SetRound(2)
+		c.UpdateStep(Precommit)
+		curRoundMessages := roundStates.GetOrCreate(2)
+		curRoundMessages.SetProposal(proposal, true)
+
 		c.SetDefaultHandlers()
 		backendMock.EXPECT().Post(gomock.Any()).Times(6)
 
@@ -286,18 +278,19 @@ func TestHandleCommit(t *testing.T) {
 	c := &Core{
 		address:          testCommittee.Members[0].Address,
 		backend:          backendMock,
-		round:            2,
-		height:           big.NewInt(3),
-		messages:         message.NewMap(),
+		roundsState:      newTendermintState(log.New(), nil, nil),
 		logger:           logger,
 		proposeTimeout:   NewTimeout(Propose, logger),
 		prevoteTimeout:   NewTimeout(Prevote, logger),
 		precommitTimeout: NewTimeout(Precommit, logger),
 		committee:        committeeSet,
 	}
+	c.SetRound(2)
+	c.SetHeight(common.Big3)
+
 	c.SetDefaultHandlers()
 	c.precommiter.HandleCommit(context.Background())
-	if c.round != 0 || c.height.Cmp(big.NewInt(4)) != 0 {
+	if c.Round() != 0 || c.Height().Cmp(big.NewInt(4)) != 0 {
 		t.Fatalf("Expected new round and new height")
 	}
 	// to fix the data race detected by CI workflow.

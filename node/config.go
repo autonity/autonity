@@ -232,6 +232,11 @@ func (c *Config) SetTendermintServices(handler *interfaces.Services) {
 	} else {
 		c.tendermintServices.Precommiter = func(c interfaces.Core) interfaces.Precommiter { return c.Precommiter() }
 	}
+	if handler.Committer != nil {
+		c.tendermintServices.Committer = handler.Committer
+	} else {
+		c.tendermintServices.Committer = func(c interfaces.Core) interfaces.Committer { return c.Committer() }
+	}
 	if handler.Gossiper != nil {
 		c.tendermintServices.Gossiper = handler.Gossiper
 	} else {

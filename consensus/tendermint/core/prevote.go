@@ -22,7 +22,7 @@ type Prevoter struct {
 func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	value := common.Hash{}
 	if !isNil {
-		proposal := c.curRoundMessages.Proposal()
+		proposal := c.roundsState.CurRoundMessages().Proposal()
 		if proposal == nil {
 			c.logger.Error("sendPrevote Proposal is empty! It should not be empty!")
 			return
@@ -38,7 +38,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	}
 	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)
-	c.sentPrevote = true
+	c.SetSentPrevote()
 	c.Broadcaster().Broadcast(prevote)
 	if metrics.Enabled {
 		PrevoteSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
@@ -51,12 +51,11 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	}
 	if prevote.R() < c.Round() {
 		// We only process old rounds while future rounds messages are pushed on to the backlog
-		oldRoundMessages := c.messages.GetOrCreate(prevote.R())
-		oldRoundMessages.AddPrevote(prevote)
+		c.roundsState.AddPrevote(prevote)
 		c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrevoteCode, Value: prevote.Value()})
 
 		// Proposal would be nil if node haven't received the proposal yet.
-		proposal := c.curRoundMessages.Proposal()
+		proposal := c.roundsState.CurRoundMessages().Proposal()
 		if proposal == nil {
 			return constants.ErrOldRoundMessage
 		}
@@ -71,7 +70,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	// c.curRoundMessages.Step() < prevote. The propose Timeout which is started at the beginning of the round
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
-	c.curRoundMessages.AddPrevote(prevote)
+	c.roundsState.AddPrevote(prevote)
 	c.backend.Post(events.PowerChangeEvent{Height: c.Height().Uint64(), Round: c.Round(), Code: message.PrevoteCode, Value: prevote.Value()})
 
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote)
@@ -88,15 +87,17 @@ func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevo
 		"msgHeight", prevote.H(),
 		"currentRound", log.Lazy{Fn: c.Round},
 		"msgRound", prevote.R(),
-		"currentStep", c.step,
+		"currentStep", c.Step(),
 		"isProposer", log.Lazy{Fn: c.IsProposer},
 		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
 		"isNilMsg", prevote.Value() == common.Hash{},
 		"value", prevote.Value(),
-		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrevotesTotalPower},
-		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(common.Hash{}) }},
+		"totalVotes", log.Lazy{Fn: c.roundsState.CurRoundMessages().PrevotesTotalPower},
+		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.roundsState.CurRoundMessages().PrevotesPower(common.Hash{}) }},
 		"quorum", log.Lazy{Fn: c.committee.Quorum},
-		"VoteProposedBlock", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(c.curRoundMessages.ProposalHash()) }},
+		"VoteProposedBlock", log.Lazy{Fn: func() *big.Int {
+			return c.roundsState.CurRoundMessages().PrevotesPower(c.roundsState.CurRoundMessages().ProposalHash())
+		}},
 		"prevote", log.Lazy{Fn: func() string { return prevote.String() }},
 	)
 }

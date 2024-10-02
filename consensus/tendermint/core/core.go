@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/ethdb"
 	"math/big"
 	"sync"
 	"time"
@@ -13,16 +14,14 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
-	messagesMap := message.NewMap()
-	roundMessage := messagesMap.GetOrCreate(0)
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger,
+	noGossip bool, db ethdb.Database) *Core {
 	c := &Core{
 		blockPeriod:            1, // todo: retrieve it from contract
 		address:                address,
@@ -33,10 +32,6 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
 		committee:              nil,
-		messages:               messagesMap,
-		lockedRound:            -1,
-		validRound:             -1,
-		curRoundMessages:       roundMessage,
 		proposeTimeout:         NewTimeout(Propose, logger),
 		prevoteTimeout:         NewTimeout(Prevote, logger),
 		precommitTimeout:       NewTimeout(Precommit, logger),
@@ -44,6 +39,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
+		db:                     db,
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -51,6 +47,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		c.prevoter = services.Prevoter(c)
 		c.precommiter = services.Precommiter(c)
 		c.proposer = services.Proposer(c)
+		c.committer = services.Committer(c)
 	}
 	return c
 }
@@ -60,6 +57,7 @@ func (c *Core) SetDefaultHandlers() {
 	c.prevoter = &Prevoter{c}
 	c.precommiter = &Precommiter{c}
 	c.proposer = &Proposer{c}
+	c.committer = &Committer{c}
 }
 
 type Core struct {
@@ -78,41 +76,27 @@ type Core struct {
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
-	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
-
-	//
-	// Tendermint FSM state fields
-	//
 
 	// used to ensure that the aggregator can get the correct power values by calling Power, VotesPower, VotesPowerFor
 	roundChangeMu sync.Mutex
-	stateMu       sync.RWMutex
-	height        *big.Int
-	round         int64
-	committee     interfaces.Committee
+
+	// Tendermint SM state, and its underlying WAL storage.
+	db          ethdb.Database
+	roundsState RoundsState
+	committee   interfaces.Committee
+	stateMu     sync.RWMutex
+
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
-	step             Step
-	stepChange       time.Time
-	curRoundMessages *message.RoundMessages
-	messages         *message.Map
+
+	stepChange time.Time
 
 	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
 	// they need a lock.
 	futureRound     map[int64][]message.Msg
 	futurePower     map[int64]*message.AggregatedPower // power cache for future value msgs (per round)
 	futureRoundLock sync.RWMutex
-
-	sentProposal          bool
-	sentPrevote           bool
-	sentPrecommit         bool
-	setValidRoundAndValue bool
-
-	lockedRound int64
-	validRound  int64
-	lockedValue *types.Block
-	validValue  *types.Block
 
 	proposeTimeout   *Timeout
 	prevoteTimeout   *Timeout
@@ -128,12 +112,17 @@ type Core struct {
 	prevoter    interfaces.Prevoter
 	precommiter interfaces.Precommiter
 	proposer    interfaces.Proposer
+	committer   interfaces.Committer
 
 	// these timestamps are used to compute metrics for tendermint
 	newHeight          time.Time
 	newRound           time.Time
 	currBlockTimeStamp time.Time
 	noGossip           bool
+}
+
+func (c *Core) Committer() interfaces.Committer {
+	return c.committer
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -152,10 +141,6 @@ func (c *Core) Address() common.Address {
 	return c.address
 }
 
-func (c *Core) Step() Step {
-	return c.step
-}
-
 func (c *Core) Post(ev any) {
 	switch ev := ev.(type) {
 	case events.CommitEvent:
@@ -163,78 +148,6 @@ func (c *Core) Post(ev any) {
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
 	}
-}
-
-func (c *Core) CurRoundMessages() *message.RoundMessages {
-	return c.curRoundMessages
-}
-
-func (c *Core) Messages() *message.Map {
-	return c.messages
-}
-
-func (c *Core) SentProposal() bool {
-	return c.sentProposal
-}
-
-func (c *Core) SetSentProposal(sentProposal bool) {
-	c.sentProposal = sentProposal
-}
-
-func (c *Core) SentPrevote() bool {
-	return c.sentPrevote
-}
-
-func (c *Core) SetSentPrevote(sentPrevote bool) {
-	c.sentPrevote = sentPrevote
-}
-
-func (c *Core) SentPrecommit() bool {
-	return c.sentPrecommit
-}
-
-func (c *Core) SetSentPrecommit(sentPrecommit bool) {
-	c.sentPrecommit = sentPrecommit
-}
-
-func (c *Core) SetValidRoundAndValue() bool {
-	return c.setValidRoundAndValue
-}
-
-func (c *Core) SetSetValidRoundAndValue(setValidRoundAndValue bool) {
-	c.setValidRoundAndValue = setValidRoundAndValue
-}
-
-func (c *Core) LockedRound() int64 {
-	return c.lockedRound
-}
-
-func (c *Core) SetLockedRound(lockedRound int64) {
-	c.lockedRound = lockedRound
-}
-
-func (c *Core) ValidRound() int64 {
-	return c.validRound
-}
-
-func (c *Core) SetValidRound(validRound int64) {
-	c.validRound = validRound
-}
-
-func (c *Core) LockedValue() *types.Block {
-	return c.lockedValue
-}
-
-func (c *Core) SetLockedValue(lockedValue *types.Block) {
-	c.lockedValue = lockedValue
-}
-
-func (c *Core) ValidValue() *types.Block {
-	return c.validValue
-}
-
-func (c *Core) SetValidValue(validValue *types.Block) {
-	c.validValue = validValue
 }
 
 func (c *Core) ProposeTimeout() *Timeout {
@@ -251,33 +164,6 @@ func (c *Core) PrecommitTimeout() *Timeout {
 
 func (c *Core) Broadcaster() interfaces.Broadcaster {
 	return c.broadcaster
-}
-
-func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundMessages) {
-	c.SetStep(ctx, PrecommitDone)
-	// for metrics
-	start := time.Now()
-	proposal := messages.Proposal()
-	if proposal == nil {
-		// Should never happen really. Let's panic to catch bugs.
-		panic("Core commit called with empty proposal")
-		return
-	}
-	proposalHash := proposal.Block().Header().Hash()
-	c.logger.Debug("Committing a block", "hash", proposalHash)
-
-	precommitWithQuorum := messages.PrecommitFor(proposalHash)
-	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
-
-	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {
-		c.logger.Error("failed to commit a block", "err", err)
-		return
-	}
-	if metrics.Enabled {
-		now := time.Now()
-		CommitTimer.Update(now.Sub(start))
-		CommitBg.Add(now.Sub(start).Nanoseconds())
-	}
 }
 
 // Metric collecton of round change and height change.
@@ -318,8 +204,108 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 	}
 }
 
+// StartWithRecoveredState starts a validator from a recovered state.
+func (c *Core) StartWithRecoveredState(ctx context.Context) {
+
+	// always check rule Line_49 1st since if we have a value which becomes a decision
+	// then we can finish this consensus instance ASAP.
+	msgs := c.roundsState.Messages()
+	rounds := msgs.GetRounds()
+	for _, r := range rounds {
+		proposal := msgs.GetOrCreate(r).Proposal()
+		if proposal != nil {
+			verified := msgs.GetOrCreate(r).IsProposalVerified()
+			if c.quorumPrecommitsCheck(ctx, proposal, verified) {
+				return
+			}
+		}
+	}
+
+	// rule Line_55 for future round jump is not be checked since we don't save future round msgs in WAL.
+	// then we check rule Line_47 to schedule timeout of precommit if we could.
+	c.precommitTimeoutCheck()
+
+	// actions depend on step propose.
+	if c.Step() == Propose {
+		// if !sentProposal, send available proposal if current validator is the proposer.
+		// if !sentPrevote, schedule timeoutPropose and check rule Line_22, Line_28 if there is available proposal.
+		c.startWithRecoveredProposeStep(ctx)
+		return
+	}
+
+	// actions depend on step: prevote and precommit
+	// if !sentPrecommit, run rule Line_34 to schedule prevote timeout, and run rule Line_36 and 44
+	if !c.SentPrecommit() {
+		// rule Line_34, prevote timeout check.
+		c.prevoteTimeoutCheck()
+
+		// check rule Line_36
+		proposal := c.roundsState.CurRoundMessages().Proposal()
+		verified := c.roundsState.CurRoundMessages().IsProposalVerified()
+		if proposal != nil && verified {
+			c.quorumPrevotesCheck(ctx, proposal)
+		}
+
+		// check rule Line_44
+		if c.Step() == Prevote {
+			c.quorumPrevotesNilCheck(ctx)
+		}
+	}
+}
+
+func (c *Core) startWithRecoveredProposeStep(ctx context.Context) {
+
+	if c.IsProposer() {
+		if !c.SentProposal() {
+			if c.ValidValue() != nil {
+				c.proposer.SendProposal(ctx, c.ValidValue())
+			} else {
+				newValue, ok := c.pendingCandidateBlocks[c.Height().Uint64()]
+				if ok {
+					c.proposer.SendProposal(ctx, newValue)
+				}
+			}
+		}
+		return
+	}
+
+	// for followers, try to send prevote if they haven't.
+	if !c.SentPrevote() {
+		// schedule timeout propose to send prvote nil.
+		timeoutDuration := c.timeoutPropose(c.Round())
+		c.proposeTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPropose)
+		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
+
+		// run rule Line_22 for new proposal or rule Line_28 for old proposal.
+		proposal := c.roundsState.CurRoundMessages().Proposal()
+		verified := c.roundsState.CurRoundMessages().IsProposalVerified()
+		if proposal != nil && verified {
+			if proposal.ValidRound() == -1 {
+				c.newProposalCheck(ctx, proposal)
+			} else {
+				c.oldProposalCheck(ctx, proposal)
+			}
+		}
+
+		// if the proposal is not yet verified, verify it and re-check rule 22 and 28.
+		if proposal != nil && !verified {
+			if _, err := c.Backend().VerifyProposal(proposal.Block()); err != nil {
+				c.prevoter.SendPrevote(ctx, true)
+				c.SetStep(ctx, Prevote)
+			} else {
+				if proposal.ValidRound() == -1 {
+					c.newProposalCheck(ctx, proposal)
+				} else {
+					c.oldProposalCheck(ctx, proposal)
+				}
+			}
+		}
+	}
+}
+
 // StartRound starts a new round. if round equals to 0, it means to starts a new height
 func (c *Core) StartRound(ctx context.Context, round int64) {
+	// todo: Jason, shall we keep this? As we read round from WAL, the round could exceed this constants.MaxRound.
 	if round > constants.MaxRound {
 		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
 	}
@@ -329,7 +315,6 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	c.measureHeightRoundMetrics(round)
 	// Set initial FSM state
 	c.setInitialState(round)
-	c.SetStep(ctx, Propose)
 	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
@@ -339,8 +324,8 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		// received, respectively. If the block is not committed in that round then the round is changed.
 		// The new proposer will chose the validValue, if present, which was set in one of the previous rounds otherwise
 		// they propose a new block.
-		if c.validValue != nil {
-			c.proposer.SendProposal(ctx, c.validValue)
+		if c.ValidValue() != nil {
+			c.proposer.SendProposal(ctx, c.ValidValue())
 		} else {
 			// send proposal when there is available candidate rather than blocking the Core event loop, the
 			// handleNewCandidateBlockMsg in the Core event loop will send proposal when the available one comes if we
@@ -365,10 +350,10 @@ func (c *Core) setInitialState(r int64) {
 	RoundChangeMuBg.Add(time.Since(start).Nanoseconds())
 	defer c.roundChangeMu.Unlock()
 
-	// Start of new height where round is 0
+	// Start of new height where round is 0, it will reset all the states in WAL
 	if r == 0 {
 		lastBlockMined := c.backend.HeadBlock()
-		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
+		c.SetHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
 		// on epoch rotation, update committee.
@@ -377,11 +362,6 @@ func (c *Core) setInitialState(r int64) {
 			c.committee.SetCommittee(lastBlockMined.Header().Epoch.Committee)
 		}
 
-		c.lockedRound = -1
-		c.lockedValue = nil
-		c.validRound = -1
-		c.validValue = nil
-		c.messages.Reset()
 		c.futureRoundLock.Lock()
 		c.futureRound = make(map[int64][]message.Msg)
 		c.futurePower = make(map[int64]*message.AggregatedPower)
@@ -399,11 +379,7 @@ func (c *Core) setInitialState(r int64) {
 	c.prevoteTimeout.Reset(Prevote)
 	c.precommitTimeout.Reset(Precommit)
 
-	c.sentProposal = false
-	c.sentPrevote = false
-	c.sentPrecommit = false
-	c.setValidRoundAndValue = false
-	c.setRound(r)
+	c.SetRound(r)
 
 	// update round duration timer
 	if metrics.Enabled {
@@ -419,44 +395,44 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 	if metrics.Enabled {
 		switch {
 		// "standard" tendermint transitions
-		case c.step == PrecommitDone && step == Propose: // precommitdone --> propose
+		case c.Step() == PrecommitDone && step == Propose: // precommitdone --> propose
 			PrecommitDoneStepTimer.Update(now.Sub(c.stepChange))
 			PrecommitDoneStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == Propose && step == Prevote: // propose --> prevote
+		case c.Step() == Propose && step == Prevote: // propose --> prevote
 			ProposeStepTimer.Update(now.Sub(c.stepChange))
 			ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == Prevote && step == Precommit: // prevote --> precommit
+		case c.Step() == Prevote && step == Precommit: // prevote --> precommit
 			PrevoteStepTimer.Update(now.Sub(c.stepChange))
 			PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == Precommit && step == PrecommitDone: // precommit --> precommitDone
+		case c.Step() == Precommit && step == PrecommitDone: // precommit --> precommitDone
 			PrecommitStepTimer.Update(now.Sub(c.stepChange))
 			PrecommitStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		// skipped to a future round
-		case c.step == Propose && step == Propose:
+		case c.Step() == Propose && step == Propose:
 			ProposeStepTimer.Update(now.Sub(c.stepChange))
 			ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == Prevote && step == Propose:
+		case c.Step() == Prevote && step == Propose:
 			PrevoteStepTimer.Update(now.Sub(c.stepChange))
 			PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == Precommit && step == Propose:
+		case c.Step() == Precommit && step == Propose:
 			PrecommitStepTimer.Update(now.Sub(c.stepChange))
 			PrecommitStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		// committing a proposal (old or current) due to receival of quorum precommits
-		case c.step == Propose && step == PrecommitDone:
+		case c.Step() == Propose && step == PrecommitDone:
 			ProposeStepTimer.Update(now.Sub(c.stepChange))
 			ProposeStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
-		case c.step == Prevote && step == PrecommitDone:
+		case c.Step() == Prevote && step == PrecommitDone:
 			PrevoteStepTimer.Update(now.Sub(c.stepChange))
 			PrevoteStepBg.Add(now.Sub(c.stepChange).Nanoseconds())
 		default:
 			// Ideally should be a .Crit, however it does not seem right to me because in the same sceneario the node would:
 			// - crash if running the metrics
 			// - keep validating without issues if not
-			c.logger.Warn("Unexpected tendermint state transition", "c.step", c.step, "step", step)
+			c.logger.Warn("Unexpected tendermint state transition", "c.step", c.Step(), "step", step)
 		}
 	}
-	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round())
-	c.step = step
+	c.logger.Debug("Step change", "from", c.Step().String(), "to", step.String(), "round", c.Round())
+	c.UpdateStep(step)
 	c.stepChange = now
 
 	// stop consensus timeouts
@@ -467,7 +443,7 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 	// This can happen if the checks cause a transition to Precommit step. It is expected behaviour.
 	// If we want to remove this recursion possibility, we could post an Event that signals a step change,
 	// which will then be processed in the MainEventLoop
-	if c.step == Prevote {
+	if c.Step() == Prevote {
 		c.stepChangeChecks(ctx)
 	}
 
@@ -476,44 +452,160 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 // tries to stop all consensus timeouts
 func (c *Core) stopAllTimeouts() {
 	if err := c.proposeTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "err", err)
+		c.logger.Debug("Cannot stop propose timer", "c.step", c.Step(), "err", err)
 	}
 	if err := c.prevoteTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "err", err)
+		c.logger.Debug("Cannot stop prevote timer", "c.step", c.Step(), "err", err)
 	}
 	if err := c.precommitTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "err", err)
+		c.logger.Debug("Cannot stop precommit timer", "c.step", c.Step(), "err", err)
 	}
 }
 
-func (c *Core) setRound(round int64) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.round = round
-	c.curRoundMessages = c.messages.GetOrCreate(round)
-}
-
-func (c *Core) setHeight(height *big.Int) {
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.height = height
-}
 func (c *Core) setCommitteeSet(set interfaces.Committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.committee = set
 }
 
-func (c *Core) Round() int64 {
-	c.stateMu.RLock()
-	defer c.stateMu.RUnlock()
-	return c.round
-}
-
+// state readers:
 func (c *Core) Height() *big.Int {
 	c.stateMu.RLock()
 	defer c.stateMu.RUnlock()
-	return c.height
+	return c.roundsState.Height()
+}
+
+func (c *Core) Round() int64 {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.Round()
+}
+
+func (c *Core) Step() Step {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.Step()
+}
+
+func (c *Core) Decision() *types.Block {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.Decision()
+}
+
+func (c *Core) DecisionRound() int64 {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.DecisionRound()
+}
+
+func (c *Core) LockedRound() int64 {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.LockedRound()
+}
+
+func (c *Core) ValidRound() int64 {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.ValidRound()
+}
+
+func (c *Core) LockedValue() *types.Block {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.LockedValue()
+}
+
+func (c *Core) ValidValue() *types.Block {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.ValidValue()
+}
+
+func (c *Core) SentProposal() bool {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.SentProposal()
+}
+
+func (c *Core) SentPrevote() bool {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.SentPrevote()
+}
+
+func (c *Core) SentPrecommit() bool {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.SentPrecommit()
+}
+
+func (c *Core) ValidRoundAndValueSet() bool {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.ValidRoundAndValueSet()
+}
+
+func (c *Core) CurRoundMessages() *message.RoundMessages {
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	return c.roundsState.CurRoundMessages()
+}
+
+// state writers:
+func (c *Core) SetHeight(height *big.Int) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.StartNewHeight(height)
+}
+
+func (c *Core) SetRound(round int64) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.StartNewRound(round)
+}
+
+func (c *Core) UpdateStep(step Step) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.SetStep(step)
+}
+
+func (c *Core) SetDecision(block *types.Block, round int64) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.SetDecision(block, round)
+}
+
+func (c *Core) SetSentProposal() {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.SetSentProposal()
+}
+
+func (c *Core) SetSentPrevote() {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.SetSentPrevote()
+}
+
+func (c *Core) SetSentPrecommit() {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.SetSentPrecommit()
+}
+
+func (c *Core) SetLockedRoundAndValue(lockedRound int64, block *types.Block) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.SetLockedRoundAndValue(lockedRound, block)
+}
+
+func (c *Core) SetValidRoundAndValue(validRound int64, block *types.Block) {
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.roundsState.SetValidRoundAndValue(validRound, block)
 }
 
 func (c *Core) CommitteeSet() interfaces.Committee {
@@ -543,7 +635,7 @@ func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {
 		c.futureRoundLock.RUnlock()
 	} else {
 		// old or current round
-		power = c.messages.GetOrCreate(r).Power()
+		power = c.roundsState.GetOrCreate(r).Power()
 	}
 
 	return power
@@ -560,7 +652,7 @@ func (c *Core) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPowe
 	if h != c.Height().Uint64() {
 		return message.NewAggregatedPower()
 	}
-	roundMessages := c.messages.GetOrCreate(r)
+	roundMessages := c.roundsState.GetOrCreate(r)
 	var power *message.AggregatedPower
 
 	switch code {
@@ -587,7 +679,7 @@ func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *mess
 	if h != c.Height().Uint64() {
 		return message.NewAggregatedPower()
 	}
-	roundMessages := c.messages.GetOrCreate(r)
+	roundMessages := c.roundsState.GetOrCreate(r)
 	var power *message.AggregatedPower
 
 	switch code {
@@ -605,7 +697,7 @@ func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *mess
 
 // TODO: when we sync a peer, should we send him also the future round messages?
 func (c *Core) CurrentHeightMessages() []message.Msg {
-	return c.messages.All()
+	return c.roundsState.AllMessages()
 }
 
 func (c *Core) Backend() interfaces.Backend {

@@ -40,7 +40,7 @@ func (c *preVoteSpammer) SendPrevote(_ context.Context, isNil bool) {
 	for i := 0; i < 1000; i++ {
 		c.BroadcastAll(prevote)
 	}
-	c.SetSentPrevote(true)
+	c.SetSentPrevote()
 }
 
 // TestPrevoteSpammer spams the network by broadcasting 4k preovte messages at once
@@ -86,7 +86,7 @@ func (c *precommitSpammer) SendPrecommit(_ context.Context, isNil bool) {
 	for i := 0; i < 1000; i++ {
 		c.BroadcastAll(precommit)
 	}
-	c.SetSentPrecommit(true)
+	c.SetSentPrecommit()
 }
 
 // TestPrecommitSpammer spams the network by broadcasting 4k precommit messages at once
@@ -118,7 +118,7 @@ func newProposalSpammer(c interfaces.Core) interfaces.Proposer {
 func (c *proposalSpammer) SendProposal(_ context.Context, p *types.Block) {
 	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
-	c.SetSentProposal(true)
+	c.SetSentProposal()
 	c.Backend().SetProposedBlockHash(p.Hash())
 	for i := 0; i < 1000; i++ {
 		c.BroadcastAll(proposal)

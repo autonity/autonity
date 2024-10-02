@@ -21,6 +21,7 @@ import (
 	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
 
 	"math/big"
@@ -214,7 +215,7 @@ type Config struct {
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool,
-	vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore) consensus.Engine {
+	vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore, db ethdb.Database) consensus.Engine {
 	if chainConfig.Ethash != nil {
 		ethConfig := config.Ethash
 		switch ethConfig.PowMode {
@@ -242,5 +243,5 @@ func CreateConsensusEngine(ctx *node.Node, chainConfig *params.ChainConfig, conf
 
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
 	noGossip := ctx.Config().NoGossip
-	return tendermintBackend.New(nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger(), noGossip)
+	return tendermintBackend.New(nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger(), noGossip, db)
 }

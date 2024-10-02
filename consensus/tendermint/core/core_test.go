@@ -2,18 +2,19 @@ package core
 
 import (
 	"context"
-	"math/big"
-	"reflect"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
+	"github.com/stretchr/testify/require"
+	"math/big"
+	"reflect"
+	"time"
+
+	"testing"
+
+	"go.uber.org/mock/gomock"
+
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
@@ -26,8 +27,7 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.New("Core", "test", "id", 0)),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("Core", "test", "id", 0)),
 			precommitTimeout: NewTimeout(Precommit, log.New("Core", "test", "id", 0)),
-			round:            0,
-			height:           big.NewInt(1),
+			roundsState:      newTendermintState(log.New(), nil, nil),
 		}
 		c.measureHeightRoundMetrics(0)
 		if m := metrics.Get("tendermint/height/change"); m == nil {
@@ -42,8 +42,7 @@ func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.New("Core", "test", "id", 0)),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("Core", "test", "id", 0)),
 			precommitTimeout: NewTimeout(Precommit, log.New("Core", "test", "id", 0)),
-			round:            0,
-			height:           big.NewInt(1),
+			roundsState:      newTendermintState(log.New(), nil, nil),
 		}
 		c.measureHeightRoundMetrics(1)
 		if m := metrics.Get("tendermint/round/change"); m == nil {
@@ -60,8 +59,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.New("Core", "test", "id", 0)),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("Core", "test", "id", 0)),
 			precommitTimeout: NewTimeout(Precommit, log.New("Core", "test", "id", 0)),
-			round:            0,
-			height:           big.NewInt(1),
+			roundsState:      newTendermintState(log.New(), nil, nil),
 		}
 		c.measureMetricsOnTimeOut(Propose, 2)
 		if m := metrics.Get("tendermint/timer/propose"); m == nil {
@@ -76,8 +74,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.New("Core", "test", "id", 0)),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("Core", "test", "id", 0)),
 			precommitTimeout: NewTimeout(Precommit, log.New("Core", "test", "id", 0)),
-			round:            0,
-			height:           big.NewInt(1),
+			roundsState:      newTendermintState(log.New(), nil, nil),
 		}
 		c.measureMetricsOnTimeOut(Prevote, 2)
 		if m := metrics.Get("tendermint/timer/prevote"); m == nil {
@@ -92,8 +89,7 @@ func TestCore_measureMetricsOnTimeOut(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.New("Core", "test", "id", 0)),
 			prevoteTimeout:   NewTimeout(Prevote, log.New("Core", "test", "id", 0)),
 			precommitTimeout: NewTimeout(Precommit, log.New("Core", "test", "id", 0)),
-			round:            0,
-			height:           big.NewInt(1),
+			roundsState:      newTendermintState(log.New(), nil, nil),
 		}
 		c.measureMetricsOnTimeOut(Precommit, 2)
 		if m := metrics.Get("tendermint/timer/precommit"); m == nil {
@@ -106,28 +102,29 @@ func TestCore_Setters(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	backendMock := interfaces.NewMockBackend(ctrl)
-	c := New(backendMock, nil, common.Address{}, log.Root(), false)
+	c := New(backendMock, nil, common.Address{}, log.Root(), false, nil)
 	t.Run("SetStep", func(t *testing.T) {
 		timeoutDuration := c.timeoutPropose(0)
 		timeoutCallback := func(_ int64, _ *big.Int) {}
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, 0, common.Big1, timeoutCallback)
 		require.True(t, c.proposeTimeout.TimerStarted())
 
+		c.roundsState = newTendermintState(log.New(), nil, nil)
 		c.SetStep(context.Background(), Propose)
-		require.Equal(t, Propose, c.step)
+		require.Equal(t, Propose, c.Step())
 		// set step should also stop timeouts
 		require.False(t, c.proposeTimeout.TimerStarted())
 	})
 
-	t.Run("setRound", func(t *testing.T) {
-		c.setRound(27)
+	t.Run("SetRound", func(t *testing.T) {
+		c.SetRound(27)
 		require.Equal(t, int64(27), c.Round())
 	})
 
-	t.Run("setHeight", func(t *testing.T) {
-		c := &Core{}
-		c.setHeight(new(big.Int).SetUint64(10))
-		require.Equal(t, uint64(10), c.height.Uint64())
+	t.Run("SetHeight", func(t *testing.T) {
+		c := &Core{roundsState: newTendermintState(log.New(), nil, nil)}
+		c.SetHeight(new(big.Int).SetUint64(10))
+		require.Equal(t, uint64(10), c.Height().Uint64())
 	})
 
 	t.Run("setCommitteeSet", func(t *testing.T) {
@@ -164,10 +161,11 @@ func TestProcessFuture(t *testing.T) {
 			address:     common.HexToAddress("0x1234567890"),
 			futureRound: make(map[int64][]message.Msg),
 			futurePower: make(map[int64]*message.AggregatedPower),
-			step:        Propose,
-			round:       1,
-			height:      big.NewInt(2),
+			roundsState: newTendermintState(log.New(), nil, nil),
 		}
+		c.UpdateStep(Propose)
+		c.SetRound(1)
+		c.SetHeight(common.Big2)
 
 		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], msg)
 		c.processFuture(0, 1) // scenario: we just switched from round 0 --> 1
@@ -209,10 +207,11 @@ func TestProcessFuture(t *testing.T) {
 			address:     common.HexToAddress("0x1234567890"),
 			futureRound: make(map[int64][]message.Msg),
 			futurePower: make(map[int64]*message.AggregatedPower),
-			step:        Propose,
-			round:       3,
-			height:      big.NewInt(2),
+			roundsState: newTendermintState(log.New(), nil, nil),
 		}
+		c.UpdateStep(Propose)
+		c.SetRound(3)
+		c.SetHeight(common.Big2)
 
 		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], msg)
 		c.processFuture(0, 3) // scenario: we just switched from round 0 --> 3
@@ -244,10 +243,11 @@ func TestProcessFuture(t *testing.T) {
 			address:     common.HexToAddress("0x1234567890"),
 			futureRound: make(map[int64][]message.Msg),
 			futurePower: make(map[int64]*message.AggregatedPower),
-			step:        Propose,
-			round:       3,
-			height:      big.NewInt(2),
+			roundsState: newTendermintState(log.New(), nil, nil),
 		}
+		c.UpdateStep(Propose)
+		c.SetRound(3)
+		c.SetHeight(common.Big2)
 
 		// scenario: we just switched from round 0 --> 3. Future height messages shouldn't be processed
 		c.processFuture(0, 3)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"io/ioutil" //nolint
 	"math/big"
 	"net"
 	"os"
@@ -126,8 +127,13 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 	//c.HTTPPort = freeport.GetOne(t)
 	//c.WSPort = freeport.GetOne(t)
 
-	nodeConfig.DataDir = ""
-
+	// generate a tmp directory for node in e2e test framework.
+	prefix := fmt.Sprintf("test-node-%d-%s", id, crypto.PubkeyToAddress(validator.NodeKey.PublicKey).String())
+	dataDir, err := CreateTempDir(prefix)
+	if err != nil {
+		return nil, err
+	}
+	nodeConfig.DataDir = dataDir
 	// copy the base eth config, so we can modify it without damaging the
 	// original.
 	ethConfig := &ethconfig.Config{}
@@ -1055,4 +1061,13 @@ func copyNodeConfig(source *node.Config) *node.Config {
 		Logger:                source.Logger,
 		AllowUnprotectedTxs:   source.AllowUnprotectedTxs,
 	}
+}
+
+// CreateTempDir creates a temporary directory and returns its path.
+func CreateTempDir(prefix string) (string, error) {
+	tmpDir, err := ioutil.TempDir("", prefix)
+	if err != nil {
+		return "", err
+	}
+	return tmpDir, nil
 }

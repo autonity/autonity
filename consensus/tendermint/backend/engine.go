@@ -491,9 +491,9 @@ func (sb *Backend) Start(ctx context.Context) error {
 	sb.wg.Add(1)
 	go sb.faultyValidatorsWatcher(ctx)
 
-	// Start Tendermint
-	sb.aggregator.start(ctx)
+	// Start Tendermint core first since it loads tendermint state, make it available before the aggregator read it.
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
+	sb.aggregator.start(ctx)
 	sb.coreRunning.CompareAndSwap(false, true)
 	return nil
 }

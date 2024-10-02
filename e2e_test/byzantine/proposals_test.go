@@ -32,7 +32,7 @@ func (c *duplicateProposalSender) SendProposal(_ context.Context, p *types.Block
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()-1, p, c.Backend().Sign, self)
 
-	c.SetSentProposal(true)
+	c.SetSentProposal()
 	c.Backend().SetProposedBlockHash(p.Hash())
 	//send same proposal twice
 	c.BroadcastAll(proposal)
@@ -166,7 +166,7 @@ func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) 
 	p.SetTransactions(fakeTransactions)
 	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
-	c.SetSentProposal(true)
+	c.SetSentProposal()
 	c.Backend().SetProposedBlockHash(p.Hash())
 	//send same proposal twice
 	c.BroadcastAll(proposal)
@@ -228,7 +228,7 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 
-	c.SetSentProposal(true)
+	c.SetSentProposal()
 	c.Backend().SetProposedBlockHash(p.Hash())
 
 	c.BroadcastAll(proposal)

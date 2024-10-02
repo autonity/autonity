@@ -3,6 +3,7 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/ethdb"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -56,7 +57,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger, noGossip bool) *Backend {
+	log log.Logger, noGossip bool, db ethdb.Database) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -82,7 +83,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 		backend.gossiper = services.Gossiper(backend)
 	}
 
-	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
+	core := tendermintCore.New(backend, services, backend.address, log, noGossip, db)
 	backend.core = core
 	backend.evDispatcher = core
 
@@ -213,11 +214,16 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 	// -- if success, the ChainHeadEvent event will be broadcasted, try to build
 	//    the next block and the previous Seal() will be stopped.
 	// -- otherwise, a error will be returned and a round change event will be fired.
+
+	// If the node is the block miner, commit the block by reusing the worker mining context's environment,
+	// thus, it save time to compute those receipts, logs and state instance of the block.
 	if sb.proposedBlockHash == proposal.Hash() && !sb.isResultChanNil() {
 		sb.sendResultChan(proposal)
 		return nil
 	}
 
+	// Otherwise, insert the decision via the block fetcher channel by creating a virtual remote peer
+	// called "tendermint" which provides the block.
 	if sb.Enqueuer != nil {
 		sb.Enqueuer.Enqueue(fetcherID, proposal)
 	}

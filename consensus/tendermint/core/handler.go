@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -20,6 +22,10 @@ const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
+	// load tendermint state from WAL, otherwise it would load with default state of tendermint.
+	c.roundsState = newTendermintState(c.logger, c.db, c.backend.BlockChain())
+	c.protocolContracts = contract
+
 	committee, _, _, _, err := c.backend.BlockChain().LatestEpoch()
 	if err != nil {
 		panic(err)
@@ -32,12 +38,36 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
-	// Start a new round from last height + 1
-	c.StartRound(ctx, 0)
+	c.startWithState(ctx)
 
 	// Tendermint Finite State Machine discrete event loop
 	go c.mainEventLoop(ctx)
 	go c.backend.HandleUnhandledMsgs(ctx)
+}
+
+// startWithState, it resolves the start of tendermint consensus engine with recovered tendermint state.
+func (c *Core) startWithState(ctx context.Context) {
+	// If the state in WAL is stale, then we start round 0 for new heights.
+	if c.Backend().HeadBlock().Number().Cmp(c.Height()) >= 0 {
+		c.StartRound(ctx, 0)
+		return
+	}
+
+	// if the state is not stale and the decision haven't been made, start engine with the recovered state.
+	if c.Decision() == nil {
+		c.StartWithRecoveredState(ctx)
+		return
+	}
+
+	// decision was made, but it wasn't be committed, update the view, commit the decision and start new height.
+	if c.Decision().ParentHash() == c.Backend().HeadBlock().Hash() {
+		go c.startWithRecoveredDecision(ctx)
+		return
+	}
+
+	// decision was made, however it missed parent block, chain might be roll back, thus start round 0 on top of
+	// current chain head.
+	c.StartRound(ctx, 0)
 }
 
 // Stop implements Core.Engine.Stop
@@ -51,6 +81,48 @@ func (c *Core) Stop() {
 	// Ensure all event handling go routines exit
 	<-c.stopped
 	<-c.stopped
+}
+
+// startWithRecoveredDecision start the round base on the recovered decision from WAL.
+func (c *Core) startWithRecoveredDecision(ctx context.Context) {
+
+	roundMsgs := c.roundsState.GetOrCreate(c.DecisionRound())
+	proposalHash := c.Decision().Header().Hash()
+	c.logger.Info("Committing a block from WAL", "height", c.Decision().Number().Uint64(), "hash", proposalHash)
+	precommitWithQuorum := roundMsgs.PrecommitFor(proposalHash)
+	if precommitWithQuorum == nil {
+		panic("Your WAL DB has corrupted, try to re-sync the blockchain")
+	}
+	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
+
+	// On start up, this commit operation will be blocked until the block
+	// fetcher starts to handle the block inserted by the enqueuer.
+	if err := c.backend.Commit(c.Decision(), c.DecisionRound(), quorumCertificate); err != nil {
+		panic(err)
+	}
+
+	// wait until the block is inserted in the blockchain, then start the new height with round 0.
+	if err := c.waitCommitment(c.Decision().Number().Uint64(), 5); err != nil {
+		panic("timeout to commit the decision from WAL to blockchain")
+	}
+	c.StartRound(ctx, 0)
+}
+
+func (c *Core) waitCommitment(height uint64, numSec int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numSec)*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			c.logger.Info("waiting for decision commitment from WAL", "height", height)
+			if c.Backend().BlockChain().CurrentHeader().Number.Uint64() >= height {
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (c *Core) subscribeEvents() {
@@ -121,9 +193,9 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	case message.ProposalCode:
 		break
 	case message.PrevoteCode:
-		quorum = (c.messages.GetOrCreate(round).PrevotesPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+		quorum = (c.roundsState.GetOrCreate(round).PrevotesPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
 	case message.PrecommitCode:
-		quorum = (c.messages.GetOrCreate(round).PrecommitsPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+		quorum = (c.roundsState.GetOrCreate(round).PrecommitsPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
 	}
 	return quorum
 }
@@ -133,12 +205,12 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 	// We can consider changing it only if it considerably harms performance.
 	switch code {
 	case message.PrevoteCode:
-		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
-		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote)
+		aggregatePrevote := c.roundsState.GetOrCreate(round).PrevoteFor(value)
+		c.roundsState.GetOrCreate(round).AddPrevote(aggregatePrevote)
 		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote)
 	case message.PrecommitCode:
-		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value)
-		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
+		aggregatePrecommit := c.roundsState.GetOrCreate(round).PrecommitFor(value)
+		c.roundsState.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
 		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit)
 	}
 }
@@ -247,7 +319,7 @@ eventLoop:
 			}
 			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
 				// if we already decided on this height block, ignore the timeout. It is useless by now.
-				if c.step == PrecommitDone {
+				if c.Step() == PrecommitDone {
 					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
 					continue
 				}
@@ -339,7 +411,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	}
 
 	// if we already decided on this height block, discard the message. It is useless by now.
-	if c.step == PrecommitDone {
+	if c.Step() == PrecommitDone {
 		return constants.ErrHeightClosed
 	}
 
