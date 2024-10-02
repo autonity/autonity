@@ -83,12 +83,12 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 	}
 
 	// get latest epoch info for signature checks and epoch boundary checks latter on.
-	committee, _, curEpochBlock, _, err := chain.LatestEpoch()
+	committee, _, curEpochBlock, nextEpochBlock, err := chain.LatestEpoch()
 	if err != nil {
 		return err
 	}
 
-	return sb.verifyHeader(chain, header, parent, committee, curEpochBlock)
+	return sb.verifyHeader(chain, header, parent, committee, curEpochBlock, nextEpochBlock)
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
@@ -98,7 +98,7 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 // are immutable in the hash chain once there are quorum certificates to finalize the block. Thus, the
 // epoch boundary checking is not required anymore.
 func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
-	committee *types.Committee, curEpochBlock uint64) error {
+	committee *types.Committee, curEpochHead uint64, nextEpochHead uint64) error {
 	if header.Round > constants.MaxRound {
 		return errInvalidRound
 	}
@@ -150,17 +150,25 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return errUnknownBlock
 	}
 
-	// edge case, the case was addressed by the docker e2e test, that was, the epoch block was inserted by
-	// the enqueuer (a local virtual peer to insert the decision of consensus) of the consensus engine,
-	// however block sync routine of the execution layer can sync the same epoch block from peers, thus it cause
-	// the epoch boundary check failed due to a wrong epoch resolved. So we skip the known header verification
-	// as the VerifyHeader() interface did.
-	if header.Number.Uint64() == curEpochBlock {
-		if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
-			return core.ErrKnownBlock
+	// Due to the synchronisation issue, the verifying header might be already known, thus we return the ErrKnownBlock
+	// to skip the following epoch boundary checks. As recent headers are always buffered in LRU cache, thus it does
+	// not introduce too much performance dropping.
+	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
+		return core.ErrKnownBlock
+	}
+
+	// for unknown headers, header number should pass the corresponding epoch boundary check.
+	if header.Number.Uint64() <= curEpochHead || header.Number.Uint64() > nextEpochHead {
+		sb.logger.Error("header is out of epoch range",
+			"height", header.Number.Uint64(), "curEpochHead", curEpochHead, "nextEpochHead", nextEpochHead)
+		return consensus.ErrOutOfEpochRange
+	}
+
+	// epoch bi-direction link check for epoch header and its parent epoch header.
+	if header.IsEpochHeader() {
+		if nextEpochHead != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != curEpochHead {
+			return consensus.ErrInvalidEpochBoundary
 		}
-		// panic("current epoch block is not in the chain")
-		return fmt.Errorf("current epoch block is not in the chain")
 	}
 
 	// check quorum certificates of consensus participants
@@ -192,7 +200,11 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, _ []bool) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
-	committee, _, curEpochBlock, _, err := chain.LatestEpoch()
+	// Cannot query epoch by height since there is no state available from header chain's context. Thus, we can only
+	// get the latest epoch saved in the blockchain or header-chain context, to make the safety, in the header
+	// verification function, we keep checking the epoch boundary, thus it wouldn't break the safety of the chain, for
+	// those already known header, they will be skipped.
+	committee, _, curEpochBlock, nextEpochBlock, err := chain.LatestEpoch()
 	if err != nil {
 		panic(err)
 	}
@@ -210,12 +222,15 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				sb.logger.Error("VerifyHeaders", "cannot find parent header", header.ParentHash)
 				err = consensus.ErrUnknownAncestor
 			} else {
-				err = sb.verifyHeader(chain, header, parent, committee, curEpochBlock)
+				err = sb.verifyHeader(chain, header, parent, committee, curEpochBlock, nextEpochBlock)
 			}
-			// if the processing header is a new epoch header, update the epoch info for un-processed headers .
+
+			// cross epoch header check, update the committee and epoch boundary if current header is an epoch head.
+			// the verification behind this header will be continued with the updated epoch info.
 			if header.IsEpochHeader() {
 				committee = header.Epoch.Committee
 				curEpochBlock = header.Number.Uint64()
+				nextEpochBlock = header.Epoch.NextEpochBlock.Uint64()
 			}
 
 			select {

@@ -81,6 +81,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
 
 	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
+	// double check if chain head fit into current epoch range, otherwise we query latest epoch from state DB.
 	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {
 		return epochBlock.Header().Epoch.Committee, epochBlock.Header().Epoch.PreviousEpochBlock.Uint64(),
 			epochBlock.Header().Number.Uint64(), epochBlock.Header().Epoch.NextEpochBlock.Uint64(), nil
