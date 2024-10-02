@@ -3,6 +3,7 @@ package vestingtests
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -13,19 +14,23 @@ import (
 var operator = tests.Operator
 
 func TestReleaseFromNonStakableContract(t *testing.T) {
-	r := tests.Setup(t, nil)
 	var amount int64 = 100
-	start := r.Evm.Context.Time.Int64() + 1
+	start := time.Now().Unix() + 1
 	// having (amount = end - start) makes (unlockedFunds = time - start)
 	end := amount + start
 	cliffDuration := big.NewInt(amount / 2)
 	cliff := start + cliffDuration.Int64()
-	createSchedule(r, amount, start, end)
 	user := tests.User
 	subscribeAmount := big.NewInt(amount)
-	subscribeToSchedule(r, user, subscribeAmount, common.Big0, cliffDuration)
 
-	r.Run("cannot unlock before cliff", func(r *tests.Runner) {
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		createSchedule(r, amount, start, end)
+		subscribeToSchedule(r, user, subscribeAmount, common.Big0, cliffDuration)
+		return r
+	}
+
+	tests.RunWithSetup("cannot unlock before cliff", setup, func(r *tests.Runner) {
 		_, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: cliff period not reached yet", err.Error())
@@ -35,7 +40,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		require.Equal(r.T, "execution reverted: cliff period not reached yet", err.Error())
 	})
 
-	r.Run("unlocks linearly (after cliff) between start and end", func(r *tests.Runner) {
+	tests.RunWithSetup("unlocks linearly (after cliff) between start and end", setup, func(r *tests.Runner) {
 		currentTime := r.WaitSomeEpoch(cliff + 1)
 		unlockAmount := big.NewInt(currentTime - start - 1)
 		unlockedFunds, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
@@ -94,7 +99,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		require.Equal(r.T, new(big.Int).Add(balance, unlockAmount), newBalance)
 	})
 
-	r.Run("cannot unlock more than total amount", func(r *tests.Runner) {
+	tests.RunWithSetup("cannot unlock more than total amount", setup, func(r *tests.Runner) {
 		r.WaitSomeEpoch(end + 1)
 
 		unlockAmount := big.NewInt(amount)
@@ -135,20 +140,23 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 }
 
 func TestNonStakableAccessRestriction(t *testing.T) {
-	r := tests.Setup(t, nil)
 	user := tests.User
 
-	r.NoError(
-		r.Autonity.CreateSchedule(operator, r.NonStakableVesting.Address(), common.Big1, common.Big0, common.Big0),
-	)
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		r.NoError(
+			r.Autonity.CreateSchedule(operator, r.NonStakableVesting.Address(), common.Big1, common.Big0, common.Big0),
+		)
+		return r
+	}
 
-	r.Run("only operator can create new contract", func(r *tests.Runner) {
+	tests.RunWithSetup("only operator can create new contract", setup, func(r *tests.Runner) {
 		_, err := r.NonStakableVesting.NewContract(nil, user, common.Big0, common.Big0, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 	})
 
-	r.Run("only operator can change contract beneficiary", func(r *tests.Runner) {
+	tests.RunWithSetup("only operator can change contract beneficiary", setup, func(r *tests.Runner) {
 		_, err := r.NonStakableVesting.ChangeContractBeneficiary(nil, user, common.Big0, user)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
@@ -156,22 +164,30 @@ func TestNonStakableAccessRestriction(t *testing.T) {
 }
 
 func TestContractCreation(t *testing.T) {
-	r := tests.Setup(t, nil)
 	user := tests.User
 
-	r.Run("contract needs to subsribe to schedule", func(r *tests.Runner) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("contract needs to subsribe to schedule", setup, func(r *tests.Runner) {
 		_, err := r.NonStakableVesting.NewContract(operator, user, common.Big1, common.Big0, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: schedule does not exist", err.Error())
 	})
 
 	var amount int64 = 100
-	start := r.Evm.Context.Time.Int64() + 1
-	cliffDuration := big.NewInt(50)
+	start := time.Now().Unix() + 1
+	cliffDuration := big.NewInt(0)
 	end := amount + start
-	createSchedule(r, amount, start, end)
 
-	r.Run("contract nominal amount cannot exceed schedule nominal amount", func(r *tests.Runner) {
+	newSetup := func() *tests.Runner {
+		r := setup()
+		createSchedule(r, amount, start, end)
+		return r
+	}
+
+	tests.RunWithSetup("contract nominal amount cannot exceed schedule nominal amount", newSetup, func(r *tests.Runner) {
 		_, err := r.NonStakableVesting.NewContract(operator, user, big.NewInt(amount+1), common.Big0, cliffDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
@@ -188,7 +204,7 @@ func TestContractCreation(t *testing.T) {
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
 	})
 
-	r.Run("contract creation after start loses unlocked funds", func(r *tests.Runner) {
+	tests.RunWithSetup("contract creation after start loses unlocked funds", newSetup, func(r *tests.Runner) {
 		currentTime := r.WaitSomeEpoch(start + 10)
 		unlockAmount := currentTime - start - 1
 		// progress some more blocks, as unlocking should be epoch based
@@ -215,7 +231,7 @@ func TestContractCreation(t *testing.T) {
 		require.Equal(r.T, expiredCalculated, expiredFunds)
 	})
 
-	r.Run("contract creation before start has full funds claimable as unlocks", func(r *tests.Runner) {
+	tests.RunWithSetup("contract creation before start has full funds claimable as unlocks", newSetup, func(r *tests.Runner) {
 		subscribeAmount := big.NewInt(amount)
 		subscribeToSchedule(r, user, subscribeAmount, common.Big0, cliffDuration)
 		r.WaitSomeEpoch(end + 1)

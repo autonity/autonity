@@ -3,6 +3,7 @@ package autonitytests
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
@@ -12,15 +13,17 @@ import (
 var operator = tests.Operator
 
 func TestScheduleAccessRestriction(t *testing.T) {
-	r := tests.Setup(t, nil)
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
 
-	r.Run("only operator can set max allowed duration", func(r *tests.Runner) {
+	tests.RunWithSetup("only operator can set max allowed duration", setup, func(r *tests.Runner) {
 		_, err := r.Autonity.SetMaxScheduleDuration(nil, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 	})
 
-	r.Run("only operator can create schedule", func(r *tests.Runner) {
+	tests.RunWithSetup("only operator can create schedule", setup, func(r *tests.Runner) {
 		_, err := r.Autonity.CreateSchedule(nil, common.Address{}, common.Big1, common.Big0, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
@@ -33,11 +36,14 @@ func TestScheduleAccessRestriction(t *testing.T) {
 }
 
 func TestScheduleOperation(t *testing.T) {
-	r := tests.Setup(t, nil)
 	vaultAddress := common.HexToAddress("0x99")
 	var amount int64 = 100
 
-	r.Run("schedule creation mints to vault address", func(r *tests.Runner) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("schedule creation mints to vault address", setup, func(r *tests.Runner) {
 		balance, _, err := r.Autonity.BalanceOf(nil, vaultAddress)
 		require.NoError(r.T, err)
 		createSchedule(r, vaultAddress, amount, 0, 0)
@@ -46,7 +52,7 @@ func TestScheduleOperation(t *testing.T) {
 		require.Equal(r.T, new(big.Int).Add(balance, big.NewInt(amount)), newBalance)
 	})
 
-	r.Run("schedule creation does not change circulating supply but changes total supply", func(r *tests.Runner) {
+	tests.RunWithSetup("schedule creation does not change circulating supply but changes total supply", setup, func(r *tests.Runner) {
 		circulatingSupply, _, err := r.Autonity.CirculatingSupply(nil)
 		require.NoError(r.T, err)
 		totalSupply, _, err := r.Autonity.TotalSupply(nil)
@@ -60,7 +66,7 @@ func TestScheduleOperation(t *testing.T) {
 		require.Equal(r.T, new(big.Int).Add(totalSupply, big.NewInt(amount)), newTotalSupply)
 	})
 
-	r.Run("schedule total duration cannot exceed max allowed duration", func(r *tests.Runner) {
+	tests.RunWithSetup("schedule total duration cannot exceed max allowed duration", setup, func(r *tests.Runner) {
 		maxAllowedDuration, _, err := r.Autonity.GetMaxScheduleDuration(nil)
 		require.NoError(r.T, err)
 		totalDuration := new(big.Int).Add(maxAllowedDuration, common.Big1)
@@ -69,12 +75,16 @@ func TestScheduleOperation(t *testing.T) {
 		require.Equal(r.T, "execution reverted: schedule total duration exceeds max allowed duration", err.Error())
 	})
 
-	start := r.Evm.Context.Time.Int64() + 1
+	start := time.Now().Unix() + 1
 	// having (amount = totalDuration) makes (unlockedFunds = time - start)
 	totalDuration := amount
-	createSchedule(r, vaultAddress, amount, start, totalDuration)
+	newSetup := func() *tests.Runner {
+		r := setup()
+		createSchedule(r, vaultAddress, amount, start, totalDuration)
+		return r
+	}
 
-	r.Run("unlocking schedules change circulating supply but not total supply", func(r *tests.Runner) {
+	tests.RunWithSetup("unlocking schedules change circulating supply but not total supply", newSetup, func(r *tests.Runner) {
 		circulatingSupply, _, err := r.Autonity.CirculatingSupply(nil)
 		require.NoError(r.T, err)
 		totalSupply, _, err := r.Autonity.TotalSupply(nil)
@@ -97,7 +107,7 @@ func TestScheduleOperation(t *testing.T) {
 		require.Equal(r.T, new(big.Int).Add(circulatingSupply, schedule.UnlockedAmount), newCirculatingSupply)
 	})
 
-	r.Run("schedule unlocking follows epoch based linear function", func(r *tests.Runner) {
+	tests.RunWithSetup("schedule unlocking follows epoch based linear function", newSetup, func(r *tests.Runner) {
 		schedule, _, err := r.Autonity.GetSchedule(nil, vaultAddress, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, schedule.UnlockedAmount.Cmp(common.Big0) == 0)
