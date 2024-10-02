@@ -122,6 +122,18 @@ abstract contract ValidatorManager is AccessAutonity {
         return validators[_validator].liquidStateContract;
     }
 
+    function _liquidBalance(ILiquidLogic _liquidContract) internal view returns (uint256) {
+        return _liquidContract.balanceOf(address(this));
+    }
+
+    function _lockedLiquidBalance(ILiquidLogic _liquidContract) internal view returns (uint256) {
+        return _liquidContract.lockedBalanceOf(address(this));
+    }
+
+    function _unlockedLiquidBalance(ILiquidLogic _liquidContract) internal view returns (uint256) {
+        return _liquidContract.unlockedBalanceOf(address(this));
+    }
+
     /*
     ============================================================
          Getters
@@ -139,24 +151,36 @@ abstract contract ValidatorManager is AccessAutonity {
      * @notice Returns the amount of LNTN for some contract.
      * @param _validator validator address
      */
-    function liquidBalanceOf(address _validator) public virtual view returns (uint256) {
-        return validators[_validator].liquidStateContract.balanceOf(address(this));
+    function liquidBalance(address _validator) public virtual view returns (uint256) {
+        ILiquidLogic _liquidContract = validators[_validator].liquidStateContract;
+        if (address(_liquidContract) == address(0)) {
+            _liquidContract = autonity.getValidator(_validator).liquidStateContract;
+        }
+        return _liquidBalance(_liquidContract);
     }
 
     /**
      * @notice Returns the amount of unlocked LNTN for some contract.
      * @param _validator validator address
      */
-    function unlockedLiquidBalanceOf(address _validator) public virtual view returns (uint256) {
-        return validators[_validator].liquidStateContract.unlockedBalanceOf(address(this));
+    function unlockedLiquidBalance(address _validator) public virtual view returns (uint256) {
+        ILiquidLogic _liquidContract = validators[_validator].liquidStateContract;
+        if (address(_liquidContract) == address(0)) {
+            _liquidContract = autonity.getValidator(_validator).liquidStateContract;
+        }
+        return _unlockedLiquidBalance(_liquidContract);
     }
 
     /**
      * @notice Returns the amount of locked LNTN for some contract.
      * @param _validator validator address
      */
-    function lockedLiquidBalanceOf(address _validator) public virtual view returns (uint256) {
-        return validators[_validator].liquidStateContract.lockedBalanceOf(address(this));
+    function lockedLiquidBalance(address _validator) public virtual view returns (uint256) {
+        ILiquidLogic _liquidContract = validators[_validator].liquidStateContract;
+        if (address(_liquidContract) == address(0)) {
+            _liquidContract = autonity.getValidator(_validator).liquidStateContract;
+        }
+        return _lockedLiquidBalance(_liquidContract);
     }
 
 }
