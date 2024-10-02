@@ -639,8 +639,8 @@ func (c *GenesisEVMContracts) DeployInflationControllerContract(bytecode []byte,
 	return c.InflationControllerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, param)
 }
 
-func (c *GenesisEVMContracts) DeployStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
-	return c.StakableVestingManagerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
+func (c *GenesisEVMContracts) DeployStakableVestingContract(bytecode []byte, autonityContract common.Address) error {
+	return c.StakableVestingManagerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract)
 }
 
 func (c *GenesisEVMContracts) SetStakableTotalNominal(totalNominal *big.Int) error {
@@ -651,8 +651,8 @@ func (c *GenesisEVMContracts) NewStakableContract(contract params.StakableVestin
 	return c.StakableVestingManagerContract.NewContract(nil, c.statedb, contract)
 }
 
-func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, autonityContract, operator common.Address) error {
-	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract, operator)
+func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, autonityContract common.Address) error {
+	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract)
 }
 
 func (c *GenesisEVMContracts) CreateSchedule(vault common.Address, schedule params.Schedule) error {
