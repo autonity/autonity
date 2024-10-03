@@ -457,6 +457,9 @@ func TestBlsAttacks(t *testing.T) {
 			}
 		}()
 		require.False(t, aggSig.AggregateVerifyStrict([]PublicKey{X1, X2}, [][32]byte{m, m}))
+
+		// FastAggregateVerifyBatch is not affected, still detects the signatures as valid
+		require.True(t, FastAggregateVerifyBatch([]Signature{sig1, sig2}, []PublicKey{X1, X2}, m))
 	})
 	t.Run("Splitting zero - non message binding", func(t *testing.T) {
 		// The user publishes signature sig3.
@@ -520,6 +523,112 @@ func TestBlsAttacks(t *testing.T) {
 		// individual signatures are not valid anymore
 		require.False(t, sig3Offsetted.Verify(X3, m[:]))
 		require.False(t, sig4Offsetted.Verify(X4, m[:]))
+
+		// aggregate signature is not valid with FastAggregateVerifyBatch
+		require.False(t, FastAggregateVerifyBatch([]Signature{sig3Offsetted, sig4Offsetted}, []PublicKey{X3, X4}, m))
+	})
+}
+
+func scalar(value byte) *blst.Scalar {
+	scalar := new(blst.Scalar)
+	b := make([]byte, scalarBytes)
+	b[scalarBytes-1] = value
+	scalar.FromBEndian(b)
+	return scalar
+}
+
+func TestFastAggregateVerifyBatch(t *testing.T) {
+	t.Run("Test point multiplication", func(t *testing.T) {
+		// it is a building block of the FastAggregateVerifyBatch function
+		key, err := RandKey()
+		require.NoError(t, err)
+
+		pointAffine := key.PublicKey().(*BlsPublicKey).p
+		point := new(blst.P1)
+		point.FromAffine(pointAffine)
+
+		one := scalar(1)
+		require.Equal(t, point.Serialize(), point.Mult(one).Serialize())
+
+		two := scalar(2)
+		require.Equal(t, point.Add(point).Serialize(), point.Mult(two).Serialize())
+
+		five := scalar(5)
+		require.Equal(t, point.Add(point).Add(point).Add(point).Add(point).Serialize(), point.Mult(five).Serialize())
+	})
+	t.Run("Doesn't modify original sigs and keys", func(t *testing.T) {
+		key1, err := RandKey()
+		require.NoError(t, err)
+		key2, err := RandKey()
+		require.NoError(t, err)
+
+		pubkey1 := key1.PublicKey()
+		pubkey2 := key2.PublicKey()
+
+		pubkey1bytes := pubkey1.Marshal()
+		pubkey2bytes := pubkey2.Marshal()
+
+		m := common.Hash{0xca, 0xfe}
+
+		sig1 := key1.Sign(m[:])
+		sig2 := key2.Sign(m[:])
+
+		sig1bytes := sig1.Marshal()
+		sig2bytes := sig2.Marshal()
+
+		require.True(t, FastAggregateVerifyBatch([]Signature{sig1, sig2}, []PublicKey{pubkey1, pubkey2}, m))
+
+		require.Equal(t, pubkey1bytes, pubkey1.Marshal())
+		require.Equal(t, pubkey2bytes, pubkey2.Marshal())
+		require.Equal(t, sig1bytes, sig1.Marshal())
+		require.Equal(t, sig2bytes, sig2.Marshal())
+	})
+	t.Run("works correctly", func(t *testing.T) {
+		key1, err := RandKey()
+		require.NoError(t, err)
+		key2, err := RandKey()
+		require.NoError(t, err)
+
+		m := common.Hash{0xca, 0xfe}
+		m2 := common.Hash{0xca, 0xff}
+
+		var signatures []Signature
+		var pubkeys []PublicKey
+
+		require.False(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+
+		signatures = append(signatures, key1.Sign(m[:]))
+		pubkeys = append(pubkeys, key1.PublicKey())
+
+		require.True(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+
+		signatures = append(signatures, key2.Sign(m[:]))
+		require.False(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+		pubkeys = append(pubkeys, key2.PublicKey())
+
+		require.True(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+
+		signatures = append(signatures, key1.Sign(m[:]))
+		pubkeys = append(pubkeys, key1.PublicKey())
+
+		require.True(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+
+		// order matters
+		pub := pubkeys[0]
+		pubkeys[0] = pubkeys[1]
+		pubkeys[1] = pub
+		require.False(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+
+		// restore correct order
+		pubkeys[1] = pubkeys[0]
+		pubkeys[0] = pub
+		require.True(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+
+		// invalid sig
+		signatures = append(signatures, key1.Sign(m2[:]))
+		pubkeys = append(pubkeys, key1.PublicKey())
+		require.False(t, FastAggregateVerifyBatch(signatures, pubkeys, m))
+
 	})
 }
 

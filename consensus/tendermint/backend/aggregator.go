@@ -531,9 +531,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			continue
 		}
 
-		aggregateSignature := blst.Aggregate(signatures)
 		hash := batch[0].Message.SignatureInput()
-		valid := aggregateSignature.FastAggregateVerify(publicKeys, hash)
+		valid := blst.FastAggregateVerifyBatch(signatures, publicKeys, hash)
 
 		var validVotes []message.Vote
 		var invalids []uint
@@ -542,30 +541,15 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			// at least one of the signatures is invalid, find at which index
 			invalids = blst.FindInvalid(signatures, publicKeys, hash)
 
-			if len(invalids) == 0 {
-				// NOTE: it is possible that the aggregated signature is invalid, but individually verified signatures are valid.
-				// This is due to the infinite public key and splitting zero bug. Check out TestBlsAttacks for more information.
-				a.logger.Error("Splitting zero attack detected!!!")
-				a.logger.Error("Please report the following data to the Autonity team!")
-				for i, msg := range messages {
-					a.logger.Error("Message", "i", i, "hash", msg.Hash(), "signers", msg.Signers().String())
+			// remove invalid messages and sent the rest of the batch
+			// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
+			j := 0
+			for i, msg := range messages {
+				if j < len(invalids) && uint(i) == invalids[j] {
+					j++
+					continue
 				}
-
-				// consider all messages as valid since single signatures are valid.
-				// other nodes might already have considered them as valid depending on how they were aggregated.
-				// so this choice maximizes coherence across the network.
-				validVotes = messages
-			} else {
-				// remove invalid messages and sent the rest of the batch
-				// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
-				j := 0
-				for i, msg := range messages {
-					if j < len(invalids) && uint(i) == invalids[j] {
-						j++
-						continue
-					}
-					validVotes = append(validVotes, msg)
-				}
+				validVotes = append(validVotes, msg)
 			}
 		} else {
 			// all messages are valid
