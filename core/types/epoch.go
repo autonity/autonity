@@ -19,6 +19,11 @@ import (
 
 var _ = (*Epoch)(nil)
 
+type EpochInfo struct {
+	Epoch
+	EpochBlock *big.Int
+}
+
 type Epoch struct {
 	PreviousEpochBlock *big.Int   `rlp:"nil" json:"previousEpochBlock" gencodec:"required"`
 	NextEpochBlock     *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`

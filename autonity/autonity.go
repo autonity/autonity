@@ -231,9 +231,13 @@ func (c *AutonityContract) GetCommitteeByHeight(header *types.Header, db vm.Stat
 	return c.callGetCommitteeByHeight(db, header, height)
 }
 
+func (c *AutonityContract) GetEpochByHeight(header *types.Header, db vm.StateDB, height *big.Int) (*types.EpochInfo, error) {
+	return c.callGetEpochByHeight(db, header, height)
+}
+
 // EpochInfo get the committee and the corresponding epoch boundary base on the input header's state.
 // it returns the committee, previousEpochBlock, curEpochBlock, and the nextEpochBlock.
-func (c *AutonityContract) EpochInfo(header *types.Header, db vm.StateDB) (*types.Committee, uint64, uint64, uint64, error) {
+func (c *AutonityContract) EpochInfo(header *types.Header, db vm.StateDB) (*types.EpochInfo, error) {
 	return c.callGetEpochInfo(db, header)
 }
 

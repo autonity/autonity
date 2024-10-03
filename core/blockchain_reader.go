@@ -47,17 +47,17 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	}
 
 	// the latest epoch head should be in the most case.
-	committee, _, curEpochHead, nextEpochHead, err := bc.LatestEpoch()
+	epoch, err := bc.LatestEpoch()
 	if err != nil {
 		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
 	}
 
-	if height > curEpochHead && height <= nextEpochHead {
-		bc.committeeCache.Add(height, committee)
-		return committee, nil
+	if height > epoch.EpochBlock.Uint64() && height <= epoch.NextEpochBlock.Uint64() {
+		bc.committeeCache.Add(height, epoch.Committee)
+		return epoch.Committee, nil
 	}
 
-	if height > nextEpochHead {
+	if height > epoch.NextEpochBlock.Uint64() {
 		return nil, ErrHeightTooFuture
 	}
 
@@ -68,7 +68,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	if err != nil {
 		return nil, err
 	}
-	committee, err = bc.protocolContracts.GetCommitteeByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
+	committee, err := bc.protocolContracts.GetCommitteeByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
 	if err != nil {
 		return nil, err
 	}
@@ -77,14 +77,65 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	return committee, nil
 }
 
+func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+
+	// always get it from LRU cache first
+	if epoch, ok := bc.epochCache.Get(height); ok {
+		return epoch.(*types.EpochInfo), nil
+	}
+
+	if height == 0 {
+		epoch := &types.EpochInfo{
+			Epoch:      *bc.genesisBlock.Header().Epoch.Copy(),
+			EpochBlock: common.Big0,
+		}
+		bc.committeeCache.Add(height, epoch)
+		return epoch, nil
+	}
+
+	// the latest epoch head should be in the most case.
+	epoch, err := bc.LatestEpoch()
+	if err != nil {
+		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
+	}
+
+	if height > epoch.EpochBlock.Uint64() && height <= epoch.NextEpochBlock.Uint64() {
+		bc.committeeCache.Add(height, epoch)
+		return epoch, nil
+	}
+
+	if height > epoch.NextEpochBlock.Uint64() {
+		return nil, ErrHeightTooFuture
+	}
+
+	// otherwise try to get committee from state db of the height.
+	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
+	currentHeader := bc.CurrentHeader()
+	stateDB, err := bc.StateAt(currentHeader.Root)
+	if err != nil {
+		return nil, err
+	}
+
+	epoch, err = bc.protocolContracts.GetEpochByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	bc.committeeCache.Add(height, epoch)
+	return epoch, nil
+}
+
 // LatestEpoch retrieves the latest epoch header of the blockchain.
-func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
 
 	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
 	// double check if chain head fit into current epoch range, otherwise we query latest epoch from state DB.
 	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {
-		return epochBlock.Header().Epoch.Committee, epochBlock.Header().Epoch.PreviousEpochBlock.Uint64(),
-			epochBlock.Header().Number.Uint64(), epochBlock.Header().Epoch.NextEpochBlock.Uint64(), nil
+		epochInfo := &types.EpochInfo{
+			Epoch:      *epochBlock.Header().Epoch.Copy(),
+			EpochBlock: epochBlock.Number(),
+		}
+		return epochInfo, nil
 	}
 
 	// For snap sync or fast sync case we need to get epoch info from state DB:
@@ -94,7 +145,7 @@ func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, e
 	currentBlock := bc.CurrentBlock()
 	st, err := bc.StateAt(currentBlock.Header().Root)
 	if err != nil {
-		return nil, 0, 0, 0, err
+		return nil, err
 	}
 	return bc.protocolContracts.EpochInfo(currentBlock.Header(), st)
 }

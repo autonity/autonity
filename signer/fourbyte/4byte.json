@@ -137,5 +137,6 @@
   "d18736ab": "rewardsDistributed(address[])",
   "a8920241": "unbondingApplied(uint256,address,bool)",
   "3c54c290": "unbondingReleased(uint256,uint256,bool)",
-  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()"
+  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
+  "affb1cf1": "getEpochByHeight(uint256)"
 }
