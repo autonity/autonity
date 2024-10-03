@@ -15,14 +15,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
         uint256 withdrawnShare;
     }
 
-    ContractValuation private contractValuation;
-
-    struct StakingNTN {
-        uint256 bondingNTN;
-        uint256 unbondingNTN;
-    }
-
-    StakingNTN private ntnUnderStaking;
+    ContractValuation public contractValuation;
 
     struct PendingBondingRequest {
         uint256 amount;
@@ -66,11 +59,12 @@ contract StakableVesting is ContractBase, ValidatorManager {
      */
     function releaseFunds() virtual external onlyBeneficiary {
         _updateFunds();
-        uint256 _unlocked = _unlockedFunds();
+        (uint256 _unlocked, uint256 _totalValue) = _unlockedFunds();
         // first NTN is released
-        _unlocked = _releaseNTN(stakableContract, _unlocked);
+        uint256 _remainingUnlocked = _releaseNTN(stakableContract, _unlocked);
         // if there still remains some unlocked funds, i.e. not enough NTN, then LNTN is released
-        _releaseAllUnlockedLNTN(_unlocked);
+        _remainingUnlocked = _releaseAllUnlockedLNTN(_remainingUnlocked);
+        _updateWithdrawnShare(_unlocked - _remainingUnlocked, _totalValue);
         _clearValidators();
     }
 
@@ -79,7 +73,9 @@ contract StakableVesting is ContractBase, ValidatorManager {
      */
     function releaseAllNTN() virtual external onlyBeneficiary {
         _cleanup();
-        _releaseNTN(stakableContract, _unlockedFunds());
+        (uint256 _unlocked, uint256 _totalValue) = _unlockedFunds();
+        uint256 _remainingUnlocked = _releaseNTN(stakableContract, _unlocked);
+        _updateWithdrawnShare(_unlocked - _remainingUnlocked, _totalValue);
     }
 
     /**
@@ -87,7 +83,9 @@ contract StakableVesting is ContractBase, ValidatorManager {
      */
     function releaseAllLNTN() virtual external onlyBeneficiary {
         _updateFunds();
-        _releaseAllUnlockedLNTN(_unlockedFunds());
+        (uint256 _unlocked, uint256 _totalValue) = _unlockedFunds();
+        uint256 _remainingUnlocked = _releaseAllUnlockedLNTN(_unlocked);
+        _updateWithdrawnShare(_unlocked - _remainingUnlocked, _totalValue);
         _clearValidators();
     }
 
@@ -98,8 +96,10 @@ contract StakableVesting is ContractBase, ValidatorManager {
      */
     function releaseNTN(uint256 _amount) virtual external onlyBeneficiary {
         _cleanup();
-        require(_amount <= _unlockedFunds(), "not enough unlocked funds");
-        _releaseNTN(stakableContract, _amount);
+        (uint256 _unlocked, uint256 _totalValue) = _unlockedFunds();
+        require(_amount <= _unlocked, "not enough unlocked funds");
+        uint256 _remainingUnlocked = _releaseNTN(stakableContract, _amount);
+        _updateWithdrawnShare(_amount - _remainingUnlocked, _totalValue);
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
@@ -116,10 +116,12 @@ contract StakableVesting is ContractBase, ValidatorManager {
         require(_unlockedLiquid >= _amount, "not enough unlocked LNTN");
 
         uint256 _value = _calculateLNTNValue(_validator, _amount);
-        require(_value <= _unlockedFunds(), "not enough unlocked funds");
+        (uint256 _unlocked, uint256 _totalValue) = _unlockedFunds();
+        require(_value <= _unlocked, "not enough unlocked funds");
 
         stakableContract.withdrawnValue += _value;
         _transferLNTN(_amount, _validator);
+        _updateWithdrawnShare(_value, _totalValue);
         _clearValidators();
     }
 
@@ -147,14 +149,6 @@ contract StakableVesting is ContractBase, ValidatorManager {
     }
 
     /**
-     * @notice Updates the funds of the contract and returns total value of the contract.
-     */
-    function updateFundsAndGetContractTotalValue() external returns (uint256) {
-        _updateFunds();
-        return _calculateTotalValue();
-    }
-
-    /**
      * @notice Updates the funds of the contract and returns the contract.
      */
     function updateFundsAndGetContract() external returns (ContractBase.Contract memory) {
@@ -170,8 +164,9 @@ contract StakableVesting is ContractBase, ValidatorManager {
      */
     function bond(address _validator, uint256 _amount) virtual public onlyBeneficiary returns (uint256) {
         require(stakableContract.start <= block.timestamp, "contract not started yet");
-        bondingQueue.push(PendingBondingRequest(_amount, _getEpochID(), _validator));
-        _newBondingRequested(_validator);
+        uint256 _epochID = _getEpochID();
+        bondingQueue.push(PendingBondingRequest(_amount, _epochID, _validator));
+        _newBondingRequested(_validator, _epochID);
         return autonity.bond(_validator, _amount);
     }
 
@@ -182,7 +177,9 @@ contract StakableVesting is ContractBase, ValidatorManager {
      */
     function unbond(address _validator, uint256 _amount) virtual public onlyBeneficiary returns (uint256) {
         uint256 _unbondingID = autonity.unbond(_validator, _amount);
-        unbondingQueue.push(PendingUnbondingRequest(_unbondingID, _getEpochID(), _validator));
+        uint256 _epochID = _getEpochID();
+        unbondingQueue.push(PendingUnbondingRequest(_unbondingID, _epochID, _validator));
+        _newUnbondingRequested(_validator, _epochID, _unbondingID);
         return _unbondingID;
     }
 
@@ -220,6 +217,9 @@ contract StakableVesting is ContractBase, ValidatorManager {
      * @param _amount amount of LNTN to be converted
      */
     function _calculateLNTNValue(address _validator, uint256 _amount) internal view returns (uint256) {
+        if (_amount == 0) {
+            return 0;
+        }
         Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake) / _validatorInfo.liquidSupply;
     }
@@ -230,27 +230,27 @@ contract StakableVesting is ContractBase, ValidatorManager {
      * @param _amount amount of NTN to be converted
      */
     function _getLiquidFromNTN(address _validator, uint256 _amount) internal view returns (uint256) {
+        if (_amount == 0) {
+            return 0;
+        }
         Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * _validatorInfo.liquidSupply / (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake);
     }
 
     /**
-     * @dev Calculates the total value of the contract, which can vary if the contract has some LNTN.
-     * `totalValue = currentNTN + withdrawnValue + (the value of LNTN converted to NTN using current ratio)`
+     * @dev Calculates the total value of all the balances of the contract in NTN, which can vary if the contract has some LNTN.
+     * `totalValue = currentNTN + (the value of LNTN converted to NTN using current ratio)`
      */
     function _calculateTotalValue() internal view returns (uint256) {
-        uint256 _totalValue = autonity.balanceOf(address(this)) + stakableContract.withdrawnValue;
         address _validator;
         uint256 _balance;
+        uint256 _totalValue = autonity.balanceOf(address(this));
         for (uint256 i = 0; i < bondedValidators.length; i++) {
             _validator = bondedValidators[i];
             _balance = liquidBalance(_validator);
-            if (_balance == 0) {
-                continue;
-            }
             _totalValue += _calculateLNTNValue(_validator, _balance);
         }
-        return _totalValue;
+        return _totalValue + _calculateNewtonUnderBonding() + _calculateNewtonUnderUnbonding();
     }
 
     /**
@@ -289,13 +289,65 @@ contract StakableVesting is ContractBase, ValidatorManager {
         stakableContract.withdrawnValue += _availableUnlockedFunds - _remaining;
     }
 
+    function _updateWithdrawnShare(uint256 _withdrawnValue, uint256 _totalValue) internal {
+        if (_withdrawnValue == 0) {
+            return;
+        }
+        uint256 _alreadyWithdrawn = contractValuation.withdrawnShare;
+        uint256 _withdrawnShare = (_withdrawnValue * (contractValuation.totalShare - _alreadyWithdrawn)) / _totalValue;
+        contractValuation.withdrawnShare = _alreadyWithdrawn + _withdrawnShare;
+    }
+
     /**
      * @dev Calculates the amount of unlocked funds in NTN until last epoch time.
      */
-    function _unlockedFunds() internal view returns (uint256) {
-        return _calculateAvailableUnlockedFunds(
-            stakableContract, _calculateTotalValue(), autonity.lastEpochTime()
-        );
+    function _unlockedFunds() internal view returns (uint256 _unlockedValue, uint256 _totalValue) {
+        uint256 _time = autonity.lastEpochTime();
+        uint256 _start = stakableContract.start;
+        require(_time >= _start + stakableContract.cliffDuration, "cliff period not reached yet");
+
+        uint256 _totalDuration = stakableContract.totalDuration;
+        uint256 _totalShare = contractValuation.totalShare;
+        uint256 _withdrawnShare = contractValuation.withdrawnShare;
+        uint256 _unlockedShare;
+        if (_start + _totalDuration <= _time) {
+            _unlockedShare = _totalShare - _withdrawnShare;
+        }
+        else {
+            _unlockedShare = (_totalShare * (_time - _start)) / _totalDuration - _withdrawnShare;
+        }
+        _totalValue = _calculateTotalValue();
+        if (_unlockedShare > 0) {
+            _unlockedValue = (_totalValue * _unlockedShare) / (_totalShare - _withdrawnShare);
+        }
+    }
+
+    /**
+     * @dev Given the total value (in NTN) of the contract, calculates the amount of withdrawable tokens (in NTN).
+     */
+    function _calculateAvailableUnlockedFunds(
+        Contract storage _contract, uint256 _totalValue, uint256 _time
+    ) internal view returns (uint256) {
+        require(_time >= _contract.start + _contract.cliffDuration, "cliff period not reached yet");
+
+        uint256 _unlocked = _calculateTotalUnlockedFunds(_contract.start, _contract.totalDuration, _time, _totalValue);
+        if (_unlocked > _contract.withdrawnValue) {
+            return _unlocked - _contract.withdrawnValue;
+        }
+        return 0;
+    }
+
+    /**
+     * @dev Calculates total unlocked funds while assuming cliff period has passed.
+     * Check if cliff is passed before calling this function.
+     */
+    function _calculateTotalUnlockedFunds(
+        uint256 _start, uint256 _totalDuration, uint256 _time, uint256 _totalAmount
+    ) internal pure returns (uint256) {
+        if (_time >= _totalDuration + _start) {
+            return _totalAmount;
+        }
+        return (_totalAmount * (_time - _start)) / _totalDuration;
     }
 
     function _transferLNTN(uint256 _amount, address _validator) internal {
@@ -346,25 +398,33 @@ contract StakableVesting is ContractBase, ValidatorManager {
         uint256 _length = bondingQueue.length;
         uint256 _topIndex = bondingQueueTopIndex;
 
-        // first delete all bonding requests from the queue
+        // delete all bonding requests from the past epoch
         for (uint256 i = _topIndex; i < _length; i++) {
             _bondingRequest = bondingQueue[i];
             if (_bondingRequest.epochID < _currentEpochID) {
-                _bondingRequestExpired(_bondingRequest.validator);
+                _bondingRequestExpired(_bondingRequest.validator, _bondingRequest.epochID);
                 _deleteBondingRequest(_bondingRequest);
                 _topIndex++;
             }
             else break;
         }
-
-        // now calculate total `ntnUnderStaking.bondingNTN`
-        // doing it in seperate loop may reduce gas cost by reducing state reading
-        uint256 _bondingNTN;
-        for (uint256 i = _topIndex; i < _length; i++) {
-            _bondingNTN += bondingQueue[i].amount;
-        }
-        ntnUnderStaking.bondingNTN = _bondingNTN;
         bondingQueueTopIndex = _topIndex;
+    }
+
+    function _calculateNewtonUnderBonding() internal view returns (uint256) {
+        uint256 _bondingNTN;
+        PendingBondingRequest storage _bondingRequest;
+        uint256 _currentEpochID = _getEpochID();
+        uint256 _length = bondingQueue.length;
+
+        for (uint256 i = bondingQueueTopIndex; i < _length; i++) {
+            _bondingRequest = bondingQueue[i];
+            if (_bondingRequest.epochID < _currentEpochID) {
+                continue;
+            }
+            _bondingNTN += _bondingRequest.amount;
+        }
+        return _bondingNTN;
     }
 
     function _deleteUnbondingRequest(PendingUnbondingRequest storage _unbondingRequest) private {
@@ -386,6 +446,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
         for (uint256 i = _topIndex; i < _length; i++) {
             _unbondingRequest = unbondingQueue[i];
             if (autonity.isUnbondingReleased(_unbondingRequest.unbondingID)) {
+                _unbondingRequestExpired(_unbondingRequest.validator, _unbondingRequest.unbondingID);
                 _deleteUnbondingRequest(_unbondingRequest);
                 _topIndex++;
             }
@@ -393,17 +454,24 @@ contract StakableVesting is ContractBase, ValidatorManager {
                 break;
             }
         }
+        unbondingQueueTopIndex = _topIndex;
+    }
 
-        // now calculate total `ntnUnderStaking.unbondingNTN`
-        // doing it in seperate loop may reduce gas cost by reducing state reading
+    function _calculateNewtonUnderUnbonding() internal view returns (uint256) {
         uint256 _unbondingNTN;
         uint256 _unbondingShare;
+        PendingUnbondingRequest storage _unbondingRequest;
         Autonity.Validator memory _validator;
         uint256 _currentEpochID = _getEpochID();
-        for (uint256 i = _topIndex; i < _length; i++) {
+        uint256 _length = unbondingQueue.length;
+
+        for (uint256 i = unbondingQueueTopIndex; i < _length; i++) {
             _unbondingRequest = unbondingQueue[i];
             if (_unbondingRequest.epochID == _currentEpochID) {
                 break;
+            }
+            if (autonity.isUnbondingReleased(_unbondingRequest.unbondingID)) {
+                continue;
             }
             _unbondingShare = autonity.getUnbondingShare(_unbondingRequest.unbondingID);
             if (_unbondingShare == 0) {
@@ -412,8 +480,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
             _validator = autonity.getValidator(_unbondingRequest.validator);
             _unbondingNTN += (_unbondingShare * _validator.unbondingStake) / _validator.unbondingShares;
         }
-        ntnUnderStaking.unbondingNTN = _unbondingNTN;
-        unbondingQueueTopIndex = _topIndex;
+        return _unbondingNTN;
     }
 
     /**
@@ -439,10 +506,6 @@ contract StakableVesting is ContractBase, ValidatorManager {
             _liquidStateContract(bondedValidators[i]).claimRewards();
         }
         _sendRewards(_myAddress.balance - _atnBalance, autonity.balanceOf(_myAddress) - _ntnBalance);
-    }
-
-    function _getEpochID() internal view returns (uint256) {
-        return autonity.epochID();
     }
 
     /*
@@ -476,7 +539,8 @@ contract StakableVesting is ContractBase, ValidatorManager {
      * @notice Returns the amount of released funds in NTN for some contract.
      */
     function unlockedFunds() virtual external view returns (uint256) {
-        return _unlockedFunds();
+        (uint256 _unlocked, ) = _unlockedFunds();
+        return _unlocked;
     }
 
     /**
