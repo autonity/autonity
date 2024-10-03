@@ -1,8 +1,6 @@
 package core
 
 import (
-	"math/big"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -22,15 +20,53 @@ func (c *Core) CoreState() interfaces.CoreState {
 	return <-e.StateChan
 }
 
+func msgForDump(msg message.Msg) interfaces.MsgForDump {
+	mDump := interfaces.MsgForDump{
+		Code:           msg.Code(),
+		Hash:           msg.Hash(),
+		Payload:        msg.Payload(),
+		Height:         msg.H(),
+		Round:          msg.R(),
+		SignatureInput: msg.SignatureInput(),
+		Signature:      msg.Signature().Marshal(),
+		Power:          msg.Power(),
+	}
+
+	switch msg.Code() {
+	case message.ProposalCode:
+		propose := msg.(*message.Propose)
+
+		mDump.Block = propose.Block()
+		mDump.ValidRound = propose.ValidRound()
+		mDump.Signer = propose.Signer()
+
+	case message.PrevoteCode, message.PrecommitCode:
+		vote := msg.(message.Vote)
+		mDump.Signers = vote.Signers()
+		mDump.Value = vote.Value()
+
+	default:
+		panic("Unknown message type")
+
+	}
+	return mDump
+}
+
+func msgsForDump(msgs []message.Msg) []interfaces.MsgForDump {
+	mDumps := make([]interfaces.MsgForDump, 0, len(msgs))
+	for _, msg := range msgs {
+		mDumps = append(mDumps, msgForDump(msg))
+	}
+	return mDumps
+}
+
 // State Dump is handled in the main loop triggered by an event rather than using RLOCK mutex.
 func (c *Core) handleStateDump(e StateRequestEvent) {
 	state := interfaces.CoreState{
 		Client:              c.address,
 		BlockPeriod:         c.blockPeriod,
-		CurHeightMessages:   msgForDump(c.messages.All()),
-		FutureRoundMessages: getFutureRoundMsgs(c),
-		// future height msgs are not really a part of core anymore, but we include them in the state dump for completeness sake
-		FutureHeightMessages: msgForDump(c.backend.FutureMsgs()),
+		CurHeightMessages:   msgsForDump(c.messages.All()),
+		FutureRoundMessages: msgsForDump(getFutureRoundMsgs(c)),
 		// tendermint Core state:
 		Height:      c.Height(),
 		Round:       c.Round(),
@@ -67,32 +103,14 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 	close(e.StateChan)
 }
 
-func getFutureRoundMsgs(c *Core) []*interfaces.MsgForDump {
+func getFutureRoundMsgs(c *Core) []message.Msg {
 	c.futureRoundLock.RLock()
 	defer c.futureRoundLock.RUnlock()
-	result := make([]*interfaces.MsgForDump, 0)
+	result := make([]message.Msg, 0)
 	for _, msgs := range c.futureRound {
-		result = append(result, msgForDump(msgs)...)
+		result = append(result, msgs...)
 	}
 
-	return result
-}
-
-func msgForDump(messages []message.Msg) []*interfaces.MsgForDump {
-	result := make([]*interfaces.MsgForDump, 0, len(messages))
-	for _, m := range messages {
-		msg := new(interfaces.MsgForDump)
-		msg.Msg = m
-		msg.Power = m.Power()
-		msg.Hash = m.Hash()
-
-		// in case of haven't decode msg yet, set round and height as -1.
-		msg.Round = -1
-		msg.Height = big.NewInt(-1)
-		msg.Round = m.R()
-		msg.Height = big.NewInt(int64(m.H()))
-		result = append(result, msg)
-	}
 	return result
 }
 

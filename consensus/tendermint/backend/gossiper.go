@@ -53,15 +53,17 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 }
 
 func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
-	hash := message.Hash()
+	g.GossipPayload(committee, message.Code(), message.Hash(), message.Payload())
+}
+
+func (g *Gossiper) GossipPayload(committee *types.Committee, code uint8, hash common.Hash, payload []byte) {
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
 	}
 	if g.broadcaster == nil {
 		return
 	}
-	code := NetworkCodes[message.Code()]
-	payload := message.Payload()
+	networkCode := NetworkCodes[code]
 	for _, val := range committee.Members {
 		if val.Address == g.address {
 			continue
@@ -77,7 +79,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 				defer func() {
 					<-g.concurrencyLimiter
 				}()
-				p.SendRaw(code, payload) //nolint
+				p.SendRaw(networkCode, payload) //nolint
 			}()
 		}
 	}

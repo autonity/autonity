@@ -81,7 +81,6 @@ func TestGetCoreState(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
-	backendMock.EXPECT().FutureMsgs().Return(nil)
 	c := New(backendMock, nil, sender, log.Root(), false)
 
 	var rounds = []int64{0, 1}

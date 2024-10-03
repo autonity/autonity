@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 //
+
 // Package interfaces is a generated GoMock package.
 package interfaces
 
@@ -129,20 +130,6 @@ func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, quorumCert
 func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, quorumCertificate any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, quorumCertificate)
-}
-
-// FutureMsgs mocks base method.
-func (m *MockBackend) FutureMsgs() []message.Msg {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FutureMsgs")
-	ret0, _ := ret[0].([]message.Msg)
-	return ret0
-}
-
-// FutureMsgs indicates an expected call of FutureMsgs.
-func (mr *MockBackendMockRecorder) FutureMsgs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FutureMsgs", reflect.TypeOf((*MockBackend)(nil).FutureMsgs))
 }
 
 // GetContractABI mocks base method.
