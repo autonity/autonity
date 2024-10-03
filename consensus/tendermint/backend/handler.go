@@ -172,9 +172,15 @@ func handleConsensusMsg[T any, PT interface {
 	}
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
-	if msg.H() > sb.core.Height().Uint64() {
+	// TODO: Due to a race condition a message that is considered as future could become current, but remain stuck into the future message buffer forever
+	currentHeight := sb.core.Height().Uint64()
+	if msg.H() > currentHeight {
 		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", sb.core.Height().Uint64())
 		sb.saveFutureMsg(msg, errCh, sender)
+		return true, nil
+	}
+	// if the height is so old that it is not useful even for accountability, discard it right away. No need to waste resources on this.
+	if sb.isHeightExpired(currentHeight, msg.H()) {
 		return true, nil
 	}
 	return sb.handleDecodedMsg(msg, errCh, sender)

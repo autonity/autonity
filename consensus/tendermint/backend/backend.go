@@ -56,7 +56,8 @@ func New(nodeKey *ecdsa.PrivateKey,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger, noGossip bool) *Backend {
+	log log.Logger, noGossip bool,
+	isHeightExpired func(headHeight uint64, height uint64) bool) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -70,6 +71,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 		vmConfig:        vmConfig,
 		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 		messageCh:       make(chan events.UnverifiedMessageEvent, 1000),
+		isHeightExpired: isHeightExpired,
 		jailed:          make(map[common.Address]uint64),
 		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
 		futureMinHeight: math.MaxUint64,
@@ -133,6 +135,8 @@ type Backend struct {
 	jailedLock sync.RWMutex
 
 	aggregator *aggregator
+
+	isHeightExpired func(headHeight uint64, height uint64) bool
 
 	// buffer for future height events and related metadata
 	future          map[uint64][]*events.UnverifiedMessageEvent // UnverifiedMessageEvent is used slightly inappropriately here, as the future height messages still need to pass the checks in `handleDecodedMsg` before being posted to the aggregator.

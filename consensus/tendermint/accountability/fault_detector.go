@@ -167,7 +167,7 @@ func (fd *FaultDetector) Start() {
 	go fd.consensusMsgHandlerLoop()
 }
 
-func (fd *FaultDetector) isHeightExpired(headHeight uint64, height uint64) bool {
+func IsHeightExpired(headHeight uint64, height uint64) bool {
 	return headHeight > HeightRange && height < headHeight-HeightRange
 }
 
@@ -189,7 +189,7 @@ tendermintMsgLoop:
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if fd.isHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentHeight, e.Message.H()) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -205,7 +205,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 			case events.OldMessageEvent:
-				if fd.isHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentHeight, e.Message.H()) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
