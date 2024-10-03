@@ -130,6 +130,25 @@ func TestReleaseFromStakableContract(t *testing.T) {
 		require.Equal(r.T, userBalance, userNewBalance, "funds released before cliff period")
 	})
 
+	tests.RunWithSetup("unlocking mechanism follows epoch based linear function in time", setup, func(r *tests.Runner) {
+		_, stakableContract := initiate(r)
+		currentTime := r.WaitSomeEpoch(cliff + 1)
+		require.True(r.T, currentTime <= end+1, "release is not linear after end")
+		// contract has the context of last block, so time is 1s less than currentTime
+		unlocked := currentTime - 1 - start
+		require.True(r.T, contractTotalAmount > unlocked, "cannot test if all funds unlocked")
+		epochID, _, err := r.Autonity.EpochID(nil)
+		require.NoError(r.T, err)
+		// mine some more blocks, release should be epoch based
+		r.WaitNBlocks(10)
+		newEpochID, _, err := r.Autonity.EpochID(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, epochID, newEpochID, "cannot test if epoch progresses")
+		unlockedFunds, _, err := stakableContract.UnlockedFunds(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, big.NewInt(unlocked), unlockedFunds)
+	})
+
 	tests.RunWithSetup("release calculation follows epoch based linear function in time", setup, func(r *tests.Runner) {
 		initiate(r)
 		currentTime := r.WaitSomeEpoch(cliff + 1)
@@ -686,7 +705,7 @@ func TestRewardTracking(t *testing.T) {
 		for _, user := range users {
 			for i := 0; i < contractCount; i++ {
 				stakableContract := r.StakableVestingContractObject(user, big.NewInt(int64(i)))
-				bondedVals, _, err := stakableContract.GetBondedValidators(nil)
+				bondedVals, _, err := stakableContract.GetLinkedValidators(nil)
 				require.NoError(r.T, err)
 				require.True(r.T, len(bondedVals) == 0)
 				for _, validator := range validators {
@@ -1498,7 +1517,7 @@ func checkReleaseAllLNTN(r *tests.Runner, user common.Address, contractID, relea
 	totalUnlocked, _, err := stakableContract.UnlockedFunds(nil)
 	require.NoError(r.T, err)
 
-	bondedValidators, _, err := stakableContract.GetBondedValidators(nil)
+	bondedValidators, _, err := stakableContract.GetLinkedValidators(nil)
 	require.NoError(r.T, err)
 
 	userLiquidBalances := make([]*big.Int, 0)

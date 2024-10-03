@@ -47,34 +47,6 @@ abstract contract ContractBase is AccessAutonity {
     }
 
     /**
-     * @dev Given the total value (in NTN) of the contract, calculates the amount of withdrawable tokens (in NTN).
-     */
-    function _calculateAvailableUnlockedFunds(
-        Contract storage _contract, uint256 _totalValue, uint256 _time
-    ) internal view returns (uint256) {
-        require(_time >= _contract.start + _contract.cliffDuration, "cliff period not reached yet");
-
-        uint256 _unlocked = _calculateTotalUnlockedFunds(_contract.start, _contract.totalDuration, _time, _totalValue);
-        if (_unlocked > _contract.withdrawnValue) {
-            return _unlocked - _contract.withdrawnValue;
-        }
-        return 0;
-    }
-
-    /**
-     * @dev Calculates total unlocked funds while assuming cliff period has passed.
-     * Check if cliff is passed before calling this function.
-     */
-    function _calculateTotalUnlockedFunds(
-        uint256 _start, uint256 _totalDuration, uint256 _time, uint256 _totalAmount
-    ) internal pure returns (uint256) {
-        if (_time >= _totalDuration + _start) {
-            return _totalAmount;
-        }
-        return (_totalAmount * (_time - _start)) / _totalDuration;
-    }
-
-    /**
      * @dev Updates the contract with `contractID` and transfers NTN.
      */
     function _updateAndTransferNTN(Contract storage _contract, address _to, uint256 _amount) internal {
