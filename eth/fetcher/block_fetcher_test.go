@@ -31,6 +31,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
 )
@@ -182,7 +183,7 @@ func (f *fetcherTester) insertChain(blocks types.Blocks) (int, error) {
 
 // dropPeer is an emulator for the peer removal, simply accumulating the various
 // peers dropped by the fetcher.
-func (f *fetcherTester) dropPeer(peer string) {
+func (f *fetcherTester) dropPeer(peer string, _ p2p.DiscReason) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 

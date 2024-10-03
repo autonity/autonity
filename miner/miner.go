@@ -142,13 +142,13 @@ func (miner *Miner) update() {
 				miner.eth.Logger().Info("Chain syncing failed", "#failures", syncFailures, "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 				// if we fail more than maxSyncFailures times consequently, assume we are under attack
 				if syncFailures >= maxSyncFailures {
-					miner.eth.Logger().Warn("************************** SYNC ATTACK DETECTED **************************")
+					miner.eth.Logger().Warn("************************** PROBLEM DETECTED ******************************")
 					miner.eth.Logger().Warn("Multiple sequential chain sync failures detected", "sync failures", syncFailures)
-					miner.eth.Logger().Warn("Your node is probably under attack by malicious peers, which are preventing your node from syncing")
+					miner.eth.Logger().Warn("Either you have a network connectivity issue")
+					miner.eth.Logger().Warn("Or your node is under attack by malicious peers, which are preventing sync to complete")
 					miner.eth.Logger().Warn("Try restarting your node and connecting to a trusted set of peers")
 					miner.eth.Logger().Warn("Reach out to Autonity social media channels for support and additional informations")
 					miner.eth.Logger().Warn("**************************************************************************")
-					panic("sync attack detected")
 				}
 			// `DoneEvent` deals with the normal scenario:
 			// - when starting the node we have some blocks to sync

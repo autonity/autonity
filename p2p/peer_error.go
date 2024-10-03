@@ -19,6 +19,7 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 const (
@@ -56,6 +57,8 @@ func (pe *peerError) Error() string {
 
 var errProtocolReturned = errors.New("protocol returned")
 
+const syncFailedSuspensionSpan = 30 * time.Second
+
 type DiscReason uint
 
 const (
@@ -74,6 +77,7 @@ const (
 	DiscSuspended
 	DiscPeerNotInCommittee
 	DiscPeerOutsideTopology
+	DiscSyncFailed
 	DiscSubprotocolError = 0x10
 )
 
@@ -93,6 +97,7 @@ var discReasonToString = [...]string{
 	DiscSuspended:           "suspended node",
 	DiscPeerNotInCommittee:  "validator is not part of committee",
 	DiscPeerOutsideTopology: "peer outside topology",
+	DiscSyncFailed:          "failed to sync with remote peer",
 	DiscSubprotocolError:    "subprotocol error",
 }
 
