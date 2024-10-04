@@ -15,6 +15,7 @@ import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";
 import "./asm/SupplyControl.sol";
 import "./AutonityUpgradeTest.sol";
+// import "./StakableVestingManager.sol";
 import "./Tests.sol";
 import "./UpgradeManager.sol";
 import "./InflationController.sol";

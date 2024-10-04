@@ -279,11 +279,11 @@ func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address)
 	return &contract{address, parsed, r}
 }
 
-func (r *Runner) StakableVestingContractObject(user common.Address, contractID *big.Int) *StakableVesting {
+func (r *Runner) StakableVestingContractObject(user common.Address, contractID *big.Int) *IStakableVesting {
 	address, _, err := r.StakableVestingManager.GetContractAccount(nil, user, contractID)
 	require.NoError(r.T, err)
-	return &StakableVesting{
-		r.contractObject(StakableVestingMetaData, address),
+	return &IStakableVesting{
+		r.contractObject(IStakableVestingMetaData, address),
 	}
 }
 
