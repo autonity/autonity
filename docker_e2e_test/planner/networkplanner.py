@@ -145,16 +145,18 @@ class NetworkPlanner(object):
                     "baseSlashingRateMid": 1000,
                     "collusionFactor": 550,
                     "historyFactor": 750,
-                    "jailFactor": 60
+                    "jailFactor": 60,
+                    "slashingRatePrecision": 10000
                 },
                 "omissionAccountability": {
-                    "inactivityThreshold": 10000, # TODO(lorenzo) reset to 1000 once docker e2e test fixed
+                    "inactivityThreshold": 1000,
                     "lookbackWindow": 10,
                     "pastPerformanceWeight": 1000,
                     "initialJailingPeriod": 300,
-                    "initialProbationPeriod": 24,
-                    "initialSlashingRate": 25,
-                    "delta": 5
+                    "initialProbationPeriod": 300,
+                    "initialSlashingRate": 1000,
+                    "slashingRatePrecision": 10000,
+                    "delta": 10
                 },
             },
             "nonce": "0x0",
