@@ -560,22 +560,8 @@ func (c *AutonityContract) callGetCommitteeEnodes(state vm.StateDB, header *type
 	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
-func (c *AutonityContract) callGetCommitteeByHeight(state vm.StateDB, header *types.Header, height *big.Int) (*types.Committee, error) {
-	var committeeMembers []types.CommitteeMember
-	if err := c.AutonityContractCall(state, header, "getCommitteeByHeight", &committeeMembers, height); err != nil {
-		return nil, err
-	}
-	committee := &types.Committee{}
-	committee.Members = committeeMembers
-	if err := committee.Enrich(); err != nil {
-		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
-	}
-	return committee, nil
-}
-
-// callGetEpochByHeight get the epoch with height.
-// it returns the committee, previousEpochBlock, curEpochBlock, and the nextEpochBlock.
-func (c *AutonityContract) callGetEpochByHeight(state vm.StateDB, header *types.Header, height *big.Int) (*types.EpochInfo, error) {
+// callEpochByHeight get the epoch by height.
+func (c *AutonityContract) callEpochByHeight(state vm.StateDB, header *types.Header, height *big.Int) (*types.EpochInfo, error) {
 	var committeeMembers []types.CommitteeMember
 	previousEpochBlock := new(big.Int)
 	curEpochBlock := new(big.Int)

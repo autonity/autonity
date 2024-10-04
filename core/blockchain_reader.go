@@ -83,7 +83,7 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 		return nil, err
 	}
 
-	epoch, err = bc.protocolContracts.GetEpochByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
+	epoch, err = bc.protocolContracts.EpochByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
 	if err != nil {
 		return nil, err
 	}

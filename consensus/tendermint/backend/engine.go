@@ -396,13 +396,13 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	return receipt, epochInfo, nil
 }
 
-func (sb *Backend) GetCommitteeByHeight(height *big.Int) (*types.Committee, error) {
+func (sb *Backend) EpochByHeight(height *big.Int) (*types.EpochInfo, error) {
 	header := sb.BlockChain().CurrentHeader()
 	stateDB, err := sb.blockchain.StateAt(header.Root)
 	if err != nil {
 		return nil, err
 	}
-	return sb.BlockChain().ProtocolContracts().GetCommitteeByHeight(header, stateDB, height)
+	return sb.BlockChain().ProtocolContracts().EpochByHeight(header, stateDB, height)
 }
 
 // Seal generates a new block for the given input block with the local miner's

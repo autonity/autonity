@@ -1194,21 +1194,6 @@ func (mr *MockPeerMockRecorder) SendRaw(msgcode, data any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRaw", reflect.TypeOf((*MockPeer)(nil).SendRaw), msgcode, data)
 }
 
-// LatestEpoch mocks base method
-func (m *MockChainHeaderReader) LatestEpoch() (*types.EpochInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.EpochInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LatestEpoch indicates an expected call of LatestEpoch
-func (mr *MockChainHeaderReaderMockRecorder) LatestEpoch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestEpoch))
-}
-
 // EpochOfHeight mocks base method
 func (m *MockChainHeaderReader) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()

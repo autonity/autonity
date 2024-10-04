@@ -550,20 +550,6 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	return hc.GetHeader(hash, number)
 }
 
-// LatestEpoch retrieves the latest epoch header of the header chain, it can be ahead of blockchain's epoch header.
-func (hc *HeaderChain) LatestEpoch() (*types.EpochInfo, error) {
-	head := hc.CurrentHeadEpochHeader()
-	if head == nil {
-		return nil, ErrMissingEpochHeader
-	}
-
-	epoch := &types.EpochInfo{
-		EpochBlock: head.Number,
-		Epoch:      *head.Epoch.Copy(),
-	}
-	return epoch, nil
-}
-
 func (hc *HeaderChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 	epochHead := hc.CurrentHeadEpochHeader()
 	if epochHead == nil {

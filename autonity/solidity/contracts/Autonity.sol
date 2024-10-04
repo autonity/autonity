@@ -1083,25 +1083,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-     * @notice Returns the committee of a specific height.
-     * @param _height the input block number
-     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
-     */
-    function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
-        require(_height <= block.number, "cannot get committee for a future height");
-
-        // if the block was already finalized, get committee by its corresponding epoch id.
-        if (_height <= lastFinalizedBlock) {
-            uint256 blockEpochID = blockEpochMap[_height];
-            CommitteeMember[] memory members = epochInfos[blockEpochID].committee;
-            return members;
-        }
-
-        // otherwise, this _height is the latest consensus instance, return current committee.
-        return committee;
-    }
-
-    /**
      * @notice Returns epoch associated to the block number.
      * @param _block the input block number.
     */

@@ -623,10 +623,11 @@ func (s *Ethereum) validatorController() {
 	if err != nil {
 		panic(err)
 	}
-	committee, err := s.blockchain.ProtocolContracts().GetCommitteeByHeight(currentHead, currentState, currentHead.Number)
+	epoch, err := s.blockchain.ProtocolContracts().EpochByHeight(currentHead, currentState, currentHead.Number)
 	if err != nil {
 		panic(err)
 	}
+	committee := epoch.Committee
 	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)
 		s.miner.Start()

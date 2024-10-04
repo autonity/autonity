@@ -52,11 +52,6 @@ type ChainHeaderReader interface {
 	// GetTd retrieves the total difficulty from the database by hash and number.
 	GetTd(hash common.Hash, number uint64) *big.Int
 
-	// LatestEpoch retrieves the latest epoch's committee, previousEpochHead, currentEpochHead, and nextEpochHead.
-	// Both header chain and blockchain implement this interface with its own context. Note: head of the header chain
-	// may be above the block chain in some sync mode.
-	LatestEpoch() (*types.EpochInfo, error)
-
 	EpochOfHeight(height uint64) (*types.EpochInfo, error)
 }
 
