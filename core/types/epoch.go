@@ -19,11 +19,17 @@ import (
 
 var _ = (*Epoch)(nil)
 
+// EpochInfo is used to cache the epoch info in the blockchain context for the protocol, it not only have the raw
+// epoch but also include the epoch block number of an epoch, thus that we don't need to cache the entire epoch block
+// headers.
 type EpochInfo struct {
 	Epoch
 	EpochBlock *big.Int
 }
 
+// Epoch contains the previous epoch block, next epoch block and its committee of the current epoch.
+// It is saved in the block header if current block is an epoch block. The epoch block number is not saved
+// here since it is duplicated than the block number in the block header.
 type Epoch struct {
 	PreviousEpochBlock *big.Int   `rlp:"nil" json:"previousEpochBlock" gencodec:"required"`
 	NextEpochBlock     *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`

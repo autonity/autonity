@@ -36,45 +36,12 @@ import (
 // It get committee from LRU cache first, otherwise it trys to search backward epoch with limited hops, if the
 // committee of the height cannot be find still, then it try to query it from the state DB.
 func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
-
-	if height == 0 {
-		return bc.genesisBlock.Header().Epoch.Committee, nil
-	}
-
-	// always get it from LRU cache first
-	if committee, ok := bc.committeeCache.Get(height); ok {
-		return committee.(*types.Committee), nil
-	}
-
-	// the latest epoch head should be in the most case.
-	epoch, err := bc.LatestEpoch()
-	if err != nil {
-		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
-	}
-
-	if height > epoch.EpochBlock.Uint64() && height <= epoch.NextEpochBlock.Uint64() {
-		bc.committeeCache.Add(height, epoch.Committee)
-		return epoch.Committee, nil
-	}
-
-	if height > epoch.NextEpochBlock.Uint64() {
-		return nil, ErrHeightTooFuture
-	}
-
-	// otherwise try to get committee from state db of the height.
-	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
-	currentHeader := bc.CurrentHeader()
-	stateDB, err := bc.StateAt(currentHeader.Root)
-	if err != nil {
-		return nil, err
-	}
-	committee, err := bc.protocolContracts.GetCommitteeByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
+	epoch, err := bc.EpochOfHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
-	bc.committeeCache.Add(height, committee)
-	return committee, nil
+	return epoch.Committee, nil
 }
 
 func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
@@ -89,7 +56,7 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 			Epoch:      *bc.genesisBlock.Header().Epoch.Copy(),
 			EpochBlock: common.Big0,
 		}
-		bc.committeeCache.Add(height, epoch)
+		bc.epochCache.Add(height, epoch)
 		return epoch, nil
 	}
 
@@ -100,7 +67,7 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 	}
 
 	if height > epoch.EpochBlock.Uint64() && height <= epoch.NextEpochBlock.Uint64() {
-		bc.committeeCache.Add(height, epoch)
+		bc.epochCache.Add(height, epoch)
 		return epoch, nil
 	}
 
@@ -121,7 +88,7 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 		return nil, err
 	}
 
-	bc.committeeCache.Add(height, epoch)
+	bc.epochCache.Add(height, epoch)
 	return epoch, nil
 }
 

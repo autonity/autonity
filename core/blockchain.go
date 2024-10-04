@@ -106,7 +106,7 @@ const (
 	maxFutureBlocks     = 256
 	maxTimeFutureBlocks = 30
 	TriesInMemory       = 128
-	committeeCacheLimit = 1024
+	epochCacheLimit     = 1024
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
@@ -219,11 +219,9 @@ type BlockChain struct {
 	bodyRLPCache  *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
 	receiptsCache *lru.Cache     // Cache for the most recent receipts per block
 	blockCache    *lru.Cache     // Cache for the most recent entire blocks
-	// todo: Jason, check if we can remove this committee cache.
-	committeeCache *lru.Cache // Cache for the most recent height's committee
-	epochCache     *lru.Cache // Cache for the most recent height's epoch
-	txLookupCache  *lru.Cache // Cache for the most recent transaction lookup data.
-	futureBlocks   *lru.Cache // future blocks are blocks added for later processing
+	epochCache    *lru.Cache     // Cache for the most recent height's epoch
+	txLookupCache *lru.Cache     // Cache for the most recent transaction lookup data.
+	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
 
 	wg            sync.WaitGroup
 	quit          chan struct{} // shutdown signal, closed in Stop.
@@ -266,8 +264,7 @@ func NewBlockChain(db ethdb.Database,
 	blockCache, _ := lru.New(blockCacheLimit)
 	txLookupCache, _ := lru.New(txLookupCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
-	committeeCache, _ := lru.New(committeeCacheLimit)
-	epochCache, _ := lru.New(committeeCacheLimit)
+	epochCache, _ := lru.New(epochCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig: chainConfig,
@@ -279,20 +276,19 @@ func NewBlockChain(db ethdb.Database,
 			Journal:   cacheConfig.TrieCleanJournal,
 			Preimages: cacheConfig.Preimages,
 		}),
-		quit:           make(chan struct{}),
-		chainmu:        syncx.NewClosableMutex(),
-		bodyCache:      bodyCache,
-		bodyRLPCache:   bodyRLPCache,
-		receiptsCache:  receiptsCache,
-		blockCache:     blockCache,
-		txLookupCache:  txLookupCache,
-		committeeCache: committeeCache,
-		epochCache:     epochCache,
-		futureBlocks:   futureBlocks,
-		engine:         engine,
-		vmConfig:       vmConfig,
-		senderCacher:   senderCacher,
-		log:            log,
+		quit:          make(chan struct{}),
+		chainmu:       syncx.NewClosableMutex(),
+		bodyCache:     bodyCache,
+		bodyRLPCache:  bodyRLPCache,
+		receiptsCache: receiptsCache,
+		blockCache:    blockCache,
+		txLookupCache: txLookupCache,
+		epochCache:    epochCache,
+		futureBlocks:  futureBlocks,
+		engine:        engine,
+		vmConfig:      vmConfig,
+		senderCacher:  senderCacher,
+		log:           log,
 	}
 	bc.forker = NewForkChoice(bc, shouldPreserve)
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
@@ -698,7 +694,6 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 	bc.bodyRLPCache.Purge()
 	bc.receiptsCache.Purge()
 	bc.blockCache.Purge()
-	bc.committeeCache.Purge() // on chain reorg or block rollback, reset committee cache as well.
 	bc.epochCache.Purge()
 	bc.txLookupCache.Purge()
 	bc.futureBlocks.Purge()
