@@ -146,17 +146,15 @@ class NetworkPlanner(object):
                     "collusionFactor": 550,
                     "historyFactor": 750,
                     "jailFactor": 60,
-                    "slashingRatePrecision": 10000
                 },
                 "omissionAccountability": {
                     "inactivityThreshold": 1000,
-                    "lookbackWindow": 10,
+                    "lookbackWindow": 40,
                     "pastPerformanceWeight": 1000,
                     "initialJailingPeriod": 300,
-                    "initialProbationPeriod": 300,
-                    "initialSlashingRate": 1000,
-                    "slashingRatePrecision": 10000,
-                    "delta": 10
+                    "initialProbationPeriod": 24,
+                    "initialSlashingRate": 25,
+                    "delta": 5,
                 },
             },
             "nonce": "0x0",
