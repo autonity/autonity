@@ -133,7 +133,7 @@ class NetworkPlanner(object):
                     "blockPeriod": 1,
                     "maxCommitteeSize": 7,
                     "unbondingPeriod": 120,
-                    "epochPeriod": 60,
+                    "epochPeriod": 50,
                     "treasuryFee": 150000000,
                     "initialInflationReserve": "0x2116545850052128000000",
                     "validators": [],
