@@ -41,6 +41,8 @@ contract Oracle is IOracle {
     }
     // TODO: prices can be changed to mapping of mapping ???
     mapping(string => Price)[] internal prices;
+
+
     constructor( address [] memory _voters, address _autonity, address _operator,
         string[] memory _symbols, uint _votePeriod) {
         autonity = _autonity;
@@ -174,7 +176,7 @@ contract Oracle is IOracle {
         int256[] memory _totalReports = new int256[](voters.length);
         uint256 _count;
         for(uint i = 0; i < voters.length; i++) {
-            address  _voter = voters[i];
+            address _voter = voters[i];
             // if voter has missed this round OR INVALID price reveal was submitted
             if(votingInfo[_voter].round != round || reports[_symbol][_voter] == INVALID_PRICE) {
                 // TODO: Implement Slashing
@@ -184,16 +186,16 @@ contract Oracle is IOracle {
             _totalReports[_count++] = reports[_symbol][_voter];
         }
         int256 _priceMedian = prices[round-1][_symbol].price;
-        bool success = false;
+        bool _success = false;
         if (_count > 0) {
             _priceMedian = _getMedian(_totalReports, _count);
-            success = true;
+            _success = true;
         }
         prices.push();
         prices[round][_symbol] = Price(
             _priceMedian,
             block.timestamp,
-            success);
+            _success);
 
     }
     /**
@@ -206,6 +208,7 @@ contract Oracle is IOracle {
         RoundData memory _d = RoundData(round-1, _p.price, _p.timestamp, _p.success);
         return _d;
     }
+
     /**
      * @notice Return price data for a specific round.
      * @param _round, the round for which the price should be returned.
@@ -217,6 +220,7 @@ contract Oracle is IOracle {
         RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, _p.success);
         return _d;
     }
+
     // ["NTN-USD", "NTN-EUR", ... ]
     function setSymbols(string[] memory _symbols) external onlyOperator {
         require(_symbols.length != 0, "symbols can't be empty");
