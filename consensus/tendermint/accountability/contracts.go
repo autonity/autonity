@@ -364,7 +364,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee *types.
 
 // check if the Proof of challenge of PVN is valid.
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
-	if len(p.Evidences) == 0 {
+	// if there is no evidence or there is expected number of msg evidence field, return false to prevent DoS attack.
+	if len(p.Evidences) == 0 || len(p.Evidences) > 2 {
 		return false
 	}
 
@@ -396,38 +397,50 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	// is different from the value preVoted, and the other ones are preCommits of nil.
 	preCommits := p.Evidences[1:]
 
-	lastIndex := len(preCommits) - 1
-
-	for i, pc := range preCommits {
+	// Single precommit as the evidence field, process it.
+	if len(preCommits) == 1 {
+		pc := preCommits[0]
 		preC, ok := pc.(*message.Precommit)
 		if !ok {
 			return false
 		}
-
 		if pc.Code() != message.PrecommitCode || !preC.Signers().Contains(p.OffenderIndex) || pc.R() >= prevote.R() {
 			return false
 		}
+		return pc.R()+1 == prevote.R() && pc.Value() != nilValue && pc.Value() != prevote.Value()
+	}
 
-		// preCommit at R'
-		if i == 0 {
-			if pc.Value() == nilValue || pc.Value() == prevote.Value() {
+	// Otherwise, we have to process aggregated precommits from the aggregated precommits.
+	if p.DistinctPrecommits.Len() > 0 {
+		preCommits := p.DistinctPrecommits.MsgSigners
+		lastIndex := len(preCommits) - 1
+		for i, pc := range preCommits {
+			// as height and msg code was checked at validate phase, thus we just check round and values at below.
+			if !pc.Contains(p.OffenderIndex) || pc.Round >= prevote.R() {
 				return false
 			}
-		} else {
-			// preCommits at between R' and R-1, they should be nil.
-			if pc.Value() != nilValue {
+
+			// preCommit at R'
+			if i == 0 {
+				if pc.Value == nilValue || pc.Value == prevote.Value() {
+					return false
+				}
+			} else {
+				// preCommits at between R' and R-1, they should be nil.
+				if pc.Value != nilValue {
+					return false
+				}
+			}
+
+			// check if there is round gaps between R' and R-1.
+			if i < lastIndex && preCommits[i+1].Round-pc.Round > 1 {
 				return false
 			}
-		}
 
-		// check if there is round gaps between R' and R-1.
-		if i < lastIndex && preCommits[i+1].R()-pc.R() > 1 {
-			return false
-		}
-
-		// check round gap for preCommit at R-1 and R.
-		if i == lastIndex {
-			return pc.R()+1 == prevote.R()
+			// check round gap for preCommit at R-1 and R.
+			if i == lastIndex {
+				return pc.Round+1 == prevote.R()
+			}
 		}
 	}
 
@@ -488,9 +501,11 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee *types
 
 // check if the Proof of challenge of PVO12 is valid.
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
-	if len(p.Evidences) < 2 {
+	// if there is no evidence or there is unexpected number of msg evidence field, return false to prevent DoS attack.
+	if len(p.Evidences) == 0 || len(p.Evidences) > 2 {
 		return false
 	}
+
 	prevote, ok := p.Message.(*message.Prevote)
 	if !ok {
 		return false
@@ -517,43 +532,60 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 
 	currentRound := correspondingProposal.R()
 	validRound := correspondingProposal.ValidRound()
-	allPreCommits := p.Evidences[1:]
-	// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
-	// check if all precommits between range (validRound, currentRound) are presented.
-	// There might have multiple precommits per round due to overlapped aggregation.
-	presentedRounds := make(map[int64]struct{})
-	for _, pc := range allPreCommits {
-		preC, ok := pc.(*message.Precommit)
+
+	precommits := p.Evidences[1:]
+	// Single precommit as the evidence field, process it.
+	if len(precommits) == 1 {
+		preC, ok := precommits[0].(*message.Precommit)
 		if !ok {
 			return false
 		}
-
-		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode ||
-			!preC.Signers().Contains(p.OffenderIndex) || pc.H() != prevote.H() {
+		// check if the msg is in range (validRound, currentRound), and with correct signer, height and code.
+		if preC.R() <= validRound || preC.R() >= currentRound || preC.Code() != message.PrecommitCode ||
+			!preC.Signers().Contains(p.OffenderIndex) || preC.H() != prevote.H() ||
+			int(currentRound-validRound)-1 != len(precommits) {
 			return false
 		}
-		presentedRounds[pc.R()] = struct{}{}
+		return preC.Value() != prevote.Value() && preC.Value() != nilValue
 	}
 
-	if len(presentedRounds) != int(currentRound-validRound)-1 {
-		return false
-	}
+	// we have distinct aggregated precomits
+	if p.DistinctPrecommits.Len() > 0 {
 
-	// If the last precommit for notV is after the last one for V, raise misbehaviour
-	// If all precommits are nil, do not raise misbehaviour. It is a valid correct scenario.
-	lastRoundForV := int64(-1)
-	lastRoundForNotV := int64(-1)
-	for _, pc := range allPreCommits {
-		if pc.Value() == prevote.Value() && pc.R() > lastRoundForV {
-			lastRoundForV = pc.R()
+		allPreCommits := p.DistinctPrecommits.MsgSigners
+		// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
+		// check if all precommits between range (validRound, currentRound) are presented.
+		// There might have multiple precommits per round due to overlapped aggregation.
+		presentedRounds := make(map[int64]struct{})
+		for _, pc := range allPreCommits {
+			// as the height and code was check at msg validation phase, thus we just check round and signers at below.
+			if pc.Round <= validRound || pc.Round >= currentRound || !pc.Contains(p.OffenderIndex) {
+				return false
+			}
+			presentedRounds[pc.Round] = struct{}{}
 		}
 
-		if pc.Value() != prevote.Value() && pc.Value() != nilValue && pc.R() > lastRoundForNotV {
-			lastRoundForNotV = pc.R()
+		if len(presentedRounds) != int(currentRound-validRound)-1 {
+			return false
 		}
-	}
 
-	return lastRoundForNotV > lastRoundForV
+		// If the last precommit for notV is after the last one for V, raise misbehaviour
+		// If all precommits are nil, do not raise misbehaviour. It is a valid correct scenario.
+		lastRoundForV := int64(-1)
+		lastRoundForNotV := int64(-1)
+		for _, pc := range allPreCommits {
+			if pc.Value == prevote.Value() && pc.Round > lastRoundForV {
+				lastRoundForV = pc.Round
+			}
+
+			if pc.Value != prevote.Value() && pc.Value != nilValue && pc.Round > lastRoundForNotV {
+				lastRoundForNotV = pc.Round
+			}
+		}
+
+		return lastRoundForNotV > lastRoundForV
+	}
+	return false
 }
 
 // check if the Proof of challenge of C is valid.
@@ -850,6 +882,16 @@ func verifyProofSignatures(committee *types.Committee, p *Proof) error {
 		}
 
 		if err := msg.Validate(); err != nil {
+			return err
+		}
+	}
+
+	// pre-validate and validate the highly aggregated precommits.
+	if p.DistinctPrecommits.Len() > 0 {
+		if err := p.DistinctPrecommits.PreValidate(committee, h); err != nil {
+			return err
+		}
+		if err := p.DistinctPrecommits.Validate(); err != nil {
 			return err
 		}
 	}

@@ -1,24 +1,14 @@
 package accountability
 
 import (
-	"context"
 	"errors"
-	"time"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 )
 
 const (
-	/* 1KB is around 800_000 gas
-	* current gas limit = 20_000_000
-	* 20_000_000 / 800_000 = 25Kb
-	* set chunk size to 2KB
-	 */
-	ChunkProofSize        = 2048
-	MaxSubmissionAttempts = 100
-	SubmissionDelay       = 1 * time.Second
-	MaxChunks             = 10
+	MaxEventSize = 20480 // 20KB
 )
 
 var (
@@ -82,50 +72,40 @@ func (fd *FaultDetector) tryReport(ev *autonity.AccountabilityEvent) error {
 func (fd *FaultDetector) eventReporter() {
 	defer fd.wg.Done()
 	for ev := range fd.eventReporterCh {
-		chunks := len(ev.RawProof)/ChunkProofSize + 1
-		if chunks > MaxChunks {
-			fd.logger.Warn("Ignoring too large proof reporting", "chunks", chunks)
+		size := len(ev.RawProof)
+		if size > MaxEventSize {
+			fd.logger.Warn("Ignoring too large proof reporting", "size", size)
 			continue
 		}
-		for i := 0; i < chunks; i++ {
-			chunkedEvent := autonity.AccountabilityEvent{
-				Chunks:         uint8(chunks),
-				ChunkId:        uint8(i),
-				EventType:      ev.EventType,
-				Rule:           ev.Rule,
-				Reporter:       ev.Reporter,
-				Id:             common.Big0, // not required for submission
-				Block:          common.Big0, // not required for submission
-				Epoch:          common.Big0, // not required for submission
-				ReportingBlock: common.Big0, // not required for submission
-				MessageHash:    common.Big0, // not required for submission
-				Offender:       ev.Offender,
-				RawProof:       ev.RawProof[i*ChunkProofSize : min((i+1)*ChunkProofSize, len(ev.RawProof))],
-			}
-			if tx, err := fd.protocolContracts.HandleEvent(fd.txOpts, chunkedEvent); err == nil {
-				fd.logger.Warn("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
-				// wait until it get mined before moving to the next one
-				attempt := 0
-			GetTxLoop:
-				for ; attempt < MaxSubmissionAttempts; attempt++ {
-					select {
-					case <-fd.stopRetry:
-						return
-					default:
-						time.Sleep(SubmissionDelay)
-						_, _, blockNumber, _, _ := fd.ethBackend.GetTransaction(context.Background(), tx.Hash())
-						if blockNumber != 0 {
-							break GetTxLoop
-						}
-					}
-				}
-				if attempt == MaxSubmissionAttempts {
-					fd.logger.Error("Accountability transaction didn't get mined, cancelling")
-					break
-				}
-			} else {
-				fd.logger.Error("Cannot submit accountability transaction", "err", err)
-			}
+		event := autonity.AccountabilityEvent{
+			EventType:      ev.EventType,
+			Rule:           ev.Rule,
+			Reporter:       ev.Reporter,
+			Id:             common.Big0, // not required for submission
+			Block:          common.Big0, // not required for submission
+			Epoch:          common.Big0, // not required for submission
+			ReportingBlock: common.Big0, // not required for submission
+			MessageHash:    common.Big0, // not required for submission
+			Offender:       ev.Offender,
+			RawProof:       ev.RawProof,
+		}
+		var tx *types.Transaction
+		var err error
+		switch event.EventType {
+		case uint8(autonity.Misbehaviour):
+			tx, err = fd.protocolContracts.HandleMisbehaviour(fd.txOpts, event)
+		case uint8(autonity.Accusation):
+			tx, err = fd.protocolContracts.HandleAccusation(fd.txOpts, event)
+		case uint8(autonity.Innocence):
+			tx, err = fd.protocolContracts.HandleInnocenceProof(fd.txOpts, event)
+		default:
+			panic("Skip unknown accountability event")
+		}
+
+		if err == nil {
+			fd.logger.Info("Accountability transaction sent", "tx", tx.Hash(), "gas", tx.Gas(), "size", tx.Size())
+		} else {
+			fd.logger.Error("Cannot submit accountability transaction", "err", err)
 		}
 	}
 }

@@ -228,7 +228,7 @@ func TestGenerateOnChainProof(t *testing.T) {
 	})
 
 	t.Run("Test abi packing of onChainProof", func(t *testing.T) {
-		methodName := "handleEvent"
+		methodName := "handleMisbehaviour"
 		_, err := generated.AccountabilityAbi.Pack(methodName, onChainEvent)
 		require.NoError(t, err)
 	})
@@ -850,7 +850,8 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 // TestPrevotesAccountabilityCheck, it tests the accountability events over prevotes messages sent by pi.
 func TestPrevotesAccountabilityCheck(t *testing.T) {
 	quorum := bft.Quorum(committee.TotalVotingPower())
-	height := uint64(0)
+	height := uint64(1)
+	parent := newBlockHeader(height-1, committee)
 	header := newBlockHeader(height, committee)
 	block := types.NewBlockWithHeader(header)
 	header1 := newBlockHeader(height, committee)
@@ -1000,21 +1001,23 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForB1In0)
 
-		var precommitNilsAfter0 []message.Msg
+		aggregatablePrecomits := make([]*message.Precommit, 5)
+		aggregatablePrecomits[0] = precommitForB1In0
 		for i := 1; i < 5; i++ {
 			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
-			precommitNilsAfter0 = append(precommitNilsAfter0, precommitNil)
 			fd.msgStore.Save(precommitNil)
+			aggregatablePrecomits[i] = precommitNil
 		}
 
+		aggPrecomit := AggregateDistinctPrecommits(aggregatablePrecomits)
+
 		expectedMisbehaviour := &Proof{
-			OffenderIndex: proposerIdx,
-			Type:          autonity.Misbehaviour,
-			Rule:          autonity.PVN,
-			Evidences:     []message.Msg{precommitForB1In0},
-			Message:       aggregatedPrevoteForB,
+			OffenderIndex:      proposerIdx,
+			Type:               autonity.Misbehaviour,
+			Rule:               autonity.PVN,
+			DistinctPrecommits: aggPrecomit,
+			Message:            aggregatedPrevoteForB,
 		}
-		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitNilsAfter0...)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 1, len(proofs))
@@ -1022,9 +1025,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
 		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
 		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
-		for _, m := range expectedMisbehaviour.Evidences {
-			require.Contains(t, actualProof.Evidences, m)
-		}
+		require.Equal(t, expectedMisbehaviour.DistinctPrecommits, actualProof.DistinctPrecommits)
+		err := actualProof.DistinctPrecommits.PreValidate(parent.Epoch.Committee, height)
+		require.NoError(t, err)
+		err = actualProof.DistinctPrecommits.Validate()
+		require.NoError(t, err)
 	})
 
 	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value, after a flip flop, while precommit nils in middle rounds", func(t *testing.T) {
@@ -1034,21 +1039,23 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(precommitForBIn0)
 		fd.msgStore.Save(precommitForB1In1)
 
-		var precommitNilsAfter1 []message.Msg
+		var precommits []*message.Precommit
+		precommits = append(precommits, precommitForB1In1)
+
 		for i := 2; i < 5; i++ {
 			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
-			precommitNilsAfter1 = append(precommitNilsAfter1, precommitNil)
+			precommits = append(precommits, precommitNil)
 			fd.msgStore.Save(precommitNil)
 		}
+		aggPrecomits := AggregateDistinctPrecommits(precommits)
 
 		expectedMisbehaviour := &Proof{
-			OffenderIndex: proposerIdx,
-			Type:          autonity.Misbehaviour,
-			Rule:          autonity.PVN,
-			Evidences:     []message.Msg{precommitForB1In1},
-			Message:       aggregatedPrevoteForB,
+			OffenderIndex:      proposerIdx,
+			Type:               autonity.Misbehaviour,
+			Rule:               autonity.PVN,
+			DistinctPrecommits: aggPrecomits,
+			Message:            aggregatedPrevoteForB,
 		}
-		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitNilsAfter1...)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 1, len(proofs))
@@ -1059,6 +1066,11 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		for _, m := range expectedMisbehaviour.Evidences {
 			require.Contains(t, actualProof.Evidences, m)
 		}
+		require.Equal(t, expectedMisbehaviour.DistinctPrecommits, actualProof.DistinctPrecommits)
+		err := actualProof.DistinctPrecommits.PreValidate(parent.Epoch.Committee, height)
+		require.NoError(t, err)
+		err = actualProof.DistinctPrecommits.Validate()
+		require.NoError(t, err)
 	})
 
 	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round", func(t *testing.T) {
@@ -1161,12 +1173,14 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalB1In5)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		// quorum of prevotes for B1 in vr = 6
-		var vr5Prevotes []message.Msg
+
+		var vr5Prevotes []message.Vote
 		for i := uint64(0); i < quorum.Uint64(); i++ {
-			vr6Prevote := newValidatedPrevote(5, height, block1.Hash(), makeSigner(keys[i]), &committee.Members[i], cSize)
-			vr5Prevotes = append(vr5Prevotes, vr6Prevote)
-			fd.msgStore.Save(vr6Prevote)
+			vr5Prevote := newValidatedPrevote(5, height, block1.Hash(), makeSigner(keys[i]), &committee.Members[i], cSize)
+			vr5Prevotes = append(vr5Prevotes, vr5Prevote)
+			fd.msgStore.Save(vr5Prevote)
 		}
+		aggVr5Votes := message.AggregatePrevotes(vr5Prevotes)
 
 		expectedMisbehaviour1 := &Proof{
 			OffenderIndex: proposerIdx,
@@ -1175,7 +1189,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			Message:       aggregatedPrevoteForOldB10,
 		}
 		expectedMisbehaviour1.Evidences = append(expectedMisbehaviour1.Evidences, message.NewLightProposal(oldProposalB10))
-		expectedMisbehaviour1.Evidences = append(expectedMisbehaviour1.Evidences, vr5Prevotes...)
+		expectedMisbehaviour1.Evidences = append(expectedMisbehaviour1.Evidences, aggVr5Votes)
 
 		expectedMisbehaviour2 := &Proof{
 			OffenderIndex: prevoterIdx,
@@ -1184,7 +1198,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			Message:       aggregatedPrevoteForOldB10,
 		}
 		expectedMisbehaviour2.Evidences = append(expectedMisbehaviour2.Evidences, message.NewLightProposal(oldProposalB10))
-		expectedMisbehaviour2.Evidences = append(expectedMisbehaviour2.Evidences, vr5Prevotes...)
+		expectedMisbehaviour2.Evidences = append(expectedMisbehaviour2.Evidences, aggVr5Votes)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 2, len(proofs))
@@ -1216,13 +1230,17 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		aggVotes := aggregatedPreVote(committee.Len(), height, 5, oldProposalB10.Value(), keys, committee)
 		fd.msgStore.Save(aggVotes)
 
+		var precommitsFromPiAfterLatestPrecommitForB []*message.Precommit
 		// create precomits in between the valid round and the current only for proposer node, thus this event is only
 		// accountable for propser node. Missing precomits for the other voter, making the event is not accountable for it.
 		for i := newProposalBIn5.R(); i < precommitForBIn7.R(); i++ {
-			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize))
+			pc := newValidatedPrecommit(i, height, nilValue, signer, self, cSize)
+			fd.msgStore.Save(pc)
+			if i > oldProposalB10.ValidRound() {
+				precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, pc)
+			}
 		}
 
-		var precommitsFromPiAfterLatestPrecommitForB []message.Msg
 		fd.msgStore.Save(precommitForBIn7)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForBIn7)
 		fd.msgStore.Save(precommitForB1In8)
@@ -1231,16 +1249,18 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, p)
 
+		aggPrecomits := AggregateDistinctPrecommits(precommitsFromPiAfterLatestPrecommitForB)
+
 		// only the proposer node is accounted for the PVO12 event since the other node does not have the precommits in
 		// between the valid round and current round.
 		expectedMisbehaviour := &Proof{
-			OffenderIndex: proposerIdx,
-			Type:          autonity.Misbehaviour,
-			Rule:          autonity.PVO12,
-			Message:       aggregatedPrevoteForOldB10,
+			OffenderIndex:      proposerIdx,
+			Type:               autonity.Misbehaviour,
+			Rule:               autonity.PVO12,
+			Message:            aggregatedPrevoteForOldB10,
+			DistinctPrecommits: aggPrecomits,
 		}
 		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, message.NewLightProposal(oldProposalB10))
-		expectedMisbehaviour.Evidences = append(expectedMisbehaviour.Evidences, precommitsFromPiAfterLatestPrecommitForB...)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 1, len(proofs))
@@ -1248,6 +1268,12 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		require.Equal(t, expectedMisbehaviour.Type, actualProof.Type)
 		require.Equal(t, expectedMisbehaviour.Rule, actualProof.Rule)
 		require.Equal(t, expectedMisbehaviour.Message, actualProof.Message)
+		require.Equal(t, expectedMisbehaviour.DistinctPrecommits, actualProof.DistinctPrecommits)
+		err := actualProof.DistinctPrecommits.PreValidate(parent.Epoch.Committee, height)
+		require.NoError(t, err)
+		err = actualProof.DistinctPrecommits.Validate()
+		require.NoError(t, err)
+
 		for _, m := range expectedMisbehaviour.Evidences {
 			require.Contains(t, actualProof.Evidences, m)
 		}
@@ -1299,21 +1325,23 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			fd.msgStore.Save(newValidatedPrevote(5, height, block.Hash(), makeSigner(keys[i]), &committee.Members[i], cSize))
 		}
 
-		var precommitsFromPiAfterVR1 []message.Msg
+		var precomitsFromPiAfterVR1 []*message.Precommit
 		for i := newProposalBIn5.R() + 1; i < aggregatedPrecommitForB1In8.R(); i++ {
 			p := newValidatedPrecommit(i, height, nilValue, signer, self, cSize)
 			fd.msgStore.Save(p)
-			precommitsFromPiAfterVR1 = append(precommitsFromPiAfterVR1, p)
+			precomitsFromPiAfterVR1 = append(precomitsFromPiAfterVR1, p)
 		}
 
 		fd.msgStore.Save(aggregatedPrecommitForB1In8)
-		precommitsFromPiAfterVR1 = append(precommitsFromPiAfterVR1, aggregatedPrecommitForB1In8)
+		precomitsFromPiAfterVR1 = append(precomitsFromPiAfterVR1, aggregatedPrecommitForB1In8)
 
 		p := newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, nilValue, signer, self, cSize)
 		fd.msgStore.Save(p)
-		precommitsFromPiAfterVR1 = append(precommitsFromPiAfterVR1, p)
+		precomitsFromPiAfterVR1 = append(precomitsFromPiAfterVR1, p)
 
-		var precommitsFromPiAfterVR2 []message.Msg
+		aggPrecomitsVR1 := AggregateDistinctPrecommits(precomitsFromPiAfterVR1)
+
+		var precommitsFromPiAfterVR2 []*message.Precommit
 		for i := newProposalBIn5.R() + 1; i < aggregatedPrecommitForB1In8.R(); i++ {
 			p = newValidatedPrecommit(i, height, nilValue, makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
 			fd.msgStore.Save(p)
@@ -1327,23 +1355,25 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, p)
 
+		aggPrecommitsVR2 := AggregateDistinctPrecommits(precommitsFromPiAfterVR2)
+
 		expectedMisbehaviour1 := &Proof{
-			OffenderIndex: proposerIdx,
-			Type:          autonity.Misbehaviour,
-			Rule:          autonity.PVO12,
-			Message:       aggregatedPrevoteForOldB10,
+			OffenderIndex:      proposerIdx,
+			Type:               autonity.Misbehaviour,
+			Rule:               autonity.PVO12,
+			DistinctPrecommits: aggPrecomitsVR1,
+			Message:            aggregatedPrevoteForOldB10,
 		}
 		expectedMisbehaviour1.Evidences = append(expectedMisbehaviour1.Evidences, message.NewLightProposal(oldProposalB10))
-		expectedMisbehaviour1.Evidences = append(expectedMisbehaviour1.Evidences, precommitsFromPiAfterVR1...)
 
 		expectedMisbehaviour2 := &Proof{
-			OffenderIndex: prevoterIdx,
-			Type:          autonity.Misbehaviour,
-			Rule:          autonity.PVO12,
-			Message:       aggregatedPrevoteForOldB10,
+			OffenderIndex:      prevoterIdx,
+			Type:               autonity.Misbehaviour,
+			Rule:               autonity.PVO12,
+			Message:            aggregatedPrevoteForOldB10,
+			DistinctPrecommits: aggPrecommitsVR2,
 		}
 		expectedMisbehaviour2.Evidences = append(expectedMisbehaviour2.Evidences, message.NewLightProposal(oldProposalB10))
-		expectedMisbehaviour2.Evidences = append(expectedMisbehaviour2.Evidences, precommitsFromPiAfterVR2...)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 2, len(proofs))
@@ -1351,18 +1381,27 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		require.Equal(t, expectedMisbehaviour1.Type, actualProof.Type)
 		require.Equal(t, expectedMisbehaviour1.Rule, actualProof.Rule)
 		require.Equal(t, expectedMisbehaviour1.Message, actualProof.Message)
+		require.Equal(t, expectedMisbehaviour1.DistinctPrecommits, actualProof.DistinctPrecommits)
 		for _, m := range expectedMisbehaviour1.Evidences {
 			require.Contains(t, actualProof.Evidences, m)
 		}
+		err := actualProof.DistinctPrecommits.PreValidate(parent.Epoch.Committee, height)
+		require.NoError(t, err)
+		err = actualProof.DistinctPrecommits.Validate()
+		require.NoError(t, err)
 
 		actualProof = proofs[1]
 		require.Equal(t, expectedMisbehaviour2.Type, actualProof.Type)
 		require.Equal(t, expectedMisbehaviour2.Rule, actualProof.Rule)
 		require.Equal(t, expectedMisbehaviour2.Message, actualProof.Message)
+		require.Equal(t, expectedMisbehaviour2.DistinctPrecommits, actualProof.DistinctPrecommits)
 		for _, m := range expectedMisbehaviour2.Evidences {
 			require.Contains(t, actualProof.Evidences, m)
 		}
-
+		err = actualProof.DistinctPrecommits.PreValidate(parent.Epoch.Committee, height)
+		require.NoError(t, err)
+		err = actualProof.DistinctPrecommits.Validate()
+		require.NoError(t, err)
 	})
 
 	t.Run("no proof when pi has never precommited for V in a previous round however has precommitted nil after VR", func(t *testing.T) {
@@ -1538,18 +1577,20 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(precommitForB)
 
-		var prevotesForB1 []message.Msg
+		votesForB1 := make([]message.Vote, quorum.Int64())
 		for i := int64(0); i < quorum.Int64(); i++ {
 			p := newValidatedPrevote(2, height, block1.Hash(), makeSigner(keys[i]), &committee.Members[i], cSize)
 			fd.msgStore.Save(p)
-			prevotesForB1 = append(prevotesForB1, p)
+			votesForB1[i] = p
 		}
+
+		aggVoteForB1 := message.AggregatePrevotes(votesForB1)
 
 		expectedProof0 := &Proof{
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Misbehaviour,
 			Rule:          autonity.C,
-			Evidences:     prevotesForB1,
+			Evidences:     []message.Msg{aggVoteForB1},
 			Message:       precommitForB,
 		}
 

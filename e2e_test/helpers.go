@@ -2,14 +2,14 @@ package e2e
 
 import (
 	"crypto/rand"
+	"fmt"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
+	fuzz "github.com/google/gofuzz"
 	"math/big"
 	"reflect"
 	"sync/atomic"
 	"testing"
-
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/params"
-	fuzz "github.com/google/gofuzz"
 
 	"github.com/stretchr/testify/require"
 
@@ -19,6 +19,8 @@ import (
 )
 
 var NonNilValue = common.Hash{0x1}
+
+var ErrAccountabilityEventMissing = fmt.Errorf("required accountability event is missing")
 
 // GenerateRandomBytes returns securely generated random bytes.
 // It will return an error if the system's secure random
@@ -75,7 +77,7 @@ func NextProposeRound(currentRound int64, c *core.Core) int64 {
 }
 
 func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, eventType autonity.AccountabilityEventType,
-	rule autonity.Rule, network Network) bool {
+	rule autonity.Rule, network Network) error {
 
 	n := network[1]
 	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
@@ -100,8 +102,19 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 			found = true
 		}
 	}
-	// Go through every block receipt and look for log emitted by the autonity contract
-	return found
+
+	if !found {
+		return ErrAccountabilityEventMissing
+	}
+
+	// check if the reporter of accountability events is reimbursed.
+	for _, e := range events {
+		err := network.CheckReimbursement(e.ReportingBlock.Uint64(), e.Reporter)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func FuzBlock(p *types.Block, height *big.Int) {
