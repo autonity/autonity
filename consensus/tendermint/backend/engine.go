@@ -206,13 +206,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 		// short circuit, if we cannot find the correct epoch for the 1st header, we quit this batch of verification.
 		if err != nil {
 			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error())
-			for range headers {
-				select {
-				case <-abort:
-					return
-				case results <- err:
-				}
-			}
+			results <- err
 			return
 		}
 
