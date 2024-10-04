@@ -1,56 +1,32 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "./ContractBase.sol";
+import "../../interfaces/IStakableVesting.sol";
+import "./StakableVestingStorage.sol";
 import "./ValidatorManager.sol";
 
-contract StakableVesting is ContractBase, ValidatorManager {
-    
-    address public beneficiary;
-    address public managerContract;
-    ContractBase.Contract private stakableContract;
+contract StakableVestingLogic is StakableVestingStorage, ContractBase, ValidatorManager, IStakableVesting {
 
-    struct ContractValuation {
-        uint256 totalShare;
-        uint256 withdrawnShare;
+    constructor(address payable _autonity) AccessAutonity(_autonity) {
+        managerContract = StakableVestingManager(payable(msg.sender));
     }
 
-    ContractValuation public contractValuation;
-
-    struct PendingBondingRequest {
-        uint256 amount;
-        uint256 epochID;
-        address validator;
-    }
-
-    PendingBondingRequest[] internal bondingQueue;
-    uint256 private bondingQueueTopIndex;
-
-    struct PendingUnbondingRequest {
-        uint256 unbondingID;
-        uint256 epochID;
-        address validator;
-    }
-
-    PendingUnbondingRequest[] internal unbondingQueue;
-    uint256 private unbondingQueueTopIndex;
-
-    constructor(
-        address payable _autonity,
+    function createContract(
         address _beneficiary,
         uint256 _amount,
         uint256 _startTime,
         uint256 _cliffDuration,
         uint256 _totalDuration
-    ) AccessAutonity(_autonity) {
+    ) virtual external onlyManager {
+        require(beneficiary == address(0), "contract already created");
+        require(_beneficiary != address(0), "beneficiary is not a valid address");
         beneficiary = _beneficiary;
-        managerContract = msg.sender;
         stakableContract = _createContract(_amount, _startTime, _cliffDuration, _totalDuration, true);
         contractValuation = ContractValuation(_amount, 0);
     }
 
     function setManagerContract(address _managerContract) virtual external onlyOperator {
-        managerContract = _managerContract;
+        managerContract = StakableVestingManager(payable(_managerContract));
     }
 
 
@@ -162,7 +138,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
      * @param _validator address of the validator for bonding
      * @param _amount amount of NTN to bond
      */
-    function bond(address _validator, uint256 _amount) virtual public onlyBeneficiary returns (uint256) {
+    function bond(address _validator, uint256 _amount) virtual external onlyBeneficiary returns (uint256) {
         require(stakableContract.start <= block.timestamp, "contract not started yet");
         uint256 _epochID = _getEpochID();
         bondingQueue.push(PendingBondingRequest(_amount, _epochID, _validator));
@@ -175,7 +151,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
      * @param _validator address of the validator
      * @param _amount amount of LNTN to unbond
      */
-    function unbond(address _validator, uint256 _amount) virtual public onlyBeneficiary returns (uint256) {
+    function unbond(address _validator, uint256 _amount) virtual external onlyBeneficiary returns (uint256) {
         uint256 _unbondingID = autonity.unbond(_validator, _amount);
         uint256 _epochID = _getEpochID();
         unbondingQueue.push(PendingUnbondingRequest(_unbondingID, _epochID, _validator));
@@ -198,6 +174,13 @@ contract StakableVesting is ContractBase, ValidatorManager {
     function claimRewards() virtual external onlyBeneficiary {
         _claimAndSendRewards();
         _clearValidators();
+    }
+
+    /**
+     * @dev It is not expected to fall into the fallback function. Implemeted fallback() to get a reverting message.
+     */
+    fallback() payable external virtual {
+        revert("fallback not implemented for StakableVestingLogic");
     }
 
     /**
@@ -554,6 +537,57 @@ contract StakableVesting is ContractBase, ValidatorManager {
         return stakableContract;
     }
 
+    function getManagerContractAddress() virtual external view returns (address) {
+        return address(managerContract);
+    }
+
+    function getBeneficiary() virtual external view returns (address) {
+        return beneficiary;
+    }
+
+    /**
+     * @notice Returns the list of validators bonded some contract.
+     */
+    function getLinkedValidators() virtual external view returns (address[] memory) {
+        return bondedValidators;
+    }
+
+    /**
+     * @notice Returns the amount of LNTN for some contract.
+     * @param _validator validator address
+     */
+    function liquidBalance(address _validator) virtual public view returns (uint256) {
+        ILiquidLogic _liquidContract = validators[_validator].liquidStateContract;
+        if (address(_liquidContract) == address(0)) {
+            _liquidContract = autonity.getValidator(_validator).liquidStateContract;
+        }
+        return _liquidBalance(_liquidContract);
+    }
+
+    /**
+     * @notice Returns the amount of unlocked LNTN for some contract.
+     * @param _validator validator address
+     */
+    function unlockedLiquidBalance(address _validator) virtual external view returns (uint256) {
+        ILiquidLogic _liquidContract = validators[_validator].liquidStateContract;
+        if (address(_liquidContract) == address(0)) {
+            _liquidContract = autonity.getValidator(_validator).liquidStateContract;
+        }
+        return _unlockedLiquidBalance(_liquidContract);
+    }
+
+    /**
+     * @notice Returns the amount of locked LNTN for some contract.
+     * @param _validator validator address
+     */
+    function lockedLiquidBalance(address _validator) virtual external view returns (uint256) {
+        ILiquidLogic _liquidContract = validators[_validator].liquidStateContract;
+        if (address(_liquidContract) == address(0)) {
+            _liquidContract = autonity.getValidator(_validator).liquidStateContract;
+        }
+        return _lockedLiquidBalance(_liquidContract);
+    }
+
     /*
     ============================================================
 
@@ -568,7 +602,7 @@ contract StakableVesting is ContractBase, ValidatorManager {
     }
 
     modifier onlyManager {
-        require(msg.sender == managerContract, "caller is not the manager");
+        require(msg.sender == address(managerContract), "caller is not the manager");
         _;
     }
 

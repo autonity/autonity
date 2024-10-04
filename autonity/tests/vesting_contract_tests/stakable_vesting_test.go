@@ -105,7 +105,7 @@ func TestReleaseFromStakableContract(t *testing.T) {
 	}
 	initiate := func(r *tests.Runner) (
 		userBalance *big.Int,
-		stakableContract *tests.StakableVesting,
+		stakableContract *tests.IStakableVesting,
 	) {
 		createContract(r, user, contractTotalAmount, start, cliff, end)
 		stakableContract = r.StakableVestingContractObject(user, contractID)
@@ -232,7 +232,7 @@ func TestBonding(t *testing.T) {
 		users, validators []common.Address,
 		liquidStateContract *tests.ILiquidLogic,
 		beneficiary, validator common.Address,
-		stakableContract *tests.StakableVesting,
+		stakableContract *tests.IStakableVesting,
 	) {
 		users, validators, liquidStateContracts := setupContracts(r, contractCount, 3, contractTotalAmount, start, cliff, end)
 		beneficiary = users[0]
@@ -258,7 +258,7 @@ func TestBonding(t *testing.T) {
 		users, validators []common.Address,
 		liquidStateContract *tests.ILiquidLogic,
 		beneficiary, validator common.Address,
-		stakableContract *tests.StakableVesting,
+		stakableContract *tests.IStakableVesting,
 	) {
 		users, validators, liquidStateContract, beneficiary, validator, stakableContract = initiate(r)
 		r.WaitSomeBlock(start + 1)
@@ -453,7 +453,7 @@ func TestUnbonding(t *testing.T) {
 	initiate := func(r *tests.Runner) (
 		users, validators []common.Address,
 		validator common.Address,
-		stakableContract *tests.StakableVesting,
+		stakableContract *tests.IStakableVesting,
 	) {
 		users, validators, _ = setupContracts(r, contractCount, validatorCount, contractTotalAmount, start, cliff, end)
 
@@ -1039,7 +1039,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		return tests.Setup(t, nil)
 	}
 
-	initiate := func(r *tests.Runner) *tests.StakableVesting {
+	initiate := func(r *tests.Runner) *tests.IStakableVesting {
 		createContract(r, user, contractTotalAmount, start, cliff, end)
 		return r.StakableVestingContractObject(user, contractID)
 	}
@@ -1048,7 +1048,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		stakableContract := initiate(r)
 		_, _, err := stakableContract.GetContract(nil)
 		require.NoError(r.T, err)
-		beneficiary, _, err := stakableContract.Beneficiary(nil)
+		beneficiary, _, err := stakableContract.GetBeneficiary(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, user, beneficiary)
 		_, _, err = r.StakableVestingManager.GetContractAccount(nil, newUser, contractID)
@@ -1057,7 +1057,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		r.NoError(
 			r.StakableVestingManager.ChangeContractBeneficiary(operator, user, contractID, newUser),
 		)
-		beneficiary, _, err = stakableContract.Beneficiary(nil)
+		beneficiary, _, err = stakableContract.GetBeneficiary(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, newUser, beneficiary)
 		_, _, err = r.StakableVestingManager.GetContractAccount(nil, user, contractID)

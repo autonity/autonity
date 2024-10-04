@@ -2,7 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./BeneficiaryHandler.sol";
-import "./StakableVesting.sol";
+import "./stakable/StakableVestingLogic.sol";
+import "./stakable/StakableVestingState.sol";
 
 contract StakableVestingManager is BeneficiaryHandler {
     // NTN can be here: LOCKED or UNLOCKED
@@ -18,9 +19,18 @@ contract StakableVestingManager is BeneficiaryHandler {
      */
     uint256 public totalNominal;
 
-    StakableVesting[] private contracts;
+    address public stakableVestingLogicContract;
 
-    constructor(address payable _autonity) AccessAutonity(_autonity) {}
+    IStakableVesting[] private contracts;
+
+    constructor(address payable _autonity) AccessAutonity(_autonity) {
+        stakableVestingLogicContract = address(new StakableVestingLogic(_autonity));
+    }
+
+    function setStakableVestingLogicContract(address _contract) virtual external onlyOperator {
+        require(_contract != address(0), "invalid contract address");
+        stakableVestingLogicContract = _contract;
+    }
 
     /**
      * @notice Creates a new stakable contract.
@@ -43,8 +53,10 @@ contract StakableVestingManager is BeneficiaryHandler {
 
         uint256 _contractID = _newContractCreated(_beneficiary);
         require(_contractID == contracts.length, "invalid contract id");
-        StakableVesting _stakableVestingContract = new StakableVesting(
-            payable(autonity),
+        IStakableVesting _stakableVestingContract = IStakableVesting(
+            address(new StakableVestingState(payable(autonity)))
+        );
+        _stakableVestingContract.createContract(
             _beneficiary,
             _amount,
             _startTime,
@@ -95,7 +107,7 @@ contract StakableVestingManager is BeneficiaryHandler {
     ============================================================
      */
 
-    function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (StakableVesting) {
+    function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakableVesting) {
         return contracts[_getUniqueContractID(_beneficiary, _id)];
     }
 
