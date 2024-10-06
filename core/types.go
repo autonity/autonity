@@ -44,8 +44,14 @@ type Prefetcher interface {
 
 // Processor is an interface for processing blocks using a given initial state.
 type Processor interface {
+
 	// Process processes the state changes according to the Ethereum rules by running
 	// the transaction messages using the statedb and applying any rewards to both
-	// the processor (coinbase) and any included uncles.
-	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
+	// the processor (coinbase) and any included uncles. It checks the availability of state cache
+	// and utilizes the cached state if present
+	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, types.Committee, error)
+
+	// ProcessFromCache processes the state same as Process except it checks the availability
+	// of cached state and utilizes the same if present
+	ProcessFromCache(block *types.Block, statedb **state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
 }

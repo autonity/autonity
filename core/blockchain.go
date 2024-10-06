@@ -160,6 +160,14 @@ var defaultCacheConfig = &CacheConfig{
 	SnapshotWait:   true,
 }
 
+
+type blockStateCache struct {
+	hash     common.Hash
+	receipts types.Receipts
+	usedGas  uint64
+	stateDb  *state.StateDB
+}
+
 // BlockChain represents the canonical chain given a database with a genesis
 // block. The Blockchain manages chain imports, reverts, chain reorganisations.
 //
@@ -240,6 +248,7 @@ type BlockChain struct {
 	// senderCacher is a concurrent transaction sender recoverer and cacher
 	senderCacher *TxSenderCacher
 	log          log.Logger
+	cachedState  atomic.Pointer[blockStateCache]
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -458,6 +467,10 @@ func NewBlockChain(db ethdb.Database,
 		}()
 	}
 	return bc, nil
+}
+
+func (bc *BlockChain) CacheProposalState(hash common.Hash, receipts types.Receipts, usedGas uint64, db *state.StateDB) {
+	bc.cachedState.Store(&blockStateCache{hash: hash, receipts: receipts, usedGas: usedGas, stateDb: db})
 }
 
 // empty returns an indicator whether the blockchain is empty.
@@ -1691,7 +1704,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 
 		// Process block using the parent state as reference point
 		substart := time.Now()
-		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
+		receipts, logs, usedGas, err := bc.processor.ProcessFromCache(block, &statedb, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			atomic.StoreUint32(&followupInterrupt, 1)
