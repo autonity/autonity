@@ -268,10 +268,6 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// ignore errEmptyQuorumCertificate error because we don't have the quorum certificate yet
 	if err == nil || errors.Is(err, types.ErrEmptyQuorumCertificate) {
 		var (
-			receipts types.Receipts
-
-			usedGas        = new(uint64)
-			gp             = new(core.GasPool).AddGas(proposal.GasLimit())
 			header         = proposal.Header()
 			proposalNumber = header.Number.Uint64()
 			parent         = sb.blockchain.GetBlock(proposal.ParentHash(), proposal.NumberU64()-1)
@@ -293,32 +289,9 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, err
 		}
 
-		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
-		// Instead only the transactions are applied to the copied state
-		config := sb.blockchain.Config()
-		signer := types.MakeSigner(config, header.Number)
-		// Create a new context to be used in the EVM environment
-		blockContext := core.NewEVMBlockContext(header, sb.BlockChain(), nil)
-		vmenv := vm.NewEVM(blockContext, vm.TxContext{}, state, config, *sb.vmConfig)
-		for i, tx := range proposal.Transactions() {
-			state.Prepare(tx.Hash(), i)
-			// Might be vulnerable to DoS Attack depending on gaslimit
-			// Todo : Double check
-			receipt, receiptErr := core.ApplyTransactionWithContext(signer, config, sb.blockchain, nil, gp, state, header, tx, usedGas, vmenv)
-			if receiptErr != nil {
-				return 0, receiptErr
-			}
-			receipts = append(receipts, receipt)
-		}
-
-		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
-		receipt, epochInfo, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
-		if err != nil {
-			return 0, err
-		}
-		receipts = append(receipts, receipt)
-		// Validate the state of the proposal
-		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, *usedGas); err != nil {
+		receipts, _, usedGas, _, err := sb.blockchain.Processor().Process(proposal, state, *sb.vmConfig)
+		//Validate the state of the proposal
+		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, usedGas); err != nil {
 			sb.logger.Error("proposal proposed, bad root state", err)
 			return 0, err
 		}
@@ -337,7 +310,9 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, consensus.ErrInconsistentEpochInfo
 		}
 
-		// At this stage committee field is consistent with the validator list returned by Soma-contract
+		// cache verified proposal state
+		sb.blockchain.CacheProposalState(proposal.Hash(), receipts, usedGas, state)
+
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
 		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
