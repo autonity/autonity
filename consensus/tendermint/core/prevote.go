@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -34,7 +33,10 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	}
 	self, err := c.CommitteeSet().MemberByAddress(c.address)
 	if err != nil {
-		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
+		// it can happen in edge case addressed by docker e2e test, that is a validator resets at the epoch boundary,
+		// after which it leaves the committee, we cannot panic it in that case.
+		c.logger.Error("Validator is no longer in current committee", "err", err, "validator", c.address.String())
+		return
 	}
 	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)
