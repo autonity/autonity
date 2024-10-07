@@ -278,12 +278,22 @@ func TestHandleCommit(t *testing.T) {
 	committeeSet, err := committee.NewRoundRobinSet(testCommittee, testCommittee.Members[0].Address)
 	require.NoError(t, err)
 
+	epoch := &types.EpochInfo{
+		EpochBlock: common.Big0,
+		Epoch: types.Epoch{
+			PreviousEpochBlock: common.Big0,
+			NextEpochBlock:     new(big.Int).Add(h.Number, common.Big256),
+			Committee:          committeeSet.Committee(),
+		},
+	}
 	backendMock := interfaces.NewMockBackend(ctrl)
+	backendMock.EXPECT().LatestEpoch().AnyTimes().Return(epoch, nil)
 	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block)
 	backendMock.EXPECT().Post(gomock.Any()).MaxTimes(1)
 	backendMock.EXPECT().ProcessFutureMsgs(uint64(4)).MaxTimes(1)
 
 	c := &Core{
+		epoch:            epoch,
 		address:          testCommittee.Members[0].Address,
 		backend:          backendMock,
 		round:            2,

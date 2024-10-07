@@ -146,6 +146,10 @@ func (sb *Backend) BlockChain() *core.BlockChain {
 	return sb.blockchain
 }
 
+func (sb *Backend) LatestEpoch() (*types.EpochInfo, error) {
+	return sb.BlockChain().LatestEpoch()
+}
+
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {
 	return sb.messageCh
 }

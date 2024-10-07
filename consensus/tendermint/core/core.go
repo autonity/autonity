@@ -90,7 +90,9 @@ type Core struct {
 	stateMu       sync.RWMutex
 	height        *big.Int
 	round         int64
-	committee     interfaces.Committee
+	// save current epoch, updated on epoch rotation.
+	epoch     *types.EpochInfo
+	committee interfaces.Committee
 	// height, round, committeeSet and lastHeader are the ONLY guarded fields.
 	// everything else MUST be accessed only by the main thread.
 	step             Step
@@ -371,10 +373,14 @@ func (c *Core) setInitialState(r int64) {
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
-		// on epoch rotation, update committee.
-		if lastBlockMined.IsEpochHead() {
-			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
-			c.committee.SetCommittee(lastBlockMined.Header().Epoch.Committee)
+
+		// if epoch rotated, update committee.
+		if epoch, err := c.Backend().LatestEpoch(); err == nil {
+			if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
+				log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
+				c.epoch = epoch
+				c.committee.SetCommittee(epoch.Committee)
+			}
 		}
 
 		c.lockedRound = -1
