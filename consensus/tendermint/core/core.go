@@ -374,13 +374,18 @@ func (c *Core) setInitialState(r int64) {
 		lastHeader := lastBlockMined.Header()
 		c.committee.SetLastHeader(lastHeader)
 
-		// if epoch rotated, update committee.
-		if epoch, err := c.Backend().LatestEpoch(); err == nil {
-			if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
-				log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
-				c.epoch = epoch
-				c.committee.SetCommittee(epoch.Committee)
-			}
+		// read the latest epoch info from chain to check if we need to update the committee.
+		// updating committee by checking if chain head is an epoch header might be inaccurate
+		// as the head block changes fast at startup phase due to the peer block synchronization.
+		// todo: Jason, think about to watch the epoch head event in the main loop of consensus engine.
+		epoch, err := c.Backend().LatestEpoch()
+		if err != nil {
+			panic(err)
+		}
+		if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
+			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
+			c.epoch = epoch
+			c.committee.SetCommittee(epoch.Committee)
 		}
 
 		c.lockedRound = -1
