@@ -395,18 +395,7 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 		return ErrStoppedEngine
 	}
 
-	// check if the input block's epoch contains the miner as the member of committee.
-	epoch, err := chain.EpochOfHeight(block.Number().Uint64())
-	if err != nil {
-		return err
-	}
-	nodeAddress := sb.Address()
-	if epoch.Committee.MemberByAddress(nodeAddress) == nil {
-		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
-		return errUnauthorized
-	}
-
-	block, err = sb.AddSeal(block)
+	block, err := sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("sealing error", "err", err.Error())
 		return err
