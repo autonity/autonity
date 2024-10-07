@@ -204,12 +204,6 @@ type worker struct {
 
 	pendingMu    sync.RWMutex
 	pendingTasks map[common.Hash]*task
-	pendingHash  common.Hash
-
-	snapshotMu       sync.RWMutex // The lock used to protect the snapshots below
-	snapshotBlock    *types.Block
-	snapshotReceipts types.Receipts
-	snapshotState    *state.StateDB
 
 	// atomic status counters
 	running int32 // The indicator whether the consensus engine is running or not.
@@ -577,7 +571,6 @@ func (w *worker) taskLoop() {
 			w.eth.Logger().Debug("New block Seal request", "hash", sealHash)
 			w.pendingMu.Lock()
 			w.pendingTasks[sealHash] = task
-			w.pendingHash = sealHash
 			w.pendingMu.Unlock()
 
 			// go routine is needed to be able to interrupt the task, in case a more recent block arrives
@@ -647,9 +640,6 @@ func (w *worker) resultLoop() {
 
 			// Commit block and state to database.
 			persistStart := time.Now()
-			// protect state access, Practically this lock will always be available, by this time
-			// a new pending task will be created(since task creation starts just after the proposal verification)
-			// and this will not be the point of contention, but in theory this can happen, hence the lock
 			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, task.env.state.Logs(), task.env.state, true)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
