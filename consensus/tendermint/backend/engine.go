@@ -395,6 +395,24 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 		return ErrStoppedEngine
 	}
 
+	if parent == nil {
+		err := errors.New("unknown ancestor")
+		return err
+	}
+
+	nodeAddress := sb.Address()
+	pEpoch := parent.Epoch
+	if pEpoch == nil {
+		err := errors.New("missing epoch header")
+		return err
+	}
+
+	//TODO: review
+	if pEpoch.Committee.MemberByAddress(nodeAddress) == nil {
+		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
+		return errUnauthorized
+	}
+
 	block, err := sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("sealing error", "err", err.Error())
