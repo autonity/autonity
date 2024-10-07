@@ -202,10 +202,11 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	results := make(chan error, len(headers))
 
 	go func() {
-		epoch, err := chain.EpochOfHeight(headers[0].Number.Uint64())
+		firstHead := headers[0].Number.Uint64()
+		epoch, err := chain.EpochOfHeight(firstHead)
 		// short circuit, if we cannot find the correct epoch for the 1st header, we quit this batch of verification.
 		if err != nil {
-			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error())
+			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHead)
 			results <- err
 			return
 		}
@@ -405,10 +406,9 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
-	// update the block header and signature and propose the block to core engine
-	epoch, err := chain.EpochOfHeight(block.NumberU64())
+
+	epoch, err := sb.BlockChain().LatestEpoch()
 	if err != nil {
-		sb.logger.Error("misssing epoch header", "err", err)
 		return err
 	}
 
