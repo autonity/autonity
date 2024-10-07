@@ -276,14 +276,21 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-13: Network partition. 6 break into 4 and 2, main party(4 validator) should not on-hold."
+      re-deploy: true
       condition:
         crashNodes: [1, 2] # contain the nodes which leave the main party.
         scenario:
-          - delay: 2 # on the 5th second, disconnect peers.
+          - delay: 1
+            action: "re-deploy"
+          - delay: 60
+            action: "start"
+            target: [0, 1, 2, 3, 4, 5]
+          - delay: 65 # on the 5th second, disconnect peers.
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[1, 0], [1, 4], [1, 5], [1,3], [2, 0], [2, 4], [2, 5], [2,3]]
       input:
-        duration: 180 # num of seconds the transaction sending duration.
+        startAt: 80
+        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
