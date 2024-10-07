@@ -52,17 +52,22 @@ func TestSendPropose(t *testing.T) {
 			}},
 		}
 
-		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerConsensusKey), &testCommittee.Members[0])
+		preBlock := types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(0),
+		})
+		proposal := generateBlockProposal(1, height, validRound, true, makeSigner(proposerConsensusKey), &testCommittee.Members[0], preBlock.Header())
 
 		valSet, err := committee.NewRoundRobinSet(&testCommittee, testCommittee.Members[0].Address)
 		if err != nil {
 			t.Error(err)
 		}
 
+		valSet.SetLastHeader(preBlock.Header())
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(makeSigner(proposerConsensusKey))
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
+		backendMock.EXPECT().HeadBlock().Return(preBlock)
 
 		c := &Core{
 			address:          proposer,
@@ -524,12 +529,13 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		validRound := int64(1)
 		logger := log.New("backend", "test", "id", 0)
 
-		proposal := generateBlockProposal(1, height, validRound, false, makeSigner(proposerKey), proposer)
+		proposal := generateBlockProposal(1, height, validRound, false, makeSigner(proposerKey), proposer, preBlock.Header())
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(proposerKey))
+		backendMock.EXPECT().HeadBlock().Return(preBlock)
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),

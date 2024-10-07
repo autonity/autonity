@@ -168,8 +168,10 @@ func TestHandlePrecommit(t *testing.T) {
 		committeeSet, keys := NewTestCommitteeSetWithKeys(1)
 		member, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
+		h := big.NewInt(3)
 
-		proposal := generateBlockProposal(2, big.NewInt(3), 1, false, makeSigner(keys[member.Address].consensus), member)
+		lastHeader := &types.Header{Number: h.Sub(h, common.Big1)}
+		proposal := generateBlockProposal(2, h, 1, false, makeSigner(testConsensusKey), testCommitteeMember, lastHeader)
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
