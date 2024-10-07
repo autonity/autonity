@@ -112,14 +112,14 @@ func NewTestCommitteeSetWithKeys(n int) (interfaces.Committee, AddressKeyMap) {
 	return set, keyMap
 }
 
-func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer message.Signer, member *types.CommitteeMember, lastHeader *types.Header) *message.Propose {
+func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer message.Signer, member *types.CommitteeMember, parentHeader *types.Header) *message.Propose {
 	var block *types.Block
 	if invalid {
-		header := &types.Header{Number: h, ParentHash: lastHeader.Hash()}
+		header := &types.Header{Number: h, ParentHash: parentHeader.Hash()}
 		header.Difficulty = nil
 		block = types.NewBlock(header, nil, nil, nil, new(trie.Trie))
 	} else {
-		block = generateBlock(h, lastHeader)
+		block = generateBlock(h, parentHeader)
 	}
 	return message.NewPropose(r, h.Uint64(), vr, block, signer, member)
 }
@@ -136,7 +136,6 @@ func randomProposal(t *testing.T) *message.Propose {
 	committeeMember := &types.CommitteeMember{Address: addr, ConsensusKey: consensusPubkey, ConsensusKeyBytes: consensusPubkey.Marshal(), VotingPower: common.Big1, Index: 0}
 	lastHeader := &types.Header{
 		Number:    big.NewInt(currentHeight.Int64()).Sub(currentHeight, common.Big1),
-		Committee: testCommittee,
 	}
 	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(consensusKey), committeeMember, lastHeader)
 }
@@ -149,13 +148,13 @@ func prepareCommittee(t *testing.T, cSize int) (interfaces.Committee, AddressKey
 	return committeeSet, privateKeys
 }
 
-func generateBlock(height *big.Int, lastheader *types.Header) *types.Block {
+func generateBlock(height *big.Int, parentHeader *types.Header) *types.Block {
 	// use random nonce to create different blocks
 	var nonce types.BlockNonce
 	for i := 0; i < len(nonce); i++ {
 		nonce[i] = byte(rand.Intn(256))
 	}
-	header := &types.Header{Number: height, Nonce: nonce, ParentHash: lastheader.Hash(), Committee: lastheader.Committee}
+	header := &types.Header{Number: height, Nonce: nonce, ParentHash: parentHeader.Hash()}
 	block := types.NewBlockWithHeader(header)
 	return block
 }

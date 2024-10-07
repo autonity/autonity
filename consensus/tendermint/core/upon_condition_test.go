@@ -119,7 +119,7 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
-		backendMock.EXPECT().HeadBlock().Return(e.previousValue)
+		backendMock.EXPECT().HeadBlock().Return(e.previousValue).Times(2)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 		backendMock.EXPECT().ProcessFutureMsgs(e.previousHeight.Uint64() + 1).Times(1)
 		e.setupCore(backendMock, e.clientAddress)
@@ -151,6 +151,7 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
+		backendMock.EXPECT().HeadBlock().Return(e.previousValue)
 
 		e.setupCore(backendMock, e.clientAddress)
 		e.core.validValue = proposal.Block()
@@ -1328,7 +1329,7 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 	env.previousHeight = big.NewInt(int64(rand.Intn(100) + 1))
 	env.committeeSize = rand.Intn(maxSize-minSize) + minSize
 	env.committee, env.keys = prepareCommittee(t, env.committeeSize)
-	lastHeader := &types.Header{Number: big.NewInt(env.previousHeight.Int64()).Sub(env.previousHeight, common.Big1), Committee: env.committee.Committee()}
+	lastHeader := &types.Header{Number: big.NewInt(env.previousHeight.Int64()).Sub(env.previousHeight, common.Big1)}
 	env.previousValue = generateBlock(env.previousHeight, lastHeader)
 
 	// setup initial state

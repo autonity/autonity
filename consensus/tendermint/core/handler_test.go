@@ -272,8 +272,9 @@ func TestHandleFutureRound(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Power())
 
+	lastHeader := &types.Header{Number: currentHeight.Sub(currentHeight, common.Big1)}
 	// same thing for future round proposal
-	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight), makeSigner(keysMap[sender1.Address].consensus), sender1)
+	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight, lastHeader), makeSigner(keysMap[sender1.Address].consensus), sender1)
 	err = engine.handleMsg(context.Background(), propose)
 	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
 
