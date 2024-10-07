@@ -133,7 +133,7 @@ class NetworkPlanner(object):
                     "blockPeriod": 1,
                     "maxCommitteeSize": 7,
                     "unbondingPeriod": 120,
-                    "epochPeriod": 40,
+                    "epochPeriod": 60,
                     "treasuryFee": 150000000,
                     "initialInflationReserve": "0x2116545850052128000000",
                     "validators": [],
@@ -145,16 +145,16 @@ class NetworkPlanner(object):
                     "baseSlashingRateMid": 1000,
                     "collusionFactor": 550,
                     "historyFactor": 750,
-                    "jailFactor": 60
+                    "jailFactor": 60,
                 },
                 "omissionAccountability": {
-                    "inactivityThreshold": 10000, # TODO(lorenzo) reset to 1000 once docker e2e test fixed
-                    "lookbackWindow": 10,
+                    "inactivityThreshold": 1000,
+                    "lookbackWindow": 40,
                     "pastPerformanceWeight": 1000,
                     "initialJailingPeriod": 300,
                     "initialProbationPeriod": 24,
                     "initialSlashingRate": 25,
-                    "delta": 5
+                    "delta": 5,
                 },
             },
             "nonce": "0x0",
