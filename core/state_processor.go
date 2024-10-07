@@ -146,7 +146,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	return applyTransaction(msg, config, bc, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }
 
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, types.Committee, error) {
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, *types.Epoch, error) {
 
 	var (
 		receipts    types.Receipts
@@ -177,7 +177,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	statedb.Prepare(common.ACHash(block.Number()), len(block.Transactions()))
-	committee, receipt, err := p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+	receipt, epochInfo, err := p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
 	if err != nil {
 		log.Error("could not finalize block", err)
 		return nil, nil, 0, nil, err
@@ -187,5 +187,5 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
-	return receipts, allLogs, *usedGas, committee, nil
+	return receipts, allLogs, *usedGas, epochInfo, nil
 }
