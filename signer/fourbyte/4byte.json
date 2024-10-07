@@ -131,5 +131,11 @@
   "d18736ab": "rewardsDistributed(address[])",
   "a8920241": "unbondingApplied(uint256,address,bool)",
   "3c54c290": "unbondingReleased(uint256,uint256,bool)",
-  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()"
+  "187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
+  "573963b8": "epochPeriodToBeApplied()",
+  "070e720a": "getCommitteeByHeight(uint256)",
+  "a9fd1a8f": "getEpochInfo()",
+  "25ce1bb9": "getNextEpochBlock()",
+  "ae1da0b5": "lastFinalizedBlock()",
+  "e08b14ed": "setCommittee(address[])"
 }

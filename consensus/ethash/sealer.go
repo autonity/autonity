@@ -51,7 +51,7 @@ func (ethash *Ethash) SetProposalVerifiedEventChan(_ chan<- *types.Block) {}
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (ethash *Ethash) Seal(parentHeder *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (ethash *Ethash) Seal(parentHeader *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -65,7 +65,7 @@ func (ethash *Ethash) Seal(parentHeder *types.Header, block *types.Block, result
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if ethash.shared != nil {
-		return ethash.shared.Seal(parentHeder, block, results, stop)
+		return ethash.shared.Seal(parentHeader, block, results, stop)
 	}
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
@@ -120,7 +120,7 @@ func (ethash *Ethash) Seal(parentHeder *types.Header, block *types.Block, result
 		case <-ethash.update:
 			// Thread count was changed on user request, restart
 			close(abort)
-			if err := ethash.Seal(parentHeder, block, results, stop); err != nil {
+			if err := ethash.Seal(parentHeader, block, results, stop); err != nil {
 				ethash.config.Log.Error("Failed to restart sealing after update", "err", err)
 			}
 		}
