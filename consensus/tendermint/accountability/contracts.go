@@ -2,7 +2,10 @@ package accountability
 
 import (
 	"errors"
+	"github.com/autonity/autonity/params/generated"
+	"math"
 	"math/big"
+	"strconv"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
@@ -29,7 +32,6 @@ var (
 	errBadHeight           = errors.New("height invalid")
 	errTooRecentAccusation = errors.New("accusation is too recent")
 	errTooOldAccusation    = errors.New("accusation is too old")
-	errValueCommitted      = errors.New("accusation is for a committed value")
 	errProofOffender       = errors.New("accountability proof contains invalid offender")
 	errProofMsgCode        = errors.New("accountability proof contains invalid msg code")
 	errMaxEvidences        = errors.New("above max evidence threshold")
@@ -37,20 +39,13 @@ var (
 
 const KB = 1024
 
-/* TODO: This function subtly breaks the accusation, misbehavior and innocence e2e test.
-* This is because since the Precompiled maps are global variables, all nodes in the e2e test
-* end up using the same precompiled contracts, which contain the same chain reference.
-* I.E. all nodes will use the chain of the last started node when executing precompiled contracts.
-* We decided not to fix this issue since it does not affect a standalone client in a production test.
-* The real fix here is to remove the chain dependency from precompiled contracts.
- */
 // LoadPrecompiles init the instances of Fault Detector contracts, and register them into EVM's context
-func LoadPrecompiles(chain ChainContext) {
+func LoadPrecompiles() {
 	vm.PrecompiledContractRWMutex.Lock()
 	defer vm.PrecompiledContractRWMutex.Unlock()
-	pv := InnocenceVerifier{chain: chain}
-	cv := MisbehaviourVerifier{chain: chain}
-	av := AccusationVerifier{chain: chain}
+	pv := InnocenceVerifier{checkInnocenceAddress}
+	cv := MisbehaviourVerifier{checkMisbehaviourAddress}
+	av := AccusationVerifier{checkAccusationAddress}
 	setPrecompiles := func(set map[common.Address]vm.PrecompiledContract) {
 		set[checkInnocenceAddress] = &pv
 		set[checkMisbehaviourAddress] = &cv
@@ -65,7 +60,7 @@ func LoadPrecompiles(chain ChainContext) {
 
 // AccusationVerifier implemented as a native contract to validate if an accusation is valid
 type AccusationVerifier struct {
-	chain ChainContext
+	address common.Address
 }
 
 // RequiredGas the gas cost to execute AccusationVerifier contract, weighted by input data size.
@@ -75,7 +70,7 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 }
 
 // executes checks that can be done before even verifying signatures
-func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64) error {
+func preVerifyAccusation(m message.Msg, currentHeight uint64) error {
 	accusationHeight := m.H()
 
 	// has to be at least DeltaBlocks old
@@ -89,16 +84,12 @@ func preVerifyAccusation(chain ChainContext, m message.Msg, currentHeight uint64
 		return errTooOldAccusation
 	}
 
-	// if the suspicious message is for a value that got committed in the same height --> reject accusation
-	if chain.GetBlock(m.Value(), m.H()) != nil {
-		return errValueCommitted
-	}
 	return nil
 }
 
 // Run take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg signer is returned.
-func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
+func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
 	}
@@ -111,29 +102,33 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ 
 	// Do preliminary checks that do not rely on signature correctness
 	// NOTE: We do not have guarantees that: a.chain.CurrentBlock().NumberU64() == blockNumber - 1
 	// This is because the chain head can change while we are executing this tx, therefore the blockNumber might become obsolete.
-	if err = preVerifyAccusation(a.chain, p.Message, blockNumber); err != nil {
+	if err = preVerifyAccusation(p.Message, blockNumber); err != nil {
 		return failureReturn, nil
 	}
 
-	h := p.Message.H()
-	lastHeader := a.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
+	// if the suspicious message is for a value that got committed in the same height --> reject accusation
+	hash := e.Context.GetHash(p.Message.H())
+	if hash == p.Message.Value() {
 		return failureReturn, nil
 	}
 
-	if err = verifyProofSignatures(lastHeader, p); err != nil {
+	committee, err := committeeByHeight(p.Message.H(), e, a.address)
+	if err != nil {
+		return failureReturn, err
+	}
+
+	if err = verifyProofSignatures(committee, p); err != nil {
 		return failureReturn, nil
 	}
-	committee := lastHeader.Committee
 	if verifyAccusation(p, committee) {
 		// the proof carry valid info.
-		return validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), nil
+		return validReturn(p.Message, committee.Members[p.OffenderIndex].Address, p.Rule), nil
 	}
 	return failureReturn, nil
 }
 
 // validate the submitted accusation by the contract call.
-func verifyAccusation(p *Proof, committee types.Committee) bool {
+func verifyAccusation(p *Proof, committee *types.Committee) bool {
 	// we have only 4 types of rule on accusation.
 	// an improvement of this function would be to return an error instead of a bool
 	switch p.Rule {
@@ -145,7 +140,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 		if !ok {
 			return false
 		}
-		if lightProposal.ValidRound() == -1 || committee[p.OffenderIndex].Address != lightProposal.Signer() {
+		if lightProposal.ValidRound() == -1 || committee.Members[p.OffenderIndex].Address != lightProposal.Signer() {
 			return false
 		}
 
@@ -219,7 +214,7 @@ func verifyAccusation(p *Proof, committee types.Committee) bool {
 
 // MisbehaviourVerifier implemented as a native contract to validate if misbehaviour is valid
 type MisbehaviourVerifier struct {
-	chain ChainContext
+	address common.Address
 }
 
 // RequiredGas the gas cost to execute MisbehaviourVerifier contract, weighted by input data size.
@@ -230,7 +225,7 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 
 // Run take the rlp encoded Proof of challenge in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg signer is returned as the valid identity for Proof management.
-func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
+func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 {
 		return failureReturn, nil
 	}
@@ -240,20 +235,19 @@ func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, _ *vm.EVM, _ common.A
 		return failureReturn, nil
 	}
 
-	h := p.Message.H()
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
-		return failureReturn, nil
+	committee, err := committeeByHeight(p.Message.H(), e, c.address)
+	if err != nil {
+		return failureReturn, err
 	}
 
-	if err = verifyProofSignatures(lastHeader, p); err != nil {
+	if err = verifyProofSignatures(committee, p); err != nil {
 		return failureReturn, nil
 	}
-	return c.validateFault(p, lastHeader.Committee), nil
+	return c.validateFault(p, committee), nil
 }
 
 // validate a misbehavior proof, doesn't check the proof signatures.
-func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee) []byte {
+func (c *MisbehaviourVerifier) validateFault(p *Proof, committee *types.Committee) []byte {
 	valid := false
 	switch p.Rule {
 	case autonity.PN:
@@ -270,12 +264,9 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee
 		valid = c.validMisbehaviourOfC(p, committee)
 	case autonity.InvalidProposer:
 		if lightProposal, ok := p.Message.(*message.LightProposal); ok {
-			proposer, err := getProposer(c.chain, lightProposal.H(), lightProposal.R())
-			if err != nil {
-				break
-			}
+			proposer := committee.Proposer(lightProposal.H()-1, lightProposal.R())
+			valid = (proposer != lightProposal.Signer()) && (committee.Members[p.OffenderIndex].Address == lightProposal.Signer())
 
-			valid = proposer != lightProposal.Signer() && committee[p.OffenderIndex].Address == lightProposal.Signer()
 		}
 	case autonity.Equivocation:
 		valid = validMisbehaviourOfEquivocation(p, committee)
@@ -284,14 +275,14 @@ func (c *MisbehaviourVerifier) validateFault(p *Proof, committee types.Committee
 	}
 
 	if valid {
-		return validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule)
+		return validReturn(p.Message, committee.Members[p.OffenderIndex].Address, p.Rule)
 	}
 	return failureReturn
 }
 
 // check if the Proof of challenge of PN is valid,
 // node propose a new value when there is a Proof that it precommit at a different value at previous round.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee types.Committee) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee *types.Committee) bool {
 	if len(p.Evidences) != 1 {
 		return false
 	}
@@ -312,7 +303,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee types.C
 		return false
 	}
 
-	if committee[p.OffenderIndex].Address == proposal.Signer() &&
+	if committee.Members[p.OffenderIndex].Address == proposal.Signer() &&
 		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
 		return true
 	}
@@ -320,7 +311,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee types.C
 }
 
 // check if the Proof of challenge of PO is valid
-func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.Committee) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee *types.Committee) bool {
 	// should be an old proposal
 	proposal, ok := p.Message.(*message.LightProposal)
 	if !ok {
@@ -337,13 +328,13 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 	switch vote := p.Evidences[0].(type) {
 	case *message.Precommit:
 		if vote.R() == proposal.ValidRound() &&
-			vote.Signers().Contains(p.OffenderIndex) && committee[p.OffenderIndex].Address == proposal.Signer() &&
+			vote.Signers().Contains(p.OffenderIndex) && committee.Members[p.OffenderIndex].Address == proposal.Signer() &&
 			vote.Value() != nilValue && vote.Value() != proposal.Value() {
 			return true
 		}
 		if vote.R() > proposal.ValidRound() &&
 			vote.R() < proposal.R() &&
-			vote.Signers().Contains(p.OffenderIndex) && committee[p.OffenderIndex].Address == proposal.Signer() &&
+			vote.Signers().Contains(p.OffenderIndex) && committee.Members[p.OffenderIndex].Address == proposal.Signer() &&
 			vote.Value() != nilValue {
 			return true
 		}
@@ -373,7 +364,8 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee types.C
 
 // check if the Proof of challenge of PVN is valid.
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
-	if len(p.Evidences) == 0 {
+	// if there is no evidence or there is expected number of msg evidence field, return false to prevent DoS attack.
+	if len(p.Evidences) == 0 || len(p.Evidences) > 2 {
 		return false
 	}
 
@@ -405,38 +397,50 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	// is different from the value preVoted, and the other ones are preCommits of nil.
 	preCommits := p.Evidences[1:]
 
-	lastIndex := len(preCommits) - 1
-
-	for i, pc := range preCommits {
+	// Single precommit as the evidence field, process it.
+	if len(preCommits) == 1 {
+		pc := preCommits[0]
 		preC, ok := pc.(*message.Precommit)
 		if !ok {
 			return false
 		}
-
 		if pc.Code() != message.PrecommitCode || !preC.Signers().Contains(p.OffenderIndex) || pc.R() >= prevote.R() {
 			return false
 		}
+		return pc.R()+1 == prevote.R() && pc.Value() != nilValue && pc.Value() != prevote.Value()
+	}
 
-		// preCommit at R'
-		if i == 0 {
-			if pc.Value() == nilValue || pc.Value() == prevote.Value() {
+	// Otherwise, we have to process aggregated precommits from the aggregated precommits.
+	if p.DistinctPrecommits.Len() > 0 {
+		preCommits := p.DistinctPrecommits.MsgSigners
+		lastIndex := len(preCommits) - 1
+		for i, pc := range preCommits {
+			// as height and msg code was checked at validate phase, thus we just check round and values at below.
+			if !pc.Contains(p.OffenderIndex) || pc.Round >= prevote.R() {
 				return false
 			}
-		} else {
-			// preCommits at between R' and R-1, they should be nil.
-			if pc.Value() != nilValue {
+
+			// preCommit at R'
+			if i == 0 {
+				if pc.Value == nilValue || pc.Value == prevote.Value() {
+					return false
+				}
+			} else {
+				// preCommits at between R' and R-1, they should be nil.
+				if pc.Value != nilValue {
+					return false
+				}
+			}
+
+			// check if there is round gaps between R' and R-1.
+			if i < lastIndex && preCommits[i+1].Round-pc.Round > 1 {
 				return false
 			}
-		}
 
-		// check if there is round gaps between R' and R-1.
-		if i < lastIndex && preCommits[i+1].R()-pc.R() > 1 {
-			return false
-		}
-
-		// check round gap for preCommit at R-1 and R.
-		if i == lastIndex {
-			return pc.R()+1 == prevote.R()
+			// check round gap for preCommit at R-1 and R.
+			if i == lastIndex {
+				return pc.Round+1 == prevote.R()
+			}
 		}
 	}
 
@@ -444,7 +448,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 }
 
 // check if the proof of challenge of PVO is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.Committee) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee *types.Committee) bool {
 	if len(p.Evidences) < 2 {
 		return false
 	}
@@ -497,9 +501,11 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee types.
 
 // check if the Proof of challenge of PVO12 is valid.
 func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
-	if len(p.Evidences) < 2 {
+	// if there is no evidence or there is unexpected number of msg evidence field, return false to prevent DoS attack.
+	if len(p.Evidences) == 0 || len(p.Evidences) > 2 {
 		return false
 	}
+
 	prevote, ok := p.Message.(*message.Prevote)
 	if !ok {
 		return false
@@ -526,47 +532,64 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 
 	currentRound := correspondingProposal.R()
 	validRound := correspondingProposal.ValidRound()
-	allPreCommits := p.Evidences[1:]
-	// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
-	// check if all precommits between range (validRound, currentRound) are presented.
-	// There might have multiple precommits per round due to overlapped aggregation.
-	presentedRounds := make(map[int64]struct{})
-	for _, pc := range allPreCommits {
-		preC, ok := pc.(*message.Precommit)
+
+	precommits := p.Evidences[1:]
+	// Single precommit as the evidence field, process it.
+	if len(precommits) == 1 {
+		preC, ok := precommits[0].(*message.Precommit)
 		if !ok {
 			return false
 		}
-
-		if pc.R() <= validRound || pc.R() >= currentRound || pc.Code() != message.PrecommitCode ||
-			!preC.Signers().Contains(p.OffenderIndex) || pc.H() != prevote.H() {
+		// check if the msg is in range (validRound, currentRound), and with correct signer, height and code.
+		if preC.R() <= validRound || preC.R() >= currentRound || preC.Code() != message.PrecommitCode ||
+			!preC.Signers().Contains(p.OffenderIndex) || preC.H() != prevote.H() ||
+			int(currentRound-validRound)-1 != len(precommits) {
 			return false
 		}
-		presentedRounds[pc.R()] = struct{}{}
+		return preC.Value() != prevote.Value() && preC.Value() != nilValue
 	}
 
-	if len(presentedRounds) != int(currentRound-validRound)-1 {
-		return false
-	}
+	// we have distinct aggregated precomits
+	if p.DistinctPrecommits.Len() > 0 {
 
-	// If the last precommit for notV is after the last one for V, raise misbehaviour
-	// If all precommits are nil, do not raise misbehaviour. It is a valid correct scenario.
-	lastRoundForV := int64(-1)
-	lastRoundForNotV := int64(-1)
-	for _, pc := range allPreCommits {
-		if pc.Value() == prevote.Value() && pc.R() > lastRoundForV {
-			lastRoundForV = pc.R()
+		allPreCommits := p.DistinctPrecommits.MsgSigners
+		// check if there are any msg out of range (validRound, currentRound), and with correct address, height and code.
+		// check if all precommits between range (validRound, currentRound) are presented.
+		// There might have multiple precommits per round due to overlapped aggregation.
+		presentedRounds := make(map[int64]struct{})
+		for _, pc := range allPreCommits {
+			// as the height and code was check at msg validation phase, thus we just check round and signers at below.
+			if pc.Round <= validRound || pc.Round >= currentRound || !pc.Contains(p.OffenderIndex) {
+				return false
+			}
+			presentedRounds[pc.Round] = struct{}{}
 		}
 
-		if pc.Value() != prevote.Value() && pc.Value() != nilValue && pc.R() > lastRoundForNotV {
-			lastRoundForNotV = pc.R()
+		if len(presentedRounds) != int(currentRound-validRound)-1 {
+			return false
 		}
-	}
 
-	return lastRoundForNotV > lastRoundForV
+		// If the last precommit for notV is after the last one for V, raise misbehaviour
+		// If all precommits are nil, do not raise misbehaviour. It is a valid correct scenario.
+		lastRoundForV := int64(-1)
+		lastRoundForNotV := int64(-1)
+		for _, pc := range allPreCommits {
+			if pc.Value == prevote.Value() && pc.Round > lastRoundForV {
+				lastRoundForV = pc.Round
+			}
+
+			if pc.Value != prevote.Value() && pc.Value != nilValue && pc.Round > lastRoundForNotV {
+				lastRoundForNotV = pc.Round
+			}
+		}
+
+		return lastRoundForNotV > lastRoundForV
+	}
+	return false
 }
 
 // check if the Proof of challenge of C is valid.
-func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Committee) bool {
+func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee *types.Committee) bool {
 	if len(p.Evidences) == 0 {
 		return false
 	}
@@ -601,7 +624,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee types.Co
 
 // InnocenceVerifier implemented as a native contract to validate an innocence Proof.
 type InnocenceVerifier struct {
-	chain ChainContext
+	address common.Address
 }
 
 // RequiredGas the gas cost to execute this Proof validator contract, weighted by input data size.
@@ -613,7 +636,7 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 // Run InnocenceVerifier, take the rlp encoded Proof of innocence, decode it and validate it, if the Proof is valid, then
 // return the rlp hash of msg and the rlp hash of msg signer as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
-func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ common.Address) ([]byte, error) {
+func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
 	if len(input) <= 32 || blockNumber == 0 {
 		return failureReturn, nil
 	}
@@ -623,24 +646,22 @@ func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, _ *vm.EVM, _ c
 		return failureReturn, nil
 	}
 
-	h := p.Message.H()
-	lastHeader := c.chain.GetHeaderByNumber(h - 1)
-	if lastHeader == nil {
+	committee, err := committeeByHeight(p.Message.H(), e, c.address)
+	if err != nil {
+		return failureReturn, err
+	}
+
+	if err = verifyProofSignatures(committee, p); err != nil {
 		return failureReturn, nil
 	}
 
-	if err = verifyProofSignatures(lastHeader, p); err != nil {
-		return failureReturn, nil
-	}
-
-	committee := lastHeader.Committee
 	if !verifyInnocenceProof(p, committee) {
 		return failureReturn, nil
 	}
-	return validReturn(p.Message, committee[p.OffenderIndex].Address, p.Rule), nil
+	return validReturn(p.Message, committee.Members[p.OffenderIndex].Address, p.Rule), nil
 }
 
-func verifyInnocenceProof(p *Proof, committee types.Committee) bool {
+func verifyInnocenceProof(p *Proof, committee *types.Committee) bool {
 	// rule engine only have 4 kind of provable accusation for the time being.
 	switch p.Rule {
 	case autonity.PO:
@@ -657,7 +678,7 @@ func verifyInnocenceProof(p *Proof, committee types.Committee) bool {
 }
 
 // check if the Proof of innocent of PO is valid.
-func validInnocenceProofOfPO(p *Proof, committee types.Committee) bool {
+func validInnocenceProofOfPO(p *Proof, committee *types.Committee) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	proposal, ok := p.Message.(*message.LightProposal)
 	if !ok {
@@ -717,7 +738,7 @@ func validInnocenceProofOfPVN(p *Proof) bool {
 }
 
 // check if the Proof of innocent of PVO is valid.
-func validInnocenceProofOfPVO(p *Proof, committee types.Committee) bool {
+func validInnocenceProofOfPVO(p *Proof, committee *types.Committee) bool {
 	// check if there is quorum number of prevote at the same value on the same valid round
 	preVote, ok := p.Message.(*message.Prevote)
 	if !ok {
@@ -762,7 +783,7 @@ func validInnocenceProofOfPVO(p *Proof, committee types.Committee) bool {
 }
 
 // check if the Proof of innocent of C1 is valid.
-func validInnocenceProofOfC1(p *Proof, committee types.Committee) bool {
+func validInnocenceProofOfC1(p *Proof, committee *types.Committee) bool {
 	preCommit, ok := p.Message.(*message.Precommit)
 	if !ok {
 		return false
@@ -829,14 +850,14 @@ func decodeRawProof(b []byte) (*Proof, error) {
 }
 
 // verifyProofSignatures checks if the consensus message is from valid member of the committee.
-func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
+func verifyProofSignatures(committee *types.Committee, p *Proof) error {
 	// before signature verification, check if the offender index is valid
-	if p.OffenderIndex >= len(lastHeader.Committee) || p.OffenderIndex < 0 {
+	if p.OffenderIndex >= committee.Len() || p.OffenderIndex < 0 {
 		return errInvalidOffenderIdx
 	}
 
 	// assign power and bls signer key
-	if err := p.Message.PreValidate(lastHeader); err != nil {
+	if err := p.Message.PreValidate(committee); err != nil {
 		return err
 	}
 
@@ -846,7 +867,7 @@ func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 	}
 
 	// check if the number of evidence msgs are exceeded the max to prevent the abuse of the proof msg.
-	if len(p.Evidences) > maxEvidenceMessages(lastHeader) {
+	if len(p.Evidences) > maxEvidenceMessages(committee.Len()) {
 		return errMaxEvidences
 	}
 
@@ -856,7 +877,7 @@ func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 			return errBadHeight
 		}
 
-		if err := msg.PreValidate(lastHeader); err != nil {
+		if err := msg.PreValidate(committee); err != nil {
 			return err
 		}
 
@@ -865,10 +886,20 @@ func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 		}
 	}
 
+	// pre-validate and validate the highly aggregated precommits.
+	if p.DistinctPrecommits.Len() > 0 {
+		if err := p.DistinctPrecommits.PreValidate(committee, h); err != nil {
+			return err
+		}
+		if err := p.DistinctPrecommits.Validate(); err != nil {
+			return err
+		}
+	}
+
 	// check offender idx match with the p.Message.Signer() or Signers().Has(offenderIdx)
 	switch m := p.Message.(type) {
 	case *message.LightProposal:
-		if lastHeader.Committee[p.OffenderIndex].Address != m.Signer() {
+		if committee.Members[p.OffenderIndex].Address != m.Signer() {
 			return errProofOffender
 		}
 
@@ -883,7 +914,7 @@ func verifyProofSignatures(lastHeader *types.Header, p *Proof) error {
 	return nil
 }
 
-func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bool {
+func validMisbehaviourOfEquivocation(proof *Proof, committee *types.Committee) bool {
 	if len(proof.Evidences) != 1 {
 		return false
 	}
@@ -902,7 +933,7 @@ func validMisbehaviourOfEquivocation(proof *Proof, committee types.Committee) bo
 		}
 
 		if msg1.H() == msg2.H() && msg1.R() == msg2.R() && msg1.Signer() == msg2.Signer() &&
-			msg1.Signer() == committee[proof.OffenderIndex].Address &&
+			msg1.Signer() == committee.Members[proof.OffenderIndex].Address &&
 			(msg1.Value() != msg2.Value() || msg1.ValidRound() != msg2.ValidRound()) {
 			return true
 		}
@@ -947,10 +978,50 @@ func validReturn(m message.Msg, signer common.Address, rule autonity.Rule) []byt
 	return result
 }
 
-func maxEvidenceMessages(header *types.Header) int {
-	committeeSize := len(header.Committee)
+func maxEvidenceMessages(committeeSize int) int {
 	if committeeSize > constants.MaxRound {
 		return committeeSize + 1
 	}
 	return constants.MaxRound + 1
+}
+
+func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*types.Committee, error) {
+	var committeeSet []types.CommitteeMember
+	err := acCall(evm, caller, "getCommitteeByHeight", &committeeSet, new(big.Int).SetUint64(height))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(committeeSet) == 0 {
+		panic("get empty committee set for height: " + strconv.FormatUint(height, 10))
+	}
+
+	committee := &types.Committee{}
+	committee.Members = committeeSet
+	// As the committee is already sorted by the contract, thus we don't need sort again.
+	if err = committee.Enrich(); err != nil {
+		return nil, err
+	}
+
+	return committee, nil
+}
+
+func acCall(evm *vm.EVM, caller common.Address, function string, result any, args ...any) error {
+	packedArgs, err := generated.AutonityAbi.Pack(function, args...)
+	if err != nil {
+		return err
+	}
+
+	// as the gas of the precompile functions are resolved by its corresponding RequiredGas() interface, thus this gas
+	// consumption of reading committee is not counted into the original TXN, thus it does not make sense to resolve
+	// the gas cap for this call.
+	gas := uint64(math.MaxUint64)
+	ret, _, err := evm.Call(vm.AccountRef(caller), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
+	if err != nil {
+		return err
+	}
+	if err = generated.AutonityAbi.UnpackIntoInterface(result, function, ret); err != nil {
+		return err
+	}
+	return nil
 }

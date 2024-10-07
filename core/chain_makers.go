@@ -26,7 +26,6 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/params"
 )
@@ -223,19 +222,22 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	var committee types.Committee
+	var committee *types.Committee
 	if config.AutonityContractConfig != nil {
 		validators := config.AutonityContractConfig.Validators
-		committee = make(types.Committee, len(validators))
+		committee = &types.Committee{
+			Members: make([]types.CommitteeMember, len(validators)),
+		}
 		for i, val := range validators {
-			consensusKey, _ := blst.PublicKeyFromBytes(val.ConsensusKey)
-			committee[i] = types.CommitteeMember{
+			committee.Members[i] = types.CommitteeMember{
 				Address:           *val.NodeAddress,
 				VotingPower:       val.BondedStake,
 				ConsensusKeyBytes: val.ConsensusKey,
-				ConsensusKey:      consensusKey,
-				Index:             uint64(i),
 			}
+		}
+		types.SortCommitteeMembers(committee.Members)
+		if err := committee.Enrich(); err != nil {
+			panic(fmt.Sprintf("GenerateChain failed to setup committee error: %v", err))
 		}
 	}
 
@@ -358,7 +360,7 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 
 type fakeChainReader struct {
 	config    *params.ChainConfig
-	committee types.Committee
+	committee *types.Committee
 }
 
 // Config returns the chain configuration.
@@ -371,7 +373,13 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
 	if cr.committee == nil {
 		return nil
 	}
-	return &types.Header{Committee: cr.committee}
+	header := &types.Header{Number: new(big.Int).SetUint64(number)}
+	var epoch types.Epoch
+	epoch.Committee = cr.committee.Copy()
+	epoch.PreviousEpochBlock = common.Big0
+	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
+	header.Epoch = &epoch
+	return header
 }
 func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
 func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
@@ -380,4 +388,7 @@ func (cr *fakeChainReader) Engine() consensus.Engine                            
 func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int          { return nil }
 func (cr *fakeChainReader) MinBaseFee() *big.Int {
 	return big.NewInt(0)
+}
+func (cr *fakeChainReader) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+	return nil, 0, 0, 0, nil
 }

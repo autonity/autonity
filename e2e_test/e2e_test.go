@@ -33,9 +33,6 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-// TODO: move node resetting(start&stop) tests from ./consensus/test to this new framework since the new framework is
-//  simple and stable than the legacy one.
-
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
 func TestSendingValue(t *testing.T) {
@@ -157,16 +154,17 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// Setup Bindings
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidContracts := make([]*autonity.Liquid, len(valAddrs))
+	liquidStateContracts := make([]*autonity.ILiquidLogic, len(valAddrs))
 	validators := make([]autonity.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidContracts[i], _ = autonity.NewLiquid(validators[i].LiquidContract, n.WsClient)
+		liquidStateContracts[i], _ = autonity.NewILiquidLogic(validators[i].LiquidStateContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
-	tx, err := liquidContracts[0].Transfer(
+	tx, err := liquidStateContracts[0].Transfer(
 		transactor,
-		common.Address{66, 66}, big.NewInt(1337))
+		common.Address{66, 66}, big.NewInt(1337),
+	)
 
 	require.NoError(t, err)
 	_ = network.WaitToMineNBlocks(2, 20, false)
@@ -175,8 +173,8 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	err = network.AwaitTransactions(ctx, tx, tx2)
 	require.NoError(t, err)
 	// claimable fees should be 0 before epoch
-	for i := range liquidContracts {
-		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
+	for i := range liquidStateContracts {
+		unclaimed, _ := liquidStateContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
 		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedATN.Bytes())
 		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedNTN.Bytes())
 	}
@@ -212,8 +210,8 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	stake := []int64{10000 - 1337, 10000, 25000}
 	epochStake := []int64{10000, 10000, 25000}
 	totalStake := int64(45000)
-	for i := range liquidContracts {
-		unclaimed, _ := liquidContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
+	for i := range liquidStateContracts {
+		unclaimed, _ := liquidStateContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
 		totalValRewards := new(big.Int).Div(new(big.Int).Mul(totalRewards, big.NewInt(epochStake[i])), big.NewInt(totalStake))
 		valCommission := new(big.Int).Div(new(big.Int).Mul(totalValRewards, big.NewInt(12)), big.NewInt(100))
 		stakerReward := new(big.Int).Sub(totalValRewards, valCommission)
@@ -816,24 +814,19 @@ func TestLargeNetwork(t *testing.T) {
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 	require.NoError(t, err)
 
-	getNetworkState := func() (height uint64, committee types.Committee) {
+	getNetworkState := func() (height uint64, committee *types.Committee) {
 		for _, n := range network {
 			nodeHeight := n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 			if nodeHeight > height {
 				height = nodeHeight
-				committee = n.Eth.BlockChain().CurrentHeader().Committee
+				committee, _, _, _, _ = n.Eth.BlockChain().LatestEpoch()
 			}
 		}
 		return
 	}
 
-	inCommittee := func(address common.Address, committee types.Committee) bool {
-		for i := range committee {
-			if committee[i].Address == address {
-				return true
-			}
-		}
-		return false
+	inCommittee := func(address common.Address, committee *types.Committee) bool {
+		return committee.MemberByAddress(address) != nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)

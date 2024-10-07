@@ -342,6 +342,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}
+
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
@@ -357,8 +358,15 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Coinbase:   g.Coinbase,
 		Root:       root,
 		Round:      0,
-		Committee:  genesisCommittee,
 	}
+
+	epoch := &types.Epoch{
+		Committee:          committee,
+		PreviousEpochBlock: common.Big0,
+		NextEpochBlock:     new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
+	}
+	head.Epoch = epoch
+
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
@@ -423,7 +431,8 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadBlockHash(db, block.Hash())
 	rawdb.WriteHeadFastBlockHash(db, block.Hash())
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
-
+	rawdb.WriteEpochBlockHash(db, block.Hash())
+	rawdb.WriteEpochHeaderHash(db, block.Hash())
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	return block, nil
 }
@@ -483,6 +492,7 @@ func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big
 		Alloc:   GenesisAlloc{addr: {Balance: balance}},
 		Config:  params.TestChainConfig,
 		BaseFee: big.NewInt(params.InitialBaseFee),
+		Mixhash: types.BFTDigest,
 	}
 	return g.MustCommit(db)
 }

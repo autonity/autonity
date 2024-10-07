@@ -2,7 +2,7 @@
 const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
-const liquidContract = artifacts.require("Liquid")
+const liquidStateContract = artifacts.require("ILiquidLogic")
 const AccountabilityTest = artifacts.require("AccountabilityTest")
 const config = require("./config");
 
@@ -22,8 +22,6 @@ async function modifiedSlashingFeeAccountability(autonity, accountabilityConfig,
 
 async function killValidatorWithSlash(config, accountability, offender, reporter) {
   const event = {
-    "chunks": 1, 
-    "chunkId": 1,
     "eventType": 0,
     "rule": 0, // PN rule --> severity mid
     "reporter": reporter,
@@ -170,7 +168,7 @@ async function unbondAndSlash(config, autonity, accountability, delegators, vali
 async function bondSlashUnbond(config, autonity, accountability, delegators, validator, tokenBond, tokenUnbond, operator, deployer) {
   // not applicable for 100% slash
   let valInfo = await autonity.getValidator(validator);
-  const valLiquid = await liquidContract.at(valInfo.liquidContract);
+  const valLiquid = await liquidStateContract.at(valInfo.liquidStateContract);
   let balances = [];
   let tokenBondArray = [];
   let tokenUnbondArray = [];
@@ -269,6 +267,7 @@ contract('Protocol', function (accounts) {
 
   let autonity;
   let accountability;
+
   describe('After effects of slashing 1', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);

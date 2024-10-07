@@ -19,7 +19,6 @@ contract Accountability is IAccountability {
     }
 
     uint256 public epochPeriod;
-
     enum EventType {
         FaultProof,
         Accusation,
@@ -50,8 +49,6 @@ contract Accountability is IAccountability {
     }
 
     struct Event {
-        uint8 chunks;        // Counter of number of chunks for oversize accountability event
-        uint8 chunkId;       // Chunk index to construct the oversize accountability event
         EventType eventType; // Accountability event types: Misbehaviour, Accusation, Innocence.
         Rule rule;           // Rule ID defined in AFD rule engine.
         address reporter;    // The node address of the validator who report this event, for incentive protocol.
@@ -80,7 +77,12 @@ contract Accountability is IAccountability {
     // the id is incremented by one to handle the special case id = 0.
     mapping(address => uint256) private validatorAccusation;
 
-    mapping(address => Event) internal reporterChunksMap;
+    address[] internal lastCommittee;
+    address[] internal curCommittee;
+    mapping(address => bool) private allowedReporters;
+    // counters of rising accusation by a validator of epoch.
+    // mapping address => epoch => counter
+    mapping(address => mapping(uint256 => uint256)) private epochAccusationCounter;
 
     // mapping address => epoch => severity
     mapping (address =>  mapping(uint256 => uint256)) public slashingHistory;
@@ -90,10 +92,14 @@ contract Accountability is IAccountability {
     uint256[] private accusationsQueue;
     uint256 internal accusationsQueueFirst = 0;
 
-    constructor(address payable _autonity, Config memory _config){
+    constructor(address payable _autonity, Config memory _config) {
         autonity = Autonity(_autonity);
         epochPeriod = autonity.getEpochPeriod();
-
+        Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
+        for (uint256 i=0; i < committee.length; i++) {
+            curCommittee.push(committee[i].addr);
+            allowedReporters[committee[i].addr] = true;
+        }
         config = _config;
     }
 
@@ -136,49 +142,48 @@ contract Accountability is IAccountability {
     }
 
     /**
-    * @notice Handle an accountability event. Need to be called by a registered validator account
+    * @notice Handle a misbehaviour event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
-    * todo(youssef): rethink modifiers here, consider splitting this into multiple functions.
     */
-    function handleEvent(Event memory _event) public onlyValidator {
+    function handleMisbehaviour(Event memory _event) public onlyAFDReporter {
         require(_event.reporter == msg.sender, "event reporter must be caller");
-        // if the event is a chunked event, store it.
-        if (_event.chunks > 1) {
-            bool _readyToProcess = _storeChunk(_event);
-            // for the last chunk we should process directly the event from here.
-            if (!_readyToProcess) {
-                return;
-            }
-            _event = reporterChunksMap[msg.sender];
-        }
+        require(_event.eventType == EventType.FaultProof, "wrong event type for misbehaviour");
+        _handleFaultProof(_event);
+    }
 
-        if (_event.eventType == EventType.FaultProof) {
-            _handleFaultProof(_event);
-            return;
-        }
-        if (_event.eventType == EventType.Accusation) {
-            _handleAccusation(_event);
-            return;
-        }
-        if (_event.eventType == EventType.InnocenceProof) {
-            _handleInnocenceProof(_event);
-            return;
-        }
-        // todo(youssef): consider reverting here to help with refund
-        return;
+    /**
+    * @notice Handle an accusation event. Need to be called by a registered validator account
+    * as the treasury-linked account will be used in case of a successful slashing event.
+    */
+    function handleAccusation(Event memory _event) public onlyAFDReporter {
+        require(_event.reporter == msg.sender, "event reporter must be caller");
+        require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
+        _handleAccusation(_event);
+    }
+
+    /**
+    * @notice Handle an innocence proof. Need to be called by a registered validator account
+    * as the treasury-linked account will be used in case of a successful slashing event.
+    */
+    function handleInnocenceProof(Event memory _event) public onlyAFDReporter {
+        require(_event.reporter == msg.sender, "event reporter must be caller");
+        require(_event.eventType == EventType.InnocenceProof, "wrong event type for innocence proof");
+        _handleInnocenceProof(_event);
     }
 
     // @dev return true if sending the event can lead to slashing
     function canSlash(address _offender, Rule _rule, uint256 _block) public view returns (bool) {
+        require(_rule >= Rule.PN && _rule <= Rule.Equivocation, "rule id must be valid");
         uint256 _severity = _ruleSeverity(_rule);
         uint256 _epoch = autonity.getEpochFromBlock(_block);
 
-        return slashingHistory[_offender][_epoch] < _severity ;
+        return slashingHistory[_offender][_epoch] < _severity;
     }
 
     // @dev return true sender can accuse, can cover the cost for accusation
     function canAccuse(address _offender, Rule _rule, uint256 _block) public view
     returns (bool _result, uint256 _deadline) {
+        require(_rule >= Rule.PN && _rule <= Rule.Equivocation, "rule id must be valid");
         uint256 _severity = _ruleSeverity(_rule);
         uint256 _epoch = autonity.getEpochFromBlock(_block);
         if (slashingHistory[_offender][_epoch] >= _severity){
@@ -251,13 +256,27 @@ contract Accountability is IAccountability {
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
 
         uint256 _epoch = autonity.getEpochFromBlock(_block);
+        uint256 _curEpoch = autonity.epochID();
 
         _ev.block = _block;
         _ev.epoch = _epoch;
         _ev.reportingBlock = block.number;
         _ev.messageHash = _messageHash;
 
+        // By according to the canAccuse(), in an EPOCH, the accusations over a validator are graded by severity, a
+        // validator cannot be accused more then once unless it breaks higher severity rules, thus rate limit of rising
+        // accusation during an EPOCH is calculated as: (len(committee)-1) * the max levels of rule severity. As all the
+        // severity is MID now, we cap it to: (len(committee)-1) * (Severity.Mid+1) of per EPOCH for a reporter. However,
+        // in reality, one is not accusable if it is processing a pending accusation, thus a malicious reporter cannot
+        // DoS the protocol since the abused accusations shall be reverted without reimbursement, and it has to wait
+        // until the suspected one become accusable again for innocenceProofSubmissionWindow blocks.
+        uint256 _cap = (curCommittee.length-1)*(uint256(Severity.Mid)+1);
+        if (_ev.epoch < _curEpoch) {
+            _cap = (lastCommittee.length-1)*(uint256(Severity.Mid)+1);
+        }
+        require(epochAccusationCounter[msg.sender][_epoch] <= _cap, "validator shouldn't abuse accusation in an epoch");
         _handleValidAccusation(_ev);
+        epochAccusationCounter[msg.sender][_epoch] += 1;
     }
     
     function _handleValidAccusation(Event memory _ev) internal {
@@ -286,7 +305,7 @@ contract Accountability is IAccountability {
         
         _ev.block = _block;
         _ev.messageHash = _messageHash;
-
+        _ev.reportingBlock = block.number;
         _handleValidInnocenceProof(_ev);
     }
 
@@ -309,20 +328,6 @@ contract Accountability is IAccountability {
         validatorAccusation[_ev.offender] = 0;
 
         emit InnocenceProven(_ev.offender, 0);
-    }
-
-    // @dev only supporting one chunked event per sender
-    function _storeChunk(Event memory _event) internal returns (bool){
-        // saving a chunk with id 0 will reset the local store
-        if (_event.chunkId == 0) {
-            reporterChunksMap[msg.sender] = _event;
-            return false;
-        }
-        require(reporterChunksMap[msg.sender].chunkId + 1 == _event.chunkId, "chunks must be contiguous");
-        BytesLib.concatStorage(reporterChunksMap[msg.sender].rawProof, _event.rawProof);
-        reporterChunksMap[msg.sender].chunkId += 1;
-        // return true if it's the final chunk, to be processed immediately
-        return _event.chunkId + 1 == _event.chunks;
     }
 
     /**
@@ -427,8 +432,6 @@ contract Accountability is IAccountability {
         emit SlashingEvent(_val.nodeAddress, _slashingAmount, _val.jailReleaseBlock, false, _event.id);
     }
 
-
-
     /**
     * @notice perform slashing over faulty validators at the end of epoch. The fine in stake token are moved from
     * validator account to autonity contract account, and the corresponding slash counter as a reputation for validator
@@ -523,22 +526,57 @@ contract Accountability is IAccountability {
     function setEpochPeriod(uint256 _newPeriod) external onlyAutonity{
         epochPeriod = _newPeriod;
     }
+    /**
+    * @notice setCommittee is called by autonity only on new epoch, it remove stale
+    * committee from the reporter set, then replace the last committee with current
+    * committee, and set the current committee with the input new committee.
+    */
+    function setCommittee(address[] memory _newCommittee) external onlyAutonity{
+        // revoke report access for stale committee.
+        _revokeReportAccess(lastCommittee);
+
+        // as last revoke might withdraw access for overlapped committee, thus
+        // make sure they are still in the reporter set, then replace last committee
+        // with current committee.
+        _grantReportAccess(curCommittee);
+        lastCommittee = curCommittee;
+
+        // grant access for new committee and replace current committee with new one.
+        _grantReportAccess(_newCommittee);
+        curCommittee = _newCommittee;
+    }
+
+    function _grantReportAccess(address[] memory _members) internal onlyAutonity {
+        for (uint256 i=0; i < _members.length; i++) {
+            if (allowedReporters[_members[i]] == true) {
+                continue;
+            }
+            allowedReporters[_members[i]] = true;
+        }
+    }
+
+    function _revokeReportAccess(address[] memory _members) internal onlyAutonity {
+        for (uint256 i=0; i < _members.length; i++) {
+            if (allowedReporters[_members[i]] == false) {
+                continue;
+            }
+            delete allowedReporters[_members[i]];
+        }
+    }
 
     /**
     * @dev Modifier that checks if the caller is the slashing contract.
     */
     modifier onlyAutonity {
-        require(msg.sender == address(autonity) , "function restricted to the validator");
+        require(msg.sender == address(autonity) , "function restricted to the autonity protocol contract");
         _;
     }
 
     /**
-    * @dev Modifier that checks if the caller is a registered validator.
+    * @dev Modifier that checks if the caller is an AFD reporter (a committee member of last or current epoch).
     */
-    modifier onlyValidator {
-        Autonity.Validator memory _val = autonity.getValidator(msg.sender);
-        require(_val.nodeAddress == msg.sender, "function restricted to a registered validator");
+    modifier onlyAFDReporter {
+        require(allowedReporters[msg.sender] == true, "function restricted to a committee member");
         _;
     }
-
 }

@@ -51,6 +51,11 @@ type ChainHeaderReader interface {
 
 	// GetTd retrieves the total difficulty from the database by hash and number.
 	GetTd(hash common.Hash, number uint64) *big.Int
+
+	// LatestEpoch retrieves the latest epoch's committee, previousEpochHead, currentEpochHead, and nextEpochHead.
+	// Both header chain and blockchain implement this interface with its own context. Note: head of the header chain
+	// may be above the block chain in some sync mode.
+	LatestEpoch() (*types.Committee, uint64, uint64, uint64, error)
 }
 
 // ChainReader defines a small collection of methods needed to access the local
@@ -100,7 +105,7 @@ type Engine interface {
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt) (types.Committee, *types.Receipt, error)
+		uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
 	// rewards) and assembles the final block.

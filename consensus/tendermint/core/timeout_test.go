@@ -67,7 +67,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-		currentValidator, _ := committeeSet.GetByIndex(0)
+		currentValidator, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(1)
@@ -86,7 +86,6 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 		engine.SetDefaultHandlers()
 		timeoutEvent := TimeoutEvent{
@@ -97,7 +96,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		// should send precommit nil
 		mockBackend.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[currentValidator.Address].consensus))
 		mockBackend.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1).Do(
-			func(c types.Committee, msg message.Msg) {
+			func(c *types.Committee, msg message.Msg) {
 				if msg.Code() != message.PrecommitCode {
 					t.Fatalf("unexpected message code, should be precommit")
 				}
@@ -123,7 +122,7 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		committeeSet, _ := NewTestCommitteeSetWithKeys(4)
-		currentValidator, _ := committeeSet.GetByIndex(0)
+		currentValidator, _ := committeeSet.MemberByIndex(0)
 		logger := log.New("backend", "test", "id", 0)
 
 		messages := message.NewMap()

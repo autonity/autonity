@@ -39,8 +39,7 @@ func TestSendPrevote(t *testing.T) {
 			round:            2,
 			committee:        committeeSet,
 			height:           big.NewInt(3),
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
-			address:          committeeSet.Committee()[0].Address,
+			address:          committeeSet.Committee().Members[0].Address,
 		}
 
 		c.SetDefaultHandlers()
@@ -51,10 +50,10 @@ func TestSendPrevote(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-		member := committeeSet.Committee()[0]
+		member := committeeSet.Committee().Members[0]
 		signer := makeSigner(keys[member.Address].consensus)
 		logger := log.New("backend", "test", "id", 0)
-		csize := len(committeeSet.Committee())
+		csize := committeeSet.Committee().Len()
 
 		proposal := message.NewPropose(
 			1,
@@ -84,7 +83,6 @@ func TestSendPrevote(t *testing.T) {
 			round:            1,
 			step:             Prevote,
 			curRoundMessages: curMessages,
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 
 		c.SetDefaultHandlers()
@@ -94,9 +92,9 @@ func TestSendPrevote(t *testing.T) {
 
 func TestHandlePrevote(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
-	member := committeeSet.Committee()[0]
+	member := committeeSet.Committee().Members[0]
 	signer := makeSigner(keys[member.Address].consensus)
-	csize := len(committeeSet.Committee())
+	csize := committeeSet.Committee().Len()
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -160,7 +158,7 @@ func TestHandlePrevote(t *testing.T) {
 		// quorum of prevotes for v
 		var prevotes []*message.Prevote
 		for i := 0; i < 3; i++ {
-			val := committeeSet.Committee()[i]
+			val := committeeSet.Committee().Members[i]
 			prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, csize)
 			prevotes = append(prevotes, prevote)
 		}
@@ -184,7 +182,6 @@ func TestHandlePrevote(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(3),
 			step:             Prevote,
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 		c.SetDefaultHandlers()
 		for _, prevote := range prevotes {
@@ -206,13 +203,13 @@ func TestHandlePrevote(t *testing.T) {
 		defer ctrl.Finish()
 		messages := message.NewMap()
 
-		member2 := committeeSet.Committee()[1]
+		member2 := committeeSet.Committee().Members[1]
 		curRoundMessage := messages.GetOrCreate(2)
 
 		// quorum of prevotes for nil
 		var prevotes []*message.Prevote
 		for i := 0; i < 3; i++ {
-			val := committeeSet.Committee()[i]
+			val := committeeSet.Committee().Members[i]
 			prevote := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[val.Address].consensus), &val, csize)
 			prevotes = append(prevotes, prevote)
 		}
@@ -239,7 +236,6 @@ func TestHandlePrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 		c.SetDefaultHandlers()
 		for _, prevote := range prevotes {
@@ -255,7 +251,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)
-		member2 := committeeSet.Committee()[1]
+		member2 := committeeSet.Committee().Members[1]
 
 		proposal := message.NewPropose(
 			2,
@@ -269,11 +265,11 @@ func TestHandlePrevote(t *testing.T) {
 
 		// 2 prevotes for nil, 1 for v
 		var prevotes []*message.Prevote
-		val := committeeSet.Committee()[0]
+		val := committeeSet.Committee().Members[0]
 		prevotes = append(prevotes, message.NewPrevote(2, 2, curRoundMessages.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, csize))
-		val2 := committeeSet.Committee()[1]
+		val2 := committeeSet.Committee().Members[1]
 		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val2.Address].consensus), &val2, csize))
-		val3 := committeeSet.Committee()[2]
+		val3 := committeeSet.Committee().Members[2]
 		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val3.Address].consensus), &val3, csize))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
@@ -295,7 +291,6 @@ func TestHandlePrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.Root()),
 			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
 			precommitTimeout: NewTimeout(Precommit, log.Root()),
-			lastHeader:       &types.Header{Committee: committeeSet.Committee()},
 		}
 		c.SetDefaultHandlers()
 

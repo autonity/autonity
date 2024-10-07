@@ -17,11 +17,11 @@ func TestMsgStore(t *testing.T) {
 	cSize := 5
 	proposerIdx := 0
 	committee, keys := GenerateCommittee(cSize)
-	proposer := committee[proposerIdx].Address
+	proposer := committee.Members[proposerIdx].Address
 	proposerKey := keys[proposer].consensus
 
 	indexBob := 1
-	addrBob := committee[indexBob].Address
+	addrBob := committee.Members[indexBob].Address
 	keyBob := keys[addrBob].consensus
 	notNilValue := common.Hash{0x1}
 
@@ -35,11 +35,11 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
-		preVoteNotNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
-		ms.Save(preVoteNotNil)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		ms.Save(preVoteNoneNil)
 		// check equivocated msg is also stored at msg store.
 		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
 			return m.R() == round && m.Signers().Contains(proposerIdx)
@@ -53,7 +53,7 @@ func TestMsgStore(t *testing.T) {
 	t.Run("Save aggregated votes in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
 		var prevotes []message.Vote
-		for _, member := range committee {
+		for _, member := range committee.Members {
 			m := member
 			preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(keys[member.Address].consensus), &m, cSize)
 			prevotes = append(prevotes, preVoteNil)
@@ -63,7 +63,7 @@ func TestMsgStore(t *testing.T) {
 		ms.Save(aggVote)
 
 		// for every account, they have the prevote saved.
-		for i, member := range committee {
+		for i, member := range committee.Members {
 			m := member
 			votes := ms.GetPrevotes(height, func(msg *message.Prevote) bool {
 				return msg.R() == round && msg.Value() == NilValue && msg.Signers().Contains(int(m.Index))
@@ -83,7 +83,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVote := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVote)
 
 		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -101,10 +101,10 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[1], cSize)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cSize)
 		ms.Save(preVoteNoneNil)
 
 		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -124,9 +124,9 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[1], cSize)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cSize)
 		ms.Save(preVoteNoneNil)
 		ms.DeleteOlds(height)
 		prevotes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -138,10 +138,10 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("get equivocated votes", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNoneNil)
 
 		v := common.Hash{0x23}
@@ -162,18 +162,18 @@ func TestMsgStore(t *testing.T) {
 	})
 	t.Run("SearchQuorum correctly detects quorum of prevotes", func(t *testing.T) {
 		ms := NewMsgStore()
-		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
 		require.Equal(t, 0, len(ms.SearchQuorum(height, round, NilValue, common.Big1)))
 
-		preVoteNotNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee[proposerIdx], cSize)
+		preVoteNotNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNotNil)
 
 		require.Equal(t, 1, len(ms.SearchQuorum(height, round, NilValue, common.Big1)))
 		require.Equal(t, preVoteNotNil.Hash(), ms.SearchQuorum(height, round, NilValue, common.Big1)[0].Hash())
 
-		preVoteNotNil = message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee[indexBob], cSize)
+		preVoteNotNil = message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[indexBob], cSize)
 		ms.Save(preVoteNotNil)
 
 		require.Equal(t, 2, len(ms.SearchQuorum(height, round, NilValue, common.Big1)))

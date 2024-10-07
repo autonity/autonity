@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"math/big"
-	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -138,14 +137,6 @@ func TestCore_Setters(t *testing.T) {
 		c.setCommitteeSet(committeeSet)
 		require.Equal(t, committeeSet, c.CommitteeSet())
 	})
-
-	t.Run("setLastHeader", func(t *testing.T) {
-		c := &Core{}
-		prevHeight := big.NewInt(int64(rand.Intn(100) + 1)) //nolint
-		prevBlock := generateBlock(prevHeight)
-		c.setLastHeader(prevBlock.Header())
-		require.Equal(t, prevBlock.Header(), c.LastHeader())
-	})
 }
 
 // future round message processing
@@ -177,8 +168,6 @@ func TestProcessFuture(t *testing.T) {
 			round:       1,
 			height:      big.NewInt(2),
 		}
-
-		c.setLastHeader(&types.Header{Committee: testCommittee})
 
 		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], msg)
 		c.processFuture(0, 1) // scenario: we just switched from round 0 --> 1
@@ -225,8 +214,6 @@ func TestProcessFuture(t *testing.T) {
 			height:      big.NewInt(2),
 		}
 
-		c.setLastHeader(&types.Header{Committee: testCommittee})
-
 		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], msg)
 		c.processFuture(0, 3) // scenario: we just switched from round 0 --> 3
 
@@ -261,8 +248,6 @@ func TestProcessFuture(t *testing.T) {
 			round:       3,
 			height:      big.NewInt(2),
 		}
-
-		c.setLastHeader(&types.Header{Committee: testCommittee})
 
 		// scenario: we just switched from round 0 --> 3. Future height messages shouldn't be processed
 		c.processFuture(0, 3)

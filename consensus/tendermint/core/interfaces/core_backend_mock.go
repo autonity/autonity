@@ -80,15 +80,15 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 }
 
 // AskSync mocks base method.
-func (m *MockBackend) AskSync(header *types.Header) {
+func (m *MockBackend) AskSync(committee *types.Committee) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", header)
+	m.ctrl.Call(m, "AskSync", committee)
 }
 
 // AskSync indicates an expected call of AskSync.
-func (mr *MockBackendMockRecorder) AskSync(header any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AskSync(committee any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), header)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), committee)
 }
 
 // BlockChain mocks base method.
@@ -106,7 +106,7 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // Broadcast mocks base method.
-func (m *MockBackend) Broadcast(committee types.Committee, message message.Msg) {
+func (m *MockBackend) Broadcast(committee *types.Committee, message message.Msg) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Broadcast", committee, message)
 }
@@ -160,7 +160,7 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockBackend) Gossip(committee types.Committee, message message.Msg) {
+func (m *MockBackend) Gossip(committee *types.Committee, message message.Msg) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Gossip", committee, message)
 }

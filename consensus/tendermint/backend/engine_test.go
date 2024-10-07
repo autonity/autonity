@@ -15,7 +15,6 @@ import (
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
@@ -34,55 +33,6 @@ func TestPrepare(t *testing.T) {
 	if err != consensus.ErrUnknownAncestor {
 		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrUnknownAncestor)
 	}
-}
-
-// TODO: I don't understand what this test is doing + it is not working because the eventLoop part never executes. Skip for now.
-func TestSealCommittedOtherHash(t *testing.T) {
-	t.Skip("Useless test, to be refactored")
-	chain, engine := newBlockChain(4)
-
-	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	otherBlock, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
-	if err != nil {
-		t.Fatal(err)
-	}
-	eventSub := engine.Subscribe(events.CommitEvent{})
-	eventLoop := func() {
-		ev := <-eventSub.Chan()
-		_, ok := ev.Data.(events.CommitEvent)
-		if !ok {
-			t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev.Data))
-		}
-		signers := types.NewSigners(4)
-		signers.Increment(&otherBlock.Header().Committee[0])
-		err = engine.Commit(otherBlock, 0, types.AggregateSignature{Signature: new(blst.BlsSignature), Signers: signers})
-		if err != nil {
-			t.Error("commit should not return error", err.Error())
-		}
-
-		eventSub.Unsubscribe()
-	}
-	go eventLoop()
-	seal := func() {
-		resultCh := make(chan *types.Block)
-		engine.SetResultChan(resultCh)
-		err = engine.Seal(chain, block, resultCh, nil)
-		if err != nil {
-			t.Error("seal should not return error", err.Error())
-		}
-
-		<-resultCh
-		t.Error("seal should not be completed")
-	}
-	go seal()
-
-	const timeoutDura = 2 * time.Second
-	timeout := time.NewTimer(timeoutDura)
-	<-timeout.C
-	// wait 2 seconds to ensure we cannot get any blocks from Tendermint
 }
 
 func TestSealCommitted(t *testing.T) {

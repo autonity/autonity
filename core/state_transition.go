@@ -21,10 +21,10 @@ import (
 	"math"
 	"math/big"
 
+	cmath "github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/common"
-	cmath "github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
@@ -263,16 +263,40 @@ func (st *StateTransition) preCheck() error {
 	return st.buyGas()
 }
 
-// check if it is a vote transaction of the oracle Contract
-func isOracleVote(msg Message) bool {
-	if (msg.To() != nil) && (*msg.To() != params.OracleContractAddress) {
+// it assumes that the input msg is not a contract creation request.
+func isReimbursable(msg Message) bool {
+	if *msg.To() != params.AccountabilityContractAddress && *msg.To() != params.OracleContractAddress {
 		return false
 	}
-	method, err := generated.OracleAbi.MethodById(msg.Data())
-	if err != nil {
+
+	// resolve oracle votes first.
+	if *msg.To() == params.OracleContractAddress {
+		method, err := generated.OracleAbi.MethodById(msg.Data())
+		if err != nil {
+			return false
+		}
+
+		if method.Name == "vote" {
+			return true
+		}
+
 		return false
 	}
-	return method.Name == "vote"
+
+	// resolve accountability event then.
+	if *msg.To() == params.AccountabilityContractAddress {
+		method, err := generated.AccountabilityAbi.MethodById(msg.Data())
+		if err != nil {
+			return false
+		}
+
+		if method.Name == "handleMisbehaviour" || method.Name == "handleInnocenceProof" ||
+			method.Name == "handleAccusation" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -349,18 +373,18 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 
-	var oracleVote bool
-	if vmerr == nil {
-		oracleVote = isOracleVote(msg)
-		if oracleVote {
-			// Refund tx Fee, if this is a successful vote transaction
+	var reimbursable bool
+	// skip checking error msg and contract creation msg which have a nil msg.To() field.
+	if vmerr == nil && !contractCreation {
+		reimbursable = isReimbursable(msg)
+		if reimbursable {
 			gasUsed := new(big.Int).SetUint64(st.gasUsed())
 			fee := new(big.Int).Mul(st.gasPrice, gasUsed)
 			st.state.AddBalance(st.msg.From(), fee)
 		}
 	}
 
-	if london && !oracleVote {
+	if london && !reimbursable {
 		effectiveTip := cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 		st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
 		st.state.AddBalance(params.AutonityContractAddress, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee))

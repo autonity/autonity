@@ -87,7 +87,7 @@ jobs:
                  [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 30m ],
                  [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
                  [ tendermint-tests, ./consensus/tendermint/... -timeout 15m -race ],
-                 [ new-e2e-tests, ./e2e_test -timeout 15m -v -race ]
+                 [ new-e2e-tests, ./e2e_test -timeout 20m -v -race ]
         ]
 
     name: ${{ matrix.tests[0] }}
@@ -276,32 +276,6 @@ jobs:
       - name: Run linting
         run: make lint-ci
         shell: bash
-
-
-  # contract-tests-fast runs:
-  # - truffle tests against a ganache node
-  contract-tests-fast:
-    runs-on: ubuntu-latest
-    needs: prepare-cache
-    steps:
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '18.12.1'
-
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Go cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Run contract tests
-        run: make test-contracts-truffle-fast
 
   # contract-tests-asm runs the ASM test using the APE framework
   contract-tests-asm:

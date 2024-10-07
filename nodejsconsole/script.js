@@ -987,7 +987,7 @@ async function setup(event) {
       const vals = await getValidatorsData();
       const w = []
       for(let i = 0; i< vals.length; i++){
-        const liquid = new web3.eth.Contract(liquidABI, vals[i].liquidContract);
+        const liquid = new web3.eth.Contract(liquidABI, vals[i].liquidStateContract);
         w.push({
           validator:     vals[i].addr,
           lnew:          await liquid.methods.balanceOf(account).call(),
@@ -1006,7 +1006,7 @@ async function setup(event) {
       console.log(`validator:      ${val.addr}`);
       console.log(`staker:         ${account}`);
 
-      const liquid = new web3.eth.Contract(liquidABI, val.liquidContract);
+      const liquid = new web3.eth.Contract(liquidABI, val.liquidStateContract);
       const claimable = await liquid.methods.unclaimedRewards(account).call()
       console.log(`claimable rewards: ${claimable}`);
       return await liquid.methods.claimRewards().send({from:account, gas:100000});
@@ -1017,7 +1017,7 @@ async function setup(event) {
       const vals = await getValidatorsData();
       let total = 0n;
       for(let i = 0; i< vals.length; i++){
-        const liquid = new web3.eth.Contract(liquidABI, vals[i].liquidContract);
+        const liquid = new web3.eth.Contract(liquidABI, vals[i].liquidStateContract);
         const claimable = await liquid.methods.unclaimedRewards(account).call()
         if (BigInt(claimable) == 0n) {
           continue
@@ -1034,7 +1034,7 @@ async function setup(event) {
     server.context.lsend =  async ({val, from, to, value}) => {
       console.log(`Sending ${value} LNEW - Validator ${val}`);
       const validator = await contract.methods.getValidator(val).call();
-      const liquid = new web3.eth.Contract(liquidABI, validator.liquidContract);
+      const liquid = new web3.eth.Contract(liquidABI, validator.liquidStateContract);
       return liquid.methods.transfer(to,value).send({from, gas: 300000})
     }
 

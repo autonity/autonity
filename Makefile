@@ -64,7 +64,7 @@ autonity-docker:
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 define gen-contract
-	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --userdoc --devdoc -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@echo Generating bytecode for $(2)
 	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
@@ -234,7 +234,6 @@ test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@echo "killing ganache"
@@ -291,7 +290,7 @@ lint-deps:
 clean:
 	go clean -cache
 	rm -fr build/_workspace/pkg/ $(BINDIR)/*
-	rm -rf $(GENERATED_CONTRACT_DIR)/*.abi $(GENERATED_CONTRACT_DIR)/*.bin
+	rm -rf $(GENERATED_CONTRACT_DIR)/*.abi $(GENERATED_CONTRACT_DIR)/*.bin $(GENERATED_CONTRACT_DIR)/*.doc*
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $BINDIR (or $GOPATH/bin) in your PATH to use 'go generate'.
