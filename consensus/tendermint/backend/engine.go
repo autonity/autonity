@@ -407,12 +407,11 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 		return ErrStoppedEngine
 	}
 
-	// always get the epoch of current chain head, rather than getting the epoch of the input block.
-	epoch, err := chain.EpochOfHeight(chain.CurrentHeader().Number.Uint64())
+	// check if the input block's epoch contains the miner as the member of committee.
+	epoch, err := chain.EpochOfHeight(block.Number().Uint64())
 	if err != nil {
 		return err
 	}
-
 	nodeAddress := sb.Address()
 	if epoch.Committee.MemberByAddress(nodeAddress) == nil {
 		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)

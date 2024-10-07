@@ -1068,7 +1068,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the epoch info of the height.
     */
     function getEpochByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
-        require(_height <= block.number, "cannot get committee for a future height");
+        // the lastFinalizedBlock+1 height's committee is always available.
+        require(_height <= lastFinalizedBlock+1, "cannot get committee for a future height");
 
         uint256 blockEpochID = epochID;
         // if the block was already finalized, resolve its corresponding epoch id.
