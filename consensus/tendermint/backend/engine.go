@@ -407,7 +407,8 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 		return ErrStoppedEngine
 	}
 
-	epoch, err := sb.BlockChain().LatestEpoch()
+	// always get the epoch of current chain head, rather than getting the epoch of the input block.
+	epoch, err := chain.EpochOfHeight(chain.CurrentHeader().Number.Uint64())
 	if err != nil {
 		return err
 	}
