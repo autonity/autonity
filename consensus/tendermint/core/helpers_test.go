@@ -135,7 +135,7 @@ func randomProposal(t *testing.T) *message.Propose {
 	consensusPubkey := consensusKey.PublicKey()
 	committeeMember := &types.CommitteeMember{Address: addr, ConsensusKey: consensusPubkey, ConsensusKeyBytes: consensusPubkey.Marshal(), VotingPower: common.Big1, Index: 0}
 	lastHeader := &types.Header{
-		Number:    big.NewInt(currentHeight.Int64()).Sub(currentHeight, common.Big1),
+		Number: big.NewInt(currentHeight.Int64()).Sub(currentHeight, common.Big1),
 	}
 	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(consensusKey), committeeMember, lastHeader)
 }
