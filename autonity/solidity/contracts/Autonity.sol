@@ -1069,7 +1069,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     */
     function getEpochByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
         // the lastFinalizedBlock+1 height's committee is always available.
-        require(_height <= lastFinalizedBlock+1, "cannot get committee for a future height");
+        // resolve the cap as lastFinalizedBlock might be 0 in the contract testing framework.
+        uint256 cap = lastFinalizedBlock+1;
+        if (block.number > lastFinalizedBlock) {
+            cap = block.number;
+        }
+        require(_height <= cap, "cannot get epoch for a future block");
 
         uint256 blockEpochID = epochID;
         // if the block was already finalized, resolve its corresponding epoch id.
@@ -1089,7 +1094,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @param _block the input block number.
     */
     function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
-        require(_block <= lastFinalizedBlock+1, "cannot get epoch for a future block");
+        // resolve the cap as lastFinalizedBlock might be 0 in the contract testing framework.
+        uint256 cap = lastFinalizedBlock+1;
+        if (block.number > lastFinalizedBlock) {
+            cap = block.number;
+        }
+        require(_block <= cap, "cannot get epoch id for a future block");
+
         if (_block <= lastFinalizedBlock) {
             return blockEpochMap[_block];
         }
