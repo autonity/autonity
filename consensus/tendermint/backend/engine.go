@@ -146,9 +146,10 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return errUnknownBlock
 	}
 
-	// Importing header batches that require re-injecting historical blocks, return nil if a header is already known.
+	// Re-injecting historical blocks, as epoch info is a factor to compute the hash, thus we don't need to check epoch
+	// , just double check header against its parent and the quorum certificates of this height.
 	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
-		return nil
+		return sb.verifyHeaderAgainstLastView(header, parent, committee)
 	}
 
 	// for unknown headers, header number should pass the corresponding epoch boundary check.
