@@ -400,20 +400,21 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 		return err
 	}
 
-	nodeAddress := sb.Address()
-	pEpoch := parent.Epoch
-	if pEpoch == nil {
-		err := errors.New("missing epoch header")
+	chain := sb.blockchain
+	// update the block header and signature and propose the block to core engine
+	committee, _, _, _, err := chain.LatestEpoch()
+	if err != nil {
+		sb.logger.Error("misssing epoch header", "err", err)
 		return err
 	}
 
-	//TODO: review
-	if pEpoch.Committee.MemberByAddress(nodeAddress) == nil {
+	nodeAddress := sb.Address()
+	if committee.MemberByAddress(nodeAddress) == nil {
 		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
 		return errUnauthorized
 	}
 
-	block, err := sb.AddSeal(block)
+	block, err = sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("sealing error", "err", err.Error())
 		return err
