@@ -287,11 +287,6 @@ func TestHandleCommit(t *testing.T) {
 		},
 	}
 	backendMock := interfaces.NewMockBackend(ctrl)
-	backendMock.EXPECT().LatestEpoch().AnyTimes().Return(epoch, nil)
-	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block)
-	backendMock.EXPECT().Post(gomock.Any()).MaxTimes(1)
-	backendMock.EXPECT().ProcessFutureMsgs(uint64(4)).MaxTimes(1)
-
 	c := &Core{
 		epoch:            epoch,
 		address:          testCommittee.Members[0].Address,
@@ -305,6 +300,11 @@ func TestHandleCommit(t *testing.T) {
 		precommitTimeout: NewTimeout(Precommit, logger),
 		committee:        committeeSet,
 	}
+	backendMock.EXPECT().EpochOfHeight(c.Height().Uint64()+1).AnyTimes().Return(epoch, nil)
+	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block)
+	backendMock.EXPECT().Post(gomock.Any()).MaxTimes(1)
+	backendMock.EXPECT().ProcessFutureMsgs(uint64(4)).MaxTimes(1)
+
 	c.SetDefaultHandlers()
 	c.precommiter.HandleCommit(context.Background())
 	if c.round != 0 || c.height.Cmp(big.NewInt(4)) != 0 {

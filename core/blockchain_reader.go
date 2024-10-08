@@ -71,10 +71,6 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 		return epoch, nil
 	}
 
-	if height > epoch.NextEpochBlock.Uint64() {
-		return nil, ErrHeightTooFuture
-	}
-
 	// otherwise try to get committee from state db of the height.
 	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
 	currentHeader := bc.CurrentHeader()

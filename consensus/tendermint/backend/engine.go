@@ -92,11 +92,7 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
-// to be provided unless header is the genesis header. As the epoch infos(committee, lastEpochBlock, nextEpochBlock)
-// are saving in the contract state, thus the consistency of them are checked by the state validation,
-// moreover that since the epoch info in block header is a factor to compute the block hash, thus they
-// are immutable in the hash chain once there are quorum certificates to finalize the block. Thus, the
-// epoch boundary checking is not required anymore.
+// to be provided unless header is the genesis header.
 func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
 	committee *types.Committee, curEpochHead uint64, nextEpochHead uint64) error {
 	if header.Round > constants.MaxRound {
@@ -150,11 +146,9 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 		return errUnknownBlock
 	}
 
-	// Due to the synchronisation issue, the verifying header might be already known, thus we return the ErrKnownBlock
-	// to skip the following epoch boundary checks. As recent headers are always buffered in LRU cache, thus it does
-	// not introduce too much performance dropping.
+	// Importing header batches that require re-injecting historical blocks, return nil if a header is already known.
 	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
-		return core.ErrKnownBlock
+		return nil
 	}
 
 	// for unknown headers, header number should pass the corresponding epoch boundary check.

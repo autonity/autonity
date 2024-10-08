@@ -93,11 +93,6 @@ var (
 	errChainStopped         = errors.New("blockchain is stopped")
 )
 
-var (
-	ErrHeightTooFuture = errors.New("height of future epoch")
-	ErrHeightTooOld    = errors.New("height of old epoch")
-)
-
 const (
 	bodyCacheLimit      = 256
 	blockCacheLimit     = 256

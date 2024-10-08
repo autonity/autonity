@@ -371,14 +371,8 @@ func (c *Core) setInitialState(r int64) {
 	if r == 0 {
 		lastBlockMined := c.backend.HeadBlock()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		lastHeader := lastBlockMined.Header()
-		c.committee.SetLastHeader(lastHeader)
-
-		// read the latest epoch info from chain to check if we need to update the committee.
-		// updating committee by checking if chain head is an epoch header might be inaccurate
-		// as the head block changes fast at startup phase due to the peer block synchronization.
-		// todo: Jason, think about to watch the epoch head event in the main loop of consensus engine.
-		epoch, err := c.Backend().LatestEpoch()
+		c.committee.SetLastHeader(lastBlockMined.Header())
+		epoch, err := c.Backend().EpochOfHeight(c.Height().Uint64())
 		if err != nil {
 			panic(err)
 		}

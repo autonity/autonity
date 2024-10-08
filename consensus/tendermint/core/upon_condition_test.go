@@ -44,13 +44,11 @@ func TestStartRoundVariables(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		env.setupCore(backendMock, env.clientAddress)
-		backendMock.EXPECT().LatestEpoch().AnyTimes().Return(env.LatestEpoch(), nil)
-
+		backendMock.EXPECT().EpochOfHeight(env.core.Height().Uint64()).Return(env.LatestEpoch(), nil)
 		backendMock.EXPECT().HeadBlock().Return(env.previousValue)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 		backendMock.EXPECT().ProcessFutureMsgs(env.previousHeight.Uint64() + 1).Times(1)
 
-		env.setupCore(backendMock, env.clientAddress)
 		env.core.StartRound(context.Background(), env.curRound)
 
 		// Check the initial consensus state
@@ -70,12 +68,10 @@ func TestStartRoundVariables(t *testing.T) {
 		// through to the subsequent round.
 		backendMock := interfaces.NewMockBackend(ctrl)
 		env.setupCore(backendMock, env.clientAddress)
-		backendMock.EXPECT().LatestEpoch().AnyTimes().Return(env.LatestEpoch(), nil)
+		backendMock.EXPECT().EpochOfHeight(env.core.Height().Uint64()).Return(env.LatestEpoch(), nil)
 		backendMock.EXPECT().HeadBlock().Return(env.previousValue).MaxTimes(2)
 		backendMock.EXPECT().Post(gomock.Any()).Times(3)
 		backendMock.EXPECT().ProcessFutureMsgs(env.previousHeight.Uint64() + 1).Times(1)
-
-		env.setupCore(backendMock, env.clientAddress)
 
 		// Check the initial consensus state
 		env.core.StartRound(context.Background(), env.curRound)
@@ -120,7 +116,7 @@ func TestStartRound(t *testing.T) {
 		proposal := generateBlockProposal(e.curRound, e.curHeight, -1, false, e.clientSigner, e.clientMember)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
-		backendMock.EXPECT().LatestEpoch().AnyTimes().Return(e.LatestEpoch(), nil)
+		backendMock.EXPECT().EpochOfHeight(e.core.Height().Uint64()).Return(e.LatestEpoch(), nil)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
@@ -1108,7 +1104,7 @@ func TestQuorumPrecommit(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	e.setupCore(backendMock, e.clientAddress)
-	backendMock.EXPECT().LatestEpoch().AnyTimes().Return(e.LatestEpoch(), nil)
+	backendMock.EXPECT().EpochOfHeight(e.core.Height().Uint64()+1).Return(e.LatestEpoch(), nil)
 	e.core.curRoundMessages.SetProposal(proposal, true)
 
 	quorumPrecommitMsgFake := message.Fake{

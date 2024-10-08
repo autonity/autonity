@@ -20,15 +20,17 @@ const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
-	epoch, err := c.backend.LatestEpoch()
+
+	chainHead := c.backend.BlockChain().CurrentBlock().Header()
+	epoch, err := c.Backend().EpochOfHeight(chainHead.Number.Uint64() + 1)
 	if err != nil {
 		panic(err)
 	}
 	c.epoch = epoch
-	chainHead := c.backend.BlockChain().CurrentBlock().Header()
 	c.protocolContracts = contract
 	committeeSet := com.NewWeightedRandomSamplingCommittee(chainHead, epoch.Committee, c.protocolContracts)
 	c.setCommitteeSet(committeeSet)
+
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
