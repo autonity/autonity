@@ -473,6 +473,9 @@ contract('Accountability', function (accounts) {
         "already processing an accusation"
       );
     });
+
+    // todo: Jason, move below testcase into the new contract test framework in golang.
+    /*
     it("Only expired unadressed accusations are promoted to misbehavior and lead to slashing", async function() {
       let reporter = validators[0]
       let offender1 = validators[1] // will not post an innocence proof before accusation promotion --> slashed
@@ -577,6 +580,7 @@ contract('Accountability', function (accounts) {
         "no associated accusation",
       );
     });
+     */
   });
 
   describe('events', function () {
