@@ -547,6 +547,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 			InitialInflationReserve: (*big.Int)(autonityGenesis.InitialInflationReserve),
 			WithholdingThreshold:    new(big.Int).SetUint64(autonityGenesis.WithholdingThreshold),
 			ProposerRewardRate:      new(big.Int).SetUint64(autonityGenesis.ProposerRewardRate),
+			OracleRewardRate:        new(big.Int).SetUint64(autonityGenesis.OracleRewardRate),
 			WithheldRewardsPool:     autonityGenesis.Operator,
 			TreasuryAccount:         autonityGenesis.Operator,
 		},

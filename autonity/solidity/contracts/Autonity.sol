@@ -31,6 +31,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 internal constant ECDSA_SIGNATURE_LEN = 65;
     uint256 internal constant POP_LEN = 226; // Proof of possession length in bytes. (Enode, OracleNode, ValidatorNode)
 
+    // those can be probably combined in one single const
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
     uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
     uint256 public constant ORACLE_REWARD_RATE_PRECISION = 10_000;
