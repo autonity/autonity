@@ -47,8 +47,7 @@ type Processor interface {
 
 	// Process processes the state changes according to the Ethereum rules by running
 	// the transaction messages using the statedb and applying any rewards to both
-	// the processor (coinbase) and any included uncles. It checks the availability of state cache
-	// and utilizes the cached state if present
+	// the processor (coinbase) and any included uncles.
 	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, *types.Epoch, error)
 
 	// ProcessFromCache processes the state same as Process except it checks the availability
