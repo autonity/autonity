@@ -507,15 +507,7 @@ contract Stabilization is IStabilization {
         IOracle.RoundData memory data = _oracle.latestRoundData(NTN_SYMBOL);
         if (!data.success) revert PriceUnavailable();
         if (data.price <= 0) revert InvalidPrice();
-        // Convert price from Oracle precision to SCALE decimals
-        if (SCALE_FACTOR > _oracle.getPrecision())
-            price =
-                uint256(data.price) *
-                (SCALE_FACTOR / _oracle.getPrecision());
-        else
-            price =
-                uint256(data.price) /
-                (_oracle.getPrecision() / SCALE_FACTOR);
+        price = data.price;
     }
 
     /*

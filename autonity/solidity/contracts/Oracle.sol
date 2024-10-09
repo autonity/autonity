@@ -2,54 +2,77 @@
 pragma solidity >=0.8.2 < 0.9.0;
 
 import "./interfaces/IOracle.sol";
+import "./Autonity.sol";
 
 
 /**
-*  @title Oracle Contract
-*  @dev This would likely be set behind an open zeppeling proxy contract OR we
-*  should keep our upgrade mechanism
-*/
+ * @title Autonity Protocol - Oracle Contract
+ * @notice This contract implements the Oracle for the Autonity Protocol, allowing voters to submit price reports
+ * and aggregate them while detecting outliers.
+ */
 contract Oracle is IOracle {
-    // This is a special value representing unable to fetch the correct data.
-    int256 internal constant INVALID_PRICE = type(int256).max;
-    uint internal constant VOTING_GAS = 30_000;
-    uint256 internal constant PRECISION = 10_000_000;
-    string[] public symbols;
-    string[] public newSymbols;
-    address private autonity;
-    address private operator;
+
+    // Struct to hold metadata information concerning a voter
+    struct VoterInfo {
+        uint256 round; // The last round the voter participated in
+        uint256 commit; // The commit hash of the voter's last report
+        uint256 performance; // The performance score of the voter
+        bool isVoter; // Indicates if the address is a registered voter
+        bool reportAvailable; // Indicates if the last report is available for the voter
+    }
+
+    // Struct to hold price data
+    struct Price {
+        uint256 price; // The reported price
+        uint timestamp; // The timestamp of the price report
+        bool success; // Indicates if the price report was successful
+    }
+
+    // Configuration settings for the Oracle
+    struct Config {
+        Autonity autonity; // Address of the Autonity contract
+        address operator; // Address of the operator
+        uint votePeriod; // Duration of the voting period
+        int256 outlierDetectionThreshold; // Threshold for outlier detection
+        int256 outlierSlashingThreshold; // Threshold for slashing outliers
+        uint256 baseSlashingRate; // Base rate for slashing
+    }
+
+    // ==== Public state variables ====
+    Config public config;
+    int256 public lastVoterUpdateRound = type(int256).min;
+    int256 public symbolUpdatedRound = type(int256).min; // todo(youssef): confused why not uint256
+    uint256 public lastRoundBlock;
+    mapping(address => VoterInfo) public voterInfo;
+    mapping(string => mapping(address => Report)) public reports;
+
+    // ==== Private state variables ====
+    uint8 private constant DECIMALS = 18;
+    string[] private symbols;
+    string[] private newSymbols;
     address[] private voters;
     address[] private newVoters;
-    uint256 public round;
-    int256 public lastVoterUpdateRound = type(int256).min;
-    int256 public symbolUpdatedRound = type(int256).min;
-    uint public votePeriod;
-    uint256 public lastRoundBlock;
-    struct voteInfo {
-        uint256 round;
-        uint256 commit;
-        bool isVoter;
-    }
-
-    // map of Voters address and voting info
-    mapping(address => voteInfo) public votingInfo;
-    mapping(string => mapping(address => int256)) public reports;
-    struct Price {
-        int256 price;
-        uint timestamp;
-        bool success;
-    }
-    // TODO: prices can be changed to mapping of mapping ???
+    uint256 private round;
     mapping(string => Price)[] internal prices;
+    //rewards accounting
+    bool private rewardsReady;
+    uint256 private aggregatedScore;
 
 
-    constructor( address [] memory _voters, address _autonity, address _operator,
-        string[] memory _symbols, uint _votePeriod) {
-        autonity = _autonity;
-        operator = _operator;
+    /**
+     * @dev Constructor to initialize the Oracle contract.
+     * @param _voters List of initial voters' addresses.
+     * @param _symbols List of symbols to be tracked.
+     * @param _config Configuration settings for the oracle.
+     */
+    constructor(
+        address[] memory _voters,
+        string[] memory _symbols,
+        Config memory _config
+    ) {
+        config = _config;
         symbols = _symbols;
         newSymbols = _symbols;
-        votePeriod = _votePeriod;
         _votersSort(_voters, int(0), int(_voters.length - 1));
         voters = _voters;
         newVoters = _voters;
@@ -57,49 +80,65 @@ contract Oracle is IOracle {
         // create the space for first index in prices array
         prices.push();
         for(uint i = 0; i < _voters.length; i++) {
-            votingInfo[_voters[i]].isVoter = true;
+            voterInfo[_voters[i]].isVoter = true;
         }
     }
 
     /**
-    * @notice Precision to be used with price reports
+    * @dev Receive Auton function
+    * https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
     */
-    function getPrecision() external pure returns (uint256) {
-        return PRECISION;
-    }
+    receive() external payable {}
 
     /**
-    * @notice vote period to be used for price voting and aggregation
+    * @dev Fallback function
+    * https://solidity.readthedocs.io/en/v0.7.2/contracts.html#fallback-function
     */
-    function getVotePeriod() external view returns (uint) {
-        return votePeriod;
-    }
+    fallback() external payable {}
 
     /**
-    * @notice Vote for the current period. In order to save gas,
-    * if (reports[i] == INVALID_PRICE)g the symbols.
-    * if the validator leave consensus committee then his vote is discarded.
-    * if a validator joins the consensus committee then his first vote is not
-    * taken into account.
-    * Only allowed to vote once per round.
-    * @param _commit hash of the new reports
-    *        _reports reveal of the reports for the previous cycle.
-    *        _salt  slat value which was used to generate last round commitment
-    */
-    function vote(uint256 _commit, int256[] calldata _reports, uint256 _salt) onlyVoters external {
-        //revert if already voted for this round
-        // voters should not be allowed to vote multiple times in a round
+     * @notice Allows a validator to vote for the current period using a commit-reveal scheme.
+     *
+     * This function implements a commit-reveal voting mechanism for validators in the consensus committee.
+     * Validators can only vote once per round, and their votes will be discarded if they leave the
+     * consensus committee or not counted if they try to vote again in the same round.
+     *
+     * If a validator attempts to vote multiple times in a round, the transaction will revert.
+     * Important: Non-reverting calls are refunded by the Autonity Protocol.
+     *
+     * @param _commit A hash representing the commitment of the new reports.
+     * @param _reports An array of `Report` objects revealing the reports for the previous cycle.
+     * @param _salt The salt value used to generate the last round's commitment.
+     * @param _extra May be used for carrying Autonity Server version. Not used internally.
+     *
+     * @dev
+     * - The function checks that the validator has not already voted in the current round.
+     * - If the voter is new (first round), their vote will not be recorded until their next submission.
+     * - If the number of reports does not match the expected symbols, the vote will be discarded.
+     * - If the last round's commitment does not match the current commitment, the vote is invalidated.
+     *
+     */
+    function vote(
+        uint256 _commit,
+        Report[] calldata _reports,
+        uint256 _salt,
+        uint8 _extra)
+        onlyVoters
+        external
+    {
+        // revert if already voted for this round
+        // voters should not be allowed to vote multiple `times in a round
         // because we are refunding the tx fee and this opens up the possibility
         // to spam the node
-        require(votingInfo[msg.sender].round != round, "already voted");
+        require(voterInfo[msg.sender].round != round, "already voted");
 
-        uint256 _pastCommit = votingInfo[msg.sender].commit;
+        uint256 _pastCommit = voterInfo[msg.sender].commit;
         // Store the new commit before checking against reveal to ensure an updated commit is
         // available for the next round in case of failures.
-        votingInfo[msg.sender].commit = _commit;
-        uint256 _lastVotedRound  = votingInfo[msg.sender].round;
+        voterInfo[msg.sender].commit = _commit;
+        uint256 _lastVotedRound  = voterInfo[msg.sender].round;
         // considered to be voted whether vote is valid or not
-        votingInfo[msg.sender].round = round;
+        voterInfo[msg.sender].round = round;
         // new voter/first round
         if (_lastVotedRound == 0 ) {
             return;
@@ -107,97 +146,151 @@ contract Oracle is IOracle {
 
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
-        if(_reports.length != symbols.length)  {
+        if(_reports.length != symbols.length)  { // todo: why not require?
             return;
         }
 
-        if ( _lastVotedRound != round -1 ||
-            _pastCommit != uint256(keccak256(abi.encodePacked(_reports, _salt, msg.sender)))) {
-            // If missed a round OR reveal does not matches past commit
-            // fill invalid_price in the reports for these voters
-            for (uint256 i = 0; i < symbols.length; i++) {
-                reports[symbols[i]][msg.sender] = INVALID_PRICE;
-            }
+        if (_lastVotedRound != round - 1 ||
+            _pastCommit != uint256(keccak256(abi.encode(_reports, _salt, msg.sender)))
+           ) {
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
             return;
         }
-        // Voter has to vote on all the symbols
-        // uint256 MAX_INT = uint256(-1) is a special value
+
+        // Voter voted on every symbols
         for (uint256 i = 0; i < _reports.length; i++) {
-             reports[symbols[i]][msg.sender] = _reports[i];
+            require(_reports[i].price > 0, "price must be positive");
+            require(_reports[i].confidence <= 100 && _reports[i].confidence != 0, "invalid confidence score");
+            reports[symbols[i]][msg.sender] = _reports[i];
         }
+        voterInfo[msg.sender].reportAvailable = true;
     }
+
     /**
-     * @notice Called once per VotePeriod part of the state finalisation function.
+     * @notice Finalizes the current round and aggregates the votes. Called by the Autonity contract.
      * @return true if there is a new round and new symbol prices are available, false if not.
+     * @dev This function has technically infinite gas budget and must not throw in any condition.
      */
     function finalize() onlyAutonity external returns (bool){
-        if (block.number >= lastRoundBlock + votePeriod){
-            for(uint i = 0; i < symbols.length; i += 1 ) {
-                aggregateSymbol(i);
-            }
-
-            // this votingInfo is updated with the newVoter set just so that the new voters
-            // are able to send their first vote, but they will not be used for aggregation
-            // in this round
-            if (lastVoterUpdateRound == int256(round)) {
-                for(uint i = 0; i < newVoters.length; i++) {
-                    votingInfo[newVoters[i]].isVoter = true;
-                }
-            }
-            // votingInfo update happens a round later then setting of new voters,
-            // because we still want to aggregate vote for lastVoterSet in the voterupdateround+1
-            if (lastVoterUpdateRound+1 == int256(round)) {
-                _updateVotingInfo();
-            }
-            lastRoundBlock = block.number;
-            round += 1;
-            // symbol update should happen in the symbolUpdatedRound+2 since we expect
-            // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
-            // for the new symbols in symbolUpdatedRound+2
-            if (int256(round) == symbolUpdatedRound+2) {
-                symbols = newSymbols;
-            }
-            emit NewRound(round, block.number, block.timestamp, votePeriod);
-            return true;
+        if (block.number < lastRoundBlock + config.votePeriod){
+            return false;
         }
-        return false;
+
+        for(uint i = 0; i < symbols.length; i += 1 ) {
+            _aggregateReports(i);
+        }
+
+        if (rewardsReady){
+            _performRewardDitribution();
+            rewardsReady = false;
+        }
+
+
+        // this votingInfo is updated with the newVoter set just so that the new voters
+        // are able to send their first vote, but they will not be used for aggregation
+        // in this round
+        if (lastVoterUpdateRound == int256(round)) {
+            for(uint i = 0; i < newVoters.length; i++) {
+                voterInfo[newVoters[i]].isVoter = true;
+            }
+        }
+
+        // votingInfo update happens a round later then setting of new voters,
+        // because we still want to aggregate vote for lastVoterSet in the voterupdateround+1
+        if (lastVoterUpdateRound+1 == int256(round)) {
+            _updateVotingInfo();
+        }
+
+        lastRoundBlock = block.number;
+        round += 1;
+        // symbol update should happen in the symbolUpdatedRound+2 since we expect
+        // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
+        // for the new symbols in symbolUpdatedRound+2
+        if (int256(round) == symbolUpdatedRound+2) {
+            symbols = newSymbols;
+        }
+        emit NewRound(round, block.number, block.timestamp, config.votePeriod);
+        return true;
     }
-    /**
-     * @notice Level 2 aggregation routine. The final price
-     * is the median of all price collected.
-     * @dev This method is responsible for detecting and calling the appropriate
-     * accountability functions in case of missing or malicious votes.
+
+   /**
+    * @dev this function is used to receive ATN rewards and to signal availability of NTN rewards.
+    * This is decoupled from {finalize} to keep the reward flow clean on the autonity contract side.
+   */
+    function receiveRewards() onlyAutonity external payable returns (bool) {
+        rewardsReady = true;
+    }
+
+    function _performRewardDitribution() internal {
+        // We redistribute everything belonging to the Oracle contract.
+        uint256 _totalNTN = config.autonity.balanceOf(address(this));
+        uint256 _totalATN = address(this).balance;
+
+        for(uint256 i=0; i < voters.length; i++){
+            address _voter = voters[i];
+            uint256 _atn = (_totalATN * voterInfo[_voter].performance) / aggregatedScore;
+            uint256 _ntn = (_totalNTN * voterInfo[_voter].performance) / aggregatedScore;
+
+            // Transfer ATN rewards
+            // 2300 gas fowarded with send()
+            // funds for failed transfers will be redistributed for the next round
+            payable(_voter).send(_atn);
+
+            // Transfer NTN rewards
+            config.autonity.transfer(_voter, _ntn);
+
+            // Reset performance score
+            voterInfo[_voter].performance = 0;
+        }
+        aggregatedScore = 0;
+    }
+
+   /**
+     * @notice Aggregates reports for a specific symbol.
+     * @param _sindex The index of the symbol to aggregate.
+     * @dev This function detects outliers and calculates the final price for the symbol.
      */
-    function aggregateSymbol(uint _sindex) internal {
+    function _aggregateReports(uint _sindex) internal {
         string memory _symbol = symbols[_sindex];
-        // Final aggregation doesn't depend on price.
-        int256[] memory _totalReports = new int256[](voters.length);
+        Report[] memory _totalReports = new Report[](voters.length);
         uint256 _count;
         for(uint i = 0; i < voters.length; i++) {
             address _voter = voters[i];
-            // if voter has missed this round OR INVALID price reveal was submitted
-            if(votingInfo[_voter].round != round || reports[_symbol][_voter] == INVALID_PRICE) {
-                // TODO: Implement Slashing
-                //autonity.oracleVoteMissing(voters[i]);
+            // if there is no available report from this validator we must account for it.
+            if(!voterInfo[_voter].reportAvailable) {
                 continue;
             }
             _totalReports[_count++] = reports[_symbol][_voter];
         }
-        int256 _priceMedian = prices[round-1][_symbol].price;
+
+        uint256 _price = 0;
         bool _success = false;
-        if (_count > 0) {
-            _priceMedian = _getMedian(_totalReports, _count);
+
+        if (_count > 0){
+            int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
+            // exclude and detect outliers
+            (address[] memory _outliers, uint256 _totalOutliers, Report[] memory _filteredReports, uint256 _totalConfidence)
+                = _findOutliers(_priceMedian, _symbol);
+            // There is an extreme edge-case where everyone is detected outlier. This is left todo.
+            // punish outliers if found
+            for(uint256 i = 0; i < _totalOutliers; i++) {
+                _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
+                emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+            }
             _success = true;
+        } else {
+            // use past value for price if unsuccesful
+            _price = prices[round-1][_symbol].price;
         }
+
         prices.push();
         prices[round][_symbol] = Price(
-            _priceMedian,
+            _price,
             block.timestamp,
             _success);
-
     }
+
     /**
      * @notice Return latest available price data.
      * @param _symbol, the symbol from which the current price should be returned.
@@ -213,15 +306,26 @@ contract Oracle is IOracle {
      * @notice Return price data for a specific round.
      * @param _round, the round for which the price should be returned.
      * @param _symbol, the symbol for which the current price should be returned.
+     * @dev IOracle interface method
      */
-    function getRoundData(uint256 _round, string memory _symbol) external view returns
-    (RoundData memory data) {
+    function getRoundData(uint256 _round, string memory _symbol)
+        external
+        view
+        returns (RoundData memory data)
+    {
         Price memory _p = prices[_round][_symbol];
         RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, _p.success);
         return _d;
     }
 
-    // ["NTN-USD", "NTN-EUR", ... ]
+    /**
+     * @notice Update the symbols to be requested.
+     * Only effective at the next round.
+     * Restricted to the operator account.
+     * @param _symbols list of string symbols to be used. E.g. "ATN-USD"
+     * @dev emit {NewSymbols} event.
+     * @dev IOracle interface method
+     */
     function setSymbols(string[] memory _symbols) external onlyOperator {
         require(_symbols.length != 0, "symbols can't be empty");
         require((symbolUpdatedRound+1 != int256(round)) && (symbolUpdatedRound != int256(round)), "can't be updated in this round");
@@ -230,6 +334,10 @@ contract Oracle is IOracle {
         // these symbols will be effective for oracles from next round
         emit NewSymbols(_symbols, round+1);
     }
+
+    /**
+     * @notice Retrieve the lists of symbols to be voted on.
+     */
     function getSymbols() external view returns(string[] memory) {
         // if current round is the next round of the symbol update round
         // we should return the updated symbols, because oracle clients are supposed
@@ -239,11 +347,80 @@ contract Oracle is IOracle {
         }
         return symbols;
     }
+
+    /**
+    * @notice Retrieve the list of participants in the Oracle process.
+    * @dev IOracle interface method implementation.
+    */
     function getVoters() external view returns(address[] memory) {
         return newVoters;
     }
+
+    /**
+    * @notice Retrieve the current round ID.
+    * @dev IOracle interface method implementation.
+    */
     function getRound() external view returns (uint256) {
         return round;
+    }
+
+    /**
+    * @notice Decimal places to be used with price reports
+    * @dev IOracle interface method implementation.
+    */
+    function getDecimals() external view returns (uint8) {
+        return DECIMALS;
+    }
+
+    /**
+    * @notice Retrieve the vote period.
+    * @dev IOracle interface method implementation.
+    */
+    function getVotePeriod() external view returns (uint) {
+        return config.votePeriod;
+    }
+
+    /**
+     * @notice Called to update the list of the oracle voters.
+     * @dev Only accessible from the Autonity Contract.
+     * @dev IOracle interface method implementation.
+     */
+    function setVoters(address[] memory _newVoters) onlyAutonity external {
+        require(_newVoters.length != 0, "Voters can't be empty");
+        _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
+        newVoters = _newVoters;
+        lastVoterUpdateRound = int256(round);
+    }
+
+    /**
+    * @notice Setter for the operator.
+    * @dev IOracle interface method implementation.
+    */
+    function setOperator(address _operator) external onlyAutonity {
+        config.operator = _operator;
+    }
+
+    /**
+    * @notice Setter for the vote period.
+    * @dev IOracle interface method implementation..
+    */
+    function setVotePeriod(uint _votePeriod) external onlyOperator {
+        config.votePeriod = _votePeriod;
+    }
+
+    /**
+    * @notice Setter for the internal slashing and outlier detection configuration.
+    */
+    function setSlashingConfig(
+        int256 _outlierSlashingThreshold,
+        int256 _outlierDetectionThreshold,
+        uint256 _baseSlashingRate)
+    external
+    onlyOperator
+    {
+        config.outlierSlashingThreshold = _outlierSlashingThreshold;
+        config.outlierDetectionThreshold = _outlierDetectionThreshold;
+        config.baseSlashingRate = _baseSlashingRate;
     }
 
     function _updateVotingInfo() internal {
@@ -257,7 +434,7 @@ contract Oracle is IOracle {
                 continue;
             } else if(voters[_i] < newVoters[_j]){
                 // delete from votingInfo since this voter is not present in the new Voters
-                delete votingInfo[voters[_i]];
+                delete voterInfo[voters[_i]];
                 _i++;
             } else {
                 _j++;
@@ -266,24 +443,19 @@ contract Oracle is IOracle {
 
         while ( _i < voters.length) {
             // delete from voted since it's not present in the new Voters
-            delete votingInfo[voters[_i]];
+            delete voterInfo[voters[_i]];
             _i++;
         }
         voters = newVoters;
-    }
-
-    function setVoters(address[] memory _newVoters) onlyAutonity external {
-        require(_newVoters.length != 0, "Voters can't be empty");
-        _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
-        newVoters = _newVoters;
-        lastVoterUpdateRound = int256(round);
     }
 
     /**
     * @dev QuickSort algorithm sorting addresses in lexicographic order.
     */
     function _votersSort(address[] memory _voters, int _low, int _high)
-    internal pure {
+        internal
+        pure
+    {
         if (_low >= _high) return;
         int _i = _low;
         int _j = _high;
@@ -311,23 +483,24 @@ contract Oracle is IOracle {
     /**
     * @dev QuickSort algorithm sorting addresses in lexicographic order.
     */
-    function _getMedian(int256[] memory _priceArray, uint _length) internal pure returns (int256) {
+    function _getMedian(Report[] memory _priceArray, uint _length) internal pure returns (uint120) {
         if (_length == 0) {
             return 0;
         }
         _sortPrice(_priceArray, 0, int(_length -1));
         uint _midIndex = _length/2;
-        return (_length % 2 == 0) ? (_priceArray[_midIndex-1] + _priceArray[_midIndex])/2 : _priceArray[_midIndex];
+        return (_length % 2 == 0) ?
+            (_priceArray[_midIndex-1].price + _priceArray[_midIndex].price)/2 : _priceArray[_midIndex].price;
     }
 
-    function _sortPrice( int256[] memory _priceArray, int _low, int _high) internal pure {
+    function _sortPrice(Report[] memory _priceArray, int _low, int _high) internal pure {
         int _i = _low;
         int _j = _high;
         if (_i == _j)  return;
-        int256 pivot = _priceArray[uint(_low+(_high-_low)/2)];
+        uint120 pivot = _priceArray[uint(_low+(_high-_low)/2)].price;
         while (_i <= _j) {
-            while(_priceArray[uint(_i)] < pivot) _i++;
-            while(pivot < _priceArray[uint(_j)]) _j--;
+            while(_priceArray[uint(_i)].price < pivot) _i++;
+            while(pivot < _priceArray[uint(_j)].price) _j--;
             if (_i <= _j) {
                 (_priceArray[uint(_i)], _priceArray[uint(_j)]) = (_priceArray[uint(_j)], _priceArray[uint(_i)]);
                 _j--;
@@ -345,8 +518,81 @@ contract Oracle is IOracle {
         return ;
     }
 
-    function setOperator(address _operator) external onlyAutonity {
-        operator = _operator;
+    /**
+     * @dev Identifies and returns outlier voter addresses based on their price reports relative to a given median.
+     *
+     * This internal function processes a list of voters and checks their reported prices against the provided median.
+     * It categorizes voters into outliers and non-outliers based on a configurable detection threshold.
+     * The function also accumulates non-outlier reports and updates the performance of each voter.
+     *
+     * Note: This function iterates through the state, which may result in high gas costs.
+     * Consider optimizing for gas savings in future implementations.
+     *
+     * @param _median The median price to compare against for outlier detection.
+     * @param _symbol The symbol representing the price report to analyze.
+     *
+     * @return _outliers An array of addresses representing the voters identified as outliers.
+     * @return _totalOutliers The total count of outlier addresses.
+     * @return _filteredReports An array of non-outlier price reports.
+     * @return _totalReports The total count of non-outlier reports collected.
+     */
+    function _findOutliers(int256 _median, string memory _symbol)
+        internal
+        returns (
+            address[] memory _outliers,
+            uint256 _totalOutliers,
+            Report[] memory _filteredReports,
+            uint256 _totalReports
+        )
+    {
+        _filteredReports = new Report[](voters.length);
+        _outliers = new address[](voters.length);
+        for(uint256 i = 0; i < voters.length; i++) {
+            address _voter = voters[i];
+            if(!voterInfo[_voter].reportAvailable) {
+                continue;
+            }
+            // median here is assumed to be non-0.
+            // we don't want the following to underflow 
+            int256 _ratio = (_median - int256(uint256(reports[_symbol][_voter].price)) * 100) / _median;
+            if (_ratio <= config.outlierDetectionThreshold && -1 * _ratio <= config.outlierDetectionThreshold) {
+                _filteredReports[_totalReports++] = reports[_symbol][_voter];
+                // take advantage of this iteration to include performance calculation
+                voterInfo[_voter].performance += reports[_symbol][_voter].confidence;
+                aggregatedScore += reports[_symbol][_voter].confidence;
+            } else {
+                _outliers[i - _totalReports] = _voter;
+            }
+        }
+        _totalOutliers = voters.length - _totalReports;
+        return(_outliers, _totalOutliers, _filteredReports, _totalReports);
+    }
+
+    function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal returns (uint256) {
+        uint256 _totalConfidence = 0;
+        uint256 _price = 0;
+        for(uint256 i=0; i < _reportCount; i++){
+            _price += _report[i].price * _report[i].confidence;
+            _totalConfidence += _report[i].confidence;
+        }
+        return _price / _totalConfidence;
+    }
+
+    function _penalize(address _outlier, int256 _median, Report memory _report) internal {
+        // Stop considering this reporter for any future calculation.
+        // This is symbol independant.
+        voterInfo[_outlier].reportAvailable = false;
+        int256 _diffRatio = (int256(uint256(_report.price)) - _median) * 100 / _median ;
+        //price is 120 bits max so _diffratio squared is at most 240 bits
+        _diffRatio = _diffRatio * _diffRatio;
+        if (_diffRatio < config.outlierSlashingThreshold) {
+            return;
+        } 
+
+        uint256 slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
+                               uint256(_report.confidence) *
+                               config.baseSlashingRate; // some scaling is prob needed here.
+        // accountability.slash(validator object, slashing rate, jail time);
     }
 
     /*
@@ -355,29 +601,17 @@ contract Oracle is IOracle {
      ============================================================
      */
     modifier onlyVoters {
-        require(votingInfo[msg.sender].isVoter, "restricted to only voters");
+        require(voterInfo[msg.sender].isVoter, "restricted to only voters");
         _;
     }
 
     modifier onlyAutonity {
-        require(autonity == msg.sender, "restricted to the autonity contract");
+        require(address(config.autonity) == msg.sender, "restricted to the autonity contract");
         _;
     }
 
     modifier onlyOperator {
-        require(operator == msg.sender, "restricted to operator");
+        require(config.operator == msg.sender, "restricted to operator");
         _;
     }
-
-    /**
-    * @dev Receive Auton function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#receive-ether-function
-    *
-    */
-    receive() external payable {}
-
-    /**
-    * @dev Fallback function https://solidity.readthedocs.io/en/v0.7.2/contracts.html#fallback-function
-    *
-    */
-    fallback() external payable {}
 }

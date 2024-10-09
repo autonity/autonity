@@ -29,8 +29,11 @@ var (
 	OracleVotePeriod           = uint64(30)
 	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USDC", "NTN-USDC", "NTN-ATN"}
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
-		Symbols:    OracleInitialSymbols,
-		VotePeriod: OracleVotePeriod,
+		Symbols:                   OracleInitialSymbols,
+		VotePeriod:                OracleVotePeriod,
+		OutlierDetectionThreshold: 100,
+		OutlierSlashingThreshold:  100,
+		BaseSlashingRate:          10,
 	}
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
@@ -140,6 +143,7 @@ type AutonityContractGenesis struct {
 	DelegationRate          uint64                `json:"delegationRate"`
 	WithholdingThreshold    uint64                `json:"withholdingThreshold"`
 	ProposerRewardRate      uint64                `json:"proposerRewardRate"`
+	OracleRewardRate        uint64                `json:"oracleRewardRate"`
 	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 	Schedules               []Schedule            `json:"schedules"`
@@ -371,10 +375,13 @@ func (v *Validator) Validate() error {
 
 // OracleContractGenesis Autonity contract config. It is used for deployment.
 type OracleContractGenesis struct {
-	Bytecode   hexutil.Bytes `json:"bytecode,omitempty" toml:",omitempty"`
-	ABI        *abi.ABI      `json:"abi,omitempty" toml:",omitempty"`
-	Symbols    []string      `json:"symbols"`
-	VotePeriod uint64        `json:"votePeriod"`
+	Bytecode                  hexutil.Bytes `json:"bytecode,omitempty" toml:",omitempty"`
+	ABI                       *abi.ABI      `json:"abi,omitempty" toml:",omitempty"`
+	Symbols                   []string      `json:"symbols"`
+	VotePeriod                uint64        `json:"votePeriod"`
+	OutlierDetectionThreshold uint64        `json:"outlierDetectionThreshold"`
+	OutlierSlashingThreshold  uint64        `json:"outlierSlashingThreshold"`
+	BaseSlashingRate          uint64        `json:"baseSlashingRate"`
 }
 
 // SetDefaults prepares the AutonityContractGenesis by filling in missing fields.
@@ -392,6 +399,15 @@ func (g *OracleContractGenesis) SetDefaults() error {
 	}
 	if g.VotePeriod == 0 {
 		g.VotePeriod = OracleVotePeriod
+	}
+	if g.OutlierSlashingThreshold == 0 {
+		g.OutlierSlashingThreshold = DefaultGenesisOracleConfig.OutlierSlashingThreshold
+	}
+	if g.BaseSlashingRate == 0 {
+		g.BaseSlashingRate = DefaultGenesisOracleConfig.BaseSlashingRate
+	}
+	if g.OutlierDetectionThreshold == 0 {
+		g.OutlierDetectionThreshold = DefaultGenesisOracleConfig.OutlierDetectionThreshold
 	}
 	return nil
 }

@@ -20,11 +20,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/params/generated"
 	"math/big"
 	"net"
 	"time"
+
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/crypto/blst"
 
@@ -475,6 +476,7 @@ var (
 			DelegationRate:          1000,
 			WithholdingThreshold:    0,    // 0%, no tolerance
 			ProposerRewardRate:      1000, // 10% TODO: is this enough?
+			OracleRewardRate:        1000, // 10%
 			Validators: []*Validator{{
 				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
 				OracleAddress: common.HexToAddress("0x4D8387E38F42084aa24CE7DA137222786fF23A3E"),
@@ -754,6 +756,7 @@ var (
 		DelegationRate:          1200, // 12%
 		WithholdingThreshold:    0,    // 0%, no tolerance
 		ProposerRewardRate:      1000, // 10%
+		OracleRewardRate:        1000, // 10%
 		Treasury:                common.Address{120},
 		WithheldRewardsPool:     common.Address{120}, // TODO: change if decide to decouple treasury and withheld rewards pool
 		TreasuryFee:             1500000000000000,    // 0.15%,

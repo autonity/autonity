@@ -33,6 +33,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
     uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
+    uint256 public constant ORACLE_REWARD_RATE_PRECISION = 10_000;
     uint256 public constant WITHHOLDING_THRESHOLD_PRECISION = 10_000;
 
     // any change in Validator struct must be synced with offset constants in core/vm/contracts.go
@@ -130,6 +131,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 initialInflationReserve;
         uint256 withholdingThreshold;
         uint256 proposerRewardRate; // fraction of epoch fees allocated for proposer rewarding based on activity proof
+        uint256 oracleRewardRate;
         address payable withheldRewardsPool; // set to the autonity global treasury at genesis, but can be changed
         address payable treasuryAccount;
     }
@@ -534,6 +536,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
         require(_proposerRewardRate <= PROPOSER_REWARD_RATE_PRECISION, "Cannot exceed 100%");
         config.policy.proposerRewardRate = _proposerRewardRate;
+    }
+
+    function setOracleRewardRate(uint256 _oracleRewardRate) public virtual onlyOperator {
+        require(_oracleRewardRate <= ORACLE_REWARD_RATE_PRECISION,"Cannot exceed 100%");
+        config.policy.oracleRewardRate = _oracleRewardRate;
     }
 
     function setWithholdingThreshold(uint256 _withholdingThreshold) public virtual onlyOperator {
@@ -1275,7 +1282,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @dev Emit a {Rewarded} event for every account that collected rewards.
     * @param _atn: Amount of ATN to be redistributed. The source funds will be taken from
     * this contract balance.
-    * @param _ntn: Amount of NTN to be redistributed. The source funds will be minted here.
+    * @param _ntn: Amount of NTN to be redistributed.
     */
     function _performRedistribution(uint256 _atn, uint256 _ntn) internal virtual {
         // exit early if nothing to redistribute.
@@ -1299,9 +1306,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             // Calculate initial proposer rewards (actual distribution is done after regular rewards)
             _atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
             _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
-            _atn -= _atnProposerRewards;
-            _ntn -= _ntnProposerRewards;
         }
+
+        uint256 _atnOracleRewards = _atn * config.policy.oracleRewardRate / ORACLE_REWARD_RATE_PRECISION;
+        uint256 _ntnOracleRewards = _ntn * config.policy.oracleRewardRate / ORACLE_REWARD_RATE_PRECISION;
+        _transfer(address(this), address(config.contracts.oracleContract), _ntnOracleRewards);
+        config.contracts.oracleContract.receiveRewards{value:_atnOracleRewards}();
+
+        _atn -= _atnProposerRewards + _atnOracleRewards;
+        _ntn -= _ntnProposerRewards + _ntnOracleRewards;
 
         uint256 _omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
 

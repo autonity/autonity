@@ -631,6 +631,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		DelegationRate:          1200,             // 12%
 		WithholdingThreshold:    0,                // 0%, no tolerance
 		ProposerRewardRate:      1000,             // 10%
+		OracleRewardRate:        1000,             // 10%
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              10000000000,
 		Operator:                faucet.Address,

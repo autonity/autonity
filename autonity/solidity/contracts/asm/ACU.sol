@@ -114,23 +114,23 @@ contract ACU is IACU {
         uint256 latestRound = _oracle.getRound() - 1;
         if (round >= latestRound) return false;
         int256 sumProduct = 0;
-        int256 oraclePrecision = int256(_oracle.getPrecision());
+        uint256 oracleDecimals = uint256(_oracle.getDecimals());
         for (uint i = 0; i < _symbols.length; i++) {
             int256 price;
             if (keccak256(abi.encodePacked(_symbols[i])) == SYMBOL_USD) {
-                price = oraclePrecision;
+                price = int256(10**oracleDecimals);
             } else {
                 IOracle.RoundData memory roundData = _oracle.getRoundData(
                     latestRound,
                     _symbols[i]
                 );
                 if (!roundData.success) return false;
-                price = roundData.price;
+                price = int256(roundData.price);
             }
             sumProduct += (price * int256(_quantities[i]));
         }
 
-        _value = sumProduct / oraclePrecision;
+        _value = sumProduct / int256(10**oracleDecimals);
         round = latestRound;
 
         // solhint-disable-next-line not-rely-on-time

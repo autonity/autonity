@@ -607,13 +607,11 @@ func (c *GenesisEVMContracts) FinalizeInitialization(delta uint64) error {
 
 func (c *GenesisEVMContracts) DeployOracleContract(
 	voters []common.Address,
-	autonityAddress common.Address,
-	operator common.Address,
 	symbols []string,
-	votePeriod *big.Int,
+	config OracleConfig,
 	bytecode []byte,
 ) error {
-	return c.OracleContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, voters, autonityAddress, operator, symbols, votePeriod)
+	return c.OracleContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, voters, symbols, config)
 }
 
 func (c *GenesisEVMContracts) DeployACUContract(

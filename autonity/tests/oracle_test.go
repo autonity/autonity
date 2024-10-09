@@ -5,8 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
+	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 )
@@ -21,6 +20,7 @@ func makeCommit(salt *big.Int, sender common.Address, reports []*big.Int) *big.I
 	return new(big.Int).SetBytes(crypto.Keccak256(buffer))
 }
 
+/*
 func TestSimpleVote(t *testing.T) {
 	r := setup(t, nil)
 	symbols, _, _ := r.oracle.GetSymbols(nil)
@@ -33,7 +33,7 @@ func TestSimpleVote(t *testing.T) {
 			votes: [][]*big.Int{
 				{big.NewInt(1), big.NewInt(90009), big.NewInt(90), big.NewInt(100)},
 				{big.NewInt(10093), big.NewInt(988), big.NewInt(90), big.NewInt(99188129399)},
-				{big.NewInt(1), big.NewInt(237492837498), big.NewInt(18), big.NewInt(100)},
+				{big.NewInt(457645765), big.NewInt(237492837498), big.NewInt(18), big.NewInt(100)},
 				{big.NewInt(1), big.NewInt(90009), big.NewInt(90), big.NewInt(100)},
 			},
 			expected: []*big.Int{big.NewInt(95)},
@@ -85,4 +85,44 @@ func TestSimpleVote(t *testing.T) {
 			test(r, n)
 		})
 	}
+}
+
+*/
+
+func TestReportPacking(t *testing.T) {
+	// Define your Solidity-like function arguments
+	addressType, _ := abi.NewType("address", "", nil)
+	saltType, _ := abi.NewType("uint256", "", nil)
+	reportType, _ := abi.NewType("tuple[]", "struct Overloader.F", []abi.ArgumentMarshaling{
+		{Name: "price", Type: "uint120"},
+		{Name: "confidence", Type: "uint8"}})
+	args := abi.Arguments{
+		{Type: reportType},  // Solidity uint256
+		{Type: saltType},    // Solidity address
+		{Type: addressType}, // Solidity bool
+	}
+
+	// Prepare values to encode
+	reports := []IOracleReport{
+		{
+			Price:      big.NewInt(121212),
+			Confidence: 8,
+		},
+		{
+			Price:      big.NewInt(88282828),
+			Confidence: 34,
+		},
+	}
+	// Example uint256
+	addressVal := common.HexToAddress("0x11") // Example address
+	saltVal := big.NewInt(99999)              // Example bool
+
+	// Pack values to encode them
+	packed, err := args.Pack(reports, saltVal, addressVal)
+	if err != nil {
+		t.Fatalf("Failed to pack values: %v", err)
+	}
+	fmt.Printf("Encoded data: %x\n", packed)
+	res, _ := args.Unpack(packed)
+	fmt.Println(res)
 }

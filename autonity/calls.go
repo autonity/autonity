@@ -278,6 +278,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			InitialInflationReserve: (*big.Int)(genesisConfig.InitialInflationReserve),
 			WithholdingThreshold:    new(big.Int).SetUint64(genesisConfig.WithholdingThreshold),
 			ProposerRewardRate:      new(big.Int).SetUint64(genesisConfig.ProposerRewardRate),
+			OracleRewardRate:        new(big.Int).SetUint64(genesisConfig.OracleRewardRate),
 			WithheldRewardsPool:     genesisConfig.WithheldRewardsPool,
 			TreasuryAccount:         genesisConfig.Treasury,
 		},
@@ -356,10 +357,15 @@ func DeployOracleContract(genesisConfig *params.ChainConfig, evmContracts *Genes
 
 	err := evmContracts.DeployOracleContract(
 		voters,
-		params.AutonityContractAddress,
-		genesisConfig.AutonityContractConfig.Operator,
 		genesisConfig.OracleContractConfig.Symbols,
-		new(big.Int).SetUint64(genesisConfig.OracleContractConfig.VotePeriod),
+		OracleConfig{
+			Autonity:                  params.AutonityContractAddress,
+			Operator:                  genesisConfig.AutonityContractConfig.Operator,
+			VotePeriod:                new(big.Int).SetUint64(genesisConfig.OracleContractConfig.VotePeriod),
+			OutlierDetectionThreshold: new(big.Int).SetUint64(genesisConfig.OracleContractConfig.OutlierDetectionThreshold),
+			OutlierSlashingThreshold:  new(big.Int).SetUint64(genesisConfig.OracleContractConfig.OutlierSlashingThreshold),
+			BaseSlashingRate:          new(big.Int).SetUint64(genesisConfig.OracleContractConfig.BaseSlashingRate),
+		},
 		genesisConfig.OracleContractConfig.Bytecode,
 	)
 	if err != nil {
