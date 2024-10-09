@@ -298,7 +298,8 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
-		sb.logger.Crit("Failed to aggregate keys from committee members", "err", err)
+		sb.logger.Error("Failed to aggregate keys from committee members", "err", err)
+		return err
 	}
 	valid := quorumCertificate.Signature.Verify(aggregatedKey, headerSeal[:])
 	if !valid {
