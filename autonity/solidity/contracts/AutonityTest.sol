@@ -20,6 +20,10 @@ contract AutonityTest is Autonity {
         Autonity._applyNewCommissionRates();
     }
 
+    function setLastFinalizedBlock(uint256 _height) public onlyProtocol {
+        lastFinalizedBlock = _height;
+    }
+
     function applyStakingOperations() public {
        _stakingOperations();
    }

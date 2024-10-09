@@ -142,7 +142,8 @@ contract('Accountability', function (accounts) {
   });
   describe('Slashing', function () {
     beforeEach(async function () {
-      autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator)
+      //autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
       await autonity.finalizeInitialization({from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
@@ -296,8 +297,8 @@ contract('Accountability', function (accounts) {
     *     - if misbehavior severity >= accusation severity --> only misbehavior slashing takes effect
     *     - if misbehavior severity < accusation severity --> both offences are slashed 
     */
-    // todo: Jason, move this test into the new contract test framework in golang.
-    it.skip('edge case: concurrent accusation and misbehavior submission (misb severity >= accusation severity)',async function() {
+
+    it('edge case: concurrent accusation and misbehavior submission (misb severity >= accusation severity)',async function() {
       let reporter = validators[0]
       let offender = validators[1]
       let offenderInfo = await autonity.getValidator(offender.nodeAddress)
@@ -318,7 +319,8 @@ contract('Accountability', function (accounts) {
       
       // only selfbondedstake
       assert.equal(offenderInfo.bondedStake,offenderInfo.selfBondedStake)
-      
+
+      await autonity.setLastFinalizedBlock(currentBlock, {from: deployer});
       // insert accusation
       let canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block);
       assert.strictEqual(canAccuse._result,true);
@@ -401,7 +403,7 @@ contract('Accountability', function (accounts) {
   });
   describe('accusation flow', function () {
     beforeEach(async function () {
-      autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, deployer, operator);
       await autonity.finalizeInitialization({from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
@@ -475,8 +477,7 @@ contract('Accountability', function (accounts) {
       );
     });
 
-    // todo: Jason, move below testcase into the new contract test framework in golang.
-    it.skip("Only expired unadressed accusations are promoted to misbehavior and lead to slashing", async function() {
+    it("Only expired unadressed accusations are promoted to misbehavior and lead to slashing", async function() {
       let reporter = validators[0]
       let offender1 = validators[1] // will not post an innocence proof before accusation promotion --> slashed
       let offender2 = validators[2] // will post an innocence proof before accusation promotion --> no slashing
@@ -500,8 +501,7 @@ contract('Accountability', function (accounts) {
       event.block = currentBlock - 1
       let offender1Block = event.block
       event.reportingBlock = currentBlock
-      // update the last finalized block in autonity.
-      await autonity.finalize({from: deployer});
+      await autonity.setLastFinalizedBlock(currentBlock, {from: deployer});
       let canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
       assert.strictEqual(canAccuse._result,true);
       assert.strictEqual(canAccuse._deadline.toString(),'0');
@@ -515,7 +515,7 @@ contract('Accountability', function (accounts) {
       event.reportingBlock = currentBlock
 
       // update the last finalized block in autonity.
-      await autonity.finalize({from: deployer});
+      await autonity.setLastFinalizedBlock(currentBlock, {from: deployer});
       canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
       assert.strictEqual(canAccuse._result,true);
       assert.strictEqual(canAccuse._deadline.toString(),'0');
@@ -526,6 +526,7 @@ contract('Accountability', function (accounts) {
       event.offender = offender3.nodeAddress
       event.block = currentBlock - 1
       event.reportingBlock = currentBlock + 500
+      await autonity.setLastFinalizedBlock(currentBlock, {from: deployer});
       canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
       assert.strictEqual(canAccuse._result,true);
       assert.strictEqual(canAccuse._deadline.toString(),'0');
