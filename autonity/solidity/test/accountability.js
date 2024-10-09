@@ -296,7 +296,8 @@ contract('Accountability', function (accounts) {
     *     - if misbehavior severity >= accusation severity --> only misbehavior slashing takes effect
     *     - if misbehavior severity < accusation severity --> both offences are slashed 
     */
-    it('edge case: concurrent accusation and misbehavior submission (misb severity >= accusation severity)',async function() {
+    // todo: Jason, move this test into the new contract test framework in golang.
+    it.skip('edge case: concurrent accusation and misbehavior submission (misb severity >= accusation severity)',async function() {
       let reporter = validators[0]
       let offender = validators[1]
       let offenderInfo = await autonity.getValidator(offender.nodeAddress)
@@ -475,8 +476,7 @@ contract('Accountability', function (accounts) {
     });
 
     // todo: Jason, move below testcase into the new contract test framework in golang.
-    /*
-    it("Only expired unadressed accusations are promoted to misbehavior and lead to slashing", async function() {
+    it.skip("Only expired unadressed accusations are promoted to misbehavior and lead to slashing", async function() {
       let reporter = validators[0]
       let offender1 = validators[1] // will not post an innocence proof before accusation promotion --> slashed
       let offender2 = validators[2] // will post an innocence proof before accusation promotion --> no slashing
@@ -580,7 +580,6 @@ contract('Accountability', function (accounts) {
         "no associated accusation",
       );
     });
-     */
   });
 
   describe('events', function () {
