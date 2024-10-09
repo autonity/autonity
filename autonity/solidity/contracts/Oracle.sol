@@ -170,7 +170,6 @@ contract Oracle is IOracle {
         }
         voterInfo[msg.sender].reportAvailable = true;
     }
-
     /**
      * @notice Finalizes the current round and aggregates the votes. Called by the Autonity contract.
      * @return true if there is a new round and new symbol prices are available, false if not.
@@ -557,7 +556,7 @@ contract Oracle is IOracle {
                 continue;
             }
             // median here is assumed to be non-0.
-            // we don't want the following to underflow 
+            // we don't want the following to underflow
             int256 _ratio = (_median - int256(uint256(reports[_symbol][_voter].price)) * 100) / _median;
             if (_ratio <= config.outlierDetectionThreshold && -1 * _ratio <= config.outlierDetectionThreshold) {
                 _filteredReports[_totalReports++] = reports[_symbol][_voter];
@@ -591,7 +590,7 @@ contract Oracle is IOracle {
         _diffRatio = _diffRatio * _diffRatio;
         if (_diffRatio < config.outlierSlashingThreshold) {
             return;
-        } 
+        }
 
         uint256 slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
                                uint256(_report.confidence) *
