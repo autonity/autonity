@@ -93,11 +93,13 @@ interface IOracle {
      * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
      */
     event Voted(address indexed _voter, int[] _votes);
+
     /**
      * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
      * round - the round at which new symbols are effective
      */
     event NewSymbols(string[] _symbols, uint256 _round);
+
     /**
      * @dev Emitted when a new voting round is started.
      * round - the new round ID

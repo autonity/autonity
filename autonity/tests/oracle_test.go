@@ -33,7 +33,7 @@ func TestSimpleVote(t *testing.T) {
 			votes: [][]*big.Int{
 				{big.NewInt(1), big.NewInt(90009), big.NewInt(90), big.NewInt(100)},
 				{big.NewInt(10093), big.NewInt(988), big.NewInt(90), big.NewInt(99188129399)},
-				{big.NewInt(1), big.NewInt(237492837498), big.NewInt(18), big.NewInt(100)},
+				{big.NewInt(457645765), big.NewInt(237492837498), big.NewInt(18), big.NewInt(100)},
 				{big.NewInt(1), big.NewInt(90009), big.NewInt(90), big.NewInt(100)},
 			},
 			expected: []*big.Int{big.NewInt(95)},
