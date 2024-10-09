@@ -20,6 +20,7 @@ contract AutonityTest is Autonity {
         Autonity._applyNewCommissionRates();
     }
 
+    // To manipulate the lastFinalizedBlock from truffle test context, we have to use this extension for AutonityTest.
     function setLastFinalizedBlock(uint256 _height) public onlyProtocol {
         lastFinalizedBlock = _height;
     }
