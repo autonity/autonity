@@ -227,6 +227,7 @@ func (c *Cache) MinimumBaseFee() *big.Int {
 func (c *Cache) EpochPeriod() *big.Int {
 	return new(big.Int).Set(c.epochPeriod.Load())
 }
+
 // Proposer election is now computed by committee structure, it is on longer depends on AC contract.
 func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
 	c.Lock()
@@ -258,15 +259,15 @@ func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, he
 // EpochInfo get the committee and the corresponding epoch boundary base on the input header's state.
 // it returns the committee, previousEpochBlock, curEpochBlock, and the nextEpochBlock.
 func (c *AutonityContract) EpochInfo(header *types.Header, db vm.StateDB) (*types.Committee, uint64, uint64, uint64, error) {
-	return c.callGetEpochInfo(db, header)
+	return c.CallGetEpochInfo(db, header)
 }
 
 func (c *AutonityContract) CommitteeEnodes(header *types.Header, db vm.StateDB, asACN bool) (*types.Nodes, error) {
-	return c.callGetCommitteeEnodes(db, header, asACN)
+	return c.CallGetCommitteeEnodes(db, header, asACN)
 }
 
 func (c *AutonityContract) GetCommitteeByHeight(header *types.Header, db vm.StateDB, height *big.Int) (*types.Committee, error) {
-	return c.callGetCommitteeByHeight(db, header, height)
+	return c.CallGetCommitteeByHeight(db, header, height)
 }
 
 /* the Proposer election function is called from core and from the fault detector.
