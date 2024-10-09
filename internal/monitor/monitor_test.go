@@ -57,10 +57,10 @@ func Test_ProfileLimitBreach(t *testing.T) {
 	require.Equal(t, cfg.profilePerDay, ms.profileCount) // Profile count should not exceed the daily limit
 	for i := 0; i < ms.profileCount; i++ {
 		postfix := "_" + strconv.Itoa(i+1)
-		require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, cpuDumpFile+postfix), "cpu profile doesn't exist")
+		require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDate, cpuDumpFile+postfix), "cpu profile doesn't exist")
 	}
 	postfix := "_" + strconv.Itoa(ms.profileCount+1)
-	require.NoFileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, cpuDumpFile+postfix), "cpu profile exists")
+	require.NoFileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDate, cpuDumpFile+postfix), "cpu profile exists")
 
 	cancel()
 	ms.Stop()
@@ -86,7 +86,7 @@ func Test_DateChangeResetsProfileCount(t *testing.T) {
 
 	// Simulate reaching the profile count limit
 	ms.profileCount = cfg.profilePerDay
-	ms.lastProfileDay = time.Now().Add(-24 * time.Hour).Format("2006-01-02") // Simulate date change
+	ms.lastProfileDate = time.Now().Add(-24 * time.Hour).Format("2006-01-02") // Simulate date change
 
 	// Start the monitoring service
 	ctx, cancel := context.WithCancel(context.Background())
@@ -134,7 +134,7 @@ func Test_ErrorHandling(t *testing.T) {
 	// Check that profileCount is still 0 since there was an error in fetching CPU
 	require.Equal(t, 0, ms.profileCount)
 	postfix := "_" + strconv.Itoa(ms.profileCount+1)
-	require.NoFileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, cpuDumpFile+postfix), "cpu profile exists")
+	require.NoFileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDate, cpuDumpFile+postfix), "cpu profile exists")
 
 	cancel()
 	ms.Stop()
@@ -176,10 +176,10 @@ func Test_ResourceThresholdBreach(t *testing.T) {
 	require.Equal(t, ms.config.memThreshold, uint64(float64(memThreshold)*1.1), "mem threshold is not as expected")    // CPU threshold should be updated
 	require.Equal(t, ms.config.numGoroutines, int(float64(grThreshold)*1.1), "goroutine threshold is not as expected") // CPU threshold should be updated
 	postfix := "_" + strconv.Itoa(ms.profileCount)
-	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, cpuDumpFile+postfix), "cpu profile doesn't exist")
-	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, memDumpFile+postfix), "mem profile doesn't exist")
-	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, goroutineDumpFile+postfix), "goroutines trace doesn't exist")
-	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDay, traceFile+postfix), "go trace doesn't exist")
+	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDate, cpuDumpFile+postfix), "cpu profile doesn't exist")
+	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDate, memDumpFile+postfix), "mem profile doesn't exist")
+	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDate, goroutineDumpFile+postfix), "goroutines trace doesn't exist")
+	require.FileExists(t, filepath.Join(cfg.profileDir, ms.lastProfileDate, traceFile+postfix), "go trace doesn't exist")
 	require.Equal(t, 1, ms.profileCount) // Only 1 profile should be collected
 
 	cancel()

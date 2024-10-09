@@ -48,14 +48,14 @@ var DefaultMonitorConfig = Config{
 }
 
 type monitorService struct {
-	ctx            context.Context
-	cancel         context.CancelFunc
-	config         *Config
-	lastProfileDay string
-	profileCount   int
-	wg             sync.WaitGroup
-	getCPUPercent  func(interval time.Duration, perCpu bool) ([]float64, error)
-	getMemUsage    func(stats *runtime.MemStats)
+	ctx             context.Context
+	cancel          context.CancelFunc
+	config          *Config
+	lastProfileDate string
+	profileCount    int
+	wg              sync.WaitGroup
+	getCPUPercent   func(interval time.Duration, perCpu bool) ([]float64, error)
+	getMemUsage     func(stats *runtime.MemStats)
 }
 
 func New(stack *node.Node, cfg *Config) {
@@ -112,7 +112,7 @@ func (ms *monitorService) updateThresholds() {
 
 func (ms *monitorService) collectDiagnostics(currentDate string) {
 	profileDir := filepath.Join(ms.config.profileDir, currentDate)
-	err := os.MkdirAll(profileDir, os.ModePerm)
+	err := os.MkdirAll(profileDir, 0664)
 	if err != nil && !os.IsExist(err) {
 		log.Error("Error creating profile directory")
 		return
@@ -170,7 +170,7 @@ func (ms *monitorService) collectDiagnostics(currentDate string) {
 	traceDump := filepath.Join(profileDir, traceFile+postfix)
 	f, err = os.Create(traceDump)
 	if err != nil {
-		log.Error("Couldn't create file to write goroutines", "error", err)
+		log.Error("Couldn't create file to write trace", "error", err)
 		return
 	}
 	err = trace.Start(f)
@@ -187,9 +187,9 @@ func (ms *monitorService) collectDiagnostics(currentDate string) {
 func (ms *monitorService) checkSystemState() {
 	currentDate := time.Now().Format("2006-01-02")
 
-	if currentDate != ms.lastProfileDay {
+	if currentDate != ms.lastProfileDate {
 		ms.profileCount = 0
-		ms.lastProfileDay = currentDate
+		ms.lastProfileDate = currentDate
 	}
 
 	if ms.profileCount >= ms.config.profilePerDay {
