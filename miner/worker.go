@@ -874,7 +874,7 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 	// Find the parent block for sealing task
 	if parent == nil {
 		parent = w.chain.CurrentBlock()
-		parentHeader = w.chain.GetHeader(parent.Hash(), parent.NumberU64())
+		parentHeader = parent.Header()
 	} else {
 		optimisticCandidate = true
 		parentHeader = parent.Header()
@@ -882,7 +882,10 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 
 	if genParams.parentHash != (common.Hash{}) {
 		parent = w.chain.GetBlockByHash(genParams.parentHash)
-		parentHeader = w.chain.GetHeader(parent.Hash(), parent.NumberU64())
+		if parent == nil {
+			return nil, fmt.Errorf("missing parent")
+		}
+		parentHeader = parent.Header()
 	}
 
 	if parent == nil {
