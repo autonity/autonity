@@ -64,7 +64,8 @@ func TestAccusation(t *testing.T) {
 
 	// setup current height
 	currentHeight := uint64(1024)
-	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
+	// finalize blocks from 1st block to current height block to construct internal state includes lastFinalizedBlock, etc...
+	r.waitNBlocks(int(currentHeight - 1))
 	lastCommittedHeight := currentHeight - 1
 
 	// TODO(lorenzo) add similar tests for PVO and C1
@@ -127,7 +128,8 @@ func TestAccusationTiming(t *testing.T) {
 	accountability.LoadPrecompiles()
 
 	currentHeight := uint64(1024) // height of current consensus instance
-	r.evm.Context.BlockNumber = new(big.Int).SetUint64(currentHeight)
+	// finalize blocks from 1st block to current height block to construct internal state includes lastFinalizedBlock, etc...
+	r.waitNBlocks(int(currentHeight - 1))
 	r.evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 	lastCommittedHeight := currentHeight - 1 // height of last committed block
 

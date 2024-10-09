@@ -497,6 +497,8 @@ contract('Accountability', function (accounts) {
       event.block = currentBlock - 1
       let offender1Block = event.block
       event.reportingBlock = currentBlock
+      // update the last finalized block in autonity.
+      await autonity.finalize({from: deployer});
       let canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
       assert.strictEqual(canAccuse._result,true);
       assert.strictEqual(canAccuse._deadline.toString(),'0');
@@ -508,6 +510,9 @@ contract('Accountability', function (accounts) {
       event.block = currentBlock - 1
       let offender2Block = event.block
       event.reportingBlock = currentBlock
+
+      // update the last finalized block in autonity.
+      await autonity.finalize({from: deployer});
       canAccuse = await accountability.canAccuse(event.offender,event.rule,event.block);
       assert.strictEqual(canAccuse._result,true);
       assert.strictEqual(canAccuse._deadline.toString(),'0');
