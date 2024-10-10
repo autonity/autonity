@@ -10,8 +10,7 @@ import "./interfaces/IOracle.sol";
 
 contract Oracle is IOracle {
 
-    // VoterInfo is a structure for metadata informations
-    // concerning a voter.
+    // object for metadata informations concerning a voter
     struct VoterInfo {
         uint256 round;
         uint256 commit;
@@ -25,10 +24,19 @@ contract Oracle is IOracle {
         bool success;
     }
 
+    struct Report {
+        int256 price; // todo: pack these two together, save a slot. Consider using int248.
+        uint8 confidence;
+    }
+
+    // Public state variables
+    int256 public lastVoterUpdateRound = type(int256).min;
+    int256 public symbolUpdatedRound = type(int256).min;
+    uint256 public lastRoundBlock;
     mapping(address => VoterInfo) public voterInfo;
+    mapping(string => mapping(address => Report)) public reports;
 
-    mapping(string => mapping(address => int256)) public reports;
-
+    // Private state variables
     uint256 internal constant PRECISION = 10_000_000;
     string[] private symbols;
     string[] private newSymbols;
@@ -37,25 +45,26 @@ contract Oracle is IOracle {
     address[] private voters;
     address[] private newVoters;
     uint256 private round;
-    int256 public lastVoterUpdateRound = type(int256).min;
-    int256 public symbolUpdatedRound = type(int256).min;
-    uint private votePeriod;
-    uint256 public lastRoundBlock;
-
     mapping(string => Price)[] internal prices;
 
+    // Config
+    uint private votePeriod;
+    int256 private outlierThreshold;
+
     constructor(
-        address [] memory _voters,
+        address[] memory _voters,
         address _autonity,
         address _operator,
         string[] memory _symbols,
-        uint _votePeriod
+        uint _votePeriod,
+        uint256 _outlierThreshold
     ) {
         autonity = _autonity;
         operator = _operator;
         symbols = _symbols;
         newSymbols = _symbols;
         votePeriod = _votePeriod;
+        outlierThreshold = _outlierThreshold;
         _votersSort(_voters, int(0), int(_voters.length - 1));
         voters = _voters;
         newVoters = _voters;
@@ -103,8 +112,15 @@ contract Oracle is IOracle {
     *        _reports reveal of the reports for the previous cycle.
     *        _salt  slat value which was used to generate last round commitment
     */
-    function vote(uint256 _commit, int256[] calldata _reports, uint256 _salt) onlyVoters external {
-        //revert if already voted for this round
+    function vote(
+        uint256 _commit,
+        Report[] calldata _reports,
+        uint256 _salt,
+        uint8 _extra)
+        onlyVoters
+        external
+    {
+        // revert if already voted for this round
         // voters should not be allowed to vote multiple times in a round
         // because we are refunding the tx fee and this opens up the possibility
         // to spam the node
@@ -154,7 +170,7 @@ contract Oracle is IOracle {
         }
 
         for(uint i = 0; i < symbols.length; i += 1 ) {
-            aggregateSymbol(i);
+            _aggregateSymbol(i);
         }
 
         // this votingInfo is updated with the newVoter set just so that the new voters
@@ -190,7 +206,7 @@ contract Oracle is IOracle {
     * @dev This method is responsible for detecting and calling the appropriate
     * accountability functions in case of missing or malicious votes.
     */
-    function aggregateSymbol(uint _sindex) internal {
+    function _aggregateSymbol(uint _sindex) internal {
         string memory _symbol = symbols[_sindex];
         int256[] memory _totalReports = new int256[](voters.length);
         uint256 _count;
@@ -203,12 +219,13 @@ contract Oracle is IOracle {
             _totalReports[_count++] = reports[_symbol][_voter];
         }
 
-        // re-use the old calculate price as back-up
+        // re-use the old calculated price as back-up
         int256 _priceMedian = prices[round-1][_symbol].price;
         bool _success = false;
         if (_count > 0) {
             _priceMedian = _getMedian(_totalReports, _count);
             // exclude and detect outliers
+            (address[] _outliers, Report[] _filteredReports) = _findOutliers(_priceMedian, _symbol);
             // recalculate final price without outliers
             _success = true;
         }
@@ -273,6 +290,17 @@ contract Oracle is IOracle {
         return round;
     }
 
+    function setVoters(address[] memory _newVoters) onlyAutonity external {
+        require(_newVoters.length != 0, "Voters can't be empty");
+        _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
+        newVoters = _newVoters;
+        lastVoterUpdateRound = int256(round);
+    }
+
+    function setOperator(address _operator) external onlyAutonity {
+        operator = _operator;
+    }
+
     function _updateVotingInfo() internal {
         uint _i = 0;
         uint _j = 0;
@@ -299,18 +327,13 @@ contract Oracle is IOracle {
         voters = newVoters;
     }
 
-    function setVoters(address[] memory _newVoters) onlyAutonity external {
-        require(_newVoters.length != 0, "Voters can't be empty");
-        _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
-        newVoters = _newVoters;
-        lastVoterUpdateRound = int256(round);
-    }
-
     /**
     * @dev QuickSort algorithm sorting addresses in lexicographic order.
     */
     function _votersSort(address[] memory _voters, int _low, int _high)
-    internal pure {
+        internal
+        pure
+    {
         if (_low >= _high) return;
         int _i = _low;
         int _j = _high;
@@ -347,7 +370,7 @@ contract Oracle is IOracle {
         return (_length % 2 == 0) ? (_priceArray[_midIndex-1] + _priceArray[_midIndex])/2 : _priceArray[_midIndex];
     }
 
-    function _sortPrice( int256[] memory _priceArray, int _low, int _high) internal pure {
+    function _sortPrice(int256[] memory _priceArray, int _low, int _high) internal pure {
         int _i = _low;
         int _j = _high;
         if (_i == _j)  return;
@@ -372,8 +395,29 @@ contract Oracle is IOracle {
         return ;
     }
 
-    function setOperator(address _operator) external onlyAutonity {
-        operator = _operator;
+    /**
+    * @dev Internal function returning the list of outlier addresses along the list of non-outlier price reports
+    * This function iterates through state so might be expensive. Gas savings are left for later.
+    */
+    function _findOutliers(int256 _median, string _symbol)
+        internal
+        returns (address[], Report[])
+    {
+        int _count = 0;
+        for(uint i = 0; i < voters.length; i++) {
+            address _voter = voters[i];
+            if(!voterInfo[_voter].reportAvailable) {
+                continue;
+            }
+            // we don't want the following to underflow 
+            int256 _ratio = ((_median - reports[_symbol][_voter].price) * 100) / _median;
+            if (_ratio > outlierThreshold || -1 * _ratio >  outlierThreshold) {
+                // outlier detected
+            } else {
+
+            }
+
+        }
     }
 
     /*
