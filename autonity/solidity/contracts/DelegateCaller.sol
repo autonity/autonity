@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-abstract contract DelegateCaller {
+library DelegateCaller {
     /**
      * @dev Delegates the current call to `_contractAddress`.
      * 

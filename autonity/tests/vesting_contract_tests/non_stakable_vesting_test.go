@@ -21,12 +21,12 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 	cliffDuration := big.NewInt(amount / 2)
 	cliff := start + cliffDuration.Int64()
 	user := tests.User
-	subscribeAmount := big.NewInt(amount)
+	subscribedAmount := big.NewInt(amount)
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		createSchedule(r, amount, start, end)
-		subscribeToSchedule(r, user, subscribeAmount, common.Big0, cliffDuration)
+		subscribeToSchedule(r, user, subscribedAmount, common.Big0, cliffDuration)
 		return r
 	}
 
@@ -40,63 +40,55 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		require.Equal(r.T, "execution reverted: cliff period not reached yet", err.Error())
 	})
 
-	tests.RunWithSetup("unlocks linearly (after cliff) between start and end", setup, func(r *tests.Runner) {
+	tests.RunWithSetup("unlocks linearly (epoch based) (after cliff) between start and end", setup, func(r *tests.Runner) {
 		currentTime := r.WaitSomeEpoch(cliff + 1)
 		unlockAmount := big.NewInt(currentTime - start - 1)
+
+		epochID, _, err := r.Autonity.EpochID(nil)
+		require.NoError(r.T, err)
+		// mine some more blocks, shouldn't matter because unlocking is epoch based
+		r.WaitNBlocks(10)
+		newEpochID, _, err := r.Autonity.EpochID(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, epochID, newEpochID, "cannot test if epoch progresses")
+
 		unlockedFunds, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
-		balance, _, err := r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
-		r.NoError(
-			r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
-		)
-		newBalance, _, err := r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
-		require.Equal(r.T, new(big.Int).Add(balance, unlockedFunds), newBalance)
-		balance = newBalance
+		releaseNTN(r, user, new(big.Int).Add(unlockAmount, common.Big1), false, false)
+		releaseNTN(r, user, unlockedFunds, true, true)
+		releaseAllNTN(r, user, unlockedFunds)
 
 		// unlocked funds should be 0 now
 		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, unlockedFunds.Cmp(common.Big0) == 0)
 
-		r.NoError(
-			r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
-		)
-		newBalance, _, err = r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
-		require.Equal(r.T, balance, newBalance)
+		releaseNTN(r, user, new(big.Int).Add(unlockAmount, common.Big1), false, false)
+		releaseNTN(r, user, unlockedFunds, true, true)
+		releaseAllNTN(r, user, unlockedFunds)
+	})
 
-		// unlock some more
-		r.WaitNextEpoch()
-		unlockAmount = big.NewInt(r.Evm.Context.Time.Int64() - currentTime)
+	tests.RunWithSetup("can release in chunks", setup, func(r *tests.Runner) {
+		currentTime := r.WaitSomeEpoch(cliff + 1)
+		unlockAmount := big.NewInt(currentTime - start - 1)
 		require.True(r.T, unlockAmount.Cmp(common.Big2) >= 0, "cannot test")
-		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
 		releaseAmount := new(big.Int).Sub(unlockAmount, common.Big1)
-		r.NoError(
-			r.NonStakableVesting.ReleaseNTN(tests.FromSender(user, nil), common.Big0, releaseAmount),
-		)
-		newBalance, _, err = r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
-		require.Equal(r.T, new(big.Int).Add(balance, releaseAmount), newBalance)
-		balance = newBalance
+		releaseNTN(r, user, releaseAmount, true, false)
 
 		unlockAmount = new(big.Int).Sub(unlockAmount, releaseAmount)
 		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
-		r.NoError(
-			r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
-		)
-		newBalance, _, err = r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
-		require.Equal(r.T, new(big.Int).Add(balance, unlockAmount), newBalance)
+		releaseNTN(r, user, new(big.Int).Add(unlockAmount, common.Big1), false, false)
+		releaseNTN(r, user, unlockAmount, true, true)
+		releaseAllNTN(r, user, unlockAmount)
 	})
 
 	tests.RunWithSetup("cannot unlock more than total amount", setup, func(r *tests.Runner) {
@@ -114,28 +106,57 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
 		// withdraw and wait some more, shouldn't unlock anymore
-		balance, _, err := r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
 		releaseAmount := common.Big1
-		r.NoError(
-			r.NonStakableVesting.ReleaseNTN(tests.FromSender(user, nil), common.Big0, releaseAmount),
-		)
-		newBalance, _, err := r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
-		require.Equal(r.T, new(big.Int).Add(balance, releaseAmount), newBalance)
-		balance = newBalance
+		releaseNTN(r, user, releaseAmount, true, false)
 		unlockAmount = new(big.Int).Sub(unlockAmount, releaseAmount)
+		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.Equal(r.T, unlockAmount, unlockedFunds)
 
 		r.WaitNextEpoch()
 		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
-		r.NoError(
-			r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
-		)
-		newBalance, _, err = r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
-		require.Equal(r.T, new(big.Int).Add(balance, unlockAmount), newBalance)
+		releaseNTN(r, user, new(big.Int).Add(unlockAmount, common.Big1), false, false)
+		releaseNTN(r, user, unlockAmount, true, true)
+		releaseAllNTN(r, user, unlockAmount)
+	})
+}
+
+func TestTreasuryFunds(t *testing.T) {
+	var amount int64 = 100
+	start := time.Now().Unix() + 1
+	// having (amount = end - start) makes (unlockedFunds = time - start)
+	end := amount + start
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		createSchedule(r, amount, start, end)
+		return r
+	}
+
+	tests.RunWithSetup("unsubscribed funds go to treasury", setup, func(r *tests.Runner) {
+		r.WaitSomeEpoch(end + 1)
+		releaseTreasuryFunds(r, big.NewInt(amount), true)
+	})
+
+	tests.RunWithSetup("expired funds go to treasury", setup, func(r *tests.Runner) {
+		subscribedAmount := amount / 2
+		unsubscribedAmount := amount - subscribedAmount
+		currentTime := r.WaitSomeEpoch(start + 10)
+		expiredFunds := (currentTime - start - 1) * subscribedAmount / amount
+		require.True(r.T, expiredFunds > 0, "cannot test")
+
+		user := tests.User
+		subscribeToSchedule(r, user, big.NewInt(subscribedAmount), common.Big0, common.Big0)
+		r.WaitSomeEpoch(end + 1)
+		releaseNTN(r, user, big.NewInt(subscribedAmount-expiredFunds+1), false, true)
+		releaseNTN(r, user, big.NewInt(subscribedAmount-expiredFunds), true, true)
+		releaseTreasuryFunds(r, big.NewInt(expiredFunds+unsubscribedAmount), true)
+		releaseAllNTN(r, user, big.NewInt(subscribedAmount-expiredFunds))
+	})
+
+	tests.RunWithSetup("treasury funds cannot be withdrawn before total duration has passed", setup, func(r *tests.Runner) {
+		releaseTreasuryFunds(r, big.NewInt(amount), false)
 	})
 }
 
@@ -160,6 +181,19 @@ func TestNonStakableAccessRestriction(t *testing.T) {
 		_, err := r.NonStakableVesting.ChangeContractBeneficiary(nil, user, common.Big0, user)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
+	})
+
+	tests.RunWithSetup("only treasury account can claim treasury funds", setup, func(r *tests.Runner) {
+		_, err := r.NonStakableVesting.ReleaseFundsForTreasury(
+			tests.FromSender(tests.User, nil),
+			common.Big0,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
+
+		_, err = r.NonStakableVesting.ReleaseFundsForTreasury(nil, common.Big0)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
 	})
 }
 
@@ -269,4 +303,63 @@ func createSchedule(r *tests.Runner, amount, startTime, endTime int64) {
 			big.NewInt(startTime), new(big.Int).Sub(endBig, startBig),
 		),
 	)
+}
+
+// release NTN
+func releaseNTN(r *tests.Runner, user common.Address, releaseAmount *big.Int, success, revert bool) {
+	balance := r.GetNewtonBalanceOf(user)
+	release := func() {
+		_, err := r.NonStakableVesting.ReleaseNTN(
+			tests.FromSender(user, nil),
+			common.Big0,
+			releaseAmount,
+		)
+		newBalance := r.GetNewtonBalanceOf(user)
+		if success {
+			require.NoError(r.T, err)
+			require.Equal(r.T, new(big.Int).Add(balance, releaseAmount), newBalance)
+		} else {
+			require.Error(r.T, err)
+			require.Equal(r.T, "execution reverted: not enough unlocked funds", err.Error())
+			require.True(r.T, balance.Cmp(newBalance) == 0)
+		}
+	}
+
+	if revert {
+		r.RunAndRevert(func(r *tests.Runner) {
+			release()
+		})
+	} else {
+		release()
+	}
+}
+
+// release all NTN, don't revert
+func releaseAllNTN(r *tests.Runner, user common.Address, unlocked *big.Int) {
+	balance := r.GetNewtonBalanceOf(user)
+	r.NoError(
+		r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
+	)
+	newBalance := r.GetNewtonBalanceOf(user)
+	require.Equal(r.T, new(big.Int).Add(balance, unlocked), newBalance)
+}
+
+func releaseTreasuryFunds(r *tests.Runner, funds *big.Int, success bool) {
+	treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
+	require.NoError(r.T, err)
+	balance := r.GetNewtonBalanceOf(treasury)
+	_, err = r.NonStakableVesting.ReleaseFundsForTreasury(
+		tests.FromSender(treasury, nil),
+		common.Big0,
+	)
+	newBalance := r.GetNewtonBalanceOf(treasury)
+
+	if success {
+		require.NoError(r.T, err)
+		require.Equal(r.T, new(big.Int).Add(balance, funds), newBalance)
+	} else {
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: schedule total duration not expired yet", err.Error())
+		require.True(r.T, balance.Cmp(newBalance) == 0)
+	}
 }

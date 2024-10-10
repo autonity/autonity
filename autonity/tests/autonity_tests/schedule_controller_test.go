@@ -13,12 +13,17 @@ import (
 var operator = tests.Operator
 
 func TestScheduleAccessRestriction(t *testing.T) {
+	user := tests.User
 	setup := func() *tests.Runner {
 		return tests.Setup(t, nil)
 	}
 
 	tests.RunWithSetup("only operator can set max allowed duration", setup, func(r *tests.Runner) {
 		_, err := r.Autonity.SetMaxScheduleDuration(nil, common.Big0)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
+
+		_, err = r.Autonity.SetMaxScheduleDuration(nil, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 	})
@@ -28,7 +33,6 @@ func TestScheduleAccessRestriction(t *testing.T) {
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 
-		user := tests.User
 		_, err = r.Autonity.CreateSchedule(tests.FromSender(user, nil), common.Address{}, common.Big1, common.Big0, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
