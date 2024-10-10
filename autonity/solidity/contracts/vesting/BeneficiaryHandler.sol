@@ -15,6 +15,8 @@ abstract contract BeneficiaryHandler is AccessAutonity {
     mapping(address => uint256[]) internal beneficiaryContracts;
     uint256 private totalContractsCreated;
 
+    event BeneficiaryChanged(address indexed newBeneficiary, address indexed oldBeneficiary, uint256 contractID);
+
     /*
     ============================================================
          Internals
@@ -48,16 +50,7 @@ abstract contract BeneficiaryHandler is AccessAutonity {
         }
         beneficiaryContracts[_beneficiary] = _newContractIDs;
         beneficiaryContracts[_recipient].push(_contractID);
-    }
-
-    /**
-     * @dev Returns a unique id for each contract.
-     * @param _beneficiary address of the contract holder
-     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
-     */
-    function _getUniqueContractID(address _beneficiary, uint256 _id) internal view returns (uint256) {
-        require(beneficiaryContracts[_beneficiary].length > _id, "invalid contract id");
-        return beneficiaryContracts[_beneficiary][_id];
+        emit BeneficiaryChanged(_recipient, _beneficiary, _contractID);
     }
 
     /*
@@ -72,5 +65,15 @@ abstract contract BeneficiaryHandler is AccessAutonity {
      */
     function totalContracts(address _beneficiary) virtual external view returns (uint256) {
         return beneficiaryContracts[_beneficiary].length;
+    }
+
+    /**
+     * @notice Returns a unique id for each contract.
+     * @param _beneficiary address of the contract holder
+     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
+     */
+    function getUniqueContractID(address _beneficiary, uint256 _id) public view returns (uint256) {
+        require(beneficiaryContracts[_beneficiary].length > _id, "invalid contract id");
+        return beneficiaryContracts[_beneficiary][_id];
     }
 }
