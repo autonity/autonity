@@ -2,9 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "./BeneficiaryHandler.sol";
-import "./ContractBase.sol";
+import "./StakingLib.sol";
 
-contract NonStakableVesting is BeneficiaryHandler, ContractBase {
+contract NonStakableVesting is BeneficiaryHandler {
+    using StakingLib for StakingLib.Contract;
 
     struct ScheduleTracker {
         uint256 unsubscribedAmount;
@@ -16,7 +17,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     mapping(uint256 => ScheduleTracker) internal scheduleTracker;
 
     /** @dev List of all contracts */
-    ContractBase.Contract[] internal contracts;
+    StakingLib.Contract[] internal contracts;
     uint256[] internal expiredFundsFromContract;
 
     /** @dev ID of schedule that some contract is subscribed to. */
@@ -54,7 +55,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         // `_expiredFunds` = the amount of funds that have been unlocked already, in case the contract was created later than the `_schedule.start`
         // the `_expiredFunds` belongs to the treasury account, not the `_beneficiary`
         uint256 _expiredFunds = _calculateUnlockedFunds(_schedule.unlockedAmount, _schedule.totalAmount, _amount);
-        ContractBase.Contract memory _contract = _createContract(
+        StakingLib.Contract memory _contract = StakingLib.createContract(
             _amount - _expiredFunds, _schedule.start, _cliffDuration, _schedule.totalDuration, false
         );
         contracts.push(_contract);
@@ -79,7 +80,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
             _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         uint256 _withdrawable = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
-        _transferNTN(msg.sender, _withdrawable);
+        StakingLib.transferToken(address(autonity), msg.sender, _withdrawable);
         _scheduleTracker.withdrawnAmount += _withdrawable;
     }
 
@@ -105,7 +106,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      */
     function releaseAllNTN(uint256 _id) virtual external {
         uint256 _contractID = getUniqueContractID(msg.sender, _id);
-        _releaseNTN(contracts[_contractID], _unlockedFunds(_contractID));
+        contracts[_contractID].releaseToken(address(autonity), _unlockedFunds(_contractID));
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
@@ -119,7 +120,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     function releaseNTN(uint256 _id, uint256 _amount) virtual external {
         uint256 _contractID = getUniqueContractID(msg.sender, _id);
         require(_amount <= _unlockedFunds(_contractID), "not enough unlocked funds");
-        _releaseNTN(contracts[_contractID], _amount);
+        contracts[_contractID].releaseToken(address(autonity), _amount);
     }
 
     /*
@@ -138,7 +139,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      * @param _contractID unique global id of the contract
      */
     function _calculateTotalValue(uint256 _contractID) internal view returns (uint256) {
-        Contract storage _contract = contracts[_contractID];
+        StakingLib.Contract storage _contract = contracts[_contractID];
         return _contract.currentNTNAmount + _contract.withdrawnValue + expiredFundsFromContract[_contractID];
     }
 
@@ -147,7 +148,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      * where schedule = schedule subsribed by the contract.
      */
     function _unlockedFunds(uint256 _contractID) internal view returns (uint256) {
-        ContractBase.Contract storage _contract = contracts[_contractID];
+        StakingLib.Contract storage _contract = contracts[_contractID];
         require(_contract.start + _contract.cliffDuration <= block.timestamp, "cliff period not reached yet");
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), subscribedTo[_contractID]);
         return _calculateUnlockedFunds(
@@ -182,13 +183,13 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         return expiredFundsFromContract[getUniqueContractID(_beneficiary, _id)];
     }
 
-    function getContract(address _beneficiary, uint256 _id) virtual external view returns (ContractBase.Contract memory) {
+    function getContract(address _beneficiary, uint256 _id) virtual external view returns (StakingLib.Contract memory) {
         return contracts[getUniqueContractID(_beneficiary, _id)];
     }
 
-    function getContracts(address _beneficiary) virtual external view returns (ContractBase.Contract[] memory) {
+    function getContracts(address _beneficiary) virtual external view returns (StakingLib.Contract[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
-        ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);
+        StakingLib.Contract[] memory _res = new StakingLib.Contract[] (_contractIDs.length);
         for (uint256 i = 0; i < _contractIDs.length; i++) {
             _res[i] = contracts[_contractIDs[i]];
         }

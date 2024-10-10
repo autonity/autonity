@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.2 ;
 
-import "../vesting/ContractBase.sol";
+import {StakingLib} from "../vesting/StakingLib.sol";
 
 interface IStakableVesting {
     function createContract(address _beneficiary, uint256 _amount, uint256 _startTime, uint256 _cliffDuration, uint256 _totalDuration) external;
@@ -13,7 +13,7 @@ interface IStakableVesting {
     function releaseNTN(uint256 _amount) external;
     function releaseLNTN(address _validator, uint256 _amount) external;
     function updateFunds() external;
-    function updateFundsAndGetContract() external returns (ContractBase.Contract memory);
+    function updateFundsAndGetContract() external returns (StakingLib.Contract memory);
     function bond(address _validator, uint256 _amount) external returns (uint256);
     function unbond(address _validator, uint256 _amount) external returns (uint256);
     function claimRewards(address _validator) external;
@@ -24,7 +24,7 @@ interface IStakableVesting {
     function contractTotalValue() external view returns (uint256);
     function getManagerContractAddress() external view returns (address);
     function getBeneficiary() external view returns (address);
-    function getContract() external view returns (ContractBase.Contract memory);
+    function getContract() external view returns (StakingLib.Contract memory);
     function getLinkedValidators() external view returns (address[] memory);
     function liquidBalance(address _validator) external view returns (uint256);
     function unlockedLiquidBalance(address _validator) external view returns (uint256);

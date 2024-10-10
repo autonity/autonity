@@ -106,9 +106,9 @@ contract StakableVestingManager is BeneficiaryHandler {
      * @notice Returns all the contracts entitled to `_beneficiary`.
      * @param _beneficiary address of the beneficiary of the contract
      */
-    function getContracts(address _beneficiary) external virtual view returns (ContractBase.Contract[] memory) {
+    function getContracts(address _beneficiary) external virtual view returns (StakingLib.Contract[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
-        ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);
+        StakingLib.Contract[] memory _res = new StakingLib.Contract[] (_contractIDs.length);
         for (uint256 i = 0; i < _contractIDs.length; i++) {
             _res[i] = contracts[_contractIDs[i]].getContract();
         }

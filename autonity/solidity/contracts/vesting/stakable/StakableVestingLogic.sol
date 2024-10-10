@@ -4,8 +4,10 @@ pragma solidity ^0.8.0;
 import "../../interfaces/IStakableVesting.sol";
 import "./StakableVestingStorage.sol";
 import "./ValidatorManager.sol";
+import {StakingLib} from "../StakingLib.sol";
 
-contract StakableVestingLogic is StakableVestingStorage, ContractBase, ValidatorManager, IStakableVesting {
+contract StakableVestingLogic is StakableVestingStorage, ValidatorManager, IStakableVesting {
+    using StakingLib for StakingLib.Contract;
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
         managerContract = StakableVestingManager(payable(msg.sender));
@@ -30,7 +32,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         require(beneficiary == address(0), "contract already created");
         require(_beneficiary != address(0), "beneficiary is not a valid address");
         beneficiary = _beneficiary;
-        stakableContract = _createContract(_amount, _startTime, _cliffDuration, _totalDuration, true);
+        stakableContract = StakingLib.createContract(_amount, _startTime, _cliffDuration, _totalDuration, true);
         contractValuation = ContractValuation(_amount, 0);
     }
 
@@ -49,7 +51,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         _updateFunds();
         (uint256 _unlocked, uint256 _totalValue) = _vestedFunds();
         // first NTN is released
-        uint256 _remainingUnlocked = _releaseNTN(stakableContract, _unlocked);
+        uint256 _remainingUnlocked = stakableContract.releaseToken(address(autonity), _unlocked);
         // if there still remains some unlocked funds, i.e. not enough NTN, then LNTN is released
         _remainingUnlocked = _releaseAllVestedLNTN(_remainingUnlocked);
         _updateWithdrawnShare(_unlocked - _remainingUnlocked, _totalValue);
@@ -62,7 +64,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     function releaseAllNTN() virtual external onlyBeneficiary {
         _cleanup();
         (uint256 _unlocked, uint256 _totalValue) = _vestedFunds();
-        uint256 _remainingUnlocked = _releaseNTN(stakableContract, _unlocked);
+        uint256 _remainingUnlocked = stakableContract.releaseToken(address(autonity), _unlocked);
         _updateWithdrawnShare(_unlocked - _remainingUnlocked, _totalValue);
     }
 
@@ -86,7 +88,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         _cleanup();
         (uint256 _unlocked, uint256 _totalValue) = _vestedFunds();
         require(_amount <= _unlocked, "not enough unlocked funds");
-        uint256 _remaining = _releaseNTN(stakableContract, _amount);
+        uint256 _remaining = stakableContract.releaseToken(address(autonity), _amount);
         _updateWithdrawnShare(_amount - _remaining, _totalValue);
     }
 
@@ -138,7 +140,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     /**
      * @notice Updates the funds of the contract and returns the contract.
      */
-    function updateFundsAndGetContract() external returns (ContractBase.Contract memory) {
+    function updateFundsAndGetContract() external returns (StakingLib.Contract memory) {
         _updateFunds();
         return stakableContract;
     }
@@ -318,17 +320,16 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     }
 
     function _transferLNTN(uint256 _amount, address _validator) internal {
-        bool _sent = _liquidStateContract(_validator).transfer(beneficiary, _amount);
-        require(_sent, "LNTN transfer failed");
+        StakingLib.transferToken(address(_liquidStateContract(_validator)), beneficiary, _amount);
     }
 
     function _sendRewards(uint256 _atnReward, uint256 _ntnReward) internal {
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
-        (bool _sent, ) = beneficiary.call{value: _atnReward}("");
+        (bool _sent,) = beneficiary.call{value: _atnReward}("");
         require(_sent, "failed to send ATN");
 
-        _transferNTN(beneficiary, _ntnReward);
+        StakingLib.transferToken(address(autonity), beneficiary, _ntnReward);
     }
 
     /**
@@ -506,7 +507,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @notice Returns the amount of vested funds in NTN.
      */
     function vestedFunds() virtual external view returns (uint256) {
-        (uint256 _unlocked, ) = _vestedFunds();
+        (uint256 _unlocked,) = _vestedFunds();
         return _unlocked;
     }
 
@@ -520,7 +521,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     /**
      * @notice Returns the contract.
      */
-    function getContract() virtual external view returns (ContractBase.Contract memory) {
+    function getContract() virtual external view returns (StakingLib.Contract memory) {
         return stakableContract;
     }
 
