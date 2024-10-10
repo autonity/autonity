@@ -22,7 +22,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -66,10 +65,6 @@ func (p *StateProcessor) ProcessFromCache(block *types.Block, statedb *state.Sta
 		allLogs   []*types.Log
 		err       error
 	)
-	// Mutate the block and state according to any hard-fork specs
-	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
-		misc.ApplyDAOHardFork(statedb)
-	}
 
 	st := p.bc.cachedState.Load()
 	if st != nil && st.hash == blockHash {

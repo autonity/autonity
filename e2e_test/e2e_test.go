@@ -258,7 +258,7 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 
 	// handle the proposal
 	err = proposer.HandleProposal(context.TODO(), proposal)
-	require.Error(t, constants.ErrAlreadyHaveProposal)
+	require.Error(t, err, constants.ErrAlreadyHaveProposal)
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
