@@ -39,7 +39,7 @@ func Test_ProfileLimitBreach(t *testing.T) {
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
 	cfg.cpuThreshold = 20.0
-	cfg.profileDir = os.TempDir()
+	cfg.profileDir = filepath.Join(os.TempDir(), "test-profiles")
 	defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
