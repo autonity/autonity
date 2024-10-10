@@ -11,18 +11,6 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
     ============================================================
      */
 
-    function _unbondingRequestExpired(address _validator, uint256 _unbondingID) internal {
-        if (validators[_validator].lastUnbondingID == _unbondingID+1) {
-            validators[_validator].lastUnbondingID = 0;
-            validators[_validator].lastUnbondingEpoch = 0;
-        }
-    }
-
-    function _newUnbondingRequested(address _validator, uint256 _epochID, uint256 _unbondingID) internal {
-        validators[_validator].lastUnbondingID = _unbondingID+1;
-        validators[_validator].lastUnbondingEpoch = _epochID+1;
-    }
-
     function _bondingRequestExpired(address _validator, uint256 _epochID) internal {
         if (validators[_validator].lastBondingEpoch == _epochID+1) {
             validators[_validator].lastBondingEpoch = 0;
@@ -30,8 +18,9 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
     }
 
     /**
-     * @dev Adds the validator in the list and inform that new bonding is requested.
+     * @dev Adds the validator in the list and tracks the `_epochID`.
      * @param _validator validator address
+     * @param _epochID epoch id of the request
      */
     function _newBondingRequested(address _validator, uint256 _epochID) internal {
         _addValidator(_validator);
@@ -43,21 +32,22 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
     }
 
     /**
-     * @dev Adds validator in `bondedValidators` array.
+     * @dev Adds validator in `linkedValidators` array.
      */
     function _addValidator(address _validator) internal {
         if (validatorIndex[_validator] > 0) return;
-        bondedValidators.push(_validator);
+        linkedValidators.push(_validator);
         // offset by 1 to handle empty value
-        validatorIndex[_validator] = bondedValidators.length;
+        validatorIndex[_validator] = linkedValidators.length;
         if (address(validators[_validator].liquidStateContract) == address(0)) {
             _initiateValidator(_validator);
         }
     }
 
     /**
-     * @dev Removes all the validators that are not needed for some contract anymore, i.e. any validator
-     * that has 0 liquid for that contract and all rewards from the validator are claimed.
+     * @dev Removes all the validators that are not needed for the contract anymore, i.e. any validator
+     * that has 0 liquid for that contract and all rewards from the validator are claimed and no pending
+     * bonding or unbonding request.
      */
     function _clearValidators() internal {
         address _myAddress = address(this);
@@ -65,18 +55,13 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
         uint256 _ntn;
         LinkedValidator storage _validator;
         uint256 _epochID = _getEpochID();
-        for (uint256 _idx = 0; _idx < bondedValidators.length ; _idx++) {
+        for (uint256 _idx = 0; _idx < linkedValidators.length ; _idx++) {
             // if both liquid balance and unclaimed rewards are 0 and no new bonding is requested
             // then the validator is not needed anymore
-            _validator = validators[bondedValidators[_idx]];
+            _validator = validators[linkedValidators[_idx]];
             while (true) {
-                if (_validator.lastBondingEpoch == _epochID+1 || _validator.lastUnbondingEpoch == _epochID+1) {
+                if (_validator.lastBondingEpoch == _epochID+1) {
                     break;
-                }
-                if (_validator.lastUnbondingID > 0) {
-                    if (autonity.isUnbondingReleased(_validator.lastUnbondingID) == false) {
-                        break;
-                    }
                 }
                 if (_validator.liquidStateContract.balanceOf(_myAddress) > 0) {
                     break;
@@ -85,11 +70,11 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
                 if (_atn > 0 || _ntn > 0) {
                     break;
                 }
-                _removeValidator(bondedValidators[_idx]);
-                if (_idx >= bondedValidators.length) {
+                _removeValidator(linkedValidators[_idx]);
+                if (_idx >= linkedValidators.length) {
                     break;
                 }
-                _validator = validators[bondedValidators[_idx]];
+                _validator = validators[linkedValidators[_idx]];
             }
         }
     }
@@ -97,21 +82,21 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
     function _removeValidator(address _validator) private {
         // index is offset by 1
         uint256 _idxDelete = validatorIndex[_validator];
-        if (_idxDelete == bondedValidators.length) {
+        if (_idxDelete == linkedValidators.length) {
             // it is the last validator in the array
-            bondedValidators.pop();
+            linkedValidators.pop();
             delete validatorIndex[_validator];
             delete validators[_validator];
             return;
         }
         
-        // the `_validator` to be deleted sits in the middle of the array
-        address _lastValidator = bondedValidators[bondedValidators.length-1];
+        // the `_validator` to be deleted sits somewhere in the middle of the array
+        address _lastValidator = linkedValidators[linkedValidators.length-1];
         // replacing the `_validator` in `_idxDelete-1` with `_lastValidator`, effectively deleting `_validator`
-        bondedValidators[_idxDelete-1] = _lastValidator;
+        linkedValidators[_idxDelete-1] = _lastValidator;
         validatorIndex[_lastValidator] = _idxDelete;
         // deleting the last one
-        bondedValidators.pop();
+        linkedValidators.pop();
         delete validators[_validator];
         delete validatorIndex[_validator];
     }

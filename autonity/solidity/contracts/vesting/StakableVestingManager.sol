@@ -6,18 +6,7 @@ import "./stakable/StakableVestingLogic.sol";
 import "./stakable/StakableVestingState.sol";
 
 contract StakableVestingManager is BeneficiaryHandler {
-    // NTN can be here: LOCKED or UNLOCKED
-    // LOCKED are tokens that can't be withdrawn yet, need to wait for the release contract
-    // UNLOCKED are tokens that can be withdrawn
     uint256 public contractVersion = 1;
-
-    /**
-     * @notice Sum of total amount of contracts that can be created.
-     * Each time a new contract is created, `totalNominal` is decreased.
-     * Address(this) should have `totalNominal` amount of NTN availabe at genesis,
-     * otherwise withdrawing or bonding from a contract is not possible.
-     */
-    uint256 public totalNominal;
 
     address public stakableVestingLogicContract;
 
@@ -33,11 +22,11 @@ contract StakableVestingManager is BeneficiaryHandler {
     }
 
     /**
-     * @notice Creates a new stakable contract.
+     * @notice Creates a new stakable contract. the operation is invalid if the cliff duration is already past.
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
-     * @param _startTime start time of the vesting
-     * @param _cliffDuration cliff period
+     * @param _startTime start time of the contract
+     * @param _cliffDuration cliff duration of the contract
      * @param _totalDuration total duration of the contract
      * @custom:restricted-to operator account
      */
@@ -49,7 +38,7 @@ contract StakableVestingManager is BeneficiaryHandler {
         uint256 _totalDuration
     ) virtual onlyOperator public {
         require(_startTime + _cliffDuration >= autonity.lastEpochTime(), "contract cliff duration is past");
-        require(totalNominal >= _amount, "not enough stake reserved to create a new contract");
+        require(autonity.balanceOf(address(this)) >= _amount, "not enough stake reserved to create a new contract");
 
         uint256 _contractID = _newContractCreated(_beneficiary);
         require(_contractID == contracts.length, "invalid contract id");
@@ -66,7 +55,6 @@ contract StakableVestingManager is BeneficiaryHandler {
         contracts.push(_stakableVestingContract);
         bool _sent = autonity.transfer(address(_stakableVestingContract), _amount);
         require(_sent, "failed to transfer NTN");
-        totalNominal -= _amount;
     }
 
     /**
@@ -80,20 +68,9 @@ contract StakableVestingManager is BeneficiaryHandler {
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        uint256 _contractID = getUniqueContractID(_beneficiary, _id);
         contracts[_contractID].changeContractBeneficiary(_recipient);
         _changeContractBeneficiary(_beneficiary, _contractID, _recipient);
-    }
-
-    /**
-     * @notice Set the value of totalNominal.
-     * In case totalNominal is increased, the increased amount should be minted
-     * and transferred to the address of this contract, otherwise newly created vesting
-     * contracts will not have funds to withdraw or bond. See `ewContract()`.
-     * @custom:restricted-to operator account
-     */
-    function setTotalNominal(uint256 _newTotalNominal) virtual external onlyOperator {
-        totalNominal = _newTotalNominal;
     }
 
     /**
@@ -107,10 +84,28 @@ contract StakableVestingManager is BeneficiaryHandler {
     ============================================================
      */
 
-    function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakableVesting) {
-        return contracts[_getUniqueContractID(_beneficiary, _id)];
+    /**
+     * @notice Returns the smart contract account that holds the corresponding stake-able vesting contract.
+     * @param _uniqueContractID unique id of the contract
+     */
+    function getContractAccount(uint256 _uniqueContractID) external virtual view returns (IStakableVesting) {
+        require(_uniqueContractID < contracts.length, "invalid contract id");
+        return contracts[_uniqueContractID];
     }
 
+    /**
+     * @notice Returns the smart contract account that holds the corresponding stake-able vesting contract.
+     * @param _beneficiary address of the beneficiary of the contract
+     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
+     */
+    function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakableVesting) {
+        return contracts[getUniqueContractID(_beneficiary, _id)];
+    }
+
+    /**
+     * @notice Returns all the contracts entitled to `_beneficiary`.
+     * @param _beneficiary address of the beneficiary of the contract
+     */
     function getContracts(address _beneficiary) external virtual view returns (ContractBase.Contract[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
         ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);

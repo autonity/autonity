@@ -281,6 +281,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
             accounts[_validators[i].treasury] += _bondedStake;
             stakeSupply += _bondedStake;
+            stakeCirculating += _bondedStake;
             _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
         }
     }
@@ -664,6 +665,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         require(accounts[_addr] >= _amount, "Amount exceeds balance");
         accounts[_addr] -= _amount;
         stakeSupply -= _amount;
+        stakeCirculating -= _amount;
         emit BurnedStake(_addr, _amount);
     }
 
