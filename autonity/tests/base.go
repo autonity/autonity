@@ -12,12 +12,19 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/accountability"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
 
 	_ "github.com/autonity/autonity/eth/tracers/native" //nolint
 )
@@ -161,9 +168,7 @@ func (r *Runner) NoError(gasConsumed uint64, err error) uint64 {
 func (r *Runner) LiquidStateContract(validatorAddress common.Address) *ILiquidLogic {
 	validator, _, err := r.Autonity.GetValidator(nil, validatorAddress)
 	require.NoError(r.T, err)
-	abi, err := ILiquidLogicMetaData.GetAbi()
-	require.NoError(r.T, err)
-	return &ILiquidLogic{&contract{validator.LiquidStateContract, abi, r}}
+	return &ILiquidLogic{r.ContractObject(ILiquidLogicMetaData, validator.LiquidStateContract)}
 }
 
 func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -221,12 +226,18 @@ func RunWithSetup(name string, setup func() *Runner, run func(r *Runner)) {
 	r.Run(name, run)
 }
 
-func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) { //nolint
+func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) {
 	r.Evm.StateDB.AddBalance(account, amount)
 }
 
-func (r *Runner) GetBalanceOf(account common.Address) *big.Int { //nolint
+func (r *Runner) GetBalanceOf(account common.Address) *big.Int {
 	return r.Evm.StateDB.GetBalance(account)
+}
+
+func (r *Runner) GetNewtonBalanceOf(account common.Address) *big.Int {
+	balance, _, err := r.Autonity.BalanceOf(nil, account)
+	require.NoError(r.T, err)
+	return balance
 }
 
 func (r *Runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte, params ...any) (common.Address, uint64, *contract, error) {
@@ -246,7 +257,7 @@ func (r *Runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte,
 	return contractAddress, gas - leftOverGas, &contract{contractAddress, abi, r}, err
 }
 
-func (r *Runner) WaitNBlocks(n int) { //nolint
+func (r *Runner) WaitNBlocks(n int) {
 	start := r.Evm.Context.BlockNumber
 	epochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
@@ -273,17 +284,17 @@ func (r *Runner) WaitNextEpoch() {
 	r.WaitNBlocks(int(diff.Uint64() + 1))
 }
 
-func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address) *contract {
+func (r *Runner) ContractObject(metadata *bind.MetaData, address common.Address) *contract {
 	parsed, err := metadata.GetAbi()
 	require.NoError(r.T, err)
 	return &contract{address, parsed, r}
 }
 
 func (r *Runner) StakableVestingContractObject(user common.Address, contractID *big.Int) *IStakableVesting {
-	address, _, err := r.StakableVestingManager.GetContractAccount(nil, user, contractID)
+	address, _, err := r.StakableVestingManager.GetContractAccount0(nil, user, contractID)
 	require.NoError(r.T, err)
 	return &IStakableVesting{
-		r.contractObject(IStakableVestingMetaData, address),
+		r.ContractObject(IStakableVestingMetaData, address),
 	}
 }
 
@@ -300,7 +311,7 @@ func (r *Runner) generateNewCommittee() {
 	}
 }
 
-func (r *Runner) WaitSomeBlock(endTime int64) int64 { //nolint
+func (r *Runner) WaitSomeBlock(endTime int64) int64 {
 	// bcause we have 1 block/s
 	r.WaitNBlocks(int(endTime) - int(r.Evm.Context.Time.Int64()))
 	return r.Evm.Context.Time.Int64()
@@ -315,7 +326,7 @@ func (r *Runner) WaitSomeEpoch(endTime int64) int64 {
 	return currentTime
 }
 
-func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) { //nolint
+func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) {
 	require.True(r.T, r.Evm.StateDB.GetBalance(sender).Cmp(value) >= 0, "not enough balance to transfer")
 	r.Evm.StateDB.SubBalance(sender, value)
 	r.Evm.StateDB.AddBalance(recipient, value)
@@ -513,9 +524,6 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	r.NoError(
 		r.Autonity.Mint(Operator, r.StakableVestingManager.address, params.DefaultStakableVestingGenesis.TotalNominal),
 	)
-	r.NoError(
-		r.StakableVestingManager.SetTotalNominal(Operator, params.DefaultStakableVestingGenesis.TotalNominal),
-	)
 
 	//
 	// Step 10: Non-Stakable Vesting contract deployment
@@ -583,4 +591,38 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 
 func FromSender(sender common.Address, value *big.Int) *runOptions {
 	return &runOptions{origin: sender, value: value}
+}
+
+func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address) AccountabilityEvent {
+	offenderNodeKey, _ := crypto.HexToECDSA(params.TestNodeKeys[0])
+	offender := crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
+	offenderConsensusKey, _ := blst.SecretKeyFromHex(params.TestConsensusKeys[0])
+	cm := types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
+	signer := func(hash common.Hash) blst.Signature {
+		return offenderConsensusKey.Sign(hash[:])
+	}
+	prevote := message.NewPrevote(0, height, value, signer, &cm, 1)
+
+	p := &accountability.Proof{
+		Type:    autonity.Accusation,
+		Rule:    autonity.PVN,
+		Message: prevote,
+	}
+	rawProof, err := rlp.EncodeToBytes(p)
+	if err != nil {
+		panic(err)
+	}
+
+	return AccountabilityEvent{
+		EventType:      uint8(p.Type),
+		Rule:           uint8(p.Rule),
+		Reporter:       reporter,
+		Offender:       offender,
+		RawProof:       rawProof,
+		Id:             common.Big0,                           // assigned contract-side
+		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side
+		ReportingBlock: common.Big0,                           // assigned contract-side
+		Epoch:          common.Big0,                           // assigned contract-side
+		MessageHash:    common.Big0,                           // assigned contract-side
+	}
 }

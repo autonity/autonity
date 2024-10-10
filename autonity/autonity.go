@@ -643,10 +643,6 @@ func (c *GenesisEVMContracts) DeployStakableVestingContract(bytecode []byte, aut
 	return c.StakableVestingManagerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract)
 }
 
-func (c *GenesisEVMContracts) SetStakableTotalNominal(totalNominal *big.Int) error {
-	return c.StakableVestingManagerContract.SetTotalNominal(nil, c.statedb, totalNominal)
-}
-
 func (c *GenesisEVMContracts) NewStakableContract(contract params.StakableVestingData) error {
 	return c.StakableVestingManagerContract.NewContract(nil, c.statedb, contract)
 }

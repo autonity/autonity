@@ -4,57 +4,17 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/rlp"
 
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	offenderNodeKey, _      = crypto.HexToECDSA(params.TestNodeKeys[0])
-	offenderConsensusKey, _ = blst.SecretKeyFromHex(params.TestConsensusKeys[0])
-	offender                = crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
-	cm                      = types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
-	signer                  = func(hash common.Hash) blst.Signature {
-		return offenderConsensusKey.Sign(hash[:])
-	}
 	reporter = *params.TestAutonityContractConfig.Validators[0].NodeAddress
 )
-
-func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address) AccountabilityEvent {
-	prevote := message.NewPrevote(0, height, value, signer, &cm, 1)
-
-	p := &accountability.Proof{
-		Type:    autonity.Accusation,
-		Rule:    autonity.PVN,
-		Message: prevote,
-	}
-	rawProof, err := rlp.EncodeToBytes(p)
-	if err != nil {
-		panic(err)
-	}
-
-	return AccountabilityEvent{
-		EventType:      uint8(p.Type),
-		Rule:           uint8(p.Rule),
-		Reporter:       reporter,
-		Offender:       offender,
-		RawProof:       rawProof,
-		Id:             common.Big0,                           // assigned contract-side
-		Block:          new(big.Int).SetUint64(p.Message.H()), // assigned contract-side
-		ReportingBlock: common.Big0,                           // assigned contract-side
-		Epoch:          common.Big0,                           // assigned contract-side
-		MessageHash:    common.Big0,                           // assigned contract-side
-	}
-}
 
 func TestAccusation(t *testing.T) {
 	r := Setup(t, nil)
