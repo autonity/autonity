@@ -30,6 +30,8 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
@@ -41,7 +43,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/rlp"
-	"gopkg.in/urfave/cli.v1"
 )
 
 const (
@@ -125,11 +126,11 @@ func monitorFreeDiskSpace(sigc chan os.Signal, path string, freeDiskSpaceCritica
 			break
 		}
 		if freeSpace < freeDiskSpaceCritical {
-			log.Error("Low disk space. Gracefully shutting down Geth to prevent database corruption.", "available", common.StorageSize(freeSpace))
+			log.Error("Low disk space. Gracefully shutting down Autonity to prevent database corruption.", "available", common.StorageSize(freeSpace))
 			sigc <- syscall.SIGTERM
 			break
 		} else if freeSpace < 2*freeDiskSpaceCritical {
-			log.Warn("Disk space is running low. Geth will shutdown if disk space runs below critical level.", "available", common.StorageSize(freeSpace), "critical_level", common.StorageSize(freeDiskSpaceCritical))
+			log.Warn("Disk space is running low. Autonity will shutdown if disk space runs below critical level.", "available", common.StorageSize(freeSpace), "critical_level", common.StorageSize(freeDiskSpaceCritical))
 		}
 		time.Sleep(60 * time.Second)
 	}
