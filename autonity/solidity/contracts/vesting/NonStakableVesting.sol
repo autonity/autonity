@@ -26,12 +26,13 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
 
     /**
      * @notice Creates a new non-stakable contract which subscribes to some schedule.
-     * @dev If the contract is created before cliff period has passed, the beneficiary is entitled to NTN as it unlocks.
+     * If the contract is created before the start timestamp, the beneficiary is entitled to NTN as it unlocks.
      * Otherwise, the contract already has some unlocked NTN which is not entitled to beneficiary. However, NTN that will
      * be unlocked in future will be entitled to beneficiary.
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
      * @param _scheduleID schedule to subscribe
+     * @param _cliffDuration cliff duration of the contract
      * @custom:restricted-to operator account
      */
     function newContract(
@@ -64,6 +65,11 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         _scheduleTracker.expiredFromContract += _expiredFunds;
     }
 
+    /**
+     * @notice Transfers all the unsubscribed funds of the schedule to the treasury account after the schedule total duration has expired.
+     * @param _scheduleID id of the schedule
+     * @custom:restricted-to treasury account
+     */
     function releaseFundsForTreasury(uint256 _scheduleID) virtual external onlyTreasury {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
@@ -72,9 +78,9 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         if (!_scheduleTracker.initiated) {
             _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
         }
-        uint256 _unlocked = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
-        _transferNTN(msg.sender, _unlocked);
-        _scheduleTracker.withdrawnAmount += _unlocked;
+        uint256 _withdrawable = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
+        _transferNTN(msg.sender, _withdrawable);
+        _scheduleTracker.withdrawnAmount += _withdrawable;
     }
 
     /**
@@ -87,7 +93,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
-        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
+        uint256 _contractID = getUniqueContractID(_beneficiary, _id);
         _changeContractBeneficiary(_beneficiary, _contractID, _recipient);
     }
 
@@ -98,7 +104,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      * from 0 to (n-1). Beneficiary does not need to know the unique global contract id.
      */
     function releaseAllNTN(uint256 _id) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        uint256 _contractID = getUniqueContractID(msg.sender, _id);
         _releaseNTN(contracts[_contractID], _unlockedFunds(_contractID));
     }
 
@@ -106,9 +112,12 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     /**
      * @notice Used by beneficiary to transfer some amount of unlocked NTN of some contract to his own address.
      * @param _amount amount of NTN to release
+     * @param _id id of the contract numbered from 0 to (n-1) where n = total contracts entitled to
+     * the beneficiary (excluding canceled ones). So any beneficiary can number their contracts
+     * from 0 to (n-1). Beneficiary does not need to know the unique global contract id.
      */
     function releaseNTN(uint256 _id, uint256 _amount) virtual external {
-        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
+        uint256 _contractID = getUniqueContractID(msg.sender, _id);
         require(_amount <= _unlockedFunds(_contractID), "not enough unlocked funds");
         _releaseNTN(contracts[_contractID], _amount);
     }
@@ -166,15 +175,15 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     function unlockedFunds(
         address _beneficiary, uint256 _id
     ) virtual external view returns (uint256) {
-        return _unlockedFunds(_getUniqueContractID(_beneficiary, _id));
+        return _unlockedFunds(getUniqueContractID(_beneficiary, _id));
     }
 
     function getExpiredFunds(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
-        return expiredFundsFromContract[_getUniqueContractID(_beneficiary, _id)];
+        return expiredFundsFromContract[getUniqueContractID(_beneficiary, _id)];
     }
 
     function getContract(address _beneficiary, uint256 _id) virtual external view returns (ContractBase.Contract memory) {
-        return contracts[_getUniqueContractID(_beneficiary, _id)];
+        return contracts[getUniqueContractID(_beneficiary, _id)];
     }
 
     function getContracts(address _beneficiary) virtual external view returns (ContractBase.Contract[] memory) {
