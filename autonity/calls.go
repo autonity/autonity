@@ -177,9 +177,6 @@ func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *Gen
 	if err := evmContracts.Mint(params.StakableVestingManagerContractAddress, config.StakableVestingConfig.TotalNominal); err != nil {
 		return fmt.Errorf("error while minting total nominal to stakeable vesting contract: %w", err)
 	}
-	if err := evmContracts.SetStakableTotalNominal(config.StakableVestingConfig.TotalNominal); err != nil {
-		return fmt.Errorf("error while setting total nominal in stakeable vesting contract: %w", err)
-	}
 	for _, vesting := range config.StakableVestingConfig.StakableContracts {
 		if err := evmContracts.NewStakableContract(vesting); err != nil {
 			return fmt.Errorf("failed to create new stakeable vesting contract: %w", err)
@@ -465,20 +462,6 @@ func (c *NonStakableVestingContract) NewContract(header *types.Header, statedb v
 	ret, err := c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
 	if err != nil {
 		return fmt.Errorf("error while calling newContract: %w, returned %s", err, string(ret))
-	}
-
-	return nil
-}
-
-func (c *StakableVestingManagerContract) SetTotalNominal(header *types.Header, statedb vm.StateDB, totalNominal *big.Int) error {
-	packedArgs, err := c.contractABI.Pack("setTotalNominal", totalNominal)
-	if err != nil {
-		return fmt.Errorf("error while generating call data for setTotalNominal: %w", err)
-	}
-
-	_, err = c.CallContractFuncAs(statedb, header, c.chainConfig.AutonityContractConfig.Operator, packedArgs)
-	if err != nil {
-		return fmt.Errorf("error while calling setTotalNominal: %w", err)
 	}
 
 	return nil

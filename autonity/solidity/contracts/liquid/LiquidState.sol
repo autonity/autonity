@@ -6,7 +6,7 @@ import "../DelegateCaller.sol";
 import "./LiquidLogic.sol";
 import "./LiquidStorage.sol";
 
-contract LiquidState is DelegateCaller, LiquidStorage {
+contract LiquidState is LiquidStorage {
 
     constructor(
         address _validator,
@@ -31,7 +31,7 @@ contract LiquidState is DelegateCaller, LiquidStorage {
      * function in the contract matches the call data.
      */
     fallback() payable external {
-        _delegate(
+        DelegateCaller._delegate(
             _liquidLogicContract()
         );
     }
@@ -41,7 +41,7 @@ contract LiquidState is DelegateCaller, LiquidStorage {
      * is empty.
      */
     receive() payable external {
-        _delegate(
+        DelegateCaller._delegate(
             _liquidLogicContract()
         );
     }
