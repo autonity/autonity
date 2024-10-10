@@ -112,7 +112,7 @@ func (ms *monitorService) updateThresholds() {
 
 func (ms *monitorService) collectDiagnostics(currentDate string) {
 	profileDir := filepath.Join(ms.config.profileDir, currentDate)
-	err := os.MkdirAll(profileDir, 0664)
+	err := os.MkdirAll(profileDir, 0774)
 	if err != nil && !os.IsExist(err) {
 		log.Error("Error creating profile directory")
 		return
