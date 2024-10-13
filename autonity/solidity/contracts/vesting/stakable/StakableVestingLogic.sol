@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../interfaces/IStakableVesting.sol";
+import {PendingStakingRequest, QueueLib} from "./QueueLib.sol";
 import "./StakableVestingStorage.sol";
 import "./ValidatorManager.sol";
 
@@ -28,9 +29,8 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         uint256 _totalDuration
     ) virtual external onlyManager {
         require(beneficiary == address(0), "contract already created");
-        require(_beneficiary != address(0), "beneficiary is not a valid address");
         beneficiary = _beneficiary;
-        stakableContract = _createContract(_amount, _startTime, _cliffDuration, _totalDuration, true);
+        stakableContract = _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
         contractValuation = ContractValuation(_amount, 0);
     }
 
@@ -109,6 +109,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
 
         stakableContract.withdrawnValue += _value;
         _transferLNTN(_amount, _validator);
+        emit FundsReleased(beneficiary, address(_liquidStateContract(_validator)), _amount);
         _updateWithdrawnShare(_value, _totalValue);
         _clearValidators();
     }
@@ -121,7 +122,6 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @custom:restricted-to operator account
      */
     function changeContractBeneficiary(address _recipient) virtual external onlyManager {
-        _updateFunds();
         _claimAndSendRewards();
         _clearValidators();
         beneficiary = _recipient;
@@ -131,14 +131,14 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @notice In case some funds are missing due to some pending staking operation that failed,
      * this function updates the funds by handling the pending requests.
      */
-    function updateFunds() virtual external {
+    function updateFunds() virtual external onlyBeneficiary {
         _updateFunds();
     }
 
     /**
      * @notice Updates the funds of the contract and returns the contract.
      */
-    function updateFundsAndGetContract() external returns (ContractBase.Contract memory) {
+    function updateFundsAndGetContract() external onlyBeneficiary returns (ContractBase.Contract memory) {
         _updateFunds();
         return stakableContract;
     }
@@ -150,9 +150,11 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @param _amount amount of NTN to bond
      */
     function bond(address _validator, uint256 _amount) virtual external onlyBeneficiary returns (uint256) {
-        require(stakableContract.start <= block.timestamp, "contract not started yet");
         uint256 _epochID = _getEpochID();
-        bondingQueue.push(PendingBondingRequest(_amount, _epochID, _validator));
+        QueueLib._enqueue(
+            bondingQueue,
+            PendingStakingRequest(_epochID, _validator, _amount, 0) // requestID not needed
+        );
         _newBondingRequested(_validator, _epochID);
         return autonity.bond(_validator, _amount);
     }
@@ -165,7 +167,10 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     function unbond(address _validator, uint256 _amount) virtual external onlyBeneficiary returns (uint256) {
         uint256 _unbondingID = autonity.unbond(_validator, _amount);
         uint256 _epochID = _getEpochID();
-        unbondingQueue.push(PendingUnbondingRequest(_unbondingID, _epochID, _validator));
+        QueueLib._enqueue(
+            unbondingQueue,
+            PendingStakingRequest(_epochID, _validator, 0, _unbondingID) // amount not needed
+        );
         return _unbondingID;
     }
 
@@ -273,12 +278,14 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
             if (_remaining >= _value) {
                 _remaining -= _value;
                 _transferLNTN(_balance, _validator);
+                emit FundsReleased(msg.sender, address(_liquidStateContract(_validator)), _balance);
             }
             else {
                 _liquid = _getLiquidFromNTN(_validator, _remaining);
                 require(_liquid <= _balance, "conversion not working");
                 _remaining = 0;
                 _transferLNTN(_liquid, _validator);
+                emit FundsReleased(msg.sender, address(_liquidStateContract(_validator)), _liquid);
             }
         }
         stakableContract.withdrawnValue += _availableUnlockedFunds - _remaining;
@@ -348,44 +355,39 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         _clearValidators();
     }
 
-    function _deleteBondingRequest(PendingBondingRequest storage _bondingRequest) private {
-        _bondingRequest.amount = 0;
-        _bondingRequest.epochID = 0;
-        _bondingRequest.validator = address(0);
-    }
-
     /**
      * @dev Handles all the pending bonding requests.
      * All the requests from past epoch can be deleted as the bonding requests are
      * applied at epoch end immediately. Requests from current epoch are still pending.
      */
     function _handlePendingBondingRequest() internal {
-        PendingBondingRequest storage _bondingRequest;
+        PendingStakingRequest storage _bondingRequest;
         uint256 _currentEpochID = _getEpochID();
-        uint256 _length = bondingQueue.length;
-        uint256 _topIndex = bondingQueueTopIndex;
+        PendingStakingRequest[] storage _queue = bondingQueue.array;
+        uint256 _length = _queue.length;
+        uint256 _topIndex = bondingQueue.topIndex;
 
         // delete all bonding requests from the past epoch
         while (_topIndex < _length) {
-            _bondingRequest = bondingQueue[_topIndex];
+            _bondingRequest = _queue[_topIndex];
             if (_bondingRequest.epochID < _currentEpochID) {
                 _bondingRequestExpired(_bondingRequest.validator, _bondingRequest.epochID);
-                _deleteBondingRequest(_bondingRequest);
                 _topIndex++;
             }
             else break;
         }
-        bondingQueueTopIndex = _topIndex;
+        QueueLib._dequeue(bondingQueue, _topIndex - bondingQueue.topIndex);
     }
 
     function _calculateNewtonUnderBonding() internal view returns (uint256) {
         uint256 _bondingNTN;
-        PendingBondingRequest storage _bondingRequest;
+        PendingStakingRequest storage _bondingRequest;
         uint256 _currentEpochID = _getEpochID();
-        uint256 _length = bondingQueue.length;
+        PendingStakingRequest[] storage _queue = bondingQueue.array;
+        uint256 _length = _queue.length;
 
-        for (uint256 i = bondingQueueTopIndex; i < _length; i++) {
-            _bondingRequest = bondingQueue[i];
+        for (uint256 i = bondingQueue.topIndex; i < _length; i++) {
+            _bondingRequest = _queue[i];
             if (_bondingRequest.epochID < _currentEpochID) {
                 continue;
             }
@@ -394,52 +396,47 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         return _bondingNTN;
     }
 
-    function _deleteUnbondingRequest(PendingUnbondingRequest storage _unbondingRequest) private {
-        _unbondingRequest.unbondingID = 0;
-        _unbondingRequest.epochID = 0;
-        _unbondingRequest.validator = address(0);
-    }
-
     /**
      * @dev Handles all the pending unbonding requests. All unbonding requests from past epoch are applied.
      * Unbonding request that are released in Autonity can be deleted.
      */
     function _handlePendingUnbondingRequest() internal {
-        PendingUnbondingRequest storage _unbondingRequest;
-        uint256 _length = unbondingQueue.length;
-        uint256 _topIndex = unbondingQueueTopIndex;
+        PendingStakingRequest storage _unbondingRequest;
+        PendingStakingRequest[] storage _queue = unbondingQueue.array;
+        uint256 _length = _queue.length;
+        uint256 _topIndex = unbondingQueue.topIndex;
 
         // first delete all unbonding request from queue that are released
         while (_topIndex < _length) {
-            _unbondingRequest = unbondingQueue[_topIndex];
-            if (autonity.isUnbondingReleased(_unbondingRequest.unbondingID)) {
-                _deleteUnbondingRequest(_unbondingRequest);
+            _unbondingRequest = _queue[_topIndex];
+            if (autonity.isUnbondingReleased(_unbondingRequest.requestID)) {
                 _topIndex++;
             }
             else {
                 break;
             }
         }
-        unbondingQueueTopIndex = _topIndex;
+        QueueLib._dequeue(unbondingQueue, _topIndex - unbondingQueue.topIndex);
     }
 
     function _calculateNewtonUnderUnbonding() internal view returns (uint256) {
         uint256 _unbondingNTN;
         uint256 _unbondingShare;
-        PendingUnbondingRequest storage _unbondingRequest;
+        PendingStakingRequest storage _unbondingRequest;
         Autonity.Validator memory _validator;
         uint256 _currentEpochID = _getEpochID();
-        uint256 _length = unbondingQueue.length;
+        PendingStakingRequest[] storage _queue = unbondingQueue.array;
+        uint256 _length = _queue.length;
 
-        for (uint256 i = unbondingQueueTopIndex; i < _length; i++) {
-            _unbondingRequest = unbondingQueue[i];
+        for (uint256 i = unbondingQueue.topIndex; i < _length; i++) {
+            _unbondingRequest = _queue[i];
             if (_unbondingRequest.epochID == _currentEpochID) {
                 break;
             }
-            if (autonity.isUnbondingReleased(_unbondingRequest.unbondingID)) {
+            if (autonity.isUnbondingReleased(_unbondingRequest.requestID)) {
                 continue;
             }
-            _unbondingShare = autonity.getUnbondingShare(_unbondingRequest.unbondingID);
+            _unbondingShare = autonity.getUnbondingShare(_unbondingRequest.requestID);
             if (_unbondingShare == 0) {
                 continue;
             }

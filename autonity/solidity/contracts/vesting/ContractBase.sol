@@ -5,6 +5,8 @@ import "../AccessAutonity.sol";
 
 abstract contract ContractBase is AccessAutonity {
 
+    event FundsReleased(address indexed to, address indexed token, uint256 amount);
+
     struct Contract {
         uint256 currentNTNAmount;
         uint256 withdrawnValue;
@@ -21,13 +23,15 @@ abstract contract ContractBase is AccessAutonity {
      */
 
     function _createContract(
+        address _beneficiary,
         uint256 _amount,
         uint256 _startTime,
         uint256 _cliffDuration,
         uint256 _totalDuration,
         bool _canStake
     ) internal pure returns (Contract memory) {
-
+        require(_beneficiary != address(0), "beneficiary cannot be zero address");
+        require(_amount > 0, "amount should be positive");
         require(_totalDuration > _cliffDuration, "end must be greater than cliff");
         return Contract(
             _amount, 0, _startTime, _cliffDuration, _totalDuration, _canStake
@@ -44,6 +48,7 @@ abstract contract ContractBase is AccessAutonity {
         else if (_amount > 0) {
             _updateAndTransferNTN(_contract, msg.sender, _amount);
         }
+        emit FundsReleased(msg.sender, address(autonity), _amount - _remaining);
     }
 
     /**
@@ -58,18 +63,5 @@ abstract contract ContractBase is AccessAutonity {
     function _transferNTN(address _to, uint256 _amount) internal {
         bool _sent = autonity.transfer(_to, _amount);
         require(_sent, "NTN not transferred");
-    }
-
-    /*
-    ============================================================
-         Getters
-    ============================================================
-     */
-
-    /**
-     * @notice Returns if beneficiary can stake from his contract.
-     */
-    function canStake(Contract storage _contract) internal view returns (bool) {
-        return _contract.canStake;
     }
 }

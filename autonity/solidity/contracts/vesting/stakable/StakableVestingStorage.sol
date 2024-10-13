@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../ContractBase.sol";
 import "../StakableVestingManager.sol";
+import {StakingRequestQueue} from "./QueueLib.sol";
 import "./ValidatorManagerStorage.sol";
 
 abstract contract StakableVestingStorage is ValidatorManagerStorage {
@@ -17,22 +18,6 @@ abstract contract StakableVestingStorage is ValidatorManagerStorage {
     }
 
     ContractValuation internal contractValuation;
-
-    struct PendingBondingRequest {
-        uint256 amount;
-        uint256 epochID;
-        address validator;
-    }
-
-    PendingBondingRequest[] internal bondingQueue;
-    uint256 internal bondingQueueTopIndex;
-
-    struct PendingUnbondingRequest {
-        uint256 unbondingID;
-        uint256 epochID;
-        address validator;
-    }
-
-    PendingUnbondingRequest[] internal unbondingQueue;
-    uint256 internal unbondingQueueTopIndex;
+    StakingRequestQueue internal bondingQueue;
+    StakingRequestQueue internal unbondingQueue;
 }
