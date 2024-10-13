@@ -10,7 +10,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         uint256 unsubscribedAmount;
         uint256 expiredFromContract;
         uint256 withdrawnAmount; // withdrawn by treasury account
-        bool initiated;
+        bool initialized;
     }
 
     mapping(uint256 => ScheduleTracker) internal scheduleTracker;
@@ -44,7 +44,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
-        if (!_scheduleTracker.initiated) {
+        if (!_scheduleTracker.initialized) {
             _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         require(_scheduleTracker.unsubscribedAmount >= _amount, "not enough funds to create a new contract under schedule");
@@ -55,7 +55,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         // the `_expiredFunds` belongs to the treasury account, not the `_beneficiary`
         uint256 _expiredFunds = _calculateUnlockedFunds(_schedule.unlockedAmount, _schedule.totalAmount, _amount);
         ContractBase.Contract memory _contract = _createContract(
-            _amount - _expiredFunds, _schedule.start, _cliffDuration, _schedule.totalDuration, false
+            _beneficiary, _amount - _expiredFunds, _schedule.start, _cliffDuration, _schedule.totalDuration, false
         );
         contracts.push(_contract);
         expiredFundsFromContract.push(_expiredFunds);
@@ -70,12 +70,12 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      * @param _scheduleID id of the schedule
      * @custom:restricted-to treasury account
      */
-    function releaseFundsForTreasury(uint256 _scheduleID) virtual external onlyTreasury {
+    function releaseFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
-        if (!_scheduleTracker.initiated) {
+        if (!_scheduleTracker.initialized) {
             _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         uint256 _withdrawable = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
@@ -130,7 +130,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
 
     function _initiateSchedule(ScheduleTracker storage _scheduleTracker, uint256 _totalAmount) internal {
         _scheduleTracker.unsubscribedAmount = _totalAmount;
-        _scheduleTracker.initiated = true;
+        _scheduleTracker.initialized = true;
     }
 
     /**
@@ -203,7 +203,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     ============================================================
      */
 
-    modifier onlyTreasury {
+    modifier onlyAutonityTreasury {
         require(msg.sender == autonity.getTreasuryAccount(), "caller is not treasury account");
         _;
     }

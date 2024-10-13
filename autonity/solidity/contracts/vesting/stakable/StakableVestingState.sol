@@ -39,7 +39,7 @@ contract StakableVestingState is StakableVestingStorage {
      */
 
     /**
-     * @dev Fetch liquid logic contract address from autonity
+     * @dev Fetch stakable vesting logic contract address from autonity
      */
     function _stakableVestingLogicContract() internal view returns (address) {
         address _address = managerContract.stakableVestingLogicContract();

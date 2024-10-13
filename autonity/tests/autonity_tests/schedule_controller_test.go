@@ -23,17 +23,17 @@ func TestScheduleAccessRestriction(t *testing.T) {
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 
-		_, err = r.Autonity.SetMaxScheduleDuration(nil, common.Big0)
+		_, err = r.Autonity.SetMaxScheduleDuration(tests.FromSender(user, nil), common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 	})
 
 	tests.RunWithSetup("only operator can create schedule", setup, func(r *tests.Runner) {
-		_, err := r.Autonity.CreateSchedule(nil, common.Address{}, common.Big1, common.Big0, common.Big0)
+		_, err := r.Autonity.CreateSchedule(nil, user, common.Big1, common.Big1, common.Big1)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 
-		_, err = r.Autonity.CreateSchedule(tests.FromSender(user, nil), common.Address{}, common.Big1, common.Big0, common.Big0)
+		_, err = r.Autonity.CreateSchedule(tests.FromSender(user, nil), user, common.Big1, common.Big1, common.Big1)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 	})
@@ -141,6 +141,12 @@ func TestScheduleOperation(t *testing.T) {
 }
 
 func createSchedule(r *tests.Runner, vaultAddress common.Address, amount, startTime, totalDuration int64) {
+	if startTime == 0 {
+		startTime = r.Evm.Context.Time.Int64()
+	}
+	if totalDuration == 0 {
+		totalDuration = 1
+	}
 	r.NoError(
 		r.Autonity.CreateSchedule(
 			operator, vaultAddress, big.NewInt(amount),

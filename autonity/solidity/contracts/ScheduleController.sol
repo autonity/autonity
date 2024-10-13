@@ -26,7 +26,11 @@ abstract contract ScheduleController {
         uint256 _amount,
         uint256 _startTime,
         uint256 _totalDuration
-    ) internal {
+    ) internal virtual {
+        require(_scheduleVault != address(0), "vault address cannot be zero");
+        require(_totalDuration > 0, "schedule duration cannot be zero");
+        require(_startTime >= block.timestamp, "schedule cannot start before creation");
+        require(_amount > 0, "amount should be positive");
         Schedule[] storage _schedules = vaultSchedules[_scheduleVault];
         if (_schedules.length == 0) {
             vaults.push(_scheduleVault);
@@ -34,7 +38,7 @@ abstract contract ScheduleController {
         _schedules.push(Schedule(_amount, 0, _startTime, _totalDuration, 0));
     }
 
-    function _unlockSchedules(uint256 _unlockTime) internal returns (uint256 _newUnlocked) {
+    function _unlockSchedules(uint256 _unlockTime) internal virtual returns (uint256 _newUnlocked) {
         for (uint256 _vaultIndex = 0; _vaultIndex < vaults.length; _vaultIndex++) {
             Schedule[] storage _schedules = vaultSchedules[vaults[_vaultIndex]];
             for (uint256 _scheduleIndex = 0; _scheduleIndex < _schedules.length; _scheduleIndex++) {

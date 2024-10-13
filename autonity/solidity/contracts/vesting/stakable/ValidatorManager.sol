@@ -27,7 +27,7 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
         validators[_validator].lastBondingEpoch = _epochID+1;
     }
 
-    function _initiateValidator(address _validator) private {
+    function _initializeValidator(address _validator) private {
         validators[_validator].liquidStateContract = autonity.getValidator(_validator).liquidStateContract;
     }
 
@@ -40,7 +40,7 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
         // offset by 1 to handle empty value
         validatorIndex[_validator] = linkedValidators.length;
         if (address(validators[_validator].liquidStateContract) == address(0)) {
-            _initiateValidator(_validator);
+            _initializeValidator(_validator);
         }
     }
 
@@ -111,7 +111,7 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
 
     function _liquidStateContract(address _validator) internal returns (ILiquidLogic) {
         if (address(validators[_validator].liquidStateContract) == address(0)) {
-            _initiateValidator(_validator);
+            _initializeValidator(_validator);
         }
         return validators[_validator].liquidStateContract;
     }
@@ -127,13 +127,4 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
     function _unlockedLiquidBalance(ILiquidLogic _liquidContract) internal view returns (uint256) {
         return _liquidContract.unlockedBalanceOf(address(this));
     }
-
-    /*
-    ============================================================
-         Getters
-    ============================================================
-     */
-
-    
-
 }

@@ -166,7 +166,7 @@ func TestNonStakableAccessRestriction(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		r.NoError(
-			r.Autonity.CreateSchedule(operator, r.NonStakableVesting.Address(), common.Big1, common.Big0, common.Big0),
+			r.Autonity.CreateSchedule(operator, r.NonStakableVesting.Address(), common.Big1, r.Evm.Context.Time, common.Big1),
 		)
 		return r
 	}
