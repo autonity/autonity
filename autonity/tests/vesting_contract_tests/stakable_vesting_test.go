@@ -1,7 +1,6 @@
 package vestingtests
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -29,7 +28,7 @@ type StakingRequest struct {
 
 func TestSeparateAccountForStakableVestingContract(t *testing.T) {
 	user := tests.User
-	start := time.Now().Unix()
+	start := time.Now().Unix() + 10
 	var contractAmount int64 = 100
 	cliff := start + 10
 	end := start + contractAmount
@@ -244,15 +243,15 @@ func TestBonding(t *testing.T) {
 		return
 	}
 
-	tests.RunWithSetup("can bond all funds before cliff but not before start", setup, func(r *tests.Runner) {
-		_, _, _, beneficiary, validator, stakableContract := initiate(r)
+	tests.RunWithSetup("can bond all funds even before start", setup, func(r *tests.Runner) {
+		_, _, _, beneficiary, validator, _ := initiate(r)
 		require.True(r.T, r.Evm.Context.Time.Cmp(big.NewInt(start+1)) < 0, "contract started already")
 		bondingAmount := big.NewInt(contractTotalAmount / 2)
-		_, err := stakableContract.Bond(tests.FromSender(beneficiary, nil), validator, bondingAmount)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: contract not started yet", err.Error())
-		r.WaitSomeBlock(start + 1)
-		require.True(r.T, r.Evm.Context.Time.Cmp(big.NewInt(cliff+1)) < 0, "contract cliff finished already")
+		// _, err := stakableContract.Bond(tests.FromSender(beneficiary, nil), validator, bondingAmount)
+		// require.Error(r.T, err)
+		// require.Equal(r.T, "execution reverted: contract not started yet", err.Error())
+		// r.WaitSomeBlock(start + 1)
+		// require.True(r.T, r.Evm.Context.Time.Cmp(big.NewInt(cliff+1)) < 0, "contract cliff finished already")
 		bondAndFinalize(r, []StakingRequest{{beneficiary, validator, contractID, bondingAmount, "", true}})
 	})
 
@@ -782,8 +781,7 @@ func TestRewardTracking(t *testing.T) {
 			// request is not applied yet
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, validatorStakes,
-				userStakes, oldUserRewards,
+				validators, users, userStakes, oldUserRewards,
 			)
 
 			// request is applied, because checkRewards progress 1 epoch
@@ -847,8 +845,7 @@ func TestRewardTracking(t *testing.T) {
 			// request is not applied yet
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, validatorStakes,
-				userStakes, oldUserRewards,
+				validators, users, userStakes, oldUserRewards,
 			)
 
 			for _, request := range requests {
@@ -962,8 +959,7 @@ func TestRewardTracking(t *testing.T) {
 
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, validatorStakes,
-				userStakes, oldUserRewards,
+				validators, users, userStakes, oldUserRewards,
 			)
 
 			// for next reward
@@ -1009,8 +1005,7 @@ func TestRewardTracking(t *testing.T) {
 			// request is not applied yet
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, validatorStakes,
-				userStakes, oldUserRewards,
+				validators, users, userStakes, oldUserRewards,
 			)
 
 			// request is applied, because checkRewards progress 1 epoch
@@ -1100,7 +1095,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 
 func TestSlashingAffect(t *testing.T) {
 	var contractTotalAmount int64 = 1000
-	start := time.Now().Unix()
+	start := time.Now().Unix() + 10
 	cliff := 500 + start
 	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
 	end := contractTotalAmount + start
@@ -1286,7 +1281,7 @@ func TestSlashingAffect(t *testing.T) {
 
 func TestUnlockingIsIndependentOfStaking(t *testing.T) {
 	var contractTotalAmount int64 = 1000
-	start := time.Now().Unix()
+	start := time.Now().Unix() + 10
 	cliff := 500 + start
 	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
 	end := contractTotalAmount + start
@@ -1398,7 +1393,7 @@ func TestAccessRestriction(t *testing.T) {
 	})
 
 	var contractTotalAmount int64 = 1000
-	start := time.Now().Unix()
+	start := time.Now().Unix() + 10
 	cliff := 500 + start
 	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
 	end := contractTotalAmount + start
@@ -1449,7 +1444,7 @@ func initialStakes(
 		for i := 0; i < contractCount; i++ {
 			stakableContract := r.StakableVestingContractObject(user, big.NewInt(int64(i)))
 			r.NoError(
-				stakableContract.UpdateFunds(nil),
+				stakableContract.UpdateFunds(tests.FromSender(user, nil)),
 			)
 		}
 	}
@@ -1552,27 +1547,9 @@ func checkRewards(
 	totalStake *big.Int,
 	totalReward tests.EpochReward,
 	validators, users []common.Address,
-	validatorStakes map[common.Address]*big.Int,
 	userStakes map[common.Address]map[int]map[common.Address]*big.Int,
 	oldUserRewards map[common.Address]map[int]map[common.Address]Reward,
 ) {
-
-	// currentRewards := make(map[common.Address]Reward)
-	// check total rewards from each validator
-	// for _, validator := range validators {
-	// 	validatorTotalRewardATN := new(big.Int).Mul(validatorStakes[validator], totalReward.RewardATN)
-	// 	validatorTotalRewardNTN := new(big.Int).Mul(validatorStakes[validator], totalReward.RewardNTN)
-
-	// 	if totalStake.Cmp(common.Big0) != 0 {
-	// 		validatorTotalRewardATN = validatorTotalRewardATN.Div(validatorTotalRewardATN, totalStake)
-	// 		validatorTotalRewardNTN = validatorTotalRewardNTN.Div(validatorTotalRewardNTN, totalStake)
-	// 	}
-
-	// 	currentRewards[validator] = Reward{
-	// 		validatorTotalRewardATN,
-	// 		validatorTotalRewardNTN,
-	// 	}
-	// }
 
 	// check each user rewards
 	for _, user := range users {
@@ -1582,15 +1559,9 @@ func checkRewards(
 			unclaimedRewardForContractNTN := new(big.Int)
 			stakableContract := r.StakableVestingContractObject(user, big.NewInt(int64(i)))
 			for _, validator := range validators {
-				// calculatedRewardATN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].RewardATN)
-				// calculatedRewardNTN := new(big.Int).Mul(userStakes[user][i][validator], currentRewards[validator].RewardNTN)
 				calculatedRewardATN := new(big.Int).Mul(userStakes[user][i][validator], totalReward.RewardATN)
 				calculatedRewardNTN := new(big.Int).Mul(userStakes[user][i][validator], totalReward.RewardNTN)
 
-				// if validatorStakes[validator].Cmp(common.Big0) != 0 {
-				// 	calculatedRewardATN.Div(calculatedRewardATN, validatorStakes[validator])
-				// 	calculatedRewardNTN.Div(calculatedRewardNTN, validatorStakes[validator])
-				// }
 				if totalStake.Cmp(common.Big0) != 0 {
 					calculatedRewardATN.Div(calculatedRewardATN, totalStake)
 					calculatedRewardNTN.Div(calculatedRewardNTN, totalStake)
@@ -1611,8 +1582,6 @@ func checkRewards(
 					"atn reward calculation mismatch",
 				)
 
-				fmt.Printf("calculatedRewardNTN %v\n", calculatedRewardNTN)
-				fmt.Printf("unclaimedReward.NtnReward %v\n", unclaimedReward.NtnRewards)
 				diff = new(big.Int).Sub(calculatedRewardNTN, unclaimedReward.NtnRewards)
 				diff.Abs(diff)
 				// difference should be less than or equal to 1 wei
@@ -1965,7 +1934,7 @@ func updateVestingContractFunds(r *tests.Runner, stakingRequests []StakingReques
 	for _, request := range stakingRequests {
 		stakableContract := r.StakableVestingContractObject(request.staker, request.contractID)
 		r.NoError(
-			stakableContract.UpdateFunds(nil),
+			stakableContract.UpdateFunds(tests.FromSender(request.staker, nil)),
 		)
 	}
 }

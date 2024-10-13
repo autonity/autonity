@@ -1285,7 +1285,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         Validator storage _validator = validators[_bonding.delegatee];
 
         // no new bonding can be applied for jailbound or jailed or paused validator
-        // in case delegator couldn't be notified about rewards distribution, we reject bonding request
         if (_validator.state != ValidatorState.active) {
             accounts[_bonding.delegator] += _bonding.amount;
             emit BondingRejected(_bonding.delegatee, _bonding.delegator, _bonding.amount, _validator.state);

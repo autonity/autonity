@@ -37,7 +37,7 @@ contract StakableVestingManager is BeneficiaryHandler {
         uint256 _cliffDuration,
         uint256 _totalDuration
     ) virtual onlyOperator public {
-        require(_startTime + _cliffDuration >= autonity.lastEpochTime(), "contract cliff duration is past");
+        require(_startTime >= block.timestamp, "contract cannot start before creation");
         require(autonity.balanceOf(address(this)) >= _amount, "not enough stake reserved to create a new contract");
 
         uint256 _contractID = _newContractCreated(_beneficiary);
@@ -100,6 +100,19 @@ contract StakableVestingManager is BeneficiaryHandler {
      */
     function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakableVesting) {
         return contracts[getUniqueContractID(_beneficiary, _id)];
+    }
+
+    /**
+     * @notice Returns all the smart contract accounts that holds the corresponding stake-able vesting contract.
+     * @param _beneficiary address of the beneficiary of the contract
+     */
+    function getContractAccounts(address _beneficiary) external virtual view returns (IStakableVesting[] memory) {
+        uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
+        IStakableVesting[] memory _contracts = new IStakableVesting[] (_contractIDs.length);
+        for (uint256 i = 0; i < _contractIDs.length; i++) {
+            _contracts[i] = contracts[_contractIDs[i]];
+        }
+        return _contracts;
     }
 
     /**
