@@ -606,22 +606,22 @@ func TestFunctions(t *testing.T) {
 	})
 }
 
-func checkLiquidBalance(r *Runner, liquidState *ILiquidLogic, user common.Address, expecedBalance *big.Int) {
+func checkLiquidBalance(r *Runner, liquidState *ILiquid, user common.Address, expecedBalance *big.Int) {
 	balance, _, err := liquidState.BalanceOf(nil, user)
 	require.NoError(r.T, err)
 	require.True(r.T, balance.Cmp(expecedBalance) == 0)
 }
 
-func checkLockedLiquidBalance(r *Runner, liquidState *ILiquidLogic, user common.Address, expecedLockedBalance *big.Int) {
+func checkLockedLiquidBalance(r *Runner, liquidState *ILiquid, user common.Address, expecedLockedBalance *big.Int) {
 	lockedBalance, _, err := liquidState.LockedBalanceOf(nil, user)
 	require.NoError(r.T, err)
 	require.True(r.T, lockedBalance.Cmp(expecedLockedBalance) == 0)
 }
 
-func checkReward(r *Runner, liquidState *ILiquidLogic, user common.Address, atnReward, ntnReward *big.Int) {
-	abi, err := ILiquidLogicMetaData.GetAbi()
+func checkReward(r *Runner, liquidState *ILiquid, user common.Address, atnReward, ntnReward *big.Int) {
+	abi, err := ILiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
-	liquidLogicInterface := ILiquidLogic{
+	liquidLogicInterface := ILiquid{
 		&contract{liquidState.address, abi, r},
 	}
 	unclaimedRewards, _, err := liquidLogicInterface.UnclaimedRewards(nil, user)
@@ -632,7 +632,7 @@ func checkReward(r *Runner, liquidState *ILiquidLogic, user common.Address, atnR
 }
 
 func withdrawAndCheck(
-	r *Runner, liquidState *ILiquidLogic, user common.Address, atnReward, ntnReward *big.Int,
+	r *Runner, liquidState *ILiquid, user common.Address, atnReward, ntnReward *big.Int,
 ) {
 	ntnBalance, _, err := r.Autonity.BalanceOf(nil, user)
 	require.NoError(r.T, err)
@@ -654,7 +654,7 @@ func withdrawAndCheck(
 	require.Equal(r.T, new(big.Int).Add(atnBalance, atnReward), atnNewBalance)
 }
 
-func redistributeLiquidReward(r *Runner, liquidState *ILiquidLogic, reward *big.Int) {
+func redistributeLiquidReward(r *Runner, liquidState *ILiquid, reward *big.Int) {
 	r.NoError(
 		r.Autonity.Mint(Operator, liquidState.address, reward),
 	)
@@ -668,7 +668,7 @@ func redistributeLiquidReward(r *Runner, liquidState *ILiquidLogic, reward *big.
 
 func deployLiquid(
 	r *Runner, validator, treasury common.Address, commissionRatePercent ...int64,
-) *ILiquidLogic {
+) *ILiquid {
 
 	liquidLogic, _, err := r.Autonity.LiquidLogicContract(nil)
 	require.NoError(r.T, err)
@@ -684,9 +684,9 @@ func deployLiquid(
 	)
 	require.NoError(r.T, err)
 
-	abi, err := ILiquidLogicMetaData.GetAbi()
+	abi, err := ILiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
-	return &ILiquidLogic{
+	return &ILiquid{
 		&contract{liquidState.address, abi, r},
 	}
 }

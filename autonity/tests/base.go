@@ -79,10 +79,6 @@ func (c *contract) Address() common.Address {
 	return c.address
 }
 
-func (c *contract) Contract() *contract {
-	return c
-}
-
 func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
@@ -135,7 +131,7 @@ func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method st
 
 type Committee struct {
 	Validators           []AutonityValidator
-	LiquidStateContracts []*ILiquidLogic
+	LiquidStateContracts []*ILiquid
 }
 
 type Runner struct {
@@ -165,10 +161,10 @@ func (r *Runner) NoError(gasConsumed uint64, err error) uint64 {
 	return gasConsumed
 }
 
-func (r *Runner) LiquidStateContract(validatorAddress common.Address) *ILiquidLogic {
+func (r *Runner) LiquidStateContract(validatorAddress common.Address) *ILiquid {
 	validator, _, err := r.Autonity.GetValidator(nil, validatorAddress)
 	require.NoError(r.T, err)
-	return &ILiquidLogic{r.ContractObject(ILiquidLogicMetaData, validator.LiquidStateContract)}
+	return &ILiquid{r.contractObject(ILiquidMetaData, validator.LiquidStateContract)}
 }
 
 func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
@@ -284,7 +280,7 @@ func (r *Runner) WaitNextEpoch() {
 	r.WaitNBlocks(int(diff.Uint64() + 1))
 }
 
-func (r *Runner) ContractObject(metadata *bind.MetaData, address common.Address) *contract {
+func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address) *contract {
 	parsed, err := metadata.GetAbi()
 	require.NoError(r.T, err)
 	return &contract{address, parsed, r}
@@ -294,7 +290,7 @@ func (r *Runner) StakableVestingContractObject(user common.Address, contractID *
 	address, _, err := r.StakableVestingManager.GetContractAccount0(nil, user, contractID)
 	require.NoError(r.T, err)
 	return &IStakableVesting{
-		r.ContractObject(IStakableVestingMetaData, address),
+		r.contractObject(IStakableVestingMetaData, address),
 	}
 }
 
@@ -302,7 +298,7 @@ func (r *Runner) generateNewCommittee() {
 	committeeMembers, _, err := r.Autonity.GetCommittee(nil)
 	require.NoError(r.T, err)
 	r.Committee.Validators = make([]AutonityValidator, len(committeeMembers))
-	r.Committee.LiquidStateContracts = make([]*ILiquidLogic, len(committeeMembers))
+	r.Committee.LiquidStateContracts = make([]*ILiquid, len(committeeMembers))
 	for i, member := range committeeMembers {
 		validator, _, err := r.Autonity.GetValidator(nil, member.Addr)
 		require.NoError(r.T, err)
@@ -311,13 +307,13 @@ func (r *Runner) generateNewCommittee() {
 	}
 }
 
-func (r *Runner) WaitSomeBlock(endTime int64) int64 {
+func (r *Runner) WaitForBlocksUntil(endTime int64) int64 {
 	// bcause we have 1 block/s
 	r.WaitNBlocks(int(endTime) - int(r.Evm.Context.Time.Int64()))
 	return r.Evm.Context.Time.Int64()
 }
 
-func (r *Runner) WaitSomeEpoch(endTime int64) int64 {
+func (r *Runner) WaitForEpochsUntil(endTime int64) int64 {
 	currentTime := r.Evm.Context.Time.Int64()
 	for currentTime < endTime {
 		r.WaitNextEpoch()
@@ -409,7 +405,7 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	require.Equal(t, r.Autonity.address, params.AutonityContractAddress)
 	_, err = r.Autonity.FinalizeInitialization(nil)
 	require.NoError(t, err)
-	r.Committee.LiquidStateContracts = make([]*ILiquidLogic, 0, len(params.TestAutonityContractConfig.Validators))
+	r.Committee.LiquidStateContracts = make([]*ILiquid, 0, len(params.TestAutonityContractConfig.Validators))
 	for _, v := range params.TestAutonityContractConfig.Validators {
 		validator, _, err := r.Autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.T, err)

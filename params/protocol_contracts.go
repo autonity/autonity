@@ -460,9 +460,26 @@ type NonStakableVestingGenesis struct {
 }
 
 type Schedule struct {
-	Start         *big.Int `json:"startTime"`
-	TotalDuration *big.Int `json:"totalDuration"`
-	Amount        *big.Int `json:"amount"`
+	Start         *big.Int       `json:"startTime"`
+	TotalDuration *big.Int       `json:"totalDuration"`
+	Amount        *big.Int       `json:"amount"`
+	VaultAddress  common.Address `json:"vaultAddress"`
+}
+
+func (s *Schedule) Validate() error {
+	if s.Start == nil {
+		return errors.New("start time must be specified")
+	}
+	if s.TotalDuration == nil {
+		return errors.New("total duration must be specified")
+	}
+	if s.Amount == nil {
+		return errors.New("amount must be specified")
+	}
+	if s.VaultAddress == common.HexToAddress("0") {
+		s.VaultAddress = NonStakableVestingContractAddress
+	}
+	return nil
 }
 
 type NonStakableVestingData struct {

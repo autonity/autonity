@@ -6,6 +6,7 @@ pragma solidity ^0.8.3;
 // I also considered to simply call abigen for every contract separately, but it compiles contract and it's dependencies,
 // so in order to have separate Go bindings file for each, we would need to manually provide a list of exclusion (abigen doesn't
 // let you name a contract you want to generate, only a list of excluded types).
+// careful about the ordering. try to put the test-contract later than the original contract, otherwise might get error while generating bindings.
 
 import "./Autonity.sol";
 import "./liquid/LiquidStateTest.sol";
@@ -15,9 +16,9 @@ import "./asm/Stabilization.sol";
 import "./asm/SupplyControl.sol";
 import "./UpgradeManager.sol";
 import "./InflationController.sol";
+import "./vesting/NonStakableVesting.sol";
+import "./vesting/StakableVestingManager.sol";
 import "./test-contract/AccountabilityTest.sol";
 import "./test-contract/AutonityUpgradeTest.sol";
 import "./test-contract/StakableVestingLogicTest.sol";
 import "./test-contract/Tests.sol";
-import "./vesting/NonStakableVesting.sol";
-import "./vesting/StakableVestingManager.sol";
