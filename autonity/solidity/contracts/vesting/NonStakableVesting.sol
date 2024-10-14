@@ -45,7 +45,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
         if (!_scheduleTracker.initialized) {
-            _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
+            _initializeSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         require(_scheduleTracker.unsubscribedAmount >= _amount, "not enough funds to create a new contract under schedule");
         uint256 _contractID = _newContractCreated(_beneficiary);
@@ -76,7 +76,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
         if (!_scheduleTracker.initialized) {
-            _initiateSchedule(_scheduleTracker, _schedule.totalAmount);
+            _initializeSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         uint256 _withdrawable = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
         _transferNTN(msg.sender, _withdrawable);
@@ -105,7 +105,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      */
     function releaseAllNTN(uint256 _id) virtual external {
         uint256 _contractID = getUniqueContractID(msg.sender, _id);
-        _releaseNTN(contracts[_contractID], _unlockedFunds(_contractID));
+        _releaseNTN(contracts[_contractID], _withdrawableVestedFunds(_contractID));
     }
 
     // do we want this method to allow beneficiary withdraw a fraction of the released amount???
@@ -118,7 +118,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      */
     function releaseNTN(uint256 _id, uint256 _amount) virtual external {
         uint256 _contractID = getUniqueContractID(msg.sender, _id);
-        require(_amount <= _unlockedFunds(_contractID), "not enough unlocked funds");
+        require(_amount <= _withdrawableVestedFunds(_contractID), "not enough unlocked funds");
         _releaseNTN(contracts[_contractID], _amount);
     }
 
@@ -128,7 +128,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     ============================================================
      */
 
-    function _initiateSchedule(ScheduleTracker storage _scheduleTracker, uint256 _totalAmount) internal {
+    function _initializeSchedule(ScheduleTracker storage _scheduleTracker, uint256 _totalAmount) internal {
         _scheduleTracker.unsubscribedAmount = _totalAmount;
         _scheduleTracker.initialized = true;
     }
@@ -142,19 +142,25 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         return _contract.currentNTNAmount + _contract.withdrawnValue + expiredFundsFromContract[_contractID];
     }
 
+    function _withdrawableVestedFunds(uint256 _contractID) internal view returns (uint256) {
+        ContractBase.Contract storage _contract = contracts[_contractID];
+        if (_contract.start + _contract.cliffDuration > autonity.lastEpochTime()) {
+            return 0;
+        }
+        return _vestedFunds(_contractID);
+    }
+
     /**
      * @dev Calculates the amount of withdrawable funds upto `schedule.lastUnlockTime`, which is the last epoch time,
      * where schedule = schedule subsribed by the contract.
      */
-    function _unlockedFunds(uint256 _contractID) internal view returns (uint256) {
-        ContractBase.Contract storage _contract = contracts[_contractID];
-        require(_contract.start + _contract.cliffDuration <= block.timestamp, "cliff period not reached yet");
+    function _vestedFunds(uint256 _contractID) internal view returns (uint256) {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), subscribedTo[_contractID]);
         return _calculateUnlockedFunds(
             _schedule.unlockedAmount,
             _schedule.totalAmount,
             _calculateTotalValue(_contractID)
-        ) - _contract.withdrawnValue - expiredFundsFromContract[_contractID];
+        ) - contracts[_contractID].withdrawnValue - expiredFundsFromContract[_contractID];
     }
 
     function _calculateUnlockedFunds(
@@ -170,14 +176,29 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
      */
 
     /**
-     * @notice Returns the amount of withdrawable funds upto the last epoch time.
+     * @notice Returns the amount of funds vested and withdrawable upto the last epoch time.
      */
-    function unlockedFunds(
+    function withdrawableVestedFunds(
         address _beneficiary, uint256 _id
     ) virtual external view returns (uint256) {
-        return _unlockedFunds(getUniqueContractID(_beneficiary, _id));
+        return _withdrawableVestedFunds(getUniqueContractID(_beneficiary, _id));
     }
 
+    /**
+     * @notice Returns the amount of funds vested upto the last epoch time.
+     */
+    function vestedFunds(
+        address _beneficiary, uint256 _id
+    ) virtual external view returns (uint256) {
+        return _vestedFunds(getUniqueContractID(_beneficiary, _id));
+    }
+
+    /**
+     * @notice Returns the amount of funds that have been expired from the contract due to creation of the contract after the schedule has started.
+     * The expired funds belong to autonity treasury account instead.
+     * @param _beneficiary beneficiary account address
+     * @param _id contract id
+     */
     function getExpiredFunds(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
         return expiredFundsFromContract[getUniqueContractID(_beneficiary, _id)];
     }
@@ -193,6 +214,14 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
             _res[i] = contracts[_contractIDs[i]];
         }
         return _res;
+    }
+
+    /**
+     * @notice Returns the schedule tracker for some schedule.
+     * @param _id schedule id
+     */
+    function getScheduleTracker(uint256 _id) virtual external view returns (ScheduleTracker memory) {
+        return scheduleTracker[_id];
     }
 
     /*

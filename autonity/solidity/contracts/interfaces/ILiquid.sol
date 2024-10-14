@@ -2,7 +2,7 @@
 pragma solidity >=0.8.2 ;
 import "./IERC20.sol";
 
-interface ILiquidLogic is IERC20 {
+interface ILiquid is IERC20 {
     function mint(address _account, uint256 _amount) external;
     function unlock(address _account, uint256 _amount) external;
     function lock(address _account, uint256 _amount) external;
