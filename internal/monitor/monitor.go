@@ -23,6 +23,10 @@ const (
 	cpuDumpFile       = "cpu.profile"
 	memDumpFile       = "mem.profile"
 	traceFile         = "trace.out"
+
+	CPUScaleFactor       = 1.05
+	MemScaleFactor       = 1.1
+	GoroutineScaleFactor = 1.2
 )
 
 type Config struct {
@@ -48,22 +52,24 @@ var DefaultMonitorConfig = Config{
 }
 
 type monitorService struct {
-	ctx            context.Context
-	cancel         context.CancelFunc
-	config         *Config
-	lastProfileDay string
-	profileCount   int
-	wg             sync.WaitGroup
-	getCPUPercent  func(interval time.Duration, perCpu bool) ([]float64, error)
-	getMemUsage    func(stats *runtime.MemStats)
+	ctx              context.Context
+	cancel           context.CancelFunc
+	config           *Config
+	lastProfileDay   string
+	profileCount     int
+	wg               sync.WaitGroup
+	getCPUPercent    func(interval time.Duration, perCpu bool) ([]float64, error)
+	getMemUsage      func(stats *runtime.MemStats)
+	getGoroutinesNum func() int
 }
 
 func New(stack *node.Node, cfg *Config) {
 	ms := &monitorService{
-		config:        cfg,
-		wg:            sync.WaitGroup{},
-		getCPUPercent: cpu.Percent,
-		getMemUsage:   runtime.ReadMemStats,
+		config:           cfg,
+		wg:               sync.WaitGroup{},
+		getCPUPercent:    cpu.Percent,
+		getMemUsage:      runtime.ReadMemStats,
+		getGoroutinesNum: runtime.NumGoroutine,
 	}
 	stack.RegisterLifecycle(ms)
 }
@@ -101,13 +107,6 @@ func (ms *monitorService) Stop() error {
 
 func (ms *monitorService) Protocols() []p2p.Protocol {
 	return nil
-}
-
-func (ms *monitorService) updateThresholds() {
-	// update threshold by 10%
-	ms.config.cpuThreshold = ms.config.cpuThreshold * 1.1
-	ms.config.memThreshold = uint64(float64(ms.config.memThreshold) * 1.1)
-	ms.config.numGoroutines = int(float64(ms.config.numGoroutines) * 1.1)
 }
 
 func (ms *monitorService) collectDiagnostics(currentDate string) {
@@ -202,12 +201,27 @@ func (ms *monitorService) checkSystemState() {
 		return
 	}
 
+	thresholdBreach := false
 	m := &runtime.MemStats{}
 	ms.getMemUsage(m)
-	if m.Alloc > ms.config.memThreshold ||
-		runtime.NumGoroutine() > ms.config.numGoroutines || cpuUsage[0] > ms.config.cpuThreshold {
+	currentMem := m.Alloc
+	if currentMem > ms.config.memThreshold {
+		ms.config.memThreshold = uint64(float64(currentMem) * MemScaleFactor)
+		thresholdBreach = true
+	}
+	currentGoroutines := ms.getGoroutinesNum()
+	if currentGoroutines > ms.config.numGoroutines {
+		ms.config.numGoroutines = int(float64(currentGoroutines) * GoroutineScaleFactor)
+		thresholdBreach = true
+	}
+	currentCPU := cpuUsage[0]
+	if currentCPU > ms.config.cpuThreshold {
+		ms.config.cpuThreshold = currentCPU * CPUScaleFactor
+		thresholdBreach = true
+	}
+
+	if thresholdBreach {
 		ms.collectDiagnostics(currentDate)
-		ms.updateThresholds()
 		ms.profileCount++
 	}
 }
