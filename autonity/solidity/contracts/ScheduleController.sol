@@ -39,9 +39,11 @@ abstract contract ScheduleController {
     }
 
     function _unlockSchedules(uint256 _unlockTime) internal virtual returns (uint256 _newUnlocked) {
-        for (uint256 _vaultIndex = 0; _vaultIndex < vaults.length; _vaultIndex++) {
+        uint256 _vaultLength = vaults.length;
+        for (uint256 _vaultIndex = 0; _vaultIndex < _vaultLength; _vaultIndex++) {
             Schedule[] storage _schedules = vaultSchedules[vaults[_vaultIndex]];
-            for (uint256 _scheduleIndex = 0; _scheduleIndex < _schedules.length; _scheduleIndex++) {
+            uint256 _scheduleLength = _schedules.length;
+            for (uint256 _scheduleIndex = 0; _scheduleIndex < _scheduleLength; _scheduleIndex++) {
                 Schedule storage _schedule = _schedules[_scheduleIndex];
                 require(_unlockTime >= _schedule.lastUnlockTime, "schedule already unlocked for given time");
                 if (_unlockTime <= _schedule.start) {

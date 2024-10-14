@@ -5,6 +5,7 @@ import "../../DelegateCaller.sol";
 import "./StakableVestingStorage.sol";
 
 contract StakableVestingState is StakableVestingStorage {
+    using DelegateCaller for address;
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
         managerContract = StakableVestingManager(payable(msg.sender));
@@ -15,9 +16,7 @@ contract StakableVestingState is StakableVestingStorage {
      * function in the contract matches the call data.
      */
     fallback() payable external {
-        DelegateCaller._delegate(
-            _stakableVestingLogicContract()
-        );
+        _stakableVestingLogicContract().delegate();
     }
 
     /**
@@ -25,9 +24,7 @@ contract StakableVestingState is StakableVestingStorage {
      * is empty.
      */
     receive() payable external {
-        DelegateCaller._delegate(
-            _stakableVestingLogicContract()
-        );
+        _stakableVestingLogicContract().delegate();
     }
 
     /**

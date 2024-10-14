@@ -21,6 +21,7 @@ interface IStakableVesting {
     function unclaimedRewards(address _validator) external view returns (uint256 _atnRewards, uint256 _ntnRewards);
     function unclaimedRewards() external view returns (uint256 _atnRewards, uint256 _ntnRewards);
     function vestedFunds() external view returns (uint256);
+    function withdrawableVestedFunds() external view returns (uint256);
     function contractTotalValue() external view returns (uint256);
     function getManagerContractAddress() external view returns (address);
     function getBeneficiary() external view returns (address);

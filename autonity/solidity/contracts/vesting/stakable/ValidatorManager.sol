@@ -27,8 +27,16 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
         validators[_validator].lastBondingEpoch = _epochID+1;
     }
 
+    function _getLiquidStateContract(address _validator) internal view returns (ILiquid) {
+        ILiquid _liquidContract = validators[_validator].liquidStateContract;
+        if (address(_liquidContract) != address(0)) {
+            return _liquidContract;
+        }
+        return autonity.getValidator(_validator).liquidStateContract;
+    }
+
     function _initializeValidator(address _validator) private {
-        validators[_validator].liquidStateContract = autonity.getValidator(_validator).liquidStateContract;
+        validators[_validator].liquidStateContract = _getLiquidStateContract(_validator);
     }
 
     /**
@@ -106,25 +114,25 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
     }
 
     function _unclaimedRewards(address _validator) internal view returns (uint256, uint256) {
-        return validators[_validator].liquidStateContract.unclaimedRewards(address(this));
+        return _getLiquidStateContract(_validator).unclaimedRewards(address(this));
     }
 
-    function _liquidStateContract(address _validator) internal returns (ILiquidLogic) {
+    function _liquidStateContract(address _validator) internal returns (ILiquid) {
         if (address(validators[_validator].liquidStateContract) == address(0)) {
             _initializeValidator(_validator);
         }
         return validators[_validator].liquidStateContract;
     }
 
-    function _liquidBalance(ILiquidLogic _liquidContract) internal view returns (uint256) {
+    function _liquidBalance(ILiquid _liquidContract) internal view returns (uint256) {
         return _liquidContract.balanceOf(address(this));
     }
 
-    function _lockedLiquidBalance(ILiquidLogic _liquidContract) internal view returns (uint256) {
+    function _lockedLiquidBalance(ILiquid _liquidContract) internal view returns (uint256) {
         return _liquidContract.lockedBalanceOf(address(this));
     }
 
-    function _unlockedLiquidBalance(ILiquidLogic _liquidContract) internal view returns (uint256) {
+    function _unlockedLiquidBalance(ILiquid _liquidContract) internal view returns (uint256) {
         return _liquidContract.unlockedBalanceOf(address(this));
     }
 }

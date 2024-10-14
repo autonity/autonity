@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.3;
 
-import "../interfaces/ILiquidLogic.sol";
+import "../interfaces/ILiquid.sol";
 import "./LiquidStorage.sol";
 
 // References:
@@ -40,7 +40,7 @@ import "./LiquidStorage.sol";
 //   implementation.
 //
 
-contract LiquidLogic is ILiquidLogic, LiquidStorage {
+contract LiquidLogic is ILiquid, LiquidStorage {
 
     // TODO: Better solution to address the fractional terms in fee
     // computations?

@@ -14,7 +14,7 @@ abstract contract ValidatorManagerStorage is AccessAutonity {
     mapping(address => uint256) internal validatorIndex;
 
     struct LinkedValidator {
-        ILiquidLogic liquidStateContract;
+        ILiquid liquidStateContract;
         // the following is offset by 1
         uint256 lastBondingEpoch;
     }
