@@ -111,29 +111,58 @@ func TestReleaseFromStakableContract(t *testing.T) {
 		createContract(r, user, contractTotalAmount, start, cliff, end)
 		stakableContract = r.StakableVestingContractObject(user, contractID)
 		// do not modify userBalance
-		userBalance, _, err := r.Autonity.BalanceOf(nil, user)
-		require.NoError(r.T, err)
+		userBalance = r.GetNewtonBalanceOf(user)
 		return
 	}
 
-	tests.RunWithSetup("cannot release before cliff", setup, func(r *tests.Runner) {
-		userBalance, stakableContract := initiate(r)
-		r.WaitSomeBlock(cliff)
-		require.Equal(r.T, big.NewInt(cliff), r.Evm.Context.Time, "time mismatch")
-		_, _, err := stakableContract.VestedFunds(nil)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: cliff period not reached yet", err.Error())
-		_, err = stakableContract.ReleaseFunds(tests.FromSender(user, nil))
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: cliff period not reached yet", err.Error())
-		userNewBalance, _, err := r.Autonity.BalanceOf(nil, user)
+	tests.RunWithSetup("vested and withdrawale vested funds are 0 before start", setup, func(r *tests.Runner) {
+		balance, stakableContract := initiate(r)
+		vestedFunds, _, err := stakableContract.VestedFunds(nil)
 		require.NoError(r.T, err)
-		require.Equal(r.T, userBalance, userNewBalance, "funds released before cliff period")
+		require.True(r.T, vestedFunds.Cmp(common.Big0) == 0)
+
+		withdrawable, _, err := stakableContract.WithdrawableVestedFunds(nil)
+		require.NoError(r.T, err)
+		require.True(r.T, withdrawable.Cmp(common.Big0) == 0)
+
+		r.NoError(
+			stakableContract.ReleaseFunds(tests.FromSender(user, nil)),
+		)
+		require.True(r.T, balance.Cmp(r.GetNewtonBalanceOf(user)) == 0)
+	})
+
+	tests.RunWithSetup("vested funds increase but withdrawale vested funds are 0 after start and before cliff", setup, func(r *tests.Runner) {
+		balance, stakableContract := initiate(r)
+		currentTime := r.WaitForEpochsUntil(start + 2)
+		require.True(r.T, currentTime < cliff, "cannot test, cliff reached")
+		vestedFunds, _, err := stakableContract.VestedFunds(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, big.NewInt(currentTime-start-1), vestedFunds)
+
+		withdrawable, _, err := stakableContract.WithdrawableVestedFunds(nil)
+		require.NoError(r.T, err)
+		require.True(r.T, withdrawable.Cmp(common.Big0) == 0)
+
+		r.NoError(
+			stakableContract.ReleaseFunds(tests.FromSender(user, nil)),
+		)
+		require.True(r.T, balance.Cmp(r.GetNewtonBalanceOf(user)) == 0)
+	})
+
+	tests.RunWithSetup("vested and withdrawale vested funds are equal after cliff", setup, func(r *tests.Runner) {
+		_, stakableContract := initiate(r)
+		r.WaitForEpochsUntil(cliff + 1)
+		vestedFunds, _, err := stakableContract.VestedFunds(nil)
+		require.NoError(r.T, err)
+
+		withdrawable, _, err := stakableContract.WithdrawableVestedFunds(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, vestedFunds, withdrawable)
 	})
 
 	tests.RunWithSetup("unlocking mechanism follows epoch based linear function in time", setup, func(r *tests.Runner) {
 		_, stakableContract := initiate(r)
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		require.True(r.T, currentTime <= end+1, "release is not linear after end")
 		// contract has the context of last block, so time is 1s less than currentTime
 		unlocked := currentTime - 1 - start
@@ -152,7 +181,7 @@ func TestReleaseFromStakableContract(t *testing.T) {
 
 	tests.RunWithSetup("release calculation follows epoch based linear function in time", setup, func(r *tests.Runner) {
 		initiate(r)
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		require.True(r.T, currentTime <= end+1, "release is not linear after end")
 		// contract has the context of last block, so time is 1s less than currentTime
 		unlocked := currentTime - 1 - start
@@ -176,7 +205,7 @@ func TestReleaseFromStakableContract(t *testing.T) {
 
 	tests.RunWithSetup("can release in chunks", setup, func(r *tests.Runner) {
 		userBalance, stakableContract := initiate(r)
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		require.True(r.T, currentTime <= end+1, "cannot test, release is not linear after end")
 		totalUnlocked, _, err := stakableContract.VestedFunds(nil)
 		require.NoError(r.T, err)
@@ -205,7 +234,7 @@ func TestReleaseFromStakableContract(t *testing.T) {
 
 	tests.RunWithSetup("cannot release more than total", setup, func(r *tests.Runner) {
 		initiate(r)
-		r.WaitSomeEpoch(end + 1)
+		r.WaitForEpochsUntil(end + 1)
 		// progress some more epoch, should not matter after end
 		r.WaitNextEpoch()
 		currentTime := r.Evm.Context.Time
@@ -231,7 +260,7 @@ func TestBonding(t *testing.T) {
 	}
 	initiate := func(r *tests.Runner) (
 		users, validators []common.Address,
-		liquidStateContract *tests.ILiquidLogic,
+		liquidStateContract *tests.ILiquid,
 		beneficiary, validator common.Address,
 		stakableContract *tests.IStakableVesting,
 	) {
@@ -250,19 +279,19 @@ func TestBonding(t *testing.T) {
 		// _, err := stakableContract.Bond(tests.FromSender(beneficiary, nil), validator, bondingAmount)
 		// require.Error(r.T, err)
 		// require.Equal(r.T, "execution reverted: contract not started yet", err.Error())
-		// r.WaitSomeBlock(start + 1)
+		// r.WaitForBlocksUntil(start + 1)
 		// require.True(r.T, r.Evm.Context.Time.Cmp(big.NewInt(cliff+1)) < 0, "contract cliff finished already")
 		bondAndFinalize(r, []StakingRequest{{beneficiary, validator, contractID, bondingAmount, "", true}})
 	})
 
 	initiate2 := func(r *tests.Runner) (
 		users, validators []common.Address,
-		liquidStateContract *tests.ILiquidLogic,
+		liquidStateContract *tests.ILiquid,
 		beneficiary, validator common.Address,
 		stakableContract *tests.IStakableVesting,
 	) {
 		users, validators, liquidStateContract, beneficiary, validator, stakableContract = initiate(r)
-		r.WaitSomeBlock(start + 1)
+		r.WaitForBlocksUntil(start + 1)
 		return
 	}
 	// start contract for bonding for all the tests remaining
@@ -293,7 +322,7 @@ func TestBonding(t *testing.T) {
 		_, _, liquidStateContract, beneficiary, validator, stakableContract := initiate2(r)
 		bondingAmount := big.NewInt(contractTotalAmount)
 		bondAndFinalize(r, []StakingRequest{{beneficiary, validator, contractID, bondingAmount, "", true}})
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		// contract has context of last block
 		unlocked := currentTime - 1 - start
 		// mine some more block, release should be epoch based
@@ -313,7 +342,7 @@ func TestBonding(t *testing.T) {
 		liquid, _, err = liquidStateContract.BalanceOf(nil, beneficiary)
 		require.NoError(r.T, err)
 		require.Equal(r.T, big.NewInt(unlocked), liquid, "liquid not received")
-		r.WaitSomeEpoch(end + 1)
+		r.WaitForEpochsUntil(end + 1)
 		// progress more epoch, shouldn't matter
 		r.WaitNextEpoch()
 		r.NoError(
@@ -365,7 +394,7 @@ func TestBonding(t *testing.T) {
 		bondAndFinalize(r, []StakingRequest{{beneficiary, validator, contractID, bondingAmount, "", true}})
 		remaining := new(big.Int).Sub(big.NewInt(contractTotalAmount), bondingAmount)
 		require.True(r.T, remaining.Cmp(common.Big0) > 0, "no NTN remains")
-		r.WaitSomeEpoch(cliff + 1)
+		r.WaitForEpochsUntil(cliff + 1)
 		unlocked, _, err := stakableContract.VestedFunds(nil)
 		require.NoError(r.T, err)
 		require.True(r.T, unlocked.Cmp(remaining) < 0, "don't want to release all NTN in the test")
@@ -387,7 +416,7 @@ func TestBonding(t *testing.T) {
 		bondingAmount := big.NewInt(contractTotalAmount)
 		bondAndFinalize(r, []StakingRequest{{beneficiary, validator, contractID, bondingAmount, "", true}})
 
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlocked := currentTime - 1 - start
 		if unlocked > contractTotalAmount {
 			unlocked = contractTotalAmount
@@ -419,7 +448,7 @@ func TestBonding(t *testing.T) {
 			remainingNTN = new(big.Int).Sub(remainingNTN, bondingAmount)
 		}
 		bondAndFinalize(r, requests)
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlockAmount := big.NewInt(currentTime - start - 1)
 		// got at least 500 unlocked
 		releaseAmount := big.NewInt(100)
@@ -459,7 +488,7 @@ func TestUnbonding(t *testing.T) {
 		users, validators, _ = setupContracts(r, contractCount, validatorCount, contractTotalAmount, start, cliff, end)
 
 		// bond from all contracts to all validators
-		r.WaitSomeBlock(start + 1)
+		r.WaitForBlocksUntil(start + 1)
 		require.True(r.T, bondingAmount.Cmp(common.Big0) > 0, "not enough to bond")
 		for _, user := range users {
 			for i := 0; i < contractCount; i++ {
@@ -536,7 +565,7 @@ func TestUnbonding(t *testing.T) {
 		require.True(r.T, liquid1.Cmp(big.NewInt(10)) > 0, "cannot test")
 
 		totalToRelease := liquid.Int64() + 10
-		currentTime := r.WaitSomeEpoch(totalToRelease + start + 1)
+		currentTime := r.WaitForEpochsUntil(totalToRelease + start + 1)
 		totalToRelease = currentTime - 1 - start
 		r.NoError(
 			stakableContract.ReleaseAllLNTN(tests.FromSender(beneficiary, nil)),
@@ -607,11 +636,11 @@ func TestRewardTracking(t *testing.T) {
 
 	initiate := func(r *tests.Runner) (
 		users, validators []common.Address,
-		liquidStateContracts []*tests.ILiquidLogic,
+		liquidStateContracts []*tests.ILiquid,
 	) {
 		users, validators, liquidStateContracts = setupContracts(r, contractCount, 2, contractTotalAmount, start, cliff, end)
 		// start contract to bond
-		r.WaitSomeBlock(start + 1)
+		r.WaitForBlocksUntil(start + 1)
 		return
 	}
 
@@ -674,7 +703,7 @@ func TestRewardTracking(t *testing.T) {
 	bondingAmount := big.NewInt(100)
 	initiate2 := func(r *tests.Runner) (
 		users, validators []common.Address,
-		liquidStateContracts []*tests.ILiquidLogic,
+		liquidStateContracts []*tests.ILiquid,
 	) {
 		users, validators, liquidStateContracts = initiate(r)
 		// set commission rate = 0, so all rewards go to delegation
@@ -873,7 +902,7 @@ func TestRewardTracking(t *testing.T) {
 	// bond everything
 	initiate3 := func(r *tests.Runner) (
 		users, validators []common.Address,
-		liquidStateContracts []*tests.ILiquidLogic,
+		liquidStateContracts []*tests.ILiquid,
 	) {
 		users, validators, liquidStateContracts = initiate2(r)
 		bondingPerContract := new(big.Int).Mul(bondingAmount, big.NewInt(int64(len(validators))))
@@ -898,7 +927,7 @@ func TestRewardTracking(t *testing.T) {
 
 	tests.RunWithSetup("release liquid and track reward", setup, func(r *tests.Runner) {
 		users, validators, liquidStateContracts := initiate3(r)
-		r.WaitSomeEpoch(end + 1)
+		r.WaitForEpochsUntil(end + 1)
 		releaseAmount := big.NewInt(100)
 		userLiquidBalance := make(map[common.Address]map[common.Address]*big.Int)
 		// unbonding request can be treated as release request
@@ -919,7 +948,7 @@ func TestRewardTracking(t *testing.T) {
 
 		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
 
-		liquidStateContractsMap := make(map[common.Address]*tests.ILiquidLogic)
+		liquidStateContractsMap := make(map[common.Address]*tests.ILiquid)
 
 		for i, liquidStateContract := range liquidStateContracts {
 			liquidStateContractsMap[validators[i]] = liquidStateContract
@@ -1066,7 +1095,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		stakableContract := initiate(r)
 		bondingAmount := big.NewInt(contractTotalAmount)
 		validator := r.Committee.Validators[0].NodeAddress
-		r.WaitSomeBlock(start + 1)
+		r.WaitForBlocksUntil(start + 1)
 		r.NoError(
 			stakableContract.Bond(
 				tests.FromSender(user, nil), validator, bondingAmount,
@@ -1168,7 +1197,7 @@ func TestSlashingAffect(t *testing.T) {
 
 	tests.RunWithSetup("slashing affects bonded LNTN, decreases total value", setup, func(r *tests.Runner) {
 		offender, reporter, accountabilityContract, stakableContract := initiate(r)
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 
 		// unlocked funds and total value are fine before slashing
 		unlockedCalculated := currentTime - start - 1
@@ -1218,7 +1247,7 @@ func TestSlashingAffect(t *testing.T) {
 		// unbond everything
 		newtonBalance := r.GetNewtonBalanceOf(stakableContract.Address())
 		require.True(r.T, newtonBalance.Cmp(common.Big0) == 0)
-		r.WaitSomeEpoch(cliff + 1)
+		r.WaitForEpochsUntil(cliff + 1)
 		r.NoError(
 			stakableContract.Unbond(
 				tests.FromSender(user, nil),
@@ -1296,7 +1325,7 @@ func TestUnlockingIsIndependentOfStaking(t *testing.T) {
 	}
 
 	tests.RunWithSetup("bonding does not affect total value or unlocking, but release", setup, func(r *tests.Runner) {
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlockedCalculated := big.NewInt(currentTime - start - 1)
 		stakableContract := r.StakableVestingContractObject(user, contractID)
 		unlockedFunds, _, err := stakableContract.VestedFunds(nil)
@@ -1331,7 +1360,7 @@ func TestUnlockingIsIndependentOfStaking(t *testing.T) {
 	tests.RunWithSetup("unbonding does not affect total value or unlocking, but release", setup, func(r *tests.Runner) {
 		validator := r.Committee.Validators[0].NodeAddress
 		bondAndFinalize(r, []StakingRequest{{user, validator, contractID, bondingAmount, "", false}})
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlockedCalculated := big.NewInt(currentTime - start - 1)
 		stakableContract := r.StakableVestingContractObject(user, contractID)
 
@@ -1428,10 +1457,178 @@ func TestAccessRestriction(t *testing.T) {
 	})
 }
 
+func TestFunctions(t *testing.T) {
+	var contractTotalAmount int64 = 1000
+	start := time.Now().Unix() + 10
+	cliff := 500 + start
+	// by making (end - start == contractTotalAmount) we have (totalUnlocked = currentTime - start)
+	end := contractTotalAmount + start
+	// contractID := common.Big0
+	user := tests.User
+	bondingAmount := big.NewInt(10)
+	// although not constant but it's fine because it will have the same vaule always
+	var validator common.Address
+
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		validator = r.Committee.Validators[0].NodeAddress
+		return r
+	}
+
+	getLinkedValidators := func(r *tests.Runner, contract *tests.StakableVestingLogicTest) []common.Address {
+		validators, _, err := contract.GetLinkedValidators(nil)
+		require.NoError(r.T, err)
+		return validators
+	}
+
+	initiate := func(r *tests.Runner) *tests.StakableVestingLogicTest {
+		_, _, contract, err := r.DeployStakableVestingLogicTest(nil, r.Autonity.Address())
+		require.NoError(r.T, err)
+		r.NoError(
+			r.Autonity.Mint(
+				operator,
+				contract.Address(),
+				big.NewInt(contractTotalAmount),
+			),
+		)
+		r.NoError(
+			contract.CreateContract(
+				nil, user, big.NewInt(contractTotalAmount), big.NewInt(start),
+				big.NewInt(cliff-start), big.NewInt(end-start),
+			),
+		)
+		return contract
+	}
+
+	tests.RunWithSetup("bonding to a validator includes him to list", setup, func(r *tests.Runner) {
+		testContract := initiate(r)
+		linkedValidators := getLinkedValidators(r, testContract)
+		require.Equal(r.T, 0, len(linkedValidators))
+		r.NoError(
+			testContract.Bond(
+				tests.FromSender(user, nil),
+				validator,
+				bondingAmount,
+			),
+		)
+		// clearing validators will not remove it
+		r.NoError(
+			testContract.ClearValidators(nil),
+		)
+		linkedValidators = getLinkedValidators(r, testContract)
+		require.Equal(r.T, 1, len(linkedValidators))
+		require.Equal(r.T, validator, linkedValidators[0])
+	})
+
+	initiate2 := func(r *tests.Runner) *tests.StakableVestingLogicTest {
+		contract := initiate(r)
+		r.NoError(
+			contract.Bond(
+				tests.FromSender(user, nil),
+				validator,
+				bondingAmount,
+			),
+		)
+		r.WaitNextEpoch()
+		linkedValidators := getLinkedValidators(r, contract)
+		require.Equal(r.T, 1, len(linkedValidators))
+		require.Equal(r.T, validator, linkedValidators[0])
+		return contract
+	}
+
+	tests.RunWithSetup("unbonding from a validator does not remove him from the list immediately", setup, func(r *tests.Runner) {
+		testContract := initiate2(r)
+		r.NoError(
+			testContract.Unbond(
+				tests.FromSender(user, nil),
+				validator,
+				bondingAmount,
+			),
+		)
+		r.NoError(
+			testContract.ClaimRewards(
+				tests.FromSender(user, nil),
+			),
+		)
+
+		liquidContract := r.LiquidStateContract(validator)
+		balance, _, err := liquidContract.BalanceOf(nil, testContract.Address())
+		require.NoError(r.T, err)
+		require.Equal(r.T, bondingAmount, balance)
+		reward, _, err := liquidContract.UnclaimedRewards(nil, testContract.Address())
+		require.NoError(r.T, err)
+		require.True(r.T, new(big.Int).Add(reward.UnclaimedATN, reward.UnclaimedNTN).Cmp(common.Big0) == 0)
+
+		r.NoError(
+			testContract.ClearValidators(nil),
+		)
+		linkedValidators := getLinkedValidators(r, testContract)
+		require.Equal(r.T, 1, len(linkedValidators))
+		require.Equal(r.T, validator, linkedValidators[0])
+	})
+
+	tests.RunWithSetup("validators are not removed if rewards are not claimed", setup, func(r *tests.Runner) {
+		testContract := initiate2(r)
+		r.NoError(
+			testContract.Unbond(
+				tests.FromSender(user, nil),
+				validator,
+				bondingAmount,
+			),
+		)
+		r.WaitNextEpoch()
+		liquidContract := r.LiquidStateContract(validator)
+		balance, _, err := liquidContract.BalanceOf(nil, testContract.Address())
+		require.NoError(r.T, err)
+		require.True(r.T, balance.Cmp(common.Big0) == 0)
+		reward, _, err := liquidContract.UnclaimedRewards(nil, testContract.Address())
+		require.NoError(r.T, err)
+		require.True(r.T, new(big.Int).Add(reward.UnclaimedATN, reward.UnclaimedNTN).Cmp(common.Big0) == 1)
+
+		r.NoError(
+			testContract.ClearValidators(nil),
+		)
+		linkedValidators := getLinkedValidators(r, testContract)
+		require.Equal(r.T, 1, len(linkedValidators))
+		require.Equal(r.T, validator, linkedValidators[0])
+	})
+
+	tests.RunWithSetup("validators are removed if no LNTN and no rewards", setup, func(r *tests.Runner) {
+		testContract := initiate2(r)
+		r.NoError(
+			testContract.Unbond(
+				tests.FromSender(user, nil),
+				validator,
+				bondingAmount,
+			),
+		)
+		r.WaitNextEpoch()
+		r.NoError(
+			testContract.ClaimRewards(
+				tests.FromSender(user, nil),
+			),
+		)
+
+		liquidContract := r.LiquidStateContract(validator)
+		balance, _, err := liquidContract.BalanceOf(nil, testContract.Address())
+		require.NoError(r.T, err)
+		require.True(r.T, balance.Cmp(common.Big0) == 0)
+		reward, _, err := liquidContract.UnclaimedRewards(nil, testContract.Address())
+		require.NoError(r.T, err)
+		require.True(r.T, new(big.Int).Add(reward.UnclaimedATN, reward.UnclaimedNTN).Cmp(common.Big0) == 0)
+
+		r.NoError(
+			testContract.ClearValidators(nil),
+		)
+		linkedValidators := getLinkedValidators(r, testContract)
+		require.Equal(r.T, 0, len(linkedValidators))
+	})
+}
+
 func initialStakes(
 	r *tests.Runner,
 	contractCount int,
-	liquidStateContracts []*tests.ILiquidLogic,
+	liquidStateContracts []*tests.ILiquid,
 	users, validators []common.Address,
 ) (
 	validatorStakes map[common.Address]*big.Int,
@@ -1631,7 +1828,7 @@ func checkRewards(
 func isAllRewardsZero(
 	r *tests.Runner,
 	contractCount int,
-	liquidStateContracts []*tests.ILiquidLogic,
+	liquidStateContracts []*tests.ILiquid,
 	users, validators []common.Address,
 ) bool {
 
@@ -1681,7 +1878,7 @@ func isAllRewardsZero(
 
 func setupContracts(
 	r *tests.Runner, contractCount, validatorCount int, contractTotalAmount, start, cliff, end int64,
-) (users, validators []common.Address, liquidStateContracts []*tests.ILiquidLogic) {
+) (users, validators []common.Address, liquidStateContracts []*tests.ILiquid) {
 	users = make([]common.Address, 2)
 	users[0] = tests.User
 	users[1] = common.HexToAddress("0x88")
@@ -1696,7 +1893,7 @@ func setupContracts(
 
 	// use multiple validators
 	validators = make([]common.Address, validatorCount)
-	liquidStateContracts = make([]*tests.ILiquidLogic, validatorCount)
+	liquidStateContracts = make([]*tests.ILiquid, validatorCount)
 	for i := 0; i < validatorCount; i++ {
 		validators[i] = r.Committee.Validators[i].NodeAddress
 		liquidStateContracts[i] = r.Committee.LiquidStateContracts[i]
@@ -1812,7 +2009,7 @@ func checkReleaseAllLNTN(r *tests.Runner, user common.Address, contractID, relea
 func checkReleaseLNTN(r *tests.Runner, user, validator common.Address, contractID, releaseAmount *big.Int) {
 
 	stakableContract := r.StakableVestingContractObject(user, contractID)
-	var liquidStateContract *tests.ILiquidLogic
+	var liquidStateContract *tests.ILiquid
 	for i, v := range r.Committee.Validators {
 		if v.NodeAddress == validator {
 			liquidStateContract = r.Committee.LiquidStateContracts[i]
@@ -1888,12 +2085,12 @@ func initialBalances(
 	r *tests.Runner,
 	stakingRequests []StakingRequest,
 ) (
-	liquidStateContracts map[common.Address]*tests.ILiquidLogic,
+	liquidStateContracts map[common.Address]*tests.ILiquid,
 	// liquidOfVestingContract map[common.Address]*big.Int,
 	ntnBalanceOfVestingContract map[common.Address]map[int64]*big.Int,
 	liquidOfUser map[common.Address]map[common.Address]map[int64]*big.Int,
 ) {
-	liquidStateContracts = make(map[common.Address]*tests.ILiquidLogic)
+	liquidStateContracts = make(map[common.Address]*tests.ILiquid)
 	// liquidOfVestingContract = make(map[common.Address]*big.Int)
 	ntnBalanceOfVestingContract = make(map[common.Address]map[int64]*big.Int)
 	liquidOfUser = make(map[common.Address]map[common.Address]map[int64]*big.Int)

@@ -319,7 +319,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 	}
 
 	for _, schedule := range genesisConfig.Schedules {
-		if err := evmContracts.CreateSchedule(params.NonStakableVestingContractAddress, schedule); err != nil {
+		if err := evmContracts.CreateSchedule(schedule); err != nil {
 			return fmt.Errorf("error while creating schedules: %w", err)
 		}
 	}

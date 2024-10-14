@@ -651,8 +651,8 @@ func (c *GenesisEVMContracts) DeployNonStakableVestingContract(bytecode []byte, 
 	return c.NonStakableVestingContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityContract)
 }
 
-func (c *GenesisEVMContracts) CreateSchedule(vault common.Address, schedule params.Schedule) error {
-	return c.AutonityContract.CreateSchedule(nil, c.statedb, vault, schedule)
+func (c *GenesisEVMContracts) CreateSchedule(schedule params.Schedule) error {
+	return c.AutonityContract.CreateSchedule(nil, c.statedb, schedule.VaultAddress, schedule)
 }
 
 func (c *GenesisEVMContracts) NewNonStakableContract(contract params.NonStakableVestingData) error {
