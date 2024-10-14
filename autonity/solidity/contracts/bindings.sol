@@ -8,15 +8,16 @@ pragma solidity ^0.8.3;
 // let you name a contract you want to generate, only a list of excluded types).
 
 import "./Autonity.sol";
-import "./AccountabilityTest.sol";
 import "./liquid/LiquidStateTest.sol";
 import "./Oracle.sol";
 import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";
 import "./asm/SupplyControl.sol";
-import "./AutonityUpgradeTest.sol";
-import "./Tests.sol";
 import "./UpgradeManager.sol";
 import "./InflationController.sol";
+import "./test-contract/AccountabilityTest.sol";
+import "./test-contract/AutonityUpgradeTest.sol";
+import "./test-contract/StakableVestingLogicTest.sol";
+import "./test-contract/Tests.sol";
 import "./vesting/NonStakableVesting.sol";
 import "./vesting/StakableVestingManager.sol";

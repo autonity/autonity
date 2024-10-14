@@ -47,7 +47,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 selfUnbondingStake;
         uint256 selfUnbondingShares; // not effective - used for accounting purposes
         uint256 selfUnbondingStakeLocked;
-        ILiquidLogic liquidStateContract;
+        ILiquid liquidStateContract;
         uint256 liquidSupply;
         uint256 registrationBlock;
         uint256 totalSlashed;
@@ -269,7 +269,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
-            _validators[i].liquidStateContract = ILiquidLogic(address(0));
+            _validators[i].liquidStateContract = ILiquid(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.policy.delegationRate;
@@ -379,7 +379,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             0,                       // self unbonding stake
             0,                       // self unbonding shares
             0,                       // self unbonding stake locked
-            ILiquidLogic(address(0)), // liquid token contract
+            ILiquid(address(0)), // liquid token contract
             0,                       // liquid token supply
             block.number,            // registration block
             0,                       // total slashed
@@ -1195,7 +1195,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         if (address(_validator.liquidStateContract) == address(0)) {
             require(liquidLogicContract != address(0), "liquid logic contract not deployed");
             string memory stringLength = Helpers.toString(validatorList.length);
-            _validator.liquidStateContract = ILiquidLogic(address(
+            _validator.liquidStateContract = ILiquid(address(
                 new LiquidState(
                     _validator.nodeAddress,
                     _validator.treasury,
