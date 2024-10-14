@@ -37,7 +37,6 @@ var configOverrideIncreasedStake = func(config *params.AutonityContractGenesis) 
 }
 
 // helpers
-// TODO(lorenzo) might be worth to merge the activity proof setup in this func
 func omissionFinalize(r *runner, epochEnd bool) {
 	_, err := r.omissionAccountability.Finalize(fromAutonity, epochEnd)
 	require.NoError(r.t, err)
@@ -62,6 +61,11 @@ func autonityFinalize(r *runner) { //nolint
 	r.evm.Context.Coinbase = common.Address{}
 	r.evm.Context.ActivityProof = nil
 	r.evm.Context.ActivityProofRound = 0
+}
+
+func setupProofAndAutonityFinalize(r *runner, proposer common.Address, absentees map[common.Address]struct{}) {
+	r.setupActivityProofAndCoinbase(proposer, absentees)
+	autonityFinalize(r)
 }
 
 func inactivityCounter(r *runner, validator common.Address) int {
@@ -178,8 +182,7 @@ func TestProposerLogic(t *testing.T) {
 		require.True(r.t, faultyProposer(r, targetHeight+1))
 		require.Equal(r.t, 2, inactivityCounter(r, proposer))
 
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 		require.False(r.t, faultyProposer(r, targetHeight+2))
 		require.Equal(r.t, 2, inactivityCounter(r, proposer))
 	})
@@ -200,8 +203,7 @@ func TestProposerLogic(t *testing.T) {
 
 		targetHeight := r.evm.Context.BlockNumber.Int64() - delta.Int64()
 		proposer := r.committee.validators[0].NodeAddress
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 		require.False(r.t, faultyProposer(r, targetHeight))
 		require.Equal(r.t, 0, inactivityCounter(r, proposer))
 		require.Equal(r.t, fullProofEffort.String(), proposerEffort(r, proposer).String())
@@ -209,16 +211,13 @@ func TestProposerLogic(t *testing.T) {
 
 		// finalize 3 more times with full proof
 		targetHeight = r.evm.Context.BlockNumber.Int64() - delta.Int64()
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 		require.False(r.t, faultyProposer(r, targetHeight))
 		targetHeight++
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 		require.False(r.t, faultyProposer(r, targetHeight))
 		targetHeight++
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 		expectedEffort := new(big.Int).Mul(fullProofEffort, common.Big4) // we finalized 4 times up to now
 		require.False(r.t, faultyProposer(r, targetHeight))
 		require.Equal(r.t, 0, inactivityCounter(r, proposer))
@@ -227,8 +226,7 @@ func TestProposerLogic(t *testing.T) {
 
 		targetHeight = r.evm.Context.BlockNumber.Int64() - delta.Int64()
 		proposer = r.committee.validators[1].NodeAddress
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 		expectedTotalEffort := new(big.Int).Add(expectedEffort, fullProofEffort) // validators[0] effort + validator[1] effort
 		require.False(r.t, faultyProposer(r, targetHeight))
 		require.Equal(r.t, 0, inactivityCounter(r, proposer))
@@ -266,8 +264,7 @@ func TestInactivityCounter(t *testing.T) {
 			absentees[partiallyOffline] = struct{}{}
 		}
 		targetHeight := r.evm.Context.BlockNumber.Int64() - delta.Int64()
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 		for absentee := range absentees {
 			require.True(r.t, isValidatorInactive(r, targetHeight, absentee))
 			if absentee == partiallyOffline {
@@ -287,35 +284,29 @@ func TestInactivityCounter(t *testing.T) {
 	// here we should update the inactivity counter to 1, but since there was a faulty proposer we extend the lookback period
 	r.t.Logf("current block number in evm: %d", r.evm.Context.BlockNumber.Uint64())
 	partiallyOfflineCounter++
-	r.setupActivityProofAndCoinbase(proposer, absentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, absentees)
 	require.Equal(r.t, 0, inactivityCounter(r, fullyOffline))
 
 	// now we have a full lookback period
 	partiallyOfflineCounter++
-	r.setupActivityProofAndCoinbase(proposer, absentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, absentees)
 	require.Equal(r.t, 1, inactivityCounter(r, fullyOffline))
 	partiallyOfflineCounter++
-	r.setupActivityProofAndCoinbase(proposer, absentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, absentees)
 	require.Equal(r.t, 2, inactivityCounter(r, fullyOffline))
 	require.Equal(r.t, 0, inactivityCounter(r, partiallyOffline))
 	partiallyOfflineCounter++
-	r.setupActivityProofAndCoinbase(proposer, absentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, absentees)
 	require.Equal(r.t, 3, inactivityCounter(r, fullyOffline))
 	require.Equal(r.t, 0, inactivityCounter(r, partiallyOffline))
 
 	// fill up enough blocks for partiallyOffline as well
 	for i := partiallyOfflineCounter; i < lookback-1; i++ {
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 	}
 
 	require.Equal(r.t, 0, inactivityCounter(r, partiallyOffline))
-	r.setupActivityProofAndCoinbase(proposer, absentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, absentees)
 	require.Equal(r.t, 1, inactivityCounter(r, partiallyOffline))
 
 	fullyOfflineIC := inactivityCounter(r, fullyOffline)
@@ -339,12 +330,10 @@ func TestInactivityCounter(t *testing.T) {
 
 	//  close the epoch
 	for i := r.evm.Context.BlockNumber.Int64(); i < int64(omissionEpochPeriod); i++ {
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 	}
 	t.Log("Closing epoch")
-	r.setupActivityProofAndCoinbase(proposer, nil)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, nil)
 	r.generateNewCommittee()
 
 	// inactivity counters should be reset
@@ -358,18 +347,15 @@ func TestInactivityCounter(t *testing.T) {
 	newAbsentees[otherValidator] = struct{}{}
 
 	for i := 0; i < lookback/2; i++ {
-		r.setupActivityProofAndCoinbase(proposer, newAbsentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, newAbsentees)
 	}
 
 	t.Log("online at following block")
-	r.setupActivityProofAndCoinbase(proposer, nil)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, nil)
 
 	// one block online is going to "save" the validator for the next lookback window
 	for i := 0; i < lookback-1; i++ {
-		r.setupActivityProofAndCoinbase(proposer, newAbsentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, newAbsentees)
 		require.Equal(r.t, 0, inactivityCounter(r, otherValidator))
 	}
 
@@ -380,8 +366,7 @@ func TestInactivityCounter(t *testing.T) {
 	require.Equal(r.t, 0, inactivityCounter(r, otherValidator))
 	require.Equal(r.t, 0, inactivityCounter(r, otherValidator))
 
-	r.setupActivityProofAndCoinbase(proposer, newAbsentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, newAbsentees)
 	require.Equal(r.t, 1, inactivityCounter(r, otherValidator))
 }
 
@@ -425,8 +410,7 @@ func TestInactivityScore(t *testing.T) {
 		}
 
 		t.Logf("number of absentees: %d for height %d", len(absentees), r.evm.Context.BlockNumber.Uint64())
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 	}
 	r.generateNewCommittee()
 
@@ -464,8 +448,7 @@ func TestInactivityScore(t *testing.T) {
 			}
 		}
 
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 	}
 	r.generateNewCommittee()
 
@@ -520,12 +503,10 @@ func TestOmissionPunishments(t *testing.T) {
 
 	// simulate epoch with two validator at 100% inactivity
 	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod; h++ {
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 	}
 	// close the epoch
-	r.setupActivityProofAndCoinbase(proposer, absentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, absentees)
 	r.generateNewCommittee()
 
 	// the two validators should have been jailed and be under probation + offence counter should have been incremented
@@ -572,8 +553,7 @@ func TestOmissionPunishments(t *testing.T) {
 	// - val 2 gets punished again for omission while in the probation period, therefore he gets slashed
 	r.waitNBlocks(int(delta.Int64()))
 	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod; h++ {
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 	}
 	val1 := validator(r, val1Address)
 	val1.State = jailed
@@ -584,8 +564,7 @@ func TestOmissionPunishments(t *testing.T) {
 
 	val2BeforeSlash := validator(r, val2Address)
 	// close epoch
-	r.setupActivityProofAndCoinbase(proposer, absentees)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, absentees)
 	r.generateNewCommittee()
 
 	// val1, punished by accountability, shouldn't have been slashed by omission even if 100% offline and still under probation
@@ -663,8 +642,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 
 		r.evm.Context.BlockNumber = new(big.Int).SetInt64(int64(omissionEpochPeriod))
 		r.evm.Context.Time.Add(r.evm.Context.Time, new(big.Int).SetInt64(int64(omissionEpochPeriod-1)))
-		r.setupActivityProofAndCoinbase(proposer, nil)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, nil)
 
 		committeeFactor := float64(len(r.committee.validators)) / float64(maxCommitteeSize.Int64())
 		committeeFactor = math.Floor(committeeFactor*committeeFactorPrecision) / committeeFactorPrecision // simulate loss of precision due to fixed point arithmetic
@@ -768,8 +746,7 @@ func TestConfigSanity(t *testing.T) {
 
 	// simulate epoch with two validator at 100% inactivity
 	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 	}
 	r.generateNewCommittee()
 
@@ -835,8 +812,7 @@ func TestRewardWithholding(t *testing.T) {
 				absentees[r.committee.validators[i].NodeAddress] = struct{}{}
 			}
 		}
-		r.setupActivityProofAndCoinbase(proposer, absentees)
-		autonityFinalize(r)
+		setupProofAndAutonityFinalize(r, proposer, absentees)
 	}
 
 	atnRewards := new(big.Int).SetUint64(5467879877987) // random amount
@@ -860,8 +836,7 @@ func TestRewardWithholding(t *testing.T) {
 	atnPoolBefore := r.getBalanceOf(withheldRewardPool)
 	ntnPoolBefore := ntnBalance(r, withheldRewardPool)
 
-	r.setupActivityProofAndCoinbase(proposer, nil)
-	autonityFinalize(r)
+	setupProofAndAutonityFinalize(r, proposer, nil)
 
 	atnTotalWithheld := new(big.Int)
 	ntnTotalWithheld := new(big.Int)

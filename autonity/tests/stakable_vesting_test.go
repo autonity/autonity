@@ -573,8 +573,9 @@ func TestStakingRevert(t *testing.T) {
 
 func TestRewardTracking(t *testing.T) {
 	r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
-		//TODO(lorenzo) is this the correct way to fix it? or update computations? Update based on where we decide to send the proposer rewards
+		// set proposer reward rate and Autonity treasury fee to 0, so all rewards go to delegation
 		config.ProposerRewardRate = 0
+		config.TreasuryFee = 0
 		return config
 	})
 	var contractTotalAmount int64 = 1000
@@ -637,10 +638,6 @@ func TestRewardTracking(t *testing.T) {
 		require.Equal(r.t, new(big.Int).Add(balanceATN, rewardOfUser.AtnTotalFee), newBalanceATN, "ATN reward not claimed")
 	})
 
-	// set commission rate = 0, so all rewards go to delegation
-	r.NoError(
-		r.autonity.SetTreasuryFee(r.operator, common.Big0),
-	)
 	// remove all bonding, so we only have bonding from contracts only
 	for _, validator := range r.committee.validators {
 		require.Equal(r.t, validator.SelfBondedStake, validator.BondedStake, "delegation stake should not exist")

@@ -1404,7 +1404,7 @@ func (c absenteesComputer) RequiredGas(_ []byte) uint64 {
 }
 
 func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, caller common.Address) ([]byte, error) {
-	// if we are in testMode (used by truffle tests) just return no absents
+	// if we are in testMode (used by truffle tests) just return no absents and zero effort
 	if evm.chainConfig.TestMode {
 		return makeReturnData(false, common.Big0, []common.Address{}), nil
 	}

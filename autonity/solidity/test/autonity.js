@@ -1089,8 +1089,6 @@ contract('Autonity', function (accounts) {
           // set short epoch period
           let customizedEpochPeriod = 20;
           copyParams.protocol.epochPeriod = customizedEpochPeriod;
-          //TODO(lorenzo) not sure if this is the best way to fix it, update when we decide where to send proposer rewards
-          copyParams.policy.proposerRewardRate = 0;
 
           token = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
           assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
