@@ -45,11 +45,11 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// Setup Bindings
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidStateContracts := make([]*autonity.ILiquidLogic, len(valAddrs))
+	liquidStateContracts := make([]*autonity.ILiquid, len(valAddrs))
 	validators := make([]autonity.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidStateContracts[i], _ = autonity.NewILiquidLogic(validators[i].LiquidStateContract, n.WsClient)
+		liquidStateContracts[i], _ = autonity.NewILiquid(validators[i].LiquidStateContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
 	tx, err := liquidStateContracts[0].Transfer(

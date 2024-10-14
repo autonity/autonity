@@ -3,7 +3,7 @@ const assert = require('assert');
 const { Buffer } = require('node:buffer');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
-const liquidStateContract = artifacts.require("ILiquidLogic")
+const liquidStateContract = artifacts.require("ILiquid")
 const AccountabilityTest = artifacts.require("AccountabilityTest")
 const config = require('./config.js')
 
