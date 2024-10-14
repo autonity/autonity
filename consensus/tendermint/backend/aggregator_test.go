@@ -42,7 +42,7 @@ var (
 
 func makePropose(chain *core.BlockChain, backend *Backend, r int64, h uint64) *message.Propose {
 	// don't care that it has empty proposer seal, we just want to check that aggregator sends it to Core
-	currentCommittee, _, _, _, err := chain.LatestEpoch()
+	epoch, err := chain.LatestEpoch()
 	if err != nil {
 		panic(err)
 	}
@@ -50,7 +50,7 @@ func makePropose(chain *core.BlockChain, backend *Backend, r int64, h uint64) *m
 	if err != nil {
 		panic("cannot create block")
 	}
-	propose := message.NewPropose(r, h, -1, block, backend.Sign, &currentCommittee.Members[0])
+	propose := message.NewPropose(r, h, -1, block, backend.Sign, &epoch.Committee.Members[0])
 	return propose
 }
 

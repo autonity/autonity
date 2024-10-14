@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -35,7 +34,10 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 
 	self, err := c.CommitteeSet().MemberByAddress(c.address)
 	if err != nil {
-		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
+		// it can happen in edge case addressed by docker e2e test, that is a validator resets at the epoch boundary,
+		// after which it leaves the committee, we cannot panic it in that case.
+		c.logger.Error("Validator is no longer in current committee", "err", err, "validator", c.address.String())
+		return
 	}
 
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)

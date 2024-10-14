@@ -38,11 +38,12 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	committee, err := acn.chain.ProtocolContracts().GetCommitteeByHeight(currentHead, currentState, currentHead.Number)
+	epoch, err := acn.chain.ProtocolContracts().EpochByHeight(currentHead, currentState, currentHead.Number)
 	if err != nil {
 		panic(err)
 	}
 
+	committee := epoch.Committee
 	if committee.MemberByAddress(acn.address) != nil { //nolint
 		updateConsensusEnodes(currentHead)
 		wasValidating = true

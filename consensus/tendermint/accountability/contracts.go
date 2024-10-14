@@ -987,8 +987,10 @@ func maxEvidenceMessages(committeeSize int) int {
 
 func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*types.Committee, error) {
 	var committeeSet []types.CommitteeMember
-	err := acCall(evm, caller, "getCommitteeByHeight", &committeeSet, new(big.Int).SetUint64(height))
-	if err != nil {
+	previousEpochBlock := new(big.Int)
+	curEpochBlock := new(big.Int)
+	nextEpochBlock := new(big.Int)
+	if err := acCall(evm, caller, "getEpochByHeight", &[]any{&committeeSet, &previousEpochBlock, &curEpochBlock, &nextEpochBlock}, new(big.Int).SetUint64(height)); err != nil {
 		return nil, err
 	}
 
@@ -996,10 +998,9 @@ func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*type
 		panic("get empty committee set for height: " + strconv.FormatUint(height, 10))
 	}
 
-	committee := &types.Committee{}
-	committee.Members = committeeSet
+	committee := &types.Committee{Members: committeeSet}
 	// As the committee is already sorted by the contract, thus we don't need sort again.
-	if err = committee.Enrich(); err != nil {
+	if err := committee.Enrich(); err != nil {
 		return nil, err
 	}
 

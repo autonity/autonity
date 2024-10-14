@@ -1065,22 +1065,22 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-     * @notice Returns the committee of a specific height.
-     * @param _height the input block number
-     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
-     */
-    function getCommitteeByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory) {
-        require(_height <= block.number, "cannot get committee for a future height");
+    * @notice Returns the epoch info of the height.
+    */
+    function getEpochByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
+        require(_height <= lastFinalizedBlock+1, "cannot get epoch for a future block");
 
-        // if the block was already finalized, get committee by its corresponding epoch id.
+        uint256 blockEpochID = epochID;
+        // if the block was already finalized, resolve its corresponding epoch id.
         if (_height <= lastFinalizedBlock) {
-            uint256 blockEpochID = blockEpochMap[_height];
-            CommitteeMember[] memory members = epochInfos[blockEpochID].committee;
-            return members;
+            blockEpochID = blockEpochMap[_height];
         }
 
-        // otherwise, this _height is the latest consensus instance, return current committee.
-        return committee;
+        CommitteeMember[] memory members = epochInfos[blockEpochID].committee;
+        uint256 previous = epochInfos[blockEpochID].previousEpochBlock;
+        uint256 current = epochInfos[blockEpochID].epochBlock;
+        uint256 next = epochInfos[blockEpochID].nextEpochBlock;
+        return (members, previous, current, next);
     }
 
     /**
@@ -1088,7 +1088,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      * @param _block the input block number.
     */
     function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
-        require(_block <= block.number, "cannot get epoch for a future block");
+        require(_block <= lastFinalizedBlock+1, "cannot get epoch id for a future block");
+
         if (_block <= lastFinalizedBlock) {
             return blockEpochMap[_block];
         }
