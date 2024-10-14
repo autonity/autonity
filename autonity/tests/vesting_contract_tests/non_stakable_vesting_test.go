@@ -15,7 +15,7 @@ var operator = tests.Operator
 
 func TestReleaseFromNonStakableContract(t *testing.T) {
 	var amount int64 = 100
-	start := time.Now().Unix() + 1
+	start := time.Now().Unix() + 10
 	// having (amount = end - start) makes (unlockedFunds = time - start)
 	end := amount + start
 	cliffDuration := big.NewInt(amount / 2)
@@ -30,18 +30,44 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		return r
 	}
 
-	tests.RunWithSetup("cannot unlock before cliff", setup, func(r *tests.Runner) {
-		_, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: cliff period not reached yet", err.Error())
+	tests.RunWithSetup("vested and withdrawale vested funds are 0 before start", setup, func(r *tests.Runner) {
+		vestedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.True(r.T, vestedFunds.Cmp(common.Big0) == 0)
 
-		_, err = r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: cliff period not reached yet", err.Error())
+		withdrawable, _, err := r.NonStakableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.True(r.T, withdrawable.Cmp(common.Big0) == 0)
+
+		releaseAllNTN(r, user, common.Big0)
+	})
+
+	tests.RunWithSetup("vested funds increase but withdrawale vested funds are 0 after start and before cliff", setup, func(r *tests.Runner) {
+		currentTime := r.WaitForEpochsUntil(start + 2)
+		require.True(r.T, currentTime < cliff, "cannot test, cliff reached")
+		vestedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.Equal(r.T, big.NewInt(currentTime-start-1), vestedFunds)
+
+		withdrawable, _, err := r.NonStakableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.True(r.T, withdrawable.Cmp(common.Big0) == 0)
+
+		releaseAllNTN(r, user, common.Big0)
+	})
+
+	tests.RunWithSetup("vested and withdrawale vested funds are equal after cliff", setup, func(r *tests.Runner) {
+		r.WaitForEpochsUntil(cliff + 1)
+		vestedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+
+		withdrawable, _, err := r.NonStakableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.Equal(r.T, vestedFunds, withdrawable)
 	})
 
 	tests.RunWithSetup("unlocks linearly (epoch based) (after cliff) between start and end", setup, func(r *tests.Runner) {
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlockAmount := big.NewInt(currentTime - start - 1)
 
 		epochID, _, err := r.Autonity.EpochID(nil)
@@ -52,7 +78,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, epochID, newEpochID, "cannot test if epoch progresses")
 
-		unlockedFunds, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -61,7 +87,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		releaseAllNTN(r, user, unlockedFunds)
 
 		// unlocked funds should be 0 now
-		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, unlockedFunds.Cmp(common.Big0) == 0)
 
@@ -71,10 +97,10 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 	})
 
 	tests.RunWithSetup("can release in chunks", setup, func(r *tests.Runner) {
-		currentTime := r.WaitSomeEpoch(cliff + 1)
+		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlockAmount := big.NewInt(currentTime - start - 1)
 		require.True(r.T, unlockAmount.Cmp(common.Big2) >= 0, "cannot test")
-		unlockedFunds, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -82,7 +108,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		releaseNTN(r, user, releaseAmount, true, false)
 
 		unlockAmount = new(big.Int).Sub(unlockAmount, releaseAmount)
-		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -92,16 +118,16 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 	})
 
 	tests.RunWithSetup("cannot unlock more than total amount", setup, func(r *tests.Runner) {
-		r.WaitSomeEpoch(end + 1)
+		r.WaitForEpochsUntil(end + 1)
 
 		unlockAmount := big.NewInt(amount)
-		unlockedFunds, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
 		// wait some more, shouldn't unlock more
 		r.WaitNextEpoch()
-		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -109,12 +135,12 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		releaseAmount := common.Big1
 		releaseNTN(r, user, releaseAmount, true, false)
 		unlockAmount = new(big.Int).Sub(unlockAmount, releaseAmount)
-		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
 		r.WaitNextEpoch()
-		unlockedFunds, _, err = r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 		releaseNTN(r, user, new(big.Int).Add(unlockAmount, common.Big1), false, false)
@@ -125,7 +151,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 
 func TestTreasuryFunds(t *testing.T) {
 	var amount int64 = 100
-	start := time.Now().Unix() + 1
+	start := time.Now().Unix() + 10
 	// having (amount = end - start) makes (unlockedFunds = time - start)
 	end := amount + start
 	setup := func() *tests.Runner {
@@ -135,20 +161,20 @@ func TestTreasuryFunds(t *testing.T) {
 	}
 
 	tests.RunWithSetup("unsubscribed funds go to treasury", setup, func(r *tests.Runner) {
-		r.WaitSomeEpoch(end + 1)
+		r.WaitForEpochsUntil(end + 1)
 		releaseTreasuryFunds(r, big.NewInt(amount), true)
 	})
 
 	tests.RunWithSetup("expired funds go to treasury", setup, func(r *tests.Runner) {
 		subscribedAmount := amount / 2
 		unsubscribedAmount := amount - subscribedAmount
-		currentTime := r.WaitSomeEpoch(start + 10)
+		currentTime := r.WaitForEpochsUntil(start + 10)
 		expiredFunds := (currentTime - start - 1) * subscribedAmount / amount
 		require.True(r.T, expiredFunds > 0, "cannot test")
 
 		user := tests.User
 		subscribeToSchedule(r, user, big.NewInt(subscribedAmount), common.Big0, common.Big0)
-		r.WaitSomeEpoch(end + 1)
+		r.WaitForEpochsUntil(end + 1)
 		releaseNTN(r, user, big.NewInt(subscribedAmount-expiredFunds+1), false, true)
 		releaseNTN(r, user, big.NewInt(subscribedAmount-expiredFunds), true, true)
 		releaseTreasuryFunds(r, big.NewInt(expiredFunds+unsubscribedAmount), true)
@@ -156,7 +182,13 @@ func TestTreasuryFunds(t *testing.T) {
 	})
 
 	tests.RunWithSetup("treasury funds cannot be withdrawn before total duration has passed", setup, func(r *tests.Runner) {
-		releaseTreasuryFunds(r, big.NewInt(amount), false)
+		releaseTreasuryFunds(r, big.NewInt(amount), false, "schedule total duration not expired yet")
+	})
+
+	tests.RunWithSetup("cannot withdraw more than once from the same schedule", setup, func(r *tests.Runner) {
+		r.WaitForEpochsUntil(end + 1)
+		releaseTreasuryFunds(r, big.NewInt(amount), true)
+		releaseTreasuryFunds(r, big.NewInt(amount), false, "treasury already withdrew all the funds from this schedule")
 	})
 }
 
@@ -211,7 +243,7 @@ func TestContractCreation(t *testing.T) {
 	})
 
 	var amount int64 = 100
-	start := time.Now().Unix() + 1
+	start := time.Now().Unix() + 10
 	cliffDuration := big.NewInt(0)
 	end := amount + start
 
@@ -239,7 +271,7 @@ func TestContractCreation(t *testing.T) {
 	})
 
 	tests.RunWithSetup("contract creation after start loses unlocked funds", newSetup, func(r *tests.Runner) {
-		currentTime := r.WaitSomeEpoch(start + 10)
+		currentTime := r.WaitForEpochsUntil(start + 10)
 		unlockAmount := currentTime - start - 1
 		// progress some more blocks, as unlocking should be epoch based
 		// only unlocked funds should be expired
@@ -251,7 +283,7 @@ func TestContractCreation(t *testing.T) {
 		// unlockAmount from schedule shows as expired funds in contract
 		// total amount of contract is reduced by the amount of expired funds
 
-		unlockedFunds, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, unlockedFunds.Cmp(common.Big0) == 0)
 		contract, _, err := r.NonStakableVesting.GetContract(nil, user, common.Big0)
@@ -263,14 +295,18 @@ func TestContractCreation(t *testing.T) {
 		expiredFunds, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, expiredCalculated, expiredFunds)
+
+		scheduleTracker, _, err := r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		require.NoError(r.T, err)
+		require.Equal(r.T, expiredCalculated, scheduleTracker.ExpiredFromContract)
 	})
 
 	tests.RunWithSetup("contract creation before start has full funds claimable as unlocks", newSetup, func(r *tests.Runner) {
 		subscribeAmount := big.NewInt(amount)
 		subscribeToSchedule(r, user, subscribeAmount, common.Big0, cliffDuration)
-		r.WaitSomeEpoch(end + 1)
+		r.WaitForEpochsUntil(end + 1)
 		// all should unlock, user should be able to claim everything
-		unlocked, _, err := r.NonStakableVesting.UnlockedFunds(nil, user, common.Big0)
+		unlocked, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, subscribeAmount, unlocked)
 		balance, _, err := r.Autonity.BalanceOf(nil, user)
@@ -341,10 +377,10 @@ func releaseAllNTN(r *tests.Runner, user common.Address, unlocked *big.Int) {
 		r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
 	)
 	newBalance := r.GetNewtonBalanceOf(user)
-	require.Equal(r.T, new(big.Int).Add(balance, unlocked), newBalance)
+	require.True(r.T, new(big.Int).Add(balance, unlocked).Cmp(newBalance) == 0)
 }
 
-func releaseTreasuryFunds(r *tests.Runner, funds *big.Int, success bool) {
+func releaseTreasuryFunds(r *tests.Runner, funds *big.Int, success bool, revertingMsg ...string) {
 	treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
 	require.NoError(r.T, err)
 	balance := r.GetNewtonBalanceOf(treasury)
@@ -358,8 +394,12 @@ func releaseTreasuryFunds(r *tests.Runner, funds *big.Int, success bool) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, new(big.Int).Add(balance, funds), newBalance)
 	} else {
+		errMsg := "execution reverted"
+		if len(revertingMsg) > 0 {
+			errMsg += ": " + revertingMsg[0]
+		}
 		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: schedule total duration not expired yet", err.Error())
+		require.Equal(r.T, errMsg, err.Error())
 		require.True(r.T, balance.Cmp(newBalance) == 0)
 	}
 }

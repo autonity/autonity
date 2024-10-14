@@ -9,7 +9,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     struct ScheduleTracker {
         uint256 unsubscribedAmount;
         uint256 expiredFromContract;
-        uint256 withdrawnAmount; // withdrawn by treasury account
+        bool withdrawnByTreasury;
         bool initialized;
     }
 
@@ -74,13 +74,13 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
+        require(_scheduleTracker.withdrawnByTreasury == false, "treasury already withdrew all the funds from this schedule");
 
         if (!_scheduleTracker.initialized) {
             _initializeSchedule(_scheduleTracker, _schedule.totalAmount);
         }
-        uint256 _withdrawable = _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract - _scheduleTracker.withdrawnAmount;
-        _transferNTN(msg.sender, _withdrawable);
-        _scheduleTracker.withdrawnAmount += _withdrawable;
+        _transferNTN(msg.sender, _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract);
+        _scheduleTracker.withdrawnByTreasury = true;
     }
 
     /**
