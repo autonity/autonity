@@ -564,7 +564,7 @@ func (hc *HeaderChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 	}
 
 	epoch := &types.EpochInfo{
-		EpochBlock: epochHead.Number,
+		EpochBlock: new(big.Int).Set(epochHead.Number),
 		Epoch:      *epochHead.Epoch.Copy(),
 	}
 	return epoch, nil

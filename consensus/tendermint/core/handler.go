@@ -21,7 +21,7 @@ const syncTimeOut = 30 * time.Second
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 
-	chainHead := c.backend.BlockChain().CurrentBlock().Header()
+	chainHead := c.backend.HeadBlock().Header()
 	epoch, err := c.Backend().EpochOfHeight(chainHead.Number.Uint64() + 1)
 	if err != nil {
 		panic(err)
