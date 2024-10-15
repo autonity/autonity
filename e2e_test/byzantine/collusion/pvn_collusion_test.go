@@ -2,6 +2,8 @@ package collusion
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -10,7 +12,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 /*

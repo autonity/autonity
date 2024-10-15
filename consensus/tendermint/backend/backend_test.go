@@ -104,6 +104,7 @@ func TestAskSync(t *testing.T) {
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
 	b := &Backend{
+		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
 		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
 		logger:        log.New("backend", "test", "id", 0),
@@ -141,6 +142,7 @@ func BenchmarkGossip(b *testing.B) {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, fixsizecache.HashKey[common.Hash])
 	bk := &Backend{
+		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
 		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
 	}
@@ -199,6 +201,7 @@ func TestGossip(t *testing.T) {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 	b := &Backend{
+		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
 		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
 	}
@@ -263,7 +266,8 @@ func TestVerifyProposal(t *testing.T) {
 
 func TestHasBadProposal(t *testing.T) {
 	t.Run("callback is not set, false returned", func(t *testing.T) {
-		b := &Backend{}
+		b := &Backend{
+			database: rawdb.NewMemoryDatabase()}
 		if b.HasBadProposal(common.HexToHash("0x01234567890")) {
 			t.Fatalf("expected <false>, got <true>")
 		}
@@ -271,6 +275,7 @@ func TestHasBadProposal(t *testing.T) {
 
 	t.Run("callback is set, true returned", func(t *testing.T) {
 		b := &Backend{
+			database: rawdb.NewMemoryDatabase(),
 			hasBadBlock: func(hash common.Hash) bool {
 				return true
 			},
@@ -388,6 +393,7 @@ func TestCommit(t *testing.T) {
 		gossiper := interfaces.NewMockGossiper(ctrl)
 		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 		b := &Backend{
+			database:    rawdb.NewMemoryDatabase(),
 			Broadcaster: broadcaster,
 			gossiper:    gossiper,
 			logger:      log.New("backend", "test", "id", 0),
@@ -408,7 +414,8 @@ func TestCommit(t *testing.T) {
 
 func TestSyncPeer(t *testing.T) {
 	t.Run("no Broadcaster set, nothing done", func(t *testing.T) {
-		b := &Backend{}
+		b := &Backend{
+			database: rawdb.NewMemoryDatabase()}
 		b.SyncPeer(common.HexToAddress("0x0123456789"))
 	})
 
@@ -438,6 +445,7 @@ func TestSyncPeer(t *testing.T) {
 		gossiper := interfaces.NewMockGossiper(ctrl)
 		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
 		b := &Backend{
+			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
 			gossiper: gossiper,
 			core:     tendermintC,
@@ -456,6 +464,7 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{})
 
 		b := &Backend{
+			database: rawdb.NewMemoryDatabase(),
 			currentBlock: func() *types.Block {
 				return block
 			},
@@ -496,7 +505,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := new(tdmcore.MsgStore)
 	// Use the first key as private key
-	b := New(nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
+	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)
