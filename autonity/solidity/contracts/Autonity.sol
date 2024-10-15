@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 
 import "./liquid/LiquidState.sol";
 import "./Upgradeable.sol";
-import "./Precompiled.sol";
+import "./lib/Precompiled.sol";
 import "./Helpers.sol";
 import "./UpgradeManager.sol";
 import "./lib/BytesLib.sol";

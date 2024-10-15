@@ -79,7 +79,7 @@ func TestScheduleOperation(t *testing.T) {
 		require.Equal(r.T, "execution reverted: schedule total duration exceeds max allowed duration", err.Error())
 	})
 
-	start := time.Now().Unix() + 1
+	start := time.Now().Unix() + 10
 	// having (amount = totalDuration) makes (unlockedFunds = time - start)
 	totalDuration := amount
 	newSetup := func() *tests.Runner {
