@@ -94,7 +94,7 @@ contract Accountability is IAccountability, Slasher {
 
     constructor(address payable _autonity, Config memory _config) Slasher(_autonity){
         autonity = Autonity(_autonity);
-        epochPeriod = autonity.getEpochPeriod();
+        epochPeriod = autonity.getCurrentEpochPeriod();
         Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
         for (uint256 i=0; i < committee.length; i++) {
             curCommittee.push(committee[i].addr);

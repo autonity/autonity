@@ -161,7 +161,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
 
     // returns collusion degree
     function _computeInactivityScoresAndCollusionDegree() internal virtual returns (uint256) {
-        uint256 epochPeriod = autonity.getEpochPeriod();
+        uint256 epochPeriod = autonity.getCurrentEpochPeriod();
         uint256 collusionDegree = 0;
 
         // compute aggregated scores + collusion degree
@@ -295,14 +295,6 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     */
     function getDelta() external view virtual returns (uint256) {
         return newDelta;
-    }
-
-    /*
-    * @notice gets the **current** delta used to determine how many block to wait before generating the activity proof. Used to initialize autonity cache.
-    * @return the **current** delta number of blocks to wait before generating the activity proof
-    */
-    function getCurrentDelta() external view virtual returns (uint256) {
-        return config.delta;
     }
 
     /*

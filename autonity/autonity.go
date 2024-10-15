@@ -220,6 +220,10 @@ func (c *Cache) MinimumBaseFee() *big.Int {
 	return new(big.Int).Set(c.minBaseFee.Load())
 }
 
+// TODO: currently this value gets updated when the operator requests a change in the epoch period,
+// however the new epoch period gets actually applied at epoch's end.
+// for now it is not a big deal because the cached epoch period is only used to disconnect malicious signers
+// but it needs to be fixed
 func (c *Cache) EpochPeriod() *big.Int {
 	return new(big.Int).Set(c.epochPeriod.Load())
 }

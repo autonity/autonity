@@ -822,11 +822,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
-    * @param absentees, list of absent validators for current height - delta
-    * @param proposer, proposer of the current block
-    * @param proposerEffort, amount of voting power that the proposer has included in the activity proof minus quorum
-    * @param isProposerOmissionFaulty, true when the proposer fails to provide an activity proof for target height
-    *
     * @return upgrade Set to true if an autonity contract upgrade is available.
     * @return epochEnded Set to true if an epoch is ended.
     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
@@ -967,14 +962,16 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
-    * @notice Returns the epoch period.
+    * @notice Returns the epoch period. If there will be an update at epoch end, the new epoch period is returned
     */
     function getEpochPeriod() external view virtual returns (uint256) {
-        // if the new epoch period haven't being applied yet, return it anyway.
-        if (config.protocol.epochPeriod != epochPeriodToBeApplied) {
             return epochPeriodToBeApplied;
-        }
-        // otherwise we return the current applied epoch period.
+    }
+
+    /**
+    * @notice Returns the epoch period of the current epoch
+    */
+    function getCurrentEpochPeriod() external view virtual returns (uint256) {
         return config.protocol.epochPeriod;
     }
 

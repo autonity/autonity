@@ -162,7 +162,7 @@ func TestProposerLogic(t *testing.T) {
 	t.Run("Faulty proposer inactive score increases and height is marked as invalid", func(t *testing.T) {
 		r := setup(t, configOverride)
 
-		delta, _, err := r.omissionAccountability.GetCurrentDelta(nil)
+		delta, _, err := r.omissionAccountability.GetDelta(nil)
 		require.NoError(t, err)
 
 		r.waitNBlocks(int(delta.Int64()))
@@ -189,7 +189,7 @@ func TestProposerLogic(t *testing.T) {
 	t.Run("Proposer effort is correctly computed", func(t *testing.T) {
 		r := setup(t, configOverride)
 
-		delta, _, err := r.omissionAccountability.GetCurrentDelta(nil)
+		delta, _, err := r.omissionAccountability.GetDelta(nil)
 		require.NoError(t, err)
 
 		r.waitNBlocks(int(delta.Int64()))
@@ -243,7 +243,7 @@ func TestInactivityCounter(t *testing.T) {
 	_, err := r.omissionAccountability.SetInactivityThreshold(r.operator, new(big.Int).SetUint64(10000))
 	require.NoError(t, err)
 
-	delta, _, err := r.omissionAccountability.GetCurrentDelta(nil)
+	delta, _, err := r.omissionAccountability.GetDelta(nil)
 	require.NoError(t, err)
 
 	r.waitNBlocks(int(delta.Int64()))
@@ -480,7 +480,7 @@ func TestOmissionPunishments(t *testing.T) {
 		return config
 	})
 
-	delta, _, err := r.omissionAccountability.GetCurrentDelta(nil)
+	delta, _, err := r.omissionAccountability.GetDelta(nil)
 	require.NoError(t, err)
 
 	r.waitNBlocks(int(delta.Int64()))
@@ -662,7 +662,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 			return config
 		})
 
-		delta, _, err := r.omissionAccountability.GetCurrentDelta(nil)
+		delta, _, err := r.omissionAccountability.GetDelta(nil)
 		require.NoError(t, err)
 
 		r.waitNBlocks(int(delta.Int64()))
@@ -726,7 +726,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 func TestConfigSanity(t *testing.T) {
 	r := setup(t, configOverrideIncreasedStake)
 
-	delta, _, err := r.omissionAccountability.GetCurrentDelta(nil)
+	delta, _, err := r.omissionAccountability.GetDelta(nil)
 	require.NoError(t, err)
 
 	r.waitNBlocks(int(delta.Int64()))
@@ -785,7 +785,7 @@ func TestRewardWithholding(t *testing.T) {
 		return config
 	})
 
-	delta, _, err := r.omissionAccountability.GetCurrentDelta(nil)
+	delta, _, err := r.omissionAccountability.GetDelta(nil)
 	require.NoError(t, err)
 
 	// validators over threshold will get all their rewards withheld
@@ -880,4 +880,197 @@ func TestRewardWithholding(t *testing.T) {
 	ntnExpectedPoolBalance := ntnPoolBefore.Add(ntnPoolBefore, ntnTotalWithheld)
 	require.Equal(t, atnExpectedPoolBalance.String(), r.getBalanceOf(withheldRewardPool).String())
 	require.Equal(t, ntnExpectedPoolBalance.String(), ntnBalance(r, withheldRewardPool).String())
+}
+
+// operator can disable omission punishments by increasing the inactivity threshold
+// there are also other ways to disable accountability, by lowering the initial punishments values
+// proposer rewards can be disabled by lowering the proposer reward rate in the autonity contract
+func TestOmissionDisabling(t *testing.T) {
+	r := setup(t, configOverride)
+
+	_, err := r.omissionAccountability.SetInactivityThreshold(r.operator, new(big.Int).SetUint64(ScaleFactor))
+	require.NoError(t, err)
+
+	// validator 1 absent for entire epoch
+	absentees := make(map[common.Address]struct{})
+	absentees[r.committee.validators[1].NodeAddress] = struct{}{}
+
+	csize := len(r.committee.validators)
+
+	for i := 0; i < omissionEpochPeriod; i++ {
+		setupProofAndAutonityFinalize(r, r.committee.validators[0].NodeAddress, absentees)
+	}
+
+	epochID, _, err := r.autonity.EpochID(nil)
+	require.NoError(t, err)
+	require.Equal(t, common.Big1.String(), epochID.String())
+
+	// validator 1 should still be in the committee and not jailed
+	require.Equal(t, csize, len(r.committee.validators))
+	val := validator(r, r.committee.validators[1].NodeAddress)
+	require.Equal(t, uint8(0), val.State)
+	require.Equal(t, 0, offences(r, r.committee.validators[1].NodeAddress))
+}
+
+func TestProtocolParameterChange(t *testing.T) {
+	r := setup(t, nil)
+	/* default config:
+	- epoch period: 50
+	- lookback window: 40
+	- delta: 5
+	*/
+	lookback, _, err := r.omissionAccountability.GetLookbackWindow(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(40), lookback.Uint64())
+	delta, _, err := r.omissionAccountability.GetDelta(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(5), delta.Uint64())
+	epochPeriod, _, err := r.autonity.GetEpochPeriod(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(50), epochPeriod.Uint64())
+
+	// past performance weight cannot be greater than inactivity threshold
+	_, err = r.omissionAccountability.SetPastPerformanceWeight(r.operator, new(big.Int).SetUint64(ScaleFactor))
+	t.Log(err)
+	require.Error(t, err)
+
+	// equation epochPeriod > delta+lookback-1 needs to be respected
+
+	/*
+		current params:
+		- epoch period: 50
+		- delta: 5
+		- lookback window: 40
+		updated attempted equation:
+		30 > 5+40-1 --> false --> err
+	*/
+	_, err = r.autonity.SetEpochPeriod(r.operator, new(big.Int).SetUint64(30))
+	t.Log(err)
+	require.Error(t, err)
+
+	/*
+		current params:
+		- epoch period: 50
+		- delta: 5
+		- lookback window: 40
+		updated attempted equation:
+		100 > 5+40-1 --> true --> no error
+	*/
+	_, err = r.autonity.SetEpochPeriod(r.operator, new(big.Int).SetUint64(100))
+	require.NoError(t, err)
+
+	/*
+		current params:
+		- epoch period: 100
+		- delta: 5
+		- lookback window: 40
+		updated attempted equation:
+		100 > 5+100-1 --> false --> err
+	*/
+	_, err = r.omissionAccountability.SetLookbackWindow(r.operator, new(big.Int).SetUint64(100))
+	t.Log(err)
+	require.Error(t, err)
+
+	/*
+		current params:
+		- epoch period: 100
+		- delta: 5
+		- lookback window: 40
+		updated attempted equation:
+		30 > 5+20-1 --> true --> no error
+	*/
+	_, err = r.omissionAccountability.SetLookbackWindow(r.operator, new(big.Int).SetUint64(20))
+	require.NoError(t, err)
+	_, err = r.autonity.SetEpochPeriod(r.operator, new(big.Int).SetUint64(30))
+	require.NoError(t, err)
+
+	/*
+		current params:
+		- epoch period: 30
+		- delta: 5
+		- lookback window: 20
+		updated attempted equation:
+		30 > 20+20-1 --> false --> err
+	*/
+	_, err = r.omissionAccountability.SetDelta(r.operator, new(big.Int).SetUint64(20))
+	t.Log(err)
+	require.Error(t, err)
+
+	/*
+		current params:
+		- epoch period: 30
+		- delta: 5
+		- lookback window: 20
+		updated attempted equation:
+		30 > 10+20-1 --> true --> no err
+	*/
+	_, err = r.omissionAccountability.SetDelta(r.operator, new(big.Int).SetUint64(10))
+	require.NoError(t, err)
+
+	// params should still be unchanged in current epoch
+	config, _, err := r.omissionAccountability.Config(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(40), config.LookbackWindow.Uint64())
+	require.Equal(t, uint64(5), config.Delta.Uint64())
+	epochPeriod, _, err = r.autonity.GetCurrentEpochPeriod(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(50), epochPeriod.Uint64())
+
+	// getters should already return new values
+	lookback, _, err = r.omissionAccountability.GetLookbackWindow(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(20), lookback.Uint64())
+	delta, _, err = r.omissionAccountability.GetDelta(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(10), delta.Uint64())
+	epochPeriod, _, err = r.autonity.GetEpochPeriod(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(30), epochPeriod.Uint64())
+
+	// end epoch, new protocol params should be applied
+	// both getters and config should return new values
+	r.waitNextEpoch()
+
+	config, _, err = r.omissionAccountability.Config(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(20), config.LookbackWindow.Uint64())
+	require.Equal(t, uint64(10), config.Delta.Uint64())
+	epochPeriod, _, err = r.autonity.GetCurrentEpochPeriod(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(30), epochPeriod.Uint64())
+
+	lookback, _, err = r.omissionAccountability.GetLookbackWindow(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(20), lookback.Uint64())
+	delta, _, err = r.omissionAccountability.GetDelta(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(10), delta.Uint64())
+	epochPeriod, _, err = r.autonity.GetEpochPeriod(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(30), epochPeriod.Uint64())
+
+	/*
+		current params:
+		- epoch period: 30
+		- delta: 10
+		- lookback window: 20
+		updated attempted equation:
+		40 > 20+20-1 --> true --> no err
+	*/
+	_, err = r.autonity.SetEpochPeriod(r.operator, new(big.Int).SetUint64(40))
+	require.NoError(t, err)
+	_, err = r.omissionAccountability.SetDelta(r.operator, new(big.Int).SetUint64(20))
+	require.NoError(t, err)
+
+	/*
+		current params:
+		- epoch period: 40
+		- delta: 20
+		- lookback window: 20
+		updated attempted equation:
+		400 > 20+20-1 --> true --> no err
+	*/
+	_, err = r.autonity.SetEpochPeriod(r.operator, new(big.Int).SetUint64(400))
+	require.NoError(t, err)
+
 }

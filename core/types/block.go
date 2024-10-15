@@ -330,19 +330,23 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 
 		if hExtra.Epoch != nil {
 			if hExtra.Epoch.Committee == nil {
-				return fmt.Errorf("committee shouldn't be nil")
+				return fmt.Errorf("committee should not be nil")
+			}
+
+			if len(hExtra.Epoch.Committee.Members) == 0 {
+				return fmt.Errorf("no members in committee set")
 			}
 
 			if err = hExtra.Epoch.Committee.Enrich(); err != nil {
 				return fmt.Errorf("error while deserializing consensus keys: %w", err)
 			}
 
-			if len(hExtra.Epoch.Committee.Members) == 0 {
-				return fmt.Errorf("no validator in committee set")
+			if hExtra.Epoch.PreviousEpochBlock == nil || hExtra.Epoch.NextEpochBlock == nil {
+				return fmt.Errorf("invalid epoch boundary")
 			}
 
-			if hExtra.Epoch.PreviousEpochBlock == nil || hExtra.Epoch.NextEpochBlock == nil || hExtra.Epoch.Delta == nil {
-				return fmt.Errorf("invalid epoch boundary")
+			if hExtra.Epoch.Delta == nil {
+				return fmt.Errorf("invalid epoch delta")
 			}
 
 			if hExtra.Epoch.Delta.Cmp(common.Big0) == 0 {

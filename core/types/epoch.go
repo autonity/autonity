@@ -180,18 +180,23 @@ func (c *Committee) Len() int {
 }
 
 func (c *Committee) Copy() *Committee {
+	if c == nil {
+		return nil
+	}
 	var clone = &Committee{}
 	if c.Members != nil {
 		clone.Members = make([]CommitteeMember, len(c.Members))
 		for i, val := range c.Members {
 			clone.Members[i] = CommitteeMember{
-				Address:      val.Address,
-				VotingPower:  new(big.Int).Set(val.VotingPower),
-				Index:        val.Index,
-				ConsensusKey: val.ConsensusKey.Copy(),
+				Address:     val.Address,
+				VotingPower: new(big.Int).Set(val.VotingPower),
+				Index:       val.Index,
 			}
 			clone.Members[i].ConsensusKeyBytes = make([]byte, len(val.ConsensusKeyBytes))
 			copy(clone.Members[i].ConsensusKeyBytes, val.ConsensusKeyBytes)
+			if val.ConsensusKey != nil {
+				clone.Members[i].ConsensusKey = val.ConsensusKey.Copy()
+			}
 		}
 	}
 

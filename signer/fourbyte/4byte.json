@@ -153,5 +153,6 @@
   "e3deef9c": "setCommittee((address,uint256,bytes)[],address[])",
   "e1e8cac6": "setLastEpochBlock(uint256)",
   "c024cc2c": "setEpochBlock(uint256)",
-  "4da3baec": "finalizeInitialization(uint256)"
+  "4da3baec": "finalizeInitialization(uint256)",
+  "0aac2da1": "getCurrentEpochPeriod()"
 }

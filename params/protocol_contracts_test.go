@@ -135,13 +135,23 @@ func TestPrepareChainConfig_EpochPeriod(t *testing.T) {
 		InitialSlashingRate:    1000, // 10%
 		Delta:                  10,   // 10 blocks
 	}}
+	// equation epochPeriod > delta+lookback-1 needs to be respected
+	// 30 > 10+30-1 --> false --> err
 	err := chainConfig.Prepare()
 	t.Log(err)
 	assert.Error(t, err, "Expecting Prepare to return error")
+	// 30 > 10+20-1 --> true --> no err
 	chainConfig.OmissionAccountabilityConfig.LookbackWindow = 20
 	assert.NoError(t, chainConfig.Prepare())
+	// 30 > 20+20-1 --> false --> err
+	chainConfig.OmissionAccountabilityConfig.Delta = 20
+	err = chainConfig.Prepare()
+	t.Log(err)
+	assert.Error(t, err, "Expecting Prepare to return error")
+	// 40 > 20+20-1 --> true --> no err
 	contractConfig.EpochPeriod = 40
 	assert.NoError(t, chainConfig.Prepare())
+	// 400 > 20+20-1 --> true --> no err
 	contractConfig.EpochPeriod = 400
 	assert.NoError(t, chainConfig.Prepare())
 }

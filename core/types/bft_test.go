@@ -62,6 +62,9 @@ func TestHeaderHash(t *testing.T) {
 	signature := testKey.Sign(testKey.PublicKey().Marshal())
 	proposerSeal := signature.Marshal()
 
+	epoch2 := epoch.Copy()
+	epoch2.Delta = common.Big2
+
 	testCases := []struct {
 		header Header
 		hash   common.Hash
@@ -96,6 +99,12 @@ func TestHeaderHash(t *testing.T) {
 				Epoch: epoch,
 			}),
 			common.HexToHash("0x4003fa038541d2ee678ed013f972109f55c9eea389dc1afedea08250e260dd41"),
+		},
+		{
+			setExtra(PosHeader, headerExtra{
+				Epoch: epoch2,
+			}),
+			common.HexToHash("0x4e7ad6d14406b030f430e98d9b4d9950c0de2af715c3f6ffa2d5425a0262e23e"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
