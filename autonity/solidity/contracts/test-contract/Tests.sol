@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {Autonity} from "./Autonity.sol";
+import {Autonity} from "../Autonity.sol";
 
 // Used for testing contract upgrade mechanism.
 contract TestBase {
