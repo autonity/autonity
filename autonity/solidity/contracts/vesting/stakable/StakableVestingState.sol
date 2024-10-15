@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../../DelegateCaller.sol";
+import "../../lib/DelegateCaller.sol";
 import "./StakableVestingStorage.sol";
 
 contract StakableVestingState is StakableVestingStorage {
