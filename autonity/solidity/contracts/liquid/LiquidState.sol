@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.3;
 
-import "../DelegateCaller.sol";
+import "../lib/DelegateCaller.sol";
 import "./LiquidLogic.sol";
 import "./LiquidStorage.sol";
 

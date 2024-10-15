@@ -4,7 +4,7 @@ pragma solidity ^0.8.3;
 
 import "../interfaces/IERC20.sol";
 import "../Upgradeable.sol";
-import "../Precompiled.sol";
+import "../lib/Precompiled.sol";
 import "../Autonity.sol";
 
 /** @title Proof-of-Stake Autonity Contract */

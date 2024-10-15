@@ -140,6 +140,11 @@ func (g *AutonityContractGenesis) Prepare() error {
 			return fmt.Errorf("error parsing validator %d, err: %v", i+1, err)
 		}
 	}
+	for i, s := range g.Schedules {
+		if err := s.Validate(); err != nil {
+			return fmt.Errorf("error parsing schedule %d, err: %v", i+1, err)
+		}
+	}
 	return nil
 }
 
