@@ -977,6 +977,18 @@ func TestProtocolParameterChange(t *testing.T) {
 		- delta: 5
 		- lookback window: 40
 		updated attempted equation:
+		100 > 5+60-1 --> true --> no err
+		this will pass because we already increase the period for next epoch, although equation would not be respected for the current epoch
+	*/
+	_, err = r.omissionAccountability.SetLookbackWindow(r.operator, new(big.Int).SetUint64(60))
+	require.NoError(t, err)
+
+	/*
+		current params:
+		- epoch period: 100
+		- delta: 5
+		- lookback window: 60
+		updated attempted equation:
 		30 > 5+20-1 --> true --> no error
 	*/
 	_, err = r.omissionAccountability.SetLookbackWindow(r.operator, new(big.Int).SetUint64(20))
@@ -1071,6 +1083,42 @@ func TestProtocolParameterChange(t *testing.T) {
 		400 > 20+20-1 --> true --> no err
 	*/
 	_, err = r.autonity.SetEpochPeriod(r.operator, new(big.Int).SetUint64(400))
+	require.NoError(t, err)
+
+	/*
+		current params:
+		- epoch period: 400
+		- delta: 20
+		- lookback window: 20
+		updated attempted equation:
+		400 > 20+200-1 --> true --> no err
+	*/
+	_, err = r.omissionAccountability.SetLookbackWindow(r.operator, new(big.Int).SetUint64(200))
+	require.NoError(t, err)
+
+	/*
+		current params:
+		- epoch period: 400
+		- delta: 20
+		- lookback window: 20
+		updated attempted equation:
+		400 > 1+200-1 --> true --> no err
+	*/
+	_, err = r.omissionAccountability.SetDelta(r.operator, common.Big1)
+	require.NoError(t, err)
+
+	// cannot set lookback and delta to 0
+	_, err = r.omissionAccountability.SetLookbackWindow(r.operator, new(big.Int).SetUint64(0))
+	t.Log(err)
+	require.Error(t, err)
+	_, err = r.omissionAccountability.SetDelta(r.operator, new(big.Int).SetUint64(0))
+	t.Log(err)
+	require.Error(t, err)
+
+	// can set to 1
+	_, err = r.omissionAccountability.SetDelta(r.operator, new(big.Int).SetUint64(1))
+	require.NoError(t, err)
+	_, err = r.omissionAccountability.SetLookbackWindow(r.operator, new(big.Int).SetUint64(1))
 	require.NoError(t, err)
 
 }
