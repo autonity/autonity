@@ -469,7 +469,18 @@ func (bc *BlockChain) CacheProposalState(hash common.Hash, receipts types.Receip
 
 func (bc *BlockChain) LoadProposalState() (*state.StateDB, common.Hash) {
 	st := bc.cachedState.Load()
+	if st == nil {
+		return nil, common.Hash{}
+	}
 	return st.stateDb.Copy(), st.hash
+}
+
+func (bc *BlockChain) IsProposalStateCached(hash common.Hash) bool {
+	st := bc.cachedState.Load()
+	if st == nil {
+		return false
+	}
+	return st.hash == hash
 }
 
 // empty returns an indicator whether the blockchain is empty.
