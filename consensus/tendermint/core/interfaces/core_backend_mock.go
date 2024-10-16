@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 //
+
 // Package interfaces is a generated GoMock package.
 package interfaces
 
@@ -118,7 +119,7 @@ func (mr *MockBackendMockRecorder) Broadcast(committee, message any) *gomock.Cal
 }
 
 // Commit mocks base method.
-func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, quorumCertificate types.AggregateSignature) error {
+func (m *MockBackend) Commit(proposalBlock *types.Block, round int64, quorumCertificate *types.AggregateSignature) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", proposalBlock, round, quorumCertificate)
 	ret0, _ := ret[0].(error)

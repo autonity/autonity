@@ -20,7 +20,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
 	"io/ioutil"
+	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -427,4 +432,103 @@ func TestPOPVerifier(t *testing.T) {
 	ret, err = popVerifier.Run(input, 0, nil, common.Address{})
 	require.NotNil(t, err)
 	require.Equal(t, failure32Byte, ret)
+}
+
+func TestDeriveAbsents(t *testing.T) {
+	n := 10
+	var members []types.CommitteeMember
+
+	for i := 0; i < n; i++ {
+		members = append(members, types.CommitteeMember{Address: common.Address{byte(i)}})
+	}
+
+	committee := &types.Committee{Members: members}
+
+	signers := make(map[common.Address]struct{})
+	signers[committee.Members[0].Address] = struct{}{}
+	signers[committee.Members[1].Address] = struct{}{}
+	signers[committee.Members[7].Address] = struct{}{}
+	absents := deriveAbsentees(signers, committee)
+	require.Equal(t, n-len(signers), len(absents))
+
+	found := make(map[common.Address]bool)
+	for _, absent := range absents {
+		found[absent] = true
+		_, foundInSigners := signers[absent]
+		if foundInSigners {
+			t.Fatal("signer has been included into absents")
+		}
+	}
+
+	for signer := range signers {
+		found[signer] = true
+	}
+
+	// all members should be either signers or absents
+	require.Equal(t, len(committee.Members), len(found))
+}
+
+func writeCommittee(committee *types.Committee, stateDB *state.StateDB, caller common.Address, committeeSlot []byte) {
+	// store size
+	committeeSize := len(committee.Members)
+	committeeSizeBig := new(big.Int).SetUint64(uint64(committeeSize))
+	stateDB.SetState(caller, common.BytesToHash(committeeSlot), common.BytesToHash(committeeSizeBig.Bytes()))
+
+	blsPubKeyLen := new(big.Int).SetUint64(uint64(blst.BLSPubkeyLength))
+
+	committeeOffset := crypto.Keccak256Hash(committeeSlot).Big()
+	for i := 0; i < committeeSize; i++ {
+		// write node address
+		stateDB.SetState(caller, common.BigToHash(committeeOffset), committee.Members[i].Address.Hash())
+		committeeOffset.Add(committeeOffset, common.Big1)
+		// write power
+		stateDB.SetState(caller, common.BigToHash(committeeOffset), common.BytesToHash(committee.Members[i].VotingPower.Bytes()))
+		committeeOffset.Add(committeeOffset, common.Big1)
+
+		// write consensus key length
+		stateDB.SetState(caller, common.BigToHash(committeeOffset), common.BytesToHash(blsPubKeyLen.Bytes()))
+
+		// write consensus key
+		consensusKeySlot := crypto.Keccak256Hash(committeeOffset.Bytes())
+		stateDB.SetState(caller, consensusKeySlot, common.BytesToHash(committee.Members[i].ConsensusKeyBytes[:DataLen]))
+		consensusKeySlot = common.BytesToHash(new(big.Int).Add(consensusKeySlot.Big(), common.Big1).Bytes())
+		stateDB.SetState(caller, consensusKeySlot, common.BytesToHash(common.RightPadBytes(committee.Members[i].ConsensusKeyBytes[DataLen:], DataLen)))
+
+		committeeOffset.Add(committeeOffset, common.Big1)
+	}
+}
+
+func TestReadCommittee(t *testing.T) {
+	n := 10
+	var members []types.CommitteeMember
+
+	maxPower := new(big.Int).SetUint64(1000000000)
+	for i := 0; i < n; i++ {
+		key, err := blst.RandKey()
+		require.NoError(t, err)
+		members = append(members, types.CommitteeMember{
+			Address:           common.Address{byte(i)},
+			VotingPower:       new(big.Int).Rand(rand.New(rand.NewSource(time.Now().Unix())), maxPower),
+			ConsensusKeyBytes: key.PublicKey().Marshal(),
+		})
+	}
+
+	expectedCommittee := &types.Committee{Members: members}
+	err := expectedCommittee.Enrich()
+	require.NoError(t, err)
+
+	ethDb := rawdb.NewMemoryDatabase()
+	db := state.NewDatabase(ethDb)
+	stateDB, err := state.New(common.Hash{}, db, nil)
+	require.NoError(t, err)
+	caller := common.Address{0xca, 0xfe}
+	committeeSlot := common.LeftPadBytes(big.NewInt(54465465).Bytes(), DataLen)
+
+	// TODO(lorenzo) it would be better to actually deploy the autonity contract, store the committee from solidity and read it from here
+	// however I didn't find a way to deploy contract here yet, due to import loops and other complications
+	writeCommittee(expectedCommittee, stateDB, caller, committeeSlot)
+	committee := readCommittee(stateDB, caller, common.BytesToHash(committeeSlot))
+
+	require.Equal(t, expectedCommittee, committee)
+
 }

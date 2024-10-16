@@ -317,7 +317,7 @@ func TestHandleProposal(t *testing.T) {
 		}
 
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
-		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ types.AggregateSignature) {
+		backendMock.EXPECT().Commit(gomock.Any(), int64(2), gomock.Any()).Times(1).Do(func(committedBlock *types.Block, _ int64, _ *types.AggregateSignature) {
 			require.Equal(t, proposalBlock.Hash(), committedBlock.Hash())
 		})
 

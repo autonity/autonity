@@ -21,11 +21,20 @@ if __name__ == '__main__':
     parser.add_argument("autonity", help='Autonity Binary Path')
     parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
     parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
+    # Adding two new integer parameters to set the testcase range for the testing.
+    parser.add_argument("-start", help='Start testcase index', type=int, required=True, default=0)
+    parser.add_argument("-end", help='End testcase index', type=int, required=True, default=26)
+
     args = parser.parse_args()
 
     is_deploy = args.d
     is_testing = args.t
     autonity_path = args.autonity
+    start = args.start
+    end = args.end
+
+    LG.debug(f"First testcase index: {start}")
+    LG.debug(f"End testcase index: {end}")
 
     conf.load_project_conf()
     network_planner = None
@@ -65,8 +74,10 @@ if __name__ == '__main__':
         try:
             # load test case view, and start testing one by one.
             test_set = conf.get_test_case_conf()
-            num_of_cases = len(test_set["playbook"]["testcases"])
-            for test_case in test_set["playbook"]["testcases"]:
+            num_of_cases = end - start
+            for index, test_case in enumerate(test_set["playbook"]["testcases"]):
+                if not (start <= index < end):
+                    continue
                 playbook = conf.get_test_case_conf()
                 if playbook["playbook"]["stop"] is True:
                     LG.info("Playbook is stopped by user configuration: testcaseconf.yml/playbook/stop: true.")

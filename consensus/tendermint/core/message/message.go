@@ -19,6 +19,7 @@ package message
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/metrics"
 	"math/big"
 	"sort"
 
@@ -35,6 +36,9 @@ var (
 	ErrBadSignature            = errors.New("bad signature")
 	ErrUnauthorizedAddress     = errors.New("unauthorized address")
 	ErrInvalidComplexAggregate = errors.New("complex aggregate does not carry quorum")
+
+	// messages that have been discarded from aggregation due to coefficient breaching
+	boundaryBreaching = metrics.NewRegisteredMeter("aggregation/discarded/boundary", nil)
 )
 
 const (
@@ -426,7 +430,7 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 	}
 
 	if err := v.signers.Validate(committee.Len()); err != nil {
-		return fmt.Errorf("Invalid signers information: %w", err)
+		return fmt.Errorf("invalid signers information: %w", err)
 	}
 
 	// compute aggregated key and auxiliary data structures
@@ -595,6 +599,11 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 			signers.Merge(vote.Signers())
 			signatures = append(signatures, vote.Signature())
 			publicKeys = append(publicKeys, vote.SignerKey())
+		} else {
+			// update discarded messages metrics if the vote was not merged due to boundary breaching
+			if !signers.RespectsBoundaries(vote.Signers()) {
+				boundaryBreaching.Mark(1)
+			}
 		}
 	}
 	aggregatedSignature := blst.Aggregate(signatures)

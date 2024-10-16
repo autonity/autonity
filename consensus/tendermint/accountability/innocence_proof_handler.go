@@ -3,7 +3,6 @@ package accountability
 import (
 	"errors"
 	"fmt"
-
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
 

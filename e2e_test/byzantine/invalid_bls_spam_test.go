@@ -61,7 +61,13 @@ func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 
 		// creates a network of 4 validators and starts all the nodes in it
 		// modify epoch period to ensure that it is > standard p2p suspension period (60 blocks currently)
-		network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) { genesis.Config.AutonityContractConfig.EpochPeriod = 100 })
+		// we also modify the PastPerformanceWeight to be 100%, so that validator inactivity always remain 0.
+		// We do not want omission jailing to interfere in this test.
+		network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.Config.AutonityContractConfig.EpochPeriod = 100
+			genesis.Config.OmissionAccountabilityConfig.PastPerformanceWeight = 10000
+			genesis.Config.OmissionAccountabilityConfig.InactivityThreshold = 10000
+		})
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 

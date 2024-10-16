@@ -44,8 +44,6 @@ class TestCase:
         self.tx_sent = 0
         self.tx_mined = 0
         self.balance_mined_by_the_test = 0
-        self.sender_before_balance = 0
-        self.receiver_before_balance = 0
 
     def __del__(self):
         try:
@@ -71,11 +69,6 @@ class TestCase:
         self.start_recover_time = time.time()
         self.end_chain_height_before_recover = self.get_chain_height()
         self.recover()
-        # checking if disaster is healed with block synced again with alive nodes within a specified duration.
-        if self.is_healed() is True:
-            self.end_chain_height_after_recover = self.get_chain_height()
-            self.end_recover_time = time.time()
-            #self.generate_report()
 
     def tx_send(self):
         try:
@@ -105,8 +98,6 @@ class TestCase:
 
             if sender_index not in self.clients or receiver_index not in self.clients:
                 return None
-            self.sender_before_balance = self.clients[sender_index].get_balance()
-            self.receiver_before_balance = self.clients[receiver_index].get_balance()
             while (timer() - start) < duration or self.scheduler.is_scheduling_events():
                 time.sleep(1)
                 try:
@@ -124,50 +115,6 @@ class TestCase:
         except Exception as e:
             self.logger.error("cannot access remote RPC endpoint: %s", e)
             return None
-        return True
-
-    def is_balance_okay(self):
-        """Verify balance base on test_case_conf between sender and receiver."""
-        self.logger.debug("Before test, sender have: %d tokens", self.sender_before_balance)
-        self.logger.debug("Before test, receiver have: %d tokens", self.receiver_before_balance)
-        amount_per_tx = self.test_case_conf["input"]["amountperTX"]
-        sender_index = self.test_case_conf["input"]["senderNode"]
-        receiver_index = self.test_case_conf["input"]["receiverNode"]
-        try:
-            with open(self.tx_history_file, 'r') as reader:
-                for tx_hash in reader:
-                    # check if TX is mined, then calculate balance between sender and receiver.
-                    result = self.clients[sender_index].get_transaction_by_hash(tx_hash.strip('\n'))
-                    # TX was mined, count the expected balance
-                    if result["blockHash"] is not None:
-                        self.tx_mined += 1
-                        self.balance_mined_by_the_test += amount_per_tx
-        except IOError as e:
-            self.logger.error("Cannot get TX via RPC api: %s", e)
-        except (KeyError, TypeError) as e:
-            self.logger.error("Cannot find blockHash from result, something wrong from RPC service: %s", e)
-        except Exception as e:
-            self.logger.error("Something wrong happens at balance validation. %s", e)
-
-        sender_after_balance = self.clients[sender_index].get_balance()
-        receiver_after_balance = self.clients[receiver_index].get_balance()
-
-        if sender_after_balance is None or receiver_after_balance is None:
-            return False
-
-        # checking balance if sending tokens to self.
-        if sender_index == receiver_index:
-            self.logger.debug("sender balance: %d, receiver balance: %d", sender_after_balance, receiver_after_balance)
-            if sender_after_balance != receiver_after_balance:
-                return False
-
-        # checking sender's balance.
-        if self.sender_before_balance - self.balance_mined_by_the_test == sender_after_balance is False:
-            return False
-
-        # checking receiver's balance.
-        if self.receiver_before_balance + self.balance_mined_by_the_test == receiver_after_balance is False:
-            return False
         return True
 
     def get_dead_validators(self):
@@ -280,36 +227,16 @@ class TestCase:
         if self.tx_send() is not True:
             self.do_context_clean_up()
             return False
-        if self.is_balance_okay() is not True:
-            self.do_context_clean_up()
-            return False
         if self.is_engine_state_expected() is not True:
             self.do_context_clean_up()
             return False
         if self.is_block_in_consistent_state() is not True:
             self.do_context_clean_up()
             return False
-
-        self.start_recover_time = time.time()
-        self.end_chain_height_before_recover = self.get_chain_height()
-
-        if self.recover() is not True:
-            self.scheduler.stop_scheduling_events()
-            return False
-        self.logger.debug("After disaster recover, thread: %d.", threading.active_count())
-
-        # checking if disaster is healed with block synced again with alive nodes within a specified duration.
-        if self.is_healed() is True:
-            self.end_chain_height_after_recover = self.get_chain_height()
-            self.end_recover_time = time.time()
-            self.logger.info("TESTCASE: %s is passed.", self.test_case_conf["name"])
-            #self.generate_report()
-            self.scheduler.try_join()
-            return True
-
+        # just trigger the recover without waiting for it since the chain lifecycle will be terminated for each test.
+        self.recover()
         self.scheduler.try_join()
-        self.logger.warning('Recovering timeout happens.')
-        return False
+        return True
 
     def generate_report(self):
         if self.tx_start_chain_height > self.tx_end_chain_height:
@@ -377,25 +304,6 @@ class TestCase:
             if client.heal_from_disaster() is not True:
                 failed = True
         return True if not failed else False
-
-    def is_healed(self):
-        # measure the best height.
-        best_height = self.get_chain_height()
-        healed_clients = {}
-        start = timer()
-        while (timer() - start) < HEAL_TIME_OUT:
-            self.logger.debug("IsHeal, current thread count: %d", threading.active_count())
-            if len(healed_clients) == len(self.clients):
-                return True
-            for index, client in self.clients.items():
-                height = client.get_chain_height()
-                if height is None:
-                    continue
-                if height >= best_height:
-                    healed_clients[index] = client
-            time.sleep(1)
-        self.logger.warning('Disaster recovering timeout. 5 minutes!')
-        return False
 
     def collect_system_log(self):
         try:

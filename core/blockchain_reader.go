@@ -47,7 +47,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	}
 
 	// the latest epoch head should be in the most case.
-	committee, _, curEpochHead, nextEpochHead, err := bc.LatestEpoch()
+	committee, _, curEpochHead, nextEpochHead, _, err := bc.LatestEpoch()
 	if err != nil {
 		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
 	}
@@ -78,12 +78,12 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 }
 
 // LatestEpoch retrieves the latest epoch header of the blockchain.
-func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
+func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, uint64, error) {
 
 	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
 	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {
 		return epochBlock.Header().Epoch.Committee, epochBlock.Header().Epoch.PreviousEpochBlock.Uint64(),
-			epochBlock.Header().Number.Uint64(), epochBlock.Header().Epoch.NextEpochBlock.Uint64(), nil
+			epochBlock.Header().Number.Uint64(), epochBlock.Header().Epoch.NextEpochBlock.Uint64(), epochBlock.Header().Epoch.Delta.Uint64(), nil
 	}
 
 	// For snap sync or fast sync case we need to get epoch info from state DB:
@@ -93,7 +93,7 @@ func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, e
 	currentBlock := bc.CurrentBlock()
 	st, err := bc.StateAt(currentBlock.Header().Root)
 	if err != nil {
-		return nil, 0, 0, 0, err
+		return nil, 0, 0, 0, 0, err
 	}
 	return bc.protocolContracts.EpochInfo(currentBlock.Header(), st)
 }

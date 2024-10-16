@@ -9,6 +9,7 @@
       "unbondingPeriod": 120,
       "epochPeriod": 30,
       "treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
+      "withheldRewardsPool": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
       "treasuryFee": 150000000,
       "operator": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
       "initialInflationReserve": "0x2116545850052128000000",
@@ -31,8 +32,16 @@
       "baseSlashingRateMid": 1000,
       "collusionFactor": 550,
       "historyFactor": 750,
-      "jailFactor": 60,
-      "slashingRatePrecision": 10000
+      "jailFactor": 60
+    },
+   	"omissionAccountability": {
+      "inactivityThreshold": 1000,
+      "lookbackWindow": 10,  
+      "pastPerformanceWeight": 1000,
+      "initialJailingPeriod": 300,
+      "initialProbationPeriod": 24,
+      "initialSlashingRate": 25,
+      "delta": 5
     },
     "testMode": true
   },

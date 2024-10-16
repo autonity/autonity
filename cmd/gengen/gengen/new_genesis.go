@@ -2,6 +2,7 @@ package gengen
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"net"
@@ -56,6 +57,26 @@ type Validator struct {
 
 type GenesisOption func(*core.Genesis)
 
+func copyConfig(original *params.ChainConfig) *params.ChainConfig {
+	jsonBytes, err := json.Marshal(original)
+	if err != nil {
+		panic("cannot marshal genesis config: " + err.Error())
+	}
+	genesisCopy := &params.ChainConfig{}
+	err = json.Unmarshal(jsonBytes, genesisCopy)
+	if err != nil {
+		panic("cannot unmarshal genesis config: " + err.Error())
+	}
+	// deep copying through json marshaling kinda messes up the ABIs (we have `{}` instead of `nil` for empty elements)
+	// so let's just copy them from the original, we do not modify them in tests anyways for now
+	// TODO: find a better solution to deep copy also the ABIs.
+	// I suspect it is not straightforward due to how the generated ABIs are computed.
+	// See gen-contract target in Makefile and `TestAPIGetContractABI`
+	genesisCopy.AutonityContractConfig.ABI = original.AutonityContractConfig.ABI
+	genesisCopy.OracleContractConfig.ABI = original.OracleContractConfig.ABI
+	return genesisCopy
+}
+
 // NewGenesis parses the input from the commandline and uses it to generate a
 // genesis struct. It returns the generated genesis and associated user keys,
 // if user keys were provided they will be returned, otherwise a set of
@@ -72,11 +93,7 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 		return nil, fmt.Errorf("failed to construct initial user state: %v", err)
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate random chainID: %v", err)
-	}
-
-	config := params.TestChainConfig
+	config := copyConfig(params.TestChainConfig)
 	config.AutonityContractConfig.Operator = *operatorAddress
 	config.AutonityContractConfig.Validators = genesisValidators
 	config.Ethash = nil
@@ -167,9 +184,6 @@ func generateValidatorState(validators []*Validator) (
 
 		treasuryAddress := crypto.PubkeyToAddress(u.TreasuryKey.PublicKey)
 		oracleAddress := crypto.PubkeyToAddress(u.OracleKey.PublicKey)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot generate Autonity POP in gengen")
-		}
 
 		gu := params.Validator{
 			OracleAddress:   oracleAddress,

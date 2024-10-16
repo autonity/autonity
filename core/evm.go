@@ -28,7 +28,7 @@ import (
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
 type ChainContext interface {
-	// GetHeader returns the hash corresponding to their hash.
+	// GetHeader returns the header corresponding to the passed hash and number
 	GetHeader(common.Hash, uint64) *types.Header
 	// Engine retrieves the chain's consensus engine.
 	Engine() consensus.Engine
@@ -54,6 +54,7 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 	if header.Difficulty.Cmp(common.Big0) == 0 {
 		random = &header.MixDigest
 	}
+
 	return vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -65,6 +66,9 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		BaseFee:     baseFee,
 		GasLimit:    header.GasLimit,
 		Random:      random,
+
+		ActivityProof:      header.ActivityProof,
+		ActivityProofRound: header.ActivityProofRound,
 	}
 }
 
@@ -81,6 +85,9 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			GasLimit:    header.GasLimit,
 			Difficulty:  header.Difficulty,
 			BaseFee:     header.BaseFee,
+
+			ActivityProof:      header.ActivityProof,
+			ActivityProofRound: header.ActivityProofRound,
 		}
 		txContext := vm.TxContext{
 			Origin:   origin,

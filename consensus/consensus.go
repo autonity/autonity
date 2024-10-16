@@ -54,8 +54,8 @@ type ChainHeaderReader interface {
 
 	// LatestEpoch retrieves the latest epoch's committee, previousEpochHead, currentEpochHead, and nextEpochHead.
 	// Both header chain and blockchain implement this interface with its own context. Note: head of the header chain
-	// may be above the block chain in some sync mode.
-	LatestEpoch() (*types.Committee, uint64, uint64, uint64, error)
+	// may be above the blockchain in some sync mode.
+	LatestEpoch() (*types.Committee, uint64, uint64, uint64, uint64, error)
 }
 
 // ChainReader defines a small collection of methods needed to access the local
