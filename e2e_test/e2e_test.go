@@ -132,6 +132,131 @@ func TestProtocolContractCache(t *testing.T) {
 	})
 }
 
+// a change in the delta parameter should be applied at epoch end
+func TestOmissionDeltaUpdate(t *testing.T) {
+	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	omissionContract, err := autonity.NewOmissionAccountability(params.OmissionAccountabilityContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+
+	sendAndWait := func(tx *types.Transaction) {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+	}
+
+	// set lookback window to 1, to have more leeway in changing delta
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+	tx, err := omissionContract.SetLookbackWindow(transactOpts, common.Big1)
+	require.NoError(t, err)
+	sendAndWait(tx)
+
+	deltaRespected := func(node *Node, delta uint64, epochPeriod uint64) bool {
+		currentBlock := node.Eth.BlockChain().CurrentBlock().Number().Uint64()
+		if currentBlock%epochPeriod <= delta {
+			t.Fatal("Not enough blocks in the epoch") // cannot really check if delta is correctly respected if we don't have at least delta + 1 blocks in the epoch
+		}
+		epochBlock := currentBlock - (currentBlock % epochPeriod)
+		t.Logf("epochBlock: %d, epochPeriod: %d, currentBlock: %d, delta: %d", epochBlock, epochPeriod, currentBlock, delta)
+		for h := epochBlock + 1; h <= currentBlock; h++ {
+			block := node.Eth.BlockChain().GetBlockByNumber(h)
+			t.Logf("Checking block num: %d", h)
+			if h <= epochBlock+delta {
+				// needs to be empty
+				if block.Header().ActivityProof != nil {
+					t.Log("Block should be empty but is not")
+					return false
+				}
+			} else {
+				// needs to be not empty
+				if block.Header().ActivityProof == nil {
+					t.Log("Block should not be empty but it is")
+					return false
+				}
+			}
+
+		}
+		return true
+	}
+
+	initialDelta := params.DefaultOmissionAccountabilityConfig.Delta
+	require.NotEqual(t, uint64(1), initialDelta)
+	_, _, _, _, delta0, err := network[0].Eth.BlockChain().LatestEpoch()
+	require.NoError(t, err)
+	_, _, _, _, delta1, err := network[1].Eth.BlockChain().LatestEpoch()
+	require.NoError(t, err)
+	require.Equal(t, initialDelta, delta0)
+	require.Equal(t, initialDelta, delta1)
+	t.Log(initialDelta)
+
+	epochPeriodBig, err := autonityContract.GetEpochPeriod(nil)
+	require.NoError(t, err)
+	epochPeriod := epochPeriodBig.Uint64()
+	t.Log(epochPeriod)
+
+	// reduce delta to 1
+	newDelta := new(big.Int).Set(common.Big1)
+	tx, err = omissionContract.SetDelta(transactOpts, newDelta)
+	require.NoError(t, err)
+	sendAndWait(tx)
+
+	// we should still be in epoch 0, getDelta should already return the new value
+	epochID, err := autonityContract.EpochID(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), epochID.Uint64())
+	newDeltaFetched, err := omissionContract.GetDelta(nil)
+	require.NoError(t, err)
+	require.Equal(t, newDelta.String(), newDeltaFetched.String())
+
+	// wait for some blocks than check that delta is respected
+	err = network.WaitForHeight(initialDelta*2, int(initialDelta*3))
+	require.NoError(t, err)
+	require.True(t, deltaRespected(network[1], initialDelta, epochPeriod))
+
+	// wait for the epoch to end
+	err = network.WaitForHeight(epochPeriod, int(epochPeriod))
+	require.NoError(t, err)
+
+	// should be in epoch 1
+	epochID, err = autonityContract.EpochID(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), epochID.Uint64())
+
+	// wait for some more blocks and check that the activity proofs have been set accordingly to the new delta
+	err = network.WaitToMineNBlocks(10, 15, false)
+	require.NoError(t, err)
+
+	require.True(t, deltaRespected(network[1], newDelta.Uint64(), epochPeriod))
+
+	// update delta again, this time increasing it
+	newDelta = new(big.Int).SetUint64(20)
+	tx, err = omissionContract.SetDelta(transactOpts, newDelta)
+	require.NoError(t, err)
+	sendAndWait(tx)
+
+	// wait for the epoch to end
+	err = network.WaitForHeight(epochPeriod*2, int(epochPeriod*2))
+	require.NoError(t, err)
+
+	// should be in epoch 2
+	epochID, err = autonityContract.EpochID(nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), epochID.Uint64())
+
+	// wait for some more blocks and check that the activity proofs have been set accordingly to the new delta
+	err = network.WaitToMineNBlocks(35, 50, false)
+	require.NoError(t, err)
+
+	require.True(t, deltaRespected(network[1], newDelta.Uint64(), epochPeriod))
+
+}
+
 // This test checks that when a transaction is processed the fees are divided
 // between validators and stakeholders.
 func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
