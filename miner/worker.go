@@ -634,9 +634,6 @@ func (w *worker) resultLoop() {
 					l.BlockHash = block.Hash()
 				}
 			}
-			for _, log := range task.env.state.Logs() {
-				log.BlockHash = block.Hash()
-			}
 
 			// Commit block and state to database.
 			persistStart := time.Now()
