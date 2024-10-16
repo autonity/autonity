@@ -241,6 +241,20 @@ func (mr *MockBackendMockRecorder) IsJailed(address any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsJailed", reflect.TypeOf((*MockBackend)(nil).IsJailed), address)
 }
 
+// IsProposalStateCached mocks base method.
+func (m *MockBackend) IsProposalStateCached(hash common.Hash) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsProposalStateCached", hash)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsProposalStateCached indicates an expected call of IsProposalStateCached.
+func (mr *MockBackendMockRecorder) IsProposalStateCached(hash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsProposalStateCached", reflect.TypeOf((*MockBackend)(nil).IsProposalStateCached), hash)
+}
+
 // KnownMsgHash mocks base method.
 func (m *MockBackend) KnownMsgHash() []common.Hash {
 	m.ctrl.T.Helper()

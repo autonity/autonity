@@ -90,6 +90,9 @@ type Backend interface {
 
 	// ProposalVerified notifies miner a proposal is verified
 	ProposalVerified(block *types.Block)
+
+	// IsProposalStateCached checks if the proposal is cached in the blockchain
+	IsProposalStateCached(hash common.Hash) bool
 }
 
 type Core interface {

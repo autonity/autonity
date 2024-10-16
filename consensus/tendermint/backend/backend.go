@@ -292,7 +292,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 
 		receipts, _, usedGas, epochInfo, err := sb.blockchain.Processor().Process(proposal, state, *sb.vmConfig)
 		if err != nil {
-			sb.logger.Error("state processing failed", "error", err)
+			sb.logger.Error("state processing failed", "error", err, "height", proposalNumber)
 			return 0, err
 		}
 		//Validate the state of the proposal

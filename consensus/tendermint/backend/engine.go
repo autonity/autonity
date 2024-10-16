@@ -438,6 +438,10 @@ func (sb *Backend) ProposalVerified(block *types.Block) {
 	sb.proposalVerifiedCh <- block
 }
 
+func (sb *Backend) IsProposalStateCached(hash common.Hash) bool {
+	return sb.blockchain.IsProposalStateCached(hash)
+}
+
 func (sb *Backend) SetResultChan(results chan<- *types.Block) {
 	sb.commitCh = results
 }
