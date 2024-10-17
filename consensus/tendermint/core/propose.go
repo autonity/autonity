@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -29,13 +28,22 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if !c.IsProposer() {
 		panic("not proposer")
 	}
-	if c.sentProposal {
+
+	// We start preparing block as soon as proposal is verified, but there are situation
+	// that verified proposal is not finalized in the particular round hence this safety
+	// check to ensure that the block parent hash is same as last hash in core
+	if c.Backend().HeadBlock().Hash() != block.ParentHash() {
+		log.Info("verified proposal was not finalized in the last round", "aborting send proposal", "last header hash", c.Backend().HeadBlock().Hash(), "block parent hash", block.ParentHash())
 		return
 	}
 
+	if c.sentProposal {
+		return
+	}
 	self, err := c.CommitteeSet().MemberByAddress(c.address)
 	if err != nil {
-		panic(fmt.Sprintf("validator: %s is no longer in current committee", c.address.String()))
+		log.Error("validator is no longer in current committee", "address", c.address.String())
+		return
 	}
 
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.validRound, block, c.backend.Sign, self)
@@ -79,6 +87,14 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		return constants.ErrNotFromProposer
 	}
 
+	// these checks ensure that nodes don't exploit the cached state, cache is indexed by block hash which
+	// excludes quorum certificate and round that allows nodes to send garbage for these values for pre-verified
+	// proposal
+	qc := proposal.Block().Header().QuorumCertificate
+	if qc.Signature != nil || qc.Signers != nil || proposal.Block().Header().Round != 0 {
+		return constants.ErrInvalidMessage
+	}
+
 	if proposal.R() < c.Round() {
 		// old round proposal, check if we have quorum precommits on it
 		// Save it, but do not verify the proposal yet unless we have enough precommits for it.
@@ -102,9 +118,18 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		ProposalReceivedBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 
-	// Verify the proposal we received
-	start := time.Now()
-	duration, err := c.backend.VerifyProposal(proposal.Block()) // youssef: can we skip the verification for our own proposal?
+	var (
+		duration time.Duration
+		err      error
+		start    = time.Now()
+	)
+
+	// skip verification for our own proposal
+	// skip if our own OR cached
+	// verify if not in our own and not state cached
+	if c.backend.ProposedBlockHash() != proposal.Block().Hash() && !c.backend.IsProposalStateCached(proposal.Block().Hash()) {
+		duration, err = c.backend.VerifyProposal(proposal.Block())
+	}
 
 	if metrics.Enabled {
 		now := time.Now()
@@ -143,6 +168,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		return err
 	}
 
+	// notify miner
+	go c.Backend().ProposalVerified(proposal.Block())
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal)

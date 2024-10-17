@@ -24,6 +24,9 @@ import (
 	"runtime"
 	"time"
 
+	mapset "github.com/deckarep/golang-set"
+	"golang.org/x/crypto/sha3"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus"
@@ -33,8 +36,6 @@ import (
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
-	mapset "github.com/deckarep/golang-set"
-	"golang.org/x/crypto/sha3"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -579,8 +580,7 @@ func (ethash *Ethash) verifySeal(chain consensus.ChainHeaderReader, header *type
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
-	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, parent, header *types.Header) error {
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}

@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 //
+
 // Package interfaces is a generated GoMock package.
 package interfaces
 
@@ -225,6 +226,20 @@ func (mr *MockBackendMockRecorder) IsJailed(address any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsJailed", reflect.TypeOf((*MockBackend)(nil).IsJailed), address)
 }
 
+// IsProposalStateCached mocks base method.
+func (m *MockBackend) IsProposalStateCached(hash common.Hash) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsProposalStateCached", hash)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsProposalStateCached indicates an expected call of IsProposalStateCached.
+func (mr *MockBackendMockRecorder) IsProposalStateCached(hash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsProposalStateCached", reflect.TypeOf((*MockBackend)(nil).IsProposalStateCached), hash)
+}
+
 // KnownMsgHash mocks base method.
 func (m *MockBackend) KnownMsgHash() []common.Hash {
 	m.ctrl.T.Helper()
@@ -289,6 +304,32 @@ func (m *MockBackend) ProcessFutureMsgs(height uint64) {
 func (mr *MockBackendMockRecorder) ProcessFutureMsgs(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessFutureMsgs", reflect.TypeOf((*MockBackend)(nil).ProcessFutureMsgs), height)
+}
+
+// ProposalVerified mocks base method.
+func (m *MockBackend) ProposalVerified(block *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ProposalVerified", block)
+}
+
+// ProposalVerified indicates an expected call of ProposalVerified.
+func (mr *MockBackendMockRecorder) ProposalVerified(block any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposalVerified", reflect.TypeOf((*MockBackend)(nil).ProposalVerified), block)
+}
+
+// ProposedBlockHash mocks base method.
+func (m *MockBackend) ProposedBlockHash() common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProposedBlockHash")
+	ret0, _ := ret[0].(common.Hash)
+	return ret0
+}
+
+// ProposedBlockHash indicates an expected call of ProposedBlockHash.
+func (mr *MockBackendMockRecorder) ProposedBlockHash() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposedBlockHash", reflect.TypeOf((*MockBackend)(nil).ProposedBlockHash))
 }
 
 // SetBlockchain mocks base method.
