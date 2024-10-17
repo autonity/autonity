@@ -121,7 +121,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	// skip verification for our own proposal
 	// skip if our own OR cached
 	// verify if not in our own and not state cached
-	if c.backend.ProposedBlockHash() != proposal.Hash() && !c.backend.IsProposalStateCached(proposal.Hash()) {
+	if c.backend.ProposedBlockHash() != proposal.Block().Hash() && !c.backend.IsProposalStateCached(proposal.Block().Hash()) {
 		duration, err = c.backend.VerifyProposal(proposal.Block())
 	}
 
