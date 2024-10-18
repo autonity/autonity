@@ -256,20 +256,6 @@ func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, he
 	return proposer
 }
 
-// EpochInfo get the committee and the corresponding epoch boundary base on the input header's state.
-// it returns the committee, previousEpochBlock, curEpochBlock, and the nextEpochBlock.
-func (c *AutonityContract) EpochInfo(header *types.Header, db vm.StateDB) (*types.Committee, uint64, uint64, uint64, error) {
-	return c.CallGetEpochInfo(db, header)
-}
-
-func (c *AutonityContract) CommitteeEnodes(header *types.Header, db vm.StateDB, asACN bool) (*types.Nodes, error) {
-	return c.CallGetCommitteeEnodes(db, header, asACN)
-}
-
-func (c *AutonityContract) GetCommitteeByHeight(header *types.Header, db vm.StateDB, height *big.Int) (*types.Committee, error) {
-	return c.CallGetCommitteeByHeight(db, header, height)
-}
-
 /* the Proposer election function is called from core and from the fault detector.
 *
 * Core calls it only on current height messages, therefore we don't need to retain old (h,r) proposers for it

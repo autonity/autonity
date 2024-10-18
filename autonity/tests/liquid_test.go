@@ -5,10 +5,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -162,7 +163,7 @@ func TestLogicOperation(t *testing.T) {
 	})
 
 	r.run("non-implemented method reverts", func(r *runner) {
-		_, _, err := liquidState.CallMethod(r.autonity.contract, nil, "finalize")
+		_, _, err := liquidState.callMethod(r.autonity.contract, nil, "finalize")
 		require.Error(r.t, err)
 		require.Equal(r.t, "execution reverted: fallback not implemented for LiquidLogic", err.Error())
 	})
@@ -213,8 +214,8 @@ func TestFunctions(t *testing.T) {
 		// Send 10 ATN as a reward.  Perform a call first (not a tx)
 		// in order to check the returned value.
 		liquidReward := new(big.Int).Mul(big.NewInt(10), params.DecimalFactor)
-		out, _ := r.CallNoError(
-			liquidState.SimulateCall(
+		out, _ := r.callNoError(
+			liquidState.simulateCall(
 				liquidState.contract,
 				fromSender(r.autonity.address, liquidReward),
 				"redistribute", liquidReward,

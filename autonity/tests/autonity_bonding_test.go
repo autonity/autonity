@@ -45,7 +45,7 @@ func TestBondingRequest(t *testing.T) {
 		require.Equal(t, rr.committee.validators[0].NodeAddress, bondingRequest.Delegatee)
 		require.Equal(t, amount, bondingRequest.Amount)
 
-		valLiquid := r.committee.liquidContracts[0]
+		valLiquid := r.committee.liquidStateContracts[0]
 		accountBalance, _, err := valLiquid.BalanceOf(nil, account)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), accountBalance.Int64())
@@ -97,7 +97,7 @@ func TestBondingRequest(t *testing.T) {
 		// wait till end of epoch
 		rr.waitNextEpoch()
 
-		valLiquid := r.committee.liquidContracts[0]
+		valLiquid := r.committee.liquidStateContracts[0]
 		treasuryBalance, _, err := valLiquid.BalanceOf(nil, treasury)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), treasuryBalance.Int64())
@@ -273,7 +273,7 @@ func TestBondingAndUnbondingRequests(t *testing.T) {
 
 		// check effects of unbond (non-self-bonded):
 		// LNTN is locked
-		liquidContract := rr.committee.liquidContracts[0]
+		liquidContract := rr.committee.liquidStateContracts[0]
 		require.NoError(t, err)
 
 		lockedBalance, _, err := liquidContract.LockedBalanceOf(nil, account)

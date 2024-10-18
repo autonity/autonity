@@ -68,7 +68,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	if err != nil {
 		return nil, err
 	}
-	committee, err = bc.protocolContracts.GetCommitteeByHeight(currentHeader, stateDB, new(big.Int).SetUint64(height))
+	committee, err = bc.protocolContracts.CallGetCommitteeByHeight(stateDB, currentHeader, new(big.Int).SetUint64(height))
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (bc *BlockChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, e
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
-	return bc.protocolContracts.EpochInfo(currentBlock.Header(), st)
+	return bc.protocolContracts.CallGetEpochInfo(st, currentBlock.Header())
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

@@ -310,9 +310,13 @@ func TestSetProtocolParameters(t *testing.T) {
 		rr.keepLogs(true)
 
 		_, err = rr.autonity.SetEpochPeriod(rr.operator, newPeriod)
+		nextEpoch, _, err := rr.autonity.GetNextEpochBlock(nil)
+		require.NoError(t, err)
+
 		require.NoError(t, err)
 		require.True(t, emitsEvent(rr.Logs(), rr.autonity.ParseEpochPeriodUpdated, &AutonityTestEpochPeriodUpdated{
-			Period: newPeriod,
+			Period:             newPeriod,
+			ToBeAppliedAtBlock: nextEpoch,
 		}), "setEpochPeriod should emit EpochPeriodUpdatedEvent with correct param")
 
 		epochPeriod, _, err = rr.autonity.GetEpochPeriod(nil)
@@ -452,7 +456,7 @@ func TestOnlyAccountabilityOnlyProtocol(t *testing.T) {
 			val,
 		)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "execution reverted: caller is not an accountability contract")
+		require.Contains(t, err.Error(), "execution reverted: caller is not the slashing contract")
 	})
 
 	r.run("Test finalize can be called by protocol", func(rr *runner) {

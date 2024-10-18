@@ -378,7 +378,7 @@ func (sb *Backend) CommitteeEnodes() []string {
 		sb.logger.Error("Failed to get state", "err", err, "height", header.Number.Uint64())
 		return nil
 	}
-	enodes, err := sb.blockchain.ProtocolContracts().CommitteeEnodes(header, stateDB, false)
+	enodes, err := sb.blockchain.ProtocolContracts().CallGetCommitteeEnodes(stateDB, header, false)
 	if err != nil {
 		sb.logger.Error("Failed to get block committee", "err", err)
 		return nil

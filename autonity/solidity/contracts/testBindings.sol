@@ -9,7 +9,7 @@ pragma solidity ^0.8.3;
 
 import "./AutonityTest.sol";
 import "./Accountability.sol";
-import "./Liquid.sol";
+import "./liquid/LiquidStateTest.sol";
 import "./Oracle.sol";
 import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";

@@ -378,7 +378,7 @@ func (sb *Backend) GetCommitteeByHeight(height *big.Int) (*types.Committee, erro
 	if err != nil {
 		return nil, err
 	}
-	return sb.BlockChain().ProtocolContracts().GetCommitteeByHeight(header, stateDB, height)
+	return sb.BlockChain().ProtocolContracts().CallGetCommitteeByHeight(stateDB, header, height)
 }
 
 // Seal generates a new block for the given input block with the local miner's

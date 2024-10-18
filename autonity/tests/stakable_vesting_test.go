@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/autonity/autonity/core"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"

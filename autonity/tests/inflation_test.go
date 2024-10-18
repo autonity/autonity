@@ -1,7 +1,9 @@
 package tests
 
 import (
+	"fmt"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ALTree/bigfloat"
@@ -27,6 +29,9 @@ type goParams struct {
 
 func newGoParams(p *InflationControllerParams, genesisTime *big.Int) goParams {
 	denomination := new(big.Float).SetPrec(GoFloatPrecision).SetInt(params.DecimalFactor)
+	if p.InflationCurveConvexity.Cmp(big.NewInt(0)) == 0 {
+		panic("curve complexity cannot be zero")
+	}
 	return goParams{
 		rateInitial:      new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.InflationRateInitial), denomination),
 		rateTransition:   new(big.Float).Quo(new(big.Float).SetPrec(GoFloatPrecision).SetInt(p.InflationRateTransition), denomination),
@@ -149,9 +154,21 @@ func (p goParams) calculateSupplyDeltaPerm(inflationReserve, lastEpochTime, curr
 
 //}
 
-func TestInflationContract(t *testing.T) {
-	r := setup(t, nil)
-	T := big.NewInt(10 * params.SecondsInYear)
+func defaultInflationControllerParams() *InflationControllerParams {
+	/*	DefaultInflationControllerGenesis := &params.InflationControllerGenesis{
+			InflationRateInitial:      (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(75), params.DecimalFactor), big.NewInt(1000*params.SecondsInYear))),        // 7.5% AR
+			InflationRateTransition:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), params.DecimalFactor), big.NewInt(1000*params.SecondsInYear))),        // 5.5% AR
+			InflationReserveDecayRate: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), params.DecimalFactor), big.NewInt(100_000*params.SecondsInYear))), // 17.328% AR
+			InflationTransitionPeriod: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*params.SecondsInYear), params.DecimalFactor)),
+			InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_900), params.DecimalFactor), big.NewInt(1_000))), // -1.429
+		}
+		p := &InflationControllerParams{
+			InflationRateInitial:      (*big.Int)(DefaultInflationControllerGenesis.InflationRateInitial),
+			InflationRateTransition:   (*big.Int)(DefaultInflationControllerGenesis.InflationRateTransition),
+			InflationCurveConvexity:   (*big.Int)(DefaultInflationControllerGenesis.InflationCurveConvexity),
+			InflationTransitionPeriod: (*big.Int)(DefaultInflationControllerGenesis.InflationTransitionPeriod),
+			InflationReserveDecayRate: (*big.Int)(DefaultInflationControllerGenesis.InflationReserveDecayRate),
+		}*/
 	p := &InflationControllerParams{
 		InflationRateInitial:      (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateInitial),
 		InflationRateTransition:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateTransition),
@@ -159,6 +176,19 @@ func TestInflationContract(t *testing.T) {
 		InflationTransitionPeriod: (*big.Int)(params.DefaultInflationControllerGenesis.InflationTransitionPeriod),
 		InflationReserveDecayRate: (*big.Int)(params.DefaultInflationControllerGenesis.InflationReserveDecayRate),
 	}
+	return p
+}
+
+func TestInflationContract(t *testing.T) {
+	tmpOutput := os.Stdout
+	os.Stdout = nil
+	defer func() { os.Stdout = tmpOutput }()
+
+	r := setup(t, nil)
+	T := big.NewInt(10 * params.SecondsInYear)
+
+	p := defaultInflationControllerParams()
+
 	inflationReserve := (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve)
 	genesisTime := r.evm.Context.Time
 	goP := newGoParams(p, genesisTime)
@@ -182,6 +212,7 @@ func TestInflationContract(t *testing.T) {
 		inflationReserve.Sub(inflationReserve, delta)
 
 		// Compare the go implementation with the solidity one
+		fmt.Println("delta:", delta, "goDelta:", goDeltaComputation)
 		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
 		// fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", currentSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)

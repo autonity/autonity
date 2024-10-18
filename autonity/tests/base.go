@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -9,6 +11,7 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params/generated"
 
 	"github.com/stretchr/testify/require"
@@ -25,8 +28,9 @@ import (
 )
 
 var (
-	operator     = &runOptions{origin: params.TestAutonityContractConfig.Operator}
-	fromAutonity = &runOptions{origin: params.AutonityContractAddress}
+	operator        = &runOptions{origin: params.TestAutonityContractConfig.Operator}
+	fromAutonity    = &runOptions{origin: params.AutonityContractAddress}
+	logLookupTxHash = common.HexToHash("0x2f1085bc13c8a5a7d8e0544216e110fcc22b4c571657f313c9716a3bdc7453f3")
 )
 
 type runOptions struct {
@@ -59,7 +63,7 @@ type runner struct {
 	stakableVesting     *StakableVesting
 	nonStakableVesting  *NonStakableVesting
 
-	committee committee     // genesis validators for easy access
+	committee Committee     // genesis validators for easy access
 	operator  *runOptions   // operator runOptions for easy access
 	genesis   *core.Genesis // genesis config for easy access
 
@@ -95,8 +99,6 @@ func (r *runner) liquidStateContract(v AutonityValidator) *ILiquidLogic {
 }
 
 func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
-	txHash := common.HexToHash("0x2f1085bc13c8a5a7d8e0544216e110fcc22b4c571657f313c9716a3bdc7453f3")
-
 	r.evm.Origin = r.origin
 	value := common.Big0
 	if opts != nil {
@@ -107,36 +109,29 @@ func (r *runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 	}
 
 	sender := r.stateDB.GetOrNewStateObject(r.evm.Origin)
-
-	// by only preparing once, we avoid the errors we encounter in the access list on revert
-	if !r.prepared {
-		r.stateDB.Prepare(txHash, 0)
-		r.prepared = true
-	}
-
 	gas := uint64(math.MaxUint64)
 	ret, leftOver, err := r.evm.Call(sender, addr, input, gas, value)
 
 	if r.persistLogs {
-		logs := r.stateDB.GetLogs(txHash, common.Hash{})
+		logs := r.stateDB.GetLogs(logLookupTxHash, common.Hash{})
 		r.logs = append(r.logs, logs...)
 	}
 
 	return ret, gas - leftOver, err
 }
 
-// call a contract function and then revert. helpful to get output of the function without changing state.
+// simulateCall call a contract function and then revert. helpful to get output of the function without changing state.
 // similar to making a method.call() in truffle
-func (c *contract) SimulateCall(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+func (c *contract) simulateCall(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
 	snap := c.r.snapshot()
-	out, consumed, err := c.CallMethod(methodHouse, opts, method, params...)
+	out, consumed, err := c.callMethod(methodHouse, opts, method, params...)
 	c.r.revertSnapshot(snap)
 	return out, consumed, err
 }
 
-// call a method that does not belong to the contract, `c`.
+// callMethod call a method that does not belong to the contract, `c`.
 // instead the method can be found in the contract, `methodHouse`.
-func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+func (c *contract) callMethod(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.tracing {
 		tracer, _ = tracers.New("callTracer", new(tracers.Context))
@@ -160,7 +155,7 @@ func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method st
 	return res, consumed, nil
 }
 
-func (r *runner) CallNoError(output []any, gasConsumed uint64, err error) ([]any, uint64) {
+func (r *runner) callNoError(output []any, gasConsumed uint64, err error) ([]any, uint64) {
 	require.NoError(r.t, err)
 	return output, gasConsumed
 }
@@ -185,7 +180,15 @@ func (r *runner) run(name string, f func(r *runner)) {
 		context := r.evm.Context
 		snap := r.snapshot()
 		committee := r.committee
+
+		// by only preparing once, we avoid the errors we encounter in the access list on revert
+		if !r.prepared {
+			r.stateDB.Prepare(logLookupTxHash, 0)
+			r.prepared = true
+		}
+
 		f(r)
+
 		r.revertSnapshot(snap)
 		r.evm.Context = context
 		r.committee = committee
@@ -366,12 +369,12 @@ func setup(t *testing.T, configOverride func(genesis *core.Genesis) *core.Genesi
 	r.stakableVesting = &StakableVesting{&contract{params.StakableVestingContractAddress, &generated.StakableVestingAbi, r}}
 	r.nonStakableVesting = &NonStakableVesting{&contract{params.NonStakableVestingContractAddress, &generated.NonStakableVestingAbi, r}}
 
-	r.committee.liquidContracts = make([]*Liquid, 0, len(genesisConfig.Config.AutonityContractConfig.Validators))
+	r.committee.liquidStateContracts = make([]*ILiquidLogic, 0, len(genesisConfig.Config.AutonityContractConfig.Validators))
 	r.committee.validators = make([]AutonityValidator, 0, len(genesisConfig.Config.AutonityContractConfig.Validators))
 	for _, v := range genesisConfig.Config.AutonityContractConfig.Validators {
 		validator, _, err := r.autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.t, err)
-		r.committee.liquidContracts = append(r.committee.liquidContracts, r.liquidContract(validator))
+		r.committee.liquidStateContracts = append(r.committee.liquidStateContracts, r.liquidStateContract(validator))
 		r.committee.validators = append(r.committee.validators, validator)
 	}
 

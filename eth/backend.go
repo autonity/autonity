@@ -20,12 +20,13 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
@@ -606,7 +607,7 @@ func (s *Ethereum) validatorController() {
 			s.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		committee, err := s.blockchain.ProtocolContracts().CommitteeEnodes(header, state, false)
+		committee, err := s.blockchain.ProtocolContracts().CallGetCommitteeEnodes(state, header, false)
 		if err != nil {
 			s.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -623,7 +624,7 @@ func (s *Ethereum) validatorController() {
 	if err != nil {
 		panic(err)
 	}
-	committee, err := s.blockchain.ProtocolContracts().GetCommitteeByHeight(currentHead, currentState, currentHead.Number)
+	committee, err := s.blockchain.ProtocolContracts().CallGetCommitteeByHeight(currentState, currentHead, currentHead.Number)
 	if err != nil {
 		panic(err)
 	}

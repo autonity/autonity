@@ -53,6 +53,21 @@ type AccountabilityEvent struct {
 	MessageHash    *big.Int
 }
 
+// AutonityBondingRequest is an auto generated low-level Go binding around an user-defined struct.
+type AutonityBondingRequest struct {
+	Delegator    common.Address
+	Delegatee    common.Address
+	Amount       *big.Int
+	RequestBlock *big.Int
+}
+
+// AutonityCommissionRateChangeRequest is an auto generated low-level Go binding around an user-defined struct.
+type AutonityCommissionRateChangeRequest struct {
+	Validator  common.Address
+	StartBlock *big.Int
+	Rate       *big.Int
+}
+
 // AutonityCommitteeMember is an auto generated low-level Go binding around an user-defined struct.
 type AutonityCommitteeMember struct {
 	Addr         common.Address
@@ -96,6 +111,19 @@ type AutonityProtocol struct {
 	EpochPeriod     *big.Int
 	BlockPeriod     *big.Int
 	CommitteeSize   *big.Int
+}
+
+// AutonityUnbondingRequest is an auto generated low-level Go binding around an user-defined struct.
+type AutonityUnbondingRequest struct {
+	Delegator       common.Address
+	Delegatee       common.Address
+	Amount          *big.Int
+	UnbondingShare  *big.Int
+	RequestBlock    *big.Int
+	RevertingAmount *big.Int
+	State           uint8
+	Unlocked        bool
+	SelfDelegation  bool
 }
 
 // AutonityValidator is an auto generated low-level Go binding around an user-defined struct.
@@ -402,80 +430,91 @@ func (_ACU *ACU) Update(opts *runOptions) (uint64, error) {
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// ACUBasketModifiedIterator is returned from FilterBasketModified and is used to iterate over the raw logs and unpacked data for BasketModified events raised by the ACU contract.
+type ACUBasketModifiedIterator struct {
+	Event *ACUBasketModified // Event containing the contract specifics and raw log
 
-		// ACUBasketModifiedIterator is returned from FilterBasketModified and is used to iterate over the raw logs and unpacked data for BasketModified events raised by the ACU contract.
-		type ACUBasketModifiedIterator struct {
-			Event *ACUBasketModified // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *ACUBasketModifiedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ACUBasketModifiedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ACUBasketModified)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(ACUBasketModified)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(ACUBasketModified)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ACUBasketModified)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *ACUBasketModifiedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *ACUBasketModifiedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ACUBasketModifiedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ACUBasketModifiedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// ACUBasketModified represents a BasketModified event raised by the ACU contract.
-		type ACUBasketModified struct {
-			Symbols []string;
-			Quantities []*big.Int;
-			Scale *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// ACUBasketModified represents a BasketModified event raised by the ACU contract.
+type ACUBasketModified struct {
+	Symbols    []string
+	Quantities []*big.Int
+	Scale      *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// ACUBasketModified.SetRaw is allows shared interface for setting the raw log data in an event
+func (_ACUBasketModified *ACUBasketModified) SetRaw(log types.Log) {
+	_ACUBasketModified.Raw = log
+}
+
+// ACUBasketModified.GetRaw is allows shared interface for getting the raw log data in an event
+func (_ACUBasketModified *ACUBasketModified) GetRaw() types.Log {
+	return _ACUBasketModified.Raw
+}
+
+/*
 		// FilterBasketModified is a free log retrieval operation binding the contract event 0xdbdcd10543a20811a4a332247f28d03b22686d3281043de35824a06075c06c09.
 		//
 		// Solidity: event BasketModified(string[] symbols, uint256[] quantities, uint256 scale)
@@ -532,93 +571,106 @@ func (_ACU *ACU) Update(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseBasketModified is a log parse operation binding the contract event 0xdbdcd10543a20811a4a332247f28d03b22686d3281043de35824a06075c06c09.
-		//
-		// Solidity: event BasketModified(string[] symbols, uint256[] quantities, uint256 scale)
-		func (_ACU *ACU) ParseBasketModified(log types.Log) (*ACUBasketModified, error) {
-			event := new(ACUBasketModified)
-			if err := _ACU.contract.UnpackLog(event, "BasketModified", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBasketModified is a log parse operation binding the contract event 0xdbdcd10543a20811a4a332247f28d03b22686d3281043de35824a06075c06c09.
+//
+// Solidity: event BasketModified(string[] symbols, uint256[] quantities, uint256 scale)
+func (_ACU *ACU) ParseBasketModified(log types.Log) (*ACUBasketModified, error) {
+	event := new(ACUBasketModified)
+	if err := _ACU.contract.unpackLog(event, "BasketModified", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// ACUUpdatedIterator is returned from FilterUpdated and is used to iterate over the raw logs and unpacked data for Updated events raised by the ACU contract.
+type ACUUpdatedIterator struct {
+	Event *ACUUpdated // Event containing the contract specifics and raw log
 
-		// ACUUpdatedIterator is returned from FilterUpdated and is used to iterate over the raw logs and unpacked data for Updated events raised by the ACU contract.
-		type ACUUpdatedIterator struct {
-			Event *ACUUpdated // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *ACUUpdatedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ACUUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ACUUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(ACUUpdated)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(ACUUpdated)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ACUUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *ACUUpdatedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *ACUUpdatedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ACUUpdatedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ACUUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// ACUUpdated represents a Updated event raised by the ACU contract.
-		type ACUUpdated struct {
-			Height *big.Int;
-			Timestamp *big.Int;
-			Round *big.Int;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// ACUUpdated represents a Updated event raised by the ACU contract.
+type ACUUpdated struct {
+	Height    *big.Int
+	Timestamp *big.Int
+	Round     *big.Int
+	Value     *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// ACUUpdated.SetRaw is allows shared interface for setting the raw log data in an event
+func (_ACUUpdated *ACUUpdated) SetRaw(log types.Log) {
+	_ACUUpdated.Raw = log
+}
+
+// ACUUpdated.GetRaw is allows shared interface for getting the raw log data in an event
+func (_ACUUpdated *ACUUpdated) GetRaw() types.Log {
+	return _ACUUpdated.Raw
+}
+
+/*
 		// FilterUpdated is a free log retrieval operation binding the contract event 0x23f161ca67071b3e902d4fa7afade82672c6160677e89d373a830145bdda6d26.
 		//
 		// Solidity: event Updated(uint256 height, uint256 timestamp, uint256 round, int256 value)
@@ -677,21 +729,19 @@ func (_ACU *ACU) Update(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
-
-		// ParseUpdated is a log parse operation binding the contract event 0x23f161ca67071b3e902d4fa7afade82672c6160677e89d373a830145bdda6d26.
-		//
-		// Solidity: event Updated(uint256 height, uint256 timestamp, uint256 round, int256 value)
-		func (_ACU *ACU) ParseUpdated(log types.Log) (*ACUUpdated, error) {
-			event := new(ACUUpdated)
-			if err := _ACU.contract.UnpackLog(event, "Updated", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseUpdated is a log parse operation binding the contract event 0x23f161ca67071b3e902d4fa7afade82672c6160677e89d373a830145bdda6d26.
+//
+// Solidity: event Updated(uint256 height, uint256 timestamp, uint256 round, int256 value)
+func (_ACU *ACU) ParseUpdated(log types.Log) (*ACUUpdated, error) {
+	event := new(ACUUpdated)
+	if err := _ACU.contract.unpackLog(event, "Updated", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // AccountabilityMetaData contains all meta data concerning the Accountability contract.
 var AccountabilityMetaData = &bind.MetaData{
@@ -1096,79 +1146,90 @@ func (_Accountability *Accountability) SetEpochPeriod(opts *runOptions, _newPeri
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AccountabilityInnocenceProvenIterator is returned from FilterInnocenceProven and is used to iterate over the raw logs and unpacked data for InnocenceProven events raised by the Accountability contract.
+type AccountabilityInnocenceProvenIterator struct {
+	Event *AccountabilityInnocenceProven // Event containing the contract specifics and raw log
 
-		// AccountabilityInnocenceProvenIterator is returned from FilterInnocenceProven and is used to iterate over the raw logs and unpacked data for InnocenceProven events raised by the Accountability contract.
-		type AccountabilityInnocenceProvenIterator struct {
-			Event *AccountabilityInnocenceProven // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AccountabilityInnocenceProvenIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AccountabilityInnocenceProvenIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AccountabilityInnocenceProven)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AccountabilityInnocenceProven)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AccountabilityInnocenceProven)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AccountabilityInnocenceProven)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AccountabilityInnocenceProvenIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AccountabilityInnocenceProvenIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AccountabilityInnocenceProvenIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AccountabilityInnocenceProvenIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AccountabilityInnocenceProven represents a InnocenceProven event raised by the Accountability contract.
-		type AccountabilityInnocenceProven struct {
-			Offender common.Address;
-			Id *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AccountabilityInnocenceProven represents a InnocenceProven event raised by the Accountability contract.
+type AccountabilityInnocenceProven struct {
+	Offender common.Address
+	Id       *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// AccountabilityInnocenceProven.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AccountabilityInnocenceProven *AccountabilityInnocenceProven) SetRaw(log types.Log) {
+	_AccountabilityInnocenceProven.Raw = log
+}
+
+// AccountabilityInnocenceProven.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AccountabilityInnocenceProven *AccountabilityInnocenceProven) GetRaw() types.Log {
+	return _AccountabilityInnocenceProven.Raw
+}
+
+/*
 		// FilterInnocenceProven is a free log retrieval operation binding the contract event 0x1fa96beb8dddcb7d4484dd00c4059e872439f7a474a2ecf49c430fc6e86c9e1f.
 		//
 		// Solidity: event InnocenceProven(address indexed _offender, uint256 _id)
@@ -1229,92 +1290,105 @@ func (_Accountability *Accountability) SetEpochPeriod(opts *runOptions, _newPeri
 				}
 			}), nil
 		}
+*/
 
-		// ParseInnocenceProven is a log parse operation binding the contract event 0x1fa96beb8dddcb7d4484dd00c4059e872439f7a474a2ecf49c430fc6e86c9e1f.
-		//
-		// Solidity: event InnocenceProven(address indexed _offender, uint256 _id)
-		func (_Accountability *Accountability) ParseInnocenceProven(log types.Log) (*AccountabilityInnocenceProven, error) {
-			event := new(AccountabilityInnocenceProven)
-			if err := _Accountability.contract.UnpackLog(event, "InnocenceProven", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseInnocenceProven is a log parse operation binding the contract event 0x1fa96beb8dddcb7d4484dd00c4059e872439f7a474a2ecf49c430fc6e86c9e1f.
+//
+// Solidity: event InnocenceProven(address indexed _offender, uint256 _id)
+func (_Accountability *Accountability) ParseInnocenceProven(log types.Log) (*AccountabilityInnocenceProven, error) {
+	event := new(AccountabilityInnocenceProven)
+	if err := _Accountability.contract.unpackLog(event, "InnocenceProven", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AccountabilityNewAccusationIterator is returned from FilterNewAccusation and is used to iterate over the raw logs and unpacked data for NewAccusation events raised by the Accountability contract.
+type AccountabilityNewAccusationIterator struct {
+	Event *AccountabilityNewAccusation // Event containing the contract specifics and raw log
 
-		// AccountabilityNewAccusationIterator is returned from FilterNewAccusation and is used to iterate over the raw logs and unpacked data for NewAccusation events raised by the Accountability contract.
-		type AccountabilityNewAccusationIterator struct {
-			Event *AccountabilityNewAccusation // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AccountabilityNewAccusationIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AccountabilityNewAccusationIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AccountabilityNewAccusation)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AccountabilityNewAccusation)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AccountabilityNewAccusation)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AccountabilityNewAccusation)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AccountabilityNewAccusationIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AccountabilityNewAccusationIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AccountabilityNewAccusationIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AccountabilityNewAccusationIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AccountabilityNewAccusation represents a NewAccusation event raised by the Accountability contract.
-		type AccountabilityNewAccusation struct {
-			Offender common.Address;
-			Severity *big.Int;
-			Id *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AccountabilityNewAccusation represents a NewAccusation event raised by the Accountability contract.
+type AccountabilityNewAccusation struct {
+	Offender common.Address
+	Severity *big.Int
+	Id       *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// AccountabilityNewAccusation.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AccountabilityNewAccusation *AccountabilityNewAccusation) SetRaw(log types.Log) {
+	_AccountabilityNewAccusation.Raw = log
+}
+
+// AccountabilityNewAccusation.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AccountabilityNewAccusation *AccountabilityNewAccusation) GetRaw() types.Log {
+	return _AccountabilityNewAccusation.Raw
+}
+
+/*
 		// FilterNewAccusation is a free log retrieval operation binding the contract event 0x2e8e354b41470731dafa7c3df150e9498a8d5b9c51ff0259fbf77f721ba40351.
 		//
 		// Solidity: event NewAccusation(address indexed _offender, uint256 _severity, uint256 _id)
@@ -1377,92 +1451,105 @@ func (_Accountability *Accountability) SetEpochPeriod(opts *runOptions, _newPeri
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewAccusation is a log parse operation binding the contract event 0x2e8e354b41470731dafa7c3df150e9498a8d5b9c51ff0259fbf77f721ba40351.
-		//
-		// Solidity: event NewAccusation(address indexed _offender, uint256 _severity, uint256 _id)
-		func (_Accountability *Accountability) ParseNewAccusation(log types.Log) (*AccountabilityNewAccusation, error) {
-			event := new(AccountabilityNewAccusation)
-			if err := _Accountability.contract.UnpackLog(event, "NewAccusation", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewAccusation is a log parse operation binding the contract event 0x2e8e354b41470731dafa7c3df150e9498a8d5b9c51ff0259fbf77f721ba40351.
+//
+// Solidity: event NewAccusation(address indexed _offender, uint256 _severity, uint256 _id)
+func (_Accountability *Accountability) ParseNewAccusation(log types.Log) (*AccountabilityNewAccusation, error) {
+	event := new(AccountabilityNewAccusation)
+	if err := _Accountability.contract.unpackLog(event, "NewAccusation", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AccountabilityNewFaultProofIterator is returned from FilterNewFaultProof and is used to iterate over the raw logs and unpacked data for NewFaultProof events raised by the Accountability contract.
+type AccountabilityNewFaultProofIterator struct {
+	Event *AccountabilityNewFaultProof // Event containing the contract specifics and raw log
 
-		// AccountabilityNewFaultProofIterator is returned from FilterNewFaultProof and is used to iterate over the raw logs and unpacked data for NewFaultProof events raised by the Accountability contract.
-		type AccountabilityNewFaultProofIterator struct {
-			Event *AccountabilityNewFaultProof // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AccountabilityNewFaultProofIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AccountabilityNewFaultProofIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AccountabilityNewFaultProof)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AccountabilityNewFaultProof)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AccountabilityNewFaultProof)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AccountabilityNewFaultProof)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AccountabilityNewFaultProofIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AccountabilityNewFaultProofIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AccountabilityNewFaultProofIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AccountabilityNewFaultProofIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AccountabilityNewFaultProof represents a NewFaultProof event raised by the Accountability contract.
-		type AccountabilityNewFaultProof struct {
-			Offender common.Address;
-			Severity *big.Int;
-			Id *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AccountabilityNewFaultProof represents a NewFaultProof event raised by the Accountability contract.
+type AccountabilityNewFaultProof struct {
+	Offender common.Address
+	Severity *big.Int
+	Id       *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// AccountabilityNewFaultProof.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AccountabilityNewFaultProof *AccountabilityNewFaultProof) SetRaw(log types.Log) {
+	_AccountabilityNewFaultProof.Raw = log
+}
+
+// AccountabilityNewFaultProof.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AccountabilityNewFaultProof *AccountabilityNewFaultProof) GetRaw() types.Log {
+	return _AccountabilityNewFaultProof.Raw
+}
+
+/*
 		// FilterNewFaultProof is a free log retrieval operation binding the contract event 0x6b7783718ab8e152c193eb08bf76eed1191fcd1677a23a7fe9d338265aad132f.
 		//
 		// Solidity: event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id)
@@ -1525,94 +1612,107 @@ func (_Accountability *Accountability) SetEpochPeriod(opts *runOptions, _newPeri
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewFaultProof is a log parse operation binding the contract event 0x6b7783718ab8e152c193eb08bf76eed1191fcd1677a23a7fe9d338265aad132f.
-		//
-		// Solidity: event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id)
-		func (_Accountability *Accountability) ParseNewFaultProof(log types.Log) (*AccountabilityNewFaultProof, error) {
-			event := new(AccountabilityNewFaultProof)
-			if err := _Accountability.contract.UnpackLog(event, "NewFaultProof", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewFaultProof is a log parse operation binding the contract event 0x6b7783718ab8e152c193eb08bf76eed1191fcd1677a23a7fe9d338265aad132f.
+//
+// Solidity: event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id)
+func (_Accountability *Accountability) ParseNewFaultProof(log types.Log) (*AccountabilityNewFaultProof, error) {
+	event := new(AccountabilityNewFaultProof)
+	if err := _Accountability.contract.unpackLog(event, "NewFaultProof", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AccountabilitySlashingEventIterator is returned from FilterSlashingEvent and is used to iterate over the raw logs and unpacked data for SlashingEvent events raised by the Accountability contract.
+type AccountabilitySlashingEventIterator struct {
+	Event *AccountabilitySlashingEvent // Event containing the contract specifics and raw log
 
-		// AccountabilitySlashingEventIterator is returned from FilterSlashingEvent and is used to iterate over the raw logs and unpacked data for SlashingEvent events raised by the Accountability contract.
-		type AccountabilitySlashingEventIterator struct {
-			Event *AccountabilitySlashingEvent // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AccountabilitySlashingEventIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AccountabilitySlashingEventIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AccountabilitySlashingEvent)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AccountabilitySlashingEvent)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AccountabilitySlashingEvent)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AccountabilitySlashingEvent)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AccountabilitySlashingEventIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AccountabilitySlashingEventIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AccountabilitySlashingEventIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AccountabilitySlashingEventIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AccountabilitySlashingEvent represents a SlashingEvent event raised by the Accountability contract.
-		type AccountabilitySlashingEvent struct {
-			Validator common.Address;
-			Amount *big.Int;
-			ReleaseBlock *big.Int;
-			IsJailbound bool;
-			EventId *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AccountabilitySlashingEvent represents a SlashingEvent event raised by the Accountability contract.
+type AccountabilitySlashingEvent struct {
+	Validator    common.Address
+	Amount       *big.Int
+	ReleaseBlock *big.Int
+	IsJailbound  bool
+	EventId      *big.Int
+	Raw          types.Log // Blockchain specific contextual infos
+}
 
+// AccountabilitySlashingEvent.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AccountabilitySlashingEvent *AccountabilitySlashingEvent) SetRaw(log types.Log) {
+	_AccountabilitySlashingEvent.Raw = log
+}
+
+// AccountabilitySlashingEvent.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AccountabilitySlashingEvent *AccountabilitySlashingEvent) GetRaw() types.Log {
+	return _AccountabilitySlashingEvent.Raw
+}
+
+/*
 		// FilterSlashingEvent is a free log retrieval operation binding the contract event 0x6617e612ea2d01b5a235997fa4963b56b1097df6f968a82972433e9ff852e0f9.
 		//
 		// Solidity: event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId)
@@ -1673,21 +1773,19 @@ func (_Accountability *Accountability) SetEpochPeriod(opts *runOptions, _newPeri
 				}
 			}), nil
 		}
-
-		// ParseSlashingEvent is a log parse operation binding the contract event 0x6617e612ea2d01b5a235997fa4963b56b1097df6f968a82972433e9ff852e0f9.
-		//
-		// Solidity: event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId)
-		func (_Accountability *Accountability) ParseSlashingEvent(log types.Log) (*AccountabilitySlashingEvent, error) {
-			event := new(AccountabilitySlashingEvent)
-			if err := _Accountability.contract.UnpackLog(event, "SlashingEvent", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseSlashingEvent is a log parse operation binding the contract event 0x6617e612ea2d01b5a235997fa4963b56b1097df6f968a82972433e9ff852e0f9.
+//
+// Solidity: event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId)
+func (_Accountability *Accountability) ParseSlashingEvent(log types.Log) (*AccountabilitySlashingEvent, error) {
+	event := new(AccountabilitySlashingEvent)
+	if err := _Accountability.contract.unpackLog(event, "SlashingEvent", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // AutonityMetaData contains all meta data concerning the Autonity contract.
 var AutonityMetaData = &bind.MetaData{
@@ -3434,80 +3532,91 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityActivatedValidatorIterator is returned from FilterActivatedValidator and is used to iterate over the raw logs and unpacked data for ActivatedValidator events raised by the Autonity contract.
+type AutonityActivatedValidatorIterator struct {
+	Event *AutonityActivatedValidator // Event containing the contract specifics and raw log
 
-		// AutonityActivatedValidatorIterator is returned from FilterActivatedValidator and is used to iterate over the raw logs and unpacked data for ActivatedValidator events raised by the Autonity contract.
-		type AutonityActivatedValidatorIterator struct {
-			Event *AutonityActivatedValidator // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityActivatedValidatorIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityActivatedValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityActivatedValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityActivatedValidator)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityActivatedValidator)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityActivatedValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityActivatedValidatorIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityActivatedValidatorIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityActivatedValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityActivatedValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityActivatedValidator represents a ActivatedValidator event raised by the Autonity contract.
-		type AutonityActivatedValidator struct {
-			Treasury common.Address;
-			Addr common.Address;
-			EffectiveBlock *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityActivatedValidator represents a ActivatedValidator event raised by the Autonity contract.
+type AutonityActivatedValidator struct {
+	Treasury       common.Address
+	Addr           common.Address
+	EffectiveBlock *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
 
+// AutonityActivatedValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityActivatedValidator *AutonityActivatedValidator) SetRaw(log types.Log) {
+	_AutonityActivatedValidator.Raw = log
+}
+
+// AutonityActivatedValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityActivatedValidator *AutonityActivatedValidator) GetRaw() types.Log {
+	return _AutonityActivatedValidator.Raw
+}
+
+/*
 		// FilterActivatedValidator is a free log retrieval operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
 		//
 		// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
@@ -3576,93 +3685,106 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseActivatedValidator is a log parse operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
-		//
-		// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
-		func (_Autonity *Autonity) ParseActivatedValidator(log types.Log) (*AutonityActivatedValidator, error) {
-			event := new(AutonityActivatedValidator)
-			if err := _Autonity.contract.UnpackLog(event, "ActivatedValidator", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseActivatedValidator is a log parse operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
+//
+// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+func (_Autonity *Autonity) ParseActivatedValidator(log types.Log) (*AutonityActivatedValidator, error) {
+	event := new(AutonityActivatedValidator)
+	if err := _Autonity.contract.unpackLog(event, "ActivatedValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityAppliedUnbondingRevertedIterator is returned from FilterAppliedUnbondingReverted and is used to iterate over the raw logs and unpacked data for AppliedUnbondingReverted events raised by the Autonity contract.
+type AutonityAppliedUnbondingRevertedIterator struct {
+	Event *AutonityAppliedUnbondingReverted // Event containing the contract specifics and raw log
 
-		// AutonityAppliedUnbondingRevertedIterator is returned from FilterAppliedUnbondingReverted and is used to iterate over the raw logs and unpacked data for AppliedUnbondingReverted events raised by the Autonity contract.
-		type AutonityAppliedUnbondingRevertedIterator struct {
-			Event *AutonityAppliedUnbondingReverted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityAppliedUnbondingRevertedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityAppliedUnbondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityAppliedUnbondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityAppliedUnbondingReverted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityAppliedUnbondingReverted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityAppliedUnbondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityAppliedUnbondingRevertedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityAppliedUnbondingRevertedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityAppliedUnbondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityAppliedUnbondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityAppliedUnbondingReverted represents a AppliedUnbondingReverted event raised by the Autonity contract.
-		type AutonityAppliedUnbondingReverted struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityAppliedUnbondingReverted represents a AppliedUnbondingReverted event raised by the Autonity contract.
+type AutonityAppliedUnbondingReverted struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityAppliedUnbondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityAppliedUnbondingReverted *AutonityAppliedUnbondingReverted) SetRaw(log types.Log) {
+	_AutonityAppliedUnbondingReverted.Raw = log
+}
+
+// AutonityAppliedUnbondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityAppliedUnbondingReverted *AutonityAppliedUnbondingReverted) GetRaw() types.Log {
+	return _AutonityAppliedUnbondingReverted.Raw
+}
+
+/*
 		// FilterAppliedUnbondingReverted is a free log retrieval operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
 		//
 		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -3733,92 +3855,105 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseAppliedUnbondingReverted is a log parse operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
-		//
-		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_Autonity *Autonity) ParseAppliedUnbondingReverted(log types.Log) (*AutonityAppliedUnbondingReverted, error) {
-			event := new(AutonityAppliedUnbondingReverted)
-			if err := _Autonity.contract.UnpackLog(event, "AppliedUnbondingReverted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseAppliedUnbondingReverted is a log parse operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+//
+// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_Autonity *Autonity) ParseAppliedUnbondingReverted(log types.Log) (*AutonityAppliedUnbondingReverted, error) {
+	event := new(AutonityAppliedUnbondingReverted)
+	if err := _Autonity.contract.unpackLog(event, "AppliedUnbondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the Autonity contract.
+type AutonityApprovalIterator struct {
+	Event *AutonityApproval // Event containing the contract specifics and raw log
 
-		// AutonityApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the Autonity contract.
-		type AutonityApprovalIterator struct {
-			Event *AutonityApproval // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityApprovalIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityApprovalIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityApproval)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityApproval)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityApproval)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityApproval)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityApprovalIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityApprovalIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityApprovalIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityApprovalIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityApproval represents a Approval event raised by the Autonity contract.
-		type AutonityApproval struct {
-			Owner common.Address;
-			Spender common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityApproval represents a Approval event raised by the Autonity contract.
+type AutonityApproval struct {
+	Owner   common.Address
+	Spender common.Address
+	Value   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// AutonityApproval.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityApproval *AutonityApproval) SetRaw(log types.Log) {
+	_AutonityApproval.Raw = log
+}
+
+// AutonityApproval.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityApproval *AutonityApproval) GetRaw() types.Log {
+	return _AutonityApproval.Raw
+}
+
+/*
 		// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
 		//
 		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
@@ -3887,93 +4022,106 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-		//
-		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-		func (_Autonity *Autonity) ParseApproval(log types.Log) (*AutonityApproval, error) {
-			event := new(AutonityApproval)
-			if err := _Autonity.contract.UnpackLog(event, "Approval", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_Autonity *Autonity) ParseApproval(log types.Log) (*AutonityApproval, error) {
+	event := new(AutonityApproval)
+	if err := _Autonity.contract.unpackLog(event, "Approval", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityBondingRejectedIterator is returned from FilterBondingRejected and is used to iterate over the raw logs and unpacked data for BondingRejected events raised by the Autonity contract.
+type AutonityBondingRejectedIterator struct {
+	Event *AutonityBondingRejected // Event containing the contract specifics and raw log
 
-		// AutonityBondingRejectedIterator is returned from FilterBondingRejected and is used to iterate over the raw logs and unpacked data for BondingRejected events raised by the Autonity contract.
-		type AutonityBondingRejectedIterator struct {
-			Event *AutonityBondingRejected // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityBondingRejectedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityBondingRejectedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityBondingRejected)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityBondingRejected)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityBondingRejected)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityBondingRejected)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityBondingRejectedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityBondingRejectedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityBondingRejectedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityBondingRejectedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityBondingRejected represents a BondingRejected event raised by the Autonity contract.
-		type AutonityBondingRejected struct {
-			Validator common.Address;
-			Delegator common.Address;
-			Amount *big.Int;
-			State uint8;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityBondingRejected represents a BondingRejected event raised by the Autonity contract.
+type AutonityBondingRejected struct {
+	Validator common.Address
+	Delegator common.Address
+	Amount    *big.Int
+	State     uint8
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityBondingRejected.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityBondingRejected *AutonityBondingRejected) SetRaw(log types.Log) {
+	_AutonityBondingRejected.Raw = log
+}
+
+// AutonityBondingRejected.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityBondingRejected *AutonityBondingRejected) GetRaw() types.Log {
+	return _AutonityBondingRejected.Raw
+}
+
+/*
 		// FilterBondingRejected is a free log retrieval operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
 		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
@@ -4044,92 +4192,105 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
-		//
-		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
-		func (_Autonity *Autonity) ParseBondingRejected(log types.Log) (*AutonityBondingRejected, error) {
-			event := new(AutonityBondingRejected)
-			if err := _Autonity.contract.UnpackLog(event, "BondingRejected", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
+//
+// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+func (_Autonity *Autonity) ParseBondingRejected(log types.Log) (*AutonityBondingRejected, error) {
+	event := new(AutonityBondingRejected)
+	if err := _Autonity.contract.unpackLog(event, "BondingRejected", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityBondingRevertedIterator is returned from FilterBondingReverted and is used to iterate over the raw logs and unpacked data for BondingReverted events raised by the Autonity contract.
+type AutonityBondingRevertedIterator struct {
+	Event *AutonityBondingReverted // Event containing the contract specifics and raw log
 
-		// AutonityBondingRevertedIterator is returned from FilterBondingReverted and is used to iterate over the raw logs and unpacked data for BondingReverted events raised by the Autonity contract.
-		type AutonityBondingRevertedIterator struct {
-			Event *AutonityBondingReverted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityBondingRevertedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityBondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityBondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityBondingReverted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityBondingReverted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityBondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityBondingRevertedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityBondingRevertedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityBondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityBondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityBondingReverted represents a BondingReverted event raised by the Autonity contract.
-		type AutonityBondingReverted struct {
-			Validator common.Address;
-			Delegator common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityBondingReverted represents a BondingReverted event raised by the Autonity contract.
+type AutonityBondingReverted struct {
+	Validator common.Address
+	Delegator common.Address
+	Amount    *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityBondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityBondingReverted *AutonityBondingReverted) SetRaw(log types.Log) {
+	_AutonityBondingReverted.Raw = log
+}
+
+// AutonityBondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityBondingReverted *AutonityBondingReverted) GetRaw() types.Log {
+	return _AutonityBondingReverted.Raw
+}
+
+/*
 		// FilterBondingReverted is a free log retrieval operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
 		//
 		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
@@ -4198,91 +4359,104 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseBondingReverted is a log parse operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
-		//
-		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
-		func (_Autonity *Autonity) ParseBondingReverted(log types.Log) (*AutonityBondingReverted, error) {
-			event := new(AutonityBondingReverted)
-			if err := _Autonity.contract.UnpackLog(event, "BondingReverted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBondingReverted is a log parse operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+//
+// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+func (_Autonity *Autonity) ParseBondingReverted(log types.Log) (*AutonityBondingReverted, error) {
+	event := new(AutonityBondingReverted)
+	if err := _Autonity.contract.unpackLog(event, "BondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityBurnedStakeIterator is returned from FilterBurnedStake and is used to iterate over the raw logs and unpacked data for BurnedStake events raised by the Autonity contract.
+type AutonityBurnedStakeIterator struct {
+	Event *AutonityBurnedStake // Event containing the contract specifics and raw log
 
-		// AutonityBurnedStakeIterator is returned from FilterBurnedStake and is used to iterate over the raw logs and unpacked data for BurnedStake events raised by the Autonity contract.
-		type AutonityBurnedStakeIterator struct {
-			Event *AutonityBurnedStake // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityBurnedStakeIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityBurnedStakeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityBurnedStake)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityBurnedStake)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityBurnedStake)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityBurnedStake)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityBurnedStakeIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityBurnedStakeIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityBurnedStakeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityBurnedStakeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityBurnedStake represents a BurnedStake event raised by the Autonity contract.
-		type AutonityBurnedStake struct {
-			Addr common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityBurnedStake represents a BurnedStake event raised by the Autonity contract.
+type AutonityBurnedStake struct {
+	Addr   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
 
+// AutonityBurnedStake.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityBurnedStake *AutonityBurnedStake) SetRaw(log types.Log) {
+	_AutonityBurnedStake.Raw = log
+}
+
+// AutonityBurnedStake.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityBurnedStake *AutonityBurnedStake) GetRaw() types.Log {
+	return _AutonityBurnedStake.Raw
+}
+
+/*
 		// FilterBurnedStake is a free log retrieval operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
 		//
 		// Solidity: event BurnedStake(address indexed addr, uint256 amount)
@@ -4343,92 +4517,105 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseBurnedStake is a log parse operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
-		//
-		// Solidity: event BurnedStake(address indexed addr, uint256 amount)
-		func (_Autonity *Autonity) ParseBurnedStake(log types.Log) (*AutonityBurnedStake, error) {
-			event := new(AutonityBurnedStake)
-			if err := _Autonity.contract.UnpackLog(event, "BurnedStake", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBurnedStake is a log parse operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
+//
+// Solidity: event BurnedStake(address indexed addr, uint256 amount)
+func (_Autonity *Autonity) ParseBurnedStake(log types.Log) (*AutonityBurnedStake, error) {
+	event := new(AutonityBurnedStake)
+	if err := _Autonity.contract.unpackLog(event, "BurnedStake", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityCallFailedIterator is returned from FilterCallFailed and is used to iterate over the raw logs and unpacked data for CallFailed events raised by the Autonity contract.
+type AutonityCallFailedIterator struct {
+	Event *AutonityCallFailed // Event containing the contract specifics and raw log
 
-		// AutonityCallFailedIterator is returned from FilterCallFailed and is used to iterate over the raw logs and unpacked data for CallFailed events raised by the Autonity contract.
-		type AutonityCallFailedIterator struct {
-			Event *AutonityCallFailed // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityCallFailedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityCallFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityCallFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityCallFailed)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityCallFailed)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityCallFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityCallFailedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityCallFailedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityCallFailedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityCallFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityCallFailed represents a CallFailed event raised by the Autonity contract.
-		type AutonityCallFailed struct {
-			To common.Address;
-			MethodSignature string;
-			ReturnData []byte;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityCallFailed represents a CallFailed event raised by the Autonity contract.
+type AutonityCallFailed struct {
+	To              common.Address
+	MethodSignature string
+	ReturnData      []byte
+	Raw             types.Log // Blockchain specific contextual infos
+}
 
+// AutonityCallFailed.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityCallFailed *AutonityCallFailed) SetRaw(log types.Log) {
+	_AutonityCallFailed.Raw = log
+}
+
+// AutonityCallFailed.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityCallFailed *AutonityCallFailed) GetRaw() types.Log {
+	return _AutonityCallFailed.Raw
+}
+
+/*
 		// FilterCallFailed is a free log retrieval operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
 		//
 		// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
@@ -4485,91 +4672,104 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseCallFailed is a log parse operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
-		//
-		// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
-		func (_Autonity *Autonity) ParseCallFailed(log types.Log) (*AutonityCallFailed, error) {
-			event := new(AutonityCallFailed)
-			if err := _Autonity.contract.UnpackLog(event, "CallFailed", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseCallFailed is a log parse operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
+//
+// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
+func (_Autonity *Autonity) ParseCallFailed(log types.Log) (*AutonityCallFailed, error) {
+	event := new(AutonityCallFailed)
+	if err := _Autonity.contract.unpackLog(event, "CallFailed", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityCommissionRateChangeIterator is returned from FilterCommissionRateChange and is used to iterate over the raw logs and unpacked data for CommissionRateChange events raised by the Autonity contract.
+type AutonityCommissionRateChangeIterator struct {
+	Event *AutonityCommissionRateChange // Event containing the contract specifics and raw log
 
-		// AutonityCommissionRateChangeIterator is returned from FilterCommissionRateChange and is used to iterate over the raw logs and unpacked data for CommissionRateChange events raised by the Autonity contract.
-		type AutonityCommissionRateChangeIterator struct {
-			Event *AutonityCommissionRateChange // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityCommissionRateChangeIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityCommissionRateChangeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityCommissionRateChange)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityCommissionRateChange)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityCommissionRateChange)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityCommissionRateChange)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityCommissionRateChangeIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityCommissionRateChangeIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityCommissionRateChangeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityCommissionRateChangeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityCommissionRateChange represents a CommissionRateChange event raised by the Autonity contract.
-		type AutonityCommissionRateChange struct {
-			Validator common.Address;
-			Rate *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityCommissionRateChange represents a CommissionRateChange event raised by the Autonity contract.
+type AutonityCommissionRateChange struct {
+	Validator common.Address
+	Rate      *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityCommissionRateChange.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityCommissionRateChange *AutonityCommissionRateChange) SetRaw(log types.Log) {
+	_AutonityCommissionRateChange.Raw = log
+}
+
+// AutonityCommissionRateChange.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityCommissionRateChange *AutonityCommissionRateChange) GetRaw() types.Log {
+	return _AutonityCommissionRateChange.Raw
+}
+
+/*
 		// FilterCommissionRateChange is a free log retrieval operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
 		//
 		// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
@@ -4630,91 +4830,104 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseCommissionRateChange is a log parse operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
-		//
-		// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
-		func (_Autonity *Autonity) ParseCommissionRateChange(log types.Log) (*AutonityCommissionRateChange, error) {
-			event := new(AutonityCommissionRateChange)
-			if err := _Autonity.contract.UnpackLog(event, "CommissionRateChange", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseCommissionRateChange is a log parse operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
+//
+// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
+func (_Autonity *Autonity) ParseCommissionRateChange(log types.Log) (*AutonityCommissionRateChange, error) {
+	event := new(AutonityCommissionRateChange)
+	if err := _Autonity.contract.unpackLog(event, "CommissionRateChange", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityEpochPeriodUpdatedIterator is returned from FilterEpochPeriodUpdated and is used to iterate over the raw logs and unpacked data for EpochPeriodUpdated events raised by the Autonity contract.
+type AutonityEpochPeriodUpdatedIterator struct {
+	Event *AutonityEpochPeriodUpdated // Event containing the contract specifics and raw log
 
-		// AutonityEpochPeriodUpdatedIterator is returned from FilterEpochPeriodUpdated and is used to iterate over the raw logs and unpacked data for EpochPeriodUpdated events raised by the Autonity contract.
-		type AutonityEpochPeriodUpdatedIterator struct {
-			Event *AutonityEpochPeriodUpdated // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityEpochPeriodUpdatedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityEpochPeriodUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityEpochPeriodUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityEpochPeriodUpdated)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityEpochPeriodUpdated)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityEpochPeriodUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityEpochPeriodUpdatedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityEpochPeriodUpdatedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityEpochPeriodUpdatedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityEpochPeriodUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityEpochPeriodUpdated represents a EpochPeriodUpdated event raised by the Autonity contract.
-		type AutonityEpochPeriodUpdated struct {
-			Period *big.Int;
-			ToBeAppliedAtBlock *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityEpochPeriodUpdated represents a EpochPeriodUpdated event raised by the Autonity contract.
+type AutonityEpochPeriodUpdated struct {
+	Period             *big.Int
+	ToBeAppliedAtBlock *big.Int
+	Raw                types.Log // Blockchain specific contextual infos
+}
 
+// AutonityEpochPeriodUpdated.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityEpochPeriodUpdated *AutonityEpochPeriodUpdated) SetRaw(log types.Log) {
+	_AutonityEpochPeriodUpdated.Raw = log
+}
+
+// AutonityEpochPeriodUpdated.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityEpochPeriodUpdated *AutonityEpochPeriodUpdated) GetRaw() types.Log {
+	return _AutonityEpochPeriodUpdated.Raw
+}
+
+/*
 		// FilterEpochPeriodUpdated is a free log retrieval operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
 		//
 		// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
@@ -4769,90 +4982,103 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseEpochPeriodUpdated is a log parse operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
-		//
-		// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
-		func (_Autonity *Autonity) ParseEpochPeriodUpdated(log types.Log) (*AutonityEpochPeriodUpdated, error) {
-			event := new(AutonityEpochPeriodUpdated)
-			if err := _Autonity.contract.UnpackLog(event, "EpochPeriodUpdated", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseEpochPeriodUpdated is a log parse operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
+//
+// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
+func (_Autonity *Autonity) ParseEpochPeriodUpdated(log types.Log) (*AutonityEpochPeriodUpdated, error) {
+	event := new(AutonityEpochPeriodUpdated)
+	if err := _Autonity.contract.unpackLog(event, "EpochPeriodUpdated", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityMinimumBaseFeeUpdatedIterator is returned from FilterMinimumBaseFeeUpdated and is used to iterate over the raw logs and unpacked data for MinimumBaseFeeUpdated events raised by the Autonity contract.
+type AutonityMinimumBaseFeeUpdatedIterator struct {
+	Event *AutonityMinimumBaseFeeUpdated // Event containing the contract specifics and raw log
 
-		// AutonityMinimumBaseFeeUpdatedIterator is returned from FilterMinimumBaseFeeUpdated and is used to iterate over the raw logs and unpacked data for MinimumBaseFeeUpdated events raised by the Autonity contract.
-		type AutonityMinimumBaseFeeUpdatedIterator struct {
-			Event *AutonityMinimumBaseFeeUpdated // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityMinimumBaseFeeUpdatedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityMinimumBaseFeeUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityMinimumBaseFeeUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityMinimumBaseFeeUpdated)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityMinimumBaseFeeUpdated)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityMinimumBaseFeeUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityMinimumBaseFeeUpdatedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityMinimumBaseFeeUpdatedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityMinimumBaseFeeUpdatedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityMinimumBaseFeeUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityMinimumBaseFeeUpdated represents a MinimumBaseFeeUpdated event raised by the Autonity contract.
-		type AutonityMinimumBaseFeeUpdated struct {
-			GasPrice *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityMinimumBaseFeeUpdated represents a MinimumBaseFeeUpdated event raised by the Autonity contract.
+type AutonityMinimumBaseFeeUpdated struct {
+	GasPrice *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// AutonityMinimumBaseFeeUpdated.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityMinimumBaseFeeUpdated *AutonityMinimumBaseFeeUpdated) SetRaw(log types.Log) {
+	_AutonityMinimumBaseFeeUpdated.Raw = log
+}
+
+// AutonityMinimumBaseFeeUpdated.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityMinimumBaseFeeUpdated *AutonityMinimumBaseFeeUpdated) GetRaw() types.Log {
+	return _AutonityMinimumBaseFeeUpdated.Raw
+}
+
+/*
 		// FilterMinimumBaseFeeUpdated is a free log retrieval operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
 		//
 		// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
@@ -4905,91 +5131,104 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseMinimumBaseFeeUpdated is a log parse operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
-		//
-		// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
-		func (_Autonity *Autonity) ParseMinimumBaseFeeUpdated(log types.Log) (*AutonityMinimumBaseFeeUpdated, error) {
-			event := new(AutonityMinimumBaseFeeUpdated)
-			if err := _Autonity.contract.UnpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseMinimumBaseFeeUpdated is a log parse operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
+//
+// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+func (_Autonity *Autonity) ParseMinimumBaseFeeUpdated(log types.Log) (*AutonityMinimumBaseFeeUpdated, error) {
+	event := new(AutonityMinimumBaseFeeUpdated)
+	if err := _Autonity.contract.unpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityMintedStakeIterator is returned from FilterMintedStake and is used to iterate over the raw logs and unpacked data for MintedStake events raised by the Autonity contract.
+type AutonityMintedStakeIterator struct {
+	Event *AutonityMintedStake // Event containing the contract specifics and raw log
 
-		// AutonityMintedStakeIterator is returned from FilterMintedStake and is used to iterate over the raw logs and unpacked data for MintedStake events raised by the Autonity contract.
-		type AutonityMintedStakeIterator struct {
-			Event *AutonityMintedStake // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityMintedStakeIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityMintedStakeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityMintedStake)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityMintedStake)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityMintedStake)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityMintedStake)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityMintedStakeIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityMintedStakeIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityMintedStakeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityMintedStakeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityMintedStake represents a MintedStake event raised by the Autonity contract.
-		type AutonityMintedStake struct {
-			Addr common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityMintedStake represents a MintedStake event raised by the Autonity contract.
+type AutonityMintedStake struct {
+	Addr   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
 
+// AutonityMintedStake.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityMintedStake *AutonityMintedStake) SetRaw(log types.Log) {
+	_AutonityMintedStake.Raw = log
+}
+
+// AutonityMintedStake.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityMintedStake *AutonityMintedStake) GetRaw() types.Log {
+	return _AutonityMintedStake.Raw
+}
+
+/*
 		// FilterMintedStake is a free log retrieval operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
 		//
 		// Solidity: event MintedStake(address indexed addr, uint256 amount)
@@ -5050,93 +5289,106 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseMintedStake is a log parse operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
-		//
-		// Solidity: event MintedStake(address indexed addr, uint256 amount)
-		func (_Autonity *Autonity) ParseMintedStake(log types.Log) (*AutonityMintedStake, error) {
-			event := new(AutonityMintedStake)
-			if err := _Autonity.contract.UnpackLog(event, "MintedStake", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseMintedStake is a log parse operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
+//
+// Solidity: event MintedStake(address indexed addr, uint256 amount)
+func (_Autonity *Autonity) ParseMintedStake(log types.Log) (*AutonityMintedStake, error) {
+	event := new(AutonityMintedStake)
+	if err := _Autonity.contract.unpackLog(event, "MintedStake", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityNewBondingRequestIterator is returned from FilterNewBondingRequest and is used to iterate over the raw logs and unpacked data for NewBondingRequest events raised by the Autonity contract.
+type AutonityNewBondingRequestIterator struct {
+	Event *AutonityNewBondingRequest // Event containing the contract specifics and raw log
 
-		// AutonityNewBondingRequestIterator is returned from FilterNewBondingRequest and is used to iterate over the raw logs and unpacked data for NewBondingRequest events raised by the Autonity contract.
-		type AutonityNewBondingRequestIterator struct {
-			Event *AutonityNewBondingRequest // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityNewBondingRequestIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityNewBondingRequestIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityNewBondingRequest)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityNewBondingRequest)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityNewBondingRequest)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityNewBondingRequest)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityNewBondingRequestIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityNewBondingRequestIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityNewBondingRequestIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityNewBondingRequestIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityNewBondingRequest represents a NewBondingRequest event raised by the Autonity contract.
-		type AutonityNewBondingRequest struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityNewBondingRequest represents a NewBondingRequest event raised by the Autonity contract.
+type AutonityNewBondingRequest struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityNewBondingRequest.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityNewBondingRequest *AutonityNewBondingRequest) SetRaw(log types.Log) {
+	_AutonityNewBondingRequest.Raw = log
+}
+
+// AutonityNewBondingRequest.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityNewBondingRequest *AutonityNewBondingRequest) GetRaw() types.Log {
+	return _AutonityNewBondingRequest.Raw
+}
+
+/*
 		// FilterNewBondingRequest is a free log retrieval operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
 		//
 		// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -5207,90 +5459,103 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewBondingRequest is a log parse operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
-		//
-		// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_Autonity *Autonity) ParseNewBondingRequest(log types.Log) (*AutonityNewBondingRequest, error) {
-			event := new(AutonityNewBondingRequest)
-			if err := _Autonity.contract.UnpackLog(event, "NewBondingRequest", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewBondingRequest is a log parse operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
+//
+// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_Autonity *Autonity) ParseNewBondingRequest(log types.Log) (*AutonityNewBondingRequest, error) {
+	event := new(AutonityNewBondingRequest)
+	if err := _Autonity.contract.unpackLog(event, "NewBondingRequest", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityNewEpochIterator is returned from FilterNewEpoch and is used to iterate over the raw logs and unpacked data for NewEpoch events raised by the Autonity contract.
+type AutonityNewEpochIterator struct {
+	Event *AutonityNewEpoch // Event containing the contract specifics and raw log
 
-		// AutonityNewEpochIterator is returned from FilterNewEpoch and is used to iterate over the raw logs and unpacked data for NewEpoch events raised by the Autonity contract.
-		type AutonityNewEpochIterator struct {
-			Event *AutonityNewEpoch // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityNewEpochIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityNewEpochIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityNewEpoch)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityNewEpoch)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityNewEpoch)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityNewEpoch)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityNewEpochIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityNewEpochIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityNewEpochIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityNewEpochIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityNewEpoch represents a NewEpoch event raised by the Autonity contract.
-		type AutonityNewEpoch struct {
-			Epoch *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityNewEpoch represents a NewEpoch event raised by the Autonity contract.
+type AutonityNewEpoch struct {
+	Epoch *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// AutonityNewEpoch.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityNewEpoch *AutonityNewEpoch) SetRaw(log types.Log) {
+	_AutonityNewEpoch.Raw = log
+}
+
+// AutonityNewEpoch.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityNewEpoch *AutonityNewEpoch) GetRaw() types.Log {
+	return _AutonityNewEpoch.Raw
+}
+
+/*
 		// FilterNewEpoch is a free log retrieval operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
 		//
 		// Solidity: event NewEpoch(uint256 epoch)
@@ -5343,93 +5608,106 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewEpoch is a log parse operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
-		//
-		// Solidity: event NewEpoch(uint256 epoch)
-		func (_Autonity *Autonity) ParseNewEpoch(log types.Log) (*AutonityNewEpoch, error) {
-			event := new(AutonityNewEpoch)
-			if err := _Autonity.contract.UnpackLog(event, "NewEpoch", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewEpoch is a log parse operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
+//
+// Solidity: event NewEpoch(uint256 epoch)
+func (_Autonity *Autonity) ParseNewEpoch(log types.Log) (*AutonityNewEpoch, error) {
+	event := new(AutonityNewEpoch)
+	if err := _Autonity.contract.unpackLog(event, "NewEpoch", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityNewUnbondingRequestIterator is returned from FilterNewUnbondingRequest and is used to iterate over the raw logs and unpacked data for NewUnbondingRequest events raised by the Autonity contract.
+type AutonityNewUnbondingRequestIterator struct {
+	Event *AutonityNewUnbondingRequest // Event containing the contract specifics and raw log
 
-		// AutonityNewUnbondingRequestIterator is returned from FilterNewUnbondingRequest and is used to iterate over the raw logs and unpacked data for NewUnbondingRequest events raised by the Autonity contract.
-		type AutonityNewUnbondingRequestIterator struct {
-			Event *AutonityNewUnbondingRequest // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityNewUnbondingRequestIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityNewUnbondingRequestIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityNewUnbondingRequest)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityNewUnbondingRequest)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityNewUnbondingRequest)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityNewUnbondingRequest)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityNewUnbondingRequestIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityNewUnbondingRequestIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityNewUnbondingRequestIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityNewUnbondingRequestIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityNewUnbondingRequest represents a NewUnbondingRequest event raised by the Autonity contract.
-		type AutonityNewUnbondingRequest struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityNewUnbondingRequest represents a NewUnbondingRequest event raised by the Autonity contract.
+type AutonityNewUnbondingRequest struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityNewUnbondingRequest.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityNewUnbondingRequest *AutonityNewUnbondingRequest) SetRaw(log types.Log) {
+	_AutonityNewUnbondingRequest.Raw = log
+}
+
+// AutonityNewUnbondingRequest.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityNewUnbondingRequest *AutonityNewUnbondingRequest) GetRaw() types.Log {
+	return _AutonityNewUnbondingRequest.Raw
+}
+
+/*
 		// FilterNewUnbondingRequest is a free log retrieval operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
 		//
 		// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -5500,92 +5778,105 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewUnbondingRequest is a log parse operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
-		//
-		// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_Autonity *Autonity) ParseNewUnbondingRequest(log types.Log) (*AutonityNewUnbondingRequest, error) {
-			event := new(AutonityNewUnbondingRequest)
-			if err := _Autonity.contract.UnpackLog(event, "NewUnbondingRequest", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewUnbondingRequest is a log parse operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
+//
+// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_Autonity *Autonity) ParseNewUnbondingRequest(log types.Log) (*AutonityNewUnbondingRequest, error) {
+	event := new(AutonityNewUnbondingRequest)
+	if err := _Autonity.contract.unpackLog(event, "NewUnbondingRequest", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityPausedValidatorIterator is returned from FilterPausedValidator and is used to iterate over the raw logs and unpacked data for PausedValidator events raised by the Autonity contract.
+type AutonityPausedValidatorIterator struct {
+	Event *AutonityPausedValidator // Event containing the contract specifics and raw log
 
-		// AutonityPausedValidatorIterator is returned from FilterPausedValidator and is used to iterate over the raw logs and unpacked data for PausedValidator events raised by the Autonity contract.
-		type AutonityPausedValidatorIterator struct {
-			Event *AutonityPausedValidator // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityPausedValidatorIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityPausedValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityPausedValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityPausedValidator)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityPausedValidator)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityPausedValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityPausedValidatorIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityPausedValidatorIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityPausedValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityPausedValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityPausedValidator represents a PausedValidator event raised by the Autonity contract.
-		type AutonityPausedValidator struct {
-			Treasury common.Address;
-			Addr common.Address;
-			EffectiveBlock *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityPausedValidator represents a PausedValidator event raised by the Autonity contract.
+type AutonityPausedValidator struct {
+	Treasury       common.Address
+	Addr           common.Address
+	EffectiveBlock *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
 
+// AutonityPausedValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityPausedValidator *AutonityPausedValidator) SetRaw(log types.Log) {
+	_AutonityPausedValidator.Raw = log
+}
+
+// AutonityPausedValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityPausedValidator *AutonityPausedValidator) GetRaw() types.Log {
+	return _AutonityPausedValidator.Raw
+}
+
+/*
 		// FilterPausedValidator is a free log retrieval operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
 		//
 		// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
@@ -5654,94 +5945,107 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParsePausedValidator is a log parse operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
-		//
-		// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
-		func (_Autonity *Autonity) ParsePausedValidator(log types.Log) (*AutonityPausedValidator, error) {
-			event := new(AutonityPausedValidator)
-			if err := _Autonity.contract.UnpackLog(event, "PausedValidator", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParsePausedValidator is a log parse operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
+//
+// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+func (_Autonity *Autonity) ParsePausedValidator(log types.Log) (*AutonityPausedValidator, error) {
+	event := new(AutonityPausedValidator)
+	if err := _Autonity.contract.unpackLog(event, "PausedValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityRegisteredValidatorIterator is returned from FilterRegisteredValidator and is used to iterate over the raw logs and unpacked data for RegisteredValidator events raised by the Autonity contract.
+type AutonityRegisteredValidatorIterator struct {
+	Event *AutonityRegisteredValidator // Event containing the contract specifics and raw log
 
-		// AutonityRegisteredValidatorIterator is returned from FilterRegisteredValidator and is used to iterate over the raw logs and unpacked data for RegisteredValidator events raised by the Autonity contract.
-		type AutonityRegisteredValidatorIterator struct {
-			Event *AutonityRegisteredValidator // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityRegisteredValidatorIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityRegisteredValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityRegisteredValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityRegisteredValidator)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityRegisteredValidator)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityRegisteredValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityRegisteredValidatorIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityRegisteredValidatorIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityRegisteredValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityRegisteredValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityRegisteredValidator represents a RegisteredValidator event raised by the Autonity contract.
-		type AutonityRegisteredValidator struct {
-			Treasury common.Address;
-			Addr common.Address;
-			OracleAddress common.Address;
-			Enode string;
-			LiquidStateContract common.Address;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityRegisteredValidator represents a RegisteredValidator event raised by the Autonity contract.
+type AutonityRegisteredValidator struct {
+	Treasury            common.Address
+	Addr                common.Address
+	OracleAddress       common.Address
+	Enode               string
+	LiquidStateContract common.Address
+	Raw                 types.Log // Blockchain specific contextual infos
+}
 
+// AutonityRegisteredValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityRegisteredValidator *AutonityRegisteredValidator) SetRaw(log types.Log) {
+	_AutonityRegisteredValidator.Raw = log
+}
+
+// AutonityRegisteredValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityRegisteredValidator *AutonityRegisteredValidator) GetRaw() types.Log {
+	return _AutonityRegisteredValidator.Raw
+}
+
+/*
 		// FilterRegisteredValidator is a free log retrieval operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
 		//
 		// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
@@ -5802,93 +6106,106 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseRegisteredValidator is a log parse operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
-		//
-		// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
-		func (_Autonity *Autonity) ParseRegisteredValidator(log types.Log) (*AutonityRegisteredValidator, error) {
-			event := new(AutonityRegisteredValidator)
-			if err := _Autonity.contract.UnpackLog(event, "RegisteredValidator", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseRegisteredValidator is a log parse operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
+//
+// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
+func (_Autonity *Autonity) ParseRegisteredValidator(log types.Log) (*AutonityRegisteredValidator, error) {
+	event := new(AutonityRegisteredValidator)
+	if err := _Autonity.contract.unpackLog(event, "RegisteredValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityReleasedUnbondingRevertedIterator is returned from FilterReleasedUnbondingReverted and is used to iterate over the raw logs and unpacked data for ReleasedUnbondingReverted events raised by the Autonity contract.
+type AutonityReleasedUnbondingRevertedIterator struct {
+	Event *AutonityReleasedUnbondingReverted // Event containing the contract specifics and raw log
 
-		// AutonityReleasedUnbondingRevertedIterator is returned from FilterReleasedUnbondingReverted and is used to iterate over the raw logs and unpacked data for ReleasedUnbondingReverted events raised by the Autonity contract.
-		type AutonityReleasedUnbondingRevertedIterator struct {
-			Event *AutonityReleasedUnbondingReverted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityReleasedUnbondingRevertedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityReleasedUnbondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityReleasedUnbondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityReleasedUnbondingReverted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityReleasedUnbondingReverted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityReleasedUnbondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityReleasedUnbondingRevertedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityReleasedUnbondingRevertedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityReleasedUnbondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityReleasedUnbondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityReleasedUnbondingReverted represents a ReleasedUnbondingReverted event raised by the Autonity contract.
-		type AutonityReleasedUnbondingReverted struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityReleasedUnbondingReverted represents a ReleasedUnbondingReverted event raised by the Autonity contract.
+type AutonityReleasedUnbondingReverted struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityReleasedUnbondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityReleasedUnbondingReverted *AutonityReleasedUnbondingReverted) SetRaw(log types.Log) {
+	_AutonityReleasedUnbondingReverted.Raw = log
+}
+
+// AutonityReleasedUnbondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityReleasedUnbondingReverted *AutonityReleasedUnbondingReverted) GetRaw() types.Log {
+	return _AutonityReleasedUnbondingReverted.Raw
+}
+
+/*
 		// FilterReleasedUnbondingReverted is a free log retrieval operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
 		//
 		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -5959,92 +6276,105 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseReleasedUnbondingReverted is a log parse operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
-		//
-		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_Autonity *Autonity) ParseReleasedUnbondingReverted(log types.Log) (*AutonityReleasedUnbondingReverted, error) {
-			event := new(AutonityReleasedUnbondingReverted)
-			if err := _Autonity.contract.UnpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseReleasedUnbondingReverted is a log parse operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+//
+// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_Autonity *Autonity) ParseReleasedUnbondingReverted(log types.Log) (*AutonityReleasedUnbondingReverted, error) {
+	event := new(AutonityReleasedUnbondingReverted)
+	if err := _Autonity.contract.unpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityRewardedIterator is returned from FilterRewarded and is used to iterate over the raw logs and unpacked data for Rewarded events raised by the Autonity contract.
+type AutonityRewardedIterator struct {
+	Event *AutonityRewarded // Event containing the contract specifics and raw log
 
-		// AutonityRewardedIterator is returned from FilterRewarded and is used to iterate over the raw logs and unpacked data for Rewarded events raised by the Autonity contract.
-		type AutonityRewardedIterator struct {
-			Event *AutonityRewarded // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityRewardedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityRewardedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityRewarded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityRewarded)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityRewarded)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityRewarded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityRewardedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityRewardedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityRewardedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityRewardedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityRewarded represents a Rewarded event raised by the Autonity contract.
-		type AutonityRewarded struct {
-			Addr common.Address;
-			AtnAmount *big.Int;
-			NtnAmount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityRewarded represents a Rewarded event raised by the Autonity contract.
+type AutonityRewarded struct {
+	Addr      common.Address
+	AtnAmount *big.Int
+	NtnAmount *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityRewarded.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityRewarded *AutonityRewarded) SetRaw(log types.Log) {
+	_AutonityRewarded.Raw = log
+}
+
+// AutonityRewarded.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityRewarded *AutonityRewarded) GetRaw() types.Log {
+	return _AutonityRewarded.Raw
+}
+
+/*
 		// FilterRewarded is a free log retrieval operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
 		//
 		// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
@@ -6107,92 +6437,105 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseRewarded is a log parse operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
-		//
-		// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
-		func (_Autonity *Autonity) ParseRewarded(log types.Log) (*AutonityRewarded, error) {
-			event := new(AutonityRewarded)
-			if err := _Autonity.contract.UnpackLog(event, "Rewarded", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseRewarded is a log parse operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
+//
+// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
+func (_Autonity *Autonity) ParseRewarded(log types.Log) (*AutonityRewarded, error) {
+	event := new(AutonityRewarded)
+	if err := _Autonity.contract.unpackLog(event, "Rewarded", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the Autonity contract.
+type AutonityTransferIterator struct {
+	Event *AutonityTransfer // Event containing the contract specifics and raw log
 
-		// AutonityTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the Autonity contract.
-		type AutonityTransferIterator struct {
-			Event *AutonityTransfer // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityTransferIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTransfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityTransfer)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityTransfer)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTransfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityTransferIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityTransferIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTransferIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityTransfer represents a Transfer event raised by the Autonity contract.
-		type AutonityTransfer struct {
-			From common.Address;
-			To common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityTransfer represents a Transfer event raised by the Autonity contract.
+type AutonityTransfer struct {
+	From  common.Address
+	To    common.Address
+	Value *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// AutonityTransfer.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTransfer *AutonityTransfer) SetRaw(log types.Log) {
+	_AutonityTransfer.Raw = log
+}
+
+// AutonityTransfer.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTransfer *AutonityTransfer) GetRaw() types.Log {
+	return _AutonityTransfer.Raw
+}
+
+/*
 		// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
 		//
 		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
@@ -6261,93 +6604,106 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-		//
-		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-		func (_Autonity *Autonity) ParseTransfer(log types.Log) (*AutonityTransfer, error) {
-			event := new(AutonityTransfer)
-			if err := _Autonity.contract.UnpackLog(event, "Transfer", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_Autonity *Autonity) ParseTransfer(log types.Log) (*AutonityTransfer, error) {
+	event := new(AutonityTransfer)
+	if err := _Autonity.contract.unpackLog(event, "Transfer", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUnbondingRejectedIterator is returned from FilterUnbondingRejected and is used to iterate over the raw logs and unpacked data for UnbondingRejected events raised by the Autonity contract.
+type AutonityUnbondingRejectedIterator struct {
+	Event *AutonityUnbondingRejected // Event containing the contract specifics and raw log
 
-		// AutonityUnbondingRejectedIterator is returned from FilterUnbondingRejected and is used to iterate over the raw logs and unpacked data for UnbondingRejected events raised by the Autonity contract.
-		type AutonityUnbondingRejectedIterator struct {
-			Event *AutonityUnbondingRejected // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUnbondingRejectedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUnbondingRejectedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUnbondingRejected)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUnbondingRejected)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUnbondingRejected)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUnbondingRejected)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUnbondingRejectedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUnbondingRejectedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUnbondingRejectedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUnbondingRejectedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUnbondingRejected represents a UnbondingRejected event raised by the Autonity contract.
-		type AutonityUnbondingRejected struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUnbondingRejected represents a UnbondingRejected event raised by the Autonity contract.
+type AutonityUnbondingRejected struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUnbondingRejected.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUnbondingRejected *AutonityUnbondingRejected) SetRaw(log types.Log) {
+	_AutonityUnbondingRejected.Raw = log
+}
+
+// AutonityUnbondingRejected.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUnbondingRejected *AutonityUnbondingRejected) GetRaw() types.Log {
+	return _AutonityUnbondingRejected.Raw
+}
+
+/*
 		// FilterUnbondingRejected is a free log retrieval operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
 		//
 		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -6418,90 +6774,103 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseUnbondingRejected is a log parse operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
-		//
-		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_Autonity *Autonity) ParseUnbondingRejected(log types.Log) (*AutonityUnbondingRejected, error) {
-			event := new(AutonityUnbondingRejected)
-			if err := _Autonity.contract.UnpackLog(event, "UnbondingRejected", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseUnbondingRejected is a log parse operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+//
+// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_Autonity *Autonity) ParseUnbondingRejected(log types.Log) (*AutonityUnbondingRejected, error) {
+	event := new(AutonityUnbondingRejected)
+	if err := _Autonity.contract.unpackLog(event, "UnbondingRejected", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUnlockingScheduleFailedIterator is returned from FilterUnlockingScheduleFailed and is used to iterate over the raw logs and unpacked data for UnlockingScheduleFailed events raised by the Autonity contract.
+type AutonityUnlockingScheduleFailedIterator struct {
+	Event *AutonityUnlockingScheduleFailed // Event containing the contract specifics and raw log
 
-		// AutonityUnlockingScheduleFailedIterator is returned from FilterUnlockingScheduleFailed and is used to iterate over the raw logs and unpacked data for UnlockingScheduleFailed events raised by the Autonity contract.
-		type AutonityUnlockingScheduleFailedIterator struct {
-			Event *AutonityUnlockingScheduleFailed // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUnlockingScheduleFailedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUnlockingScheduleFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUnlockingScheduleFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUnlockingScheduleFailed)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUnlockingScheduleFailed)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUnlockingScheduleFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUnlockingScheduleFailedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUnlockingScheduleFailedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUnlockingScheduleFailedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUnlockingScheduleFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUnlockingScheduleFailed represents a UnlockingScheduleFailed event raised by the Autonity contract.
-		type AutonityUnlockingScheduleFailed struct {
-			EpochTime *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUnlockingScheduleFailed represents a UnlockingScheduleFailed event raised by the Autonity contract.
+type AutonityUnlockingScheduleFailed struct {
+	EpochTime *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUnlockingScheduleFailed.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUnlockingScheduleFailed *AutonityUnlockingScheduleFailed) SetRaw(log types.Log) {
+	_AutonityUnlockingScheduleFailed.Raw = log
+}
+
+// AutonityUnlockingScheduleFailed.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUnlockingScheduleFailed *AutonityUnlockingScheduleFailed) GetRaw() types.Log {
+	return _AutonityUnlockingScheduleFailed.Raw
+}
+
+/*
 		// FilterUnlockingScheduleFailed is a free log retrieval operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
 		//
 		// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
@@ -6554,21 +6923,5395 @@ func (_Autonity *Autonity) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseUnlockingScheduleFailed is a log parse operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
+// ParseUnlockingScheduleFailed is a log parse operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
+//
+// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
+func (_Autonity *Autonity) ParseUnlockingScheduleFailed(log types.Log) (*AutonityUnlockingScheduleFailed, error) {
+	event := new(AutonityUnlockingScheduleFailed)
+	if err := _Autonity.contract.unpackLog(event, "UnlockingScheduleFailed", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+// AutonityTestMetaData contains all meta data concerning the AutonityTest contract.
+var AutonityTestMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"oracleAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"bondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingShares\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfBondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingShares\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingStakeLocked\",\"type\":\"uint256\"},{\"internalType\":\"addresspayable\",\"name\":\"liquidStateContract\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidSupply\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"registrationBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalSlashed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"jailReleaseBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"provableFaultCount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"consensusKey\",\"type\":\"bytes\"},{\"internalType\":\"enumValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"internalType\":\"structAutonity.Validator[]\",\"name\":\"_validators\",\"type\":\"tuple[]\"},{\"components\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"treasuryFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minBaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"delegationRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialInflationReserve\",\"type\":\"uint256\"},{\"internalType\":\"addresspayable\",\"name\":\"treasuryAccount\",\"type\":\"address\"}],\"internalType\":\"structAutonity.Policy\",\"name\":\"policy\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"contractIAccountability\",\"name\":\"accountabilityContract\",\"type\":\"address\"},{\"internalType\":\"contractIOracle\",\"name\":\"oracleContract\",\"type\":\"address\"},{\"internalType\":\"contractIACU\",\"name\":\"acuContract\",\"type\":\"address\"},{\"internalType\":\"contractISupplyControl\",\"name\":\"supplyControlContract\",\"type\":\"address\"},{\"internalType\":\"contractIStabilization\",\"name\":\"stabilizationContract\",\"type\":\"address\"},{\"internalType\":\"contractUpgradeManager\",\"name\":\"upgradeManagerContract\",\"type\":\"address\"},{\"internalType\":\"contractIInflationController\",\"name\":\"inflationControllerContract\",\"type\":\"address\"},{\"internalType\":\"contractINonStakableVestingVault\",\"name\":\"nonStakableVestingContract\",\"type\":\"address\"}],\"internalType\":\"structAutonity.Contracts\",\"name\":\"contracts\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"operatorAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"epochPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"blockPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"committeeSize\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Protocol\",\"name\":\"protocol\",\"type\":\"tuple\"},{\"internalType\":\"uint256\",\"name\":\"contractVersion\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Config\",\"name\":\"_config\",\"type\":\"tuple\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"effectiveBlock\",\"type\":\"uint256\"}],\"name\":\"ActivatedValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"selfBonded\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"AppliedUnbondingReverted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"enumValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"name\":\"BondingRejected\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"BondingReverted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"BurnedStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"methodSignature\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"returnData\",\"type\":\"bytes\"}],\"name\":\"CallFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"name\":\"CommissionRateChange\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"period\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"toBeAppliedAtBlock\",\"type\":\"uint256\"}],\"name\":\"EpochPeriodUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasPrice\",\"type\":\"uint256\"}],\"name\":\"MinimumBaseFeeUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"MintedStake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"selfBonded\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NewBondingRequest\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"NewEpoch\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"selfBonded\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NewUnbondingRequest\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"effectiveBlock\",\"type\":\"uint256\"}],\"name\":\"PausedValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"treasury\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oracleAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"liquidStateContract\",\"type\":\"address\"}],\"name\":\"RegisteredValidator\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"selfBonded\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ReleasedUnbondingReverted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"atnAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"ntnAmount\",\"type\":\"uint256\"}],\"name\":\"Rewarded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"delegator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"selfBonded\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"UnbondingRejected\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epochTime\",\"type\":\"uint256\"}],\"name\":\"UnlockingScheduleFailed\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"COMMISSION_RATE_PRECISION\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_contract\",\"type\":\"address\"}],\"name\":\"SetLiquidLogicContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"activateValidator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"applyNewCommissionRates\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"applyStakingOperations\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"spender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"atnTotalRedistributed\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"bond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_rate\",\"type\":\"uint256\"}],\"name\":\"changeCommissionRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"completeContractUpgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"computeCommittee\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"config\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"treasuryFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minBaseFee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"delegationRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"initialInflationReserve\",\"type\":\"uint256\"},{\"internalType\":\"addresspayable\",\"name\":\"treasuryAccount\",\"type\":\"address\"}],\"internalType\":\"structAutonity.Policy\",\"name\":\"policy\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"contractIAccountability\",\"name\":\"accountabilityContract\",\"type\":\"address\"},{\"internalType\":\"contractIOracle\",\"name\":\"oracleContract\",\"type\":\"address\"},{\"internalType\":\"contractIACU\",\"name\":\"acuContract\",\"type\":\"address\"},{\"internalType\":\"contractISupplyControl\",\"name\":\"supplyControlContract\",\"type\":\"address\"},{\"internalType\":\"contractIStabilization\",\"name\":\"stabilizationContract\",\"type\":\"address\"},{\"internalType\":\"contractUpgradeManager\",\"name\":\"upgradeManagerContract\",\"type\":\"address\"},{\"internalType\":\"contractIInflationController\",\"name\":\"inflationControllerContract\",\"type\":\"address\"},{\"internalType\":\"contractINonStakableVestingVault\",\"name\":\"nonStakableVestingContract\",\"type\":\"address\"}],\"internalType\":\"structAutonity.Contracts\",\"name\":\"contracts\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"operatorAccount\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"epochPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"blockPeriod\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"committeeSize\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.Protocol\",\"name\":\"protocol\",\"type\":\"tuple\"},{\"internalType\":\"uint256\",\"name\":\"contractVersion\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"deployer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochPeriodToBeApplied\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochReward\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"epochTotalBondedStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"finalize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"consensusKey\",\"type\":\"bytes\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"finalizeInitialization\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBlockPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getBondingRequest\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"delegator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegatee\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requestBlock\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.BondingRequest\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommissionRateChangeQueueFirst\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommissionRateChangeQueueLast\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getCommissionRateChangeRequest\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"startBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"rate\",\"type\":\"uint256\"}],\"internalType\":\"structAutonity.CommissionRateChangeRequest\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommittee\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"consensusKey\",\"type\":\"bytes\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_height\",\"type\":\"uint256\"}],\"name\":\"getCommitteeByHeight\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"consensusKey\",\"type\":\"bytes\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommitteeEnodes\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_block\",\"type\":\"uint256\"}],\"name\":\"getEpochFromBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getEpochInfo\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votingPower\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"consensusKey\",\"type\":\"bytes\"}],\"internalType\":\"structAutonity.CommitteeMember[]\",\"name\":\"\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getEpochPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getEpochTotalBondedStake\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getHeadBondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getHeadUnbondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLastEpochBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLastUnlockedUnbonding\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMaxCommitteeSize\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getMinimumBaseFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewContract\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNextEpochBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOperator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOracle\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"}],\"name\":\"getRevertingAmount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTailBondingID\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasuryAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTreasuryFee\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getUnbondingPeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_unbondingID\",\"type\":\"uint256\"}],\"name\":\"getUnbondingReleaseState\",\"outputs\":[{\"internalType\":\"enumAutonity.UnbondingReleaseState\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_id\",\"type\":\"uint256\"}],\"name\":\"getUnbondingRequest\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"delegator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegatee\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingShare\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requestBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"revertingAmount\",\"type\":\"uint256\"},{\"internalType\":\"enumAutonity.UnbondingReleaseState\",\"name\":\"state\",\"type\":\"uint8\"},{\"internalType\":\"bool\",\"name\":\"unlocked\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"selfDelegation\",\"type\":\"bool\"}],\"internalType\":\"structAutonity.UnbondingRequest\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"getValidator\",\"outputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"oracleAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"bondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingShares\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfBondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingShares\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingStakeLocked\",\"type\":\"uint256\"},{\"internalType\":\"addresspayable\",\"name\":\"liquidStateContract\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidSupply\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"registrationBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalSlashed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"jailReleaseBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"provableFaultCount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"consensusKey\",\"type\":\"bytes\"},{\"internalType\":\"enumValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"internalType\":\"structAutonity.Validator\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getValidators\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVersion\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"inflationReserve\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastEpochTime\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"lastFinalizedBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"liquidLogicContract\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxBondAppliedGas\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxRewardsDistributionGas\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxUnbondAppliedGas\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxUnbondReleasedGas\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"pauseValidator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"receiveATN\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"},{\"internalType\":\"address\",\"name\":\"_oracleAddress\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"_consensusKey\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"_signatures\",\"type\":\"bytes\"}],\"name\":\"registerValidator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"resetContractUpgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIAccountability\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setAccountabilityContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIACU\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setAcuContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_size\",\"type\":\"uint256\"}],\"name\":\"setCommitteeSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_period\",\"type\":\"uint256\"}],\"name\":\"setEpochPeriod\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIInflationController\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setInflationControllerContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_gas\",\"type\":\"uint256\"}],\"name\":\"setMaxBondAppliedGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_gas\",\"type\":\"uint256\"}],\"name\":\"setMaxRewardsDistributionGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_gas\",\"type\":\"uint256\"}],\"name\":\"setMaxUnbondAppliedGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_gas\",\"type\":\"uint256\"}],\"name\":\"setMaxUnbondReleasedGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_price\",\"type\":\"uint256\"}],\"name\":\"setMinimumBaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractINonStakableVestingVault\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setNonStakableVestingContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setOperatorAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setOracleContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIStabilization\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setStabilizationContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_price\",\"type\":\"uint256\"}],\"name\":\"setStakingGasPrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractISupplyControl\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setSupplyControlContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setTreasuryAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_treasuryFee\",\"type\":\"uint256\"}],\"name\":\"setTreasuryFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_period\",\"type\":\"uint256\"}],\"name\":\"setUnbondingPeriod\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractUpgradeManager\",\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"setUpgradeManagerContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stakingGasPrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"testComputeCommittee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_amount\",\"type\":\"uint256\"}],\"name\":\"unbond\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_nodeAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_enode\",\"type\":\"string\"}],\"name\":\"updateEnode\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"addresspayable\",\"name\":\"treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"oracleAddress\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"enode\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"bondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"unbondingShares\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfBondedStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingStake\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingShares\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"selfUnbondingStakeLocked\",\"type\":\"uint256\"},{\"internalType\":\"addresspayable\",\"name\":\"liquidStateContract\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidSupply\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"registrationBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"totalSlashed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"jailReleaseBlock\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"provableFaultCount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"consensusKey\",\"type\":\"bytes\"},{\"internalType\":\"enumValidatorState\",\"name\":\"state\",\"type\":\"uint8\"}],\"internalType\":\"structAutonity.Validator\",\"name\":\"_val\",\"type\":\"tuple\"}],\"name\":\"updateValidatorAndTransferSlashedFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_bytecode\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"_abi\",\"type\":\"string\"}],\"name\":\"upgradeContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	Sigs: map[string]string{
+		"2f2c3f2e": "COMMISSION_RATE_PRECISION()",
+		"f1d592a7": "SetLiquidLogicContract(address)",
+		"b46e5520": "activateValidator(address)",
+		"dd62ed3e": "allowance(address,address)",
+		"2701849b": "applyNewCommissionRates()",
+		"dfd4b688": "applyStakingOperations()",
+		"095ea7b3": "approve(address,uint256)",
+		"e98712b2": "atnTotalRedistributed()",
+		"70a08231": "balanceOf(address)",
+		"a515366a": "bond(address,uint256)",
+		"9dc29fac": "burn(address,uint256)",
+		"852c4849": "changeCommissionRate(address,uint256)",
+		"872cf059": "completeContractUpgrade()",
+		"ae1f5fa0": "computeCommittee()",
+		"79502c55": "config()",
+		"313ce567": "decimals()",
+		"d5f39488": "deployer()",
+		"c9d97af4": "epochID()",
+		"573963b8": "epochPeriodToBeApplied()",
+		"1604e416": "epochReward()",
+		"9c98e471": "epochTotalBondedStake()",
+		"4bb278f3": "finalize()",
+		"d861b0e8": "finalizeInitialization()",
+		"43645969": "getBlockPeriod()",
+		"f5502f22": "getBondingRequest(uint256)",
+		"2d5fd535": "getCommissionRateChangeQueueFirst()",
+		"7c4b6c10": "getCommissionRateChangeQueueLast()",
+		"fc440be2": "getCommissionRateChangeRequest(uint256)",
+		"ab8f6ffe": "getCommittee()",
+		"070e720a": "getCommitteeByHeight(uint256)",
+		"a8b2216e": "getCommitteeEnodes()",
+		"96b477cb": "getEpochFromBlock(uint256)",
+		"a9fd1a8f": "getEpochInfo()",
+		"dfb1a4d2": "getEpochPeriod()",
+		"4efcd15f": "getEpochTotalBondedStake()",
+		"427bc5de": "getHeadBondingID()",
+		"9efa9e7a": "getHeadUnbondingID()",
+		"731b3a03": "getLastEpochBlock()",
+		"3d0ae216": "getLastUnlockedUnbonding()",
+		"819b6463": "getMaxCommitteeSize()",
+		"11220633": "getMinimumBaseFee()",
+		"b66b3e79": "getNewContract()",
+		"25ce1bb9": "getNextEpochBlock()",
+		"e7f43c68": "getOperator()",
+		"833b1fce": "getOracle()",
+		"b6ef8c67": "getRevertingAmount(uint256)",
+		"bb0db428": "getTailBondingID()",
+		"f7866ee3": "getTreasuryAccount()",
+		"29070c6d": "getTreasuryFee()",
+		"6fd2c80b": "getUnbondingPeriod()",
+		"a9af1059": "getUnbondingReleaseState(uint256)",
+		"30bcb81c": "getUnbondingRequest(uint256)",
+		"1904bb2e": "getValidator(address)",
+		"b7ab4db5": "getValidators()",
+		"0d8e6e2c": "getVersion()",
+		"9ac31074": "inflationReserve()",
+		"89c614b8": "lastEpochTime()",
+		"ae1da0b5": "lastFinalizedBlock()",
+		"96f18a32": "liquidLogicContract()",
+		"cef98450": "maxBondAppliedGas()",
+		"5bdedd16": "maxRewardsDistributionGas()",
+		"386a827b": "maxUnbondAppliedGas()",
+		"71d1bc59": "maxUnbondReleasedGas()",
+		"40c10f19": "mint(address,uint256)",
+		"06fdde03": "name()",
+		"0ae65e7a": "pauseValidator(address)",
+		"161605e3": "receiveATN()",
+		"84467fdb": "registerValidator(string,address,bytes,bytes)",
+		"cf9c5719": "resetContractUpgrade()",
+		"1250a28d": "setAccountabilityContract(address)",
+		"d372c07e": "setAcuContract(address)",
+		"8bac7dad": "setCommitteeSize(uint256)",
+		"6b5f444c": "setEpochPeriod(uint256)",
+		"f03b959d": "setInflationControllerContract(address)",
+		"0fe50109": "setMaxBondAppliedGas(uint256)",
+		"7e660ac9": "setMaxRewardsDistributionGas(uint256)",
+		"0b21fb1d": "setMaxUnbondAppliedGas(uint256)",
+		"ee7ff28d": "setMaxUnbondReleasedGas(uint256)",
+		"cb696f54": "setMinimumBaseFee(uint256)",
+		"1a0cf2e5": "setNonStakableVestingContract(address)",
+		"520fdbbc": "setOperatorAccount(address)",
+		"496ccd9b": "setOracleContract(address)",
+		"cfd19fb9": "setStabilizationContract(address)",
+		"6a929cef": "setStakingGasPrice(uint256)",
+		"b3ecbadd": "setSupplyControlContract(address)",
+		"d886f8a2": "setTreasuryAccount(address)",
+		"77e741c7": "setTreasuryFee(uint256)",
+		"114eaf55": "setUnbondingPeriod(uint256)",
+		"ceaad455": "setUpgradeManagerContract(address)",
+		"6bb9cb0e": "stakingGasPrice()",
+		"95d89b41": "symbol()",
+		"676c24ab": "testComputeCommittee()",
+		"18160ddd": "totalSupply()",
+		"a9059cbb": "transfer(address,uint256)",
+		"23b872dd": "transferFrom(address,address,uint256)",
+		"a5d059ca": "unbond(address,uint256)",
+		"784304b5": "updateEnode(address,string)",
+		"35be16e0": "updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8))",
+		"b2ea9adb": "upgradeContract(bytes,string)",
+	},
+	Bin: "0x608060405261c35060045561c35060055561c350600655614e2060075560006010556000601155633b9aca006037553480156200003b57600080fd5b506040516200d2463803806200d2468339810160408190526200005e91620010fb565b818160128001546000036200008b57603d80546001600160a01b031916331790556200008b828262000095565b50505050620015c2565b80518051601255602080820151601355604080830151601455606080840151601555608080850151601681905560a095860151601780546001600160a01b03199081166001600160a01b03938416179091558689015180516018805484169185169190911790558088015160198054841691851691909117905580870151601a8054841691851691909117905580860151601b8054841691851691909117905593840151601c8054831691841691909117905596830151601d8054891691831691909117905560c0830151601e8054891691831691909117905560e090920151601f805488169184169190911790558387015180518654909716969092169590951784559283015160218190558383015160225592810151602355840151602455602891909155603c9190915551620001ce9062000d49565b604051809103906000f080158015620001eb573d6000803e3d6000fd5b50603e80546001600160a01b0319166001600160a01b039290921691909117905560005b8251811015620004d257600083828151811062000230576200023062001338565b602002602001015160a001519050600084838151811062000255576200025562001338565b60200260200101516101a001818152505060008483815181106200027d576200027d62001338565b602002602001015161018001906001600160a01b031690816001600160a01b0316815250506000848381518110620002b957620002b962001338565b602002602001015160a00181815250506000848381518110620002e057620002e062001338565b60209081029190910101516101c0015260145484518590849081106200030a576200030a62001338565b60200260200101516080018181525050600084838151811062000331576200033162001338565b6020026020010151610260019060038111156200035257620003526200134e565b908160038111156200036857620003686200134e565b81525050600084838151811062000383576200038362001338565b6020026020010151610160018181525050620003c1848381518110620003ad57620003ad62001338565b6020026020010151620004d760201b60201c565b620003ee848381518110620003da57620003da62001338565b60200260200101516200061260201b60201c565b806039600086858151811062000408576200040862001338565b6020026020010151600001516001600160a01b03166001600160a01b0316815260200190815260200160002060008282546200044591906200137a565b9250508190555080603b60008282546200046091906200137a565b92505081905550620004ba84838151811062000480576200048062001338565b60200260200101516020015182868581518110620004a257620004a262001338565b602002602001015160000151620008bf60201b60201c565b50508080620004c99062001396565b9150506200020f565b505050565b6000620004ee826060015162000ad660201b60201c565b6001600160a01b03909116602084015290508015620005425760405162461bcd60e51b815260206004820152600b60248201526a32b737b2329032b93937b960a91b60448201526064015b60405180910390fd5b6020808301516001600160a01b039081166000908152603a9092526040909120600101541615620005b65760405162461bcd60e51b815260206004820152601c60248201527f76616c696461746f7220616c7265616479207265676973746572656400000000604482015260640162000539565b612710826080015111156200060e5760405162461bcd60e51b815260206004820152601760248201527f696e76616c696420636f6d6d697373696f6e2072617465000000000000000000604482015260640162000539565b5050565b6101808101516001600160a01b03166200071157603e546001600160a01b03166200068b5760405162461bcd60e51b815260206004820152602260248201527f6c6971756964206c6f67696320636f6e7472616374206e6f74206465706c6f79604482015261195960f21b606482015260840162000539565b6025546000906200069c9062000b24565b905081602001518260000151836080015183603e60009054906101000a90046001600160a01b0316604051620006d29062000d57565b620006e2959493929190620013b2565b604051809103906000f080158015620006ff573d6000803e3d6000fd5b506001600160a01b0316610180830152505b60208181018051602580546001808201835560009283527f401968ff42a154441da5f6c4c935ac46b8671f0e062baaa62a7545ba53bb6e4c90910180546001600160a01b03199081166001600160a01b0395861617909155845184168352603a90955260409182902086518154871690851617815593519084018054861691841691909117905584015160028301805490941691161790915560608201518291906003820190620007c390826200149c565b506080820151600482015560a0820151600582015560c0820151600682015560e0820151600782015561010082015160088201556101208201516009820155610140820151600a820155610160820151600b820155610180820151600c820180546001600160a01b0319166001600160a01b039092169190911790556101a0820151600d8201556101c0820151600e8201556101e0820151600f8201556102008201516010820155610220820151601182015561024082015160128201906200088d90826200149c565b5061026082015160138201805460ff19166001836003811115620008b557620008b56200134e565b0217905550505050565b60008083116200091e5760405162461bcd60e51b815260206004820152602360248201527f616d6f756e74206e65656420746f206265207374726963746c7920706f73697460448201526269766560e81b606482015260840162000539565b6001600160a01b038216600090815260396020526040902054831115620009885760405162461bcd60e51b815260206004820152601b60248201527f696e73756666696369656e74204e6577746f6e2062616c616e63650000000000604482015260640162000539565b6001600160a01b03821660009081526039602052604081208054859290620009b290849062001568565b9091555050604080516080810182526001600160a01b03808516825286811660208084019182528385018881524360608601908152600a805460009081526008909452968320865181549087166001600160a01b03199182161782559451600182018054919097169516949094179094555160028301559151600390910155825491929062000a418362001396565b90915550506001600160a01b038581166000818152603a6020908152604091829020548251908516948816948514808252918101899052909392917fc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d910160405180910390a3833b1562000abb5762000abb848762000c44565b6001600a5462000acc919062001568565b9695505050505050565b60008062000ae362000d65565b60008060ff9050604083875160208901845afa62000b0057600080fd5b505080516020909101516c0100000000000000000000000090910494909350915050565b60608160000362000b4c5750506040805180820190915260018152600360fc1b602082015290565b8160005b811562000b7c578062000b638162001396565b915062000b749050600a8362001594565b915062000b50565b6000816001600160401b0381111562000b995762000b9962000d83565b6040519080825280601f01601f19166020018201604052801562000bc4576020820181803683370190505b5090505b841562000c3c5762000bdc60018362001568565b915062000beb600a86620015ab565b62000bf89060306200137a565b60f81b81838151811062000c105762000c1062001338565b60200101906001600160f81b031916908160001a90535062000c34600a8662001594565b945062000bc8565b949350505050565b6001600160a01b038216600090815260346020526040812054900362000cc2576001600160a01b03821660008181526034602052604081206001908190556035805491820181559091527fcfa4bec1d3298408bb5afcfcd9c430549c5b31f8aa5c5848151c0a55f473c34d0180546001600160a01b03191690911790555b6001600160a01b03808316600090815260326020908152604080832093851683529290529081205490036200060e576001600160a01b03808316600081815260326020908152604080832094861680845294825280832060019081905593835260338252822080549384018155825290200180546001600160a01b03191690911790555050565b611734806200b55083390190565b6105c2806200cc8483390190565b60405180604001604052806002906020820280368337509192915050565b634e487b7160e01b600052604160045260246000fd5b604051608081016001600160401b038111828210171562000dbe5762000dbe62000d83565b60405290565b60405160c081016001600160401b038111828210171562000dbe5762000dbe62000d83565b60405161028081016001600160401b038111828210171562000dbe5762000dbe62000d83565b604051601f8201601f191681016001600160401b038111828210171562000e3a5762000e3a62000d83565b604052919050565b6001600160a01b038116811462000e5857600080fd5b50565b805162000e688162000e42565b919050565b60005b8381101562000e8a57818101518382015260200162000e70565b50506000910152565b600082601f83011262000ea557600080fd5b81516001600160401b0381111562000ec15762000ec162000d83565b62000ed6601f8201601f191660200162000e0f565b81815284602083860101111562000eec57600080fd5b62000c3c82602083016020870162000e6d565b80516004811062000e6857600080fd5b600061010080838503121562000f2457600080fd5b604051908101906001600160401b038211818310171562000f495762000f4962000d83565b816040528092508351915062000f5f8262000e42565b81815262000f706020850162000e5b565b602082015262000f836040850162000e5b565b604082015262000f966060850162000e5b565b606082015262000fa96080850162000e5b565b608082015262000fbc60a0850162000e5b565b60a082015262000fcf60c0850162000e5b565b60c082015262000fe260e0850162000e5b565b60e0820152505092915050565b6000608082840312156200100257600080fd5b6200100c62000d99565b905081516200101b8162000e42565b8082525060208201516020820152604082015160408201526060820151606082015292915050565b60008183036102608112156200105857600080fd5b6200106262000d99565b915060c08112156200107357600080fd5b506200107e62000dc4565b825181526020830151602082015260408301516040820152606083015160608201526080830151608082015260a0830151620010ba8162000e42565b60a08201528152620010d08360c0840162000f0f565b6020820152620010e5836101c0840162000fef565b6040820152610240820151606082015292915050565b6000806102808084860312156200111157600080fd5b83516001600160401b03808211156200112957600080fd5b818601915086601f8301126200113e57600080fd5b815160208282111562001155576200115562000d83565b8160051b6200116682820162000e0f565b928352848101820192828101908b8511156200118157600080fd5b83870192505b848310156200131657825186811115620011a057600080fd5b8701808d03601f1901891315620011b657600080fd5b620011c062000de9565b620011cd86830162000e5b565b8152620011dd6040830162000e5b565b86820152620011ef6060830162000e5b565b60408201526080820151888111156200120757600080fd5b620012178f888386010162000e93565b60608301525060a0820151608082015260c082015160a082015260e082015160c082015261010082015160e0820152610120820151610100820152610140820151610120820152610160820151610140820152610180820151610160820152620012856101a0830162000e5b565b6101808201526101c08201516101a08201526101e08201516101c08201526102008201516101e082015261022082015161020082015261024082015161022082015261026082015188811115620012db57600080fd5b620012eb8f888386010162000e93565b61024083015250620012ff8a830162000eff565b610260820152835250918301919083019062001187565b8099505050506200132a89828a0162001043565b955050505050509250929050565b634e487b7160e01b600052603260045260246000fd5b634e487b7160e01b600052602160045260246000fd5b634e487b7160e01b600052601160045260246000fd5b8082018082111562001390576200139062001364565b92915050565b600060018201620013ab57620013ab62001364565b5060010190565b600060018060a01b038088168352808716602084015285604084015260a0606084015284518060a0850152620013f08160c086016020890162000e6d565b9316608083015250601f91909101601f19160160c001949350505050565b600181811c908216806200142357607f821691505b6020821081036200144457634e487b7160e01b600052602260045260246000fd5b50919050565b601f821115620004d257600081815260208120601f850160051c81016020861015620014735750805b601f850160051c820191505b8181101562001494578281556001016200147f565b505050505050565b81516001600160401b03811115620014b857620014b862000d83565b620014d081620014c984546200140e565b846200144a565b602080601f831160018114620015085760008415620014ef5750858301515b600019600386901b1c1916600185901b17855562001494565b600085815260208120601f198616915b82811015620015395788860151825594840194600190910190840162001518565b5085821015620015585787850151600019600388901b60f8161c191681555b5050505050600190811b01905550565b8181038181111562001390576200139062001364565b634e487b7160e01b600052601260045260246000fd5b600082620015a657620015a66200157e565b500490565b600082620015bd57620015bd6200157e565b500690565b619f7e80620015d26000396000f3fe608060405260043610620005b55760003560e01c8063833b1fce11620002f7578063b66b3e791162000191578063d861b0e811620000f1578063e98712b211620000a7578063f1d592a71162000081578063f1d592a714620013e1578063f5502f221462001406578063f7866ee314620014d6578063fc440be214620014f657005b8063e98712b2146200137f578063ee7ff28d1462001397578063f03b959d14620013bc57005b8063d861b0e814620012a8578063d886f8a214620012c0578063dd62ed3e14620012e5578063dfb1a4d2146200132f578063dfd4b6881462001347578063e7f43c68146200135f57005b8063ceaad4551162000147578063ceaad45514620011e7578063cef98450146200120c578063cf9c57191462001224578063cfd19fb9146200123c578063d372c07e1462001261578063d5f39488146200128657005b8063b66b3e79146200111f578063b6ef8c671462001147578063b7ab4db5146200116c578063bb0db4281462001193578063c9d97af414620011aa578063cb696f5414620011c257005b80639efa9e7a1162000257578063a9fd1a8f116200020d578063ae1f5fa011620001e7578063ae1f5fa01462001088578063b2ea9adb14620010b0578063b3ecbadd14620010d5578063b46e552014620010fa57005b8063a9fd1a8f146200102e578063ab8f6ffe1462001058578063ae1da0b5146200107057005b80639efa9e7a1462000f57578063a515366a1462000f6e578063a5d059ca1462000f85578063a8b2216e1462000f9c578063a9059cbb1462000fc3578063a9af10591462000fe857005b806395d89b4111620002ad57806395d89b411462000e8d57806396b477cb1462000ebb57806396f18a321462000ee05780639ac310741462000f025780639c98e4711462000f1a5780639dc29fac1462000f3257005b8063833b1fce1462000dba57806384467fdb1462000dee578063852c48491462000e13578063872cf0591462000e3857806389c614b81462000e505780638bac7dad1462000e6857005b8063386a827b11620004695780636a929cef11620003c9578063731b3a03116200037f57806379502c55116200035957806379502c551462000b9d5780637c4b6c101462000d675780637e660ac91462000d7e578063819b64631462000da357005b8063731b3a031462000b2a57806377e741c71462000b53578063784304b51462000b7857005b80636a929cef1462000a5f5780636b5f444c1462000a845780636bb9cb0e1462000aa95780636fd2c80b1462000ac157806370a082311462000ad857806371d1bc591462000b1257005b80634bb278f3116200041f5780634bb278f314620009b05780634efcd15f14620009db578063520fdbbc14620009f2578063573963b81462000a175780635bdedd161462000a2f578063676c24ab1462000a4757005b8063386a827b14620009095780633d0ae216146200092157806340c10f191462000938578063427bc5de146200095d578063436459691462000974578063496ccd9b146200098b57005b806318160ddd116200051557806329070c6d11620004cb57806329070c6d146200084c5780632d5fd53514620008635780632f2c3f2e146200087a57806330bcb81c1462000892578063313ce56714620008c657806335be16e014620008e457005b806318160ddd14620007765780631904bb2e146200078d5780631a0cf2e514620007c157806323b872dd14620007e657806325ce1bb9146200080b5780632701849b146200083457005b80630fe50109116200056b5780630fe5010914620006d85780631122063314620006fd578063114eaf5514620007145780631250a28d14620007395780631604e416146200075e578063161605e314620005bd57005b806306fdde0314620005bf578063070e720a1462000603578063095ea7b314620006375780630ae65e7a146200066d5780630b21fb1d14620006925780630d8e6e2c14620006b757005b36620005bd57005b005b348015620005cc57600080fd5b506040805180820190915260068152652732bbba37b760d11b60208201525b604051620005fa9190620087ed565b60405180910390f35b3480156200061057600080fd5b50620006286200062236600462008809565b62001547565b604051620005fa9190620088a5565b3480156200064457600080fd5b506200065c62000656366004620088d0565b62001808565b6040519015158152602001620005fa565b3480156200067a57600080fd5b50620005bd6200068c366004620088ff565b62001821565b3480156200069f57600080fd5b50620005bd620006b136600462008809565b620018bf565b348015620006c457600080fd5b506024545b604051908152602001620005fa565b348015620006e557600080fd5b50620005bd620006f736600462008809565b620018f1565b3480156200070a57600080fd5b50601354620006c9565b3480156200072157600080fd5b50620005bd6200073336600462008809565b62001923565b3480156200074657600080fd5b50620005bd62000758366004620088ff565b62001955565b3480156200076b57600080fd5b50620006c9602f5481565b3480156200078357600080fd5b50603b54620006c9565b3480156200079a57600080fd5b50620007b2620007ac366004620088ff565b620019a6565b604051620005fa919062008963565b348015620007ce57600080fd5b50620005bd620007e0366004620088ff565b62001c54565b348015620007f357600080fd5b506200065c6200080536600462008adc565b62001ca3565b3480156200081857600080fd5b506026546000908152602c6020526040902060030154620006c9565b3480156200084157600080fd5b50620005bd62001da8565b3480156200085957600080fd5b50601254620006c9565b3480156200087057600080fd5b50601054620006c9565b3480156200088757600080fd5b50620006c961271081565b3480156200089f57600080fd5b50620008b7620008b136600462008809565b62001ddf565b604051620005fa919062008b22565b348015620008d357600080fd5b5060405160128152602001620005fa565b348015620008f157600080fd5b50620005bd6200090336600462008ba8565b62001eb3565b3480156200091657600080fd5b50620006c960055481565b3480156200092e57600080fd5b50600e54620006c9565b3480156200094557600080fd5b50620005bd62000957366004620088d0565b6200208f565b3480156200096a57600080fd5b50600a54620006c9565b3480156200098157600080fd5b50602254620006c9565b3480156200099857600080fd5b50620005bd620009aa366004620088ff565b620020cc565b348015620009bd57600080fd5b50620009c8620021d6565b604051620005fa95949392919062008be6565b348015620009e857600080fd5b50602b54620006c9565b348015620009ff57600080fd5b50620005bd62000a11366004620088ff565b62002a05565b34801562000a2457600080fd5b50620006c960285481565b34801562000a3c57600080fd5b50620006c960075481565b34801562000a5457600080fd5b50620005bd62002c00565b34801562000a6c57600080fd5b50620005bd62000a7e36600462008809565b620033f9565b34801562000a9157600080fd5b50620005bd62000aa336600462008809565b6200342b565b34801562000ab657600080fd5b50620006c960375481565b34801562000ace57600080fd5b50601554620006c9565b34801562000ae557600080fd5b50620006c962000af7366004620088ff565b6001600160a01b031660009081526039602052604090205490565b34801562000b1f57600080fd5b50620006c960065481565b34801562000b3757600080fd5b506026546000908152602c6020526040902060020154620006c9565b34801562000b6057600080fd5b50620005bd62000b7236600462008809565b620034b1565b34801562000b8557600080fd5b50620005bd62000b9736600462008cc9565b620034e3565b34801562000baa57600080fd5b506040805160c080820183526012548252601354602080840191909152601454838501526015546060808501919091526016546080808601919091526017546001600160a01b0390811660a08088019190915287516101008101895260185483168152601954831681870152601a548316818a0152601b54831681860152601c54831681850152601d54831691810191909152601e54821695810195909552601f54811660e086015286519182018752835416815260215492810192909252602254948201949094526023549381019390935260245462000c89939084565b6040805185518152602080870151818301528683015182840152606080880151818401526080808901518185015260a0988901516001600160a01b039081168a8601528851811660c080870191909152848a0151821660e0808801919091528a8801518316610100880152848b01518316610120880152928a015182166101408701529989015181166101608601529888015189166101808501529096015187166101a083015284519096166101c0820152948301516101e086015282015161020085015291015161022083015261024082015261026001620005fa565b34801562000d7457600080fd5b50601154620006c9565b34801562000d8b57600080fd5b50620005bd62000d9d36600462008809565b62003686565b34801562000db057600080fd5b50602354620006c9565b34801562000dc757600080fd5b506019546001600160a01b03165b6040516001600160a01b039091168152602001620005fa565b34801562000dfb57600080fd5b50620005bd62000e0d36600462008d1e565b620036b8565b34801562000e2057600080fd5b50620005bd62000e32366004620088d0565b620037e7565b34801562000e4557600080fd5b50620005bd62003978565b34801562000e5d57600080fd5b50620006c9602a5481565b34801562000e7557600080fd5b50620005bd62000e8736600462008809565b620039b4565b34801562000e9a57600080fd5b50604080518082019091526003815262272a2760e91b6020820152620005eb565b34801562000ec857600080fd5b50620006c962000eda36600462008809565b62003a38565b34801562000eed57600080fd5b50603e5462000dd5906001600160a01b031681565b34801562000f0f57600080fd5b50620006c9603c5481565b34801562000f2757600080fd5b50620006c9602b5481565b34801562000f3f57600080fd5b50620005bd62000f51366004620088d0565b62003abd565b34801562000f6457600080fd5b50600d54620006c9565b620006c962000f7f366004620088d0565b62003bda565b620006c962000f96366004620088d0565b62003cf7565b34801562000fa957600080fd5b5062000fb462003dd0565b604051620005fa919062008dc6565b34801562000fd057600080fd5b506200065c62000fe2366004620088d0565b62003eb3565b34801562000ff557600080fd5b506200101f6200100736600462008809565b6000908152600b602052604090206006015460ff1690565b604051620005fa919062008e1f565b3480156200103b57600080fd5b506200104662003f0b565b604051620005fa949392919062008e34565b3480156200106557600080fd5b50620006286200406f565b3480156200107d57600080fd5b50620006c960295481565b3480156200109557600080fd5b50620010a062004181565b604051620005fa92919062008eab565b348015620010bd57600080fd5b50620005bd620010cf36600462008edd565b6200444b565b348015620010e257600080fd5b50620005bd620010f4366004620088ff565b62004492565b3480156200110757600080fd5b50620005bd62001119366004620088ff565b620044e1565b3480156200112c57600080fd5b506200113762004732565b604051620005fa92919062008f3d565b3480156200115457600080fd5b50620006c96200116636600462008809565b62004869565b3480156200117957600080fd5b5062001184620048fb565b604051620005fa919062008f66565b348015620011a057600080fd5b50600954620006c9565b348015620011b757600080fd5b50620006c960265481565b348015620011cf57600080fd5b50620005bd620011e136600462008809565b6200495f565b348015620011f457600080fd5b50620005bd62001206366004620088ff565b620049c7565b3480156200121957600080fd5b50620006c960045481565b3480156200123157600080fd5b50620005bd62004a16565b3480156200124957600080fd5b50620005bd6200125b366004620088ff565b62004a6b565b3480156200126e57600080fd5b50620005bd62001280366004620088ff565b62004aba565b3480156200129357600080fd5b50603d5462000dd5906001600160a01b031681565b348015620012b557600080fd5b50620005bd62004b09565b348015620012cd57600080fd5b50620005bd620012df366004620088ff565b62004cbe565b348015620012f257600080fd5b50620006c96200130436600462008f7b565b6001600160a01b03918216600090815260316020908152604080832093909416825291909152205490565b3480156200133c57600080fd5b50620006c962004d0d565b3480156200135457600080fd5b50620005bd62004d2a565b3480156200136c57600080fd5b506020546001600160a01b031662000dd5565b3480156200138c57600080fd5b50620006c9602e5481565b348015620013a457600080fd5b50620005bd620013b636600462008809565b62004d34565b348015620013c957600080fd5b50620005bd620013db366004620088ff565b62004d66565b348015620013ee57600080fd5b50620005bd62001400366004620088ff565b62004db5565b3480156200141357600080fd5b50620014946200142536600462008809565b6040805160808082018352600080835260208084018290528385018290526060938401829052948152600885528390208351918201845280546001600160a01b039081168352600182015416948201949094526002840154928101929092526003909201549181019190915290565b604051620005fa919081516001600160a01b03908116825260208084015190911690820152604080830151908201526060918201519181019190915260800190565b348015620014e357600080fd5b506017546001600160a01b031662000dd5565b3480156200150357600080fd5b506200151b6200151536600462008809565b62004e6e565b6040805182516001600160a01b03168152602080840151908201529181015190820152606001620005fa565b606043821115620015b05760405162461bcd60e51b815260206004820152602860248201527f63616e6e6f742067657420636f6d6d697474656520666f72206120667574757260448201526719481a195a59da1d60c21b60648201526084015b60405180910390fd5b6029548211620016ed57600082815260276020908152604080832054808452602c83528184208054835181860281018601909452808452919493909190849084015b82821015620016e0576000848152602090819020604080516060810182526003860290920180546001600160a01b0316835260018101549383019390935260028301805492939291840191620016489062008fb9565b80601f0160208091040260200160405190810160405280929190818152602001828054620016769062008fb9565b8015620016c75780601f106200169b57610100808354040283529160200191620016c7565b820191906000526020600020905b815481529060010190602001808311620016a957829003601f168201915b50505050508152505081526020019060010190620015f2565b5092979650505050505050565b602d805480602002602001604051908101604052809291908181526020016000905b82821015620017fd576000848152602090819020604080516060810182526003860290920180546001600160a01b0316835260018101549383019390935260028301805492939291840191620017659062008fb9565b80601f0160208091040260200160405190810160405280929190818152602001828054620017939062008fb9565b8015620017e45780601f10620017b857610100808354040283529160200191620017e4565b820191906000526020600020905b815481529060010190602001808311620017c657829003601f168201915b505050505081525050815260200190600101906200170f565b505050509050919050565b60006200181733848462004ede565b5060015b92915050565b6200182b62005007565b6001600160a01b038082166000818152603a6020526040902060010154909116146200186b5760405162461bcd60e51b8152600401620015a79062008ff5565b6001600160a01b038181166000908152603a6020526040902054163314620018a75760405162461bcd60e51b8152600401620015a7906200902c565b620018b28162005056565b620018bc60008055565b50565b6020546001600160a01b03163314620018ec5760405162461bcd60e51b8152600401620015a79062009078565b600555565b6020546001600160a01b031633146200191e5760405162461bcd60e51b8152600401620015a79062009078565b600455565b6020546001600160a01b03163314620019505760405162461bcd60e51b8152600401620015a79062009078565b601555565b6020546001600160a01b03163314620019825760405162461bcd60e51b8152600401620015a79062009078565b601880546001600160a01b0319166001600160a01b0392909216919091179055565b565b620019b062008534565b6001600160a01b038083166000818152603a602052604090206001015490911614620019f05760405162461bcd60e51b8152600401620015a790620090af565b6001600160a01b038083166000908152603a6020908152604091829020825161028081018452815485168152600182015485169281019290925260028101549093169181019190915260038201805491929160608401919062001a539062008fb9565b80601f016020809104026020016040519081016040528092919081815260200182805462001a819062008fb9565b801562001ad25780601f1062001aa65761010080835404028352916020019162001ad2565b820191906000526020600020905b81548152906001019060200180831162001ab457829003601f168201915b505050918352505060048201546020820152600582015460408201526006820154606082015260078201546080820152600882015460a0820152600982015460c0820152600a82015460e0820152600b820154610100820152600c8201546001600160a01b0316610120820152600d820154610140820152600e820154610160820152600f82015461018082015260108201546101a082015260118201546101c08201526012820180546101e09092019162001b8e9062008fb9565b80601f016020809104026020016040519081016040528092919081815260200182805462001bbc9062008fb9565b801562001c0d5780601f1062001be15761010080835404028352916020019162001c0d565b820191906000526020600020905b81548152906001019060200180831162001bef57829003601f168201915b5050509183525050601382015460209091019060ff16600381111562001c375762001c376200891f565b600381111562001c4b5762001c4b6200891f565b90525092915050565b6020546001600160a01b0316331462001c815760405162461bcd60e51b8152600401620015a79062009078565b601f80546001600160a01b0319166001600160a01b0392909216919091179055565b6001600160a01b03831660009081526031602090815260408083203384529091528120548281101562001d2a5760405162461bcd60e51b815260206004820152602860248201527f45524332303a207472616e7366657220616d6f756e74206578636565647320616044820152676c6c6f77616e636560c01b6064820152608401620015a7565b62001d3785858562005146565b62001d4f853362001d498685620090fc565b62004ede565b836001600160a01b0316856001600160a01b03167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef8560405162001d9591815260200190565b60405180910390a3506001949350505050565b603d546001600160a01b0316331462001dd55760405162461bcd60e51b8152600401620015a79062009112565b620019a46200520c565b62001de962008604565b6000828152600b602090815260409182902082516101208101845281546001600160a01b03908116825260018301541692810192909252600281015492820192909252600380830154606083015260048301546080830152600583015460a0830152600683015491929160c084019160ff9091169081111562001e705762001e706200891f565b600381111562001e845762001e846200891f565b81526006919091015460ff61010082048116151560208401526201000090910416151560409091015292915050565b6018546001600160a01b0316331462001f1b5760405162461bcd60e51b815260206004820152602360248201527f63616c6c6572206973206e6f742074686520736c617368696e6720636f6e74726044820152621858dd60ea1b6064820152608401620015a7565b6000610120820135603a8262001f386040860160208701620088ff565b6001600160a01b03166001600160a01b031681526020019081526020016000206009015462001f689190620090fc565b60c0830135603a600062001f836040870160208801620088ff565b6001600160a01b03166001600160a01b031681526020019081526020016000206006015462001fb39190620090fc565b60a0840135603a600062001fce6040880160208901620088ff565b6001600160a01b03166001600160a01b031681526020019081526020016000206005015462001ffe9190620090fc565b6200200a919062009155565b62002016919062009155565b6017546001600160a01b03166000908152603960205260408120805492935083929091906200204790849062009155565b90915550829050603a6000620020646040840160208501620088ff565b6001600160a01b03168152602081019190915260400160002062002089828262009341565b50505050565b6020546001600160a01b03163314620020bc5760405162461bcd60e51b8152600401620015a79062009078565b620020c8828262005327565b5050565b6020546001600160a01b03163314620020f95760405162461bcd60e51b8152600401620015a79062009078565b601980546001600160a01b0319166001600160a01b03838116918217909255601a54604051637adbf97360e01b8152600481019290925290911690637adbf97390602401600060405180830381600087803b1580156200215857600080fd5b505af11580156200216d573d6000803e3d6000fd5b5050601c54604051637adbf97360e01b81526001600160a01b0385811660048301529091169250637adbf97391506024015b600060405180830381600087803b158015620021ba57600080fd5b505af1158015620021cf573d6000803e3d6000fd5b5050505050565b603d546000908190606090829081906001600160a01b031633146200220f5760405162461bcd60e51b8152600401620015a79062009112565b6200221962005007565b4360298190556026546000828152602760209081526040808320849055928252602c90528190206003015460185491516306c9789b60e41b815292101560048301819052916001600160a01b0390911690636c9789b090602401600060405180830381600087803b1580156200228e57600080fd5b505af1158015620022a3573d6000803e3d6000fd5b505050508015620027bd57601e54603b54603c54602a546040516392eff3cd60e01b81526004810193909352602483019190915260448201524260648201526000916001600160a01b0316906392eff3cd90608401602060405180830381865afa15801562002316573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906200233c919062009497565b905080603c5410156200234e5750603c545b6200235a308262005327565b80603c60008282546200236e9190620090fc565b9091555050601f546040805163f968f49360e01b815281516001600160a01b039093169263f968f4939260048084019391929182900301816000875af1925050508015620023db575060408051601f3d908101601f19168201909252620023d891810190620094b1565b60015b62002419576040514281527ff1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c99060200160405180910390a16200244c565b60175462002431906001600160a01b03168262005327565b601f5462002449906001600160a01b03168362005327565b50505b3060009081526039602052604090205462002469904790620053ad565b62002473620058f4565b6200247d62005bb7565b6200248762005ca6565b620024916200520c565b6000806200249e62004181565b60195460405163422811f960e11b81529294509092506001600160a01b03169063845023f290620024d490859060040162008f66565b600060405180830381600087803b158015620024ef57600080fd5b505af115801562002504573d6000803e3d6000fd5b505060185460405163e08b14ed60e01b81526001600160a01b03909116925063e08b14ed91506200253a90849060040162008f66565b600060405180830381600087803b1580156200255557600080fd5b505af11580156200256a573d6000803e3d6000fd5b50506026546000908152602c602052604090206002015460285460215491935014801591506200259b575060285415155b1562002609576028546021819055601854604051631ad7d11360e21b815260048101929092526001600160a01b031690636b5f444c90602401600060405180830381600087803b158015620025ef57600080fd5b505af115801562002604573d6000803e3d6000fd5b505050505b6021546000906200261b904362009155565b905042602a8190555060016026600082825462002639919062009155565b909155505060265460408051602d805460a06020820284018101909452608083018181526200277b9594849391929060009085015b828210156200275c576000848152602090819020604080516060810182526003860290920180546001600160a01b0316835260018101549383019390935260028301805492939291840191620026c49062008fb9565b80601f0160208091040260200160405190810160405280929190818152602001828054620026f29062008fb9565b8015620027435780601f10620027175761010080835404028352916020019162002743565b820191906000526020600020905b8154815290600101906020018083116200272557829003601f168201915b505050505081525050815260200190600101906200266e565b5050505081526020018581526020014381526020018481525062005d45565b7febad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335602654604051620027af91815260200190565b60405180910390a150505050505b60195460408051634bb278f360e01b815290516000926001600160a01b031691634bb278f3916004808301926020929190829003018187875af115801562002809573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906200282f9190620094d6565b90508015620028ab57601a546040805163a2e6204560e01b815290516001600160a01b039092169163a2e620459160048082019260209290919082900301816000875af1925050508015620028a3575060408051601f3d908101601f19168201909252620028a091810190620094d6565b60015b15620028ab57505b600380546026546000908152602c602090815260408083206001810154950154602d805483518186028101860190945280845260ff909616968996919590949293928692919084015b82821015620029e2576000848152602090819020604080516060810182526003860290920180546001600160a01b03168352600181015493830193909352600283018054929392918401916200294a9062008fb9565b80601f0160208091040260200160405190810160405280929190818152602001828054620029789062008fb9565b8015620029c95780601f106200299d57610100808354040283529160200191620029c9565b820191906000526020600020905b815481529060010190602001808311620029ab57829003601f168201915b50505050508152505081526020019060010190620028f4565b505050509250965096509650965096505050620029fe60008055565b9091929394565b6020546001600160a01b0316331462002a325760405162461bcd60e51b8152600401620015a79062009078565b602080546001600160a01b0319166001600160a01b0383811691821790925560195460405163b3ab15fb60e01b815260048101929092529091169063b3ab15fb90602401600060405180830381600087803b15801562002a9157600080fd5b505af115801562002aa6573d6000803e3d6000fd5b5050601a5460405163b3ab15fb60e01b81526001600160a01b038581166004830152909116925063b3ab15fb9150602401600060405180830381600087803b15801562002af257600080fd5b505af115801562002b07573d6000803e3d6000fd5b5050601b5460405163b3ab15fb60e01b81526001600160a01b038581166004830152909116925063b3ab15fb9150602401600060405180830381600087803b15801562002b5357600080fd5b505af115801562002b68573d6000803e3d6000fd5b5050601c5460405163b3ab15fb60e01b81526001600160a01b038581166004830152909116925063b3ab15fb9150602401600060405180830381600087803b15801562002bb457600080fd5b505af115801562002bc9573d6000803e3d6000fd5b5050601d5460405163b3ab15fb60e01b81526001600160a01b038581166004830152909116925063b3ab15fb91506024016200219f565b62002c0a62005bb7565b60008062002c1762004181565b91509150600082516001600160401b0381111562002c395762002c3962008c1f565b60405190808252806020026020018201604052801562002c63578160200160208202803683370190505b50602354602d549192506000918291101562002cd25760405162461bcd60e51b815260206004820152602760248201527f636f6d6d69747465652073697a652065786365656473204d6178436f6d6d697460448201526674656553697a6560c81b6064820152608401620015a7565b60005b602d548110156200324d576000602d828154811062002cf85762002cf8620094fa565b60009182526020909120600390910201546001600160a01b031690508062002d555760405162461bcd60e51b815260206004820152600f60248201526e696e76616c6964206164647265737360881b6044820152606401620015a7565b8085838151811062002d6b5762002d6b620094fa565b60200260200101906001600160a01b031690816001600160a01b0316815250506000602d838154811062002da35762002da3620094fa565b90600052602060002090600302016001015490506000811162002e005760405162461bcd60e51b815260206004820152601460248201527330207374616b6520696e20636f6d6d697474656560601b6044820152606401620015a7565b62002e0c818662009155565b9450821562002e67578084101562002e675760405162461bcd60e51b815260206004820152601c60248201527f636f6d6d6974746565206d656d62657273206e6f7420736f72746564000000006044820152606401620015a7565b6001600160a01b038083166000818152603a60205260409020600181015493965086939092161462002edc5760405162461bcd60e51b815260206004820152601860248201527f76616c696461746f7220646f6573206e6f7420657869737400000000000000006044820152606401620015a7565b8181600501541462002f225760405162461bcd60e51b815260206004820152600e60248201526d0e6e8c2d6ca40dad2e6dac2e8c6d60931b6044820152606401620015a7565b88848151811062002f375762002f37620094fa565b602090810291909101015160028201546001600160a01b0390811691161462002fa35760405162461bcd60e51b815260206004820152601760248201527f6f7261636c652061646472657373206d69736d617463680000000000000000006044820152606401620015a7565b87848151811062002fb85762002fb8620094fa565b60200260200101516001600160a01b0316602d858154811062002fdf5762002fdf620094fa565b60009182526020909120600390910201546001600160a01b031614620030595760405162461bcd60e51b815260206004820152602860248201527f6163636f756e746162696c697479207265706f727465722061646472657373206044820152670dad2e6dac2e8c6d60c31b6064820152608401620015a7565b6000601382015460ff1660038111156200307757620030776200891f565b14620030bd5760405162461bcd60e51b815260206004820152601460248201527376616c696461746f72206e6f742061637469766560601b6044820152606401620015a7565b60308481548110620030d357620030d3620094fa565b90600052602060002001604051602001620030ef91906200958b565b60405160208183030381529060405280519060200120816003016040516020016200311b91906200958b565b6040516020818303038152906040528051906020012014620031715760405162461bcd60e51b815260206004820152600e60248201526d0cadcdec8ca40dad2e6dac2e8c6d60931b6044820152606401620015a7565b602d8481548110620031875762003187620094fa565b9060005260206000209060030201600201604051602001620031aa91906200958b565b6040516020818303038152906040528051906020012081601201604051602001620031d691906200958b565b6040516020818303038152906040528051906020012014620032345760405162461bcd60e51b81526020600482015260166024820152750c6dedce6cadce6eae640d6caf240dad2e6dac2e8c6d60531b6044820152606401620015a7565b5050508080620032449062009599565b91505062002cd5565b50602b548214620032985760405162461bcd60e51b81526020600482015260146024820152730e8dee8c2d840e6e8c2d6ca40dad2e6dac2e8c6d60631b6044820152606401620015a7565b60005b602554811015620033f1576000805b85518110156200332a57858181518110620032c957620032c9620094fa565b60200260200101516001600160a01b031660258481548110620032f057620032f0620094fa565b6000918252602090912001546001600160a01b0316036200331557600191506200332a565b80620033218162009599565b915050620032aa565b506000603a600060258581548110620033475762003347620094fa565b60009182526020808320909101546001600160a01b03168352820192909252604001812091508215159003620033d9578381600501541115620033d95760405162461bcd60e51b815260206004820152602360248201527f68696768207374616b6520666f72206e6f6e2d636f6d6d6974746565206d656d6044820152623132b960e91b6064820152608401620015a7565b50508080620033e89062009599565b9150506200329b565b505050505050565b6020546001600160a01b03163314620034265760405162461bcd60e51b8152600401620015a79062009078565b603755565b6020546001600160a01b03163314620034585760405162461bcd60e51b8152600401620015a79062009078565b60288190556026546000908152602c6020908152604091829020600301548251848152918201819052917f2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7910160405180910390a15050565b6020546001600160a01b03163314620034de5760405162461bcd60e51b8152600401620015a79062009078565b601255565b6001600160a01b038083166000818152603a60205260409020600181015490921614620035245760405162461bcd60e51b8152600401620015a790620090af565b80546001600160a01b03163314620035505760405162461bcd60e51b8152600401620015a790620095b5565b6200355b8362005e15565b15620035b55760405162461bcd60e51b815260206004820152602260248201527f76616c696461746f72206d757374206e6f7420626520696e20636f6d6d697474604482015261656560f01b6064820152608401620015a7565b600080620035c38462005e86565b925090508115620036055760405162461bcd60e51b815260206004820152600b60248201526a32b737b2329032b93937b960a91b6044820152606401620015a7565b60018301546001600160a01b03828116911614620036765760405162461bcd60e51b815260206004820152602760248201527f76616c696461746f72206e6f646520616464726573732063616e2774206265206044820152661d5c19185d195960ca1b6064820152608401620015a7565b60038301620033f1858262009604565b6020546001600160a01b03163314620036b35760405162461bcd60e51b8152600401620015a79062009078565b600755565b6000604051806102800160405280336001600160a01b0316815260200160006001600160a01b03168152602001856001600160a01b0316815260200186815260200160126000016002015481526020016000815260200160008152602001600081526020016000815260200160008152602001600081526020016000815260200160006001600160a01b0316815260200160008152602001438152602001600081526020016000815260200160008152602001848152602001600060038111156200378757620037876200891f565b9052905062003797818362005ecb565b60208101516101808201516040517f8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c92620037d892339289918b91620096cc565b60405180910390a15050505050565b6001600160a01b038083166000818152603a602052604090206001015490911614620038275760405162461bcd60e51b8152600401620015a79062008ff5565b6001600160a01b038281166000908152603a6020526040902054163314620038635760405162461bcd60e51b8152600401620015a7906200902c565b612710811115620038b75760405162461bcd60e51b815260206004820152601f60248201527f7265717569726520636f727265637420636f6d6d697373696f6e2072617465006044820152606401620015a7565b604080516060810182526001600160a01b038481168252436020808401918252838501868152601180546000908152600f909352958220855181546001600160a01b0319169516949094178455915160018085019190915591516002909301929092558354929390929091906200393090849062009155565b90915550506040518281526001600160a01b038416907f4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf9060200160405180910390a2505050565b6020546001600160a01b03163314620039a55760405162461bcd60e51b8152600401620015a79062009078565b6003805460ff19166001179055565b6020546001600160a01b03163314620039e15760405162461bcd60e51b8152600401620015a79062009078565b6000811162003a335760405162461bcd60e51b815260206004820152601960248201527f636f6d6d69747465652073697a652063616e27742062652030000000000000006044820152606401620015a7565b602355565b60004382111562003a985760405162461bcd60e51b815260206004820152602360248201527f63616e6e6f74206765742065706f636820666f7220612066757475726520626c6044820152626f636b60e81b6064820152608401620015a7565b602954821162003ab5575060009081526027602052604090205490565b505060265490565b6020546001600160a01b0316331462003aea5760405162461bcd60e51b8152600401620015a79062009078565b6001600160a01b03821660009081526039602052604090205481111562003b4d5760405162461bcd60e51b8152602060048201526016602482015275416d6f756e7420657863656564732062616c616e636560501b6044820152606401620015a7565b6001600160a01b0382166000908152603960205260408120805483929062003b77908490620090fc565b9250508190555080603b600082825462003b929190620090fc565b90915550506040518181526001600160a01b038316907f5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3906020015b60405180910390a25050565b600062003be662005007565b6001600160a01b038084166000818152603a60205260409020600101549091161462003c265760405162461bcd60e51b8152600401620015a790620090af565b6001600160a01b0383166000908152603a602052604081206013015460ff16600381111562003c595762003c596200891f565b1462003ca85760405162461bcd60e51b815260206004820152601b60248201527f76616c696461746f72206e65656420746f2062652061637469766500000000006044820152606401620015a7565b60375462003cb790346200972b565b336000908152603860205260408120805490919062003cd890849062009155565b9091555062003ceb905083833362006325565b90506200181b60008055565b600062003d0362005007565b6001600160a01b038084166000818152603a60205260409020600101549091161462003d435760405162461bcd60e51b8152600401620015a790620090af565b6000821162003d8d5760405162461bcd60e51b81526020600482015260156024820152740756e626f6e64696e6720616d6f756e74206973203605c1b6044820152606401620015a7565b60375462003d9c90346200972b565b336000908152603860205260408120805490919062003dbd90849062009155565b9091555062003ceb90508383336200653c565b60606030805480602002602001604051908101604052809291908181526020016000905b8282101562003eaa57838290600052602060002001805462003e169062008fb9565b80601f016020809104026020016040519081016040528092919081815260200182805462003e449062008fb9565b801562003e955780601f1062003e695761010080835404028352916020019162003e95565b820191906000526020600020905b81548152906001019060200180831162003e7757829003601f168201915b50505050508152602001906001019062003df4565b50505050905090565b600062003ec233848462005146565b6040518281526001600160a01b0384169033907fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef9060200160405180910390a350600192915050565b6060600080600080602c60006026548152602001908152602001600020600001805480602002602001604051908101604052809291908181526020016000905b8282101562004039576000848152602090819020604080516060810182526003860290920180546001600160a01b031683526001810154938301939093526002830180549293929184019162003fa19062008fb9565b80601f016020809104026020016040519081016040528092919081815260200182805462003fcf9062008fb9565b8015620040205780601f1062003ff45761010080835404028352916020019162004020565b820191906000526020600020905b8154815290600101906020018083116200400257829003601f168201915b5050505050815250508152602001906001019062003f4b565b50506026546000908152602c60205260409020600181015460028201546003909201549499509750955091935050505090919293565b6060602d805480602002602001604051908101604052809291908181526020016000905b8282101562003eaa576000848152602090819020604080516060810182526003860290920180546001600160a01b0316835260018101549383019390935260028301805492939291840191620040e99062008fb9565b80601f0160208091040260200160405190810160405280929190818152602001828054620041179062008fb9565b8015620041685780601f106200413c5761010080835404028352916020019162004168565b820191906000526020600020905b8154815290600101906020018083116200414a57829003601f168201915b5050505050815250508152602001906001019062004093565b603d5460609081906001600160a01b03163314620041b35760405162461bcd60e51b8152600401620015a79062009112565b602554620042045760405162461bcd60e51b815260206004820152601860248201527f5468657265206d7573742062652076616c696461746f727300000000000000006044820152606401620015a7565b6200420e62008676565b602354608082015260258152603a6020820152602d6040820152602b60608201526200423a8162006921565b620042486030600062008694565b602d54806200428f5760405162461bcd60e51b8152602060048201526012602482015271636f6d6d697474656520697320656d70747960701b6044820152606401620015a7565b6000816001600160401b03811115620042ac57620042ac62008c1f565b604051908082528060200260200182016040528015620042d6578160200160208202803683370190505b5090506000826001600160401b03811115620042f657620042f662008c1f565b60405190808252806020026020018201604052801562004320578160200160208202803683370190505b50905060005b838110156200443f576000603a6000602d84815481106200434b576200434b620094fa565b60009182526020808320600392830201546001600160a01b031684528301939093526040909101812060308054600181018255925292507f6ff97a59c90d62cc7236ba3a37cd85351bf564556780cf8c1157a220f31f0cbb0190620043b39083018262009742565b50600281015484516001600160a01b0390911690859084908110620043dc57620043dc620094fa565b6001600160a01b03928316602091820292909201015260018201548451911690849084908110620044115762004411620094fa565b6001600160a01b03909216602092830291909101909101525080620044368162009599565b91505062004326565b50909450925050509091565b6020546001600160a01b03163314620044785760405162461bcd60e51b8152600401620015a79062009078565b6200448560018362006941565b620020c860028262006941565b6020546001600160a01b03163314620044bf5760405162461bcd60e51b8152600401620015a79062009078565b601b80546001600160a01b0319166001600160a01b0392909216919091179055565b620044eb62005007565b6001600160a01b038082166000818152603a6020526040902060010154909116146200452b5760405162461bcd60e51b8152600401620015a79062008ff5565b6001600160a01b038082166000908152603a60205260409020805490911633146200456a5760405162461bcd60e51b8152600401620015a790620095b5565b6000601382015460ff1660038111156200458857620045886200891f565b03620045d75760405162461bcd60e51b815260206004820152601860248201527f76616c696461746f7220616c72656164792061637469766500000000000000006044820152606401620015a7565b6002601382015460ff166003811115620045f557620045f56200891f565b148015620046065750438160100154115b15620046555760405162461bcd60e51b815260206004820152601760248201527f76616c696461746f72207374696c6c20696e206a61696c0000000000000000006044820152606401620015a7565b6003601382015460ff1660038111156200467357620046736200891f565b03620046c25760405162461bcd60e51b815260206004820152601c60248201527f76616c696461746f72206a61696c6564207065726d616e656e746c79000000006044820152606401620015a7565b60138101805460ff1916905580546026546000908152602c60209081526040918290206003015491519182526001600160a01b038581169316917f60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5910160405180910390a350620018bc60008055565b60608060016002818054620047479062008fb9565b80601f0160208091040260200160405190810160405280929190818152602001828054620047759062008fb9565b8015620047c65780601f106200479a57610100808354040283529160200191620047c6565b820191906000526020600020905b815481529060010190602001808311620047a857829003601f168201915b50505050509150808054620047db9062008fb9565b80601f0160208091040260200160405190810160405280929190818152602001828054620048099062008fb9565b80156200485a5780601f106200482e576101008083540402835291602001916200485a565b820191906000526020600020905b8154815290600101906020018083116200483c57829003601f168201915b50505050509050915091509091565b600060036000838152600b602052604090206006015460ff1660038111156200489657620048966200891f565b14620048e55760405162461bcd60e51b815260206004820152601e60248201527f756e626f6e64696e672072656c65617365206e6f7420726576657274656400006044820152606401620015a7565b506000908152600b602052604090206005015490565b606060258054806020026020016040519081016040528092919081815260200182805480156200495557602002820191906000526020600020905b81546001600160a01b0316815260019091019060200180831162004936575b5050505050905090565b6020546001600160a01b031633146200498c5760405162461bcd60e51b8152600401620015a79062009078565b60138190556040518181527f1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd3891289060200160405180910390a150565b6020546001600160a01b03163314620049f45760405162461bcd60e51b8152600401620015a79062009078565b601d80546001600160a01b0319166001600160a01b0392909216919091179055565b6020546001600160a01b0316331462004a435760405162461bcd60e51b8152600401620015a79062009078565b62004a5160016000620086b4565b62004a5f60026000620086b4565b6003805460ff19169055565b6020546001600160a01b0316331462004a985760405162461bcd60e51b8152600401620015a79062009078565b601c80546001600160a01b0319166001600160a01b0392909216919091179055565b6020546001600160a01b0316331462004ae75760405162461bcd60e51b8152600401620015a79062009078565b601a80546001600160a01b0319166001600160a01b0392909216919091179055565b603d546001600160a01b0316331462004b365760405162461bcd60e51b8152600401620015a79062009112565b62004b4062005007565b62004b4a62005bb7565b62004b5462004181565b505042602a5543602981905560009081526027602090815260408083208390556026548151602d805460a0958102830186019094526080820184815262004cb496939592948594919390919085015b8282101562004c91576000848152602090819020604080516060810182526003860290920180546001600160a01b031683526001810154938301939093526002830180549293929184019162004bf99062008fb9565b80601f016020809104026020016040519081016040528092919081815260200182805462004c279062008fb9565b801562004c785780601f1062004c4c5761010080835404028352916020019162004c78565b820191906000526020600020905b81548152906001019060200180831162004c5a57829003601f168201915b5050505050815250508152602001906001019062004ba3565b505050908252506000602082015243604082015260215460609091015262005d45565b620019a460008055565b6020546001600160a01b0316331462004ceb5760405162461bcd60e51b8152600401620015a79062009078565b601780546001600160a01b0319166001600160a01b0392909216919091179055565b6028546021546000911462004d23575060285490565b5060215490565b620019a462005bb7565b6020546001600160a01b0316331462004d615760405162461bcd60e51b8152600401620015a79062009078565b600655565b6020546001600160a01b0316331462004d935760405162461bcd60e51b8152600401620015a79062009078565b601e80546001600160a01b0319166001600160a01b0392909216919091179055565b6020546001600160a01b0316331462004de25760405162461bcd60e51b8152600401620015a79062009078565b6001600160a01b03811662004e4c5760405162461bcd60e51b815260206004820152602960248201527f696e76616c696420636f6e7472616374206164647265737320666f72206c6971604482015268756964206c6f67696360b81b6064820152608401620015a7565b603e80546001600160a01b0319166001600160a01b0392909216919091179055565b62004e9c604051806060016040528060006001600160a01b0316815260200160008152602001600081525090565b506000908152600f6020908152604091829020825160608101845281546001600160a01b03168152600182015492810192909252600201549181019190915290565b6001600160a01b03831662004f425760405162461bcd60e51b8152602060048201526024808201527f45524332303a20617070726f76652066726f6d20746865207a65726f206164646044820152637265737360e01b6064820152608401620015a7565b6001600160a01b03821662004fa55760405162461bcd60e51b815260206004820152602260248201527f45524332303a20617070726f766520746f20746865207a65726f206164647265604482015261737360f01b6064820152608401620015a7565b6001600160a01b0383811660008181526031602090815260408083209487168084529482529182902085905590518481527f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b92591015b60405180910390a3505050565b600054156200504f5760405162461bcd60e51b81526020600482015260136024820152721c99595b9d1c985b98de4819195d1958dd1959606a1b6044820152606401620015a7565b6001600055565b6001600160a01b0381166000908152603a6020526040812090601382015460ff1660038111156200508b576200508b6200891f565b14620050da5760405162461bcd60e51b815260206004820152601860248201527f76616c696461746f72206d7573742062652061637469766500000000000000006044820152606401620015a7565b60138101805460ff1916600117905580546026546000908152602c60209081526040918290206003015491519182526001600160a01b038581169316917f75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c910160405180910390a35050565b6001600160a01b038316600090815260396020526040902054811115620051a95760405162461bcd60e51b8152602060048201526016602482015275616d6f756e7420657863656564732062616c616e636560501b6044820152606401620015a7565b6001600160a01b03831660009081526039602052604081208054839290620051d3908490620090fc565b90915550506001600160a01b038216600090815260396020526040812080548392906200520290849062009155565b9091555050505050565b6011546010541015620019a4576010546000908152600f60205260409020601554600182015443916200523f9162009155565b1115620052495750565b80546001600160a01b039081166000908152603a60205260409081902060028401546004808301829055600c83015493516319fac8fd60e01b8152929493909316926319fac8fd92620052a192910190815260200190565b600060405180830381600087803b158015620052bc57600080fd5b505af1158015620052d1573d6000803e3d6000fd5b5050601080546000908152600f6020526040812080546001600160a01b0319168155600180820183905560029091018290558254909450919250906200531990849062009155565b909155506200520c92505050565b6001600160a01b038216600090815260396020526040812080548392906200535190849062009155565b9250508190555080603b60008282546200536c919062009155565b90915550506040518181526001600160a01b038316907f48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf9060200162003bce565b81158015620053ba575080155b15620053c4575050565b601254600090670de0b6b3a764000090620053e19085906200981f565b620053ed91906200972b565b905080156200546b576017546040516000916001600160a01b03169083908381818185875af1925050503d806000811462005445576040519150601f19603f3d011682016040523d82523d6000602084013e6200544a565b606091505b50909150508015156001036200546957620054668285620090fc565b93505b505b82602e60008282546200547f919062009155565b90915550600090505b602d5481101562002089576000603a6000602d8481548110620054af57620054af620094fa565b600091825260208083206003909202909101546001600160a01b031683528201929092526040018120602b54602d8054929450909188919086908110620054fa57620054fa620094fa565b9060005260206000209060030201600101546200551891906200981f565b6200552491906200972b565b90506000602b5486602d8681548110620055425762005542620094fa565b9060005260206000209060030201600101546200556091906200981f565b6200556c91906200972b565b905060008211806200557e5750600081115b15620058db576002601384015460ff166003811115620055a257620055a26200891f565b1480620055ca57506003601384015460ff166003811115620055c857620055c86200891f565b145b156200569457601854620055ea9030906001600160a01b03168362005146565b601854602d80546001600160a01b039092169163a8031a1d91859188908110620056185762005618620094fa565b600091825260209091206003909102015460405160e084901b6001600160e01b03191681526001600160a01b039091166004820152602481018590526044016000604051808303818588803b1580156200567157600080fd5b505af115801562005686573d6000803e3d6000fd5b5050505050505050620058df565b60008360050154838560080154620056ad91906200981f565b620056b991906200972b565b905080156200577b57835460405160009182916001600160a01b03909116906108fc90859084818181858888f193505050503d806000811462005719576040519150601f19603f3d011682016040523d82523d6000602084013e6200571e565b606091505b509092509050811515600003620057785785546040517f1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352916200576f916001600160a01b0390911690849062009839565b60405180910390a15b50505b600084600501548386600801546200579491906200981f565b620057a091906200972b565b90508015620057c2578454620057c29030906001600160a01b03168362005146565b6000620057d08285620090fc565b90506000620057e08487620090fc565b90506000811180620057f25750600082115b156200588c57600c870154620058149030906001600160a01b03168462005146565b600c87015460405163a0ce552d60e01b8152600481018490526001600160a01b039091169063a0ce552d908390602401604080518083038185885af115801562005862573d6000803e3d6000fd5b50505050506040513d601f19601f82011682018060405250810190620058899190620094b1565b50505b600187015460408051888152602081018890526001600160a01b03909216917f291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91910160405180910390a2505050505b5050505b80620058eb8162009599565b91505062005488565b60355460005b81811015620020c8576000603582815481106200591b576200591b620094fa565b60009182526020808320909101546001600160a01b0316808352603382526040808420805482518186028101860190935280835292955090929091908301828280156200599257602002820191906000526020600020905b81546001600160a01b0316815260019091019060200180831162005973575b5050505050905060005b815181101562005a1a576001600160a01b03831660009081526032602052604081208351909190849084908110620059d857620059d8620094fa565b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002060009055808062005a119062009599565b9150506200599c565b506001600160a01b038216600090815260336020526040812062005a3e91620086f3565b6001600160a01b038216600090815260386020526040902054815160075462005a6891906200981f565b81111562005a8457815160075462005a8191906200981f565b90505b60005a9050836001600160a01b031663d18736ab83856040518363ffffffff1660e01b815260040162005ab8919062008f66565b600060405180830381600088803b15801562005ad357600080fd5b5087f19350505050801562005ae6575060015b62005b1c575a62005af89082620090fc565b6001600160a01b038516600090815260366020526040902060019055905062005b2c565b5a62005b299082620090fc565b90505b6001600160a01b03841660009081526038602052604090205481101562005b83576001600160a01b0384166000908152603860205260408120805483929062005b77908490620090fc565b9091555062005b9d9050565b6001600160a01b0384166000908152603860205260408120555b50505050808062005bae9062009599565b915050620058fa565b6009545b600a5481101562005be45762005bde8162005bd68162009599565b925062006a94565b62005bbb565b50600a54600955600d54600c540362005bf957565b600e545b600d5481101562005c265762005c208162005c188162009599565b925062006d35565b62005bfd565b50600d54600e55600c54805b600d5481101562005ca0576015546000828152600b6020526040902060040154439162005c5f9162009155565b1162005c855762005c7081620070d1565b62005c7d60018362009155565b915062005c8b565b62005ca0565b8062005c978162009599565b91505062005c32565b50600c55565b60355460005b8181101562005d365760006035828154811062005ccd5762005ccd620094fa565b60009182526020808320909101546001600160a01b0316808352603482526040808420849055603690925291205490915060010362005d20576001600160a01b0381166000908152603660205260408120555b508062005d2d8162009599565b91505062005cac565b50620018bc60356000620086f3565b6000828152602c60209081526040808320918401516001830155830151600282015560608301516003820155905b8251518110156200208957825180518391908390811062005d985762005d98620094fa565b602090810291909101810151825460018082018555600094855293839020825160039092020180546001600160a01b0319166001600160a01b0390921691909117815591810151928201929092556040820151600282019062005dfc908262009604565b505050808062005e0c9062009599565b91505062005d73565b6000805b602d5481101562005e7d57602d818154811062005e3a5762005e3a620094fa565b60009182526020909120600390910201546001600160a01b039081169084160362005e685750600192915050565b8062005e748162009599565b91505062005e19565b50600092915050565b60008062005e9362008713565b60008060ff9050604083875160208901845afa62005eb057600080fd5b50508051602090910151600160601b90910494909350915050565b60e281511462005f155760405162461bcd60e51b8152602060048201526014602482015273092dcecc2d8d2c840e0e4dedecc40d8cadccee8d60631b6044820152606401620015a7565b6030826102400151511462005f6d5760405162461bcd60e51b815260206004820152601c60248201527f496e76616c696420636f6e73656e737573206b6579206c656e677468000000006044820152606401620015a7565b62005f78826200727a565b604080518082018252601a81527f19457468657265756d205369676e6564204d6573736167653a0a00000000000060208083019190915284519251919260009262005fdb920160609190911b6bffffffffffffffffffffffff1916815260140190565b604051602081830303815290604052905060008262005ffb8351620073a7565b8360405160200162006010939291906200986a565b60408051601f198184030181528282528051602091820120600280855260608501845290945060009392909183019080368337019050509050600080808062006068898262006062604160026200981f565b620074c7565b90506000620060878a6200607f604160026200981f565b6060620074c7565b905060205b82518110156200615857620060a28382620075e0565b6040805160008152602081018083528d905260ff8316918101919091526060810184905260808101839052929850909650945060019060a0016020604051602081039080840390855afa158015620060fe573d6000803e3d6000fd5b5050604051601f190151905087620061186041846200972b565b815181106200612b576200612b620094fa565b6001600160a01b03909216602092830291909101909101526200615060418262009155565b90506200608c565b508a602001516001600160a01b0316866000815181106200617d576200617d620094fa565b60200260200101516001600160a01b031614620061ef5760405162461bcd60e51b815260206004820152602960248201527f496e76616c6964206e6f6465206b6579206f776e6572736869702070726f6f66604482015268081c1c9bdd9a59195960ba1b6064820152608401620015a7565b8a604001516001600160a01b031686600181518110620062135762006213620094fa565b60200260200101516001600160a01b031614620062875760405162461bcd60e51b815260206004820152602b60248201527f496e76616c6964206f7261636c65206b6579206f776e6572736869702070726f60448201526a1bd9881c1c9bdd9a59195960aa1b6064820152608401620015a7565b60016200629f8c6102400151838e6000015162007617565b146200630d5760405162461bcd60e51b815260206004820152603660248201527f496e76616c696420636f6e73656e737573206b6579206f776e65727368697020604482015275383937b7b3103337b9103932b3b4b9ba3930ba34b7b760511b6064820152608401620015a7565b620063188b62007686565b5050505050505050505050565b6000808311620063845760405162461bcd60e51b815260206004820152602360248201527f616d6f756e74206e65656420746f206265207374726963746c7920706f73697460448201526269766560e81b6064820152608401620015a7565b6001600160a01b038216600090815260396020526040902054831115620063ee5760405162461bcd60e51b815260206004820152601b60248201527f696e73756666696369656e74204e6577746f6e2062616c616e636500000000006044820152606401620015a7565b6001600160a01b0382166000908152603960205260408120805485929062006418908490620090fc565b9091555050604080516080810182526001600160a01b03808516825286811660208084019182528385018881524360608601908152600a805460009081526008909452968320865181549087166001600160a01b031991821617825594516001820180549190971695169490941790945551600283015591516003909101558254919290620064a78362009599565b90915550506001600160a01b038581166000818152603a6020908152604091829020548251908516948816948514808252918101899052909392917fc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d910160405180910390a3833b15620065215762006521848762007933565b6001600a54620065329190620090fc565b9695505050505050565b6001600160a01b038084166000908152603a6020526040812080549192909184821691161480620066b457600c820154604051631092ab9160e31b81526001600160a01b03868116600483015260009216906384955c8890602401602060405180830381865afa158015620065b5573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190620065db919062009497565b905085811015620066435760405162461bcd60e51b815260206004820152602b60248201527f696e73756666696369656e7420756e6c6f636b6564204c6971756964204e657760448201526a746f6e2062616c616e636560a81b6064820152608401620015a7565b600c83015460405163282d3fdf60e01b81526001600160a01b038781166004830152602482018990529091169063282d3fdf90604401600060405180830381600087803b1580156200669457600080fd5b505af1158015620066a9573d6000803e3d6000fd5b505050505062006747565b8482600b01548360080154620066cb9190620090fc565b10156200672b5760405162461bcd60e51b815260206004820152602760248201527f696e73756666696369656e742073656c6620626f6e646564206e6577746f6e2060448201526662616c616e636560c81b6064820152608401620015a7565b8482600b01600082825462006741919062009155565b90915550505b604051806101200160405280856001600160a01b03168152602001876001600160a01b03168152602001868152602001600081526020014381526020016000815260200160006003811115620067a157620067a16200891f565b815260006020808301829052841515604093840152600d548252600b815290829020835181546001600160a01b039182166001600160a01b03199182161783559285015160018381018054929093169190941617905591830151600283015560608301516003808401919091556080840151600484015560a0840151600584015560c08401516006840180549193909260ff199092169184908111156200684c576200684c6200891f565b021790555060e082015160069091018054610100938401511515620100000262ff0000199315159094029290921662ffff001990921691909117919091179055600d80549060006200689e8362009599565b9190505550836001600160a01b0316866001600160a01b03167f63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc8388604051620068f49291909115158252602082015260400190565b60405180910390a3833b15620069105762006910848762007933565b6001600d54620065329190620090fc565b60fa60a06000808285855af46200693c573d6000803e3d6000fd5b505050565b815460026001808316156101000203821604825180820160208110602084100160028114620069f0576001811462006a16578660005260208404602060002001600160028402018855602085068060200390508088018589016001836101000a0392508282511684540184556001840193506020820191505b80821015620069d95781518455600184019350602082019150620069ba565b815191036101000a90819004029091555062006a8b565b60028302826020036101000a846020036101000a60208901510402018501875562006a8b565b8660005260208404602060002001600160028402018855846020038088018589016001836101000a0392508282511660ff198a160184556020820191506001840193505b8082101562006a79578151845560018401935060208201915062006a5a565b815191036101000a9081900402909155505b50505050505050565b600081815260086020908152604080832060018101546001600160a01b03168452603a90925282209091601382015460ff16600381111562006ada5762006ada6200891f565b14158062006b01575081546001600160a01b03166000908152603660205260409020546001145b1562006bc157600282015482546001600160a01b03166000908152603960205260408120805490919062006b3790849062009155565b909155505081546001830154600284015460138401546040516001600160a01b0394851694909316927f1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f8783429262006b9592909160ff90911690620098b3565b60405180910390a3805482546200693c9185916000916001600160a01b03918216911614600162007a38565b805482546001600160a01b0390811691161462006ce5576000808260080154836005015462006bf19190620090fc565b90508060000362006c09578360020154915062006c2f565b80846002015484600d015462006c2091906200981f565b62006c2c91906200972b565b91505b600c83015484546040516340c10f1960e01b81526001600160a01b039182166004820152602481018590529116906340c10f1990604401600060405180830381600087803b15801562006c8157600080fd5b505af115801562006c96573d6000803e3d6000fd5b505050508183600d01600082825462006cb0919062009155565b9091555050600284015460058401805460009062006cd090849062009155565b90915550620021cf9050858360008062007a38565b816002015481600801600082825462006cff919062009155565b9091555050600282015460058201805460009062006d1f90849062009155565b909155506200693c905083600060018162007a38565b6000818152600b6020908152604080832080546001600160a01b0316845260369092529091205460010362006dd7578054600182015460068301546002840154604080516201000090930460ff161515835260208301919091526001600160a01b0393841693909216917fec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866910160405180910390a3620020c882600162007bc1565b60018101546001600160a01b03166000908152603a60205260408120600683015490919062010000900460ff1662006fbf576002830154600c8301548454604051637eee288d60e01b81526001600160a01b03918216600482015260248101849052911690637eee288d90604401600060405180830381600087803b15801562006e6057600080fd5b505af115801562006e75573d6000803e3d6000fd5b50505050600c8301548454604051632770a7eb60e21b81526001600160a01b03918216600482015260248101849052911690639dc29fac90604401600060405180830381600087803b15801562006ecb57600080fd5b505af115801562006ee0573d6000803e3d6000fd5b5050505060008360080154846005015462006efc9190620090fc565b600d85015490915062006f1082846200981f565b62006f1c91906200972b565b92508184600d01600082825462006f349190620090fc565b9091555050600684015460000362006f53576003850183905562006f7b565b6006840154600785015462006f6990856200981f565b62006f7591906200972b565b60038601555b8284600601600082825462006f91919062009155565b9091555050600385015460078501805460009062006fb190849062009155565b909155506200709492505050565b506002820154600882015481111562006fd9575060088101545b816009015460000362006ff357600383018190556200701b565b6009820154600a8301546200700990836200981f565b6200701591906200972b565b60038401555b8082600901600082825462007031919062009155565b90915550506003830154600a830180546000906200705190849062009155565b92505081905550808260080160008282546200706e9190620090fc565b90915550506002830154600b830180546000906200708e908490620090fc565b90915550505b60068301805461ff001916610100179055600582018054829190600090620070be908490620090fc565b9091555062002089905084600062007bc1565b6000818152600b602052604090206006810154610100900460ff166200710f5760068101805460ff19166002179055620020c8826000600162007d34565b60068101805460ff1916600117905560038101546000036200713957620020c88260008062007d34565b60018101546001600160a01b03166000908152603a60205260408120600683015490919062010000900460ff16620071d6578160070154826006015484600301546200718691906200981f565b6200719291906200972b565b905080826006016000828254620071aa9190620090fc565b90915550506003830154600783018054600090620071ca908490620090fc565b909155506200723b9050565b81600a015482600901548460030154620071f191906200981f565b620071fd91906200972b565b905080826009016000828254620072159190620090fc565b90915550506003830154600a8301805460009062007235908490620090fc565b90915550505b82546001600160a01b0316600090815260396020526040812080548392906200726690849062009155565b909155506200208990508482600062007d34565b60006200728b826060015162005e86565b6001600160a01b03909116602084015290508015620072db5760405162461bcd60e51b815260206004820152600b60248201526a32b737b2329032b93937b960a91b6044820152606401620015a7565b6020808301516001600160a01b039081166000908152603a90925260409091206001015416156200734f5760405162461bcd60e51b815260206004820152601c60248201527f76616c696461746f7220616c72656164792072656769737465726564000000006044820152606401620015a7565b61271082608001511115620020c85760405162461bcd60e51b815260206004820152601760248201527f696e76616c696420636f6d6d697373696f6e20726174650000000000000000006044820152606401620015a7565b606081600003620073cf5750506040805180820190915260018152600360fc1b602082015290565b8160005b8115620073ff5780620073e68162009599565b9150620073f79050600a836200972b565b9150620073d3565b6000816001600160401b038111156200741c576200741c62008c1f565b6040519080825280601f01601f19166020018201604052801562007447576020820181803683370190505b5090505b8415620074bf576200745f600183620090fc565b91506200746e600a86620098d2565b6200747b90603062009155565b60f81b818381518110620074935762007493620094fa565b60200101906001600160f81b031916908160001a905350620074b7600a866200972b565b94506200744b565b949350505050565b606081620074d781601f62009155565b1015620075185760405162461bcd60e51b815260206004820152600e60248201526d736c6963655f6f766572666c6f7760901b6044820152606401620015a7565b62007524828462009155565b845110156200756a5760405162461bcd60e51b8152602060048201526011602482015270736c6963655f6f75744f66426f756e647360781b6044820152606401620015a7565b6060821580156200758b5760405191506000825260208201604052620075d7565b6040519150601f8416801560200281840101858101878315602002848b0101015b81831015620075c6578051835260209283019201620075ac565b5050858452601f01601f1916604052505b50949350505050565b8181018051602082015160409092015190919060001a601b81101562007610576200760d601b82620098e9565b90505b9250925092565b60006200762362008731565b60008585856040516020016200763c9392919062009905565b6040516020818303038152906040529050600060fb905060008251602062007665919062009155565b90506020848285855afa6200767957600080fd5b5050905195945050505050565b6101808101516001600160a01b03166200778557603e546001600160a01b0316620076ff5760405162461bcd60e51b815260206004820152602260248201527f6c6971756964206c6f67696320636f6e7472616374206e6f74206465706c6f79604482015261195960f21b6064820152608401620015a7565b6025546000906200771090620073a7565b905081602001518260000151836080015183603e60009054906101000a90046001600160a01b031660405162007746906200874f565b6200775695949392919062009954565b604051809103906000f08015801562007773573d6000803e3d6000fd5b506001600160a01b0316610180830152505b60208181018051602580546001808201835560009283527f401968ff42a154441da5f6c4c935ac46b8671f0e062baaa62a7545ba53bb6e4c90910180546001600160a01b03199081166001600160a01b0395861617909155845184168352603a9095526040918290208651815487169085161781559351908401805486169184169190911790558401516002830180549094169116179091556060820151829190600382019062007837908262009604565b506080820151600482015560a0820151600582015560c0820151600682015560e0820151600782015561010082015160088201556101208201516009820155610140820151600a820155610160820151600b820155610180820151600c820180546001600160a01b0319166001600160a01b039092169190911790556101a0820151600d8201556101c0820151600e8201556101e0820151600f82015561020082015160108201556102208201516011820155610240820151601282019062007901908262009604565b5061026082015160138201805460ff191660018360038111156200792957620079296200891f565b0217905550505050565b6001600160a01b0382166000908152603460205260408120549003620079b1576001600160a01b03821660008181526034602052604081206001908190556035805491820181559091527fcfa4bec1d3298408bb5afcfcd9c430549c5b31f8aa5c5848151c0a55f473c34d0180546001600160a01b03191690911790555b6001600160a01b0380831660009081526032602090815260408083209385168352929052908120549003620020c8576001600160a01b03808316600081815260326020908152604080832094861680845294825280832060019081905593835260338252822080549384018155825290200180546001600160a01b03191690911790555050565b600084815260086020526040902080546001600160a01b0316803b62007a6057505062002089565b6001600160a01b03811660009081526038602052604090205460045481111562007a8957506004545b60005a6001850154604051634efe8dc760e11b8152600481018b90526001600160a01b039182166024820152604481018a905288151560648201528715156084820152919250841690639dfd1b8e90849060a401600060405180830381600088803b15801562007af857600080fd5b5087f19350505050801562007b0b575060015b62007b36575a62007b1d9082620090fc565b90508462007b305762007b308862007ea4565b62007b46565b5a62007b439082620090fc565b90505b6001600160a01b03831660009081526038602052604090205481101562007b9d576001600160a01b0383166000908152603860205260408120805483929062007b91908490620090fc565b9091555062007bb79050565b6001600160a01b0383166000908152603860205260408120555b5050505050505050565b6000828152600b6020526040902080546001600160a01b0316803b62007be75750505050565b6001600160a01b03811660009081526038602052604090205460055481111562007c1057506005545b60005a600185015460405163a892024160e01b8152600481018990526001600160a01b039182166024820152871515604482015291925084169063a8920241908490606401600060405180830381600088803b15801562007c7057600080fd5b5087f19350505050801562007c83575060015b62007cae575a62007c959082620090fc565b90508462007ca85762007ca8866200806b565b62007cbe565b5a62007cbb9082620090fc565b90505b6001600160a01b03831660009081526038602052604090205481101562007d15576001600160a01b0383166000908152603860205260408120805483929062007d09908490620090fc565b90915550620033f19050565b50506001600160a01b0316600090815260386020526040812055505050565b6000838152600b6020526040902080546001600160a01b0316803b62007d5b575050505050565b6001600160a01b03811660009081526038602052604090205460065481111562007d8457506006545b60005a6040516303c54c2960e41b8152600481018990526024810188905286151560448201529091506001600160a01b03841690633c54c290908490606401600060405180830381600088803b15801562007dde57600080fd5b5087f19350505050801562007df1575060015b62007e1d575a62007e039082620090fc565b90508462007e175762007e178787620082c1565b62007e2d565b5a62007e2a9082620090fc565b90505b6001600160a01b03831660009081526038602052604090205481101562007e84576001600160a01b0383166000908152603860205260408120805483929062007e78908490620090fc565b9091555062006a8b9050565b50506001600160a01b031660009081526038602052604081205550505050565b600081815260086020908152604080832060018101546001600160a01b039081168552603a909352922080548354919291821691161462007fa95760008160080154826005015462007ef79190620090fc565b836002015483600d015462007f0d91906200981f565b62007f1991906200972b565b600c8301548454604051632770a7eb60e21b81526001600160a01b039182166004820152602481018490529293501690639dc29fac90604401600060405180830381600087803b15801562007f6d57600080fd5b505af115801562007f82573d6000803e3d6000fd5b505050508082600d01600082825462007f9c9190620090fc565b9091555062007fc9915050565b816002015481600801600082825462007fc39190620090fc565b90915550505b600282015482546001600160a01b03166000908152603960205260408120805490919062007ff990849062009155565b9091555050600282015460058201805460009062008019908490620090fc565b90915550508154600183015460028401546040519081526001600160a01b0392831692909116907f2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d909060200162004ffa565b6000818152600b6020908152604080832060018101546001600160a01b03168452603a909252822060068201549192909162010000900460ff16620081a1576002830154600c83015484546040516340c10f1960e01b81526001600160a01b039182166004820152602481018490529116906340c10f1990604401600060405180830381600087803b1580156200810157600080fd5b505af115801562008116573d6000803e3d6000fd5b505050508083600d01600082825462008130919062009155565b90915550506007830154600684015460038601546200815091906200981f565b6200815c91906200972b565b915081836006016000828254620081749190620090fc565b9091555050600384015460078401805460009062008194908490620090fc565b9091555062008223915050565b81600a015482600901548460030154620081bc91906200981f565b620081c891906200972b565b905080826009016000828254620081e09190620090fc565b90915550506003830154600a8301805460009062008200908490620090fc565b92505081905550808260080160008282546200821d919062009155565b90915550505b60006003840181905560068401805461ff00191690556005830180548392906200824f90849062009155565b90915550508254600184015460068501546002860154604080516201000090930460ff161515835260208301919091526001600160a01b0393841693909216917f52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c91015b60405180910390a350505050565b6000828152600b60205260408120908290036200834557600681018054600360ff19909116179081905581546001830154604080516201000090940460ff1615158452602084018690526001600160a01b039283169392909116917f0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc910162004ffa565b60018101546001600160a01b03166000908152603a60205260409020600682015462010000900460ff166200845557600080826008015483600501546200838d9190620090fc565b905080600003620083a157849150620083c3565b808584600d0154620083b491906200981f565b620083c091906200972b565b91505b600c83015484546040516340c10f1960e01b81526001600160a01b039182166004820152602481018590529116906340c10f1990604401600060405180830381600087803b1580156200841557600080fd5b505af11580156200842a573d6000803e3d6000fd5b505050508183600d01600082825462008444919062009155565b90915550505060058301556200847a565b8282600501819055508281600801600082825462008474919062009155565b90915550505b60068201805460ff1916600317905581546001600160a01b031660009081526039602052604081208054859290620084b4908490620090fc565b9250508190555082816005016000828254620084d1919062009155565b9091555050815460018301546006840154604080516201000090920460ff1615158252602082018790526001600160a01b0393841693909216917f0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc9101620082b3565b60405180610280016040528060006001600160a01b0316815260200160006001600160a01b0316815260200160006001600160a01b0316815260200160608152602001600081526020016000815260200160008152602001600081526020016000815260200160008152602001600081526020016000815260200160006001600160a01b0316815260200160008152602001600081526020016000815260200160008152602001600081526020016060815260200160006003811115620085ff57620085ff6200891f565b905290565b60405180610120016040528060006001600160a01b0316815260200160006001600160a01b0316815260200160008152602001600081526020016000815260200160008152602001600060038111156200866257620086626200891f565b815260006020820181905260409091015290565b6040518060a001604052806005906020820280368337509192915050565b5080546000825590600052602060002090810190620018bc91906200875d565b508054620086c29062008fb9565b6000825580601f10620086d3575050565b601f016020900490600052602060002090810190620018bc919062008782565b5080546000825590600052602060002090810190620018bc919062008782565b60405180604001604052806002906020820280368337509192915050565b60405180602001604052806001906020820280368337509192915050565b6105c2806200998783390190565b808211156200877e576000620087748282620086b4565b506001016200875d565b5090565b5b808211156200877e576000815560010162008783565b60005b83811015620087b65781810151838201526020016200879c565b50506000910152565b60008151808452620087d981602086016020860162008799565b601f01601f19169290920160200192915050565b602081526000620088026020830184620087bf565b9392505050565b6000602082840312156200881c57600080fd5b5035919050565b600081518084526020808501808196508360051b8101915082860160005b8581101562008898578284038952815180516001600160a01b0316855285810151868601526040908101516060918601829052906200888381870183620087bf565b9a87019a955050509084019060010162008841565b5091979650505050505050565b60208152600062008802602083018462008823565b6001600160a01b0381168114620018bc57600080fd5b60008060408385031215620088e457600080fd5b8235620088f181620088ba565b946020939093013593505050565b6000602082840312156200891257600080fd5b81356200880281620088ba565b634e487b7160e01b600052602160045260246000fd5b60048110620018bc57634e487b7160e01b600052602160045260246000fd5b6200895f8162008935565b9052565b602081526200897e6020820183516001600160a01b03169052565b600060208301516200899b60408401826001600160a01b03169052565b5060408301516001600160a01b0381166060840152506060830151610280806080850152620089cf6102a0850183620087bf565b9150608085015160a085015260a085015160c085015260c085015160e085015260e08501516101008181870152808701519150506101208181870152808701519150506101408181870152808701519150506101608181870152808701519150506101808181870152808701519150506101a062008a57818701836001600160a01b03169052565b8601516101c0868101919091528601516101e080870191909152860151610200808701919091528601516102208087019190915286015161024080870191909152860151858403601f19016102608088019190915290915062008abb8483620087bf565b93508087015191505062008ad28286018262008954565b5090949350505050565b60008060006060848603121562008af257600080fd5b833562008aff81620088ba565b9250602084013562008b1181620088ba565b929592945050506040919091013590565b60006101208201905060018060a01b038084511683528060208501511660208401525060408301516040830152606083015160608301526080830151608083015260a083015160a083015260c083015162008b8160c084018262008954565b5060e083015162008b9660e084018215159052565b50610100928301511515919092015290565b60006020828403121562008bbb57600080fd5b81356001600160401b0381111562008bd257600080fd5b820161028081850312156200880257600080fd5b8515158152841515602082015260a06040820152600062008c0b60a083018662008823565b606083019490945250608001529392505050565b634e487b7160e01b600052604160045260246000fd5b600082601f83011262008c4757600080fd5b81356001600160401b038082111562008c645762008c6462008c1f565b604051601f8301601f19908116603f0116810190828211818310171562008c8f5762008c8f62008c1f565b8160405283815286602085880101111562008ca957600080fd5b836020870160208301376000602085830101528094505050505092915050565b6000806040838503121562008cdd57600080fd5b823562008cea81620088ba565b915060208301356001600160401b0381111562008d0657600080fd5b62008d148582860162008c35565b9150509250929050565b6000806000806080858703121562008d3557600080fd5b84356001600160401b038082111562008d4d57600080fd5b62008d5b8883890162008c35565b95506020870135915062008d6f82620088ba565b9093506040860135908082111562008d8657600080fd5b62008d948883890162008c35565b9350606087013591508082111562008dab57600080fd5b5062008dba8782880162008c35565b91505092959194509250565b6000602080830181845280855180835260408601915060408160051b870101925083870160005b82811015620016e057603f1988860301845262008e0c858351620087bf565b9450928501929085019060010162008ded565b6020810162008e2e8362008935565b91905290565b60808152600062008e49608083018762008823565b6020830195909552506040810192909252606090910152919050565b600081518084526020808501945080840160005b8381101562008ea05781516001600160a01b03168752958201959082019060010162008e79565b509495945050505050565b60408152600062008ec0604083018562008e65565b828103602084015262008ed4818562008e65565b95945050505050565b6000806040838503121562008ef157600080fd5b82356001600160401b038082111562008f0957600080fd5b62008f178683870162008c35565b9350602085013591508082111562008f2e57600080fd5b5062008d148582860162008c35565b60408152600062008f526040830185620087bf565b828103602084015262008ed48185620087bf565b60208152600062008802602083018462008e65565b6000806040838503121562008f8f57600080fd5b823562008f9c81620088ba565b9150602083013562008fae81620088ba565b809150509250929050565b600181811c9082168062008fce57607f821691505b60208210810362008fef57634e487b7160e01b600052602260045260246000fd5b50919050565b6020808252601c908201527f76616c696461746f72206d757374206265207265676973746572656400000000604082015260600190565b6020808252602c908201527f726571756972652063616c6c657220746f2062652076616c696461746f72206160408201526b191b5a5b881858d8dbdd5b9d60a21b606082015260800190565b6020808252601a908201527f63616c6c6572206973206e6f7420746865206f70657261746f72000000000000604082015260600190565b60208082526018908201527f76616c696461746f72206e6f7420726567697374657265640000000000000000604082015260600190565b634e487b7160e01b600052601160045260246000fd5b818103818111156200181b576200181b620090e6565b60208082526023908201527f66756e6374696f6e207265737472696374656420746f207468652070726f746f60408201526218dbdb60ea1b606082015260800190565b808201808211156200181b576200181b620090e6565b600081356200181b81620088ba565b80546001600160a01b0319166001600160a01b0392909216919091179055565b6000808335601e19843603018112620091b257600080fd5b8301803591506001600160401b03821115620091cd57600080fd5b602001915036819003821315620091e357600080fd5b9250929050565b601f8211156200693c57600081815260208120601f850160051c81016020861015620092135750805b601f850160051c820191505b81811015620033f1578281556001016200921f565b600019600383901b1c191660019190911b1790565b6001600160401b0383111562009263576200926362008c1f565b6200927b8362009274835462008fb9565b83620091ea565b6000601f841160018114620092ae5760008515620092995750838201355b620092a5868262009234565b845550620021cf565b600083815260209020601f19861690835b82811015620092e15786850135825560209485019460019092019101620092bf565b5086821015620092ff5760001960f88860031b161c19848701351681555b505060018560011b0183555050505050565b60008135600481106200181b57600080fd5b6200932e8262008935565b60ff1981541660ff831681178255505050565b6200935762009350836200916b565b826200917a565b6200937362009369602084016200916b565b600183016200917a565b6200938f62009385604084016200916b565b600283016200917a565b6200939e60608301836200919a565b620093ae81836003860162009249565b50506080820135600482015560a0820135600582015560c0820135600682015560e0820135600782015561010082013560088201556101208201356009820155610140820135600a820155610160820135600b820155620094216200941761018084016200916b565b600c83016200917a565b6101a0820135600d8201556101c0820135600e8201556101e0820135600f82015561020082013560108201556102208201356011820155620094686102408301836200919a565b6200947881836012860162009249565b5050620020c86200948d610260840162009311565b6013830162009323565b600060208284031215620094aa57600080fd5b5051919050565b60008060408385031215620094c557600080fd5b505080516020909101519092909150565b600060208284031215620094e957600080fd5b815180151581146200880257600080fd5b634e487b7160e01b600052603260045260246000fd5b600081546200951f8162008fb9565b600182811680156200953a5760018114620095505762009581565b60ff198416875282151583028701945062009581565b8560005260208060002060005b85811015620095785781548a8201529084019082016200955d565b50505082870194505b5050505092915050565b600062008802828462009510565b600060018201620095ae57620095ae620090e6565b5060010190565b6020808252602f908201527f726571756972652063616c6c657220746f2062652076616c696461746f72207460408201526e1c99585cdd5c9e481858d8dbdd5b9d608a1b606082015260800190565b81516001600160401b0381111562009620576200962062008c1f565b620096388162009631845462008fb9565b84620091ea565b602080601f8311600181146200966c5760008415620096575750858301515b62009663858262009234565b865550620033f1565b600085815260208120601f198616915b828110156200969d578886015182559484019460019091019084016200967c565b5085821015620096bc5787850151600019600388901b60f8161c191681555b5050505050600190811b01905550565b600060018060a01b0380881683528087166020840152808616604084015260a060608401526200970060a0840186620087bf565b91508084166080840152509695505050505050565b634e487b7160e01b600052601260045260246000fd5b6000826200973d576200973d62009715565b500490565b8181036200974e575050565b6200975a825462008fb9565b6001600160401b0381111562009774576200977462008c1f565b620097858162009631845462008fb9565b6000601f821160018114620097b85760008315620097a35750848201545b620097af848262009234565b855550620021cf565b600085815260209020601f19841690600086815260209020845b83811015620097f45782860154825560019586019590910190602001620097d2565b5085831015620096bc5793015460001960f8600387901b161c19169092555050600190811b01905550565b80820281158282048414176200181b576200181b620090e6565b60018060a01b03831681526060602082015260006060820152608060408201526000620074bf6080830184620087bf565b600084516200987e81846020890162008799565b8451908301906200989481836020890162008799565b8451910190620098a981836020880162008799565b0195945050505050565b82815260408101620098c58362008935565b8260208301529392505050565b600082620098e457620098e462009715565b500690565b60ff81811683821601908111156200181b576200181b620090e6565b600084516200991981846020890162008799565b8451908301906200992f81836020890162008799565b60609490941b6bffffffffffffffffffffffff19169301928352505060140192915050565b600060018060a01b038088168352808716602084015285604084015260a060608401526200970060a0840186620087bf56fe608060405234801561001057600080fd5b506040516105c23803806105c283398101604081905261002f916101af565b806001600160a01b0316632f2c3f2e6040518163ffffffff1660e01b8152600401602060405180830381865afa15801561006d573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610091919061029f565b83111561009d57600080fd5b600c80546001600160a01b038088166001600160a01b031992831617909255600d805492871692909116919091179055600e8390556040516100e39083906020016102b8565b604051602081830303815290604052600a9081610100919061036e565b508160405160200161011291906102b8565b604051602081830303815290604052600b908161012f919061036e565b5050601080546001600160a01b031916331790555061042d92505050565b6001600160a01b038116811461016257600080fd5b50565b80516101708161014d565b919050565b634e487b7160e01b600052604160045260246000fd5b60005b838110156101a657818101518382015260200161018e565b50506000910152565b600080600080600060a086880312156101c757600080fd5b85516101d28161014d565b60208701519095506101e38161014d565b6040870151606088015191955093506001600160401b038082111561020757600080fd5b818801915088601f83011261021b57600080fd5b81518181111561022d5761022d610175565b604051601f8201601f19908116603f0116810190838211818310171561025557610255610175565b816040528281528b602084870101111561026e57600080fd5b61027f83602083016020880161018b565b809650505050505061029360808701610165565b90509295509295909350565b6000602082840312156102b157600080fd5b5051919050565b644c4e544e2d60d81b8152600082516102d881600585016020870161018b565b9190910160050192915050565b600181811c908216806102f957607f821691505b60208210810361031957634e487b7160e01b600052602260045260246000fd5b50919050565b601f82111561036957600081815260208120601f850160051c810160208610156103465750805b601f850160051c820191505b8181101561036557828155600101610352565b5050505b505050565b81516001600160401b0381111561038757610387610175565b61039b8161039584546102e5565b8461031f565b602080601f8311600181146103d057600084156103b85750858301515b600019600386901b1c1916600185901b178555610365565b600085815260208120601f198616915b828110156103ff578886015182559484019460019091019084016103e0565b508582101561041d5787850151600019600388901b60f8161c191681555b5050505050600190811b01905550565b6101868061043c6000396000f3fe60806040523661001b57610019610014610022565b6100fd565b005b6100196100145b600080601060009054906101000a90046001600160a01b03166001600160a01b03166396f18a326040518163ffffffff1660e01b8152600401602060405180830381865afa158015610078573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061009c9190610120565b90506001600160a01b0381166100f85760405162461bcd60e51b815260206004820152601d60248201527f6c6971756964206c6f67696320636f6e7472616374206e6f7420736574000000604482015260640160405180910390fd5b919050565b3660008037600080366000845af43d6000803e8061011a573d6000fd5b503d6000f35b60006020828403121561013257600080fd5b81516001600160a01b038116811461014957600080fd5b939250505056fea2646970667358221220872793c2bcced8a7e8d93ca105225930f968169d112df59a275558d7b9cb7f2864736f6c63430008150033a264697066735822122021dd4fa0ff664348af3fabebede1d893bde3ea54f380873c00c9da7c7160cd8b64736f6c63430008150033608060405234801561001057600080fd5b50601080546001600160a01b03191633179055611702806100326000396000f3fe6080604052600436106101855760003560e01c80633e4eb36c116100d1578063949813b81161008a578063a0ce552d11610064578063a0ce552d146104d5578063a9059cbb146104e8578063bd96102f14610508578063dd62ed3e1461051d5761018c565b8063949813b81461046b57806395d89b41146104a05780639dc29fac146104b55761018c565b80633e4eb36c1461038a57806340c10f191461039f57806359355736146103bf57806370a08231146103f55780637eee288d1461042b57806384955c881461044b5761018c565b80631eeffad01161013e5780632f2c3f2e116101185780632f2c3f2e14610325578063313ce5671461033b578063372500ab146103575780633b19e84a1461036c5761018c565b80631eeffad0146102d057806323b872dd146102e5578063282d3fdf146103055761018c565b806306fdde03146101ea578063095ea7b3146102155780631195e07e1461024557806318160ddd14610277578063187cf4d71461029657806319fac8fd146102ae5761018c565b3661018c57005b60405162461bcd60e51b815260206004820152602860248201527f66616c6c6261636b206e6f7420696d706c656d656e74656420666f72204c69716044820152677569644c6f67696360c01b60648201526084015b60405180910390fd5b3480156101f657600080fd5b506101ff610563565b60405161020c919061145c565b60405180910390f35b34801561022157600080fd5b506102356102303660046114c6565b6105f5565b604051901515815260200161020c565b34801561025157600080fd5b50600c546001600160a01b03165b6040516001600160a01b03909116815260200161020c565b34801561028357600080fd5b506003545b60405190815260200161020c565b3480156102a257600080fd5b50610288633b9aca0081565b3480156102ba57600080fd5b506102ce6102c93660046114f0565b61060c565b005b3480156102dc57600080fd5b50600f54610288565b3480156102f157600080fd5b50610235610300366004611509565b61063b565b34801561031157600080fd5b506102ce6103203660046114c6565b610730565b34801561033157600080fd5b5061028861271081565b34801561034757600080fd5b506040516012815260200161020c565b34801561036357600080fd5b506102ce610814565b34801561037857600080fd5b50600d546001600160a01b031661025f565b34801561039657600080fd5b50600e54610288565b3480156103ab57600080fd5b506102ce6103ba3660046114c6565b6109f5565b3480156103cb57600080fd5b506102886103da366004611545565b6001600160a01b031660009081526001602052604090205490565b34801561040157600080fd5b50610288610410366004611545565b6001600160a01b031660009081526020819052604090205490565b34801561043757600080fd5b506102ce6104463660046114c6565b610a5d565b34801561045757600080fd5b50610288610466366004611545565b610b23565b34801561047757600080fd5b5061048b610486366004611545565b610b50565b6040805192835260208301919091520161020c565b3480156104ac57600080fd5b506101ff610c08565b3480156104c157600080fd5b506102ce6104d03660046114c6565b610c17565b61048b6104e33660046114f0565b610c77565b3480156104f457600080fd5b506102356105033660046114c6565b610f6b565b34801561051457600080fd5b506102ce610fb8565b34801561052957600080fd5b50610288610538366004611560565b6001600160a01b03918216600090815260026020908152604080832093909416825291909152205490565b6060600a805461057290611593565b80601f016020809104026020016040519081016040528092919081815260200182805461059e90611593565b80156105eb5780601f106105c0576101008083540402835291602001916105eb565b820191906000526020600020905b8154815290600101906020018083116105ce57829003601f168201915b5050505050905090565b60006106023384846110bf565b5060015b92915050565b6010546001600160a01b031633146106365760405162461bcd60e51b81526004016101e1906115cd565b600e55565b6001600160a01b0383166000908152600260209081526040808320338452909152812054828110156106c05760405162461bcd60e51b815260206004820152602860248201527f45524332303a207472616e7366657220616d6f756e74206578636565647320616044820152676c6c6f77616e636560c01b60648201526084016101e1565b6106d485336106cf868561162b565b6110bf565b6106de85846111e3565b6106e884846112d7565b836001600160a01b0316856001600160a01b03166000805160206116ad8339815191528560405161071b91815260200190565b60405180910390a360019150505b9392505050565b6010546001600160a01b0316331461075a5760405162461bcd60e51b81526004016101e1906115cd565b6001600160a01b038216600090815260016020908152604080832054918390529091205482916107899161162b565b10156107e35760405162461bcd60e51b8152602060048201526024808201527f63616e2774206c6f636b206d6f72652066756e6473207468616e20617661696c60448201526361626c6560e01b60648201526084016101e1565b6001600160a01b0382166000908152600160205260408120805483929061080b90849061163e565b90915550505050565b60008061082033611323565b33600090815260046020908152604080832083905560079091528120819055919350915081156109035760105460405163a9059cbb60e01b8152336004820152602481018490526001600160a01b039091169063a9059cbb906044016020604051808303816000875af115801561089b573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906108bf9190611651565b9050806109035760405162461bcd60e51b81526020600482015260126024820152712330b4b632b2103a379039b2b73210272a2760711b60448201526064016101e1565b333b1561096357336001600160a01b031663161605e3846040518263ffffffff1660e01b81526004016000604051808303818588803b15801561094557600080fd5b505af1158015610959573d6000803e3d6000fd5b5050505050505050565b60405133908490600081818185875af1925050503d80600081146109a3576040519150601f19603f3d011682016040523d82523d6000602084013e6109a8565b606091505b505080915050806109f05760405162461bcd60e51b81526020600482015260126024820152712330b4b632b2103a379039b2b7321020aa2760711b60448201526064016101e1565b505050565b6010546001600160a01b03163314610a1f5760405162461bcd60e51b81526004016101e1906115cd565b610a2982826112d7565b6040518181526001600160a01b038316906000906000805160206116ad833981519152906020015b60405180910390a35050565b6010546001600160a01b03163314610a875760405162461bcd60e51b81526004016101e1906115cd565b6001600160a01b038216600090815260016020526040902054811115610afb5760405162461bcd60e51b815260206004820152602360248201527f63616e277420756e6c6f636b206d6f72652066756e6473207468616e206c6f636044820152621ad95960ea1b60648201526084016101e1565b6001600160a01b0382166000908152600160205260408120805483929061080b90849061162b565b6001600160a01b03811660009081526001602090815260408083205491839052822054610606919061162b565b6001600160a01b0381166000908152602081815260408083205460065460059093529083205483928391610b8591849161141e565b6001600160a01b038616600090815260046020526040902054909150610bac90829061163e565b6009546001600160a01b03871660009081526008602052604081205492965091610bd791859161141e565b6001600160a01b038716600090815260076020526040902054909150610bfe90829061163e565b9350505050915091565b6060600b805461057290611593565b6010546001600160a01b03163314610c415760405162461bcd60e51b81526004016101e1906115cd565b610c4b82826111e3565b6040518181526000906001600160a01b038416906000805160206116ad83398151915290602001610a51565b60105460009081906001600160a01b03163314610ca65760405162461bcd60e51b81526004016101e1906115cd565b600e54349060009061271090610cbc9084611673565b610cc6919061168a565b905081811115610d185760405162461bcd60e51b815260206004820152601c60248201527f696e76616c69642061746e2076616c696461746f72207265776172640000000060448201526064016101e1565b610d22818361162b565b600d546040519193506000916001600160a01b03909116906108fc90849084818181858888f193505050503d8060008114610d79576040519150601f19603f3d011682016040523d82523d6000602084013e610d7e565b606091505b5090915050801515600003610da55781600f6000828254610d9f919061163e565b90915550505b6000612710600e5488610db89190611673565b610dc2919061168a565b905086811115610e145760405162461bcd60e51b815260206004820152601c60248201527f696e76616c6964206e746e2076616c696461746f72207265776172640000000060448201526064016101e1565b610e1e818861162b565b96508015610ea157601054600d5460405163a9059cbb60e01b81526001600160a01b0391821660048201526024810184905291169063a9059cbb906044016020604051808303816000875af1158015610e7b573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610e9f9190611651565b505b600354600090610eb5633b9aca0087611673565b610ebf919061168a565b905080600654610ecf919061163e565b600655600354600090610ee6633b9aca008b611673565b610ef0919061168a565b905080600954610f00919061163e565b600955600354600090633b9aca0090610f199085611673565b610f23919061168a565b90506000633b9aca0060035484610f3a9190611673565b610f44919061168a565b9050610f50828861163e565b610f5a828761163e565b995099505050505050505050915091565b6000610f7733836111e3565b610f8183836112d7565b6040518281526001600160a01b0384169033906000805160206116ad8339815191529060200160405180910390a350600192915050565b600d546001600160a01b0316331461101d5760405162461bcd60e51b815260206004820152602260248201527f6f6e6c792074726561737572792063616e20636c61696d2068697320726577616044820152611c9960f21b60648201526084016101e1565b600d54600f546040516000926001600160a01b031691908381818185875af1925050503d806000811461106c576040519150601f19603f3d011682016040523d82523d6000602084013e611071565b606091505b50509050806110b75760405162461bcd60e51b81526020600482015260126024820152713330b4b632b2103a379039b2b7321020aa2760711b60448201526064016101e1565b506000600f55565b6001600160a01b0383166111215760405162461bcd60e51b8152602060048201526024808201527f45524332303a20617070726f76652066726f6d20746865207a65726f206164646044820152637265737360e01b60648201526084016101e1565b6001600160a01b0382166111825760405162461bcd60e51b815260206004820152602260248201527f45524332303a20617070726f766520746f20746865207a65726f206164647265604482015261737360f01b60648201526084016101e1565b6001600160a01b0383811660008181526002602090815260408083209487168084529482529182902085905590518481527f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925910160405180910390a3505050565b6111ec82611323565b50506001600160a01b0382166000908152602081815260408083205460019092529091205461121b908261162b565b82111561126a5760405162461bcd60e51b815260206004820152601b60248201527f696e73756666696369656e7420756e6c6f636b65642066756e6473000000000060448201526064016101e1565b611274828261162b565b6001600160a01b0384166000908152602081905260409020558082036112bb576001600160a01b038316600090815260056020908152604080832083905560089091528120555b81600360008282546112cd919061162b565b9091555050505050565b6112e082611323565b50506001600160a01b0382166000908152602081905260408120805483929061130a90849061163e565b92505081905550806003600082825461080b919061163e565b6001600160a01b038116600090815260208181526040808320546006546005909352908320548392839161135891849161141e565b6001600160a01b03861660009081526004602052604090205490915061137f90829061163e565b6001600160a01b03861660009081526004602090815260408083208490556006546005835281842055600954600890925282205492965090916113c391859161141e565b6001600160a01b0387166000908152600760205260409020549091506113ea90829061163e565b6001600160a01b03909616600090815260076020908152604080832089905560095460089092529091205550929492505050565b60008360000361143057506000610729565b633b9aca0084611440848661162b565b61144a9190611673565b611454919061168a565b949350505050565b600060208083528351808285015260005b818110156114895785810183015185820160400152820161146d565b506000604082860101526040601f19601f8301168501019250505092915050565b80356001600160a01b03811681146114c157600080fd5b919050565b600080604083850312156114d957600080fd5b6114e2836114aa565b946020939093013593505050565b60006020828403121561150257600080fd5b5035919050565b60008060006060848603121561151e57600080fd5b611527846114aa565b9250611535602085016114aa565b9150604084013590509250925092565b60006020828403121561155757600080fd5b610729826114aa565b6000806040838503121561157357600080fd5b61157c836114aa565b915061158a602084016114aa565b90509250929050565b600181811c908216806115a757607f821691505b6020821081036115c757634e487b7160e01b600052602260045260246000fd5b50919050565b60208082526028908201527f43616c6c207265737472696374656420746f20746865204175746f6e6974792060408201526710dbdb9d1c9858dd60c21b606082015260800190565b634e487b7160e01b600052601160045260246000fd5b8181038181111561060657610606611615565b8082018082111561060657610606611615565b60006020828403121561166357600080fd5b8151801515811461072957600080fd5b808202811582820484141761060657610606611615565b6000826116a757634e487b7160e01b600052601260045260246000fd5b50049056feddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa2646970667358221220bc8285762dd1675fc0dcb1951193cf458a7f6fb8eb453dbed034b47f9920ba2164736f6c63430008150033608060405234801561001057600080fd5b506040516105c23803806105c283398101604081905261002f916101af565b806001600160a01b0316632f2c3f2e6040518163ffffffff1660e01b8152600401602060405180830381865afa15801561006d573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610091919061029f565b83111561009d57600080fd5b600c80546001600160a01b038088166001600160a01b031992831617909255600d805492871692909116919091179055600e8390556040516100e39083906020016102b8565b604051602081830303815290604052600a9081610100919061036e565b508160405160200161011291906102b8565b604051602081830303815290604052600b908161012f919061036e565b5050601080546001600160a01b031916331790555061042d92505050565b6001600160a01b038116811461016257600080fd5b50565b80516101708161014d565b919050565b634e487b7160e01b600052604160045260246000fd5b60005b838110156101a657818101518382015260200161018e565b50506000910152565b600080600080600060a086880312156101c757600080fd5b85516101d28161014d565b60208701519095506101e38161014d565b6040870151606088015191955093506001600160401b038082111561020757600080fd5b818801915088601f83011261021b57600080fd5b81518181111561022d5761022d610175565b604051601f8201601f19908116603f0116810190838211818310171561025557610255610175565b816040528281528b602084870101111561026e57600080fd5b61027f83602083016020880161018b565b809650505050505061029360808701610165565b90509295509295909350565b6000602082840312156102b157600080fd5b5051919050565b644c4e544e2d60d81b8152600082516102d881600585016020870161018b565b9190910160050192915050565b600181811c908216806102f957607f821691505b60208210810361031957634e487b7160e01b600052602260045260246000fd5b50919050565b601f82111561036957600081815260208120601f850160051c810160208610156103465750805b601f850160051c820191505b8181101561036557828155600101610352565b5050505b505050565b81516001600160401b0381111561038757610387610175565b61039b8161039584546102e5565b8461031f565b602080601f8311600181146103d057600084156103b85750858301515b600019600386901b1c1916600185901b178555610365565b600085815260208120601f198616915b828110156103ff578886015182559484019460019091019084016103e0565b508582101561041d5787850151600019600388901b60f8161c191681555b5050505050600190811b01905550565b6101868061043c6000396000f3fe60806040523661001b57610019610014610022565b6100fd565b005b6100196100145b600080601060009054906101000a90046001600160a01b03166001600160a01b03166396f18a326040518163ffffffff1660e01b8152600401602060405180830381865afa158015610078573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061009c9190610120565b90506001600160a01b0381166100f85760405162461bcd60e51b815260206004820152601d60248201527f6c6971756964206c6f67696320636f6e7472616374206e6f7420736574000000604482015260640160405180910390fd5b919050565b3660008037600080366000845af43d6000803e8061011a573d6000fd5b503d6000f35b60006020828403121561013257600080fd5b81516001600160a01b038116811461014957600080fd5b939250505056fea2646970667358221220872793c2bcced8a7e8d93ca105225930f968169d112df59a275558d7b9cb7f2864736f6c63430008150033",
+}
+
+// AutonityTestABI is the input ABI used to generate the binding from.
+// Deprecated: Use AutonityTestMetaData.ABI instead.
+var AutonityTestABI = AutonityTestMetaData.ABI
+
+// Deprecated: Use AutonityTestMetaData.Sigs instead.
+// AutonityTestFuncSigs maps the 4-byte function signature to its string representation.
+var AutonityTestFuncSigs = AutonityTestMetaData.Sigs
+
+// AutonityTestBin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use AutonityTestMetaData.Bin instead.
+var AutonityTestBin = AutonityTestMetaData.Bin
+
+// DeployAutonityTest deploys a new Ethereum contract, binding an instance of AutonityTest to it.
+func (r *runner) deployAutonityTest(opts *runOptions, _validators []AutonityValidator, _config AutonityConfig) (common.Address, uint64, *AutonityTest, error) {
+	parsed, err := AutonityTestMetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
+	}
+
+	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(AutonityTestBin), _validators, _config)
+	if err != nil {
+		return common.Address{}, 0, nil, err
+	}
+	return address, gasConsumed, &AutonityTest{contract: c}, nil
+}
+
+// AutonityTest is an auto generated Go binding around an Ethereum contract.
+type AutonityTest struct {
+	*contract
+}
+
+// COMMISSIONRATEPRECISION is a free data retrieval call binding the contract method 0x2f2c3f2e.
+//
+// Solidity: function COMMISSION_RATE_PRECISION() view returns(uint256)
+func (_AutonityTest *AutonityTest) COMMISSIONRATEPRECISION(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "COMMISSION_RATE_PRECISION")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
+//
+// Solidity: function allowance(address owner, address spender) view returns(uint256)
+func (_AutonityTest *AutonityTest) Allowance(opts *runOptions, owner common.Address, spender common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "allowance", owner, spender)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// AtnTotalRedistributed is a free data retrieval call binding the contract method 0xe98712b2.
+//
+// Solidity: function atnTotalRedistributed() view returns(uint256)
+func (_AutonityTest *AutonityTest) AtnTotalRedistributed(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "atnTotalRedistributed")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
+//
+// Solidity: function balanceOf(address _addr) view returns(uint256)
+func (_AutonityTest *AutonityTest) BalanceOf(opts *runOptions, _addr common.Address) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "balanceOf", _addr)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Config is a free data retrieval call binding the contract method 0x79502c55.
+//
+// Solidity: function config() view returns((uint256,uint256,uint256,uint256,uint256,address) policy, (address,address,address,address,address,address,address,address) contracts, (address,uint256,uint256,uint256) protocol, uint256 contractVersion)
+func (_AutonityTest *AutonityTest) Config(opts *runOptions) (struct {
+	Policy          AutonityPolicy
+	Contracts       AutonityContracts
+	Protocol        AutonityProtocol
+	ContractVersion *big.Int
+}, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "config")
+
+	outstruct := new(struct {
+		Policy          AutonityPolicy
+		Contracts       AutonityContracts
+		Protocol        AutonityProtocol
+		ContractVersion *big.Int
+	})
+	if err != nil {
+		return *outstruct, consumed, err
+	}
+
+	outstruct.Policy = *abi.ConvertType(out[0], new(AutonityPolicy)).(*AutonityPolicy)
+	outstruct.Contracts = *abi.ConvertType(out[1], new(AutonityContracts)).(*AutonityContracts)
+	outstruct.Protocol = *abi.ConvertType(out[2], new(AutonityProtocol)).(*AutonityProtocol)
+	outstruct.ContractVersion = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	return *outstruct, consumed, err
+
+}
+
+// Decimals is a free data retrieval call binding the contract method 0x313ce567.
+//
+// Solidity: function decimals() pure returns(uint8)
+func (_AutonityTest *AutonityTest) Decimals(opts *runOptions) (uint8, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "decimals")
+
+	if err != nil {
+		return *new(uint8), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+	return out0, consumed, err
+
+}
+
+// Deployer is a free data retrieval call binding the contract method 0xd5f39488.
+//
+// Solidity: function deployer() view returns(address)
+func (_AutonityTest *AutonityTest) Deployer(opts *runOptions) (common.Address, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "deployer")
+
+	if err != nil {
+		return *new(common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, consumed, err
+
+}
+
+// EpochID is a free data retrieval call binding the contract method 0xc9d97af4.
+//
+// Solidity: function epochID() view returns(uint256)
+func (_AutonityTest *AutonityTest) EpochID(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "epochID")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// EpochPeriodToBeApplied is a free data retrieval call binding the contract method 0x573963b8.
+//
+// Solidity: function epochPeriodToBeApplied() view returns(uint256)
+func (_AutonityTest *AutonityTest) EpochPeriodToBeApplied(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "epochPeriodToBeApplied")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// EpochReward is a free data retrieval call binding the contract method 0x1604e416.
+//
+// Solidity: function epochReward() view returns(uint256)
+func (_AutonityTest *AutonityTest) EpochReward(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "epochReward")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// EpochTotalBondedStake is a free data retrieval call binding the contract method 0x9c98e471.
+//
+// Solidity: function epochTotalBondedStake() view returns(uint256)
+func (_AutonityTest *AutonityTest) EpochTotalBondedStake(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "epochTotalBondedStake")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetBlockPeriod is a free data retrieval call binding the contract method 0x43645969.
+//
+// Solidity: function getBlockPeriod() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetBlockPeriod(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getBlockPeriod")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetBondingRequest is a free data retrieval call binding the contract method 0xf5502f22.
+//
+// Solidity: function getBondingRequest(uint256 _id) view returns((address,address,uint256,uint256))
+func (_AutonityTest *AutonityTest) GetBondingRequest(opts *runOptions, _id *big.Int) (AutonityBondingRequest, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getBondingRequest", _id)
+
+	if err != nil {
+		return *new(AutonityBondingRequest), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutonityBondingRequest)).(*AutonityBondingRequest)
+	return out0, consumed, err
+
+}
+
+// GetCommissionRateChangeQueueFirst is a free data retrieval call binding the contract method 0x2d5fd535.
+//
+// Solidity: function getCommissionRateChangeQueueFirst() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetCommissionRateChangeQueueFirst(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getCommissionRateChangeQueueFirst")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetCommissionRateChangeQueueLast is a free data retrieval call binding the contract method 0x7c4b6c10.
+//
+// Solidity: function getCommissionRateChangeQueueLast() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetCommissionRateChangeQueueLast(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getCommissionRateChangeQueueLast")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetCommissionRateChangeRequest is a free data retrieval call binding the contract method 0xfc440be2.
+//
+// Solidity: function getCommissionRateChangeRequest(uint256 _id) view returns((address,uint256,uint256))
+func (_AutonityTest *AutonityTest) GetCommissionRateChangeRequest(opts *runOptions, _id *big.Int) (AutonityCommissionRateChangeRequest, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getCommissionRateChangeRequest", _id)
+
+	if err != nil {
+		return *new(AutonityCommissionRateChangeRequest), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutonityCommissionRateChangeRequest)).(*AutonityCommissionRateChangeRequest)
+	return out0, consumed, err
+
+}
+
+// GetCommittee is a free data retrieval call binding the contract method 0xab8f6ffe.
+//
+// Solidity: function getCommittee() view returns((address,uint256,bytes)[])
+func (_AutonityTest *AutonityTest) GetCommittee(opts *runOptions) ([]AutonityCommitteeMember, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getCommittee")
+
+	if err != nil {
+		return *new([]AutonityCommitteeMember), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]AutonityCommitteeMember)).(*[]AutonityCommitteeMember)
+	return out0, consumed, err
+
+}
+
+// GetCommitteeByHeight is a free data retrieval call binding the contract method 0x070e720a.
+//
+// Solidity: function getCommitteeByHeight(uint256 _height) view returns((address,uint256,bytes)[])
+func (_AutonityTest *AutonityTest) GetCommitteeByHeight(opts *runOptions, _height *big.Int) ([]AutonityCommitteeMember, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getCommitteeByHeight", _height)
+
+	if err != nil {
+		return *new([]AutonityCommitteeMember), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]AutonityCommitteeMember)).(*[]AutonityCommitteeMember)
+	return out0, consumed, err
+
+}
+
+// GetCommitteeEnodes is a free data retrieval call binding the contract method 0xa8b2216e.
+//
+// Solidity: function getCommitteeEnodes() view returns(string[])
+func (_AutonityTest *AutonityTest) GetCommitteeEnodes(opts *runOptions) ([]string, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getCommitteeEnodes")
+
+	if err != nil {
+		return *new([]string), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]string)).(*[]string)
+	return out0, consumed, err
+
+}
+
+// GetEpochFromBlock is a free data retrieval call binding the contract method 0x96b477cb.
+//
+// Solidity: function getEpochFromBlock(uint256 _block) view returns(uint256)
+func (_AutonityTest *AutonityTest) GetEpochFromBlock(opts *runOptions, _block *big.Int) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getEpochFromBlock", _block)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetEpochInfo is a free data retrieval call binding the contract method 0xa9fd1a8f.
+//
+// Solidity: function getEpochInfo() view returns((address,uint256,bytes)[], uint256, uint256, uint256)
+func (_AutonityTest *AutonityTest) GetEpochInfo(opts *runOptions) ([]AutonityCommitteeMember, *big.Int, *big.Int, *big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getEpochInfo")
+
+	if err != nil {
+		return *new([]AutonityCommitteeMember), *new(*big.Int), *new(*big.Int), *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]AutonityCommitteeMember)).(*[]AutonityCommitteeMember)
+	out1 := *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	out2 := *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	out3 := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	return out0, out1, out2, out3, consumed, err
+
+}
+
+// GetEpochPeriod is a free data retrieval call binding the contract method 0xdfb1a4d2.
+//
+// Solidity: function getEpochPeriod() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetEpochPeriod(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getEpochPeriod")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetEpochTotalBondedStake is a free data retrieval call binding the contract method 0x4efcd15f.
+//
+// Solidity: function getEpochTotalBondedStake() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetEpochTotalBondedStake(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getEpochTotalBondedStake")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetHeadBondingID is a free data retrieval call binding the contract method 0x427bc5de.
+//
+// Solidity: function getHeadBondingID() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetHeadBondingID(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getHeadBondingID")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetHeadUnbondingID is a free data retrieval call binding the contract method 0x9efa9e7a.
+//
+// Solidity: function getHeadUnbondingID() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetHeadUnbondingID(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getHeadUnbondingID")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetLastEpochBlock is a free data retrieval call binding the contract method 0x731b3a03.
+//
+// Solidity: function getLastEpochBlock() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetLastEpochBlock(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getLastEpochBlock")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetLastUnlockedUnbonding is a free data retrieval call binding the contract method 0x3d0ae216.
+//
+// Solidity: function getLastUnlockedUnbonding() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetLastUnlockedUnbonding(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getLastUnlockedUnbonding")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetMaxCommitteeSize is a free data retrieval call binding the contract method 0x819b6463.
+//
+// Solidity: function getMaxCommitteeSize() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetMaxCommitteeSize(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getMaxCommitteeSize")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetMinimumBaseFee is a free data retrieval call binding the contract method 0x11220633.
+//
+// Solidity: function getMinimumBaseFee() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetMinimumBaseFee(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getMinimumBaseFee")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetNewContract is a free data retrieval call binding the contract method 0xb66b3e79.
+//
+// Solidity: function getNewContract() view returns(bytes, string)
+func (_AutonityTest *AutonityTest) GetNewContract(opts *runOptions) ([]byte, string, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getNewContract")
+
+	if err != nil {
+		return *new([]byte), *new(string), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+	out1 := *abi.ConvertType(out[1], new(string)).(*string)
+	return out0, out1, consumed, err
+
+}
+
+// GetNextEpochBlock is a free data retrieval call binding the contract method 0x25ce1bb9.
+//
+// Solidity: function getNextEpochBlock() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetNextEpochBlock(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getNextEpochBlock")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
+//
+// Solidity: function getOperator() view returns(address)
+func (_AutonityTest *AutonityTest) GetOperator(opts *runOptions) (common.Address, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getOperator")
+
+	if err != nil {
+		return *new(common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, consumed, err
+
+}
+
+// GetOracle is a free data retrieval call binding the contract method 0x833b1fce.
+//
+// Solidity: function getOracle() view returns(address)
+func (_AutonityTest *AutonityTest) GetOracle(opts *runOptions) (common.Address, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getOracle")
+
+	if err != nil {
+		return *new(common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, consumed, err
+
+}
+
+// GetRevertingAmount is a free data retrieval call binding the contract method 0xb6ef8c67.
+//
+// Solidity: function getRevertingAmount(uint256 _unbondingID) view returns(uint256)
+func (_AutonityTest *AutonityTest) GetRevertingAmount(opts *runOptions, _unbondingID *big.Int) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getRevertingAmount", _unbondingID)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetTailBondingID is a free data retrieval call binding the contract method 0xbb0db428.
+//
+// Solidity: function getTailBondingID() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetTailBondingID(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getTailBondingID")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetTreasuryAccount is a free data retrieval call binding the contract method 0xf7866ee3.
+//
+// Solidity: function getTreasuryAccount() view returns(address)
+func (_AutonityTest *AutonityTest) GetTreasuryAccount(opts *runOptions) (common.Address, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getTreasuryAccount")
+
+	if err != nil {
+		return *new(common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, consumed, err
+
+}
+
+// GetTreasuryFee is a free data retrieval call binding the contract method 0x29070c6d.
+//
+// Solidity: function getTreasuryFee() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetTreasuryFee(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getTreasuryFee")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetUnbondingPeriod is a free data retrieval call binding the contract method 0x6fd2c80b.
+//
+// Solidity: function getUnbondingPeriod() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetUnbondingPeriod(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getUnbondingPeriod")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// GetUnbondingReleaseState is a free data retrieval call binding the contract method 0xa9af1059.
+//
+// Solidity: function getUnbondingReleaseState(uint256 _unbondingID) view returns(uint8)
+func (_AutonityTest *AutonityTest) GetUnbondingReleaseState(opts *runOptions, _unbondingID *big.Int) (uint8, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getUnbondingReleaseState", _unbondingID)
+
+	if err != nil {
+		return *new(uint8), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+	return out0, consumed, err
+
+}
+
+// GetUnbondingRequest is a free data retrieval call binding the contract method 0x30bcb81c.
+//
+// Solidity: function getUnbondingRequest(uint256 _id) view returns((address,address,uint256,uint256,uint256,uint256,uint8,bool,bool))
+func (_AutonityTest *AutonityTest) GetUnbondingRequest(opts *runOptions, _id *big.Int) (AutonityUnbondingRequest, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getUnbondingRequest", _id)
+
+	if err != nil {
+		return *new(AutonityUnbondingRequest), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutonityUnbondingRequest)).(*AutonityUnbondingRequest)
+	return out0, consumed, err
+
+}
+
+// GetValidator is a free data retrieval call binding the contract method 0x1904bb2e.
+//
+// Solidity: function getValidator(address _addr) view returns((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8))
+func (_AutonityTest *AutonityTest) GetValidator(opts *runOptions, _addr common.Address) (AutonityValidator, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getValidator", _addr)
+
+	if err != nil {
+		return *new(AutonityValidator), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutonityValidator)).(*AutonityValidator)
+	return out0, consumed, err
+
+}
+
+// GetValidators is a free data retrieval call binding the contract method 0xb7ab4db5.
+//
+// Solidity: function getValidators() view returns(address[])
+func (_AutonityTest *AutonityTest) GetValidators(opts *runOptions) ([]common.Address, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getValidators")
+
+	if err != nil {
+		return *new([]common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	return out0, consumed, err
+
+}
+
+// GetVersion is a free data retrieval call binding the contract method 0x0d8e6e2c.
+//
+// Solidity: function getVersion() view returns(uint256)
+func (_AutonityTest *AutonityTest) GetVersion(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "getVersion")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// InflationReserve is a free data retrieval call binding the contract method 0x9ac31074.
+//
+// Solidity: function inflationReserve() view returns(uint256)
+func (_AutonityTest *AutonityTest) InflationReserve(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "inflationReserve")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// LastEpochTime is a free data retrieval call binding the contract method 0x89c614b8.
+//
+// Solidity: function lastEpochTime() view returns(uint256)
+func (_AutonityTest *AutonityTest) LastEpochTime(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "lastEpochTime")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// LastFinalizedBlock is a free data retrieval call binding the contract method 0xae1da0b5.
+//
+// Solidity: function lastFinalizedBlock() view returns(uint256)
+func (_AutonityTest *AutonityTest) LastFinalizedBlock(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "lastFinalizedBlock")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// LiquidLogicContract is a free data retrieval call binding the contract method 0x96f18a32.
+//
+// Solidity: function liquidLogicContract() view returns(address)
+func (_AutonityTest *AutonityTest) LiquidLogicContract(opts *runOptions) (common.Address, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "liquidLogicContract")
+
+	if err != nil {
+		return *new(common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	return out0, consumed, err
+
+}
+
+// MaxBondAppliedGas is a free data retrieval call binding the contract method 0xcef98450.
+//
+// Solidity: function maxBondAppliedGas() view returns(uint256)
+func (_AutonityTest *AutonityTest) MaxBondAppliedGas(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "maxBondAppliedGas")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// MaxRewardsDistributionGas is a free data retrieval call binding the contract method 0x5bdedd16.
+//
+// Solidity: function maxRewardsDistributionGas() view returns(uint256)
+func (_AutonityTest *AutonityTest) MaxRewardsDistributionGas(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "maxRewardsDistributionGas")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// MaxUnbondAppliedGas is a free data retrieval call binding the contract method 0x386a827b.
+//
+// Solidity: function maxUnbondAppliedGas() view returns(uint256)
+func (_AutonityTest *AutonityTest) MaxUnbondAppliedGas(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "maxUnbondAppliedGas")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// MaxUnbondReleasedGas is a free data retrieval call binding the contract method 0x71d1bc59.
+//
+// Solidity: function maxUnbondReleasedGas() view returns(uint256)
+func (_AutonityTest *AutonityTest) MaxUnbondReleasedGas(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "maxUnbondReleasedGas")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Name is a free data retrieval call binding the contract method 0x06fdde03.
+//
+// Solidity: function name() pure returns(string)
+func (_AutonityTest *AutonityTest) Name(opts *runOptions) (string, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "name")
+
+	if err != nil {
+		return *new(string), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+	return out0, consumed, err
+
+}
+
+// StakingGasPrice is a free data retrieval call binding the contract method 0x6bb9cb0e.
+//
+// Solidity: function stakingGasPrice() view returns(uint256)
+func (_AutonityTest *AutonityTest) StakingGasPrice(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "stakingGasPrice")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Symbol is a free data retrieval call binding the contract method 0x95d89b41.
+//
+// Solidity: function symbol() pure returns(string)
+func (_AutonityTest *AutonityTest) Symbol(opts *runOptions) (string, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "symbol")
+
+	if err != nil {
+		return *new(string), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+	return out0, consumed, err
+
+}
+
+// TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
+//
+// Solidity: function totalSupply() view returns(uint256)
+func (_AutonityTest *AutonityTest) TotalSupply(opts *runOptions) (*big.Int, uint64, error) {
+	out, consumed, err := _AutonityTest.call(opts, "totalSupply")
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// SetLiquidLogicContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xf1d592a7.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function SetLiquidLogicContract(address _contract) returns()
+func (_AutonityTest *AutonityTest) CallSetLiquidLogicContract(r *runner, opts *runOptions, _contract common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "SetLiquidLogicContract", _contract)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ActivateValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb46e5520.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function activateValidator(address _address) returns()
+func (_AutonityTest *AutonityTest) CallActivateValidator(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "activateValidator", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ApplyNewCommissionRates is a free data retrieval call for a paid mutator transaction binding the contract method 0x2701849b.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function applyNewCommissionRates() returns()
+func (_AutonityTest *AutonityTest) CallApplyNewCommissionRates(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "applyNewCommissionRates")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ApplyStakingOperations is a free data retrieval call for a paid mutator transaction binding the contract method 0xdfd4b688.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function applyStakingOperations() returns()
+func (_AutonityTest *AutonityTest) CallApplyStakingOperations(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "applyStakingOperations")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Approve is a free data retrieval call for a paid mutator transaction binding the contract method 0x095ea7b3.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_AutonityTest *AutonityTest) CallApprove(r *runner, opts *runOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityTest.call(opts, "approve", spender, amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Bond is a free data retrieval call for a paid mutator transaction binding the contract method 0xa515366a.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function bond(address _validator, uint256 _amount) payable returns(uint256)
+func (_AutonityTest *AutonityTest) CallBond(r *runner, opts *runOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityTest.call(opts, "bond", _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// Burn is a free data retrieval call for a paid mutator transaction binding the contract method 0x9dc29fac.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function burn(address _addr, uint256 _amount) returns()
+func (_AutonityTest *AutonityTest) CallBurn(r *runner, opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "burn", _addr, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ChangeCommissionRate is a free data retrieval call for a paid mutator transaction binding the contract method 0x852c4849.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function changeCommissionRate(address _validator, uint256 _rate) returns()
+func (_AutonityTest *AutonityTest) CallChangeCommissionRate(r *runner, opts *runOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "changeCommissionRate", _validator, _rate)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// CompleteContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0x872cf059.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function completeContractUpgrade() returns()
+func (_AutonityTest *AutonityTest) CallCompleteContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "completeContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ComputeCommittee is a free data retrieval call for a paid mutator transaction binding the contract method 0xae1f5fa0.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function computeCommittee() returns(address[], address[])
+func (_AutonityTest *AutonityTest) CallComputeCommittee(r *runner, opts *runOptions) ([]common.Address, []common.Address, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityTest.call(opts, "computeCommittee")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new([]common.Address), *new([]common.Address), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	out1 := *abi.ConvertType(out[1], new([]common.Address)).(*[]common.Address)
+	return out0, out1, consumed, err
+
+}
+
+// Finalize is a free data retrieval call for a paid mutator transaction binding the contract method 0x4bb278f3.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function finalize() returns(bool, bool, (address,uint256,bytes)[], uint256, uint256)
+func (_AutonityTest *AutonityTest) CallFinalize(r *runner, opts *runOptions) (bool, bool, []AutonityCommitteeMember, *big.Int, *big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityTest.call(opts, "finalize")
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), *new(bool), *new([]AutonityCommitteeMember), *new(*big.Int), *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	out1 := *abi.ConvertType(out[1], new(bool)).(*bool)
+	out2 := *abi.ConvertType(out[2], new([]AutonityCommitteeMember)).(*[]AutonityCommitteeMember)
+	out3 := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	out4 := *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	return out0, out1, out2, out3, out4, consumed, err
+
+}
+
+// FinalizeInitialization is a free data retrieval call for a paid mutator transaction binding the contract method 0xd861b0e8.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function finalizeInitialization() returns()
+func (_AutonityTest *AutonityTest) CallFinalizeInitialization(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "finalizeInitialization")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Mint is a free data retrieval call for a paid mutator transaction binding the contract method 0x40c10f19.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function mint(address _addr, uint256 _amount) returns()
+func (_AutonityTest *AutonityTest) CallMint(r *runner, opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "mint", _addr, _amount)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// PauseValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0x0ae65e7a.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function pauseValidator(address _address) returns()
+func (_AutonityTest *AutonityTest) CallPauseValidator(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "pauseValidator", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ReceiveATN is a free data retrieval call for a paid mutator transaction binding the contract method 0x161605e3.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function receiveATN() payable returns()
+func (_AutonityTest *AutonityTest) CallReceiveATN(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "receiveATN")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// RegisterValidator is a free data retrieval call for a paid mutator transaction binding the contract method 0x84467fdb.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function registerValidator(string _enode, address _oracleAddress, bytes _consensusKey, bytes _signatures) returns()
+func (_AutonityTest *AutonityTest) CallRegisterValidator(r *runner, opts *runOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "registerValidator", _enode, _oracleAddress, _consensusKey, _signatures)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// ResetContractUpgrade is a free data retrieval call for a paid mutator transaction binding the contract method 0xcf9c5719.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function resetContractUpgrade() returns()
+func (_AutonityTest *AutonityTest) CallResetContractUpgrade(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "resetContractUpgrade")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetAccountabilityContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x1250a28d.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setAccountabilityContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetAccountabilityContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setAccountabilityContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetAcuContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xd372c07e.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setAcuContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetAcuContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setAcuContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetCommitteeSize is a free data retrieval call for a paid mutator transaction binding the contract method 0x8bac7dad.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setCommitteeSize(uint256 _size) returns()
+func (_AutonityTest *AutonityTest) CallSetCommitteeSize(r *runner, opts *runOptions, _size *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setCommitteeSize", _size)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetEpochPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x6b5f444c.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setEpochPeriod(uint256 _period) returns()
+func (_AutonityTest *AutonityTest) CallSetEpochPeriod(r *runner, opts *runOptions, _period *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setEpochPeriod", _period)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetInflationControllerContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xf03b959d.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setInflationControllerContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetInflationControllerContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setInflationControllerContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxBondAppliedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x0fe50109.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setMaxBondAppliedGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) CallSetMaxBondAppliedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setMaxBondAppliedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxRewardsDistributionGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x7e660ac9.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setMaxRewardsDistributionGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) CallSetMaxRewardsDistributionGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setMaxRewardsDistributionGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxUnbondAppliedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0x0b21fb1d.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setMaxUnbondAppliedGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) CallSetMaxUnbondAppliedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setMaxUnbondAppliedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMaxUnbondReleasedGas is a free data retrieval call for a paid mutator transaction binding the contract method 0xee7ff28d.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setMaxUnbondReleasedGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) CallSetMaxUnbondReleasedGas(r *runner, opts *runOptions, _gas *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setMaxUnbondReleasedGas", _gas)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetMinimumBaseFee is a free data retrieval call for a paid mutator transaction binding the contract method 0xcb696f54.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setMinimumBaseFee(uint256 _price) returns()
+func (_AutonityTest *AutonityTest) CallSetMinimumBaseFee(r *runner, opts *runOptions, _price *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setMinimumBaseFee", _price)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetNonStakableVestingContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x1a0cf2e5.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setNonStakableVestingContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetNonStakableVestingContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setNonStakableVestingContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOperatorAccount is a free data retrieval call for a paid mutator transaction binding the contract method 0x520fdbbc.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setOperatorAccount(address _account) returns()
+func (_AutonityTest *AutonityTest) CallSetOperatorAccount(r *runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setOperatorAccount", _account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetOracleContract is a free data retrieval call for a paid mutator transaction binding the contract method 0x496ccd9b.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setOracleContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetOracleContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setOracleContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStabilizationContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xcfd19fb9.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setStabilizationContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetStabilizationContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setStabilizationContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetStakingGasPrice is a free data retrieval call for a paid mutator transaction binding the contract method 0x6a929cef.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setStakingGasPrice(uint256 _price) returns()
+func (_AutonityTest *AutonityTest) CallSetStakingGasPrice(r *runner, opts *runOptions, _price *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setStakingGasPrice", _price)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetSupplyControlContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ecbadd.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setSupplyControlContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetSupplyControlContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setSupplyControlContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTreasuryAccount is a free data retrieval call for a paid mutator transaction binding the contract method 0xd886f8a2.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setTreasuryAccount(address _account) returns()
+func (_AutonityTest *AutonityTest) CallSetTreasuryAccount(r *runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setTreasuryAccount", _account)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetTreasuryFee is a free data retrieval call for a paid mutator transaction binding the contract method 0x77e741c7.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setTreasuryFee(uint256 _treasuryFee) returns()
+func (_AutonityTest *AutonityTest) CallSetTreasuryFee(r *runner, opts *runOptions, _treasuryFee *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setTreasuryFee", _treasuryFee)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetUnbondingPeriod is a free data retrieval call for a paid mutator transaction binding the contract method 0x114eaf55.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setUnbondingPeriod(uint256 _period) returns()
+func (_AutonityTest *AutonityTest) CallSetUnbondingPeriod(r *runner, opts *runOptions, _period *big.Int) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setUnbondingPeriod", _period)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetUpgradeManagerContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xceaad455.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function setUpgradeManagerContract(address _address) returns()
+func (_AutonityTest *AutonityTest) CallSetUpgradeManagerContract(r *runner, opts *runOptions, _address common.Address) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "setUpgradeManagerContract", _address)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// TestComputeCommittee is a free data retrieval call for a paid mutator transaction binding the contract method 0x676c24ab.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function testComputeCommittee() returns()
+func (_AutonityTest *AutonityTest) CallTestComputeCommittee(r *runner, opts *runOptions) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "testComputeCommittee")
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// Transfer is a free data retrieval call for a paid mutator transaction binding the contract method 0xa9059cbb.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function transfer(address _recipient, uint256 _amount) returns(bool)
+func (_AutonityTest *AutonityTest) CallTransfer(r *runner, opts *runOptions, _recipient common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityTest.call(opts, "transfer", _recipient, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// TransferFrom is a free data retrieval call for a paid mutator transaction binding the contract method 0x23b872dd.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function transferFrom(address _sender, address _recipient, uint256 _amount) returns(bool)
+func (_AutonityTest *AutonityTest) CallTransferFrom(r *runner, opts *runOptions, _sender common.Address, _recipient common.Address, _amount *big.Int) (bool, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityTest.call(opts, "transferFrom", _sender, _recipient, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(bool), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+	return out0, consumed, err
+
+}
+
+// Unbond is a free data retrieval call for a paid mutator transaction binding the contract method 0xa5d059ca.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function unbond(address _validator, uint256 _amount) payable returns(uint256)
+func (_AutonityTest *AutonityTest) CallUnbond(r *runner, opts *runOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+	snap := r.snapshot()
+
+	out, consumed, err := _AutonityTest.call(opts, "unbond", _validator, _amount)
+	r.revertSnapshot(snap)
+
+	if err != nil {
+		return *new(*big.Int), consumed, err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	return out0, consumed, err
+
+}
+
+// UpdateEnode is a free data retrieval call for a paid mutator transaction binding the contract method 0x784304b5.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function updateEnode(address _nodeAddress, string _enode) returns()
+func (_AutonityTest *AutonityTest) CallUpdateEnode(r *runner, opts *runOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "updateEnode", _nodeAddress, _enode)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpdateValidatorAndTransferSlashedFunds is a free data retrieval call for a paid mutator transaction binding the contract method 0x35be16e0.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8) _val) returns()
+func (_AutonityTest *AutonityTest) CallUpdateValidatorAndTransferSlashedFunds(r *runner, opts *runOptions, _val AutonityValidator) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "updateValidatorAndTransferSlashedFunds", _val)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// UpgradeContract is a free data retrieval call for a paid mutator transaction binding the contract method 0xb2ea9adb.
+// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
+// the same way as done above for view only functions.
+// Solidity: function upgradeContract(bytes _bytecode, string _abi) returns()
+func (_AutonityTest *AutonityTest) CallUpgradeContract(r *runner, opts *runOptions, _bytecode []byte, _abi string) (uint64, error) {
+	snap := r.snapshot()
+
+	_, consumed, err := _AutonityTest.call(opts, "upgradeContract", _bytecode, _abi)
+	r.revertSnapshot(snap)
+	return consumed, err
+
+}
+
+// SetLiquidLogicContract is a paid mutator transaction binding the contract method 0xf1d592a7.
+//
+// Solidity: function SetLiquidLogicContract(address _contract) returns()
+func (_AutonityTest *AutonityTest) SetLiquidLogicContract(opts *runOptions, _contract common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "SetLiquidLogicContract", _contract)
+	return consumed, err
+}
+
+// ActivateValidator is a paid mutator transaction binding the contract method 0xb46e5520.
+//
+// Solidity: function activateValidator(address _address) returns()
+func (_AutonityTest *AutonityTest) ActivateValidator(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "activateValidator", _address)
+	return consumed, err
+}
+
+// ApplyNewCommissionRates is a paid mutator transaction binding the contract method 0x2701849b.
+//
+// Solidity: function applyNewCommissionRates() returns()
+func (_AutonityTest *AutonityTest) ApplyNewCommissionRates(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "applyNewCommissionRates")
+	return consumed, err
+}
+
+// ApplyStakingOperations is a paid mutator transaction binding the contract method 0xdfd4b688.
+//
+// Solidity: function applyStakingOperations() returns()
+func (_AutonityTest *AutonityTest) ApplyStakingOperations(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "applyStakingOperations")
+	return consumed, err
+}
+
+// Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
+//
+// Solidity: function approve(address spender, uint256 amount) returns(bool)
+func (_AutonityTest *AutonityTest) Approve(opts *runOptions, spender common.Address, amount *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "approve", spender, amount)
+	return consumed, err
+}
+
+// Bond is a paid mutator transaction binding the contract method 0xa515366a.
+//
+// Solidity: function bond(address _validator, uint256 _amount) payable returns(uint256)
+func (_AutonityTest *AutonityTest) Bond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "bond", _validator, _amount)
+	return consumed, err
+}
+
+// Burn is a paid mutator transaction binding the contract method 0x9dc29fac.
+//
+// Solidity: function burn(address _addr, uint256 _amount) returns()
+func (_AutonityTest *AutonityTest) Burn(opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "burn", _addr, _amount)
+	return consumed, err
+}
+
+// ChangeCommissionRate is a paid mutator transaction binding the contract method 0x852c4849.
+//
+// Solidity: function changeCommissionRate(address _validator, uint256 _rate) returns()
+func (_AutonityTest *AutonityTest) ChangeCommissionRate(opts *runOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "changeCommissionRate", _validator, _rate)
+	return consumed, err
+}
+
+// CompleteContractUpgrade is a paid mutator transaction binding the contract method 0x872cf059.
+//
+// Solidity: function completeContractUpgrade() returns()
+func (_AutonityTest *AutonityTest) CompleteContractUpgrade(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "completeContractUpgrade")
+	return consumed, err
+}
+
+// ComputeCommittee is a paid mutator transaction binding the contract method 0xae1f5fa0.
+//
+// Solidity: function computeCommittee() returns(address[], address[])
+func (_AutonityTest *AutonityTest) ComputeCommittee(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "computeCommittee")
+	return consumed, err
+}
+
+// Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
+//
+// Solidity: function finalize() returns(bool, bool, (address,uint256,bytes)[], uint256, uint256)
+func (_AutonityTest *AutonityTest) Finalize(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "finalize")
+	return consumed, err
+}
+
+// FinalizeInitialization is a paid mutator transaction binding the contract method 0xd861b0e8.
+//
+// Solidity: function finalizeInitialization() returns()
+func (_AutonityTest *AutonityTest) FinalizeInitialization(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "finalizeInitialization")
+	return consumed, err
+}
+
+// Mint is a paid mutator transaction binding the contract method 0x40c10f19.
+//
+// Solidity: function mint(address _addr, uint256 _amount) returns()
+func (_AutonityTest *AutonityTest) Mint(opts *runOptions, _addr common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "mint", _addr, _amount)
+	return consumed, err
+}
+
+// PauseValidator is a paid mutator transaction binding the contract method 0x0ae65e7a.
+//
+// Solidity: function pauseValidator(address _address) returns()
+func (_AutonityTest *AutonityTest) PauseValidator(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "pauseValidator", _address)
+	return consumed, err
+}
+
+// ReceiveATN is a paid mutator transaction binding the contract method 0x161605e3.
+//
+// Solidity: function receiveATN() payable returns()
+func (_AutonityTest *AutonityTest) ReceiveATN(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "receiveATN")
+	return consumed, err
+}
+
+// RegisterValidator is a paid mutator transaction binding the contract method 0x84467fdb.
+//
+// Solidity: function registerValidator(string _enode, address _oracleAddress, bytes _consensusKey, bytes _signatures) returns()
+func (_AutonityTest *AutonityTest) RegisterValidator(opts *runOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "registerValidator", _enode, _oracleAddress, _consensusKey, _signatures)
+	return consumed, err
+}
+
+// ResetContractUpgrade is a paid mutator transaction binding the contract method 0xcf9c5719.
+//
+// Solidity: function resetContractUpgrade() returns()
+func (_AutonityTest *AutonityTest) ResetContractUpgrade(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "resetContractUpgrade")
+	return consumed, err
+}
+
+// SetAccountabilityContract is a paid mutator transaction binding the contract method 0x1250a28d.
+//
+// Solidity: function setAccountabilityContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetAccountabilityContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setAccountabilityContract", _address)
+	return consumed, err
+}
+
+// SetAcuContract is a paid mutator transaction binding the contract method 0xd372c07e.
+//
+// Solidity: function setAcuContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetAcuContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setAcuContract", _address)
+	return consumed, err
+}
+
+// SetCommitteeSize is a paid mutator transaction binding the contract method 0x8bac7dad.
+//
+// Solidity: function setCommitteeSize(uint256 _size) returns()
+func (_AutonityTest *AutonityTest) SetCommitteeSize(opts *runOptions, _size *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setCommitteeSize", _size)
+	return consumed, err
+}
+
+// SetEpochPeriod is a paid mutator transaction binding the contract method 0x6b5f444c.
+//
+// Solidity: function setEpochPeriod(uint256 _period) returns()
+func (_AutonityTest *AutonityTest) SetEpochPeriod(opts *runOptions, _period *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setEpochPeriod", _period)
+	return consumed, err
+}
+
+// SetInflationControllerContract is a paid mutator transaction binding the contract method 0xf03b959d.
+//
+// Solidity: function setInflationControllerContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetInflationControllerContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setInflationControllerContract", _address)
+	return consumed, err
+}
+
+// SetMaxBondAppliedGas is a paid mutator transaction binding the contract method 0x0fe50109.
+//
+// Solidity: function setMaxBondAppliedGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) SetMaxBondAppliedGas(opts *runOptions, _gas *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setMaxBondAppliedGas", _gas)
+	return consumed, err
+}
+
+// SetMaxRewardsDistributionGas is a paid mutator transaction binding the contract method 0x7e660ac9.
+//
+// Solidity: function setMaxRewardsDistributionGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) SetMaxRewardsDistributionGas(opts *runOptions, _gas *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setMaxRewardsDistributionGas", _gas)
+	return consumed, err
+}
+
+// SetMaxUnbondAppliedGas is a paid mutator transaction binding the contract method 0x0b21fb1d.
+//
+// Solidity: function setMaxUnbondAppliedGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) SetMaxUnbondAppliedGas(opts *runOptions, _gas *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setMaxUnbondAppliedGas", _gas)
+	return consumed, err
+}
+
+// SetMaxUnbondReleasedGas is a paid mutator transaction binding the contract method 0xee7ff28d.
+//
+// Solidity: function setMaxUnbondReleasedGas(uint256 _gas) returns()
+func (_AutonityTest *AutonityTest) SetMaxUnbondReleasedGas(opts *runOptions, _gas *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setMaxUnbondReleasedGas", _gas)
+	return consumed, err
+}
+
+// SetMinimumBaseFee is a paid mutator transaction binding the contract method 0xcb696f54.
+//
+// Solidity: function setMinimumBaseFee(uint256 _price) returns()
+func (_AutonityTest *AutonityTest) SetMinimumBaseFee(opts *runOptions, _price *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setMinimumBaseFee", _price)
+	return consumed, err
+}
+
+// SetNonStakableVestingContract is a paid mutator transaction binding the contract method 0x1a0cf2e5.
+//
+// Solidity: function setNonStakableVestingContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetNonStakableVestingContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setNonStakableVestingContract", _address)
+	return consumed, err
+}
+
+// SetOperatorAccount is a paid mutator transaction binding the contract method 0x520fdbbc.
+//
+// Solidity: function setOperatorAccount(address _account) returns()
+func (_AutonityTest *AutonityTest) SetOperatorAccount(opts *runOptions, _account common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setOperatorAccount", _account)
+	return consumed, err
+}
+
+// SetOracleContract is a paid mutator transaction binding the contract method 0x496ccd9b.
+//
+// Solidity: function setOracleContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetOracleContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setOracleContract", _address)
+	return consumed, err
+}
+
+// SetStabilizationContract is a paid mutator transaction binding the contract method 0xcfd19fb9.
+//
+// Solidity: function setStabilizationContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetStabilizationContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setStabilizationContract", _address)
+	return consumed, err
+}
+
+// SetStakingGasPrice is a paid mutator transaction binding the contract method 0x6a929cef.
+//
+// Solidity: function setStakingGasPrice(uint256 _price) returns()
+func (_AutonityTest *AutonityTest) SetStakingGasPrice(opts *runOptions, _price *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setStakingGasPrice", _price)
+	return consumed, err
+}
+
+// SetSupplyControlContract is a paid mutator transaction binding the contract method 0xb3ecbadd.
+//
+// Solidity: function setSupplyControlContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetSupplyControlContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setSupplyControlContract", _address)
+	return consumed, err
+}
+
+// SetTreasuryAccount is a paid mutator transaction binding the contract method 0xd886f8a2.
+//
+// Solidity: function setTreasuryAccount(address _account) returns()
+func (_AutonityTest *AutonityTest) SetTreasuryAccount(opts *runOptions, _account common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setTreasuryAccount", _account)
+	return consumed, err
+}
+
+// SetTreasuryFee is a paid mutator transaction binding the contract method 0x77e741c7.
+//
+// Solidity: function setTreasuryFee(uint256 _treasuryFee) returns()
+func (_AutonityTest *AutonityTest) SetTreasuryFee(opts *runOptions, _treasuryFee *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setTreasuryFee", _treasuryFee)
+	return consumed, err
+}
+
+// SetUnbondingPeriod is a paid mutator transaction binding the contract method 0x114eaf55.
+//
+// Solidity: function setUnbondingPeriod(uint256 _period) returns()
+func (_AutonityTest *AutonityTest) SetUnbondingPeriod(opts *runOptions, _period *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setUnbondingPeriod", _period)
+	return consumed, err
+}
+
+// SetUpgradeManagerContract is a paid mutator transaction binding the contract method 0xceaad455.
+//
+// Solidity: function setUpgradeManagerContract(address _address) returns()
+func (_AutonityTest *AutonityTest) SetUpgradeManagerContract(opts *runOptions, _address common.Address) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "setUpgradeManagerContract", _address)
+	return consumed, err
+}
+
+// TestComputeCommittee is a paid mutator transaction binding the contract method 0x676c24ab.
+//
+// Solidity: function testComputeCommittee() returns()
+func (_AutonityTest *AutonityTest) TestComputeCommittee(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "testComputeCommittee")
+	return consumed, err
+}
+
+// Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
+//
+// Solidity: function transfer(address _recipient, uint256 _amount) returns(bool)
+func (_AutonityTest *AutonityTest) Transfer(opts *runOptions, _recipient common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "transfer", _recipient, _amount)
+	return consumed, err
+}
+
+// TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
+//
+// Solidity: function transferFrom(address _sender, address _recipient, uint256 _amount) returns(bool)
+func (_AutonityTest *AutonityTest) TransferFrom(opts *runOptions, _sender common.Address, _recipient common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "transferFrom", _sender, _recipient, _amount)
+	return consumed, err
+}
+
+// Unbond is a paid mutator transaction binding the contract method 0xa5d059ca.
+//
+// Solidity: function unbond(address _validator, uint256 _amount) payable returns(uint256)
+func (_AutonityTest *AutonityTest) Unbond(opts *runOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "unbond", _validator, _amount)
+	return consumed, err
+}
+
+// UpdateEnode is a paid mutator transaction binding the contract method 0x784304b5.
+//
+// Solidity: function updateEnode(address _nodeAddress, string _enode) returns()
+func (_AutonityTest *AutonityTest) UpdateEnode(opts *runOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "updateEnode", _nodeAddress, _enode)
+	return consumed, err
+}
+
+// UpdateValidatorAndTransferSlashedFunds is a paid mutator transaction binding the contract method 0x35be16e0.
+//
+// Solidity: function updateValidatorAndTransferSlashedFunds((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8) _val) returns()
+func (_AutonityTest *AutonityTest) UpdateValidatorAndTransferSlashedFunds(opts *runOptions, _val AutonityValidator) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "updateValidatorAndTransferSlashedFunds", _val)
+	return consumed, err
+}
+
+// UpgradeContract is a paid mutator transaction binding the contract method 0xb2ea9adb.
+//
+// Solidity: function upgradeContract(bytes _bytecode, string _abi) returns()
+func (_AutonityTest *AutonityTest) UpgradeContract(opts *runOptions, _bytecode []byte, _abi string) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "upgradeContract", _bytecode, _abi)
+	return consumed, err
+}
+
+// Fallback is a paid mutator transaction binding the contract fallback function.
+// WARNING! UNTESTED
+// Solidity: fallback() payable returns()
+func (_AutonityTest *AutonityTest) Fallback(opts *runOptions, calldata []byte) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "", calldata)
+	return consumed, err
+}
+
+// Receive is a paid mutator transaction binding the contract receive function.
+// WARNING! UNTESTED
+// Solidity: receive() payable returns()
+func (_AutonityTest *AutonityTest) Receive(opts *runOptions) (uint64, error) {
+	_, consumed, err := _AutonityTest.call(opts, "")
+	return consumed, err
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestActivatedValidatorIterator is returned from FilterActivatedValidator and is used to iterate over the raw logs and unpacked data for ActivatedValidator events raised by the AutonityTest contract.
+type AutonityTestActivatedValidatorIterator struct {
+	Event *AutonityTestActivatedValidator // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestActivatedValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestActivatedValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestActivatedValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestActivatedValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestActivatedValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestActivatedValidator represents a ActivatedValidator event raised by the AutonityTest contract.
+type AutonityTestActivatedValidator struct {
+	Treasury       common.Address
+	Addr           common.Address
+	EffectiveBlock *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestActivatedValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestActivatedValidator *AutonityTestActivatedValidator) SetRaw(log types.Log) {
+	_AutonityTestActivatedValidator.Raw = log
+}
+
+// AutonityTestActivatedValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestActivatedValidator *AutonityTestActivatedValidator) GetRaw() types.Log {
+	return _AutonityTestActivatedValidator.Raw
+}
+
+/*
+		// FilterActivatedValidator is a free log retrieval operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
 		//
-		// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
-		func (_Autonity *Autonity) ParseUnlockingScheduleFailed(log types.Log) (*AutonityUnlockingScheduleFailed, error) {
-			event := new(AutonityUnlockingScheduleFailed)
-			if err := _Autonity.contract.UnpackLog(event, "UnlockingScheduleFailed", log); err != nil {
+		// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+ 		func (_AutonityTest *AutonityTest) FilterActivatedValidator(opts *bind.FilterOpts, treasury []common.Address, addr []common.Address) (*AutonityTestActivatedValidatorIterator, error) {
+
+			var treasuryRule []interface{}
+			for _, treasuryItem := range treasury {
+				treasuryRule = append(treasuryRule, treasuryItem)
+			}
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "ActivatedValidator", treasuryRule, addrRule)
+			if err != nil {
 				return nil, err
 			}
-			event.Raw = log
-			return event, nil
+			return &AutonityTestActivatedValidatorIterator{contract: _AutonityTest.contract, event: "ActivatedValidator", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchActivatedValidator is a free log subscription operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
+		//
+		// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+		func (_AutonityTest *AutonityTest) WatchActivatedValidator(opts *bind.WatchOpts, sink chan<- *AutonityTestActivatedValidator, treasury []common.Address, addr []common.Address) (event.Subscription, error) {
+
+			var treasuryRule []interface{}
+			for _, treasuryItem := range treasury {
+				treasuryRule = append(treasuryRule, treasuryItem)
+			}
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "ActivatedValidator", treasuryRule, addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestActivatedValidator)
+						if err := _AutonityTest.contract.UnpackLog(event, "ActivatedValidator", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
 		}
-
-
 */
+
+// ParseActivatedValidator is a log parse operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
+//
+// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+func (_AutonityTest *AutonityTest) ParseActivatedValidator(log types.Log) (*AutonityTestActivatedValidator, error) {
+	event := new(AutonityTestActivatedValidator)
+	if err := _AutonityTest.contract.unpackLog(event, "ActivatedValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestAppliedUnbondingRevertedIterator is returned from FilterAppliedUnbondingReverted and is used to iterate over the raw logs and unpacked data for AppliedUnbondingReverted events raised by the AutonityTest contract.
+type AutonityTestAppliedUnbondingRevertedIterator struct {
+	Event *AutonityTestAppliedUnbondingReverted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestAppliedUnbondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestAppliedUnbondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestAppliedUnbondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestAppliedUnbondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestAppliedUnbondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestAppliedUnbondingReverted represents a AppliedUnbondingReverted event raised by the AutonityTest contract.
+type AutonityTestAppliedUnbondingReverted struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestAppliedUnbondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestAppliedUnbondingReverted *AutonityTestAppliedUnbondingReverted) SetRaw(log types.Log) {
+	_AutonityTestAppliedUnbondingReverted.Raw = log
+}
+
+// AutonityTestAppliedUnbondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestAppliedUnbondingReverted *AutonityTestAppliedUnbondingReverted) GetRaw() types.Log {
+	return _AutonityTestAppliedUnbondingReverted.Raw
+}
+
+/*
+		// FilterAppliedUnbondingReverted is a free log retrieval operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterAppliedUnbondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityTestAppliedUnbondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "AppliedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestAppliedUnbondingRevertedIterator{contract: _AutonityTest.contract, event: "AppliedUnbondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchAppliedUnbondingReverted is a free log subscription operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+		//
+		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchAppliedUnbondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityTestAppliedUnbondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "AppliedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestAppliedUnbondingReverted)
+						if err := _AutonityTest.contract.UnpackLog(event, "AppliedUnbondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseAppliedUnbondingReverted is a log parse operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+//
+// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseAppliedUnbondingReverted(log types.Log) (*AutonityTestAppliedUnbondingReverted, error) {
+	event := new(AutonityTestAppliedUnbondingReverted)
+	if err := _AutonityTest.contract.unpackLog(event, "AppliedUnbondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the AutonityTest contract.
+type AutonityTestApprovalIterator struct {
+	Event *AutonityTestApproval // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestApprovalIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestApproval)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestApproval)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestApprovalIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestApprovalIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestApproval represents a Approval event raised by the AutonityTest contract.
+type AutonityTestApproval struct {
+	Owner   common.Address
+	Spender common.Address
+	Value   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestApproval.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestApproval *AutonityTestApproval) SetRaw(log types.Log) {
+	_AutonityTestApproval.Raw = log
+}
+
+// AutonityTestApproval.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestApproval *AutonityTestApproval) GetRaw() types.Log {
+	return _AutonityTestApproval.Raw
+}
+
+/*
+		// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+		//
+		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+ 		func (_AutonityTest *AutonityTest) FilterApproval(opts *bind.FilterOpts, owner []common.Address, spender []common.Address) (*AutonityTestApprovalIterator, error) {
+
+			var ownerRule []interface{}
+			for _, ownerItem := range owner {
+				ownerRule = append(ownerRule, ownerItem)
+			}
+			var spenderRule []interface{}
+			for _, spenderItem := range spender {
+				spenderRule = append(spenderRule, spenderItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "Approval", ownerRule, spenderRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestApprovalIterator{contract: _AutonityTest.contract, event: "Approval", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchApproval is a free log subscription operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+		//
+		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+		func (_AutonityTest *AutonityTest) WatchApproval(opts *bind.WatchOpts, sink chan<- *AutonityTestApproval, owner []common.Address, spender []common.Address) (event.Subscription, error) {
+
+			var ownerRule []interface{}
+			for _, ownerItem := range owner {
+				ownerRule = append(ownerRule, ownerItem)
+			}
+			var spenderRule []interface{}
+			for _, spenderItem := range spender {
+				spenderRule = append(spenderRule, spenderItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "Approval", ownerRule, spenderRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestApproval)
+						if err := _AutonityTest.contract.UnpackLog(event, "Approval", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_AutonityTest *AutonityTest) ParseApproval(log types.Log) (*AutonityTestApproval, error) {
+	event := new(AutonityTestApproval)
+	if err := _AutonityTest.contract.unpackLog(event, "Approval", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestBondingRejectedIterator is returned from FilterBondingRejected and is used to iterate over the raw logs and unpacked data for BondingRejected events raised by the AutonityTest contract.
+type AutonityTestBondingRejectedIterator struct {
+	Event *AutonityTestBondingRejected // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestBondingRejectedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestBondingRejected)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestBondingRejected)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestBondingRejectedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestBondingRejectedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestBondingRejected represents a BondingRejected event raised by the AutonityTest contract.
+type AutonityTestBondingRejected struct {
+	Validator common.Address
+	Delegator common.Address
+	Amount    *big.Int
+	State     uint8
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestBondingRejected.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestBondingRejected *AutonityTestBondingRejected) SetRaw(log types.Log) {
+	_AutonityTestBondingRejected.Raw = log
+}
+
+// AutonityTestBondingRejected.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestBondingRejected *AutonityTestBondingRejected) GetRaw() types.Log {
+	return _AutonityTestBondingRejected.Raw
+}
+
+/*
+		// FilterBondingRejected is a free log retrieval operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
+		//
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+ 		func (_AutonityTest *AutonityTest) FilterBondingRejected(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityTestBondingRejectedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "BondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestBondingRejectedIterator{contract: _AutonityTest.contract, event: "BondingRejected", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchBondingRejected is a free log subscription operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
+		//
+		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+		func (_AutonityTest *AutonityTest) WatchBondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityTestBondingRejected, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "BondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestBondingRejected)
+						if err := _AutonityTest.contract.UnpackLog(event, "BondingRejected", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
+//
+// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+func (_AutonityTest *AutonityTest) ParseBondingRejected(log types.Log) (*AutonityTestBondingRejected, error) {
+	event := new(AutonityTestBondingRejected)
+	if err := _AutonityTest.contract.unpackLog(event, "BondingRejected", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestBondingRevertedIterator is returned from FilterBondingReverted and is used to iterate over the raw logs and unpacked data for BondingReverted events raised by the AutonityTest contract.
+type AutonityTestBondingRevertedIterator struct {
+	Event *AutonityTestBondingReverted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestBondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestBondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestBondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestBondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestBondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestBondingReverted represents a BondingReverted event raised by the AutonityTest contract.
+type AutonityTestBondingReverted struct {
+	Validator common.Address
+	Delegator common.Address
+	Amount    *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestBondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestBondingReverted *AutonityTestBondingReverted) SetRaw(log types.Log) {
+	_AutonityTestBondingReverted.Raw = log
+}
+
+// AutonityTestBondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestBondingReverted *AutonityTestBondingReverted) GetRaw() types.Log {
+	return _AutonityTestBondingReverted.Raw
+}
+
+/*
+		// FilterBondingReverted is a free log retrieval operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterBondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityTestBondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "BondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestBondingRevertedIterator{contract: _AutonityTest.contract, event: "BondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchBondingReverted is a free log subscription operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+		//
+		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchBondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityTestBondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "BondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestBondingReverted)
+						if err := _AutonityTest.contract.UnpackLog(event, "BondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseBondingReverted is a log parse operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+//
+// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseBondingReverted(log types.Log) (*AutonityTestBondingReverted, error) {
+	event := new(AutonityTestBondingReverted)
+	if err := _AutonityTest.contract.unpackLog(event, "BondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestBurnedStakeIterator is returned from FilterBurnedStake and is used to iterate over the raw logs and unpacked data for BurnedStake events raised by the AutonityTest contract.
+type AutonityTestBurnedStakeIterator struct {
+	Event *AutonityTestBurnedStake // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestBurnedStakeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestBurnedStake)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestBurnedStake)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestBurnedStakeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestBurnedStakeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestBurnedStake represents a BurnedStake event raised by the AutonityTest contract.
+type AutonityTestBurnedStake struct {
+	Addr   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestBurnedStake.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestBurnedStake *AutonityTestBurnedStake) SetRaw(log types.Log) {
+	_AutonityTestBurnedStake.Raw = log
+}
+
+// AutonityTestBurnedStake.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestBurnedStake *AutonityTestBurnedStake) GetRaw() types.Log {
+	return _AutonityTestBurnedStake.Raw
+}
+
+/*
+		// FilterBurnedStake is a free log retrieval operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
+		//
+		// Solidity: event BurnedStake(address indexed addr, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterBurnedStake(opts *bind.FilterOpts, addr []common.Address) (*AutonityTestBurnedStakeIterator, error) {
+
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "BurnedStake", addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestBurnedStakeIterator{contract: _AutonityTest.contract, event: "BurnedStake", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchBurnedStake is a free log subscription operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
+		//
+		// Solidity: event BurnedStake(address indexed addr, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchBurnedStake(opts *bind.WatchOpts, sink chan<- *AutonityTestBurnedStake, addr []common.Address) (event.Subscription, error) {
+
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "BurnedStake", addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestBurnedStake)
+						if err := _AutonityTest.contract.UnpackLog(event, "BurnedStake", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseBurnedStake is a log parse operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
+//
+// Solidity: event BurnedStake(address indexed addr, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseBurnedStake(log types.Log) (*AutonityTestBurnedStake, error) {
+	event := new(AutonityTestBurnedStake)
+	if err := _AutonityTest.contract.unpackLog(event, "BurnedStake", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestCallFailedIterator is returned from FilterCallFailed and is used to iterate over the raw logs and unpacked data for CallFailed events raised by the AutonityTest contract.
+type AutonityTestCallFailedIterator struct {
+	Event *AutonityTestCallFailed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestCallFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestCallFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestCallFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestCallFailedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestCallFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestCallFailed represents a CallFailed event raised by the AutonityTest contract.
+type AutonityTestCallFailed struct {
+	To              common.Address
+	MethodSignature string
+	ReturnData      []byte
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestCallFailed.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestCallFailed *AutonityTestCallFailed) SetRaw(log types.Log) {
+	_AutonityTestCallFailed.Raw = log
+}
+
+// AutonityTestCallFailed.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestCallFailed *AutonityTestCallFailed) GetRaw() types.Log {
+	return _AutonityTestCallFailed.Raw
+}
+
+/*
+		// FilterCallFailed is a free log retrieval operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
+		//
+		// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
+ 		func (_AutonityTest *AutonityTest) FilterCallFailed(opts *bind.FilterOpts) (*AutonityTestCallFailedIterator, error) {
+
+
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "CallFailed")
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestCallFailedIterator{contract: _AutonityTest.contract, event: "CallFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchCallFailed is a free log subscription operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
+		//
+		// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
+		func (_AutonityTest *AutonityTest) WatchCallFailed(opts *bind.WatchOpts, sink chan<- *AutonityTestCallFailed) (event.Subscription, error) {
+
+
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "CallFailed")
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestCallFailed)
+						if err := _AutonityTest.contract.UnpackLog(event, "CallFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseCallFailed is a log parse operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
+//
+// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
+func (_AutonityTest *AutonityTest) ParseCallFailed(log types.Log) (*AutonityTestCallFailed, error) {
+	event := new(AutonityTestCallFailed)
+	if err := _AutonityTest.contract.unpackLog(event, "CallFailed", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestCommissionRateChangeIterator is returned from FilterCommissionRateChange and is used to iterate over the raw logs and unpacked data for CommissionRateChange events raised by the AutonityTest contract.
+type AutonityTestCommissionRateChangeIterator struct {
+	Event *AutonityTestCommissionRateChange // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestCommissionRateChangeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestCommissionRateChange)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestCommissionRateChange)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestCommissionRateChangeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestCommissionRateChangeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestCommissionRateChange represents a CommissionRateChange event raised by the AutonityTest contract.
+type AutonityTestCommissionRateChange struct {
+	Validator common.Address
+	Rate      *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestCommissionRateChange.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestCommissionRateChange *AutonityTestCommissionRateChange) SetRaw(log types.Log) {
+	_AutonityTestCommissionRateChange.Raw = log
+}
+
+// AutonityTestCommissionRateChange.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestCommissionRateChange *AutonityTestCommissionRateChange) GetRaw() types.Log {
+	return _AutonityTestCommissionRateChange.Raw
+}
+
+/*
+		// FilterCommissionRateChange is a free log retrieval operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
+		//
+		// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
+ 		func (_AutonityTest *AutonityTest) FilterCommissionRateChange(opts *bind.FilterOpts, validator []common.Address) (*AutonityTestCommissionRateChangeIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "CommissionRateChange", validatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestCommissionRateChangeIterator{contract: _AutonityTest.contract, event: "CommissionRateChange", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchCommissionRateChange is a free log subscription operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
+		//
+		// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
+		func (_AutonityTest *AutonityTest) WatchCommissionRateChange(opts *bind.WatchOpts, sink chan<- *AutonityTestCommissionRateChange, validator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "CommissionRateChange", validatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestCommissionRateChange)
+						if err := _AutonityTest.contract.UnpackLog(event, "CommissionRateChange", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseCommissionRateChange is a log parse operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
+//
+// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
+func (_AutonityTest *AutonityTest) ParseCommissionRateChange(log types.Log) (*AutonityTestCommissionRateChange, error) {
+	event := new(AutonityTestCommissionRateChange)
+	if err := _AutonityTest.contract.unpackLog(event, "CommissionRateChange", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestEpochPeriodUpdatedIterator is returned from FilterEpochPeriodUpdated and is used to iterate over the raw logs and unpacked data for EpochPeriodUpdated events raised by the AutonityTest contract.
+type AutonityTestEpochPeriodUpdatedIterator struct {
+	Event *AutonityTestEpochPeriodUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestEpochPeriodUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestEpochPeriodUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestEpochPeriodUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestEpochPeriodUpdatedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestEpochPeriodUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestEpochPeriodUpdated represents a EpochPeriodUpdated event raised by the AutonityTest contract.
+type AutonityTestEpochPeriodUpdated struct {
+	Period             *big.Int
+	ToBeAppliedAtBlock *big.Int
+	Raw                types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestEpochPeriodUpdated.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestEpochPeriodUpdated *AutonityTestEpochPeriodUpdated) SetRaw(log types.Log) {
+	_AutonityTestEpochPeriodUpdated.Raw = log
+}
+
+// AutonityTestEpochPeriodUpdated.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestEpochPeriodUpdated *AutonityTestEpochPeriodUpdated) GetRaw() types.Log {
+	return _AutonityTestEpochPeriodUpdated.Raw
+}
+
+/*
+		// FilterEpochPeriodUpdated is a free log retrieval operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
+		//
+		// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
+ 		func (_AutonityTest *AutonityTest) FilterEpochPeriodUpdated(opts *bind.FilterOpts) (*AutonityTestEpochPeriodUpdatedIterator, error) {
+
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "EpochPeriodUpdated")
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestEpochPeriodUpdatedIterator{contract: _AutonityTest.contract, event: "EpochPeriodUpdated", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchEpochPeriodUpdated is a free log subscription operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
+		//
+		// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
+		func (_AutonityTest *AutonityTest) WatchEpochPeriodUpdated(opts *bind.WatchOpts, sink chan<- *AutonityTestEpochPeriodUpdated) (event.Subscription, error) {
+
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "EpochPeriodUpdated")
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestEpochPeriodUpdated)
+						if err := _AutonityTest.contract.UnpackLog(event, "EpochPeriodUpdated", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseEpochPeriodUpdated is a log parse operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
+//
+// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
+func (_AutonityTest *AutonityTest) ParseEpochPeriodUpdated(log types.Log) (*AutonityTestEpochPeriodUpdated, error) {
+	event := new(AutonityTestEpochPeriodUpdated)
+	if err := _AutonityTest.contract.unpackLog(event, "EpochPeriodUpdated", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestMinimumBaseFeeUpdatedIterator is returned from FilterMinimumBaseFeeUpdated and is used to iterate over the raw logs and unpacked data for MinimumBaseFeeUpdated events raised by the AutonityTest contract.
+type AutonityTestMinimumBaseFeeUpdatedIterator struct {
+	Event *AutonityTestMinimumBaseFeeUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestMinimumBaseFeeUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestMinimumBaseFeeUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestMinimumBaseFeeUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestMinimumBaseFeeUpdatedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestMinimumBaseFeeUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestMinimumBaseFeeUpdated represents a MinimumBaseFeeUpdated event raised by the AutonityTest contract.
+type AutonityTestMinimumBaseFeeUpdated struct {
+	GasPrice *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestMinimumBaseFeeUpdated.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestMinimumBaseFeeUpdated *AutonityTestMinimumBaseFeeUpdated) SetRaw(log types.Log) {
+	_AutonityTestMinimumBaseFeeUpdated.Raw = log
+}
+
+// AutonityTestMinimumBaseFeeUpdated.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestMinimumBaseFeeUpdated *AutonityTestMinimumBaseFeeUpdated) GetRaw() types.Log {
+	return _AutonityTestMinimumBaseFeeUpdated.Raw
+}
+
+/*
+		// FilterMinimumBaseFeeUpdated is a free log retrieval operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
+		//
+		// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+ 		func (_AutonityTest *AutonityTest) FilterMinimumBaseFeeUpdated(opts *bind.FilterOpts) (*AutonityTestMinimumBaseFeeUpdatedIterator, error) {
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "MinimumBaseFeeUpdated")
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestMinimumBaseFeeUpdatedIterator{contract: _AutonityTest.contract, event: "MinimumBaseFeeUpdated", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchMinimumBaseFeeUpdated is a free log subscription operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
+		//
+		// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+		func (_AutonityTest *AutonityTest) WatchMinimumBaseFeeUpdated(opts *bind.WatchOpts, sink chan<- *AutonityTestMinimumBaseFeeUpdated) (event.Subscription, error) {
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "MinimumBaseFeeUpdated")
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestMinimumBaseFeeUpdated)
+						if err := _AutonityTest.contract.UnpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseMinimumBaseFeeUpdated is a log parse operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
+//
+// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+func (_AutonityTest *AutonityTest) ParseMinimumBaseFeeUpdated(log types.Log) (*AutonityTestMinimumBaseFeeUpdated, error) {
+	event := new(AutonityTestMinimumBaseFeeUpdated)
+	if err := _AutonityTest.contract.unpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestMintedStakeIterator is returned from FilterMintedStake and is used to iterate over the raw logs and unpacked data for MintedStake events raised by the AutonityTest contract.
+type AutonityTestMintedStakeIterator struct {
+	Event *AutonityTestMintedStake // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestMintedStakeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestMintedStake)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestMintedStake)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestMintedStakeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestMintedStakeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestMintedStake represents a MintedStake event raised by the AutonityTest contract.
+type AutonityTestMintedStake struct {
+	Addr   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestMintedStake.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestMintedStake *AutonityTestMintedStake) SetRaw(log types.Log) {
+	_AutonityTestMintedStake.Raw = log
+}
+
+// AutonityTestMintedStake.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestMintedStake *AutonityTestMintedStake) GetRaw() types.Log {
+	return _AutonityTestMintedStake.Raw
+}
+
+/*
+		// FilterMintedStake is a free log retrieval operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
+		//
+		// Solidity: event MintedStake(address indexed addr, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterMintedStake(opts *bind.FilterOpts, addr []common.Address) (*AutonityTestMintedStakeIterator, error) {
+
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "MintedStake", addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestMintedStakeIterator{contract: _AutonityTest.contract, event: "MintedStake", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchMintedStake is a free log subscription operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
+		//
+		// Solidity: event MintedStake(address indexed addr, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchMintedStake(opts *bind.WatchOpts, sink chan<- *AutonityTestMintedStake, addr []common.Address) (event.Subscription, error) {
+
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "MintedStake", addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestMintedStake)
+						if err := _AutonityTest.contract.UnpackLog(event, "MintedStake", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseMintedStake is a log parse operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
+//
+// Solidity: event MintedStake(address indexed addr, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseMintedStake(log types.Log) (*AutonityTestMintedStake, error) {
+	event := new(AutonityTestMintedStake)
+	if err := _AutonityTest.contract.unpackLog(event, "MintedStake", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestNewBondingRequestIterator is returned from FilterNewBondingRequest and is used to iterate over the raw logs and unpacked data for NewBondingRequest events raised by the AutonityTest contract.
+type AutonityTestNewBondingRequestIterator struct {
+	Event *AutonityTestNewBondingRequest // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestNewBondingRequestIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestNewBondingRequest)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestNewBondingRequest)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestNewBondingRequestIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestNewBondingRequestIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestNewBondingRequest represents a NewBondingRequest event raised by the AutonityTest contract.
+type AutonityTestNewBondingRequest struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestNewBondingRequest.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestNewBondingRequest *AutonityTestNewBondingRequest) SetRaw(log types.Log) {
+	_AutonityTestNewBondingRequest.Raw = log
+}
+
+// AutonityTestNewBondingRequest.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestNewBondingRequest *AutonityTestNewBondingRequest) GetRaw() types.Log {
+	return _AutonityTestNewBondingRequest.Raw
+}
+
+/*
+		// FilterNewBondingRequest is a free log retrieval operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
+		//
+		// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterNewBondingRequest(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityTestNewBondingRequestIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "NewBondingRequest", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestNewBondingRequestIterator{contract: _AutonityTest.contract, event: "NewBondingRequest", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNewBondingRequest is a free log subscription operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
+		//
+		// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchNewBondingRequest(opts *bind.WatchOpts, sink chan<- *AutonityTestNewBondingRequest, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "NewBondingRequest", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestNewBondingRequest)
+						if err := _AutonityTest.contract.UnpackLog(event, "NewBondingRequest", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseNewBondingRequest is a log parse operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
+//
+// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseNewBondingRequest(log types.Log) (*AutonityTestNewBondingRequest, error) {
+	event := new(AutonityTestNewBondingRequest)
+	if err := _AutonityTest.contract.unpackLog(event, "NewBondingRequest", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestNewEpochIterator is returned from FilterNewEpoch and is used to iterate over the raw logs and unpacked data for NewEpoch events raised by the AutonityTest contract.
+type AutonityTestNewEpochIterator struct {
+	Event *AutonityTestNewEpoch // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestNewEpochIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestNewEpoch)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestNewEpoch)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestNewEpochIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestNewEpochIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestNewEpoch represents a NewEpoch event raised by the AutonityTest contract.
+type AutonityTestNewEpoch struct {
+	Epoch *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestNewEpoch.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestNewEpoch *AutonityTestNewEpoch) SetRaw(log types.Log) {
+	_AutonityTestNewEpoch.Raw = log
+}
+
+// AutonityTestNewEpoch.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestNewEpoch *AutonityTestNewEpoch) GetRaw() types.Log {
+	return _AutonityTestNewEpoch.Raw
+}
+
+/*
+		// FilterNewEpoch is a free log retrieval operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
+		//
+		// Solidity: event NewEpoch(uint256 epoch)
+ 		func (_AutonityTest *AutonityTest) FilterNewEpoch(opts *bind.FilterOpts) (*AutonityTestNewEpochIterator, error) {
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "NewEpoch")
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestNewEpochIterator{contract: _AutonityTest.contract, event: "NewEpoch", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNewEpoch is a free log subscription operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
+		//
+		// Solidity: event NewEpoch(uint256 epoch)
+		func (_AutonityTest *AutonityTest) WatchNewEpoch(opts *bind.WatchOpts, sink chan<- *AutonityTestNewEpoch) (event.Subscription, error) {
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "NewEpoch")
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestNewEpoch)
+						if err := _AutonityTest.contract.UnpackLog(event, "NewEpoch", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseNewEpoch is a log parse operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
+//
+// Solidity: event NewEpoch(uint256 epoch)
+func (_AutonityTest *AutonityTest) ParseNewEpoch(log types.Log) (*AutonityTestNewEpoch, error) {
+	event := new(AutonityTestNewEpoch)
+	if err := _AutonityTest.contract.unpackLog(event, "NewEpoch", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestNewUnbondingRequestIterator is returned from FilterNewUnbondingRequest and is used to iterate over the raw logs and unpacked data for NewUnbondingRequest events raised by the AutonityTest contract.
+type AutonityTestNewUnbondingRequestIterator struct {
+	Event *AutonityTestNewUnbondingRequest // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestNewUnbondingRequestIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestNewUnbondingRequest)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestNewUnbondingRequest)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestNewUnbondingRequestIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestNewUnbondingRequestIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestNewUnbondingRequest represents a NewUnbondingRequest event raised by the AutonityTest contract.
+type AutonityTestNewUnbondingRequest struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestNewUnbondingRequest.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestNewUnbondingRequest *AutonityTestNewUnbondingRequest) SetRaw(log types.Log) {
+	_AutonityTestNewUnbondingRequest.Raw = log
+}
+
+// AutonityTestNewUnbondingRequest.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestNewUnbondingRequest *AutonityTestNewUnbondingRequest) GetRaw() types.Log {
+	return _AutonityTestNewUnbondingRequest.Raw
+}
+
+/*
+		// FilterNewUnbondingRequest is a free log retrieval operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
+		//
+		// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterNewUnbondingRequest(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityTestNewUnbondingRequestIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "NewUnbondingRequest", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestNewUnbondingRequestIterator{contract: _AutonityTest.contract, event: "NewUnbondingRequest", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchNewUnbondingRequest is a free log subscription operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
+		//
+		// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchNewUnbondingRequest(opts *bind.WatchOpts, sink chan<- *AutonityTestNewUnbondingRequest, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "NewUnbondingRequest", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestNewUnbondingRequest)
+						if err := _AutonityTest.contract.UnpackLog(event, "NewUnbondingRequest", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseNewUnbondingRequest is a log parse operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
+//
+// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseNewUnbondingRequest(log types.Log) (*AutonityTestNewUnbondingRequest, error) {
+	event := new(AutonityTestNewUnbondingRequest)
+	if err := _AutonityTest.contract.unpackLog(event, "NewUnbondingRequest", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestPausedValidatorIterator is returned from FilterPausedValidator and is used to iterate over the raw logs and unpacked data for PausedValidator events raised by the AutonityTest contract.
+type AutonityTestPausedValidatorIterator struct {
+	Event *AutonityTestPausedValidator // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestPausedValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestPausedValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestPausedValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestPausedValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestPausedValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestPausedValidator represents a PausedValidator event raised by the AutonityTest contract.
+type AutonityTestPausedValidator struct {
+	Treasury       common.Address
+	Addr           common.Address
+	EffectiveBlock *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestPausedValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestPausedValidator *AutonityTestPausedValidator) SetRaw(log types.Log) {
+	_AutonityTestPausedValidator.Raw = log
+}
+
+// AutonityTestPausedValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestPausedValidator *AutonityTestPausedValidator) GetRaw() types.Log {
+	return _AutonityTestPausedValidator.Raw
+}
+
+/*
+		// FilterPausedValidator is a free log retrieval operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
+		//
+		// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+ 		func (_AutonityTest *AutonityTest) FilterPausedValidator(opts *bind.FilterOpts, treasury []common.Address, addr []common.Address) (*AutonityTestPausedValidatorIterator, error) {
+
+			var treasuryRule []interface{}
+			for _, treasuryItem := range treasury {
+				treasuryRule = append(treasuryRule, treasuryItem)
+			}
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "PausedValidator", treasuryRule, addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestPausedValidatorIterator{contract: _AutonityTest.contract, event: "PausedValidator", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchPausedValidator is a free log subscription operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
+		//
+		// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+		func (_AutonityTest *AutonityTest) WatchPausedValidator(opts *bind.WatchOpts, sink chan<- *AutonityTestPausedValidator, treasury []common.Address, addr []common.Address) (event.Subscription, error) {
+
+			var treasuryRule []interface{}
+			for _, treasuryItem := range treasury {
+				treasuryRule = append(treasuryRule, treasuryItem)
+			}
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "PausedValidator", treasuryRule, addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestPausedValidator)
+						if err := _AutonityTest.contract.UnpackLog(event, "PausedValidator", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParsePausedValidator is a log parse operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
+//
+// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+func (_AutonityTest *AutonityTest) ParsePausedValidator(log types.Log) (*AutonityTestPausedValidator, error) {
+	event := new(AutonityTestPausedValidator)
+	if err := _AutonityTest.contract.unpackLog(event, "PausedValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestRegisteredValidatorIterator is returned from FilterRegisteredValidator and is used to iterate over the raw logs and unpacked data for RegisteredValidator events raised by the AutonityTest contract.
+type AutonityTestRegisteredValidatorIterator struct {
+	Event *AutonityTestRegisteredValidator // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestRegisteredValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestRegisteredValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestRegisteredValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestRegisteredValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestRegisteredValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestRegisteredValidator represents a RegisteredValidator event raised by the AutonityTest contract.
+type AutonityTestRegisteredValidator struct {
+	Treasury            common.Address
+	Addr                common.Address
+	OracleAddress       common.Address
+	Enode               string
+	LiquidStateContract common.Address
+	Raw                 types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestRegisteredValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestRegisteredValidator *AutonityTestRegisteredValidator) SetRaw(log types.Log) {
+	_AutonityTestRegisteredValidator.Raw = log
+}
+
+// AutonityTestRegisteredValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestRegisteredValidator *AutonityTestRegisteredValidator) GetRaw() types.Log {
+	return _AutonityTestRegisteredValidator.Raw
+}
+
+/*
+		// FilterRegisteredValidator is a free log retrieval operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
+		//
+		// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
+ 		func (_AutonityTest *AutonityTest) FilterRegisteredValidator(opts *bind.FilterOpts) (*AutonityTestRegisteredValidatorIterator, error) {
+
+
+
+
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "RegisteredValidator")
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestRegisteredValidatorIterator{contract: _AutonityTest.contract, event: "RegisteredValidator", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchRegisteredValidator is a free log subscription operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
+		//
+		// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
+		func (_AutonityTest *AutonityTest) WatchRegisteredValidator(opts *bind.WatchOpts, sink chan<- *AutonityTestRegisteredValidator) (event.Subscription, error) {
+
+
+
+
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "RegisteredValidator")
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestRegisteredValidator)
+						if err := _AutonityTest.contract.UnpackLog(event, "RegisteredValidator", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseRegisteredValidator is a log parse operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
+//
+// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
+func (_AutonityTest *AutonityTest) ParseRegisteredValidator(log types.Log) (*AutonityTestRegisteredValidator, error) {
+	event := new(AutonityTestRegisteredValidator)
+	if err := _AutonityTest.contract.unpackLog(event, "RegisteredValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestReleasedUnbondingRevertedIterator is returned from FilterReleasedUnbondingReverted and is used to iterate over the raw logs and unpacked data for ReleasedUnbondingReverted events raised by the AutonityTest contract.
+type AutonityTestReleasedUnbondingRevertedIterator struct {
+	Event *AutonityTestReleasedUnbondingReverted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestReleasedUnbondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestReleasedUnbondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestReleasedUnbondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestReleasedUnbondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestReleasedUnbondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestReleasedUnbondingReverted represents a ReleasedUnbondingReverted event raised by the AutonityTest contract.
+type AutonityTestReleasedUnbondingReverted struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestReleasedUnbondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestReleasedUnbondingReverted *AutonityTestReleasedUnbondingReverted) SetRaw(log types.Log) {
+	_AutonityTestReleasedUnbondingReverted.Raw = log
+}
+
+// AutonityTestReleasedUnbondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestReleasedUnbondingReverted *AutonityTestReleasedUnbondingReverted) GetRaw() types.Log {
+	return _AutonityTestReleasedUnbondingReverted.Raw
+}
+
+/*
+		// FilterReleasedUnbondingReverted is a free log retrieval operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterReleasedUnbondingReverted(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityTestReleasedUnbondingRevertedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "ReleasedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestReleasedUnbondingRevertedIterator{contract: _AutonityTest.contract, event: "ReleasedUnbondingReverted", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchReleasedUnbondingReverted is a free log subscription operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+		//
+		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchReleasedUnbondingReverted(opts *bind.WatchOpts, sink chan<- *AutonityTestReleasedUnbondingReverted, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "ReleasedUnbondingReverted", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestReleasedUnbondingReverted)
+						if err := _AutonityTest.contract.UnpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseReleasedUnbondingReverted is a log parse operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+//
+// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseReleasedUnbondingReverted(log types.Log) (*AutonityTestReleasedUnbondingReverted, error) {
+	event := new(AutonityTestReleasedUnbondingReverted)
+	if err := _AutonityTest.contract.unpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestRewardedIterator is returned from FilterRewarded and is used to iterate over the raw logs and unpacked data for Rewarded events raised by the AutonityTest contract.
+type AutonityTestRewardedIterator struct {
+	Event *AutonityTestRewarded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestRewardedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestRewarded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestRewarded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestRewardedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestRewardedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestRewarded represents a Rewarded event raised by the AutonityTest contract.
+type AutonityTestRewarded struct {
+	Addr      common.Address
+	AtnAmount *big.Int
+	NtnAmount *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestRewarded.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestRewarded *AutonityTestRewarded) SetRaw(log types.Log) {
+	_AutonityTestRewarded.Raw = log
+}
+
+// AutonityTestRewarded.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestRewarded *AutonityTestRewarded) GetRaw() types.Log {
+	return _AutonityTestRewarded.Raw
+}
+
+/*
+		// FilterRewarded is a free log retrieval operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
+		//
+		// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
+ 		func (_AutonityTest *AutonityTest) FilterRewarded(opts *bind.FilterOpts, addr []common.Address) (*AutonityTestRewardedIterator, error) {
+
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "Rewarded", addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestRewardedIterator{contract: _AutonityTest.contract, event: "Rewarded", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchRewarded is a free log subscription operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
+		//
+		// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
+		func (_AutonityTest *AutonityTest) WatchRewarded(opts *bind.WatchOpts, sink chan<- *AutonityTestRewarded, addr []common.Address) (event.Subscription, error) {
+
+			var addrRule []interface{}
+			for _, addrItem := range addr {
+				addrRule = append(addrRule, addrItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "Rewarded", addrRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestRewarded)
+						if err := _AutonityTest.contract.UnpackLog(event, "Rewarded", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseRewarded is a log parse operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
+//
+// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
+func (_AutonityTest *AutonityTest) ParseRewarded(log types.Log) (*AutonityTestRewarded, error) {
+	event := new(AutonityTestRewarded)
+	if err := _AutonityTest.contract.unpackLog(event, "Rewarded", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the AutonityTest contract.
+type AutonityTestTransferIterator struct {
+	Event *AutonityTestTransfer // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestTransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestTransfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestTransfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestTransferIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestTransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestTransfer represents a Transfer event raised by the AutonityTest contract.
+type AutonityTestTransfer struct {
+	From  common.Address
+	To    common.Address
+	Value *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestTransfer.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestTransfer *AutonityTestTransfer) SetRaw(log types.Log) {
+	_AutonityTestTransfer.Raw = log
+}
+
+// AutonityTestTransfer.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestTransfer *AutonityTestTransfer) GetRaw() types.Log {
+	return _AutonityTestTransfer.Raw
+}
+
+/*
+		// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+		//
+		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+ 		func (_AutonityTest *AutonityTest) FilterTransfer(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*AutonityTestTransferIterator, error) {
+
+			var fromRule []interface{}
+			for _, fromItem := range from {
+				fromRule = append(fromRule, fromItem)
+			}
+			var toRule []interface{}
+			for _, toItem := range to {
+				toRule = append(toRule, toItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "Transfer", fromRule, toRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestTransferIterator{contract: _AutonityTest.contract, event: "Transfer", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchTransfer is a free log subscription operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+		//
+		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+		func (_AutonityTest *AutonityTest) WatchTransfer(opts *bind.WatchOpts, sink chan<- *AutonityTestTransfer, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+			var fromRule []interface{}
+			for _, fromItem := range from {
+				fromRule = append(fromRule, fromItem)
+			}
+			var toRule []interface{}
+			for _, toItem := range to {
+				toRule = append(toRule, toItem)
+			}
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "Transfer", fromRule, toRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestTransfer)
+						if err := _AutonityTest.contract.UnpackLog(event, "Transfer", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_AutonityTest *AutonityTest) ParseTransfer(log types.Log) (*AutonityTestTransfer, error) {
+	event := new(AutonityTestTransfer)
+	if err := _AutonityTest.contract.unpackLog(event, "Transfer", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestUnbondingRejectedIterator is returned from FilterUnbondingRejected and is used to iterate over the raw logs and unpacked data for UnbondingRejected events raised by the AutonityTest contract.
+type AutonityTestUnbondingRejectedIterator struct {
+	Event *AutonityTestUnbondingRejected // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestUnbondingRejectedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestUnbondingRejected)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestUnbondingRejected)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestUnbondingRejectedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestUnbondingRejectedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestUnbondingRejected represents a UnbondingRejected event raised by the AutonityTest contract.
+type AutonityTestUnbondingRejected struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestUnbondingRejected.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestUnbondingRejected *AutonityTestUnbondingRejected) SetRaw(log types.Log) {
+	_AutonityTestUnbondingRejected.Raw = log
+}
+
+// AutonityTestUnbondingRejected.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestUnbondingRejected *AutonityTestUnbondingRejected) GetRaw() types.Log {
+	return _AutonityTestUnbondingRejected.Raw
+}
+
+/*
+		// FilterUnbondingRejected is a free log retrieval operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+ 		func (_AutonityTest *AutonityTest) FilterUnbondingRejected(opts *bind.FilterOpts, validator []common.Address, delegator []common.Address) (*AutonityTestUnbondingRejectedIterator, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "UnbondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestUnbondingRejectedIterator{contract: _AutonityTest.contract, event: "UnbondingRejected", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchUnbondingRejected is a free log subscription operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+		//
+		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+		func (_AutonityTest *AutonityTest) WatchUnbondingRejected(opts *bind.WatchOpts, sink chan<- *AutonityTestUnbondingRejected, validator []common.Address, delegator []common.Address) (event.Subscription, error) {
+
+			var validatorRule []interface{}
+			for _, validatorItem := range validator {
+				validatorRule = append(validatorRule, validatorItem)
+			}
+			var delegatorRule []interface{}
+			for _, delegatorItem := range delegator {
+				delegatorRule = append(delegatorRule, delegatorItem)
+			}
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "UnbondingRejected", validatorRule, delegatorRule)
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestUnbondingRejected)
+						if err := _AutonityTest.contract.UnpackLog(event, "UnbondingRejected", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseUnbondingRejected is a log parse operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+//
+// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityTest *AutonityTest) ParseUnbondingRejected(log types.Log) (*AutonityTestUnbondingRejected, error) {
+	event := new(AutonityTestUnbondingRejected)
+	if err := _AutonityTest.contract.unpackLog(event, "UnbondingRejected", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
+
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityTestUnlockingScheduleFailedIterator is returned from FilterUnlockingScheduleFailed and is used to iterate over the raw logs and unpacked data for UnlockingScheduleFailed events raised by the AutonityTest contract.
+type AutonityTestUnlockingScheduleFailedIterator struct {
+	Event *AutonityTestUnlockingScheduleFailed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityTestUnlockingScheduleFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityTestUnlockingScheduleFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityTestUnlockingScheduleFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityTestUnlockingScheduleFailedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityTestUnlockingScheduleFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
+
+// AutonityTestUnlockingScheduleFailed represents a UnlockingScheduleFailed event raised by the AutonityTest contract.
+type AutonityTestUnlockingScheduleFailed struct {
+	EpochTime *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// AutonityTestUnlockingScheduleFailed.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityTestUnlockingScheduleFailed *AutonityTestUnlockingScheduleFailed) SetRaw(log types.Log) {
+	_AutonityTestUnlockingScheduleFailed.Raw = log
+}
+
+// AutonityTestUnlockingScheduleFailed.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityTestUnlockingScheduleFailed *AutonityTestUnlockingScheduleFailed) GetRaw() types.Log {
+	return _AutonityTestUnlockingScheduleFailed.Raw
+}
+
+/*
+		// FilterUnlockingScheduleFailed is a free log retrieval operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
+		//
+		// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
+ 		func (_AutonityTest *AutonityTest) FilterUnlockingScheduleFailed(opts *bind.FilterOpts) (*AutonityTestUnlockingScheduleFailedIterator, error) {
+
+
+
+			logs, sub, err := _AutonityTest.contract.FilterLogs(opts, "UnlockingScheduleFailed")
+			if err != nil {
+				return nil, err
+			}
+			return &AutonityTestUnlockingScheduleFailedIterator{contract: _AutonityTest.contract, event: "UnlockingScheduleFailed", logs: logs, sub: sub}, nil
+ 		}
+
+		// WatchUnlockingScheduleFailed is a free log subscription operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
+		//
+		// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
+		func (_AutonityTest *AutonityTest) WatchUnlockingScheduleFailed(opts *bind.WatchOpts, sink chan<- *AutonityTestUnlockingScheduleFailed) (event.Subscription, error) {
+
+
+
+			logs, sub, err := _AutonityTest.contract.WatchLogs(opts, "UnlockingScheduleFailed")
+			if err != nil {
+				return nil, err
+			}
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				defer sub.Unsubscribe()
+				for {
+					select {
+					case log := <-logs:
+						// New log arrived, parse the event and forward to the user
+						event := new(AutonityTestUnlockingScheduleFailed)
+						if err := _AutonityTest.contract.UnpackLog(event, "UnlockingScheduleFailed", log); err != nil {
+							return err
+						}
+						event.Raw = log
+
+						select {
+						case sink <- event:
+						case err := <-sub.Err():
+							return err
+						case <-quit:
+							return nil
+						}
+					case err := <-sub.Err():
+						return err
+					case <-quit:
+						return nil
+					}
+				}
+			}), nil
+		}
+*/
+
+// ParseUnlockingScheduleFailed is a log parse operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
+//
+// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
+func (_AutonityTest *AutonityTest) ParseUnlockingScheduleFailed(log types.Log) (*AutonityTestUnlockingScheduleFailed, error) {
+	event := new(AutonityTestUnlockingScheduleFailed)
+	if err := _AutonityTest.contract.unpackLog(event, "UnlockingScheduleFailed", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // AutonityUpgradeTestMetaData contains all meta data concerning the AutonityUpgradeTest contract.
 var AutonityUpgradeTestMetaData = &bind.MetaData{
@@ -8315,80 +14058,91 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestActivatedValidatorIterator is returned from FilterActivatedValidator and is used to iterate over the raw logs and unpacked data for ActivatedValidator events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestActivatedValidatorIterator struct {
+	Event *AutonityUpgradeTestActivatedValidator // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestActivatedValidatorIterator is returned from FilterActivatedValidator and is used to iterate over the raw logs and unpacked data for ActivatedValidator events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestActivatedValidatorIterator struct {
-			Event *AutonityUpgradeTestActivatedValidator // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestActivatedValidatorIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestActivatedValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestActivatedValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestActivatedValidator)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestActivatedValidator)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestActivatedValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestActivatedValidatorIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestActivatedValidatorIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestActivatedValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestActivatedValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestActivatedValidator represents a ActivatedValidator event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestActivatedValidator struct {
-			Treasury common.Address;
-			Addr common.Address;
-			EffectiveBlock *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestActivatedValidator represents a ActivatedValidator event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestActivatedValidator struct {
+	Treasury       common.Address
+	Addr           common.Address
+	EffectiveBlock *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestActivatedValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestActivatedValidator *AutonityUpgradeTestActivatedValidator) SetRaw(log types.Log) {
+	_AutonityUpgradeTestActivatedValidator.Raw = log
+}
+
+// AutonityUpgradeTestActivatedValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestActivatedValidator *AutonityUpgradeTestActivatedValidator) GetRaw() types.Log {
+	return _AutonityUpgradeTestActivatedValidator.Raw
+}
+
+/*
 		// FilterActivatedValidator is a free log retrieval operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
 		//
 		// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
@@ -8457,93 +14211,106 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseActivatedValidator is a log parse operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
-		//
-		// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseActivatedValidator(log types.Log) (*AutonityUpgradeTestActivatedValidator, error) {
-			event := new(AutonityUpgradeTestActivatedValidator)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "ActivatedValidator", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseActivatedValidator is a log parse operation binding the contract event 0x60fcbf2d07dc712a93e59fb28f1edb626d7c2497c57ba71a8c0b3999ecb9a3b5.
+//
+// Solidity: event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseActivatedValidator(log types.Log) (*AutonityUpgradeTestActivatedValidator, error) {
+	event := new(AutonityUpgradeTestActivatedValidator)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "ActivatedValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestAppliedUnbondingRevertedIterator is returned from FilterAppliedUnbondingReverted and is used to iterate over the raw logs and unpacked data for AppliedUnbondingReverted events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestAppliedUnbondingRevertedIterator struct {
+	Event *AutonityUpgradeTestAppliedUnbondingReverted // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestAppliedUnbondingRevertedIterator is returned from FilterAppliedUnbondingReverted and is used to iterate over the raw logs and unpacked data for AppliedUnbondingReverted events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestAppliedUnbondingRevertedIterator struct {
-			Event *AutonityUpgradeTestAppliedUnbondingReverted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestAppliedUnbondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestAppliedUnbondingReverted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestAppliedUnbondingReverted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestAppliedUnbondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestAppliedUnbondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestAppliedUnbondingReverted represents a AppliedUnbondingReverted event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestAppliedUnbondingReverted struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestAppliedUnbondingReverted represents a AppliedUnbondingReverted event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestAppliedUnbondingReverted struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestAppliedUnbondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestAppliedUnbondingReverted *AutonityUpgradeTestAppliedUnbondingReverted) SetRaw(log types.Log) {
+	_AutonityUpgradeTestAppliedUnbondingReverted.Raw = log
+}
+
+// AutonityUpgradeTestAppliedUnbondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestAppliedUnbondingReverted *AutonityUpgradeTestAppliedUnbondingReverted) GetRaw() types.Log {
+	return _AutonityUpgradeTestAppliedUnbondingReverted.Raw
+}
+
+/*
 		// FilterAppliedUnbondingReverted is a free log retrieval operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
 		//
 		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -8614,92 +14381,105 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseAppliedUnbondingReverted is a log parse operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
-		//
-		// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseAppliedUnbondingReverted(log types.Log) (*AutonityUpgradeTestAppliedUnbondingReverted, error) {
-			event := new(AutonityUpgradeTestAppliedUnbondingReverted)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "AppliedUnbondingReverted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseAppliedUnbondingReverted is a log parse operation binding the contract event 0x52c1b482483796c697edd43958bc63e332069083ea38782d960693145db2cf0c.
+//
+// Solidity: event AppliedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseAppliedUnbondingReverted(log types.Log) (*AutonityUpgradeTestAppliedUnbondingReverted, error) {
+	event := new(AutonityUpgradeTestAppliedUnbondingReverted)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "AppliedUnbondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestApprovalIterator struct {
+	Event *AutonityUpgradeTestApproval // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestApprovalIterator struct {
-			Event *AutonityUpgradeTestApproval // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestApprovalIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestApprovalIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestApproval)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestApproval)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestApproval)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestApproval)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestApprovalIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestApprovalIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestApprovalIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestApprovalIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestApproval represents a Approval event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestApproval struct {
-			Owner common.Address;
-			Spender common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestApproval represents a Approval event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestApproval struct {
+	Owner   common.Address
+	Spender common.Address
+	Value   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestApproval.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestApproval *AutonityUpgradeTestApproval) SetRaw(log types.Log) {
+	_AutonityUpgradeTestApproval.Raw = log
+}
+
+// AutonityUpgradeTestApproval.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestApproval *AutonityUpgradeTestApproval) GetRaw() types.Log {
+	return _AutonityUpgradeTestApproval.Raw
+}
+
+/*
 		// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
 		//
 		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
@@ -8768,93 +14548,106 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-		//
-		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseApproval(log types.Log) (*AutonityUpgradeTestApproval, error) {
-			event := new(AutonityUpgradeTestApproval)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "Approval", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseApproval(log types.Log) (*AutonityUpgradeTestApproval, error) {
+	event := new(AutonityUpgradeTestApproval)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "Approval", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestBondingRejectedIterator is returned from FilterBondingRejected and is used to iterate over the raw logs and unpacked data for BondingRejected events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestBondingRejectedIterator struct {
+	Event *AutonityUpgradeTestBondingRejected // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestBondingRejectedIterator is returned from FilterBondingRejected and is used to iterate over the raw logs and unpacked data for BondingRejected events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestBondingRejectedIterator struct {
-			Event *AutonityUpgradeTestBondingRejected // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestBondingRejectedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestBondingRejectedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestBondingRejected)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestBondingRejected)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestBondingRejected)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestBondingRejected)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestBondingRejectedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestBondingRejectedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestBondingRejectedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestBondingRejectedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestBondingRejected represents a BondingRejected event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestBondingRejected struct {
-			Validator common.Address;
-			Delegator common.Address;
-			Amount *big.Int;
-			State uint8;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestBondingRejected represents a BondingRejected event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestBondingRejected struct {
+	Validator common.Address
+	Delegator common.Address
+	Amount    *big.Int
+	State     uint8
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestBondingRejected.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestBondingRejected *AutonityUpgradeTestBondingRejected) SetRaw(log types.Log) {
+	_AutonityUpgradeTestBondingRejected.Raw = log
+}
+
+// AutonityUpgradeTestBondingRejected.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestBondingRejected *AutonityUpgradeTestBondingRejected) GetRaw() types.Log {
+	return _AutonityUpgradeTestBondingRejected.Raw
+}
+
+/*
 		// FilterBondingRejected is a free log retrieval operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
 		//
 		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
@@ -8925,92 +14718,105 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
-		//
-		// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBondingRejected(log types.Log) (*AutonityUpgradeTestBondingRejected, error) {
-			event := new(AutonityUpgradeTestBondingRejected)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "BondingRejected", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBondingRejected is a log parse operation binding the contract event 0x1ff2b052afa4bb37ce30d9aaccde416a700b97e632d089111749af937f878342.
+//
+// Solidity: event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, uint8 state)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBondingRejected(log types.Log) (*AutonityUpgradeTestBondingRejected, error) {
+	event := new(AutonityUpgradeTestBondingRejected)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "BondingRejected", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestBondingRevertedIterator is returned from FilterBondingReverted and is used to iterate over the raw logs and unpacked data for BondingReverted events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestBondingRevertedIterator struct {
+	Event *AutonityUpgradeTestBondingReverted // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestBondingRevertedIterator is returned from FilterBondingReverted and is used to iterate over the raw logs and unpacked data for BondingReverted events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestBondingRevertedIterator struct {
-			Event *AutonityUpgradeTestBondingReverted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestBondingRevertedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestBondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestBondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestBondingReverted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestBondingReverted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestBondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestBondingRevertedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestBondingRevertedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestBondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestBondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestBondingReverted represents a BondingReverted event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestBondingReverted struct {
-			Validator common.Address;
-			Delegator common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestBondingReverted represents a BondingReverted event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestBondingReverted struct {
+	Validator common.Address
+	Delegator common.Address
+	Amount    *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestBondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestBondingReverted *AutonityUpgradeTestBondingReverted) SetRaw(log types.Log) {
+	_AutonityUpgradeTestBondingReverted.Raw = log
+}
+
+// AutonityUpgradeTestBondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestBondingReverted *AutonityUpgradeTestBondingReverted) GetRaw() types.Log {
+	return _AutonityUpgradeTestBondingReverted.Raw
+}
+
+/*
 		// FilterBondingReverted is a free log retrieval operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
 		//
 		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
@@ -9079,91 +14885,104 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseBondingReverted is a log parse operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
-		//
-		// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBondingReverted(log types.Log) (*AutonityUpgradeTestBondingReverted, error) {
-			event := new(AutonityUpgradeTestBondingReverted)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "BondingReverted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBondingReverted is a log parse operation binding the contract event 0x2d2530c45d577d38d6fc598e41ade6fb0bfbde20d09244c88348d3a2797a9d90.
+//
+// Solidity: event BondingReverted(address indexed validator, address indexed delegator, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBondingReverted(log types.Log) (*AutonityUpgradeTestBondingReverted, error) {
+	event := new(AutonityUpgradeTestBondingReverted)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "BondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestBurnedStakeIterator is returned from FilterBurnedStake and is used to iterate over the raw logs and unpacked data for BurnedStake events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestBurnedStakeIterator struct {
+	Event *AutonityUpgradeTestBurnedStake // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestBurnedStakeIterator is returned from FilterBurnedStake and is used to iterate over the raw logs and unpacked data for BurnedStake events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestBurnedStakeIterator struct {
-			Event *AutonityUpgradeTestBurnedStake // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestBurnedStakeIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestBurnedStakeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestBurnedStake)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestBurnedStake)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestBurnedStake)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestBurnedStake)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestBurnedStakeIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestBurnedStakeIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestBurnedStakeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestBurnedStakeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestBurnedStake represents a BurnedStake event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestBurnedStake struct {
-			Addr common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestBurnedStake represents a BurnedStake event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestBurnedStake struct {
+	Addr   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestBurnedStake.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestBurnedStake *AutonityUpgradeTestBurnedStake) SetRaw(log types.Log) {
+	_AutonityUpgradeTestBurnedStake.Raw = log
+}
+
+// AutonityUpgradeTestBurnedStake.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestBurnedStake *AutonityUpgradeTestBurnedStake) GetRaw() types.Log {
+	return _AutonityUpgradeTestBurnedStake.Raw
+}
+
+/*
 		// FilterBurnedStake is a free log retrieval operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
 		//
 		// Solidity: event BurnedStake(address indexed addr, uint256 amount)
@@ -9224,92 +15043,105 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseBurnedStake is a log parse operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
-		//
-		// Solidity: event BurnedStake(address indexed addr, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBurnedStake(log types.Log) (*AutonityUpgradeTestBurnedStake, error) {
-			event := new(AutonityUpgradeTestBurnedStake)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "BurnedStake", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBurnedStake is a log parse operation binding the contract event 0x5024dbeedf0c06664c9bd7be836915730c955e936972c020683dadf11d5488a3.
+//
+// Solidity: event BurnedStake(address indexed addr, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseBurnedStake(log types.Log) (*AutonityUpgradeTestBurnedStake, error) {
+	event := new(AutonityUpgradeTestBurnedStake)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "BurnedStake", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestCallFailedIterator is returned from FilterCallFailed and is used to iterate over the raw logs and unpacked data for CallFailed events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestCallFailedIterator struct {
+	Event *AutonityUpgradeTestCallFailed // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestCallFailedIterator is returned from FilterCallFailed and is used to iterate over the raw logs and unpacked data for CallFailed events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestCallFailedIterator struct {
-			Event *AutonityUpgradeTestCallFailed // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestCallFailedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestCallFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestCallFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestCallFailed)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestCallFailed)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestCallFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestCallFailedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestCallFailedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestCallFailedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestCallFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestCallFailed represents a CallFailed event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestCallFailed struct {
-			To common.Address;
-			MethodSignature string;
-			ReturnData []byte;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestCallFailed represents a CallFailed event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestCallFailed struct {
+	To              common.Address
+	MethodSignature string
+	ReturnData      []byte
+	Raw             types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestCallFailed.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestCallFailed *AutonityUpgradeTestCallFailed) SetRaw(log types.Log) {
+	_AutonityUpgradeTestCallFailed.Raw = log
+}
+
+// AutonityUpgradeTestCallFailed.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestCallFailed *AutonityUpgradeTestCallFailed) GetRaw() types.Log {
+	return _AutonityUpgradeTestCallFailed.Raw
+}
+
+/*
 		// FilterCallFailed is a free log retrieval operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
 		//
 		// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
@@ -9366,91 +15198,104 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseCallFailed is a log parse operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
-		//
-		// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseCallFailed(log types.Log) (*AutonityUpgradeTestCallFailed, error) {
-			event := new(AutonityUpgradeTestCallFailed)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "CallFailed", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseCallFailed is a log parse operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
+//
+// Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseCallFailed(log types.Log) (*AutonityUpgradeTestCallFailed, error) {
+	event := new(AutonityUpgradeTestCallFailed)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "CallFailed", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestCommissionRateChangeIterator is returned from FilterCommissionRateChange and is used to iterate over the raw logs and unpacked data for CommissionRateChange events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestCommissionRateChangeIterator struct {
+	Event *AutonityUpgradeTestCommissionRateChange // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestCommissionRateChangeIterator is returned from FilterCommissionRateChange and is used to iterate over the raw logs and unpacked data for CommissionRateChange events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestCommissionRateChangeIterator struct {
-			Event *AutonityUpgradeTestCommissionRateChange // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestCommissionRateChangeIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestCommissionRateChangeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestCommissionRateChange)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestCommissionRateChange)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestCommissionRateChange)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestCommissionRateChange)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestCommissionRateChangeIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestCommissionRateChangeIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestCommissionRateChangeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestCommissionRateChangeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestCommissionRateChange represents a CommissionRateChange event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestCommissionRateChange struct {
-			Validator common.Address;
-			Rate *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestCommissionRateChange represents a CommissionRateChange event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestCommissionRateChange struct {
+	Validator common.Address
+	Rate      *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestCommissionRateChange.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestCommissionRateChange *AutonityUpgradeTestCommissionRateChange) SetRaw(log types.Log) {
+	_AutonityUpgradeTestCommissionRateChange.Raw = log
+}
+
+// AutonityUpgradeTestCommissionRateChange.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestCommissionRateChange *AutonityUpgradeTestCommissionRateChange) GetRaw() types.Log {
+	return _AutonityUpgradeTestCommissionRateChange.Raw
+}
+
+/*
 		// FilterCommissionRateChange is a free log retrieval operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
 		//
 		// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
@@ -9511,91 +15356,104 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseCommissionRateChange is a log parse operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
-		//
-		// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseCommissionRateChange(log types.Log) (*AutonityUpgradeTestCommissionRateChange, error) {
-			event := new(AutonityUpgradeTestCommissionRateChange)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "CommissionRateChange", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseCommissionRateChange is a log parse operation binding the contract event 0x4fba51c92fa3d6ad8374d394f6cd5766857552e153d7384a8f23aa4ce9a8a7cf.
+//
+// Solidity: event CommissionRateChange(address indexed validator, uint256 rate)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseCommissionRateChange(log types.Log) (*AutonityUpgradeTestCommissionRateChange, error) {
+	event := new(AutonityUpgradeTestCommissionRateChange)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "CommissionRateChange", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestEpochPeriodUpdatedIterator is returned from FilterEpochPeriodUpdated and is used to iterate over the raw logs and unpacked data for EpochPeriodUpdated events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestEpochPeriodUpdatedIterator struct {
+	Event *AutonityUpgradeTestEpochPeriodUpdated // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestEpochPeriodUpdatedIterator is returned from FilterEpochPeriodUpdated and is used to iterate over the raw logs and unpacked data for EpochPeriodUpdated events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestEpochPeriodUpdatedIterator struct {
-			Event *AutonityUpgradeTestEpochPeriodUpdated // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestEpochPeriodUpdatedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestEpochPeriodUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestEpochPeriodUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestEpochPeriodUpdated)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestEpochPeriodUpdated)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestEpochPeriodUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestEpochPeriodUpdatedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestEpochPeriodUpdatedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestEpochPeriodUpdatedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestEpochPeriodUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestEpochPeriodUpdated represents a EpochPeriodUpdated event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestEpochPeriodUpdated struct {
-			Period *big.Int;
-			ToBeAppliedAtBlock *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestEpochPeriodUpdated represents a EpochPeriodUpdated event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestEpochPeriodUpdated struct {
+	Period             *big.Int
+	ToBeAppliedAtBlock *big.Int
+	Raw                types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestEpochPeriodUpdated.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestEpochPeriodUpdated *AutonityUpgradeTestEpochPeriodUpdated) SetRaw(log types.Log) {
+	_AutonityUpgradeTestEpochPeriodUpdated.Raw = log
+}
+
+// AutonityUpgradeTestEpochPeriodUpdated.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestEpochPeriodUpdated *AutonityUpgradeTestEpochPeriodUpdated) GetRaw() types.Log {
+	return _AutonityUpgradeTestEpochPeriodUpdated.Raw
+}
+
+/*
 		// FilterEpochPeriodUpdated is a free log retrieval operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
 		//
 		// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
@@ -9650,90 +15508,103 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseEpochPeriodUpdated is a log parse operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
-		//
-		// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseEpochPeriodUpdated(log types.Log) (*AutonityUpgradeTestEpochPeriodUpdated, error) {
-			event := new(AutonityUpgradeTestEpochPeriodUpdated)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "EpochPeriodUpdated", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseEpochPeriodUpdated is a log parse operation binding the contract event 0x2eea6438d890c8603d4df81ad1bad2a4ea45c02b4837165f461ff3c81603abc7.
+//
+// Solidity: event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseEpochPeriodUpdated(log types.Log) (*AutonityUpgradeTestEpochPeriodUpdated, error) {
+	event := new(AutonityUpgradeTestEpochPeriodUpdated)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "EpochPeriodUpdated", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestMinimumBaseFeeUpdatedIterator is returned from FilterMinimumBaseFeeUpdated and is used to iterate over the raw logs and unpacked data for MinimumBaseFeeUpdated events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestMinimumBaseFeeUpdatedIterator struct {
+	Event *AutonityUpgradeTestMinimumBaseFeeUpdated // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestMinimumBaseFeeUpdatedIterator is returned from FilterMinimumBaseFeeUpdated and is used to iterate over the raw logs and unpacked data for MinimumBaseFeeUpdated events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestMinimumBaseFeeUpdatedIterator struct {
-			Event *AutonityUpgradeTestMinimumBaseFeeUpdated // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestMinimumBaseFeeUpdatedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestMinimumBaseFeeUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestMinimumBaseFeeUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestMinimumBaseFeeUpdated)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestMinimumBaseFeeUpdated)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestMinimumBaseFeeUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestMinimumBaseFeeUpdatedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestMinimumBaseFeeUpdatedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestMinimumBaseFeeUpdatedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestMinimumBaseFeeUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestMinimumBaseFeeUpdated represents a MinimumBaseFeeUpdated event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestMinimumBaseFeeUpdated struct {
-			GasPrice *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestMinimumBaseFeeUpdated represents a MinimumBaseFeeUpdated event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestMinimumBaseFeeUpdated struct {
+	GasPrice *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestMinimumBaseFeeUpdated.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestMinimumBaseFeeUpdated *AutonityUpgradeTestMinimumBaseFeeUpdated) SetRaw(log types.Log) {
+	_AutonityUpgradeTestMinimumBaseFeeUpdated.Raw = log
+}
+
+// AutonityUpgradeTestMinimumBaseFeeUpdated.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestMinimumBaseFeeUpdated *AutonityUpgradeTestMinimumBaseFeeUpdated) GetRaw() types.Log {
+	return _AutonityUpgradeTestMinimumBaseFeeUpdated.Raw
+}
+
+/*
 		// FilterMinimumBaseFeeUpdated is a free log retrieval operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
 		//
 		// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
@@ -9786,91 +15657,104 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseMinimumBaseFeeUpdated is a log parse operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
-		//
-		// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseMinimumBaseFeeUpdated(log types.Log) (*AutonityUpgradeTestMinimumBaseFeeUpdated, error) {
-			event := new(AutonityUpgradeTestMinimumBaseFeeUpdated)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseMinimumBaseFeeUpdated is a log parse operation binding the contract event 0x1f4d2fc7529047a5bd96d3229bfea127fd18b7748f13586e097c69fccd389128.
+//
+// Solidity: event MinimumBaseFeeUpdated(uint256 gasPrice)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseMinimumBaseFeeUpdated(log types.Log) (*AutonityUpgradeTestMinimumBaseFeeUpdated, error) {
+	event := new(AutonityUpgradeTestMinimumBaseFeeUpdated)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "MinimumBaseFeeUpdated", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestMintedStakeIterator is returned from FilterMintedStake and is used to iterate over the raw logs and unpacked data for MintedStake events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestMintedStakeIterator struct {
+	Event *AutonityUpgradeTestMintedStake // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestMintedStakeIterator is returned from FilterMintedStake and is used to iterate over the raw logs and unpacked data for MintedStake events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestMintedStakeIterator struct {
-			Event *AutonityUpgradeTestMintedStake // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestMintedStakeIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestMintedStakeIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestMintedStake)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestMintedStake)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestMintedStake)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestMintedStake)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestMintedStakeIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestMintedStakeIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestMintedStakeIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestMintedStakeIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestMintedStake represents a MintedStake event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestMintedStake struct {
-			Addr common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestMintedStake represents a MintedStake event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestMintedStake struct {
+	Addr   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestMintedStake.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestMintedStake *AutonityUpgradeTestMintedStake) SetRaw(log types.Log) {
+	_AutonityUpgradeTestMintedStake.Raw = log
+}
+
+// AutonityUpgradeTestMintedStake.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestMintedStake *AutonityUpgradeTestMintedStake) GetRaw() types.Log {
+	return _AutonityUpgradeTestMintedStake.Raw
+}
+
+/*
 		// FilterMintedStake is a free log retrieval operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
 		//
 		// Solidity: event MintedStake(address indexed addr, uint256 amount)
@@ -9931,93 +15815,106 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseMintedStake is a log parse operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
-		//
-		// Solidity: event MintedStake(address indexed addr, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseMintedStake(log types.Log) (*AutonityUpgradeTestMintedStake, error) {
-			event := new(AutonityUpgradeTestMintedStake)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "MintedStake", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseMintedStake is a log parse operation binding the contract event 0x48490b4407bb949b708ec5f514b4167f08f4969baaf78d53b05028adf369bfcf.
+//
+// Solidity: event MintedStake(address indexed addr, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseMintedStake(log types.Log) (*AutonityUpgradeTestMintedStake, error) {
+	event := new(AutonityUpgradeTestMintedStake)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "MintedStake", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestNewBondingRequestIterator is returned from FilterNewBondingRequest and is used to iterate over the raw logs and unpacked data for NewBondingRequest events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestNewBondingRequestIterator struct {
+	Event *AutonityUpgradeTestNewBondingRequest // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestNewBondingRequestIterator is returned from FilterNewBondingRequest and is used to iterate over the raw logs and unpacked data for NewBondingRequest events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestNewBondingRequestIterator struct {
-			Event *AutonityUpgradeTestNewBondingRequest // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestNewBondingRequestIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestNewBondingRequestIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestNewBondingRequest)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestNewBondingRequest)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestNewBondingRequest)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestNewBondingRequest)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestNewBondingRequestIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestNewBondingRequestIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestNewBondingRequestIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestNewBondingRequestIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestNewBondingRequest represents a NewBondingRequest event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestNewBondingRequest struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestNewBondingRequest represents a NewBondingRequest event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestNewBondingRequest struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestNewBondingRequest.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestNewBondingRequest *AutonityUpgradeTestNewBondingRequest) SetRaw(log types.Log) {
+	_AutonityUpgradeTestNewBondingRequest.Raw = log
+}
+
+// AutonityUpgradeTestNewBondingRequest.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestNewBondingRequest *AutonityUpgradeTestNewBondingRequest) GetRaw() types.Log {
+	return _AutonityUpgradeTestNewBondingRequest.Raw
+}
+
+/*
 		// FilterNewBondingRequest is a free log retrieval operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
 		//
 		// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -10088,90 +15985,103 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewBondingRequest is a log parse operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
-		//
-		// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNewBondingRequest(log types.Log) (*AutonityUpgradeTestNewBondingRequest, error) {
-			event := new(AutonityUpgradeTestNewBondingRequest)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NewBondingRequest", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewBondingRequest is a log parse operation binding the contract event 0xc46aaee12f38035617ad448c04a7956119f7c7ed395ecc347b898817451ddb8d.
+//
+// Solidity: event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNewBondingRequest(log types.Log) (*AutonityUpgradeTestNewBondingRequest, error) {
+	event := new(AutonityUpgradeTestNewBondingRequest)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "NewBondingRequest", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestNewEpochIterator is returned from FilterNewEpoch and is used to iterate over the raw logs and unpacked data for NewEpoch events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestNewEpochIterator struct {
+	Event *AutonityUpgradeTestNewEpoch // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestNewEpochIterator is returned from FilterNewEpoch and is used to iterate over the raw logs and unpacked data for NewEpoch events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestNewEpochIterator struct {
-			Event *AutonityUpgradeTestNewEpoch // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestNewEpochIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestNewEpochIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestNewEpoch)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestNewEpoch)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestNewEpoch)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestNewEpoch)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestNewEpochIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestNewEpochIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestNewEpochIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestNewEpochIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestNewEpoch represents a NewEpoch event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestNewEpoch struct {
-			Epoch *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestNewEpoch represents a NewEpoch event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestNewEpoch struct {
+	Epoch *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestNewEpoch.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestNewEpoch *AutonityUpgradeTestNewEpoch) SetRaw(log types.Log) {
+	_AutonityUpgradeTestNewEpoch.Raw = log
+}
+
+// AutonityUpgradeTestNewEpoch.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestNewEpoch *AutonityUpgradeTestNewEpoch) GetRaw() types.Log {
+	return _AutonityUpgradeTestNewEpoch.Raw
+}
+
+/*
 		// FilterNewEpoch is a free log retrieval operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
 		//
 		// Solidity: event NewEpoch(uint256 epoch)
@@ -10224,93 +16134,106 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewEpoch is a log parse operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
-		//
-		// Solidity: event NewEpoch(uint256 epoch)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNewEpoch(log types.Log) (*AutonityUpgradeTestNewEpoch, error) {
-			event := new(AutonityUpgradeTestNewEpoch)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NewEpoch", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewEpoch is a log parse operation binding the contract event 0xebad8099c467528a56c98b63c8d476d251cf1ffb4c75db94b4d23fa2b6a1e335.
+//
+// Solidity: event NewEpoch(uint256 epoch)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNewEpoch(log types.Log) (*AutonityUpgradeTestNewEpoch, error) {
+	event := new(AutonityUpgradeTestNewEpoch)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "NewEpoch", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestNewUnbondingRequestIterator is returned from FilterNewUnbondingRequest and is used to iterate over the raw logs and unpacked data for NewUnbondingRequest events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestNewUnbondingRequestIterator struct {
+	Event *AutonityUpgradeTestNewUnbondingRequest // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestNewUnbondingRequestIterator is returned from FilterNewUnbondingRequest and is used to iterate over the raw logs and unpacked data for NewUnbondingRequest events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestNewUnbondingRequestIterator struct {
-			Event *AutonityUpgradeTestNewUnbondingRequest // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestNewUnbondingRequestIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestNewUnbondingRequestIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestNewUnbondingRequest)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestNewUnbondingRequest)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestNewUnbondingRequest)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestNewUnbondingRequest)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestNewUnbondingRequestIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestNewUnbondingRequestIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestNewUnbondingRequestIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestNewUnbondingRequestIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestNewUnbondingRequest represents a NewUnbondingRequest event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestNewUnbondingRequest struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestNewUnbondingRequest represents a NewUnbondingRequest event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestNewUnbondingRequest struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestNewUnbondingRequest.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestNewUnbondingRequest *AutonityUpgradeTestNewUnbondingRequest) SetRaw(log types.Log) {
+	_AutonityUpgradeTestNewUnbondingRequest.Raw = log
+}
+
+// AutonityUpgradeTestNewUnbondingRequest.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestNewUnbondingRequest *AutonityUpgradeTestNewUnbondingRequest) GetRaw() types.Log {
+	return _AutonityUpgradeTestNewUnbondingRequest.Raw
+}
+
+/*
 		// FilterNewUnbondingRequest is a free log retrieval operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
 		//
 		// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -10381,92 +16304,105 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewUnbondingRequest is a log parse operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
-		//
-		// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNewUnbondingRequest(log types.Log) (*AutonityUpgradeTestNewUnbondingRequest, error) {
-			event := new(AutonityUpgradeTestNewUnbondingRequest)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "NewUnbondingRequest", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewUnbondingRequest is a log parse operation binding the contract event 0x63f8870909f7c59c9c4932bf98dbd491647c8d2e89ca0a032aacdd943a13e2fc.
+//
+// Solidity: event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseNewUnbondingRequest(log types.Log) (*AutonityUpgradeTestNewUnbondingRequest, error) {
+	event := new(AutonityUpgradeTestNewUnbondingRequest)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "NewUnbondingRequest", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestPausedValidatorIterator is returned from FilterPausedValidator and is used to iterate over the raw logs and unpacked data for PausedValidator events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestPausedValidatorIterator struct {
+	Event *AutonityUpgradeTestPausedValidator // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestPausedValidatorIterator is returned from FilterPausedValidator and is used to iterate over the raw logs and unpacked data for PausedValidator events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestPausedValidatorIterator struct {
-			Event *AutonityUpgradeTestPausedValidator // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestPausedValidatorIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestPausedValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestPausedValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestPausedValidator)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestPausedValidator)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestPausedValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestPausedValidatorIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestPausedValidatorIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestPausedValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestPausedValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestPausedValidator represents a PausedValidator event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestPausedValidator struct {
-			Treasury common.Address;
-			Addr common.Address;
-			EffectiveBlock *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestPausedValidator represents a PausedValidator event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestPausedValidator struct {
+	Treasury       common.Address
+	Addr           common.Address
+	EffectiveBlock *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestPausedValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestPausedValidator *AutonityUpgradeTestPausedValidator) SetRaw(log types.Log) {
+	_AutonityUpgradeTestPausedValidator.Raw = log
+}
+
+// AutonityUpgradeTestPausedValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestPausedValidator *AutonityUpgradeTestPausedValidator) GetRaw() types.Log {
+	return _AutonityUpgradeTestPausedValidator.Raw
+}
+
+/*
 		// FilterPausedValidator is a free log retrieval operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
 		//
 		// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
@@ -10535,94 +16471,107 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParsePausedValidator is a log parse operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
-		//
-		// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParsePausedValidator(log types.Log) (*AutonityUpgradeTestPausedValidator, error) {
-			event := new(AutonityUpgradeTestPausedValidator)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "PausedValidator", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParsePausedValidator is a log parse operation binding the contract event 0x75bdcdbe540758778e669d108fbcb7ede734f27f46e4e5525eeb8ecf91849a9c.
+//
+// Solidity: event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParsePausedValidator(log types.Log) (*AutonityUpgradeTestPausedValidator, error) {
+	event := new(AutonityUpgradeTestPausedValidator)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "PausedValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestRegisteredValidatorIterator is returned from FilterRegisteredValidator and is used to iterate over the raw logs and unpacked data for RegisteredValidator events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestRegisteredValidatorIterator struct {
+	Event *AutonityUpgradeTestRegisteredValidator // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestRegisteredValidatorIterator is returned from FilterRegisteredValidator and is used to iterate over the raw logs and unpacked data for RegisteredValidator events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestRegisteredValidatorIterator struct {
-			Event *AutonityUpgradeTestRegisteredValidator // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestRegisteredValidatorIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestRegisteredValidatorIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestRegisteredValidator)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestRegisteredValidator)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestRegisteredValidator)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestRegisteredValidator)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestRegisteredValidatorIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestRegisteredValidatorIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestRegisteredValidatorIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestRegisteredValidatorIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestRegisteredValidator represents a RegisteredValidator event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestRegisteredValidator struct {
-			Treasury common.Address;
-			Addr common.Address;
-			OracleAddress common.Address;
-			Enode string;
-			LiquidStateContract common.Address;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestRegisteredValidator represents a RegisteredValidator event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestRegisteredValidator struct {
+	Treasury            common.Address
+	Addr                common.Address
+	OracleAddress       common.Address
+	Enode               string
+	LiquidStateContract common.Address
+	Raw                 types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestRegisteredValidator.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestRegisteredValidator *AutonityUpgradeTestRegisteredValidator) SetRaw(log types.Log) {
+	_AutonityUpgradeTestRegisteredValidator.Raw = log
+}
+
+// AutonityUpgradeTestRegisteredValidator.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestRegisteredValidator *AutonityUpgradeTestRegisteredValidator) GetRaw() types.Log {
+	return _AutonityUpgradeTestRegisteredValidator.Raw
+}
+
+/*
 		// FilterRegisteredValidator is a free log retrieval operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
 		//
 		// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
@@ -10683,93 +16632,106 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseRegisteredValidator is a log parse operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
-		//
-		// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseRegisteredValidator(log types.Log) (*AutonityUpgradeTestRegisteredValidator, error) {
-			event := new(AutonityUpgradeTestRegisteredValidator)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "RegisteredValidator", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseRegisteredValidator is a log parse operation binding the contract event 0x8ad8bd2eb6950e5f332fd3a6dca48cb358ecfe3057848902b98cbdfe455c915c.
+//
+// Solidity: event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseRegisteredValidator(log types.Log) (*AutonityUpgradeTestRegisteredValidator, error) {
+	event := new(AutonityUpgradeTestRegisteredValidator)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "RegisteredValidator", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestReleasedUnbondingRevertedIterator is returned from FilterReleasedUnbondingReverted and is used to iterate over the raw logs and unpacked data for ReleasedUnbondingReverted events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestReleasedUnbondingRevertedIterator struct {
+	Event *AutonityUpgradeTestReleasedUnbondingReverted // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestReleasedUnbondingRevertedIterator is returned from FilterReleasedUnbondingReverted and is used to iterate over the raw logs and unpacked data for ReleasedUnbondingReverted events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestReleasedUnbondingRevertedIterator struct {
-			Event *AutonityUpgradeTestReleasedUnbondingReverted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestReleasedUnbondingReverted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestReleasedUnbondingReverted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestReleasedUnbondingReverted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestReleasedUnbondingReverted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestReleasedUnbondingRevertedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestReleasedUnbondingReverted represents a ReleasedUnbondingReverted event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestReleasedUnbondingReverted struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestReleasedUnbondingReverted represents a ReleasedUnbondingReverted event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestReleasedUnbondingReverted struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestReleasedUnbondingReverted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestReleasedUnbondingReverted *AutonityUpgradeTestReleasedUnbondingReverted) SetRaw(log types.Log) {
+	_AutonityUpgradeTestReleasedUnbondingReverted.Raw = log
+}
+
+// AutonityUpgradeTestReleasedUnbondingReverted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestReleasedUnbondingReverted *AutonityUpgradeTestReleasedUnbondingReverted) GetRaw() types.Log {
+	return _AutonityUpgradeTestReleasedUnbondingReverted.Raw
+}
+
+/*
 		// FilterReleasedUnbondingReverted is a free log retrieval operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
 		//
 		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -10840,92 +16802,105 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseReleasedUnbondingReverted is a log parse operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
-		//
-		// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseReleasedUnbondingReverted(log types.Log) (*AutonityUpgradeTestReleasedUnbondingReverted, error) {
-			event := new(AutonityUpgradeTestReleasedUnbondingReverted)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseReleasedUnbondingReverted is a log parse operation binding the contract event 0x0a4bfc4c4e35975ab1fe5fd21d963e8bb8d483f04aebdbc0a059b246bec3f5fc.
+//
+// Solidity: event ReleasedUnbondingReverted(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseReleasedUnbondingReverted(log types.Log) (*AutonityUpgradeTestReleasedUnbondingReverted, error) {
+	event := new(AutonityUpgradeTestReleasedUnbondingReverted)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "ReleasedUnbondingReverted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestRewardedIterator is returned from FilterRewarded and is used to iterate over the raw logs and unpacked data for Rewarded events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestRewardedIterator struct {
+	Event *AutonityUpgradeTestRewarded // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestRewardedIterator is returned from FilterRewarded and is used to iterate over the raw logs and unpacked data for Rewarded events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestRewardedIterator struct {
-			Event *AutonityUpgradeTestRewarded // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestRewardedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestRewardedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestRewarded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestRewarded)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestRewarded)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestRewarded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestRewardedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestRewardedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestRewardedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestRewardedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestRewarded represents a Rewarded event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestRewarded struct {
-			Addr common.Address;
-			AtnAmount *big.Int;
-			NtnAmount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestRewarded represents a Rewarded event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestRewarded struct {
+	Addr      common.Address
+	AtnAmount *big.Int
+	NtnAmount *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestRewarded.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestRewarded *AutonityUpgradeTestRewarded) SetRaw(log types.Log) {
+	_AutonityUpgradeTestRewarded.Raw = log
+}
+
+// AutonityUpgradeTestRewarded.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestRewarded *AutonityUpgradeTestRewarded) GetRaw() types.Log {
+	return _AutonityUpgradeTestRewarded.Raw
+}
+
+/*
 		// FilterRewarded is a free log retrieval operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
 		//
 		// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
@@ -10988,92 +16963,105 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseRewarded is a log parse operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
-		//
-		// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseRewarded(log types.Log) (*AutonityUpgradeTestRewarded, error) {
-			event := new(AutonityUpgradeTestRewarded)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "Rewarded", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseRewarded is a log parse operation binding the contract event 0x291e8ba3c0f4b0bd86e6e2346fcee1e7ca0975b1cc1886bfbc722d34f3f24d91.
+//
+// Solidity: event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseRewarded(log types.Log) (*AutonityUpgradeTestRewarded, error) {
+	event := new(AutonityUpgradeTestRewarded)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "Rewarded", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestTransferIterator struct {
+	Event *AutonityUpgradeTestTransfer // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestTransferIterator struct {
-			Event *AutonityUpgradeTestTransfer // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestTransferIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestTransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestTransfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestTransfer)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestTransfer)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestTransfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestTransferIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestTransferIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestTransferIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestTransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestTransfer represents a Transfer event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestTransfer struct {
-			From common.Address;
-			To common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestTransfer represents a Transfer event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestTransfer struct {
+	From  common.Address
+	To    common.Address
+	Value *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestTransfer.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestTransfer *AutonityUpgradeTestTransfer) SetRaw(log types.Log) {
+	_AutonityUpgradeTestTransfer.Raw = log
+}
+
+// AutonityUpgradeTestTransfer.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestTransfer *AutonityUpgradeTestTransfer) GetRaw() types.Log {
+	return _AutonityUpgradeTestTransfer.Raw
+}
+
+/*
 		// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
 		//
 		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
@@ -11142,93 +17130,106 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-		//
-		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseTransfer(log types.Log) (*AutonityUpgradeTestTransfer, error) {
-			event := new(AutonityUpgradeTestTransfer)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "Transfer", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseTransfer(log types.Log) (*AutonityUpgradeTestTransfer, error) {
+	event := new(AutonityUpgradeTestTransfer)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "Transfer", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestUnbondingRejectedIterator is returned from FilterUnbondingRejected and is used to iterate over the raw logs and unpacked data for UnbondingRejected events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestUnbondingRejectedIterator struct {
+	Event *AutonityUpgradeTestUnbondingRejected // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestUnbondingRejectedIterator is returned from FilterUnbondingRejected and is used to iterate over the raw logs and unpacked data for UnbondingRejected events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestUnbondingRejectedIterator struct {
-			Event *AutonityUpgradeTestUnbondingRejected // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestUnbondingRejectedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestUnbondingRejectedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestUnbondingRejected)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestUnbondingRejected)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestUnbondingRejected)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestUnbondingRejected)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestUnbondingRejectedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestUnbondingRejectedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestUnbondingRejectedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestUnbondingRejectedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestUnbondingRejected represents a UnbondingRejected event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestUnbondingRejected struct {
-			Validator common.Address;
-			Delegator common.Address;
-			SelfBonded bool;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestUnbondingRejected represents a UnbondingRejected event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestUnbondingRejected struct {
+	Validator  common.Address
+	Delegator  common.Address
+	SelfBonded bool
+	Amount     *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestUnbondingRejected.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestUnbondingRejected *AutonityUpgradeTestUnbondingRejected) SetRaw(log types.Log) {
+	_AutonityUpgradeTestUnbondingRejected.Raw = log
+}
+
+// AutonityUpgradeTestUnbondingRejected.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestUnbondingRejected *AutonityUpgradeTestUnbondingRejected) GetRaw() types.Log {
+	return _AutonityUpgradeTestUnbondingRejected.Raw
+}
+
+/*
 		// FilterUnbondingRejected is a free log retrieval operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
 		//
 		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
@@ -11299,90 +17300,103 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
+*/
 
-		// ParseUnbondingRejected is a log parse operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
-		//
-		// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseUnbondingRejected(log types.Log) (*AutonityUpgradeTestUnbondingRejected, error) {
-			event := new(AutonityUpgradeTestUnbondingRejected)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "UnbondingRejected", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseUnbondingRejected is a log parse operation binding the contract event 0xec3ccfdbfc982a0ea188f4fd85459da1d6a7b332ddc4ca6b7a774c1abfc75866.
+//
+// Solidity: event UnbondingRejected(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseUnbondingRejected(log types.Log) (*AutonityUpgradeTestUnbondingRejected, error) {
+	event := new(AutonityUpgradeTestUnbondingRejected)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "UnbondingRejected", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// AutonityUpgradeTestUnlockingScheduleFailedIterator is returned from FilterUnlockingScheduleFailed and is used to iterate over the raw logs and unpacked data for UnlockingScheduleFailed events raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestUnlockingScheduleFailedIterator struct {
+	Event *AutonityUpgradeTestUnlockingScheduleFailed // Event containing the contract specifics and raw log
 
-		// AutonityUpgradeTestUnlockingScheduleFailedIterator is returned from FilterUnlockingScheduleFailed and is used to iterate over the raw logs and unpacked data for UnlockingScheduleFailed events raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestUnlockingScheduleFailedIterator struct {
-			Event *AutonityUpgradeTestUnlockingScheduleFailed // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *AutonityUpgradeTestUnlockingScheduleFailedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *AutonityUpgradeTestUnlockingScheduleFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(AutonityUpgradeTestUnlockingScheduleFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(AutonityUpgradeTestUnlockingScheduleFailed)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(AutonityUpgradeTestUnlockingScheduleFailed)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(AutonityUpgradeTestUnlockingScheduleFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *AutonityUpgradeTestUnlockingScheduleFailedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *AutonityUpgradeTestUnlockingScheduleFailedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *AutonityUpgradeTestUnlockingScheduleFailedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *AutonityUpgradeTestUnlockingScheduleFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// AutonityUpgradeTestUnlockingScheduleFailed represents a UnlockingScheduleFailed event raised by the AutonityUpgradeTest contract.
-		type AutonityUpgradeTestUnlockingScheduleFailed struct {
-			EpochTime *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// AutonityUpgradeTestUnlockingScheduleFailed represents a UnlockingScheduleFailed event raised by the AutonityUpgradeTest contract.
+type AutonityUpgradeTestUnlockingScheduleFailed struct {
+	EpochTime *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// AutonityUpgradeTestUnlockingScheduleFailed.SetRaw is allows shared interface for setting the raw log data in an event
+func (_AutonityUpgradeTestUnlockingScheduleFailed *AutonityUpgradeTestUnlockingScheduleFailed) SetRaw(log types.Log) {
+	_AutonityUpgradeTestUnlockingScheduleFailed.Raw = log
+}
+
+// AutonityUpgradeTestUnlockingScheduleFailed.GetRaw is allows shared interface for getting the raw log data in an event
+func (_AutonityUpgradeTestUnlockingScheduleFailed *AutonityUpgradeTestUnlockingScheduleFailed) GetRaw() types.Log {
+	return _AutonityUpgradeTestUnlockingScheduleFailed.Raw
+}
+
+/*
 		// FilterUnlockingScheduleFailed is a free log retrieval operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
 		//
 		// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
@@ -11435,21 +17449,19 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) Receive(opts *runOptions) (uint
 				}
 			}), nil
 		}
-
-		// ParseUnlockingScheduleFailed is a log parse operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
-		//
-		// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
-		func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseUnlockingScheduleFailed(log types.Log) (*AutonityUpgradeTestUnlockingScheduleFailed, error) {
-			event := new(AutonityUpgradeTestUnlockingScheduleFailed)
-			if err := _AutonityUpgradeTest.contract.UnpackLog(event, "UnlockingScheduleFailed", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseUnlockingScheduleFailed is a log parse operation binding the contract event 0xf1217bb194383aa5c937c81cbbb445990a478c7511b080df329f9b0fb64233c9.
+//
+// Solidity: event UnlockingScheduleFailed(uint256 epochTime)
+func (_AutonityUpgradeTest *AutonityUpgradeTest) ParseUnlockingScheduleFailed(log types.Log) (*AutonityUpgradeTestUnlockingScheduleFailed, error) {
+	event := new(AutonityUpgradeTestUnlockingScheduleFailed)
+	if err := _AutonityUpgradeTest.contract.unpackLog(event, "UnlockingScheduleFailed", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // BytesLibMetaData contains all meta data concerning the BytesLib contract.
 var BytesLibMetaData = &bind.MetaData{
@@ -11486,10 +17498,6 @@ func (r *runner) deployBytesLib(opts *runOptions) (common.Address, uint64, *Byte
 type BytesLib struct {
 	*contract
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // ContractBaseMetaData contains all meta data concerning the ContractBase contract.
 var ContractBaseMetaData = &bind.MetaData{
@@ -11597,10 +17605,6 @@ func (_ContractBase *ContractBase) TotalContracts(opts *runOptions, _beneficiary
 
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
-
 // HelpersMetaData contains all meta data concerning the Helpers contract.
 var HelpersMetaData = &bind.MetaData{
 	ABI: "[]",
@@ -11636,10 +17640,6 @@ func (r *runner) deployHelpers(opts *runOptions) (common.Address, uint64, *Helpe
 type Helpers struct {
 	*contract
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // IACUMetaData contains all meta data concerning the IACU contract.
 var IACUMetaData = &bind.MetaData{
@@ -11732,10 +17732,6 @@ func (_IACU *IACU) Update(opts *runOptions) (uint64, error) {
 	_, consumed, err := _IACU.call(opts, "update")
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // IAccountabilityMetaData contains all meta data concerning the IAccountability contract.
 var IAccountabilityMetaData = &bind.MetaData{
@@ -11845,79 +17841,90 @@ func (_IAccountability *IAccountability) SetEpochPeriod(opts *runOptions, _newPe
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IAccountabilityInnocenceProvenIterator is returned from FilterInnocenceProven and is used to iterate over the raw logs and unpacked data for InnocenceProven events raised by the IAccountability contract.
+type IAccountabilityInnocenceProvenIterator struct {
+	Event *IAccountabilityInnocenceProven // Event containing the contract specifics and raw log
 
-		// IAccountabilityInnocenceProvenIterator is returned from FilterInnocenceProven and is used to iterate over the raw logs and unpacked data for InnocenceProven events raised by the IAccountability contract.
-		type IAccountabilityInnocenceProvenIterator struct {
-			Event *IAccountabilityInnocenceProven // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IAccountabilityInnocenceProvenIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IAccountabilityInnocenceProvenIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAccountabilityInnocenceProven)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IAccountabilityInnocenceProven)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IAccountabilityInnocenceProven)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAccountabilityInnocenceProven)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IAccountabilityInnocenceProvenIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IAccountabilityInnocenceProvenIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IAccountabilityInnocenceProvenIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IAccountabilityInnocenceProvenIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IAccountabilityInnocenceProven represents a InnocenceProven event raised by the IAccountability contract.
-		type IAccountabilityInnocenceProven struct {
-			Offender common.Address;
-			Id *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IAccountabilityInnocenceProven represents a InnocenceProven event raised by the IAccountability contract.
+type IAccountabilityInnocenceProven struct {
+	Offender common.Address
+	Id       *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// IAccountabilityInnocenceProven.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IAccountabilityInnocenceProven *IAccountabilityInnocenceProven) SetRaw(log types.Log) {
+	_IAccountabilityInnocenceProven.Raw = log
+}
+
+// IAccountabilityInnocenceProven.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IAccountabilityInnocenceProven *IAccountabilityInnocenceProven) GetRaw() types.Log {
+	return _IAccountabilityInnocenceProven.Raw
+}
+
+/*
 		// FilterInnocenceProven is a free log retrieval operation binding the contract event 0x1fa96beb8dddcb7d4484dd00c4059e872439f7a474a2ecf49c430fc6e86c9e1f.
 		//
 		// Solidity: event InnocenceProven(address indexed _offender, uint256 _id)
@@ -11978,92 +17985,105 @@ func (_IAccountability *IAccountability) SetEpochPeriod(opts *runOptions, _newPe
 				}
 			}), nil
 		}
+*/
 
-		// ParseInnocenceProven is a log parse operation binding the contract event 0x1fa96beb8dddcb7d4484dd00c4059e872439f7a474a2ecf49c430fc6e86c9e1f.
-		//
-		// Solidity: event InnocenceProven(address indexed _offender, uint256 _id)
-		func (_IAccountability *IAccountability) ParseInnocenceProven(log types.Log) (*IAccountabilityInnocenceProven, error) {
-			event := new(IAccountabilityInnocenceProven)
-			if err := _IAccountability.contract.UnpackLog(event, "InnocenceProven", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseInnocenceProven is a log parse operation binding the contract event 0x1fa96beb8dddcb7d4484dd00c4059e872439f7a474a2ecf49c430fc6e86c9e1f.
+//
+// Solidity: event InnocenceProven(address indexed _offender, uint256 _id)
+func (_IAccountability *IAccountability) ParseInnocenceProven(log types.Log) (*IAccountabilityInnocenceProven, error) {
+	event := new(IAccountabilityInnocenceProven)
+	if err := _IAccountability.contract.unpackLog(event, "InnocenceProven", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IAccountabilityNewAccusationIterator is returned from FilterNewAccusation and is used to iterate over the raw logs and unpacked data for NewAccusation events raised by the IAccountability contract.
+type IAccountabilityNewAccusationIterator struct {
+	Event *IAccountabilityNewAccusation // Event containing the contract specifics and raw log
 
-		// IAccountabilityNewAccusationIterator is returned from FilterNewAccusation and is used to iterate over the raw logs and unpacked data for NewAccusation events raised by the IAccountability contract.
-		type IAccountabilityNewAccusationIterator struct {
-			Event *IAccountabilityNewAccusation // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IAccountabilityNewAccusationIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IAccountabilityNewAccusationIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAccountabilityNewAccusation)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IAccountabilityNewAccusation)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IAccountabilityNewAccusation)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAccountabilityNewAccusation)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IAccountabilityNewAccusationIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IAccountabilityNewAccusationIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IAccountabilityNewAccusationIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IAccountabilityNewAccusationIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IAccountabilityNewAccusation represents a NewAccusation event raised by the IAccountability contract.
-		type IAccountabilityNewAccusation struct {
-			Offender common.Address;
-			Severity *big.Int;
-			Id *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IAccountabilityNewAccusation represents a NewAccusation event raised by the IAccountability contract.
+type IAccountabilityNewAccusation struct {
+	Offender common.Address
+	Severity *big.Int
+	Id       *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// IAccountabilityNewAccusation.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IAccountabilityNewAccusation *IAccountabilityNewAccusation) SetRaw(log types.Log) {
+	_IAccountabilityNewAccusation.Raw = log
+}
+
+// IAccountabilityNewAccusation.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IAccountabilityNewAccusation *IAccountabilityNewAccusation) GetRaw() types.Log {
+	return _IAccountabilityNewAccusation.Raw
+}
+
+/*
 		// FilterNewAccusation is a free log retrieval operation binding the contract event 0x2e8e354b41470731dafa7c3df150e9498a8d5b9c51ff0259fbf77f721ba40351.
 		//
 		// Solidity: event NewAccusation(address indexed _offender, uint256 _severity, uint256 _id)
@@ -12126,92 +18146,105 @@ func (_IAccountability *IAccountability) SetEpochPeriod(opts *runOptions, _newPe
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewAccusation is a log parse operation binding the contract event 0x2e8e354b41470731dafa7c3df150e9498a8d5b9c51ff0259fbf77f721ba40351.
-		//
-		// Solidity: event NewAccusation(address indexed _offender, uint256 _severity, uint256 _id)
-		func (_IAccountability *IAccountability) ParseNewAccusation(log types.Log) (*IAccountabilityNewAccusation, error) {
-			event := new(IAccountabilityNewAccusation)
-			if err := _IAccountability.contract.UnpackLog(event, "NewAccusation", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewAccusation is a log parse operation binding the contract event 0x2e8e354b41470731dafa7c3df150e9498a8d5b9c51ff0259fbf77f721ba40351.
+//
+// Solidity: event NewAccusation(address indexed _offender, uint256 _severity, uint256 _id)
+func (_IAccountability *IAccountability) ParseNewAccusation(log types.Log) (*IAccountabilityNewAccusation, error) {
+	event := new(IAccountabilityNewAccusation)
+	if err := _IAccountability.contract.unpackLog(event, "NewAccusation", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IAccountabilityNewFaultProofIterator is returned from FilterNewFaultProof and is used to iterate over the raw logs and unpacked data for NewFaultProof events raised by the IAccountability contract.
+type IAccountabilityNewFaultProofIterator struct {
+	Event *IAccountabilityNewFaultProof // Event containing the contract specifics and raw log
 
-		// IAccountabilityNewFaultProofIterator is returned from FilterNewFaultProof and is used to iterate over the raw logs and unpacked data for NewFaultProof events raised by the IAccountability contract.
-		type IAccountabilityNewFaultProofIterator struct {
-			Event *IAccountabilityNewFaultProof // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IAccountabilityNewFaultProofIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IAccountabilityNewFaultProofIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAccountabilityNewFaultProof)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IAccountabilityNewFaultProof)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IAccountabilityNewFaultProof)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAccountabilityNewFaultProof)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IAccountabilityNewFaultProofIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IAccountabilityNewFaultProofIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IAccountabilityNewFaultProofIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IAccountabilityNewFaultProofIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IAccountabilityNewFaultProof represents a NewFaultProof event raised by the IAccountability contract.
-		type IAccountabilityNewFaultProof struct {
-			Offender common.Address;
-			Severity *big.Int;
-			Id *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IAccountabilityNewFaultProof represents a NewFaultProof event raised by the IAccountability contract.
+type IAccountabilityNewFaultProof struct {
+	Offender common.Address
+	Severity *big.Int
+	Id       *big.Int
+	Raw      types.Log // Blockchain specific contextual infos
+}
 
+// IAccountabilityNewFaultProof.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IAccountabilityNewFaultProof *IAccountabilityNewFaultProof) SetRaw(log types.Log) {
+	_IAccountabilityNewFaultProof.Raw = log
+}
+
+// IAccountabilityNewFaultProof.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IAccountabilityNewFaultProof *IAccountabilityNewFaultProof) GetRaw() types.Log {
+	return _IAccountabilityNewFaultProof.Raw
+}
+
+/*
 		// FilterNewFaultProof is a free log retrieval operation binding the contract event 0x6b7783718ab8e152c193eb08bf76eed1191fcd1677a23a7fe9d338265aad132f.
 		//
 		// Solidity: event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id)
@@ -12274,94 +18307,107 @@ func (_IAccountability *IAccountability) SetEpochPeriod(opts *runOptions, _newPe
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewFaultProof is a log parse operation binding the contract event 0x6b7783718ab8e152c193eb08bf76eed1191fcd1677a23a7fe9d338265aad132f.
-		//
-		// Solidity: event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id)
-		func (_IAccountability *IAccountability) ParseNewFaultProof(log types.Log) (*IAccountabilityNewFaultProof, error) {
-			event := new(IAccountabilityNewFaultProof)
-			if err := _IAccountability.contract.UnpackLog(event, "NewFaultProof", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewFaultProof is a log parse operation binding the contract event 0x6b7783718ab8e152c193eb08bf76eed1191fcd1677a23a7fe9d338265aad132f.
+//
+// Solidity: event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id)
+func (_IAccountability *IAccountability) ParseNewFaultProof(log types.Log) (*IAccountabilityNewFaultProof, error) {
+	event := new(IAccountabilityNewFaultProof)
+	if err := _IAccountability.contract.unpackLog(event, "NewFaultProof", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IAccountabilitySlashingEventIterator is returned from FilterSlashingEvent and is used to iterate over the raw logs and unpacked data for SlashingEvent events raised by the IAccountability contract.
+type IAccountabilitySlashingEventIterator struct {
+	Event *IAccountabilitySlashingEvent // Event containing the contract specifics and raw log
 
-		// IAccountabilitySlashingEventIterator is returned from FilterSlashingEvent and is used to iterate over the raw logs and unpacked data for SlashingEvent events raised by the IAccountability contract.
-		type IAccountabilitySlashingEventIterator struct {
-			Event *IAccountabilitySlashingEvent // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IAccountabilitySlashingEventIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IAccountabilitySlashingEventIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAccountabilitySlashingEvent)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IAccountabilitySlashingEvent)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IAccountabilitySlashingEvent)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAccountabilitySlashingEvent)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IAccountabilitySlashingEventIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IAccountabilitySlashingEventIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IAccountabilitySlashingEventIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IAccountabilitySlashingEventIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IAccountabilitySlashingEvent represents a SlashingEvent event raised by the IAccountability contract.
-		type IAccountabilitySlashingEvent struct {
-			Validator common.Address;
-			Amount *big.Int;
-			ReleaseBlock *big.Int;
-			IsJailbound bool;
-			EventId *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IAccountabilitySlashingEvent represents a SlashingEvent event raised by the IAccountability contract.
+type IAccountabilitySlashingEvent struct {
+	Validator    common.Address
+	Amount       *big.Int
+	ReleaseBlock *big.Int
+	IsJailbound  bool
+	EventId      *big.Int
+	Raw          types.Log // Blockchain specific contextual infos
+}
 
+// IAccountabilitySlashingEvent.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IAccountabilitySlashingEvent *IAccountabilitySlashingEvent) SetRaw(log types.Log) {
+	_IAccountabilitySlashingEvent.Raw = log
+}
+
+// IAccountabilitySlashingEvent.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IAccountabilitySlashingEvent *IAccountabilitySlashingEvent) GetRaw() types.Log {
+	return _IAccountabilitySlashingEvent.Raw
+}
+
+/*
 		// FilterSlashingEvent is a free log retrieval operation binding the contract event 0x6617e612ea2d01b5a235997fa4963b56b1097df6f968a82972433e9ff852e0f9.
 		//
 		// Solidity: event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId)
@@ -12422,21 +18468,19 @@ func (_IAccountability *IAccountability) SetEpochPeriod(opts *runOptions, _newPe
 				}
 			}), nil
 		}
-
-		// ParseSlashingEvent is a log parse operation binding the contract event 0x6617e612ea2d01b5a235997fa4963b56b1097df6f968a82972433e9ff852e0f9.
-		//
-		// Solidity: event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId)
-		func (_IAccountability *IAccountability) ParseSlashingEvent(log types.Log) (*IAccountabilitySlashingEvent, error) {
-			event := new(IAccountabilitySlashingEvent)
-			if err := _IAccountability.contract.UnpackLog(event, "SlashingEvent", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseSlashingEvent is a log parse operation binding the contract event 0x6617e612ea2d01b5a235997fa4963b56b1097df6f968a82972433e9ff852e0f9.
+//
+// Solidity: event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId)
+func (_IAccountability *IAccountability) ParseSlashingEvent(log types.Log) (*IAccountabilitySlashingEvent, error) {
+	event := new(IAccountabilitySlashingEvent)
+	if err := _IAccountability.contract.unpackLog(event, "SlashingEvent", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // IAutonityMetaData contains all meta data concerning the IAutonity contract.
 var IAutonityMetaData = &bind.MetaData{
@@ -12489,10 +18533,6 @@ func (_IAutonity *IAutonity) GetOracle(opts *runOptions) (common.Address, uint64
 	return out0, consumed, err
 
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // IERC20MetaData contains all meta data concerning the IERC20 contract.
 var IERC20MetaData = &bind.MetaData{
@@ -12646,80 +18686,91 @@ func (_IERC20 *IERC20) TransferFrom(opts *runOptions, sender common.Address, rec
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IERC20ApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the IERC20 contract.
+type IERC20ApprovalIterator struct {
+	Event *IERC20Approval // Event containing the contract specifics and raw log
 
-		// IERC20ApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the IERC20 contract.
-		type IERC20ApprovalIterator struct {
-			Event *IERC20Approval // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IERC20ApprovalIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IERC20ApprovalIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IERC20Approval)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IERC20Approval)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IERC20Approval)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IERC20Approval)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IERC20ApprovalIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IERC20ApprovalIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IERC20ApprovalIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IERC20ApprovalIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IERC20Approval represents a Approval event raised by the IERC20 contract.
-		type IERC20Approval struct {
-			Owner common.Address;
-			Spender common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IERC20Approval represents a Approval event raised by the IERC20 contract.
+type IERC20Approval struct {
+	Owner   common.Address
+	Spender common.Address
+	Value   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// IERC20Approval.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IERC20Approval *IERC20Approval) SetRaw(log types.Log) {
+	_IERC20Approval.Raw = log
+}
+
+// IERC20Approval.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IERC20Approval *IERC20Approval) GetRaw() types.Log {
+	return _IERC20Approval.Raw
+}
+
+/*
 		// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
 		//
 		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
@@ -12788,92 +18839,105 @@ func (_IERC20 *IERC20) TransferFrom(opts *runOptions, sender common.Address, rec
 				}
 			}), nil
 		}
+*/
 
-		// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-		//
-		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-		func (_IERC20 *IERC20) ParseApproval(log types.Log) (*IERC20Approval, error) {
-			event := new(IERC20Approval)
-			if err := _IERC20.contract.UnpackLog(event, "Approval", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_IERC20 *IERC20) ParseApproval(log types.Log) (*IERC20Approval, error) {
+	event := new(IERC20Approval)
+	if err := _IERC20.contract.unpackLog(event, "Approval", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IERC20TransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the IERC20 contract.
+type IERC20TransferIterator struct {
+	Event *IERC20Transfer // Event containing the contract specifics and raw log
 
-		// IERC20TransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the IERC20 contract.
-		type IERC20TransferIterator struct {
-			Event *IERC20Transfer // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IERC20TransferIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IERC20TransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IERC20Transfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IERC20Transfer)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IERC20Transfer)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IERC20Transfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IERC20TransferIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IERC20TransferIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IERC20TransferIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IERC20TransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IERC20Transfer represents a Transfer event raised by the IERC20 contract.
-		type IERC20Transfer struct {
-			From common.Address;
-			To common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IERC20Transfer represents a Transfer event raised by the IERC20 contract.
+type IERC20Transfer struct {
+	From  common.Address
+	To    common.Address
+	Value *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// IERC20Transfer.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IERC20Transfer *IERC20Transfer) SetRaw(log types.Log) {
+	_IERC20Transfer.Raw = log
+}
+
+// IERC20Transfer.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IERC20Transfer *IERC20Transfer) GetRaw() types.Log {
+	return _IERC20Transfer.Raw
+}
+
+/*
 		// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
 		//
 		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
@@ -12942,21 +19006,19 @@ func (_IERC20 *IERC20) TransferFrom(opts *runOptions, sender common.Address, rec
 				}
 			}), nil
 		}
-
-		// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-		//
-		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-		func (_IERC20 *IERC20) ParseTransfer(log types.Log) (*IERC20Transfer, error) {
-			event := new(IERC20Transfer)
-			if err := _IERC20.contract.UnpackLog(event, "Transfer", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_IERC20 *IERC20) ParseTransfer(log types.Log) (*IERC20Transfer, error) {
+	event := new(IERC20Transfer)
+	if err := _IERC20.contract.unpackLog(event, "Transfer", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // IInflationControllerMetaData contains all meta data concerning the IInflationController contract.
 var IInflationControllerMetaData = &bind.MetaData{
@@ -12993,10 +19055,6 @@ func (_IInflationController *IInflationController) CalculateSupplyDelta(opts *ru
 	return out0, consumed, err
 
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // ILiquidLogicMetaData contains all meta data concerning the ILiquidLogic contract.
 var ILiquidLogicMetaData = &bind.MetaData{
@@ -13501,80 +19559,91 @@ func (_ILiquidLogic *ILiquidLogic) Unlock(opts *runOptions, _account common.Addr
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// ILiquidLogicApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the ILiquidLogic contract.
+type ILiquidLogicApprovalIterator struct {
+	Event *ILiquidLogicApproval // Event containing the contract specifics and raw log
 
-		// ILiquidLogicApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the ILiquidLogic contract.
-		type ILiquidLogicApprovalIterator struct {
-			Event *ILiquidLogicApproval // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *ILiquidLogicApprovalIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ILiquidLogicApprovalIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ILiquidLogicApproval)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(ILiquidLogicApproval)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(ILiquidLogicApproval)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ILiquidLogicApproval)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *ILiquidLogicApprovalIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *ILiquidLogicApprovalIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ILiquidLogicApprovalIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ILiquidLogicApprovalIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// ILiquidLogicApproval represents a Approval event raised by the ILiquidLogic contract.
-		type ILiquidLogicApproval struct {
-			Owner common.Address;
-			Spender common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// ILiquidLogicApproval represents a Approval event raised by the ILiquidLogic contract.
+type ILiquidLogicApproval struct {
+	Owner   common.Address
+	Spender common.Address
+	Value   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// ILiquidLogicApproval.SetRaw is allows shared interface for setting the raw log data in an event
+func (_ILiquidLogicApproval *ILiquidLogicApproval) SetRaw(log types.Log) {
+	_ILiquidLogicApproval.Raw = log
+}
+
+// ILiquidLogicApproval.GetRaw is allows shared interface for getting the raw log data in an event
+func (_ILiquidLogicApproval *ILiquidLogicApproval) GetRaw() types.Log {
+	return _ILiquidLogicApproval.Raw
+}
+
+/*
 		// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
 		//
 		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
@@ -13643,92 +19712,105 @@ func (_ILiquidLogic *ILiquidLogic) Unlock(opts *runOptions, _account common.Addr
 				}
 			}), nil
 		}
+*/
 
-		// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-		//
-		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-		func (_ILiquidLogic *ILiquidLogic) ParseApproval(log types.Log) (*ILiquidLogicApproval, error) {
-			event := new(ILiquidLogicApproval)
-			if err := _ILiquidLogic.contract.UnpackLog(event, "Approval", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_ILiquidLogic *ILiquidLogic) ParseApproval(log types.Log) (*ILiquidLogicApproval, error) {
+	event := new(ILiquidLogicApproval)
+	if err := _ILiquidLogic.contract.unpackLog(event, "Approval", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// ILiquidLogicTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the ILiquidLogic contract.
+type ILiquidLogicTransferIterator struct {
+	Event *ILiquidLogicTransfer // Event containing the contract specifics and raw log
 
-		// ILiquidLogicTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the ILiquidLogic contract.
-		type ILiquidLogicTransferIterator struct {
-			Event *ILiquidLogicTransfer // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *ILiquidLogicTransferIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ILiquidLogicTransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ILiquidLogicTransfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(ILiquidLogicTransfer)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(ILiquidLogicTransfer)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ILiquidLogicTransfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *ILiquidLogicTransferIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *ILiquidLogicTransferIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ILiquidLogicTransferIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ILiquidLogicTransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// ILiquidLogicTransfer represents a Transfer event raised by the ILiquidLogic contract.
-		type ILiquidLogicTransfer struct {
-			From common.Address;
-			To common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// ILiquidLogicTransfer represents a Transfer event raised by the ILiquidLogic contract.
+type ILiquidLogicTransfer struct {
+	From  common.Address
+	To    common.Address
+	Value *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// ILiquidLogicTransfer.SetRaw is allows shared interface for setting the raw log data in an event
+func (_ILiquidLogicTransfer *ILiquidLogicTransfer) SetRaw(log types.Log) {
+	_ILiquidLogicTransfer.Raw = log
+}
+
+// ILiquidLogicTransfer.GetRaw is allows shared interface for getting the raw log data in an event
+func (_ILiquidLogicTransfer *ILiquidLogicTransfer) GetRaw() types.Log {
+	return _ILiquidLogicTransfer.Raw
+}
+
+/*
 		// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
 		//
 		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
@@ -13797,21 +19879,19 @@ func (_ILiquidLogic *ILiquidLogic) Unlock(opts *runOptions, _account common.Addr
 				}
 			}), nil
 		}
-
-		// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-		//
-		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-		func (_ILiquidLogic *ILiquidLogic) ParseTransfer(log types.Log) (*ILiquidLogicTransfer, error) {
-			event := new(ILiquidLogicTransfer)
-			if err := _ILiquidLogic.contract.UnpackLog(event, "Transfer", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_ILiquidLogic *ILiquidLogic) ParseTransfer(log types.Log) (*ILiquidLogicTransfer, error) {
+	event := new(ILiquidLogicTransfer)
+	if err := _ILiquidLogic.contract.unpackLog(event, "Transfer", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // INonStakableVestingVaultMetaData contains all meta data concerning the INonStakableVestingVault contract.
 var INonStakableVestingVaultMetaData = &bind.MetaData{
@@ -13868,10 +19948,6 @@ func (_INonStakableVestingVault *INonStakableVestingVault) UnlockTokens(opts *ru
 	_, consumed, err := _INonStakableVestingVault.call(opts, "unlockTokens")
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // IOracleMetaData contains all meta data concerning the IOracle contract.
 var IOracleMetaData = &bind.MetaData{
@@ -14121,81 +20197,92 @@ func (_IOracle *IOracle) Vote(opts *runOptions, _commit *big.Int, _reports []*bi
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IOracleNewRoundIterator is returned from FilterNewRound and is used to iterate over the raw logs and unpacked data for NewRound events raised by the IOracle contract.
+type IOracleNewRoundIterator struct {
+	Event *IOracleNewRound // Event containing the contract specifics and raw log
 
-		// IOracleNewRoundIterator is returned from FilterNewRound and is used to iterate over the raw logs and unpacked data for NewRound events raised by the IOracle contract.
-		type IOracleNewRoundIterator struct {
-			Event *IOracleNewRound // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IOracleNewRoundIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IOracleNewRoundIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IOracleNewRound)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IOracleNewRound)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IOracleNewRound)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IOracleNewRound)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IOracleNewRoundIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IOracleNewRoundIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IOracleNewRoundIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IOracleNewRoundIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IOracleNewRound represents a NewRound event raised by the IOracle contract.
-		type IOracleNewRound struct {
-			Round *big.Int;
-			Height *big.Int;
-			Timestamp *big.Int;
-			VotePeriod *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IOracleNewRound represents a NewRound event raised by the IOracle contract.
+type IOracleNewRound struct {
+	Round      *big.Int
+	Height     *big.Int
+	Timestamp  *big.Int
+	VotePeriod *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// IOracleNewRound.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IOracleNewRound *IOracleNewRound) SetRaw(log types.Log) {
+	_IOracleNewRound.Raw = log
+}
+
+// IOracleNewRound.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IOracleNewRound *IOracleNewRound) GetRaw() types.Log {
+	return _IOracleNewRound.Raw
+}
+
+/*
 		// FilterNewRound is a free log retrieval operation binding the contract event 0xb5d8636ab45e6cac7a4a61cb7c77f77f61a454d73aa2e6139ff8dcaf463537e5.
 		//
 		// Solidity: event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint256 _votePeriod)
@@ -14254,91 +20341,104 @@ func (_IOracle *IOracle) Vote(opts *runOptions, _commit *big.Int, _reports []*bi
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewRound is a log parse operation binding the contract event 0xb5d8636ab45e6cac7a4a61cb7c77f77f61a454d73aa2e6139ff8dcaf463537e5.
-		//
-		// Solidity: event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint256 _votePeriod)
-		func (_IOracle *IOracle) ParseNewRound(log types.Log) (*IOracleNewRound, error) {
-			event := new(IOracleNewRound)
-			if err := _IOracle.contract.UnpackLog(event, "NewRound", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewRound is a log parse operation binding the contract event 0xb5d8636ab45e6cac7a4a61cb7c77f77f61a454d73aa2e6139ff8dcaf463537e5.
+//
+// Solidity: event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint256 _votePeriod)
+func (_IOracle *IOracle) ParseNewRound(log types.Log) (*IOracleNewRound, error) {
+	event := new(IOracleNewRound)
+	if err := _IOracle.contract.unpackLog(event, "NewRound", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IOracleNewSymbolsIterator is returned from FilterNewSymbols and is used to iterate over the raw logs and unpacked data for NewSymbols events raised by the IOracle contract.
+type IOracleNewSymbolsIterator struct {
+	Event *IOracleNewSymbols // Event containing the contract specifics and raw log
 
-		// IOracleNewSymbolsIterator is returned from FilterNewSymbols and is used to iterate over the raw logs and unpacked data for NewSymbols events raised by the IOracle contract.
-		type IOracleNewSymbolsIterator struct {
-			Event *IOracleNewSymbols // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IOracleNewSymbolsIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IOracleNewSymbolsIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IOracleNewSymbols)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IOracleNewSymbols)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IOracleNewSymbols)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IOracleNewSymbols)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IOracleNewSymbolsIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IOracleNewSymbolsIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IOracleNewSymbolsIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IOracleNewSymbolsIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IOracleNewSymbols represents a NewSymbols event raised by the IOracle contract.
-		type IOracleNewSymbols struct {
-			Symbols []string;
-			Round *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IOracleNewSymbols represents a NewSymbols event raised by the IOracle contract.
+type IOracleNewSymbols struct {
+	Symbols []string
+	Round   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// IOracleNewSymbols.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IOracleNewSymbols *IOracleNewSymbols) SetRaw(log types.Log) {
+	_IOracleNewSymbols.Raw = log
+}
+
+// IOracleNewSymbols.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IOracleNewSymbols *IOracleNewSymbols) GetRaw() types.Log {
+	return _IOracleNewSymbols.Raw
+}
+
+/*
 		// FilterNewSymbols is a free log retrieval operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
 		//
 		// Solidity: event NewSymbols(string[] _symbols, uint256 _round)
@@ -14393,91 +20493,104 @@ func (_IOracle *IOracle) Vote(opts *runOptions, _commit *big.Int, _reports []*bi
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewSymbols is a log parse operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
-		//
-		// Solidity: event NewSymbols(string[] _symbols, uint256 _round)
-		func (_IOracle *IOracle) ParseNewSymbols(log types.Log) (*IOracleNewSymbols, error) {
-			event := new(IOracleNewSymbols)
-			if err := _IOracle.contract.UnpackLog(event, "NewSymbols", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewSymbols is a log parse operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
+//
+// Solidity: event NewSymbols(string[] _symbols, uint256 _round)
+func (_IOracle *IOracle) ParseNewSymbols(log types.Log) (*IOracleNewSymbols, error) {
+	event := new(IOracleNewSymbols)
+	if err := _IOracle.contract.unpackLog(event, "NewSymbols", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// IOracleVotedIterator is returned from FilterVoted and is used to iterate over the raw logs and unpacked data for Voted events raised by the IOracle contract.
+type IOracleVotedIterator struct {
+	Event *IOracleVoted // Event containing the contract specifics and raw log
 
-		// IOracleVotedIterator is returned from FilterVoted and is used to iterate over the raw logs and unpacked data for Voted events raised by the IOracle contract.
-		type IOracleVotedIterator struct {
-			Event *IOracleVoted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *IOracleVotedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *IOracleVotedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IOracleVoted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(IOracleVoted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(IOracleVoted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(IOracleVoted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *IOracleVotedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *IOracleVotedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *IOracleVotedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *IOracleVotedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// IOracleVoted represents a Voted event raised by the IOracle contract.
-		type IOracleVoted struct {
-			Voter common.Address;
-			Votes []*big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// IOracleVoted represents a Voted event raised by the IOracle contract.
+type IOracleVoted struct {
+	Voter common.Address
+	Votes []*big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// IOracleVoted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_IOracleVoted *IOracleVoted) SetRaw(log types.Log) {
+	_IOracleVoted.Raw = log
+}
+
+// IOracleVoted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_IOracleVoted *IOracleVoted) GetRaw() types.Log {
+	return _IOracleVoted.Raw
+}
+
+/*
 		// FilterVoted is a free log retrieval operation binding the contract event 0xd0d8560f1076ac6b216b1091a2571d6f9bc3e0889f4dbdbe1c7d1be7136714d3.
 		//
 		// Solidity: event Voted(address indexed _voter, int256[] _votes)
@@ -14538,21 +20651,19 @@ func (_IOracle *IOracle) Vote(opts *runOptions, _commit *big.Int, _reports []*bi
 				}
 			}), nil
 		}
-
-		// ParseVoted is a log parse operation binding the contract event 0xd0d8560f1076ac6b216b1091a2571d6f9bc3e0889f4dbdbe1c7d1be7136714d3.
-		//
-		// Solidity: event Voted(address indexed _voter, int256[] _votes)
-		func (_IOracle *IOracle) ParseVoted(log types.Log) (*IOracleVoted, error) {
-			event := new(IOracleVoted)
-			if err := _IOracle.contract.UnpackLog(event, "Voted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseVoted is a log parse operation binding the contract event 0xd0d8560f1076ac6b216b1091a2571d6f9bc3e0889f4dbdbe1c7d1be7136714d3.
+//
+// Solidity: event Voted(address indexed _voter, int256[] _votes)
+func (_IOracle *IOracle) ParseVoted(log types.Log) (*IOracleVoted, error) {
+	event := new(IOracleVoted)
+	if err := _IOracle.contract.unpackLog(event, "Voted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // IStabilizationMetaData contains all meta data concerning the IStabilization contract.
 var IStabilizationMetaData = &bind.MetaData{
@@ -14617,10 +20728,6 @@ func (_IStabilization *IStabilization) SetOracle(opts *runOptions, oracle common
 	_, consumed, err := _IStabilization.call(opts, "setOracle", oracle)
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // IStakeProxyMetaData contains all meta data concerning the IStakeProxy contract.
 var IStakeProxyMetaData = &bind.MetaData{
@@ -14751,10 +20858,6 @@ func (_IStakeProxy *IStakeProxy) UnbondingReleased(opts *runOptions, _unbondingI
 	_, consumed, err := _IStakeProxy.call(opts, "unbondingReleased", _unbondingID, _amount, _rejected)
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // ISupplyControlMetaData contains all meta data concerning the ISupplyControl contract.
 var ISupplyControlMetaData = &bind.MetaData{
@@ -14912,78 +21015,89 @@ func (_ISupplyControl *ISupplyControl) SetStabilizer(opts *runOptions, stabilize
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// ISupplyControlBurnIterator is returned from FilterBurn and is used to iterate over the raw logs and unpacked data for Burn events raised by the ISupplyControl contract.
+type ISupplyControlBurnIterator struct {
+	Event *ISupplyControlBurn // Event containing the contract specifics and raw log
 
-		// ISupplyControlBurnIterator is returned from FilterBurn and is used to iterate over the raw logs and unpacked data for Burn events raised by the ISupplyControl contract.
-		type ISupplyControlBurnIterator struct {
-			Event *ISupplyControlBurn // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *ISupplyControlBurnIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ISupplyControlBurnIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ISupplyControlBurn)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(ISupplyControlBurn)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(ISupplyControlBurn)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ISupplyControlBurn)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *ISupplyControlBurnIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *ISupplyControlBurnIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ISupplyControlBurnIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ISupplyControlBurnIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// ISupplyControlBurn represents a Burn event raised by the ISupplyControl contract.
-		type ISupplyControlBurn struct {
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// ISupplyControlBurn represents a Burn event raised by the ISupplyControl contract.
+type ISupplyControlBurn struct {
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
 
+// ISupplyControlBurn.SetRaw is allows shared interface for setting the raw log data in an event
+func (_ISupplyControlBurn *ISupplyControlBurn) SetRaw(log types.Log) {
+	_ISupplyControlBurn.Raw = log
+}
+
+// ISupplyControlBurn.GetRaw is allows shared interface for getting the raw log data in an event
+func (_ISupplyControlBurn *ISupplyControlBurn) GetRaw() types.Log {
+	return _ISupplyControlBurn.Raw
+}
+
+/*
 		// FilterBurn is a free log retrieval operation binding the contract event 0xb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb.
 		//
 		// Solidity: event Burn(uint256 amount)
@@ -15036,91 +21150,104 @@ func (_ISupplyControl *ISupplyControl) SetStabilizer(opts *runOptions, stabilize
 				}
 			}), nil
 		}
+*/
 
-		// ParseBurn is a log parse operation binding the contract event 0xb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb.
-		//
-		// Solidity: event Burn(uint256 amount)
-		func (_ISupplyControl *ISupplyControl) ParseBurn(log types.Log) (*ISupplyControlBurn, error) {
-			event := new(ISupplyControlBurn)
-			if err := _ISupplyControl.contract.UnpackLog(event, "Burn", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBurn is a log parse operation binding the contract event 0xb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb.
+//
+// Solidity: event Burn(uint256 amount)
+func (_ISupplyControl *ISupplyControl) ParseBurn(log types.Log) (*ISupplyControlBurn, error) {
+	event := new(ISupplyControlBurn)
+	if err := _ISupplyControl.contract.unpackLog(event, "Burn", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// ISupplyControlMintIterator is returned from FilterMint and is used to iterate over the raw logs and unpacked data for Mint events raised by the ISupplyControl contract.
+type ISupplyControlMintIterator struct {
+	Event *ISupplyControlMint // Event containing the contract specifics and raw log
 
-		// ISupplyControlMintIterator is returned from FilterMint and is used to iterate over the raw logs and unpacked data for Mint events raised by the ISupplyControl contract.
-		type ISupplyControlMintIterator struct {
-			Event *ISupplyControlMint // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *ISupplyControlMintIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ISupplyControlMintIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ISupplyControlMint)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(ISupplyControlMint)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(ISupplyControlMint)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ISupplyControlMint)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *ISupplyControlMintIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *ISupplyControlMintIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ISupplyControlMintIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ISupplyControlMintIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// ISupplyControlMint represents a Mint event raised by the ISupplyControl contract.
-		type ISupplyControlMint struct {
-			Recipient common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// ISupplyControlMint represents a Mint event raised by the ISupplyControl contract.
+type ISupplyControlMint struct {
+	Recipient common.Address
+	Amount    *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// ISupplyControlMint.SetRaw is allows shared interface for setting the raw log data in an event
+func (_ISupplyControlMint *ISupplyControlMint) SetRaw(log types.Log) {
+	_ISupplyControlMint.Raw = log
+}
+
+// ISupplyControlMint.GetRaw is allows shared interface for getting the raw log data in an event
+func (_ISupplyControlMint *ISupplyControlMint) GetRaw() types.Log {
+	return _ISupplyControlMint.Raw
+}
+
+/*
 		// FilterMint is a free log retrieval operation binding the contract event 0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885.
 		//
 		// Solidity: event Mint(address recipient, uint256 amount)
@@ -15175,21 +21302,19 @@ func (_ISupplyControl *ISupplyControl) SetStabilizer(opts *runOptions, stabilize
 				}
 			}), nil
 		}
-
-		// ParseMint is a log parse operation binding the contract event 0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885.
-		//
-		// Solidity: event Mint(address recipient, uint256 amount)
-		func (_ISupplyControl *ISupplyControl) ParseMint(log types.Log) (*ISupplyControlMint, error) {
-			event := new(ISupplyControlMint)
-			if err := _ISupplyControl.contract.UnpackLog(event, "Mint", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseMint is a log parse operation binding the contract event 0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885.
+//
+// Solidity: event Mint(address recipient, uint256 amount)
+func (_ISupplyControl *ISupplyControl) ParseMint(log types.Log) (*ISupplyControlMint, error) {
+	event := new(ISupplyControlMint)
+	if err := _ISupplyControl.contract.unpackLog(event, "Mint", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // InflationControllerMetaData contains all meta data concerning the InflationController contract.
 var InflationControllerMetaData = &bind.MetaData{
@@ -15281,10 +21406,6 @@ func (_InflationController *InflationController) Params(opts *runOptions) (struc
 	return *outstruct, consumed, err
 
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // LiquidLogicMetaData contains all meta data concerning the LiquidLogic contract.
 var LiquidLogicMetaData = &bind.MetaData{
@@ -15859,80 +21980,91 @@ func (_LiquidLogic *LiquidLogic) Receive(opts *runOptions) (uint64, error) {
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// LiquidLogicApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the LiquidLogic contract.
+type LiquidLogicApprovalIterator struct {
+	Event *LiquidLogicApproval // Event containing the contract specifics and raw log
 
-		// LiquidLogicApprovalIterator is returned from FilterApproval and is used to iterate over the raw logs and unpacked data for Approval events raised by the LiquidLogic contract.
-		type LiquidLogicApprovalIterator struct {
-			Event *LiquidLogicApproval // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *LiquidLogicApprovalIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *LiquidLogicApprovalIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(LiquidLogicApproval)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(LiquidLogicApproval)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(LiquidLogicApproval)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(LiquidLogicApproval)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *LiquidLogicApprovalIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *LiquidLogicApprovalIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *LiquidLogicApprovalIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *LiquidLogicApprovalIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// LiquidLogicApproval represents a Approval event raised by the LiquidLogic contract.
-		type LiquidLogicApproval struct {
-			Owner common.Address;
-			Spender common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// LiquidLogicApproval represents a Approval event raised by the LiquidLogic contract.
+type LiquidLogicApproval struct {
+	Owner   common.Address
+	Spender common.Address
+	Value   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// LiquidLogicApproval.SetRaw is allows shared interface for setting the raw log data in an event
+func (_LiquidLogicApproval *LiquidLogicApproval) SetRaw(log types.Log) {
+	_LiquidLogicApproval.Raw = log
+}
+
+// LiquidLogicApproval.GetRaw is allows shared interface for getting the raw log data in an event
+func (_LiquidLogicApproval *LiquidLogicApproval) GetRaw() types.Log {
+	return _LiquidLogicApproval.Raw
+}
+
+/*
 		// FilterApproval is a free log retrieval operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
 		//
 		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
@@ -16001,92 +22133,105 @@ func (_LiquidLogic *LiquidLogic) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
-		//
-		// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
-		func (_LiquidLogic *LiquidLogic) ParseApproval(log types.Log) (*LiquidLogicApproval, error) {
-			event := new(LiquidLogicApproval)
-			if err := _LiquidLogic.contract.UnpackLog(event, "Approval", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseApproval is a log parse operation binding the contract event 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925.
+//
+// Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
+func (_LiquidLogic *LiquidLogic) ParseApproval(log types.Log) (*LiquidLogicApproval, error) {
+	event := new(LiquidLogicApproval)
+	if err := _LiquidLogic.contract.unpackLog(event, "Approval", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// LiquidLogicTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the LiquidLogic contract.
+type LiquidLogicTransferIterator struct {
+	Event *LiquidLogicTransfer // Event containing the contract specifics and raw log
 
-		// LiquidLogicTransferIterator is returned from FilterTransfer and is used to iterate over the raw logs and unpacked data for Transfer events raised by the LiquidLogic contract.
-		type LiquidLogicTransferIterator struct {
-			Event *LiquidLogicTransfer // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *LiquidLogicTransferIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *LiquidLogicTransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(LiquidLogicTransfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(LiquidLogicTransfer)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(LiquidLogicTransfer)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(LiquidLogicTransfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *LiquidLogicTransferIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *LiquidLogicTransferIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *LiquidLogicTransferIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *LiquidLogicTransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// LiquidLogicTransfer represents a Transfer event raised by the LiquidLogic contract.
-		type LiquidLogicTransfer struct {
-			From common.Address;
-			To common.Address;
-			Value *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// LiquidLogicTransfer represents a Transfer event raised by the LiquidLogic contract.
+type LiquidLogicTransfer struct {
+	From  common.Address
+	To    common.Address
+	Value *big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// LiquidLogicTransfer.SetRaw is allows shared interface for setting the raw log data in an event
+func (_LiquidLogicTransfer *LiquidLogicTransfer) SetRaw(log types.Log) {
+	_LiquidLogicTransfer.Raw = log
+}
+
+// LiquidLogicTransfer.GetRaw is allows shared interface for getting the raw log data in an event
+func (_LiquidLogicTransfer *LiquidLogicTransfer) GetRaw() types.Log {
+	return _LiquidLogicTransfer.Raw
+}
+
+/*
 		// FilterTransfer is a free log retrieval operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
 		//
 		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
@@ -16155,21 +22300,19 @@ func (_LiquidLogic *LiquidLogic) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
-
-		// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
-		//
-		// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
-		func (_LiquidLogic *LiquidLogic) ParseTransfer(log types.Log) (*LiquidLogicTransfer, error) {
-			event := new(LiquidLogicTransfer)
-			if err := _LiquidLogic.contract.UnpackLog(event, "Transfer", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseTransfer is a log parse operation binding the contract event 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef.
+//
+// Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
+func (_LiquidLogic *LiquidLogic) ParseTransfer(log types.Log) (*LiquidLogicTransfer, error) {
+	event := new(LiquidLogicTransfer)
+	if err := _LiquidLogic.contract.unpackLog(event, "Transfer", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // LiquidRewardManagerMetaData contains all meta data concerning the LiquidRewardManager contract.
 var LiquidRewardManagerMetaData = &bind.MetaData{
@@ -16229,10 +22372,6 @@ func (_LiquidRewardManager *LiquidRewardManager) FEEFACTORUNITRECIP(opts *runOpt
 
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
-
 // LiquidStateMetaData contains all meta data concerning the LiquidState contract.
 var LiquidStateMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_validator\",\"type\":\"address\"},{\"internalType\":\"addresspayable\",\"name\":\"_treasury\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_commissionRate\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_index\",\"type\":\"string\"},{\"internalType\":\"address\",\"name\":\"_liquidLogicAddress\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
@@ -16284,10 +22423,6 @@ func (_LiquidState *LiquidState) Receive(opts *runOptions) (uint64, error) {
 	_, consumed, err := _LiquidState.call(opts, "")
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // LiquidStateTestMetaData contains all meta data concerning the LiquidStateTest contract.
 var LiquidStateTestMetaData = &bind.MetaData{
@@ -16363,10 +22498,6 @@ func (_LiquidStateTest *LiquidStateTest) Receive(opts *runOptions) (uint64, erro
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
-
 // LiquidStorageMetaData contains all meta data concerning the LiquidStorage contract.
 var LiquidStorageMetaData = &bind.MetaData{
 	ABI: "[]",
@@ -16402,10 +22533,6 @@ func (r *runner) deployLiquidStorage(opts *runOptions) (common.Address, uint64, 
 type LiquidStorage struct {
 	*contract
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // NonStakableVestingMetaData contains all meta data concerning the NonStakableVesting contract.
 var NonStakableVestingMetaData = &bind.MetaData{
@@ -16766,10 +22893,6 @@ func (_NonStakableVesting *NonStakableVesting) UnlockTokens(opts *runOptions) (u
 	_, consumed, err := _NonStakableVesting.call(opts, "unlockTokens")
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // OracleMetaData contains all meta data concerning the Oracle contract.
 var OracleMetaData = &bind.MetaData{
@@ -17212,81 +23335,92 @@ func (_Oracle *Oracle) Receive(opts *runOptions) (uint64, error) {
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// OracleNewRoundIterator is returned from FilterNewRound and is used to iterate over the raw logs and unpacked data for NewRound events raised by the Oracle contract.
+type OracleNewRoundIterator struct {
+	Event *OracleNewRound // Event containing the contract specifics and raw log
 
-		// OracleNewRoundIterator is returned from FilterNewRound and is used to iterate over the raw logs and unpacked data for NewRound events raised by the Oracle contract.
-		type OracleNewRoundIterator struct {
-			Event *OracleNewRound // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *OracleNewRoundIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *OracleNewRoundIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OracleNewRound)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(OracleNewRound)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(OracleNewRound)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(OracleNewRound)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *OracleNewRoundIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *OracleNewRoundIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *OracleNewRoundIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *OracleNewRoundIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// OracleNewRound represents a NewRound event raised by the Oracle contract.
-		type OracleNewRound struct {
-			Round *big.Int;
-			Height *big.Int;
-			Timestamp *big.Int;
-			VotePeriod *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// OracleNewRound represents a NewRound event raised by the Oracle contract.
+type OracleNewRound struct {
+	Round      *big.Int
+	Height     *big.Int
+	Timestamp  *big.Int
+	VotePeriod *big.Int
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// OracleNewRound.SetRaw is allows shared interface for setting the raw log data in an event
+func (_OracleNewRound *OracleNewRound) SetRaw(log types.Log) {
+	_OracleNewRound.Raw = log
+}
+
+// OracleNewRound.GetRaw is allows shared interface for getting the raw log data in an event
+func (_OracleNewRound *OracleNewRound) GetRaw() types.Log {
+	return _OracleNewRound.Raw
+}
+
+/*
 		// FilterNewRound is a free log retrieval operation binding the contract event 0xb5d8636ab45e6cac7a4a61cb7c77f77f61a454d73aa2e6139ff8dcaf463537e5.
 		//
 		// Solidity: event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint256 _votePeriod)
@@ -17345,91 +23479,104 @@ func (_Oracle *Oracle) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewRound is a log parse operation binding the contract event 0xb5d8636ab45e6cac7a4a61cb7c77f77f61a454d73aa2e6139ff8dcaf463537e5.
-		//
-		// Solidity: event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint256 _votePeriod)
-		func (_Oracle *Oracle) ParseNewRound(log types.Log) (*OracleNewRound, error) {
-			event := new(OracleNewRound)
-			if err := _Oracle.contract.UnpackLog(event, "NewRound", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewRound is a log parse operation binding the contract event 0xb5d8636ab45e6cac7a4a61cb7c77f77f61a454d73aa2e6139ff8dcaf463537e5.
+//
+// Solidity: event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint256 _votePeriod)
+func (_Oracle *Oracle) ParseNewRound(log types.Log) (*OracleNewRound, error) {
+	event := new(OracleNewRound)
+	if err := _Oracle.contract.unpackLog(event, "NewRound", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// OracleNewSymbolsIterator is returned from FilterNewSymbols and is used to iterate over the raw logs and unpacked data for NewSymbols events raised by the Oracle contract.
+type OracleNewSymbolsIterator struct {
+	Event *OracleNewSymbols // Event containing the contract specifics and raw log
 
-		// OracleNewSymbolsIterator is returned from FilterNewSymbols and is used to iterate over the raw logs and unpacked data for NewSymbols events raised by the Oracle contract.
-		type OracleNewSymbolsIterator struct {
-			Event *OracleNewSymbols // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *OracleNewSymbolsIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *OracleNewSymbolsIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OracleNewSymbols)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(OracleNewSymbols)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(OracleNewSymbols)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(OracleNewSymbols)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *OracleNewSymbolsIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *OracleNewSymbolsIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *OracleNewSymbolsIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *OracleNewSymbolsIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// OracleNewSymbols represents a NewSymbols event raised by the Oracle contract.
-		type OracleNewSymbols struct {
-			Symbols []string;
-			Round *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// OracleNewSymbols represents a NewSymbols event raised by the Oracle contract.
+type OracleNewSymbols struct {
+	Symbols []string
+	Round   *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// OracleNewSymbols.SetRaw is allows shared interface for setting the raw log data in an event
+func (_OracleNewSymbols *OracleNewSymbols) SetRaw(log types.Log) {
+	_OracleNewSymbols.Raw = log
+}
+
+// OracleNewSymbols.GetRaw is allows shared interface for getting the raw log data in an event
+func (_OracleNewSymbols *OracleNewSymbols) GetRaw() types.Log {
+	return _OracleNewSymbols.Raw
+}
+
+/*
 		// FilterNewSymbols is a free log retrieval operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
 		//
 		// Solidity: event NewSymbols(string[] _symbols, uint256 _round)
@@ -17484,91 +23631,104 @@ func (_Oracle *Oracle) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
+*/
 
-		// ParseNewSymbols is a log parse operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
-		//
-		// Solidity: event NewSymbols(string[] _symbols, uint256 _round)
-		func (_Oracle *Oracle) ParseNewSymbols(log types.Log) (*OracleNewSymbols, error) {
-			event := new(OracleNewSymbols)
-			if err := _Oracle.contract.UnpackLog(event, "NewSymbols", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseNewSymbols is a log parse operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
+//
+// Solidity: event NewSymbols(string[] _symbols, uint256 _round)
+func (_Oracle *Oracle) ParseNewSymbols(log types.Log) (*OracleNewSymbols, error) {
+	event := new(OracleNewSymbols)
+	if err := _Oracle.contract.unpackLog(event, "NewSymbols", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// OracleVotedIterator is returned from FilterVoted and is used to iterate over the raw logs and unpacked data for Voted events raised by the Oracle contract.
+type OracleVotedIterator struct {
+	Event *OracleVoted // Event containing the contract specifics and raw log
 
-		// OracleVotedIterator is returned from FilterVoted and is used to iterate over the raw logs and unpacked data for Voted events raised by the Oracle contract.
-		type OracleVotedIterator struct {
-			Event *OracleVoted // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *OracleVotedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *OracleVotedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OracleVoted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(OracleVoted)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(OracleVoted)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(OracleVoted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *OracleVotedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *OracleVotedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *OracleVotedIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *OracleVotedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// OracleVoted represents a Voted event raised by the Oracle contract.
-		type OracleVoted struct {
-			Voter common.Address;
-			Votes []*big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// OracleVoted represents a Voted event raised by the Oracle contract.
+type OracleVoted struct {
+	Voter common.Address
+	Votes []*big.Int
+	Raw   types.Log // Blockchain specific contextual infos
+}
 
+// OracleVoted.SetRaw is allows shared interface for setting the raw log data in an event
+func (_OracleVoted *OracleVoted) SetRaw(log types.Log) {
+	_OracleVoted.Raw = log
+}
+
+// OracleVoted.GetRaw is allows shared interface for getting the raw log data in an event
+func (_OracleVoted *OracleVoted) GetRaw() types.Log {
+	return _OracleVoted.Raw
+}
+
+/*
 		// FilterVoted is a free log retrieval operation binding the contract event 0xd0d8560f1076ac6b216b1091a2571d6f9bc3e0889f4dbdbe1c7d1be7136714d3.
 		//
 		// Solidity: event Voted(address indexed _voter, int256[] _votes)
@@ -17629,21 +23789,19 @@ func (_Oracle *Oracle) Receive(opts *runOptions) (uint64, error) {
 				}
 			}), nil
 		}
-
-		// ParseVoted is a log parse operation binding the contract event 0xd0d8560f1076ac6b216b1091a2571d6f9bc3e0889f4dbdbe1c7d1be7136714d3.
-		//
-		// Solidity: event Voted(address indexed _voter, int256[] _votes)
-		func (_Oracle *Oracle) ParseVoted(log types.Log) (*OracleVoted, error) {
-			event := new(OracleVoted)
-			if err := _Oracle.contract.UnpackLog(event, "Voted", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseVoted is a log parse operation binding the contract event 0xd0d8560f1076ac6b216b1091a2571d6f9bc3e0889f4dbdbe1c7d1be7136714d3.
+//
+// Solidity: event Voted(address indexed _voter, int256[] _votes)
+func (_Oracle *Oracle) ParseVoted(log types.Log) (*OracleVoted, error) {
+	event := new(OracleVoted)
+	if err := _Oracle.contract.unpackLog(event, "Voted", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // PrecompiledMetaData contains all meta data concerning the Precompiled contract.
 var PrecompiledMetaData = &bind.MetaData{
@@ -17815,10 +23973,6 @@ func (_Precompiled *Precompiled) UPGRADERCONTRACT(opts *runOptions) (common.Addr
 
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
-
 // ReentrancyGuardMetaData contains all meta data concerning the ReentrancyGuard contract.
 var ReentrancyGuardMetaData = &bind.MetaData{
 	ABI: "[]",
@@ -17832,10 +23986,6 @@ var ReentrancyGuardABI = ReentrancyGuardMetaData.ABI
 type ReentrancyGuard struct {
 	*contract
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // StabilizationMetaData contains all meta data concerning the Stabilization contract.
 var StabilizationMetaData = &bind.MetaData{
@@ -18376,79 +24526,90 @@ func (_Stabilization *Stabilization) Withdraw(opts *runOptions, amount *big.Int)
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// StabilizationBorrowIterator is returned from FilterBorrow and is used to iterate over the raw logs and unpacked data for Borrow events raised by the Stabilization contract.
+type StabilizationBorrowIterator struct {
+	Event *StabilizationBorrow // Event containing the contract specifics and raw log
 
-		// StabilizationBorrowIterator is returned from FilterBorrow and is used to iterate over the raw logs and unpacked data for Borrow events raised by the Stabilization contract.
-		type StabilizationBorrowIterator struct {
-			Event *StabilizationBorrow // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *StabilizationBorrowIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StabilizationBorrowIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StabilizationBorrow)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(StabilizationBorrow)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(StabilizationBorrow)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StabilizationBorrow)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *StabilizationBorrowIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *StabilizationBorrowIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StabilizationBorrowIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StabilizationBorrowIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// StabilizationBorrow represents a Borrow event raised by the Stabilization contract.
-		type StabilizationBorrow struct {
-			Account common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// StabilizationBorrow represents a Borrow event raised by the Stabilization contract.
+type StabilizationBorrow struct {
+	Account common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// StabilizationBorrow.SetRaw is allows shared interface for setting the raw log data in an event
+func (_StabilizationBorrow *StabilizationBorrow) SetRaw(log types.Log) {
+	_StabilizationBorrow.Raw = log
+}
+
+// StabilizationBorrow.GetRaw is allows shared interface for getting the raw log data in an event
+func (_StabilizationBorrow *StabilizationBorrow) GetRaw() types.Log {
+	return _StabilizationBorrow.Raw
+}
+
+/*
 		// FilterBorrow is a free log retrieval operation binding the contract event 0xcbc04eca7e9da35cb1393a6135a199ca52e450d5e9251cbd99f7847d33a36750.
 		//
 		// Solidity: event Borrow(address indexed account, uint256 amount)
@@ -18509,91 +24670,104 @@ func (_Stabilization *Stabilization) Withdraw(opts *runOptions, amount *big.Int)
 				}
 			}), nil
 		}
+*/
 
-		// ParseBorrow is a log parse operation binding the contract event 0xcbc04eca7e9da35cb1393a6135a199ca52e450d5e9251cbd99f7847d33a36750.
-		//
-		// Solidity: event Borrow(address indexed account, uint256 amount)
-		func (_Stabilization *Stabilization) ParseBorrow(log types.Log) (*StabilizationBorrow, error) {
-			event := new(StabilizationBorrow)
-			if err := _Stabilization.contract.UnpackLog(event, "Borrow", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBorrow is a log parse operation binding the contract event 0xcbc04eca7e9da35cb1393a6135a199ca52e450d5e9251cbd99f7847d33a36750.
+//
+// Solidity: event Borrow(address indexed account, uint256 amount)
+func (_Stabilization *Stabilization) ParseBorrow(log types.Log) (*StabilizationBorrow, error) {
+	event := new(StabilizationBorrow)
+	if err := _Stabilization.contract.unpackLog(event, "Borrow", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// StabilizationDepositIterator is returned from FilterDeposit and is used to iterate over the raw logs and unpacked data for Deposit events raised by the Stabilization contract.
+type StabilizationDepositIterator struct {
+	Event *StabilizationDeposit // Event containing the contract specifics and raw log
 
-		// StabilizationDepositIterator is returned from FilterDeposit and is used to iterate over the raw logs and unpacked data for Deposit events raised by the Stabilization contract.
-		type StabilizationDepositIterator struct {
-			Event *StabilizationDeposit // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *StabilizationDepositIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StabilizationDepositIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StabilizationDeposit)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(StabilizationDeposit)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(StabilizationDeposit)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StabilizationDeposit)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *StabilizationDepositIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *StabilizationDepositIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StabilizationDepositIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StabilizationDepositIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// StabilizationDeposit represents a Deposit event raised by the Stabilization contract.
-		type StabilizationDeposit struct {
-			Account common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// StabilizationDeposit represents a Deposit event raised by the Stabilization contract.
+type StabilizationDeposit struct {
+	Account common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// StabilizationDeposit.SetRaw is allows shared interface for setting the raw log data in an event
+func (_StabilizationDeposit *StabilizationDeposit) SetRaw(log types.Log) {
+	_StabilizationDeposit.Raw = log
+}
+
+// StabilizationDeposit.GetRaw is allows shared interface for getting the raw log data in an event
+func (_StabilizationDeposit *StabilizationDeposit) GetRaw() types.Log {
+	return _StabilizationDeposit.Raw
+}
+
+/*
 		// FilterDeposit is a free log retrieval operation binding the contract event 0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c.
 		//
 		// Solidity: event Deposit(address indexed account, uint256 amount)
@@ -18654,91 +24828,104 @@ func (_Stabilization *Stabilization) Withdraw(opts *runOptions, amount *big.Int)
 				}
 			}), nil
 		}
+*/
 
-		// ParseDeposit is a log parse operation binding the contract event 0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c.
-		//
-		// Solidity: event Deposit(address indexed account, uint256 amount)
-		func (_Stabilization *Stabilization) ParseDeposit(log types.Log) (*StabilizationDeposit, error) {
-			event := new(StabilizationDeposit)
-			if err := _Stabilization.contract.UnpackLog(event, "Deposit", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseDeposit is a log parse operation binding the contract event 0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c.
+//
+// Solidity: event Deposit(address indexed account, uint256 amount)
+func (_Stabilization *Stabilization) ParseDeposit(log types.Log) (*StabilizationDeposit, error) {
+	event := new(StabilizationDeposit)
+	if err := _Stabilization.contract.unpackLog(event, "Deposit", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// StabilizationLiquidateIterator is returned from FilterLiquidate and is used to iterate over the raw logs and unpacked data for Liquidate events raised by the Stabilization contract.
+type StabilizationLiquidateIterator struct {
+	Event *StabilizationLiquidate // Event containing the contract specifics and raw log
 
-		// StabilizationLiquidateIterator is returned from FilterLiquidate and is used to iterate over the raw logs and unpacked data for Liquidate events raised by the Stabilization contract.
-		type StabilizationLiquidateIterator struct {
-			Event *StabilizationLiquidate // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *StabilizationLiquidateIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StabilizationLiquidateIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StabilizationLiquidate)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(StabilizationLiquidate)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(StabilizationLiquidate)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StabilizationLiquidate)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *StabilizationLiquidateIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *StabilizationLiquidateIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StabilizationLiquidateIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StabilizationLiquidateIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// StabilizationLiquidate represents a Liquidate event raised by the Stabilization contract.
-		type StabilizationLiquidate struct {
-			Account common.Address;
-			Liquidator common.Address;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// StabilizationLiquidate represents a Liquidate event raised by the Stabilization contract.
+type StabilizationLiquidate struct {
+	Account    common.Address
+	Liquidator common.Address
+	Raw        types.Log // Blockchain specific contextual infos
+}
 
+// StabilizationLiquidate.SetRaw is allows shared interface for setting the raw log data in an event
+func (_StabilizationLiquidate *StabilizationLiquidate) SetRaw(log types.Log) {
+	_StabilizationLiquidate.Raw = log
+}
+
+// StabilizationLiquidate.GetRaw is allows shared interface for getting the raw log data in an event
+func (_StabilizationLiquidate *StabilizationLiquidate) GetRaw() types.Log {
+	return _StabilizationLiquidate.Raw
+}
+
+/*
 		// FilterLiquidate is a free log retrieval operation binding the contract event 0xc3d81b2125598b9a2b024afe09e33981f0aa5b7bcbe3e30c4303a4dec209ddb4.
 		//
 		// Solidity: event Liquidate(address indexed account, address liquidator)
@@ -18799,91 +24986,104 @@ func (_Stabilization *Stabilization) Withdraw(opts *runOptions, amount *big.Int)
 				}
 			}), nil
 		}
+*/
 
-		// ParseLiquidate is a log parse operation binding the contract event 0xc3d81b2125598b9a2b024afe09e33981f0aa5b7bcbe3e30c4303a4dec209ddb4.
-		//
-		// Solidity: event Liquidate(address indexed account, address liquidator)
-		func (_Stabilization *Stabilization) ParseLiquidate(log types.Log) (*StabilizationLiquidate, error) {
-			event := new(StabilizationLiquidate)
-			if err := _Stabilization.contract.UnpackLog(event, "Liquidate", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseLiquidate is a log parse operation binding the contract event 0xc3d81b2125598b9a2b024afe09e33981f0aa5b7bcbe3e30c4303a4dec209ddb4.
+//
+// Solidity: event Liquidate(address indexed account, address liquidator)
+func (_Stabilization *Stabilization) ParseLiquidate(log types.Log) (*StabilizationLiquidate, error) {
+	event := new(StabilizationLiquidate)
+	if err := _Stabilization.contract.unpackLog(event, "Liquidate", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// StabilizationRepayIterator is returned from FilterRepay and is used to iterate over the raw logs and unpacked data for Repay events raised by the Stabilization contract.
+type StabilizationRepayIterator struct {
+	Event *StabilizationRepay // Event containing the contract specifics and raw log
 
-		// StabilizationRepayIterator is returned from FilterRepay and is used to iterate over the raw logs and unpacked data for Repay events raised by the Stabilization contract.
-		type StabilizationRepayIterator struct {
-			Event *StabilizationRepay // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *StabilizationRepayIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StabilizationRepayIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StabilizationRepay)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(StabilizationRepay)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(StabilizationRepay)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StabilizationRepay)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *StabilizationRepayIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *StabilizationRepayIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StabilizationRepayIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StabilizationRepayIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// StabilizationRepay represents a Repay event raised by the Stabilization contract.
-		type StabilizationRepay struct {
-			Account common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// StabilizationRepay represents a Repay event raised by the Stabilization contract.
+type StabilizationRepay struct {
+	Account common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// StabilizationRepay.SetRaw is allows shared interface for setting the raw log data in an event
+func (_StabilizationRepay *StabilizationRepay) SetRaw(log types.Log) {
+	_StabilizationRepay.Raw = log
+}
+
+// StabilizationRepay.GetRaw is allows shared interface for getting the raw log data in an event
+func (_StabilizationRepay *StabilizationRepay) GetRaw() types.Log {
+	return _StabilizationRepay.Raw
+}
+
+/*
 		// FilterRepay is a free log retrieval operation binding the contract event 0x5c16de4f8b59bd9caf0f49a545f25819a895ed223294290b408242e72a594231.
 		//
 		// Solidity: event Repay(address indexed account, uint256 amount)
@@ -18944,91 +25144,104 @@ func (_Stabilization *Stabilization) Withdraw(opts *runOptions, amount *big.Int)
 				}
 			}), nil
 		}
+*/
 
-		// ParseRepay is a log parse operation binding the contract event 0x5c16de4f8b59bd9caf0f49a545f25819a895ed223294290b408242e72a594231.
-		//
-		// Solidity: event Repay(address indexed account, uint256 amount)
-		func (_Stabilization *Stabilization) ParseRepay(log types.Log) (*StabilizationRepay, error) {
-			event := new(StabilizationRepay)
-			if err := _Stabilization.contract.UnpackLog(event, "Repay", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseRepay is a log parse operation binding the contract event 0x5c16de4f8b59bd9caf0f49a545f25819a895ed223294290b408242e72a594231.
+//
+// Solidity: event Repay(address indexed account, uint256 amount)
+func (_Stabilization *Stabilization) ParseRepay(log types.Log) (*StabilizationRepay, error) {
+	event := new(StabilizationRepay)
+	if err := _Stabilization.contract.unpackLog(event, "Repay", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// StabilizationWithdrawIterator is returned from FilterWithdraw and is used to iterate over the raw logs and unpacked data for Withdraw events raised by the Stabilization contract.
+type StabilizationWithdrawIterator struct {
+	Event *StabilizationWithdraw // Event containing the contract specifics and raw log
 
-		// StabilizationWithdrawIterator is returned from FilterWithdraw and is used to iterate over the raw logs and unpacked data for Withdraw events raised by the Stabilization contract.
-		type StabilizationWithdrawIterator struct {
-			Event *StabilizationWithdraw // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *StabilizationWithdrawIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *StabilizationWithdrawIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(StabilizationWithdraw)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(StabilizationWithdraw)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(StabilizationWithdraw)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(StabilizationWithdraw)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *StabilizationWithdrawIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *StabilizationWithdrawIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *StabilizationWithdrawIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *StabilizationWithdrawIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// StabilizationWithdraw represents a Withdraw event raised by the Stabilization contract.
-		type StabilizationWithdraw struct {
-			Account common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// StabilizationWithdraw represents a Withdraw event raised by the Stabilization contract.
+type StabilizationWithdraw struct {
+	Account common.Address
+	Amount  *big.Int
+	Raw     types.Log // Blockchain specific contextual infos
+}
 
+// StabilizationWithdraw.SetRaw is allows shared interface for setting the raw log data in an event
+func (_StabilizationWithdraw *StabilizationWithdraw) SetRaw(log types.Log) {
+	_StabilizationWithdraw.Raw = log
+}
+
+// StabilizationWithdraw.GetRaw is allows shared interface for getting the raw log data in an event
+func (_StabilizationWithdraw *StabilizationWithdraw) GetRaw() types.Log {
+	return _StabilizationWithdraw.Raw
+}
+
+/*
 		// FilterWithdraw is a free log retrieval operation binding the contract event 0x884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364.
 		//
 		// Solidity: event Withdraw(address indexed account, uint256 amount)
@@ -19089,21 +25302,19 @@ func (_Stabilization *Stabilization) Withdraw(opts *runOptions, amount *big.Int)
 				}
 			}), nil
 		}
-
-		// ParseWithdraw is a log parse operation binding the contract event 0x884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364.
-		//
-		// Solidity: event Withdraw(address indexed account, uint256 amount)
-		func (_Stabilization *Stabilization) ParseWithdraw(log types.Log) (*StabilizationWithdraw, error) {
-			event := new(StabilizationWithdraw)
-			if err := _Stabilization.contract.UnpackLog(event, "Withdraw", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseWithdraw is a log parse operation binding the contract event 0x884edad9ce6fa2440d8a54cc123490eb96d2768479d49ff9c7366125a9424364.
+//
+// Solidity: event Withdraw(address indexed account, uint256 amount)
+func (_Stabilization *Stabilization) ParseWithdraw(log types.Log) (*StabilizationWithdraw, error) {
+	event := new(StabilizationWithdraw)
+	if err := _Stabilization.contract.unpackLog(event, "Withdraw", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // StakableVestingMetaData contains all meta data concerning the StakableVesting contract.
 var StakableVestingMetaData = &bind.MetaData{
@@ -19933,10 +26144,6 @@ func (_StakableVesting *StakableVesting) UpdateFunds(opts *runOptions, _benefici
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
-
 // SupplyControlMetaData contains all meta data concerning the SupplyControl contract.
 var SupplyControlMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"stabilizer_\",\"type\":\"address\"}],\"stateMutability\":\"payable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidAmount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroValue\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Burn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Mint\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"availableSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"stabilizer_\",\"type\":\"address\"}],\"name\":\"setStabilizer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stabilizer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
@@ -20115,78 +26322,89 @@ func (_SupplyControl *SupplyControl) SetStabilizer(opts *runOptions, stabilizer_
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// SupplyControlBurnIterator is returned from FilterBurn and is used to iterate over the raw logs and unpacked data for Burn events raised by the SupplyControl contract.
+type SupplyControlBurnIterator struct {
+	Event *SupplyControlBurn // Event containing the contract specifics and raw log
 
-		// SupplyControlBurnIterator is returned from FilterBurn and is used to iterate over the raw logs and unpacked data for Burn events raised by the SupplyControl contract.
-		type SupplyControlBurnIterator struct {
-			Event *SupplyControlBurn // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *SupplyControlBurnIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SupplyControlBurnIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SupplyControlBurn)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(SupplyControlBurn)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(SupplyControlBurn)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SupplyControlBurn)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *SupplyControlBurnIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *SupplyControlBurnIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SupplyControlBurnIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SupplyControlBurnIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// SupplyControlBurn represents a Burn event raised by the SupplyControl contract.
-		type SupplyControlBurn struct {
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// SupplyControlBurn represents a Burn event raised by the SupplyControl contract.
+type SupplyControlBurn struct {
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
 
+// SupplyControlBurn.SetRaw is allows shared interface for setting the raw log data in an event
+func (_SupplyControlBurn *SupplyControlBurn) SetRaw(log types.Log) {
+	_SupplyControlBurn.Raw = log
+}
+
+// SupplyControlBurn.GetRaw is allows shared interface for getting the raw log data in an event
+func (_SupplyControlBurn *SupplyControlBurn) GetRaw() types.Log {
+	return _SupplyControlBurn.Raw
+}
+
+/*
 		// FilterBurn is a free log retrieval operation binding the contract event 0xb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb.
 		//
 		// Solidity: event Burn(uint256 amount)
@@ -20239,91 +26457,104 @@ func (_SupplyControl *SupplyControl) SetStabilizer(opts *runOptions, stabilizer_
 				}
 			}), nil
 		}
+*/
 
-		// ParseBurn is a log parse operation binding the contract event 0xb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb.
-		//
-		// Solidity: event Burn(uint256 amount)
-		func (_SupplyControl *SupplyControl) ParseBurn(log types.Log) (*SupplyControlBurn, error) {
-			event := new(SupplyControlBurn)
-			if err := _SupplyControl.contract.UnpackLog(event, "Burn", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
+// ParseBurn is a log parse operation binding the contract event 0xb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb.
+//
+// Solidity: event Burn(uint256 amount)
+func (_SupplyControl *SupplyControl) ParseBurn(log types.Log) (*SupplyControlBurn, error) {
+	event := new(SupplyControlBurn)
+	if err := _SupplyControl.contract.unpackLog(event, "Burn", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
+/* FULL EVENT FUNCTIONALITY NOT YET SUPPORTED
+// SupplyControlMintIterator is returned from FilterMint and is used to iterate over the raw logs and unpacked data for Mint events raised by the SupplyControl contract.
+type SupplyControlMintIterator struct {
+	Event *SupplyControlMint // Event containing the contract specifics and raw log
 
-		// SupplyControlMintIterator is returned from FilterMint and is used to iterate over the raw logs and unpacked data for Mint events raised by the SupplyControl contract.
-		type SupplyControlMintIterator struct {
-			Event *SupplyControlMint // Event containing the contract specifics and raw log
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *SupplyControlMintIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *SupplyControlMintIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if (it.fail != nil) {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if (it.done) {
+		select {
+		case log := <-it.logs:
+			it.Event = new(SupplyControlMint)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
 				return false
 			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(SupplyControlMint)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
+			it.Event.Raw = log
+			return true
 
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(SupplyControlMint)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(SupplyControlMint)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
 
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *SupplyControlMintIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *SupplyControlMintIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *SupplyControlMintIterator) Error() error {
+	return it.fail
+}
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *SupplyControlMintIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+*/
 
-		// SupplyControlMint represents a Mint event raised by the SupplyControl contract.
-		type SupplyControlMint struct {
-			Recipient common.Address;
-			Amount *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
+// SupplyControlMint represents a Mint event raised by the SupplyControl contract.
+type SupplyControlMint struct {
+	Recipient common.Address
+	Amount    *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
 
+// SupplyControlMint.SetRaw is allows shared interface for setting the raw log data in an event
+func (_SupplyControlMint *SupplyControlMint) SetRaw(log types.Log) {
+	_SupplyControlMint.Raw = log
+}
+
+// SupplyControlMint.GetRaw is allows shared interface for getting the raw log data in an event
+func (_SupplyControlMint *SupplyControlMint) GetRaw() types.Log {
+	return _SupplyControlMint.Raw
+}
+
+/*
 		// FilterMint is a free log retrieval operation binding the contract event 0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885.
 		//
 		// Solidity: event Mint(address recipient, uint256 amount)
@@ -20378,21 +26609,19 @@ func (_SupplyControl *SupplyControl) SetStabilizer(opts *runOptions, stabilizer_
 				}
 			}), nil
 		}
-
-		// ParseMint is a log parse operation binding the contract event 0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885.
-		//
-		// Solidity: event Mint(address recipient, uint256 amount)
-		func (_SupplyControl *SupplyControl) ParseMint(log types.Log) (*SupplyControlMint, error) {
-			event := new(SupplyControlMint)
-			if err := _SupplyControl.contract.UnpackLog(event, "Mint", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
 */
+
+// ParseMint is a log parse operation binding the contract event 0x0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885.
+//
+// Solidity: event Mint(address recipient, uint256 amount)
+func (_SupplyControl *SupplyControl) ParseMint(log types.Log) (*SupplyControlMint, error) {
+	event := new(SupplyControlMint)
+	if err := _SupplyControl.contract.unpackLog(event, "Mint", log); err != nil {
+		return nil, err
+	}
+	event.SetRaw(log)
+	return event, nil
+}
 
 // TestBaseMetaData contains all meta data concerning the TestBase contract.
 var TestBaseMetaData = &bind.MetaData{
@@ -20451,10 +26680,6 @@ func (_TestBase *TestBase) Foo(opts *runOptions) (string, uint64, error) {
 	return out0, consumed, err
 
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // TestUpgradedMetaData contains all meta data concerning the TestUpgraded contract.
 var TestUpgradedMetaData = &bind.MetaData{
@@ -20551,10 +26776,6 @@ func (_TestUpgraded *TestUpgraded) FooBar(opts *runOptions, _foo string) (uint64
 	_, consumed, err := _TestUpgraded.call(opts, "FooBar", _foo)
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // UpgradeManagerMetaData contains all meta data concerning the UpgradeManager contract.
 var UpgradeManagerMetaData = &bind.MetaData{
@@ -20674,10 +26895,6 @@ func (_UpgradeManager *UpgradeManager) Upgrade(opts *runOptions, _target common.
 	return consumed, err
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
-
 // UpgradeableMetaData contains all meta data concerning the Upgradeable contract.
 var UpgradeableMetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[],\"name\":\"completeContractUpgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewContract\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"resetContractUpgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"_bytecode\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"_abi\",\"type\":\"string\"}],\"name\":\"upgradeContract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
@@ -20780,7 +26997,3 @@ func (_Upgradeable *Upgradeable) UpgradeContract(opts *runOptions, _bytecode []b
 	_, consumed, err := _Upgradeable.call(opts, "upgradeContract", _bytecode, _abi)
 	return consumed, err
 }
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
