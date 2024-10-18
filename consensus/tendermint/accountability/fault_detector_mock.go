@@ -118,6 +118,21 @@ func (mr *MockChainContextMockRecorder) Engine() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Engine", reflect.TypeOf((*MockChainContext)(nil).Engine))
 }
 
+// EpochOfHeight mocks base method.
+func (m *MockChainContext) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EpochOfHeight indicates an expected call of EpochOfHeight.
+func (mr *MockChainContextMockRecorder) EpochOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainContext)(nil).EpochOfHeight), height)
+}
+
 // GetBlock mocks base method.
 func (m *MockChainContext) GetBlock(hash common.Hash, number uint64) *types.Block {
 	m.ctrl.T.Helper()
@@ -200,24 +215,6 @@ func (m *MockChainContext) HasBadBlock(hash common.Hash) bool {
 func (mr *MockChainContextMockRecorder) HasBadBlock(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasBadBlock", reflect.TypeOf((*MockChainContext)(nil).HasBadBlock), hash)
-}
-
-// LatestEpoch mocks base method.
-func (m *MockChainContext) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(uint64)
-	ret3, _ := ret[3].(uint64)
-	ret4, _ := ret[4].(error)
-	return ret0, ret1, ret2, ret3, ret4
-}
-
-// LatestEpoch indicates an expected call of LatestEpoch.
-func (mr *MockChainContextMockRecorder) LatestEpoch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainContext)(nil).LatestEpoch))
 }
 
 // MinBaseFee mocks base method.

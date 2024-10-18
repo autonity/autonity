@@ -137,5 +137,6 @@
   "a9fd1a8f": "getEpochInfo()",
   "25ce1bb9": "getNextEpochBlock()",
   "ae1da0b5": "lastFinalizedBlock()",
-  "e08b14ed": "setCommittee(address[])"
+  "e08b14ed": "setCommittee(address[])",
+  "affb1cf1": "getEpochByHeight(uint256)"
 }

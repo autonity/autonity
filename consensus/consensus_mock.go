@@ -75,6 +75,21 @@ func (mr *MockChainHeaderReaderMockRecorder) CurrentHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeader", reflect.TypeOf((*MockChainHeaderReader)(nil).CurrentHeader))
 }
 
+// EpochOfHeight mocks base method.
+func (m *MockChainHeaderReader) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EpochOfHeight indicates an expected call of EpochOfHeight.
+func (mr *MockChainHeaderReaderMockRecorder) EpochOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochOfHeight), height)
+}
+
 // GetHeader mocks base method.
 func (m *MockChainHeaderReader) GetHeader(hash common.Hash, number uint64) *types.Header {
 	m.ctrl.T.Helper()
@@ -129,24 +144,6 @@ func (m *MockChainHeaderReader) GetTd(hash common.Hash, number uint64) *big.Int 
 func (mr *MockChainHeaderReaderMockRecorder) GetTd(hash, number any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTd", reflect.TypeOf((*MockChainHeaderReader)(nil).GetTd), hash, number)
-}
-
-// LatestEpoch mocks base method.
-func (m *MockChainHeaderReader) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(uint64)
-	ret3, _ := ret[3].(uint64)
-	ret4, _ := ret[4].(error)
-	return ret0, ret1, ret2, ret3, ret4
-}
-
-// LatestEpoch indicates an expected call of LatestEpoch.
-func (mr *MockChainHeaderReaderMockRecorder) LatestEpoch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainHeaderReader)(nil).LatestEpoch))
 }
 
 // MockChainReader is a mock of ChainReader interface.
@@ -212,6 +209,21 @@ func (m *MockChainReader) Engine() Engine {
 func (mr *MockChainReaderMockRecorder) Engine() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Engine", reflect.TypeOf((*MockChainReader)(nil).Engine))
+}
+
+// EpochOfHeight mocks base method.
+func (m *MockChainReader) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EpochOfHeight indicates an expected call of EpochOfHeight.
+func (mr *MockChainReaderMockRecorder) EpochOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainReader)(nil).EpochOfHeight), height)
 }
 
 // GetBlock mocks base method.
@@ -282,24 +294,6 @@ func (m *MockChainReader) GetTd(hash common.Hash, number uint64) *big.Int {
 func (mr *MockChainReaderMockRecorder) GetTd(hash, number any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTd", reflect.TypeOf((*MockChainReader)(nil).GetTd), hash, number)
-}
-
-// LatestEpoch mocks base method.
-func (m *MockChainReader) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(uint64)
-	ret2, _ := ret[2].(uint64)
-	ret3, _ := ret[3].(uint64)
-	ret4, _ := ret[4].(error)
-	return ret0, ret1, ret2, ret3, ret4
-}
-
-// LatestEpoch indicates an expected call of LatestEpoch.
-func (mr *MockChainReaderMockRecorder) LatestEpoch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainReader)(nil).LatestEpoch))
 }
 
 // MinBaseFee mocks base method.
