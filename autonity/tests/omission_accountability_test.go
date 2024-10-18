@@ -11,6 +11,21 @@ import (
 	"testing"
 )
 
+const BigFloatPrecision = 256 // will allow full representation of the solidity uint256 range
+
+func newFloat(value *big.Int) *big.Float {
+	return new(big.Float).SetPrec(BigFloatPrecision).SetInt(value)
+}
+
+func toString(value *big.Float) string {
+	return value.Text('f', -1)
+}
+
+func roundDown(value *big.Float) *big.Float {
+	valueInt, _ := value.Int(nil)
+	return newFloat(valueInt)
+}
+
 var omissionEpochPeriod = 130
 
 const ScaleFactor = 10_000           // must match the scale factor used in OmissionAccountability.sol
@@ -589,50 +604,45 @@ func TestOmissionPunishments(t *testing.T) {
 	require.Equal(r.t, expectedSlashAmount.String(), new(big.Int).Sub(val2.TotalSlashed, val2BeforeSlash.TotalSlashed).String())
 }
 
-// TODO(lorenzo) doing computations using floats is not the best way, as it causes precision loss in tests
-// At the same time using fixed point arithmetic in tests is not good as well,
-// since in solidity we use it already and the purpose of tests is also to see if we have any precision loss in solidity
-// Probably a better option would be to use big.Float or big.Rat
 func TestProposerRewardDistribution(t *testing.T) {
 	t.Run("Rewards are correctly allocated based on config", func(t *testing.T) {
 		r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
 			config.EpochPeriod = uint64(omissionEpochPeriod)
-			config.ProposerRewardRate = 1500 // this modification is just to not have too much precision loss, see comment at test start
+			config.TreasuryFee = 0
 			return config
 		})
 
-		maxCommitteeSize, _, err := r.autonity.GetMaxCommitteeSize(nil)
+		maxCommitteeSizeBig, _, err := r.autonity.GetMaxCommitteeSize(nil)
 		require.NoError(r.t, err)
+		maxCommitteeSize := newFloat(maxCommitteeSizeBig)
+		t.Logf("max committee size: %s", toString(maxCommitteeSize))
+
 		config, _, err := r.autonity.Config(nil)
 		require.NoError(r.t, err)
-		proposerRewardRate := config.Policy.ProposerRewardRate.Uint64()
-		treasuryRate := config.Policy.TreasuryFee
+		proposerRewardRateBig := config.Policy.ProposerRewardRate
+		proposerRewardRate := newFloat(proposerRewardRateBig)
 		proposerRewardRatePrecisionBig, _, err := r.autonity.PROPOSERREWARDRATEPRECISION(nil)
 		require.NoError(t, err)
-		proposerRewardRatePrecision := float64(proposerRewardRatePrecisionBig.Uint64())
-		committeeFactorPrecisionBig, _, err := r.autonity.COMMITTEEFRACTIONPRECISION(nil)
-		require.NoError(t, err)
-		committeeFactorPrecision := float64(committeeFactorPrecisionBig.Uint64())
+		proposerRewardRatePrecision := newFloat(proposerRewardRatePrecisionBig)
+		t.Logf("proposer reward rate: %s, precision: %s", toString(proposerRewardRate), toString(proposerRewardRatePrecision))
 
-		autonityAtns := new(big.Int).SetUint64(54644455456465) // random amount
+		autonityAtnsBig := new(big.Int).SetUint64(54644455456467) // random amount
+		t.Logf("atn rewards: %s", autonityAtnsBig.String())
 		// this has to match the ntn inflation unlocked NTNs.
 		// Can be retrieved by adding in solidity a revert(Helpers.toString(accounts[address(this)])); in Finalize
-		ntnRewards := new(big.Int).SetUint64(8205384319979600000)
-		r.giveMeSomeMoney(r.autonity.address, autonityAtns)
+		ntnRewardsBig := new(big.Int).SetUint64(8205384319979600000)
+		t.Logf("ntn rewards: %s", ntnRewardsBig.String())
+		r.giveMeSomeMoney(r.autonity.address, autonityAtnsBig)
 
-		// compute actual rewards for validator (subtract treasury fee)
-		treasuryFee := new(big.Int).Mul(treasuryRate, autonityAtns)
-		ten := new(big.Int).SetInt64(10)
-		eighteen := new(big.Int).SetInt64(18)
-		treasuryFee.Div(treasuryFee, new(big.Int).Exp(ten, eighteen, nil))
-		atnRewards := new(big.Int).Sub(autonityAtns, treasuryFee)
+		autonityAtns := newFloat(autonityAtnsBig)
+		ntnRewards := newFloat(ntnRewardsBig)
 
 		// all rewards should go to val 0
 		proposer := r.committee.validators[0].NodeAddress
 		proposerTreasury := r.committee.validators[0].Treasury
-		atnBalanceBefore := float64(r.getBalanceOf(proposerTreasury).Uint64())
-		ntnBalanceBefore := float64(ntnBalance(r, proposerTreasury).Uint64())
-		t.Logf("atn balance before: %f, ntn balance before %f", atnBalanceBefore, ntnBalanceBefore)
+		atnBalanceBefore := newFloat(r.getBalanceOf(proposerTreasury))
+		ntnBalanceBefore := newFloat(ntnBalance(r, proposerTreasury))
+		t.Logf("atn balance before: %s, ntn balance before %s", toString(atnBalanceBefore), toString(ntnBalanceBefore))
 
 		// set validator state to jailed so that he will not receive any reward other the proposer one
 		val := validator(r, proposer)
@@ -644,17 +654,42 @@ func TestProposerRewardDistribution(t *testing.T) {
 		r.evm.Context.Time.Add(r.evm.Context.Time, new(big.Int).SetInt64(int64(omissionEpochPeriod-1)))
 		setupProofAndAutonityFinalize(r, proposer, nil)
 
-		committeeFactor := float64(len(r.committee.validators)) / float64(maxCommitteeSize.Int64())
-		committeeFactor = math.Floor(committeeFactor*committeeFactorPrecision) / committeeFactorPrecision // simulate loss of precision due to fixed point arithmetic
-		atnExpectedReward := (float64(atnRewards.Uint64()) * committeeFactor * float64(proposerRewardRate)) / proposerRewardRatePrecision
-		ntnExpectedReward := (float64(ntnRewards.Uint64()) * committeeFactor * float64(proposerRewardRate)) / proposerRewardRatePrecision
-		t.Logf("atn expected reward: %f, ntn expected reward: %f", atnExpectedReward, ntnExpectedReward)
+		committeeSize := newFloat(new(big.Int).SetUint64(uint64(len(r.committee.validators))))
+		t.Logf("proposer reward rate: %s, committee size: %s", toString(proposerRewardRate), toString(committeeSize))
+		numeratorFactor := new(big.Float).Mul(proposerRewardRate, committeeSize)
+		t.Logf("numeratorFactor: %s", toString(numeratorFactor))
 
-		atnExpectedBalance := int64(math.Floor(atnBalanceBefore + atnExpectedReward))
-		ntnExpectedBalance := int64(math.Floor(ntnBalanceBefore + ntnExpectedReward))
-		t.Logf("atn expected balance: %d, ntn expected balance: %d", atnExpectedBalance, ntnExpectedBalance)
-		require.Equal(t, atnExpectedBalance, r.getBalanceOf(proposerTreasury).Int64())
-		require.Equal(t, ntnExpectedBalance, ntnBalance(r, proposerTreasury).Int64())
+		t.Logf("proposer reward rate precision: %s, max committee size: %s", toString(proposerRewardRatePrecision), toString(maxCommitteeSize))
+		denominator := new(big.Float).Mul(proposerRewardRatePrecision, maxCommitteeSize)
+		t.Logf("denominator: %s", toString(denominator))
+
+		numeratorAtn := new(big.Float).Mul(autonityAtns, numeratorFactor)
+		t.Logf("numerator atn: %s", toString(numeratorAtn))
+		atnExpectedReward := new(big.Float).Quo(numeratorAtn, denominator)
+
+		numeratorNtn := new(big.Float).Mul(ntnRewards, numeratorFactor)
+		t.Logf("numerator ntn: %s", toString(numeratorNtn))
+		ntnExpectedReward := new(big.Float).Quo(numeratorNtn, denominator)
+
+		t.Logf("atn expected reward: %s, ntn expected reward: %s", toString(atnExpectedReward), toString(ntnExpectedReward))
+
+		atnExpectedBalance := new(big.Float).Add(atnBalanceBefore, atnExpectedReward)
+		ntnExpectedBalance := new(big.Float).Add(ntnBalanceBefore, ntnExpectedReward)
+
+		t.Logf("atn expected balance: %s, ntn expected balance: %s", toString(atnExpectedBalance), toString(ntnExpectedBalance))
+
+		atnActualBalance := r.getBalanceOf(proposerTreasury)
+		ntnActualBalance := ntnBalance(r, proposerTreasury)
+		t.Logf("atn actual balance: %s, ntn actual balance: %s", atnActualBalance.String(), ntnActualBalance.String())
+
+		atnExpectedBalanceInt, _ := atnExpectedBalance.Int(nil)
+		ntnExpectedBalanceInt, _ := ntnExpectedBalance.Int(nil)
+
+		t.Logf("balance diff atn: %s", new(big.Int).Sub(atnExpectedBalanceInt, atnActualBalance).String())
+		t.Logf("balance diff ntn: %s", new(big.Int).Sub(ntnExpectedBalanceInt, ntnActualBalance).String())
+
+		require.Equal(t, atnExpectedBalanceInt.String(), atnActualBalance.String())
+		require.Equal(t, ntnExpectedBalanceInt.String(), ntnActualBalance.String())
 	})
 	t.Run("Rewards are correctly distributed among proposers", func(t *testing.T) {
 		r := setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {

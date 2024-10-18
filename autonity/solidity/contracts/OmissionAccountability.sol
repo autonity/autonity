@@ -246,22 +246,26 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     * @param _ntnRewards, amount of NTN reserved for proposer rewards
     */
     function distributeProposerRewards(uint256 _ntnReward) external payable virtual onlyAutonity {
-        uint256 atnReward = msg.value;
+        uint256 atnReward = address(this).balance;
 
         for(uint256 i=0; i < committee.length; i++) {
             address nodeAddress = committee[i].addr;
             if(proposerEffort[nodeAddress] > 0){
-               uint256 atnProposerReward = (proposerEffort[nodeAddress] * atnReward) / totalEffort;
-               uint256 ntnProposerReward = (proposerEffort[nodeAddress] * _ntnReward) / totalEffort;
+                uint256 atnProposerReward = (proposerEffort[nodeAddress] * atnReward) / totalEffort;
+                uint256 ntnProposerReward = (proposerEffort[nodeAddress] * _ntnReward) / totalEffort;
 
-               // if for some reasons, funds can't be transferred to the treasury (sneaky contract)
-               (bool ok, ) = treasuries[i].call{value: atnProposerReward, gas: 2300}("");
-               // well, too bad, it goes to the autonity global treasury.
-               if(!ok) {
-                   autonity.getTreasuryAccount().call{value:atnProposerReward}("");
-               }
+                if(atnProposerReward > 0 ){
+                    // if for some reasons, funds can't be transferred to the treasury (sneaky contract)
+                    (bool ok, ) = treasuries[i].call{value: atnProposerReward, gas: 2300}("");
+                    // well, too bad, it goes to the autonity global treasury.
+                    if(!ok) {
+                        autonity.getTreasuryAccount().call{value:atnProposerReward}("");
+                    }
+                }
 
-               autonity.transfer(treasuries[i],ntnProposerReward);
+                if(ntnProposerReward > 0) {
+                    autonity.transfer(treasuries[i],ntnProposerReward);
+                }
 
                // reset after usage
                proposerEffort[nodeAddress] = 0;

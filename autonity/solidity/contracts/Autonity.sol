@@ -36,7 +36,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
     uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
     uint256 public constant WITHHOLDING_THRESHOLD_PRECISION = 10_000;
-    uint256 public constant COMMITTEE_FRACTION_PRECISION = 10_000;
 
     // TODO (tariq): review the values [already tested from stakable-vesting-contract]
     /**
@@ -1214,11 +1213,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         // NOTE: reward forfeiting and withholding based on accountability and omission accountability are not applied to proposer rewards
         // e.g. a validator punished for equivocation will still receive his share of proposer rewards
         if(config.contracts.omissionAccountabilityContract.getTotalEffort() > 0){
-            uint256 committeeFactor = (committee.length*COMMITTEE_FRACTION_PRECISION)/config.protocol.committeeSize;
-            uint256 atnProposerRewards = (_atn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
-            uint256 ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committeeFactor) / (PROPOSER_REWARD_RATE_PRECISION * COMMITTEE_FRACTION_PRECISION);
-            _transfer(address(this), address(config.contracts.omissionAccountabilityContract), ntnProposerRewards);
-            config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: atnProposerRewards}(ntnProposerRewards);
+            uint256 atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
+            uint256 ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
+            address omission = address(config.contracts.omissionAccountabilityContract);
+            _transfer(address(this), omission, ntnProposerRewards);
+            config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: atnProposerRewards}(accounts[omission]);
             _atn -= atnProposerRewards;
             _ntn -= ntnProposerRewards;
         }
