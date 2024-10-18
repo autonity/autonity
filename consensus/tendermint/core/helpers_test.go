@@ -112,14 +112,14 @@ func NewTestCommitteeSetWithKeys(n int) (interfaces.Committee, AddressKeyMap) {
 	return set, keyMap
 }
 
-func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer message.Signer, member *types.CommitteeMember) *message.Propose {
+func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer message.Signer, member *types.CommitteeMember, parentHeader *types.Header) *message.Propose {
 	var block *types.Block
 	if invalid {
-		header := &types.Header{Number: h}
+		header := &types.Header{Number: h, ParentHash: parentHeader.Hash()}
 		header.Difficulty = nil
 		block = types.NewBlock(header, nil, nil, nil, new(trie.Trie))
 	} else {
-		block = generateBlock(h)
+		block = generateBlock(h, parentHeader)
 	}
 	return message.NewPropose(r, h.Uint64(), vr, block, signer, member)
 }
@@ -134,7 +134,10 @@ func randomProposal(t *testing.T) *message.Propose {
 	require.NoError(t, err)
 	consensusPubkey := consensusKey.PublicKey()
 	committeeMember := &types.CommitteeMember{Address: addr, ConsensusKey: consensusPubkey, ConsensusKeyBytes: consensusPubkey.Marshal(), VotingPower: common.Big1, Index: 0}
-	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(consensusKey), committeeMember)
+	lastHeader := &types.Header{
+		Number: big.NewInt(currentHeight.Int64()).Sub(currentHeight, common.Big1),
+	}
+	return generateBlockProposal(currentRound, currentHeight, currentRound-1, false, makeSigner(consensusKey), committeeMember, lastHeader)
 }
 
 // Committee will be ordered such that the proposer for round(n) == committeeSet.members[n % len(committeeSet.members)]
@@ -145,13 +148,13 @@ func prepareCommittee(t *testing.T, cSize int) (interfaces.Committee, AddressKey
 	return committeeSet, privateKeys
 }
 
-func generateBlock(height *big.Int) *types.Block {
+func generateBlock(height *big.Int, parentHeader *types.Header) *types.Block {
 	// use random nonce to create different blocks
 	var nonce types.BlockNonce
 	for i := 0; i < len(nonce); i++ {
 		nonce[i] = byte(rand.Intn(256))
 	}
-	header := &types.Header{Number: height, Nonce: nonce}
+	header := &types.Header{Number: height, Nonce: nonce, ParentHash: parentHeader.Hash()}
 	block := types.NewBlockWithHeader(header)
 	return block
 }

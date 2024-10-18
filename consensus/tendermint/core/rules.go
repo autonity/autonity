@@ -135,7 +135,7 @@ func (c *Core) quorumPrecommitsCheck(ctx context.Context, proposal *message.Prop
 	}
 
 	// if there is a quorum, verify the proposal if needed
-	if !verified {
+	if !verified && !c.backend.IsProposalStateCached(hash) {
 		if _, err := c.backend.VerifyProposal(proposal.Block()); err != nil {
 			// This can happen if while we are processing the proposal,
 			// we actually receive the finalized proposed block from p2p block propagation (other peers already reached quorum on it)

@@ -104,15 +104,16 @@ type Backend struct {
 	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
-	commitCh          chan<- *types.Block
-	messageCh         chan events.UnverifiedMessageEvent // to send events to the aggregator
-	proposedBlockHash common.Hash
-	coreStarting      atomic.Bool
-	coreRunning       atomic.Bool
-	core              interfaces.Core
-	evDispatcher      interfaces.EventDispatcher
-	stopped           chan struct{}
-	wg                sync.WaitGroup
+	proposalVerifiedCh chan<- *types.Block
+	commitCh           chan<- *types.Block
+	messageCh          chan events.UnverifiedMessageEvent // to send events to the aggregator
+	proposedBlockHash  common.Hash
+	coreStarting       atomic.Bool
+	coreRunning        atomic.Bool
+	core               interfaces.Core
+	evDispatcher       interfaces.EventDispatcher
+	stopped            chan struct{}
+	wg                 sync.WaitGroup
 
 	// used to save consensus messages while core is stopped
 	pendingMessages ring.Ring
@@ -246,11 +247,11 @@ func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {
 }
 
 // VerifyProposal implements tendermint.Backend.VerifyProposal and verifiy if the proposal is valid
-func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) {
+func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, error) {
 	// TODO: fix always false statement and check for non nil
 	// TODO: use interface instead of type
 
-	if sb.HasBadProposal(proposal.Hash()) {
+	if sb.HasBadProposal(proposalBlock.Hash()) {
 		return 0, core.ErrBannedHash
 	}
 
@@ -259,22 +260,18 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 	// therefore we already received the finalized block through p2p block propagation.
 	// NOTE: this function execution is not atomic, the block could be not included at the time of this check
 	// and become included right after we passed the check.
-	if sb.blockchain.HasHeader(proposal.Hash(), proposal.NumberU64()) {
+	if sb.blockchain.HasHeader(proposalBlock.Hash(), proposalBlock.NumberU64()) {
 		return 0, constants.ErrAlreadyHaveBlock
 	}
 
 	// verify the header of proposed proposal
-	err := sb.VerifyHeader(sb.blockchain, proposal.Header(), false)
+	err := sb.VerifyHeader(sb.blockchain, proposalBlock.Header(), false)
 	// ignore errEmptyQuorumCertificate error because we don't have the quorum certificate yet
 	if err == nil || errors.Is(err, types.ErrEmptyQuorumCertificate) {
 		var (
-			receipts types.Receipts
-
-			usedGas        = new(uint64)
-			gp             = new(core.GasPool).AddGas(proposal.GasLimit())
-			header         = proposal.Header()
+			header         = proposalBlock.Header()
 			proposalNumber = header.Number.Uint64()
-			parent         = sb.blockchain.GetBlock(proposal.ParentHash(), proposal.NumberU64()-1)
+			parent         = sb.blockchain.GetBlock(proposalBlock.ParentHash(), proposalBlock.NumberU64()-1)
 		)
 
 		// Verify London hard fork attributes including min base fee
@@ -289,37 +286,18 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		}
 
 		// Validate the body of the proposal
-		if err = sb.blockchain.Validator().ValidateBody(proposal); err != nil {
+		if err = sb.blockchain.Validator().ValidateBody(proposalBlock); err != nil {
 			return 0, err
 		}
 
-		// sb.blockchain.Processor().Process() was not called because it calls back Finalize() and would have modified the proposal
-		// Instead only the transactions are applied to the copied state
-		config := sb.blockchain.Config()
-		signer := types.MakeSigner(config, header.Number)
-		// Create a new context to be used in the EVM environment
-		blockContext := core.NewEVMBlockContext(header, sb.BlockChain(), nil)
-		vmenv := vm.NewEVM(blockContext, vm.TxContext{}, state, config, *sb.vmConfig)
-		for i, tx := range proposal.Transactions() {
-			state.Prepare(tx.Hash(), i)
-			// Might be vulnerable to DoS Attack depending on gaslimit
-			// Todo : Double check
-			receipt, receiptErr := core.ApplyTransactionWithContext(signer, config, sb.blockchain, nil, gp, state, header, tx, usedGas, vmenv)
-			if receiptErr != nil {
-				return 0, receiptErr
-			}
-			receipts = append(receipts, receipt)
-		}
-
-		state.Prepare(common.ACHash(proposal.Number()), len(proposal.Transactions()))
-		receipt, epochInfo, err := sb.Finalize(sb.blockchain, header, state, proposal.Transactions(), nil, receipts)
+		receipts, _, usedGas, epochInfo, err := sb.blockchain.Processor().Process(proposalBlock, state, *sb.vmConfig)
 		if err != nil {
+			sb.logger.Error("state processing failed", "error", err, "height", proposalNumber)
 			return 0, err
 		}
-		receipts = append(receipts, receipt)
-		// Validate the state of the proposal
-		if err = sb.blockchain.Validator().ValidateState(proposal, state, receipts, *usedGas); err != nil {
-			sb.logger.Error("proposal proposed, bad root state", err)
+		//Validate the state of the proposal
+		if err = sb.blockchain.Validator().ValidateState(proposalBlock, state, receipts, usedGas); err != nil {
+			sb.logger.Error("proposal proposed, bad root state", "error", err)
 			return 0, err
 		}
 		// As the epoch infos(committee, lastEpochBlock, nextEpochBlock) are saving in the contract state, thus the
@@ -327,7 +305,7 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 		// is a factor to compute the block hash, thus they are immutable in the hash chain once there are quorum
 		// certificates to finalize the block. Thus, the epoch boundary checking is not required anymore, however
 		// the epoch info in the proposal's header should be equal to the epoch info dumped from the contract state.
-		if !proposal.Header().Epoch.Equal(epochInfo) {
+		if !proposalBlock.Header().Epoch.Equal(epochInfo) {
 			sb.logger.Error("inconsistent epoch info",
 				"currentVerifier", sb.address.String(),
 				"proposalNumber", proposalNumber,
@@ -337,10 +315,12 @@ func (sb *Backend) VerifyProposal(proposal *types.Block) (time.Duration, error) 
 			return 0, consensus.ErrInconsistentEpochInfo
 		}
 
-		// At this stage committee field is consistent with the validator list returned by Soma-contract
+		// cache verified proposal state
+		sb.blockchain.CacheProposalState(proposalBlock.Hash(), receipts, usedGas, state)
+
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
-		return time.Unix(int64(proposal.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
+		return time.Unix(int64(proposalBlock.Header().Time), 0).Sub(now()), consensus.ErrFutureTimestampBlock
 	}
 
 	// Here we are considering this proposal invalid because we pruned the parent's state
