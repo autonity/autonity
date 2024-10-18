@@ -21,11 +21,6 @@ func toString(value *big.Float) string {
 	return value.Text('f', -1)
 }
 
-func roundDown(value *big.Float) *big.Float {
-	valueInt, _ := value.Int(nil)
-	return newFloat(valueInt)
-}
-
 var omissionEpochPeriod = 130
 
 const ScaleFactor = 10_000           // must match the scale factor used in OmissionAccountability.sol
