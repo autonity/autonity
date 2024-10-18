@@ -39,7 +39,11 @@ func (api *API) GetCommittee(number *rpc.BlockNumber) (*types.Committee, error) 
 	if number == nil {
 		return nil, fmt.Errorf("block number cannot be nil")
 	}
-	return api.tendermint.GetCommitteeByHeight(new(big.Int).SetUint64(uint64(*number)))
+	epoch, err := api.tendermint.EpochByHeight(new(big.Int).SetUint64(uint64(*number)))
+	if err != nil {
+		return nil, err
+	}
+	return epoch.Committee, nil
 }
 
 // GetCommitteeAtHash retrieves the state snapshot at a given block.
@@ -48,7 +52,11 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (*types.Committee, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	return api.tendermint.GetCommitteeByHeight(header.Number)
+	epoch, err := api.tendermint.EpochByHeight(header.Number)
+	if err != nil {
+		return nil, err
+	}
+	return epoch.Committee, nil
 }
 
 // Get Autonity contract address

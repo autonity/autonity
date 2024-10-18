@@ -45,9 +45,6 @@ var (
 	// the committee set.
 	ErrCommitteeMemberNotFound = errors.New("committee member not found")
 
-	// ErrInvalidEpochInfo is returned if the epoch info is wrong
-	ErrInvalidEpochInfo = errors.New("invalid epoch info")
-
 	// ErrOutOfEpochRange is return if the inserting height is out of epoch range.
 	ErrOutOfEpochRange = errors.New("the inserting height is out of epoch range")
 

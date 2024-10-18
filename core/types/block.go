@@ -254,6 +254,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 
+	if origin.Number == nil {
+		return fmt.Errorf("header number is nil")
+	}
+
 	if origin.MixDigest == BFTDigest {
 		hExtra := &headerExtra{}
 		err := rlp.DecodeBytes(origin.Extra, hExtra)

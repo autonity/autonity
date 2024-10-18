@@ -550,14 +550,24 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	return hc.GetHeader(hash, number)
 }
 
-// LatestEpoch retrieves the latest epoch header of the header chain, it can be ahead of blockchain's epoch header.
-func (hc *HeaderChain) LatestEpoch() (*types.Committee, uint64, uint64, uint64, error) {
-	head := hc.CurrentHeadEpochHeader()
-	if head == nil {
-		return nil, 0, 0, 0, ErrMissingEpochHeader
+func (hc *HeaderChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	epochHead := hc.CurrentHeadEpochHeader()
+	if epochHead == nil {
+		return nil, ErrMissingEpochHeader
 	}
 
-	return head.Epoch.Committee, head.Epoch.PreviousEpochBlock.Uint64(), head.Number.Uint64(), head.Epoch.NextEpochBlock.Uint64(), nil
+	// as header chain does not have the state db, thus we cannot query it from state db.
+	// In this case, we just return this error which means the caller should discard the batch of headers,
+	// and the protocol will start another batch of sync with the correct head.
+	if height <= epochHead.Number.Uint64() || height > epochHead.Epoch.NextEpochBlock.Uint64() {
+		return nil, consensus.ErrOutOfEpochRange
+	}
+
+	epoch := &types.EpochInfo{
+		EpochBlock: new(big.Int).Set(epochHead.Number),
+		Epoch:      *epochHead.Epoch.Copy(),
+	}
+	return epoch, nil
 }
 
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going

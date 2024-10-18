@@ -179,17 +179,17 @@ func setupCollusionContext(c faultyBroadcaster, rule autonity.Rule) {
 	leader := c.Address()
 	futureHeight := c.Height().Uint64() + 5
 	round := int64(0)
-	committee, _, _, _, _ := c.Backend().BlockChain().LatestEpoch()
+	epoch, _ := c.Backend().BlockChain().LatestEpoch()
 
 	contract := c.Backend().BlockChain().ProtocolContracts()
 	for ; ; round++ {
 		// select a none proposer to propose faulty value in PVN context.
-		if rule == autonity.PVN && !validProposer(leader, futureHeight, round, contract, committee) {
+		if rule == autonity.PVN && !validProposer(leader, futureHeight, round, contract, epoch.Committee) {
 			break
 		}
 
 		// select a proposer to propose faulty value in PVO and C1 context
-		if round != 0 && rule != autonity.PVN && validProposer(leader, futureHeight, round, contract, committee) {
+		if round != 0 && rule != autonity.PVN && validProposer(leader, futureHeight, round, contract, epoch.Committee) {
 			break
 		}
 	}
