@@ -83,7 +83,7 @@ func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	bc.log.Debug("query epoch of height", "height", height, "with state at", currentHeader.Number.Uint64())
 	bc.epochCache.Add(height, epoch)
 	return epoch, nil
 }
