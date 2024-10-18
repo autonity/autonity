@@ -191,6 +191,14 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 		p.validRound = int64(ext.ValidRound)
 	}
 
+	// these checks ensure that nodes don't exploit the cached state, cache is indexed by block hash which
+	// excludes quorum certificate and round that allows nodes to send garbage for these values for pre-verified
+	// proposal
+	qc := ext.ProposalBlock.Header().QuorumCertificate
+	if qc.Signature != nil || qc.Signers != nil || ext.ProposalBlock.Header().Round != 0 {
+		return constants.ErrInvalidMessage
+	}
+
 	p.round = int64(ext.Round)
 	p.height = ext.Height
 	p.block = ext.ProposalBlock

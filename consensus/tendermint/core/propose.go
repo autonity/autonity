@@ -89,14 +89,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		return constants.ErrNotFromProposer
 	}
 
-	// these checks ensure that nodes don't exploit the cached state, cache is indexed by block hash which
-	// excludes quorum certificate and round that allows nodes to send garbage for these values for pre-verified
-	// proposal
-	qc := proposal.Block().Header().QuorumCertificate
-	if qc.Signature != nil || qc.Signers != nil || proposal.Block().Header().Round != 0 {
-		return constants.ErrInvalidMessage
-	}
-
 	if proposal.R() < c.Round() {
 		// old round proposal, check if we have quorum precommits on it
 		// Save it, but do not verify the proposal yet unless we have enough precommits for it.
