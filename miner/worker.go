@@ -309,8 +309,9 @@ func (w *worker) enablePreseal() {
 
 // pending returns the pending state and corresponding block.
 func (w *worker) pending() (*types.Block, *state.StateDB) {
-	st, _ := w.chain.State()
-	return w.chain.CurrentBlock(), st
+	b := w.chain.CurrentBlock()
+	st, _ := w.chain.StateAt(b.Root())
+	return b, st
 }
 
 // pendingBlock returns pending block.
