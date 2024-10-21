@@ -136,5 +136,13 @@
   "a8920241": "unbondingApplied(uint256,address,bool)",
   "3c54c290": "unbondingReleased(uint256,uint256,bool)",
   "187cf4d7": "FEE_FACTOR_UNIT_RECIP()",
-  "affb1cf1": "getEpochByHeight(uint256)"
+  "affb1cf1": "getEpochByHeight(uint256)",
+  "9358928b": "circulatingSupply()",
+  "354c40a7": "createSchedule(address,uint256,uint256,uint256)",
+  "fed76a56": "getMaxScheduleDuration()",
+  "7264c4da": "getSchedule(address,uint256)",
+  "088566e9": "getTotalSchedules(address)",
+  "8d347287": "getUnbondingShare(uint256)",
+  "e294df7c": "isUnbondingReleased(uint256)",
+  "8bb2e477": "setMaxScheduleDuration(uint256)"
 }
