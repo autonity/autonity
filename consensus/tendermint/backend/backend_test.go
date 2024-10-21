@@ -606,7 +606,9 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 
 	resultCh := make(chan *types.Block)
 	engine.SetResultChan(resultCh)
-	err = engine.Seal(chain, block, resultCh, nil)
+	header := block.Header()
+	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	err = engine.Seal(parentHeader, block, resultCh, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +618,7 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 
 func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
 	header := makeHeader(parent, chain)
-	_ = engine.Prepare(chain, header)
+	_ = engine.Prepare(chain, parent.Header(), header)
 
 	state, errS := chain.StateAt(parent.Root())
 	if errS != nil {

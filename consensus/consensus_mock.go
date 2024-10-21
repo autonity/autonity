@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/consensus.go -package=consensus -destination=consensus/consensus_mock.go
 //
+
 // Package consensus is a generated GoMock package.
 package consensus
 
@@ -72,6 +73,21 @@ func (m *MockChainHeaderReader) CurrentHeader() *types.Header {
 func (mr *MockChainHeaderReaderMockRecorder) CurrentHeader() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeader", reflect.TypeOf((*MockChainHeaderReader)(nil).CurrentHeader))
+}
+
+// EpochOfHeight mocks base method.
+func (m *MockChainHeaderReader) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EpochOfHeight indicates an expected call of EpochOfHeight.
+func (mr *MockChainHeaderReaderMockRecorder) EpochOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochOfHeight), height)
 }
 
 // GetHeader mocks base method.
@@ -193,6 +209,21 @@ func (m *MockChainReader) Engine() Engine {
 func (mr *MockChainReaderMockRecorder) Engine() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Engine", reflect.TypeOf((*MockChainReader)(nil).Engine))
+}
+
+// EpochOfHeight mocks base method.
+func (m *MockChainReader) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EpochOfHeight indicates an expected call of EpochOfHeight.
+func (mr *MockChainReaderMockRecorder) EpochOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainReader)(nil).EpochOfHeight), height)
 }
 
 // GetBlock mocks base method.
@@ -360,11 +391,11 @@ func (mr *MockEngineMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
+func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(*types.Receipt)
+	ret0, _ := ret[0].(*types.Receipt)
+	ret1, _ := ret[1].(*types.Epoch)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -391,31 +422,31 @@ func (mr *MockEngineMockRecorder) FinalizeAndAssemble(chain, header, state, txs,
 }
 
 // Prepare mocks base method.
-func (m *MockEngine) Prepare(chain ChainHeaderReader, header *types.Header) error {
+func (m *MockEngine) Prepare(chain ChainHeaderReader, parentHeader, header *types.Header) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare", chain, header)
+	ret := m.ctrl.Call(m, "Prepare", chain, parentHeader, header)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Prepare indicates an expected call of Prepare.
-func (mr *MockEngineMockRecorder) Prepare(chain, header any) *gomock.Call {
+func (mr *MockEngineMockRecorder) Prepare(chain, parentHeader, header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockEngine)(nil).Prepare), chain, header)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockEngine)(nil).Prepare), chain, parentHeader, header)
 }
 
 // Seal mocks base method.
-func (m *MockEngine) Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (m *MockEngine) Seal(parent *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "Seal", parent, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Seal indicates an expected call of Seal.
-func (mr *MockEngineMockRecorder) Seal(chain, block, results, stop any) *gomock.Call {
+func (mr *MockEngineMockRecorder) Seal(parent, block, results, stop any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockEngine)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockEngine)(nil).Seal), parent, block, results, stop)
 }
 
 // SealHash mocks base method.
@@ -430,6 +461,18 @@ func (m *MockEngine) SealHash(header *types.Header) common.Hash {
 func (mr *MockEngineMockRecorder) SealHash(header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockEngine)(nil).SealHash), header)
+}
+
+// SetProposalVerifiedEventChan mocks base method.
+func (m *MockEngine) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
+}
+
+// SetProposalVerifiedEventChan indicates an expected call of SetProposalVerifiedEventChan.
+func (mr *MockEngineMockRecorder) SetProposalVerifiedEventChan(proposalVerifiedEventCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposalVerifiedEventChan", reflect.TypeOf((*MockEngine)(nil).SetProposalVerifiedEventChan), proposalVerifiedEventCh)
 }
 
 // SetResultChan mocks base method.
@@ -644,11 +687,11 @@ func (mr *MockPoWMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
+func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(*types.Receipt)
+	ret0, _ := ret[0].(*types.Receipt)
+	ret1, _ := ret[1].(*types.Epoch)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -689,31 +732,31 @@ func (mr *MockPoWMockRecorder) Hashrate() *gomock.Call {
 }
 
 // Prepare mocks base method.
-func (m *MockPoW) Prepare(chain ChainHeaderReader, header *types.Header) error {
+func (m *MockPoW) Prepare(chain ChainHeaderReader, parentHeader, header *types.Header) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare", chain, header)
+	ret := m.ctrl.Call(m, "Prepare", chain, parentHeader, header)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Prepare indicates an expected call of Prepare.
-func (mr *MockPoWMockRecorder) Prepare(chain, header any) *gomock.Call {
+func (mr *MockPoWMockRecorder) Prepare(chain, parentHeader, header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockPoW)(nil).Prepare), chain, header)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockPoW)(nil).Prepare), chain, parentHeader, header)
 }
 
 // Seal mocks base method.
-func (m *MockPoW) Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (m *MockPoW) Seal(parent *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "Seal", parent, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Seal indicates an expected call of Seal.
-func (mr *MockPoWMockRecorder) Seal(chain, block, results, stop any) *gomock.Call {
+func (mr *MockPoWMockRecorder) Seal(parent, block, results, stop any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockPoW)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockPoW)(nil).Seal), parent, block, results, stop)
 }
 
 // SealHash mocks base method.
@@ -728,6 +771,18 @@ func (m *MockPoW) SealHash(header *types.Header) common.Hash {
 func (mr *MockPoWMockRecorder) SealHash(header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockPoW)(nil).SealHash), header)
+}
+
+// SetProposalVerifiedEventChan mocks base method.
+func (m *MockPoW) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
+}
+
+// SetProposalVerifiedEventChan indicates an expected call of SetProposalVerifiedEventChan.
+func (mr *MockPoWMockRecorder) SetProposalVerifiedEventChan(proposalVerifiedEventCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposalVerifiedEventChan", reflect.TypeOf((*MockPoW)(nil).SetProposalVerifiedEventChan), proposalVerifiedEventCh)
 }
 
 // SetResultChan mocks base method.
@@ -866,11 +921,11 @@ func (mr *MockBFTMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Committee, *types.Receipt, error) {
+func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(*types.Receipt)
+	ret0, _ := ret[0].(*types.Receipt)
+	ret1, _ := ret[1].(*types.Epoch)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -897,31 +952,31 @@ func (mr *MockBFTMockRecorder) FinalizeAndAssemble(chain, header, state, txs, un
 }
 
 // Prepare mocks base method.
-func (m *MockBFT) Prepare(chain ChainHeaderReader, header *types.Header) error {
+func (m *MockBFT) Prepare(chain ChainHeaderReader, parentHeader, header *types.Header) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare", chain, header)
+	ret := m.ctrl.Call(m, "Prepare", chain, parentHeader, header)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Prepare indicates an expected call of Prepare.
-func (mr *MockBFTMockRecorder) Prepare(chain, header any) *gomock.Call {
+func (mr *MockBFTMockRecorder) Prepare(chain, parentHeader, header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockBFT)(nil).Prepare), chain, header)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockBFT)(nil).Prepare), chain, parentHeader, header)
 }
 
 // Seal mocks base method.
-func (m *MockBFT) Seal(chain ChainReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (m *MockBFT) Seal(parent *types.Header, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seal", chain, block, results, stop)
+	ret := m.ctrl.Call(m, "Seal", parent, block, results, stop)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Seal indicates an expected call of Seal.
-func (mr *MockBFTMockRecorder) Seal(chain, block, results, stop any) *gomock.Call {
+func (mr *MockBFTMockRecorder) Seal(parent, block, results, stop any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockBFT)(nil).Seal), chain, block, results, stop)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seal", reflect.TypeOf((*MockBFT)(nil).Seal), parent, block, results, stop)
 }
 
 // SealHash mocks base method.
@@ -936,6 +991,18 @@ func (m *MockBFT) SealHash(header *types.Header) common.Hash {
 func (mr *MockBFTMockRecorder) SealHash(header any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SealHash", reflect.TypeOf((*MockBFT)(nil).SealHash), header)
+}
+
+// SetProposalVerifiedEventChan mocks base method.
+func (m *MockBFT) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetProposalVerifiedEventChan", proposalVerifiedEventCh)
+}
+
+// SetProposalVerifiedEventChan indicates an expected call of SetProposalVerifiedEventChan.
+func (mr *MockBFTMockRecorder) SetProposalVerifiedEventChan(proposalVerifiedEventCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProposalVerifiedEventChan", reflect.TypeOf((*MockBFT)(nil).SetProposalVerifiedEventChan), proposalVerifiedEventCh)
 }
 
 // SetResultChan mocks base method.
@@ -1192,49 +1259,4 @@ func (m *MockPeer) SendRaw(msgcode uint64, data []byte) error {
 func (mr *MockPeerMockRecorder) SendRaw(msgcode, data any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRaw", reflect.TypeOf((*MockPeer)(nil).SendRaw), msgcode, data)
-}
-
-// EpochOfHeight mocks base method
-func (m *MockChainHeaderReader) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EpochOfHeight")
-	ret0, _ := ret[0].(*types.EpochInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EpochOfHeight indicates an expected call of EpochOfHeight
-func (mr *MockChainHeaderReaderMockRecorder) EpochOfHeight(height any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochOfHeight), height)
-}
-
-// LatestEpoch mocks base method
-func (m *MockChainReader) LatestEpoch() (*types.EpochInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestEpoch")
-	ret0, _ := ret[0].(*types.EpochInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LatestEpoch indicates an expected call of LatestEpoch
-func (mr *MockChainReaderMockRecorder) LatestEpoch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockChainReader)(nil).LatestEpoch))
-}
-
-// EpochOfHeight mocks base method
-func (m *MockChainReader) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EpochOfHeight")
-	ret0, _ := ret[0].(*types.EpochInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EpochOfHeight indicates an expected call of EpochOfHeight
-func (mr *MockChainReaderMockRecorder) EpochOfHeight(height any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainReader)(nil).EpochOfHeight), height)
 }

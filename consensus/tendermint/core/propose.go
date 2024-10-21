@@ -28,10 +28,18 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	if !c.IsProposer() {
 		panic("not proposer")
 	}
-	if c.sentProposal {
+
+	// We start preparing block as soon as proposal is verified, but there are situation
+	// that verified proposal is not finalized in the particular round hence this safety
+	// check to ensure that the block parent hash is same as last hash in core
+	if c.Backend().HeadBlock().Hash() != block.ParentHash() {
+		log.Info("verified proposal was not finalized in the last round", "aborting send proposal", "last header hash", c.Backend().HeadBlock().Hash(), "block parent hash", block.ParentHash())
 		return
 	}
 
+	if c.sentProposal {
+		return
+	}
 	self, err := c.CommitteeSet().MemberByAddress(c.address)
 	if err != nil {
 		// it can happen in edge case addressed by docker e2e test, that is a validator resets at the epoch boundary,
@@ -104,9 +112,18 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		ProposalReceivedBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 
-	// Verify the proposal we received
-	start := time.Now()
-	duration, err := c.backend.VerifyProposal(proposal.Block()) // youssef: can we skip the verification for our own proposal?
+	var (
+		duration time.Duration
+		err      error
+		start    = time.Now()
+	)
+
+	// skip verification for our own proposal
+	// skip if our own OR cached
+	// verify if not in our own and not state cached
+	if c.backend.ProposedBlockHash() != proposal.Block().Hash() && !c.backend.IsProposalStateCached(proposal.Block().Hash()) {
+		duration, err = c.backend.VerifyProposal(proposal.Block())
+	}
 
 	if metrics.Enabled {
 		now := time.Now()
@@ -145,6 +162,8 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		return err
 	}
 
+	// notify miner
+	go c.Backend().ProposalVerified(proposal.Block())
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal)

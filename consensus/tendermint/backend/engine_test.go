@@ -21,20 +21,6 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-func TestPrepare(t *testing.T) {
-	chain, engine := newBlockChain(1)
-	header := makeHeader(chain.Genesis(), chain)
-	err := engine.Prepare(chain, header)
-	if err != nil {
-		t.Errorf("error mismatch: have %v, want nil", err)
-	}
-	header.ParentHash = common.BytesToHash([]byte("1234567890"))
-	err = engine.Prepare(chain, header)
-	if err != consensus.ErrUnknownAncestor {
-		t.Errorf("error mismatch: have %v, want %v", err, consensus.ErrUnknownAncestor)
-	}
-}
-
 func TestSealCommitted(t *testing.T) {
 	chain, engine := newBlockChain(1)
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -45,7 +31,9 @@ func TestSealCommitted(t *testing.T) {
 
 	resultCh := make(chan *types.Block)
 	engine.SetResultChan(resultCh)
-	err = engine.Seal(chain, block, resultCh, nil)
+	header := block.Header()
+	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	err = engine.Seal(parentHeader, block, resultCh, nil)
 	if err != nil {
 		t.Errorf("error mismatch: have %v, want nil", err)
 	}

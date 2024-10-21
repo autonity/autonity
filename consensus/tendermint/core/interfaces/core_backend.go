@@ -47,6 +47,7 @@ type Backend interface {
 
 	Post(ev any)
 
+	ProposedBlockHash() common.Hash
 	// SetProposedBlockHash is a setter for the proposed block hash
 	SetProposedBlockHash(hash common.Hash)
 
@@ -86,6 +87,12 @@ type Backend interface {
 
 	// returns the channel used to pass messages between peer sessions and the aggregator
 	MessageCh() <-chan events.UnverifiedMessageEvent
+
+	// ProposalVerified notifies miner a proposal is verified
+	ProposalVerified(block *types.Block)
+
+	// IsProposalStateCached checks if the proposal is cached in the blockchain
+	IsProposalStateCached(hash common.Hash) bool
 }
 
 type Core interface {

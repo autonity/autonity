@@ -317,24 +317,16 @@ func (sb *Backend) verifyQuorumCertificate(header *types.Header, committee *type
 
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
-func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
+func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *types.Header) error {
 	// unused fields, force to set to empty
 	header.Coinbase = sb.Address()
 	header.Nonce = emptyNonce
 	header.MixDigest = types.BFTDigest
-
-	// copy the parent extra data as the header extra data
-	number := header.Number.Uint64()
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-	// use the same difficulty for all blocks
 	header.Difficulty = defaultDifficulty
 
 	// set header's timestamp
 	// todo: block period from contract
-	header.Time = parent.Time + 1
+	header.Time = parentHeader.Time + 1
 	if int64(header.Time) < time.Now().Unix() {
 		header.Time = uint64(time.Now().Unix())
 	}
@@ -398,23 +390,18 @@ func (sb *Backend) EpochByHeight(height *big.Int) (*types.EpochInfo, error) {
 
 // Seal generates a new block for the given input block with the local miner's
 // seal place on top.
-func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<- *types.Block, stop <-chan struct{}) error {
+func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *types.Block, stop <-chan struct{}) error {
 	if !sb.coreRunning.Load() {
 		return ErrStoppedEngine
 	}
 
-	// check if the input block's epoch contains the miner as the member of committee.
-	epoch, err := chain.EpochOfHeight(block.Number().Uint64())
-	if err != nil {
+	if parent == nil {
+		err := errors.New("unknown ancestor")
 		return err
 	}
-	nodeAddress := sb.Address()
-	if epoch.Committee.MemberByAddress(nodeAddress) == nil {
-		sb.logger.Error("error validator errUnauthorized", "addr", sb.address)
-		return errUnauthorized
-	}
 
-	block, err = sb.AddSeal(block)
+	// we do the validator authorization later, just before sending proposal
+	block, err := sb.AddSeal(block)
 	if err != nil {
 		sb.logger.Error("sealing error", "err", err.Error())
 		return err
@@ -443,6 +430,18 @@ func (sb *Backend) Seal(chain consensus.ChainReader, block *types.Block, _ chan<
 	return nil
 }
 
+func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- *types.Block) {
+	sb.proposalVerifiedCh = proposalVerifiedCh
+}
+
+func (sb *Backend) ProposalVerified(block *types.Block) {
+	sb.proposalVerifiedCh <- block
+}
+
+func (sb *Backend) IsProposalStateCached(hash common.Hash) bool {
+	return sb.blockchain.IsProposalStateCached(hash)
+}
+
 func (sb *Backend) SetResultChan(results chan<- *types.Block) {
 	sb.commitCh = results
 }
@@ -464,6 +463,10 @@ func (sb *Backend) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64
 
 func (sb *Backend) SetProposedBlockHash(hash common.Hash) {
 	sb.proposedBlockHash = hash
+}
+
+func (sb *Backend) ProposedBlockHash() common.Hash {
+	return sb.proposedBlockHash
 }
 
 // AddSeal update timestamp and signature of the block based on its number of transactions

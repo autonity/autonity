@@ -26,6 +26,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
@@ -226,8 +228,10 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 
 	// trick to get a handle to Proposer of node 0
 	var proposer interfaces.Proposer
+	var node0Core *core.Core
 	vals[0].TendermintServices = &interfaces.Services{Proposer: func(c interfaces.Core) interfaces.Proposer {
 		proposer = &core.Proposer{Core: c.(*core.Core)}
+		node0Core = c.(*core.Core)
 		return proposer
 	}}
 
@@ -244,6 +248,8 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	node := network[0]
 	err = node.Eth.Engine().Close()
 	require.NoError(t, err)
+	// reset current round message to force verify proposal
+	node0Core.Messages().Reset()
 
 	// get latest inserted block and generate proposal out of it
 	block := node.Eth.BlockChain().CurrentBlock()
@@ -255,10 +261,15 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 		ConsensusKeyBytes: node.ConsensusKey.PublicKey().Marshal(),
 		ConsensusKey:      node.ConsensusKey.PublicKey(),
 	})
+	//reset cache to force verify proposal
+	ethDb := rawdb.NewMemoryDatabase()
+	db := state.NewDatabase(ethDb)
+	stateDB, _ := state.New(common.Hash{}, db, nil)
+	node0Core.Backend().BlockChain().CacheProposalState(common.Hash{}, nil, 0, stateDB)
 
 	// handle the proposal
 	err = proposer.HandleProposal(context.TODO(), proposal)
-	require.True(t, errors.Is(err, constants.ErrAlreadyHaveBlock))
+	require.ErrorIs(t, err, constants.ErrAlreadyHaveBlock)
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
