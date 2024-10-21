@@ -1720,6 +1720,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 			atomic.StoreUint32(&followupInterrupt, 1)
 			return it.index, err
 		}
+		// stop prefetcher if we are using the cached state to write block
+		if statedb != activeState {
+			activeState.StopPrefetcher()
+			activeState = nil
+		}
 		var triehash, trieproc time.Duration
 
 		if metrics.Enabled {
