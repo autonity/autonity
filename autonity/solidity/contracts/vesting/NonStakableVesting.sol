@@ -9,7 +9,6 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     struct ScheduleTracker {
         uint256 unsubscribedAmount;
         uint256 expiredFromContract;
-        bool withdrawnByTreasury;
         bool initialized;
     }
 
@@ -66,21 +65,37 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     }
 
     /**
-     * @notice Transfers all the unsubscribed funds of the schedule to the treasury account after the schedule total duration has expired.
+     * @notice Transfers all the unsubscribed funds and the expired funds of the schedule to the treasury account after the schedule total duration has expired.
      * @param _scheduleID id of the schedule
      * @custom:restricted-to treasury account
      */
-    function releaseFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury {
+    function releaseAllFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
-        require(_scheduleTracker.withdrawnByTreasury == false, "treasury already withdrew all the funds from this schedule");
 
         if (!_scheduleTracker.initialized) {
             _initializeSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         _transferNTN(msg.sender, _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract);
-        _scheduleTracker.withdrawnByTreasury = true;
+        _scheduleTracker.unsubscribedAmount = 0;
+        _scheduleTracker.expiredFromContract = 0;
+    }
+
+    /**
+     * @notice Transfers all the expired funds of the schedule to the treasury account.
+     * @param _scheduleID id of the schedule
+     * @custom:restricted-to treasury account
+     */
+    function releaseExpiredFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury {
+        ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
+
+        if (!_scheduleTracker.initialized) {
+            uint256 _totalAmount = autonity.getSchedule(address(this), _scheduleID).totalAmount;
+            _initializeSchedule(_scheduleTracker, _totalAmount);
+        }
+        _transferNTN(msg.sender, _scheduleTracker.expiredFromContract);
+        _scheduleTracker.expiredFromContract = 0;
     }
 
     /**
