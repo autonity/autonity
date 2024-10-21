@@ -603,6 +603,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     function setWithheldRewardsPool(address payable pool) public virtual onlyOperator {
+        require(pool != address(0),"pool cannot be zero address");
         config.policy.withheldRewardsPool = pool;
     }
 

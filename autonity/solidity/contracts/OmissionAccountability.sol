@@ -164,22 +164,36 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         uint256 epochPeriod = autonity.getCurrentEpochPeriod();
         uint256 collusionDegree = 0;
 
+        // first config.lookbackWindow-1 blocks of the epoch are accountable, but we do not have enough info to determine if a validator was offline/online
+        // last delta blocks of the epoch are not accountable due to committee change
+        uint256 qualifiedBlocks = epochPeriod-config.lookbackWindow+1-config.delta;
+
+        // weight of current epoch performance
+        uint256 currentPerformanceWeight = SCALE_FACTOR - config.pastPerformanceWeight;
+
         // compute aggregated scores + collusion degree
         for(uint256 i=0;i<committee.length;i++){
             address nodeAddress = committee[i].addr;
 
-            // first config.lookbackWindow-1 blocks of the epoch are accountable, but we do not have enough info to determine if a validator was offline/online
-            // last delta blocks of the epoch are not accountable due to committee change
-            uint256 inactivityScore = (inactivityCounter[nodeAddress]*SCALE_FACTOR / (epochPeriod-config.lookbackWindow+1-config.delta));
-
-            // there is an edge case where inactivityScore can be > 100%. We cap it at 100%.
+            // there is an edge case where inactivityCounter could be > qualifiedBlocks. However we cap it at qualifiedBlocks to prevent having > 100% inactivity score
             // this can happen for example if we have a network with a single validator, that is never including any activity proof,
             // thus always being considered a faulty proposer and getting his inactivityCounter increased even when we do not have lookback blocks yet
-            if(inactivityScore > SCALE_FACTOR){
-                inactivityScore = SCALE_FACTOR;
+            if(inactivityCounter[nodeAddress] > qualifiedBlocks) {
+                inactivityCounter[nodeAddress] = qualifiedBlocks;
             }
 
-            uint256 aggregatedInactivityScore = ((inactivityScore*(SCALE_FACTOR-config.pastPerformanceWeight)) + (inactivityScores[nodeAddress] * config.pastPerformanceWeight))/SCALE_FACTOR;
+            /* the following formula is refactored to minimize precision loss, prioritizing multiplications over divisions
+            *  A more intuitive but equivalent construction:
+            *  aggregatedInactivityScore = (currentInactivityScore * currentPerformanceWeight + pastInactivityScore * pastPerformanceWeight) / SCALE_FACTOR
+            *  with currentInactivityScore = (currentInactivityCounter * SCALE_FACTOR) / qualifiedBlocks
+            */
+            uint256 aggregatedInactivityScore =
+                (
+                    inactivityCounter[nodeAddress] * SCALE_FACTOR * currentPerformanceWeight
+                    + inactivityScores[nodeAddress] * config.pastPerformanceWeight * qualifiedBlocks
+                )
+                /  (SCALE_FACTOR*qualifiedBlocks);
+
             if(aggregatedInactivityScore > config.inactivityThreshold){
                 collusionDegree++;
             }

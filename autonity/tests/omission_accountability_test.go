@@ -5,7 +5,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
-	"math"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -385,23 +384,32 @@ func TestInactivityScore(t *testing.T) {
 	r := setup(t, configOverrideIncreasedStake)
 
 	// set maximum inactivity threshold for this test, we care only about the inactivity scores and not about the jailing
-	_, err := r.omissionAccountability.SetInactivityThreshold(r.operator, new(big.Int).SetUint64(10000))
+	scaleFactorInt := omissionScaleFactor(r)
+	_, err := r.omissionAccountability.SetInactivityThreshold(r.operator, scaleFactorInt)
 	require.NoError(t, err)
 
 	delta, _, err := r.omissionAccountability.GetDelta(nil)
 	require.NoError(t, err)
+
+	scaleFactor := newFloat(scaleFactorInt)
+
+	initialCommitteeSize := len(r.committee.validators)
 
 	r.waitNBlocks(int(delta.Int64()))
 
 	config, _, err := r.omissionAccountability.Config(nil)
 	require.NoError(r.t, err)
 	lookback := int(config.LookbackWindow.Uint64())
-	pastPerformanceWeight := float64(config.PastPerformanceWeight.Uint64()) / ScaleFactor
+	pastPerformanceWeight := new(big.Float).Quo(newFloat(config.PastPerformanceWeight), scaleFactor)
+	currentPerformanceWeight := new(big.Float).Sub(newFloat(common.Big1), pastPerformanceWeight)
 
 	// simulate epoch.
 	proposer := r.committee.validators[0].NodeAddress
 	inactiveBlockStreak := make([]int, len(r.committee.validators))
-	inactiveCounters := make([]int, len(r.committee.validators))
+	inactiveCounters := make([]*big.Int, len(r.committee.validators))
+	for i := range inactiveCounters {
+		inactiveCounters[i] = new(big.Int)
+	}
 	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
 		absentees := make(map[common.Address]struct{})
 		for i := range r.committee.validators {
@@ -415,7 +423,7 @@ func TestInactivityScore(t *testing.T) {
 				inactiveBlockStreak[i] = 0
 			}
 			if inactiveBlockStreak[i] >= lookback {
-				inactiveCounters[i]++
+				inactiveCounters[i] = new(big.Int).Add(inactiveCounters[i], common.Big1)
 			}
 		}
 
@@ -424,23 +432,33 @@ func TestInactivityScore(t *testing.T) {
 	}
 	r.generateNewCommittee()
 
+	// no one should have been jailed
+	require.Equal(t, initialCommitteeSize, len(r.committee.validators))
+
 	// check score computation
-	pastInactivityScore := make([]float64, len(r.committee.validators))
+	pastInactivityScore := make([]*big.Float, len(r.committee.validators))
+	denominator := new(big.Int).SetUint64(uint64(omissionEpochPeriod) - delta.Uint64() - uint64(lookback) + 1)
 	for i, val := range r.committee.validators {
-		score := float64(inactiveCounters[i]) / float64(omissionEpochPeriod-int(delta.Int64())-lookback+1)
-		score = math.Floor(score*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
-		expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + 0*pastPerformanceWeight
-		expectedInactivityScoreFloat = math.Floor(expectedInactivityScoreFloat*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
+		score := new(big.Float).Quo(newFloat(inactiveCounters[i]), newFloat(denominator))
+
+		expectedInactivityScoreFloat := new(big.Float).Mul(score, currentPerformanceWeight) // + 0 * pastPerformanceWeight
 		pastInactivityScore[i] = expectedInactivityScoreFloat
-		expectedInactivityScore := int(math.Round(expectedInactivityScoreFloat * ScaleFactor)) // using round to mitigate precision loss due to floating point arithmetic
-		r.t.Logf("expectedInactivityScore %v, inactivityScore %v", expectedInactivityScore, inactivityScore(r, val.NodeAddress))
-		require.Equal(r.t, expectedInactivityScore, inactivityScore(r, val.NodeAddress))
+
+		expectedInactivityScoreFloatScaled := new(big.Float).Mul(expectedInactivityScoreFloat, scaleFactor)
+		expectedInactivityScore, _ := expectedInactivityScoreFloatScaled.Int(nil)
+
+		r.t.Logf("i %d, expectedInactivityScoreFloat %s, expectedInactivityScore %s, inactivityScore %v", i, toString(expectedInactivityScoreFloat), expectedInactivityScore.String(), inactivityScore(r, val.NodeAddress))
+
+		require.Equal(r.t, int(expectedInactivityScore.Uint64()), inactivityScore(r, val.NodeAddress))
 	}
 
 	// simulate another epoch
 	r.waitNBlocks(int(delta.Int64()))
 	inactiveBlockStreak = make([]int, len(r.committee.validators))
-	inactiveCounters = make([]int, len(r.committee.validators))
+	inactiveCounters = make([]*big.Int, len(r.committee.validators))
+	for i := range inactiveCounters {
+		inactiveCounters[i] = new(big.Int)
+	}
 	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
 		absentees := make(map[common.Address]struct{})
 		for i := range r.committee.validators {
@@ -454,7 +472,7 @@ func TestInactivityScore(t *testing.T) {
 				inactiveBlockStreak[i] = 0
 			}
 			if inactiveBlockStreak[i] >= lookback {
-				inactiveCounters[i]++
+				inactiveCounters[i] = new(big.Int).Add(inactiveCounters[i], common.Big1)
 			}
 		}
 
@@ -462,23 +480,22 @@ func TestInactivityScore(t *testing.T) {
 	}
 	r.generateNewCommittee()
 
+	// no one should have been jailed
+	require.Equal(t, initialCommitteeSize, len(r.committee.validators))
+
 	// check score computation
 	for i, val := range r.committee.validators {
-		score := float64(inactiveCounters[i]) / float64(omissionEpochPeriod-int(delta.Int64())-lookback+1)
-		score = math.Floor(score*ScaleFactor) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
-		expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + pastInactivityScore[i]*pastPerformanceWeight
+		score := new(big.Float).Quo(newFloat(inactiveCounters[i]), newFloat(denominator))
 
-		expectedInactivityScoreFloatScaled := expectedInactivityScoreFloat * ScaleFactor
-		// detect and address floating point precision loss. A bit hackish but it works
-		// this is to address where floating point representation makes us end up with number like 3533.999999999999 instead of 3534
-		if math.Floor(expectedInactivityScoreFloatScaled+0.0000000001) > math.Floor(expectedInactivityScoreFloatScaled) {
-			t.Log("Detected and corrected floating point precision loss")
-			expectedInactivityScoreFloatScaled = math.Floor(expectedInactivityScoreFloatScaled) + 1
-		}
-		expectedInactivityScoreFraction := math.Floor(expectedInactivityScoreFloatScaled) / ScaleFactor // mimic precision loss due to fixed point arithmetic used in solidity
-		expectedInactivityScore := int(math.Round(expectedInactivityScoreFraction * ScaleFactor))       // round to mitigate precision loss due to floating point
-		r.t.Logf("expectedInactivityScore %v, inactivityScore %v", expectedInactivityScore, inactivityScore(r, val.NodeAddress))
-		require.Equal(r.t, expectedInactivityScore, inactivityScore(r, val.NodeAddress))
+		expectedInactivityScoreFloat1 := new(big.Float).Mul(score, currentPerformanceWeight)
+		expectedInactivityScoreFloat2 := new(big.Float).Mul(pastInactivityScore[i], pastPerformanceWeight)
+		expectedInactivityScoreFloat := new(big.Float).Add(expectedInactivityScoreFloat1, expectedInactivityScoreFloat2)
+
+		expectedInactivityScoreFloatScaled := new(big.Float).Mul(expectedInactivityScoreFloat, scaleFactor)
+		expectedInactivityScore, _ := expectedInactivityScoreFloatScaled.Int(nil)
+
+		r.t.Logf("i %d, expectedInactivityScoreFloat %s, expectedInactivityScore %s, inactivityScore %v", i, toString(expectedInactivityScoreFloat), expectedInactivityScore.String(), inactivityScore(r, val.NodeAddress))
+		require.Equal(r.t, int(expectedInactivityScore.Uint64()), inactivityScore(r, val.NodeAddress))
 	}
 }
 

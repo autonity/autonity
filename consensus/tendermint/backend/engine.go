@@ -384,6 +384,9 @@ func (sb *Backend) assembleActivityProof(h uint64) (*types.AggregateSignature, u
 	// after delta blocks, get quorum certificates from height h-delta.
 	targetHeight := h - delta
 	targetHeader := sb.BlockChain().GetHeaderByNumber(targetHeight)
+	if targetHeader == nil {
+		return nil, 0, fmt.Errorf("cannot find header by height %d", targetHeight)
+	}
 	targetRound := targetHeader.Round
 
 	precommits := sb.MsgStore.GetPrecommits(targetHeight, func(m *message.Precommit) bool {
