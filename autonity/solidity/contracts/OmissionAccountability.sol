@@ -29,7 +29,11 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     address private operator;
 
     mapping(uint256 => bool) public faultyProposers;                         // marks height where proposer is faulty
+    uint256 public faultyProposersInWindow;
     mapping(uint256 => mapping(address=>bool)) public inactiveValidators;    // inactive validators for each height
+
+    mapping(address => uint256) public lastActive; // counter of active blocks for each validator. It is reset at the end of the epoch.
+
     // counter of inactive blocks for each validator (considering lookback window). It is reset at the end of the epoch.
     mapping(address => uint256) public inactivityCounter;
 
@@ -91,12 +95,20 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         if (_isProposerOmissionFaulty) {
             faultyProposers[targetHeight] = true;
             inactivityCounter[block.coinbase]++;
+            faultyProposersInWindow++;
         }else{
             faultyProposers[targetHeight] = false;
             proposerEffort[block.coinbase] += _proposerEffort;
             totalEffort += _proposerEffort;
+            lastActive[block.coinbase] = block.number;
 
             _recordAbsentees(_absentees, targetHeight);
+        }
+
+        if (targetHeight >= epochBlock + config.lookbackWindow) {
+            if(faultyProposers[targetHeight - config.lookbackWindow]){
+                faultyProposersInWindow--;
+            }
         }
 
         if(_epochEnded){
@@ -119,8 +131,15 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     }
 
     function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal virtual {
+        mapping(address=>bool) memory inactiveThisEpoch;
         for(uint256 i=0; i < _absentees.length; i++) {
-            inactiveValidators[targetHeight][_absentees[i]] = true;
+            inactiveThisEpoch[_absentees[i]] = true;
+        }
+
+        for(uint256 i=0; i < committee.length; i++) {
+            if(!inactiveThisEpoch[committee[i].addr]){
+                lastActive[committee[i].addr] = block.number;
+            }
         }
 
         if(targetHeight < epochBlock + config.lookbackWindow) {
@@ -131,29 +150,8 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         // if online even once in the lookback window, consider him online for this block
         // NOTE: the current block is included in the window, (h - delta - lookback, h - delta]
         for(uint256 i=0; i < _absentees.length; i++) {
-            bool confirmedAbsent = true;
-            uint256 initialLookBackWindow = config.lookbackWindow;
-            for(uint256 h = targetHeight-1; h >targetHeight-initialLookBackWindow; h--) {
-                if(faultyProposers[h]) {
-                    // we do not have data for h, extend the lookback window if possible
-                    if(targetHeight-epochBlock <= initialLookBackWindow) {
-                        // we do not have enough blocks to extend the window. let's consider the validator not absent.
-                        confirmedAbsent=false;
-                        break;
-                    }
-                    // we can extend the window
-                    initialLookBackWindow++;
-                    continue;
-                }
-
-                // if the validator is not found in even only one of the inactive lists, it is not considered offline
-                if(!inactiveValidators[h][_absentees[i]]){
-                    confirmedAbsent = false;
-                    break;
-                }
-            }
-            // if the absentee was absent for the entirety of the lookback period, increment his inactivity counter
-            if (confirmedAbsent) {
+            if(lastActive[_absentees[i]] > targetHeight - (config.lookbackWindow + faultyProposersInWindow)){
+                // the validator was not active at some point in the lookback window
                 inactivityCounter[_absentees[i]]++;
             }
         }
