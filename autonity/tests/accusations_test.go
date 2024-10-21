@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/autonity/autonity/common"

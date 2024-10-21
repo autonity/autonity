@@ -165,30 +165,83 @@ func TestTreasuryFunds(t *testing.T) {
 		releaseTreasuryFunds(r, big.NewInt(amount), true)
 	})
 
-	tests.RunWithSetup("expired funds go to treasury", setup, func(r *tests.Runner) {
-		subscribedAmount := amount / 2
-		unsubscribedAmount := amount - subscribedAmount
-		currentTime := r.WaitForEpochsUntil(start + 10)
-		expiredFunds := (currentTime - start - 1) * subscribedAmount / amount
-		require.True(r.T, expiredFunds > 0, "cannot test")
-
-		user := tests.User
-		subscribeToSchedule(r, user, big.NewInt(subscribedAmount), common.Big0, common.Big0)
-		r.WaitForEpochsUntil(end + 1)
-		releaseNTN(r, user, big.NewInt(subscribedAmount-expiredFunds+1), false, true)
-		releaseNTN(r, user, big.NewInt(subscribedAmount-expiredFunds), true, true)
-		releaseTreasuryFunds(r, big.NewInt(expiredFunds+unsubscribedAmount), true)
-		releaseAllNTN(r, user, big.NewInt(subscribedAmount-expiredFunds))
-	})
-
-	tests.RunWithSetup("treasury funds cannot be withdrawn before total duration has passed", setup, func(r *tests.Runner) {
+	tests.RunWithSetup("all treasury funds cannot be withdrawn before total duration has passed", setup, func(r *tests.Runner) {
 		releaseTreasuryFunds(r, big.NewInt(amount), false, "schedule total duration not expired yet")
 	})
 
 	tests.RunWithSetup("cannot withdraw more than once from the same schedule", setup, func(r *tests.Runner) {
 		r.WaitForEpochsUntil(end + 1)
 		releaseTreasuryFunds(r, big.NewInt(amount), true)
-		releaseTreasuryFunds(r, big.NewInt(amount), false, "treasury already withdrew all the funds from this schedule")
+		releaseTreasuryFunds(r, common.Big0, true)
+	})
+
+	subscribedAmount := amount / 2
+	unsubscribedAmount := amount - subscribedAmount
+	user := tests.User
+
+	newSetup := func() *tests.Runner {
+		r := setup()
+		currentTime := r.WaitForEpochsUntil(start + 10)
+		expiredFunds := (currentTime - start - 1) * subscribedAmount / amount
+		require.True(r.T, expiredFunds > 0, "cannot test")
+
+		subscribeToSchedule(r, user, big.NewInt(subscribedAmount), common.Big0, common.Big0)
+		expiredFromContract, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.Equal(r.T, big.NewInt(expiredFunds), expiredFromContract)
+		return r
+	}
+
+	tests.RunWithSetup("expired funds go to treasury", newSetup, func(r *tests.Runner) {
+		expiredFromContract, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		r.WaitForEpochsUntil(end + 1)
+
+		userFunds := new(big.Int).Sub(big.NewInt(subscribedAmount), expiredFromContract)
+		treasuryFunds := new(big.Int).Add(expiredFromContract, big.NewInt(unsubscribedAmount))
+		scheduleTracker, _, err := r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		require.NoError(r.T, err)
+		require.Equal(r.T, big.NewInt(unsubscribedAmount), scheduleTracker.UnsubscribedAmount)
+		require.Equal(r.T, expiredFromContract, scheduleTracker.ExpiredFromContract)
+
+		releaseNTN(r, user, new(big.Int).Add(userFunds, common.Big1), false, true)
+		releaseNTN(r, user, userFunds, true, true)
+		releaseTreasuryFunds(r, treasuryFunds, true)
+		scheduleTracker, _, err = r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		require.NoError(r.T, err)
+		require.True(r.T, new(big.Int).Add(scheduleTracker.UnsubscribedAmount, scheduleTracker.ExpiredFromContract).Cmp(common.Big0) == 0)
+		releaseAllNTN(r, user, userFunds)
+	})
+
+	tests.RunWithSetup("expired funds can be withdrawn by treasury any time after they are expired", newSetup, func(r *tests.Runner) {
+		expiredFromContract, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
+		require.NoError(r.T, err)
+		require.True(r.T, end+1 > r.Evm.Context.Time.Int64(), "cannot test, contract ended already")
+
+		treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
+		require.NoError(r.T, err)
+		balance := r.GetNewtonBalanceOf(treasury)
+		r.NoError(
+			r.NonStakableVesting.ReleaseExpiredFundsForTreasury(
+				tests.FromSender(treasury, nil),
+				common.Big0,
+			),
+		)
+		newBalance := r.GetNewtonBalanceOf(treasury)
+		require.Equal(r.T, new(big.Int).Add(balance, expiredFromContract), newBalance)
+		scheduleTracker, _, err := r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		require.NoError(r.T, err)
+		require.True(r.T, scheduleTracker.ExpiredFromContract.Cmp(common.Big0) == 0)
+
+		balance = newBalance
+		r.NoError(
+			r.NonStakableVesting.ReleaseExpiredFundsForTreasury(
+				tests.FromSender(treasury, nil),
+				common.Big0,
+			),
+		)
+		newBalance = r.GetNewtonBalanceOf(treasury)
+		require.Equal(r.T, balance, newBalance)
 	})
 }
 
@@ -216,14 +269,25 @@ func TestNonStakableAccessRestriction(t *testing.T) {
 	})
 
 	tests.RunWithSetup("only treasury account can claim treasury funds", setup, func(r *tests.Runner) {
-		_, err := r.NonStakableVesting.ReleaseFundsForTreasury(
+		_, err := r.NonStakableVesting.ReleaseAllFundsForTreasury(
 			tests.FromSender(tests.User, nil),
 			common.Big0,
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
 
-		_, err = r.NonStakableVesting.ReleaseFundsForTreasury(nil, common.Big0)
+		_, err = r.NonStakableVesting.ReleaseAllFundsForTreasury(nil, common.Big0)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
+
+		_, err = r.NonStakableVesting.ReleaseExpiredFundsForTreasury(
+			tests.FromSender(tests.User, nil),
+			common.Big0,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
+
+		_, err = r.NonStakableVesting.ReleaseExpiredFundsForTreasury(nil, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
 	})
@@ -384,7 +448,7 @@ func releaseTreasuryFunds(r *tests.Runner, funds *big.Int, success bool, reverti
 	treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
 	require.NoError(r.T, err)
 	balance := r.GetNewtonBalanceOf(treasury)
-	_, err = r.NonStakableVesting.ReleaseFundsForTreasury(
+	_, err = r.NonStakableVesting.ReleaseAllFundsForTreasury(
 		tests.FromSender(treasury, nil),
 		common.Big0,
 	)
