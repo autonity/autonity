@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import "./Accountability.sol";
+import "../Accountability.sol";
 
 contract AccountabilityTest is Accountability {
    constructor(address payable _autonity, Config memory _config) Accountability(_autonity,_config) {}

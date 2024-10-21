@@ -2,6 +2,7 @@
 
 const MIN_BASE_FEE = 5000;
 const COMMITTEE_SIZE = 1000;
+const MAX_SCHEDULE_DURATION = 3*365*24*3600; // 3 years in seconds
 const EPOCH_PERIOD = 30;
 const DELEGATION_RATE = 100;
 const UN_BONDING_PERIOD = 60;
@@ -97,13 +98,13 @@ function autonityConfig(operator, treasuryAccount) {
             "stabilizationContract" :ZERO_ADDRESS,
             "upgradeManagerContract" :ZERO_ADDRESS,
             "inflationControllerContract" :ZERO_ADDRESS,
-            "nonStakableVestingContract" :ZERO_ADDRESS,
         },
         "protocol": {
             "operatorAccount": operator,
             "epochPeriod": EPOCH_PERIOD,
             "blockPeriod": MIN_EPOCH_PERIOD,
             "committeeSize": COMMITTEE_SIZE,
+            "maxScheduleDuration": MAX_SCHEDULE_DURATION,
         },
         "contractVersion": VERSION,
     };

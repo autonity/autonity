@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "./Precompiled.sol";
+import "./lib/Precompiled.sol";
 
 contract UpgradeManager {
     address public autonity;

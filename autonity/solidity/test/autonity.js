@@ -3,7 +3,7 @@ const assert = require('assert');
 const truffleAssert = require('truffle-assertions');
 const utils = require('./utils.js');
 const config = require("./config");
-const liquidStateContract = artifacts.require("ILiquidLogic")
+const liquidStateContract = artifacts.require("ILiquid")
 const toBN = web3.utils.toBN;
 
 async function checkUnbondingPhase(autonity, operator, deployer, treasuryAddresses, delegatee, tokenUnbond) {
