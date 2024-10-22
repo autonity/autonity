@@ -27,7 +27,7 @@ var (
 
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
-	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USDC", "NTN-USDC", "NTN-ATN"}
+	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USD", "NTN-USD", "NTN-ATN"}
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
 		Symbols:    OracleInitialSymbols,
 		VotePeriod: OracleVotePeriod,
