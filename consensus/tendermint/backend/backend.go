@@ -25,6 +25,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )
@@ -50,17 +51,21 @@ var (
 )
 
 // New creates an Ethereum Backend for BFT core engine.
-func New(nodeKey *ecdsa.PrivateKey,
+func New(
+	database ethdb.Database,
+	nodeKey *ecdsa.PrivateKey,
 	consensusKey blst.SecretKey,
 	vmConfig *vm.Config,
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger, noGossip bool) *Backend {
+	log log.Logger, noGossip bool,
+) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
+		database:        database,
 		eventMux:        event.NewTypeMuxSilent(evMux, log),
 		nodeKey:         nodeKey,
 		consensusKey:    consensusKey,
@@ -100,6 +105,7 @@ type Backend struct {
 	address      common.Address
 	logger       log.Logger
 	blockchain   *core.BlockChain
+	database     ethdb.Database
 	currentBlock func() *types.Block
 	hasBadBlock  func(hash common.Hash) bool
 

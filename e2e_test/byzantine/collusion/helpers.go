@@ -1,10 +1,11 @@
 package collusion
 
 import (
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"math/rand"
 	"sync"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
@@ -156,6 +157,11 @@ func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
 	}
 
 	h, r, v := ctx.context()
+	if rule == autonity.PVN && h < c.Height().Uint64() {
+		c.SetupCollusionContext()
+		c.BroadcastAll(msg)
+		return
+	}
 	if h != c.Height().Uint64() {
 		c.BroadcastAll(msg)
 		return
