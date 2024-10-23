@@ -15,7 +15,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     using QueueLib for StakingRequestQueue;
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
-        managerContract = StakableVestingManager(payable(msg.sender));
+        managerContract = IStakableVestingManager(payable(msg.sender));
     }
 
     /**
@@ -45,7 +45,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @custom:restricted-to operator account
      */
     function setManagerContract(address _managerContract) virtual external onlyOperator {
-        managerContract = StakableVestingManager(payable(_managerContract));
+        managerContract = IStakableVestingManager(payable(_managerContract));
     }
 
     /**

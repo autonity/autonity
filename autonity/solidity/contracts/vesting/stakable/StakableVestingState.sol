@@ -8,7 +8,7 @@ contract StakableVestingState is StakableVestingStorage {
     using DelegateCaller for address;
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
-        managerContract = StakableVestingManager(payable(msg.sender));
+        managerContract = IStakableVestingManager(payable(msg.sender));
     }
 
     /**
