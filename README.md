@@ -109,13 +109,13 @@ Quick-start connecting to an Autonity testnet by using a testnet flag in the com
 
 For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/node-operators/run-aut/).
 
-## Connect to a node using Autonity Utility Tool `aut`
+## Connect to a node using Autonity CLI
 
-The recommended way of interacting with an Autonity node is via `aut`, which provides a command-line interface to Autonity-specific queries and operations, as well as much of the base Ethereum functionality.
+The recommended way of interacting with an Autonity node is via the Autonity CLI, which provides a command-line interface to Autonity-specific queries and operations, as well as much of the base Ethereum functionality.
 
-For source code, installation, and usage see the [aut repository](https://github.com/autonity/aut).
+For source code, installation, and usage see its [repository](https://github.com/autonity/autonity-cli).
 
-See the docs how to [Setup the Autonity Utility Tool (aut)](https://docs.autonity.org/account-holders/setup-aut/) for how to make calls and submit transactions.
+See the docs how to [Setup Autonity CLI](https://docs.autonity.org/account-holders/setup-aut/) for how to make calls and submit transactions.
 
 ## Networks
 
