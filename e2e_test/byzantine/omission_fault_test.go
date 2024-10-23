@@ -639,10 +639,11 @@ func (c *effortTrackerProposer) SendProposal(ctx context.Context, proposal *type
 	}
 
 	header := proposal.Header()
-	committee, _, _, _, _, err := backend.BlockChain().LatestEpoch()
+	epoch, err := backend.BlockChain().LatestEpoch()
 	if err != nil {
 		panic("cannot fetch latest epoch: " + err.Error())
 	}
+	committee := epoch.Committee
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	if header.ActivityProof != nil {

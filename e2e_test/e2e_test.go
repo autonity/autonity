@@ -187,10 +187,12 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 
 	initialDelta := params.DefaultOmissionAccountabilityConfig.Delta
 	require.NotEqual(t, uint64(1), initialDelta)
-	_, _, _, _, delta0, err := network[0].Eth.BlockChain().LatestEpoch()
+	epoch0, err := network[0].Eth.BlockChain().LatestEpoch()
 	require.NoError(t, err)
-	_, _, _, _, delta1, err := network[1].Eth.BlockChain().LatestEpoch()
+	delta0 := epoch0.Delta.Uint64()
+	epoch1, err := network[1].Eth.BlockChain().LatestEpoch()
 	require.NoError(t, err)
+	delta1 := epoch1.Delta.Uint64()
 	require.Equal(t, initialDelta, delta0)
 	require.Equal(t, initialDelta, delta1)
 	t.Log(initialDelta)
