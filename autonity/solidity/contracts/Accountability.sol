@@ -249,7 +249,7 @@ contract Accountability is IAccountability, AccessAutonity {
         slashingQueue.push(_ev.id);
         slashingHistory[_ev.offender][_ev.epoch] = _severity;
 
-        emit NewFaultProof(_ev.offender, _severity, _ev.id);
+        emit NewFaultProof(_ev.offender, _severity, _ev.id, autonity.epochID());
     }
 
     function _handleAccusation(Event memory _ev) internal virtual {
@@ -387,6 +387,7 @@ contract Accountability is IAccountability, AccessAutonity {
     */
     function _promoteGuiltyAccusations() internal virtual {
         uint256 i = accusationsQueueFirst;
+        uint256 _epochID = autonity.epochID();
         for(; i < accusationsQueue.length; i++){
             uint256 _id = accusationsQueue[i];
             if (_id == 0) {
@@ -408,7 +409,7 @@ contract Accountability is IAccountability, AccessAutonity {
             validatorFaults[_ev.offender].push(_id);
             slashingQueue.push(_id);
 
-            emit NewFaultProof(_ev.offender, _severity, _id);
+            emit NewFaultProof(_ev.offender, _severity, _id, _epochID);
         }
         accusationsQueueFirst = i;
     }

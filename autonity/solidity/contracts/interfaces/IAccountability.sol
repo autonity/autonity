@@ -25,7 +25,7 @@ interface IAccountability {
     * @dev Event emitted when a fault proof has been submitted. The reported validator
     * will be silencied and slashed at the end of the current epoch.
     */
-    event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id);
+    event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id, uint256 _epoch);
 
     /**
     * @dev Event emitted after receiving an accusation, the reported validator has
