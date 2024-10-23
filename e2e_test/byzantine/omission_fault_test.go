@@ -18,7 +18,6 @@ import (
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
-	"math"
 	"math/big"
 	"sync"
 	"testing"
@@ -131,15 +130,17 @@ func scaleFactor(t *testing.T, omission *autonity.OmissionAccountability) uint64
 
 // assumes usage of default params and mimic solidity precision loss
 func computeInactivityScore(inactiveBlocks uint64, scaleFactor uint64) uint64 {
-	scaleFactorFloat := float64(scaleFactor)
+	newFloat := func(value uint64) *big.Float {
+		return new(big.Float).SetPrec(256).SetUint64(value)
+	}
 
-	pastPerformanceWeight := float64(defaultPastPerformanceWeight) / scaleFactorFloat
+	pastPerformanceWeight := new(big.Float).Quo(newFloat(defaultPastPerformanceWeight), newFloat(scaleFactor))
+	currentPerformanceWeight := new(big.Float).Sub(newFloat(1), pastPerformanceWeight)
 
-	score := float64(inactiveBlocks) / float64(defaultEpochPeriod-defaultDelta-defaultLookbackWindow+1)
-	score = math.Floor(score*scaleFactorFloat) / scaleFactorFloat // mimic precision loss due to fixed point arithmetic used in solidity
-	expectedInactivityScoreFloat := score*(1-pastPerformanceWeight) + 0*pastPerformanceWeight
-	expectedInactivityScoreFloat = math.Floor(expectedInactivityScoreFloat*scaleFactorFloat) / scaleFactorFloat // mimic precision loss due to fixed point arithmetic used in solidity
-	expectedInactivityScore := uint64(math.Round(expectedInactivityScoreFloat * scaleFactorFloat))              // using round to mitigate precision loss due to floating point arithmetic
+	score := new(big.Float).Quo(newFloat(inactiveBlocks), newFloat(defaultEpochPeriod-defaultDelta-defaultDelta+1))
+	expectedInactivityScoreFloat := new(big.Float).Mul(score, currentPerformanceWeight)
+	expectedInactivityScoreFloatScaled := new(big.Float).Mul(expectedInactivityScoreFloat, newFloat(scaleFactor))
+	expectedInactivityScore, _ := expectedInactivityScoreFloatScaled.Uint64()
 	return expectedInactivityScore
 }
 

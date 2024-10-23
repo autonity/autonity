@@ -990,7 +990,8 @@ func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*type
 	previousEpochBlock := new(big.Int)
 	curEpochBlock := new(big.Int)
 	nextEpochBlock := new(big.Int)
-	if err := acCall(evm, caller, "getEpochByHeight", &[]any{&committeeSet, &previousEpochBlock, &curEpochBlock, &nextEpochBlock}, new(big.Int).SetUint64(height)); err != nil {
+	delta := new(big.Int)
+	if err := acCall(evm, caller, "getEpochByHeight", &[]any{&committeeSet, &previousEpochBlock, &curEpochBlock, &nextEpochBlock, &delta}, new(big.Int).SetUint64(height)); err != nil {
 		return nil, err
 	}
 

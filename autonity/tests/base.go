@@ -270,12 +270,13 @@ func (r *runner) setupActivityProofAndCoinbase(proposer common.Address, absentee
 	if absentees == nil {
 		absentees = make(map[common.Address]struct{})
 	}
-	_, _, epochBlock, _, delta, _, err := r.autonity.GetEpochInfo(nil)
+	epochInfo, _, err := r.autonity.GetEpochInfo(nil)
 	require.NoError(r.t, err)
-	mustBeEmpty := r.evm.Context.BlockNumber.Uint64() <= epochBlock.Uint64()+delta.Uint64()
+
+	mustBeEmpty := r.evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.Delta.Uint64()
 	if !mustBeEmpty {
 		r.evm.Context.Coinbase = proposer
-		targetHeight := r.evm.Context.BlockNumber.Uint64() - delta.Uint64()
+		targetHeight := r.evm.Context.BlockNumber.Uint64() - epochInfo.Delta.Uint64()
 
 		r.evm.Context.ActivityProofRound = 0
 		r.evm.Context.ActivityProof = activityProof(r.committee.validators, sealFaker(targetHeight, r.evm.Context.ActivityProofRound), absentees)
@@ -309,10 +310,10 @@ func (r *runner) waitNBlocks(n int) { //nolint
 }
 
 func (r *runner) waitNextEpoch() { //nolint
-	_, _, _, nextEpochBlock, _, _, err := r.autonity.GetEpochInfo(nil)
+	epochInfo, _, err := r.autonity.GetEpochInfo(nil)
 	require.NoError(r.t, err)
 
-	diff := new(big.Int).Sub(nextEpochBlock, r.evm.Context.BlockNumber)
+	diff := new(big.Int).Sub(epochInfo.NextEpochBlock, r.evm.Context.BlockNumber)
 	r.waitNBlocks(int(diff.Uint64() + 1))
 }
 

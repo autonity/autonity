@@ -84,7 +84,6 @@ func TestAccusation(t *testing.T) {
 	})
 
 	r.run("reporting right tests", func(r *runner) {
-
 		// reporting should be reverted since reporter is not in current committee and last committee
 		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
 		noAccessor := common.Address{}
