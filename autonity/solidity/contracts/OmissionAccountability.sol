@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
+
 import "./Autonity.sol";
 import {Slasher} from "./Slasher.sol";
 
@@ -29,10 +30,11 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     address private operator;
 
     mapping(uint256 => bool) public faultyProposers;                         // marks height where proposer is faulty
-    uint256 public faultyProposersInWindow;
-    mapping(uint256 => mapping(address=>bool)) public inactiveValidators;    // inactive validators for each height
+    uint256 public faultyProposersInWindow;                                  // number of faulty proposers in the lookback window
+    mapping(uint256 => mapping(address => bool)) public inactiveValidators;  // inactive validators for each height
 
-    mapping(address => uint256) public lastActive; // counter of active blocks for each validator. It is reset at the end of the epoch.
+    mapping(address => uint256) public lastActive; // counter of active blocks for each validator. It is reset at the end of the epoch. A default value of 0 means they have been active in the last window.
+    address[] public absenteesLastHeight;
 
     // counter of inactive blocks for each validator (considering lookback window). It is reset at the end of the epoch.
     mapping(address => uint256) public inactivityCounter;
@@ -60,7 +62,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         operator = _operator;
         config = _config;
         Autonity.CommitteeMember[] memory _committee = autonity.getCommittee();
-        for(uint256 i=0;i<_committee.length;i++){
+        for (uint256 i = 0; i < _committee.length; i++) {
             committee.push(_committee[i]);
         }
         treasuries = _treasuries;
@@ -80,13 +82,13 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
 
         uint256[1] memory _committeeSlot; // declare it as array to easily access from assembly
         assembly{
-            mstore(_committeeSlot,committee.slot)
+            mstore(_committeeSlot, committee.slot)
         }
 
         (bool _isProposerOmissionFaulty, uint256 _proposerEffort, address[] memory _absentees) = Precompiled.computeAbsentees(_mustBeEmpty, config.delta, _committeeSlot[0]);
 
         // short-circuit function if the proof has to be empty
-        if(_mustBeEmpty){
+        if (_mustBeEmpty) {
             return config.delta;
         }
 
@@ -96,7 +98,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
             faultyProposers[targetHeight] = true;
             inactivityCounter[block.coinbase]++;
             faultyProposersInWindow++;
-        }else{
+        } else {
             faultyProposers[targetHeight] = false;
             proposerEffort[block.coinbase] += _proposerEffort;
             totalEffort += _proposerEffort;
@@ -105,19 +107,21 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
             _recordAbsentees(_absentees, targetHeight);
         }
 
-        if (targetHeight >= epochBlock + config.lookbackWindow) {
-            if(faultyProposers[targetHeight - config.lookbackWindow]){
-                faultyProposersInWindow--;
-            }
+        if (
+            (targetHeight >= epochBlock + config.lookbackWindow) &&
+            (faultyProposers[targetHeight - config.lookbackWindow])
+        ) {
+            faultyProposersInWindow--;
         }
 
-        if(_epochEnded){
+        if (_epochEnded) {
             uint256 collusionDegree = _computeInactivityScoresAndCollusionDegree();
             _punishInactiveValidators(collusionDegree);
 
             // reset inactivity counters
-            for(uint256 i=0;i<committee.length;i++) {
+            for (uint256 i = 0; i < committee.length; i++) {
                 inactivityCounter[committee[i].addr] = 0;
+                lastActive[committee[i].addr] = 0;
             }
 
             // store collusion degree in state. This is useful for slashed validators to verify their slashing rate
@@ -130,27 +134,39 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         return config.delta;
     }
 
-    function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal virtual {
-        mapping(address=>bool) memory inactiveThisEpoch;
-        for(uint256 i=0; i < _absentees.length; i++) {
-            inactiveThisEpoch[_absentees[i]] = true;
+    function _contains(address[] memory _absentees, address _account) internal pure returns (bool) {
+        for (uint i = 0; i < _absentees.length; i++) {
+            if (_absentees[i] == _account) {
+                return true;
+            }
         }
+        return false;
+    }
 
-        for(uint256 i=0; i < committee.length; i++) {
-            if(!inactiveThisEpoch[committee[i].addr]){
-                lastActive[committee[i].addr] = block.number;
+    function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal virtual {
+        for (uint i = 0; i < absenteesLastHeight.length; i++) {
+            if (!_contains(_absentees, absenteesLastHeight[i])) {
+                // for all addresses who were inactive last height, if they are active now,
+                // we can reset their lastActive counter
+                lastActive[absenteesLastHeight[i]] = 0;
             }
         }
 
-        if(targetHeight < epochBlock + config.lookbackWindow) {
+        if (targetHeight < epochBlock + config.lookbackWindow) {
             return;
         }
 
         // for each absent of target height, check the lookback window to see if he was online at some point
         // if online even once in the lookback window, consider him online for this block
         // NOTE: the current block is included in the window, (h - delta - lookback, h - delta]
-        for(uint256 i=0; i < _absentees.length; i++) {
-            if(lastActive[_absentees[i]] > targetHeight - (config.lookbackWindow + faultyProposersInWindow)){
+        for (uint256 i = 0; i < _absentees.length; i++) {
+            inactiveValidators[targetHeight][_absentees[i]] = true;
+            // if this is the first time they are inactive, we can set their lastActive counter to the last block
+            if (lastActive[_absentees[i]] == 0) {
+                lastActive[_absentees[i]] = targetHeight - 1;
+                continue;
+            }
+            if (lastActive[_absentees[i]] > targetHeight - (config.lookbackWindow + faultyProposersInWindow)) {
                 // the validator was not active at some point in the lookback window
                 inactivityCounter[_absentees[i]]++;
             }
@@ -163,22 +179,22 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         uint256 collusionDegree = 0;
 
         // compute aggregated scores + collusion degree
-        for(uint256 i=0;i<committee.length;i++){
+        for (uint256 i = 0; i < committee.length; i++) {
             address nodeAddress = committee[i].addr;
 
             // first config.lookbackWindow-1 blocks of the epoch are accountable, but we do not have enough info to determine if a validator was offline/online
             // last delta blocks of the epoch are not accountable due to committee change
-            uint256 inactivityScore = (inactivityCounter[nodeAddress]*SCALE_FACTOR / (epochPeriod-config.lookbackWindow+1-config.delta));
+            uint256 inactivityScore = (inactivityCounter[nodeAddress] * SCALE_FACTOR / (epochPeriod - config.lookbackWindow + 1 - config.delta));
 
             // there is an edge case where inactivityScore can be > 100%. We cap it at 100%.
             // this can happen for example if we have a network with a single validator, that is never including any activity proof,
             // thus always being considered a faulty proposer and getting his inactivityCounter increased even when we do not have lookback blocks yet
-            if(inactivityScore > SCALE_FACTOR){
+            if (inactivityScore > SCALE_FACTOR) {
                 inactivityScore = SCALE_FACTOR;
             }
 
-            uint256 aggregatedInactivityScore = ((inactivityScore*(SCALE_FACTOR-config.pastPerformanceWeight)) + (inactivityScores[nodeAddress] * config.pastPerformanceWeight))/SCALE_FACTOR;
-            if(aggregatedInactivityScore > config.inactivityThreshold){
+            uint256 aggregatedInactivityScore = ((inactivityScore * (SCALE_FACTOR - config.pastPerformanceWeight)) + (inactivityScores[nodeAddress] * config.pastPerformanceWeight)) / SCALE_FACTOR;
+            if (aggregatedInactivityScore > config.inactivityThreshold) {
                 collusionDegree++;
             }
             inactivityScores[nodeAddress] = aggregatedInactivityScore;
@@ -188,7 +204,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
 
     function _punishInactiveValidators(uint256 collusionDegree) internal virtual {
         // reduce probation periods + dish out punishment
-        for(uint256 i=0;i<committee.length;i++){
+        for (uint256 i = 0; i < committee.length; i++) {
             address nodeAddress = committee[i].addr;
             Autonity.Validator memory _val = autonity.getValidator(nodeAddress);
 
@@ -196,37 +212,37 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
             // do not punish him for omission too. It would be unfair since peer ignore msgs from jailed vals.
             // However, do not decrease his probation since he was not fully honest
             // NOTE: validator already jailed by accountability are nonetheless taken into account into the collusion degree of omission
-            if(_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound){
+            if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
                 continue;
             }
 
             // here validator is either active or has been paused in the current epoch (but still participated to consensus)
 
-            if(inactivityScores[nodeAddress] <= config.inactivityThreshold){
+            if (inactivityScores[nodeAddress] <= config.inactivityThreshold) {
                 // NOTE: probation period of a validator gets decreased only if he is part of the committee
-                if(probationPeriods[nodeAddress] > 0){
+                if (probationPeriods[nodeAddress] > 0) {
                     probationPeriods[nodeAddress]--;
                     // if decreased to zero, then zero out also the offences counter
-                    if(probationPeriods[nodeAddress] == 0){
+                    if (probationPeriods[nodeAddress] == 0) {
                         repeatedOffences[nodeAddress] = 0;
                     }
                 }
-            }else{
+            } else {
                 // punish validator if his inactivity is greater than threshold
                 repeatedOffences[nodeAddress]++;
-                uint256 offenceSquared = repeatedOffences[nodeAddress]*repeatedOffences[nodeAddress];
+                uint256 offenceSquared = repeatedOffences[nodeAddress] * repeatedOffences[nodeAddress];
                 uint256 jailingPeriod = config.initialJailingPeriod * offenceSquared;
                 uint256 probationPeriod = config.initialProbationPeriod * offenceSquared;
 
                 // if already on probation, slash and jail
-                if(probationPeriods[nodeAddress] > 0){
+                if (probationPeriods[nodeAddress] > 0) {
                     uint256 slashingRate = config.initialSlashingRate * offenceSquared * collusionDegree;
                     uint256 slashingAmount;
                     uint256 jailReleaseBlock;
                     bool isJailbound;
                     (slashingAmount, jailReleaseBlock, isJailbound) = _slashAtRate(_val, slashingRate, jailingPeriod, ValidatorState.jailedForInactivity, ValidatorState.jailboundForInactivity);
                     emit InactivitySlashingEvent(_val.nodeAddress, slashingAmount, jailReleaseBlock, isJailbound);
-                }else{
+                } else {
                     // if not, only jail
                     _val.jailReleaseBlock = block.number + jailingPeriod;
                     _val.state = ValidatorState.jailedForInactivity;
@@ -246,24 +262,24 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     function distributeProposerRewards(uint256 _ntnReward) external payable virtual onlyAutonity {
         uint256 atnReward = msg.value;
 
-        for(uint256 i=0; i < committee.length; i++) {
+        for (uint256 i = 0; i < committee.length; i++) {
             address nodeAddress = committee[i].addr;
-            if(proposerEffort[nodeAddress] > 0){
-               uint256 atnProposerReward = (proposerEffort[nodeAddress] * atnReward) / totalEffort;
-               uint256 ntnProposerReward = (proposerEffort[nodeAddress] * _ntnReward) / totalEffort;
+            if (proposerEffort[nodeAddress] > 0) {
+                uint256 atnProposerReward = (proposerEffort[nodeAddress] * atnReward) / totalEffort;
+                uint256 ntnProposerReward = (proposerEffort[nodeAddress] * _ntnReward) / totalEffort;
 
-               // if for some reasons, funds can't be transferred to the treasury (sneaky contract)
-               (bool ok, ) = treasuries[i].call{value: atnProposerReward, gas: 2300}("");
-               // well, too bad, it goes to the autonity global treasury.
-               if(!ok) {
-                   autonity.getTreasuryAccount().call{value:atnProposerReward}("");
-               }
+                // if for some reasons, funds can't be transferred to the treasury (sneaky contract)
+                (bool ok,) = treasuries[i].call{value: atnProposerReward, gas: 2300}("");
+                // well, too bad, it goes to the autonity global treasury.
+                if (!ok) {
+                    autonity.getTreasuryAccount().call{value: atnProposerReward}("");
+                }
 
-               autonity.transfer(treasuries[i],ntnProposerReward);
+                autonity.transfer(treasuries[i], ntnProposerReward);
 
-               // reset after usage
-               proposerEffort[nodeAddress] = 0;
-           }
+                // reset after usage
+                proposerEffort[nodeAddress] = 0;
+            }
         }
 
         totalEffort = 0;
@@ -318,9 +334,9 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     * @param _committee, committee members
     * @param _treasuries, treasuries of the new committee
     */
-    function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external virtual onlyAutonity{
+    function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external virtual onlyAutonity {
         delete committee;
-        for(uint256 i=0;i<_committee.length;i++){
+        for (uint256 i = 0; i < _committee.length; i++) {
             committee.push(_committee[i]);
         }
         treasuries = _treasuries;
@@ -357,7 +373,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     * @dev restricted to the operator
     * @param _pastPerformanceWeight, the new value for the past performance weight
     */
-    function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator{
+    function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator {
         require(_pastPerformanceWeight <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_pastPerformanceWeight <= config.inactivityThreshold, "pastPerformanceWeight cannot be greater than inactivityThreshold");
         config.pastPerformanceWeight = _pastPerformanceWeight;
@@ -397,7 +413,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         uint256 epochPeriod = autonity.getEpochPeriod();
 
         // utilize newDelta for comparison, so that if delta is also being changed in this epoch we take the new value
-        require(epochPeriod > newDelta+_lookbackWindow-1,"epoch period needs to be greater than delta+lookbackWindow-1");
+        require(epochPeriod > newDelta + _lookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
         newLookbackWindow = _lookbackWindow;
     }
 
@@ -410,7 +426,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         uint256 epochPeriod = autonity.getEpochPeriod();
 
         // utilize newLookbackWindow for comparison, so that if delta is also being changed in this epoch we take the new value
-        require(epochPeriod > _delta+newLookbackWindow-1,"epoch period needs to be greater than delta+lookbackWindow-1");
+        require(epochPeriod > _delta + newLookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
         newDelta = _delta;
     }
 
@@ -418,10 +434,9 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     * @dev Modifier that checks if the caller is the autonity contract.
     */
     modifier onlyAutonity {
-        require(msg.sender == address(autonity) , "function restricted to the Autonity Contract");
+        require(msg.sender == address(autonity), "function restricted to the Autonity Contract");
         _;
     }
-
 
     /**
     * @dev Modifier that checks if the caller is the operator.
