@@ -1448,6 +1448,10 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	headerSeal := message.PrepareCommittedSeal(targetHash, int64(targetRound), new(big.Int).SetUint64(targetHeight))
 	signers, power, err := proof.Validate(headerSeal, committee, true)
 	if err != nil {
+		// it should never happen that we cannot aggregate public keys fetched from state
+		if errors.Is(err, types.ErrNonAggregatablePublicKeys) {
+			panic("cannot aggregate keys fetched from state: " + err.Error())
+		}
 		return nil, fmt.Errorf("invalid activity proof: %w", err)
 	}
 

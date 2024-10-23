@@ -15,7 +15,11 @@ library Precompiled {
     address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
 
 
-    function computeAbsentees(bool _mustBeEmpty, uint256 _delta, uint256 _committeeSlot) internal returns (bool,uint256,address[] memory){
+    function computeAbsentees(bool _mustBeEmpty, uint256 _delta, uint256 _committeeSlot) internal returns (
+        bool,               // isProposerOmissionFaulty
+        uint256,            // proposerEffort
+        address[] memory    // absentees
+    ){
         address to = ACTIVITY_CONTRACT;
 
         bytes memory _input = abi.encodePacked(_mustBeEmpty, _delta, _committeeSlot);

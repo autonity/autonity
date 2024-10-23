@@ -90,7 +90,7 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 	// get the epoch information for the header we are verifying
 	epoch, err := chain.EpochOfHeight(header.Number.Uint64())
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot fetch epoch information for height %d: %w", header.Number.Uint64(), err)
 	}
 
 	hash := func(h uint64) (common.Hash, error) {
@@ -101,15 +101,15 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 		return targetHeader.Hash(), nil
 	}
 
-	return sb.verifyHeader(chain, header, parent, epoch.Committee, epoch.EpochBlock.Uint64(), epoch.NextEpochBlock.Uint64(), hash, epoch.Delta.Uint64())
+	return sb.verifyHeader(chain.Config(), header, parent, epoch, hash)
 }
 
 type HashGetter func(h uint64) (common.Hash, error)
 
-// verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header
-// to be provided unless header is the genesis header.
-func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header,
-	committee *types.Committee, curEpochHead, nextEpochHead uint64, hash HashGetter, delta uint64) error {
+// verifyHeader checks whether a header conforms to the consensus rules. It expects the parent header to always be != nil.
+// it cannot be used to verify the genesis header.
+func (sb *Backend) verifyHeader(config *params.ChainConfig, header *types.Header, parent *types.Header,
+	epoch *types.EpochInfo, hash HashGetter) error {
 	if header.Round > constants.MaxRound {
 		return errInvalidRound
 	}
@@ -145,54 +145,27 @@ func (sb *Backend) verifyHeader(chain consensus.ChainHeaderReader, header, paren
 	}
 	// Verify London hard fork attributes
 	// minbasefee is only checked when processing a proposal
-	if err := misc.VerifyEip1559Header(chain.Config(), nil, parent, header); err != nil {
+	if err := misc.VerifyEip1559Header(config, nil, parent, header); err != nil {
 		// Verify the header's EIP-1559 attributes.
 		return err
 	}
 
-	// If this is the genesis block there is no further verification to be
-	// done.
-	if header.IsGenesis() {
-		return nil
-	}
-
-	// We expect the parent to be non nil when header is not the genesis header.
-	if parent == nil {
-		return errUnknownBlock
-	}
-
-	// Re-injecting historical blocks, as epoch info is a factor to compute the hash, thus we don't need to check epoch
-	// , just double check header against its parent and the quorum certificates of this height.
-	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
-		return sb.verifyHeaderAgainstLastView(header, parent, committee, curEpochHead, hash, delta)
-	}
-
-	// for unknown headers, header number should pass the corresponding epoch boundary check.
-	if header.Number.Uint64() <= curEpochHead || header.Number.Uint64() > nextEpochHead {
+	// header number should pass the corresponding epoch boundary check.
+	if header.Number.Uint64() <= epoch.EpochBlock.Uint64() || header.Number.Uint64() > epoch.NextEpochBlock.Uint64() {
 		sb.logger.Error("header is out of epoch range",
-			"height", header.Number.Uint64(), "curEpochHead", curEpochHead, "nextEpochHead", nextEpochHead)
+			"height", header.Number.Uint64(), "epochBlock", epoch.EpochBlock.Uint64(), "nextEpochBlock", epoch.NextEpochBlock.Uint64())
 		return consensus.ErrOutOfEpochRange
 	}
 
 	// epoch bi-direction link check for epoch header and its parent epoch header.
 	if header.IsEpochHeader() {
-		if nextEpochHead != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != curEpochHead {
+		if epoch.NextEpochBlock.Uint64() != header.Number.Uint64() || header.Epoch.PreviousEpochBlock.Uint64() != epoch.EpochBlock.Uint64() {
+			sb.logger.Error("epoch header failed bi-direction check",
+				"height", header.Number.Uint64(), "epochBlock", epoch.EpochBlock.Uint64(), "nextEpochBlock", epoch.NextEpochBlock.Uint64(), "previousEpochBlock", header.Epoch.PreviousEpochBlock.Uint64())
 			return consensus.ErrInvalidEpochBoundary
 		}
 	}
 
-	// We expect the parent to be non nil when header is not the genesis header.
-	/* TODO: remove?
-	if parent == nil {
-		return errUnknownBlock
-	}*/
-	// check quorum certificates of consensus participants and activity proof
-	return sb.verifyHeaderAgainstLastView(header, parent, committee, curEpochHead, hash, delta)
-}
-
-// verifyHeaderAgainstLastView verifies that the given header is valid with respect to its parent block and the
-// corresponding epoch's committee.
-func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, committee *types.Committee, epochBlock uint64, hash HashGetter, delta uint64) error {
 	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
@@ -201,33 +174,39 @@ func (sb *Backend) verifyHeaderAgainstLastView(header, parent *types.Header, com
 		return errInvalidTimestamp
 	}
 
-	if err := sb.verifySigner(header, committee); err != nil {
+	// check proposer seal, quorum certificate and activity proof
+	return sb.verifyHeaderSignatures(header, epoch, hash)
+}
+
+// verifyHeaderSignatures verifies the proposer seal, quorum certificate and activity proof
+func (sb *Backend) verifyHeaderSignatures(header *types.Header, epoch *types.EpochInfo, hash HashGetter) error {
+	if err := sb.verifySigner(header, epoch.Committee); err != nil {
 		return err
 	}
 
-	if err := sb.verifyActivityProof(header, committee, epochBlock, delta, hash); err != nil {
+	if err := sb.verifyActivityProof(header, epoch, hash); err != nil {
 		return fmt.Errorf("error while validating header activity proof: %w", err)
 	}
 
-	return sb.verifyQuorumCertificate(header, committee)
+	return sb.verifyQuorumCertificate(header, epoch.Committee)
 }
 
 // verify activity proof during header verification
-func (sb *Backend) verifyActivityProof(header *types.Header, committee *types.Committee, epochBlock uint64, delta uint64, hash HashGetter) error {
-	mustBeEmpty := header.Number.Uint64() <= epochBlock+delta
+func (sb *Backend) verifyActivityProof(header *types.Header, epoch *types.EpochInfo, hash HashGetter) error {
+	mustBeEmpty := header.Number.Uint64() <= epoch.EpochBlock.Uint64()+epoch.Delta.Uint64()
 
 	if mustBeEmpty && header.ActivityProof != nil {
 		return errNotEmptyActivityProof
 	}
 
 	if header.ActivityProof != nil {
-		targetHeight := header.Number.Uint64() - delta
+		targetHeight := header.Number.Uint64() - epoch.Delta.Uint64()
 		targetHash, err := hash(targetHeight)
 		if err != nil {
 			return err
 		}
 		headerSeal := message.PrepareCommittedSeal(targetHash, int64(header.ActivityProofRound), new(big.Int).SetUint64(targetHeight))
-		_, _, err = header.ActivityProof.Validate(headerSeal, committee, true)
+		_, _, err = header.ActivityProof.Validate(headerSeal, epoch.Committee, true)
 		if err != nil {
 			return errors.Join(errInvalidActivityProof, err)
 		}
@@ -260,19 +239,16 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	}
 
 	go func() {
-		firstHead := headers[0].Number.Uint64()
-		epoch, err := chain.EpochOfHeight(firstHead)
+		firstHeight := headers[0].Number.Uint64()
+		epoch, err := chain.EpochOfHeight(firstHeight)
 		// short circuit, if we cannot find the correct epoch for the 1st header, we quit this batch of verification.
 		if err != nil {
-			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHead)
+			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHeight)
 			results <- err
 			return
 		}
+		chainConfig := chain.Config()
 
-		committee := epoch.Committee
-		curEpochBlock := epoch.EpochBlock.Uint64()
-		nextEpochBlock := epoch.NextEpochBlock.Uint64()
-		delta := epoch.Delta.Uint64()
 		for i, header := range headers {
 			var parent *types.Header
 			switch {
@@ -287,16 +263,16 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				err = consensus.ErrUnknownAncestor
 			} else {
 				// check header against parent and parent epoch head.
-				err = sb.verifyHeader(chain, header, parent, committee, curEpochBlock, nextEpochBlock, hash, delta)
+				err = sb.verifyHeader(chainConfig, header, parent, epoch, hash)
 			}
 
 			// cross epoch header check, update the committee and epoch boundary if current header is an epoch head.
 			// the verification behind this header will be continued with the updated epoch info.
 			if header.IsEpochHeader() {
-				committee = header.Epoch.Committee
-				curEpochBlock = header.Number.Uint64()
-				nextEpochBlock = header.Epoch.NextEpochBlock.Uint64()
-				delta = header.Epoch.Delta.Uint64()
+				epoch = &types.EpochInfo{
+					Epoch:      *header.Epoch,
+					EpochBlock: header.Number,
+				}
 			}
 
 			select {
@@ -390,9 +366,9 @@ func (sb *Backend) Prepare(chain consensus.ChainHeaderReader, header *types.Head
 // of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
 func (sb *Backend) assembleActivityProof(h uint64) (*types.AggregateSignature, uint64, error) {
-	epochInfo, err := sb.BlockChain().LatestEpoch()
+	epochInfo, err := sb.BlockChain().EpochOfHeight(h)
 	if err != nil {
-		return nil, 0, fmt.Errorf("error while fetching latest epoch %w", err)
+		return nil, 0, fmt.Errorf("error while fetching epoch for height %d: %w", h, err)
 	}
 	epochBlock := epochInfo.EpochBlock.Uint64()
 	delta := epochInfo.Delta.Uint64()

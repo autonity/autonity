@@ -32,9 +32,6 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-// CommitteeOfHeight resolve committee of height, it is used by consensus engine and AFD modules only.
-// It get committee from LRU cache first, otherwise it trys to search backward epoch with limited hops, if the
-// committee of the height cannot be find still, then it try to query it from the state DB.
 func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
 	epoch, err := bc.EpochOfHeight(height)
 	if err != nil {
@@ -45,7 +42,6 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 }
 
 func (bc *BlockChain) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
-
 	// always get it from LRU cache first
 	if epoch, ok := bc.epochCache.Get(height); ok {
 		return epoch.(*types.EpochInfo), nil

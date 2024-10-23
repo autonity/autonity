@@ -35,10 +35,11 @@ import (
 )
 
 var (
-	EmptyRootHash       = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	EmptyUncleHash      = rlpHash([]*Header(nil))
-	errInvalidSignature = errors.New("aggregate signature is invalid")
-	errNoQuorum         = errors.New("aggregate signature does not contain quorum voting power")
+	EmptyRootHash                = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	EmptyUncleHash               = rlpHash([]*Header(nil))
+	errInvalidSignature          = errors.New("aggregate signature is invalid")
+	ErrNonAggregatablePublicKeys = errors.New("provided public keys cannot be aggregated")
+	errNoQuorum                  = errors.New("aggregate signature does not contain quorum voting power")
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
@@ -138,7 +139,7 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	}
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
-		panic("Failed to aggregate keys from committee members: " + err.Error())
+		return nil, nil, errors.Join(ErrNonAggregatablePublicKeys, err)
 	}
 	valid := a.Signature.Verify(aggregatedKey, message[:])
 	if !valid {
@@ -253,11 +254,11 @@ func (h *Header) Size() common.StorageSize {
 	return headerSize + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen())/8)
 }
 
-// SanityCheck checks a few basic things -- these checks are way beyond what
+// sanityCheck checks a few basic things -- these checks are way beyond what
 // any 'sane' production values should hold, and can mainly be used to prevent
 // that the unbounded fields are stuffed with junk data to add processing
 // overhead
-func (h *Header) SanityCheck() error {
+func (h *Header) sanityCheck() error {
 	if h.Number != nil && !h.Number.IsUint64() {
 		return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
 	}
@@ -276,9 +277,8 @@ func (h *Header) SanityCheck() error {
 	}
 
 	// check sanity of epoch info if the header is an epoch header.
+	// assumes sanity nil checks have already been done
 	if h.IsEpochHeader() {
-		// the integrity of epoch was checked already in rlp decoding phase,
-		// thus the fields of epoch shouldn't be nil, we check the sanity of epoch at here.
 		if !h.Epoch.PreviousEpochBlock.IsUint64() {
 			return fmt.Errorf("too large previous epoch block number: bitlen %d", h.Epoch.PreviousEpochBlock.BitLen())
 		}
@@ -287,16 +287,20 @@ func (h *Header) SanityCheck() error {
 			return fmt.Errorf("too large next epoch block number: bitlen %d", h.Epoch.NextEpochBlock.BitLen())
 		}
 
+		if !h.Epoch.Delta.IsUint64() {
+			return fmt.Errorf("too large next epoch delta: bitlen %d", h.Epoch.Delta.BitLen())
+		}
+
 		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) > 0 {
 			return fmt.Errorf("previous epoch block number %d is larger than current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
 		}
 
-		if h.Number.Cmp(h.Epoch.NextEpochBlock) > 0 {
-			return fmt.Errorf("current epoch block number %d is larger than next epoch block number %d", h.Number.Uint64(), h.Epoch.NextEpochBlock.Uint64())
+		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) == 0 && !h.IsGenesis() { // genesis is allowed to have previousEpochBlock == epochBlock == common.Big0
+			return fmt.Errorf("previous epoch block number %d is equal to current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
 		}
 
-		if !h.Epoch.Delta.IsUint64() {
-			return fmt.Errorf("too large next epoch delta: bitlen %d", h.Epoch.Delta.BitLen())
+		if h.Number.Cmp(h.Epoch.NextEpochBlock) >= 0 {
+			return fmt.Errorf("current epoch block number %d is larger or equal than next epoch block number %d", h.Number.Uint64(), h.Epoch.NextEpochBlock.Uint64())
 		}
 	}
 	return nil
@@ -320,7 +324,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 			return err
 		}
 
-		// sanity checks
+		// sanity nil checks
 		if hExtra.QuorumCertificate != nil && hExtra.QuorumCertificate.Malformed() {
 			return fmt.Errorf("malformed header quorum certificate")
 		}
@@ -384,6 +388,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
 	h.BaseFee = origin.BaseFee
+
+	if err := h.sanityCheck(); err != nil {
+		return fmt.Errorf("failed sanity check: %w", err)
+	}
 
 	return nil
 }
@@ -686,12 +694,6 @@ func (b *Block) Size() common.StorageSize {
 	rlp.Encode(&c, b)
 	b.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
-}
-
-// SanityCheck can be used to prevent that unbounded fields are
-// stuffed with junk data to add processing overhead
-func (b *Block) SanityCheck() error {
-	return b.header.SanityCheck()
 }
 
 func (b *Block) IsEpochHead() bool { return b.header.IsEpochHeader() }

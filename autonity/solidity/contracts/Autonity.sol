@@ -829,7 +829,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @return nextEpochBlock The next epoch block number.
     * @return delta, the current value for delta (omission failure)
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (bool, bool, CommitteeMember[] memory, uint256, uint256, uint256) {
+    function finalize() external virtual onlyProtocol nonReentrant returns (
+        bool,                       // contractUpgradeReady
+        bool,                       // epochEnded
+        CommitteeMember[] memory,   // committee
+        uint256,                    // epochInfos[epochID].previousEpochBlock
+        uint256,                    // epochInfos[epochID].nextEpochBlock
+        uint256                     // delta
+    ) {
         lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
 
@@ -1006,14 +1013,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
     * @notice Returns the current epoch info of the chain.
     */
-    function getEpochInfo() external view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256, uint256) {
+    function getEpochInfo() external view virtual returns (
+        CommitteeMember[] memory members,
+        uint256 previousEpochBlock,
+        uint256 epochBlock,
+        uint256 nextEpochBlock,
+        uint256 delta
+    ){
         EpochInfo memory epochInfo = epochInfos[epochID];
-        CommitteeMember[] memory members = epochInfo.committee;
-        uint256 previous = epochInfo.previousEpochBlock;
-        uint256 current = epochInfo.epochBlock;
-        uint256 next = epochInfo.nextEpochBlock;
-        uint256 delta = epochInfo.delta;
-        return (members, previous, current, next, delta);
+        members = epochInfo.committee;
+        previousEpochBlock = epochInfo.previousEpochBlock;
+        epochBlock = epochInfo.epochBlock;
+        nextEpochBlock = epochInfo.nextEpochBlock;
+        delta = epochInfo.delta;
     }
 
     /**
@@ -1115,7 +1127,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the epoch info of the height.
     */
     // todo: Jason, add some test for this function by using the new contract test framework.
-    function getEpochByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256, uint256) {
+    function getEpochByHeight(uint256 _height) public view virtual returns (
+        CommitteeMember[] memory members,
+        uint256 previousEpochBlock,
+        uint256 epochBlock,
+        uint256 nextEpochBlock,
+        uint256 delta
+    ){
         require(_height <= lastFinalizedBlock+1, "cannot get epoch for a future block");
 
         uint256 blockEpochID = epochID;
@@ -1126,12 +1144,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
 
         EpochInfo memory epochInfo = epochInfos[blockEpochID];
 
-        CommitteeMember[] memory members = epochInfo.committee;
-        uint256 previous = epochInfo.previousEpochBlock;
-        uint256 current = epochInfo.epochBlock;
-        uint256 next = epochInfo.nextEpochBlock;
-        uint256 delta = epochInfo.delta;
-        return (members, previous, current, next, delta);
+        members = epochInfo.committee;
+        previousEpochBlock = epochInfo.previousEpochBlock;
+        epochBlock = epochInfo.epochBlock;
+        nextEpochBlock = epochInfo.nextEpochBlock;
+        delta = epochInfo.delta;
     }
 
     /**

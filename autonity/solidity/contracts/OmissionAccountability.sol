@@ -51,7 +51,12 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
 
     event InactivitySlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound);
 
-    constructor(address payable _autonity, address _operator, address[] memory _treasuries, Config memory _config) Slasher(_autonity) {
+    constructor(
+        address payable _autonity,
+        address _operator,
+        address[] memory _treasuries,
+        Config memory _config
+    ) Slasher(_autonity) {
         autonity = Autonity(_autonity);
         operator = _operator;
         config = _config;
