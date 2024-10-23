@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "../interfaces/IStakableVestingManager.sol";
 import "./BeneficiaryHandler.sol";
 import "./stakable/StakableVestingLogic.sol";
 import "./stakable/StakableVestingState.sol";
 
-contract StakableVestingManager is BeneficiaryHandler {
+contract StakableVestingManager is BeneficiaryHandler, IStakableVestingManager {
     uint256 public contractVersion = 1;
 
     address public stakableVestingLogicContract;

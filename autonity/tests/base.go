@@ -219,7 +219,9 @@ func (r *Runner) Run(name string, f func(r *Runner)) {
 
 func RunWithSetup(name string, setup func() *Runner, run func(r *Runner)) {
 	r := setup()
-	r.Run(name, run)
+	r.T.Run(name, func(t2 *testing.T) {
+		run(r)
+	})
 }
 
 func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) {
