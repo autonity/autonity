@@ -160,8 +160,11 @@ func jailedCountKeyPrefix(number uint64) []byte {
 }
 
 // jailedAddressKeyPrefix = jailedValidatorAddress + jaildCount (uint64 big endian)
-func jailedAddressKeyPrefix(number uint64) []byte {
-	return append(jailedValidatorAddress, encodeBlockNumber(number)...)
+func jailedAddressKeyPrefix(epochID, index uint64) []byte {
+	return append(
+		jailedValidatorAddress,
+		append(encodeBlockNumber(epochID), encodeBlockNumber(index)...)...,
+	)
 }
 
 // headerKeyPrefix = headerPrefix + num (uint64 big endian)

@@ -31,8 +31,8 @@ func DeleteJailedCount(db ethdb.KeyValueWriter, epochID uint64) {
 }
 
 // ReadJailedAddress retrieves the address of jailed validator `index`.
-func ReadJailedAddress(db ethdb.Reader, index uint64) common.Address {
-	data, _ := db.Get(jailedAddressKeyPrefix(index))
+func ReadJailedAddress(db ethdb.Reader, epochID, index uint64) common.Address {
+	data, _ := db.Get(jailedAddressKeyPrefix(epochID, index))
 	if len(data) == 0 {
 		return common.Address{}
 	}
@@ -40,14 +40,14 @@ func ReadJailedAddress(db ethdb.Reader, index uint64) common.Address {
 }
 
 // WriteJailedAddress stores the address of jailed validator `index`.
-func WriteJailedAddress(db ethdb.KeyValueWriter, index uint64, address common.Address) {
-	if err := db.Put(jailedAddressKeyPrefix(index), address[:]); err != nil {
+func WriteJailedAddress(db ethdb.KeyValueWriter, epochID, index uint64, address common.Address) {
+	if err := db.Put(jailedAddressKeyPrefix(epochID, index), address[:]); err != nil {
 		log.Crit("Failed to store jailed validator address", "err", err)
 	}
 }
 
-func DeleteJailedAddress(db ethdb.KeyValueWriter, index uint64) {
-	if err := db.Delete(jailedAddressKeyPrefix(index)); err != nil {
+func DeleteJailedAddress(db ethdb.KeyValueWriter, epochID, index uint64) {
+	if err := db.Delete(jailedAddressKeyPrefix(epochID, index)); err != nil {
 		log.Crit("Failed to delete jailed validator address", "err", err)
 	}
 }

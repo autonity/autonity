@@ -561,17 +561,17 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	if err != nil {
 		sb.logger.Crit("Could not retrieve state at head block", "err", err)
 	}
-	epochID, err := sb.blockchain.ProtocolContracts().AutonityContract.EpochID(currentHeader, state)
+	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.EpochID(currentHeader, state)
 	if err != nil {
 		sb.logger.Crit("Could not retrieve epoch id", "err", err)
 	}
-	lastEpochID := epochID.Uint64()
+	lastEpochID := lastEpochIDBig.Uint64()
 	jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
 	for i := 0; i < int(jailedCount); i++ {
-		address := rawdb.ReadJailedAddress(sb.database, uint64(i))
+		address := rawdb.ReadJailedAddress(sb.database, lastEpochID, uint64(i))
 		if address != common.HexToAddress("0") {
 			sb.jailedLock.Lock()
-			sb.jailed[address] = struct{}{}
+			sb.jailed[address] = lastEpochID
 			sb.jailedLock.Unlock()
 		}
 	}
@@ -600,17 +600,23 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				sb.logger.Warn(explanation)
 			}
 			if !sb.IsJailed(ev.Offender) {
+				epochID := ev.Epoch.Uint64()
+				if epochID < lastEpochID {
+					// we don't care about these jailed validators as they are not in the committee anymore
+					continue
+				}
+
 				sb.jailedLock.Lock()
 				// the validator is in a perpetual jailed state
 				// which should only be temporary until it gets updated at the next epoch event.
-				sb.jailed[ev.Offender] = struct{}{}
+				sb.jailed[ev.Offender] = epochID
 				sb.jailedLock.Unlock()
 
 				// persist in db
-				jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
+				jailedCount := rawdb.ReadJailedCount(sb.database, epochID)
 				batch := sb.database.NewBatch()
-				rawdb.WriteJailedAddress(batch, jailedCount, ev.Offender)
-				rawdb.WriteJailedCount(batch, lastEpochID, jailedCount+1)
+				rawdb.WriteJailedAddress(batch, epochID, jailedCount, ev.Offender)
+				rawdb.WriteJailedCount(batch, epochID, jailedCount+1)
 				if err := batch.Write(); err != nil {
 					sb.logger.Crit("Batch write failed", "err", err)
 				}
@@ -621,7 +627,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
 			batch := sb.database.NewBatch()
 			for i := 0; i < int(jailedCount); i++ {
-				rawdb.DeleteJailedAddress(batch, uint64(i))
+				rawdb.DeleteJailedAddress(batch, lastEpochID, uint64(i))
 			}
 			rawdb.DeleteJailedCount(batch, lastEpochID)
 			if err := batch.Write(); err != nil {
@@ -629,8 +635,10 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			}
 			// remove from map
 			sb.jailedLock.Lock()
-			for k := range sb.jailed {
-				delete(sb.jailed, k)
+			for k, epochID := range sb.jailed {
+				if epochID <= lastEpochID {
+					delete(sb.jailed, k)
+				}
 			}
 			sb.jailedLock.Unlock()
 			lastEpochID = ev.Epoch.Uint64()
