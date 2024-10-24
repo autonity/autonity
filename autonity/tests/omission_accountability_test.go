@@ -372,7 +372,6 @@ func TestInactivityCounter(t *testing.T) {
 	r.evm.Context.ActivityProof = nil
 	autonityFinalize(r)
 	require.Equal(r.t, 0, inactivityCounter(r, otherValidator))
-	require.Equal(r.t, 0, inactivityCounter(r, otherValidator))
 
 	setupProofAndAutonityFinalize(r, proposer, newAbsentees)
 	require.Equal(r.t, 1, inactivityCounter(r, otherValidator))

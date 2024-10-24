@@ -36,8 +36,8 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     uint256 public faultyProposersInWindow;                                  // number of faulty proposers in the current lookback window
 
     mapping(uint256 => mapping(address => bool)) public inactiveValidators;  // inactive validators for each height
-    mapping(address => uint256) public lastActive; // counter of active blocks for each validator. It is reset at the end of the epoch. A default value of 0 means they have been active in the last window.
-    address[] public absenteesLastHeight;
+    mapping(address => int256) public lastActive;                            // last active block in the epoch for a validator. default value of -1 means they are not on a offline blocks streak
+    address[] public absenteesLastHeight;                                    // absentees of previous height
 
     // counter of inactive blocks for each validator (considering lookback window). It is reset at the end of the epoch.
     mapping(address => uint256) public inactivityCounter;
@@ -76,6 +76,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         config = _config;
         for (uint256 i = 0; i < epochInfo.committee.length; i++) {
             committee.push(epochInfo.committee[i]);
+            lastActive[committee[i].addr] = - 1;
         }
         treasuries = _treasuries;
 
@@ -106,6 +107,14 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
 
         uint256 targetHeight = block.number - config.delta;
 
+        // decrease the faulty proposer count if the one dropping out of the window is faulty
+        if (
+            (targetHeight > epochBlock + config.lookbackWindow) &&
+            (faultyProposers[targetHeight - config.lookbackWindow])
+        ) {
+            faultyProposersInWindow--;
+        }
+
         if (_isProposerOmissionFaulty) {
             faultyProposers[targetHeight] = true;
             inactivityCounter[block.coinbase]++;
@@ -114,28 +123,21 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
             faultyProposers[targetHeight] = false;
             proposerEffort[block.coinbase] += _proposerEffort;
             totalEffort += _proposerEffort;
-            lastActive[block.coinbase] = block.number; // why?
 
             _recordAbsentees(_absentees, targetHeight);
         }
-
-        if (
-            (targetHeight >= epochBlock + config.lookbackWindow) &&
-            (faultyProposers[targetHeight - config.lookbackWindow])
-        ) {
-            faultyProposersInWindow--;
-        }
-
 
         if (_epochEnded) {
             uint256 collusionDegree = _computeInactivityScoresAndCollusionDegree();
             _punishInactiveValidators(collusionDegree);
 
-            // reset inactivity counters
+            // clean up
             for (uint256 i = 0; i < committee.length; i++) {
                 inactivityCounter[committee[i].addr] = 0;
-                lastActive[committee[i].addr] = 0;
+                lastActive[committee[i].addr] = - 1;
             }
+            faultyProposersInWindow = 0;
+            delete absenteesLastHeight;
 
             // store collusion degree in state. This is useful for slashed validators to verify their slashing rate
             epochCollusionDegree.push(collusionDegree);
@@ -148,7 +150,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     }
 
     function _contains(address[] memory _absentees, address _account) internal pure returns (bool) {
-        for (uint i = 0; i < _absentees.length; i++) {
+        for (uint256 i = 0; i < _absentees.length; i++) {
             if (_absentees[i] == _account) {
                 return true;
             }
@@ -157,30 +159,31 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
     }
 
 
-    function _recordAbsentees(address[] memory _absentees, uint256 targetHeight) internal virtual {
-        for (uint i = 0; i < absenteesLastHeight.length; i++) {
+    function _recordAbsentees(address[] memory _absentees, uint256 _targetHeight) internal virtual {
+        for (uint256 i = 0; i < absenteesLastHeight.length; i++) {
             if (!_contains(_absentees, absenteesLastHeight[i])) {
                 // for all addresses who were inactive last height, if they are active now,
                 // we can reset their lastActive counter
-                lastActive[absenteesLastHeight[i]] = 0;
+                lastActive[absenteesLastHeight[i]] = - 1;
             }
         }
-
-        if (targetHeight < epochBlock + config.lookbackWindow) {
-            return;
-        }
+        absenteesLastHeight = _absentees;
 
         // for each absent of target height, check the lookback window to see if he was online at some point
         // if online even once in the lookback window, consider him online for this block
         // NOTE: the current block is included in the window, (h - delta - lookback, h - delta]
         for (uint256 i = 0; i < _absentees.length; i++) {
-            inactiveValidators[targetHeight][_absentees[i]] = true;
+            inactiveValidators[_targetHeight][_absentees[i]] = true;
             // if this is the first time they are inactive, we can set their lastActive counter to the last block
-            if (lastActive[_absentees[i]] == 0) {
-                lastActive[_absentees[i]] = targetHeight - 1;
+            if (lastActive[_absentees[i]] == - 1) {
+                lastActive[_absentees[i]] = int256(_targetHeight) - 1;
                 continue;
             }
-            if (lastActive[_absentees[i]] > targetHeight - (config.lookbackWindow + faultyProposersInWindow)) {
+            if (_targetHeight < epochBlock + config.lookbackWindow + faultyProposersInWindow) {
+                continue;
+            }
+            // validator is having a streak of offline blocks
+            if (uint256(lastActive[_absentees[i]]) <= _targetHeight - (config.lookbackWindow + faultyProposersInWindow)) {
                 // the validator was not active at some point in the lookback window
                 inactivityCounter[_absentees[i]]++;
             }
