@@ -21,6 +21,8 @@ import "./interfaces/IAutonity.sol";
 import "./interfaces/IInflationController.sol";
 import "./interfaces/ILiquidLogic.sol";
 import "./ReentrancyGuard.sol";
+import {ISlasher} from "./interfaces/ISlasher.sol";
+import {Slasher} from "./Slasher.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
@@ -238,6 +240,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
      */
     address public liquidLogicContract;
 
+    ISlasher public slasher;
+
     /* Events */
     event MintedStake(address indexed addr, uint256 amount);
     event BurnedStake(address indexed addr, uint256 amount);
@@ -311,12 +315,16 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         config = _config;
         epochPeriodToBeApplied = _config.protocol.epochPeriod;
         inflationReserve = config.policy.initialInflationReserve;
+
+        // deploy liquid logic and slasher
+        liquidLogicContract = address(new LiquidLogic());
+        slasher = ISlasher(address(new Slasher()));
+
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
            it avoids us adding more complexity to the contract and running into
            stack limit issues.
          */
-        liquidLogicContract = address(new LiquidLogic());
         for (uint256 i = 0; i < _validators.length; i++) {
             uint256 _bondedStake = _validators[i].bondedStake;
 
@@ -945,6 +953,20 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         return (_oracleVoters, _afdReporters, _treasuries);
     }
 
+    function slash(
+        Autonity.Validator memory _val,
+        uint256 _slashingRate,
+        uint256 _jailtime,
+        ValidatorState _newJailedState,
+        ValidatorState _newJailboundState
+    ) external virtual onlyAccountability returns (
+        uint256,
+        uint256,
+        bool
+    ){
+        return slasher.slashAtRate(_val, _slashingRate, _jailtime, _newJailedState, _newJailboundState);
+    }
+
     /*
     ============================================================
         Getters
@@ -1453,7 +1475,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
         }
         return size > 0;
     }
-    
+
     function _storeAddress(address _delegator, address _validator) private {
         if (contractSaved[_delegator] == 0) {
             contractSaved[_delegator] = 1;

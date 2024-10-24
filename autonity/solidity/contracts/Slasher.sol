@@ -8,8 +8,8 @@ contract Slasher {
 
     uint256 private constant SLASHING_RATE_PRECISION = 10_000;
 
-    constructor(address payable _autonity){
-        autonity = Autonity(_autonity);
+    constructor(){
+        autonity = Autonity(payable(msg.sender));
     }
 
     /**
@@ -23,13 +23,13 @@ contract Slasher {
     * @return jailReleaseBlock Block from which the validator can re-activate
     * @return isJailbound Flag that signals if the validator has been permanently jailed
     */
-    function _slashAtRate(
+    function slashAtRate(
         Autonity.Validator memory _val,
         uint256 _slashingRate,
         uint256 _jailtime,
         ValidatorState _newJailedState,
         ValidatorState _newJailboundState
-    ) internal virtual returns (
+    ) external virtual onlyAutonity returns (
         uint256 slashingAmount,
         uint256 jailReleaseBlock,
         bool isJailbound
@@ -108,5 +108,12 @@ contract Slasher {
             _val.state = _newJailedState;
         }
         autonity.updateValidatorAndTransferSlashedFunds(_val);
+    }
+
+    modifier onlyAutonity {
+        require(
+            msg.sender == address(autonity),
+            "Call restricted to the Autonity Contract");
+        _;
     }
 }

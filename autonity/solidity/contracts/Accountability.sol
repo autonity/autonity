@@ -5,7 +5,7 @@ import "./interfaces/IAccountability.sol";
 import "./Autonity.sol";
 import {Slasher} from "./Slasher.sol";
 
-contract Accountability is IAccountability, Slasher {
+contract Accountability is IAccountability {
 
     struct Config {
         uint256 innocenceProofSubmissionWindow;
@@ -92,7 +92,7 @@ contract Accountability is IAccountability, Slasher {
     uint256[] private accusationsQueue;
     uint256 internal accusationsQueueFirst = 0;
 
-    constructor(address payable _autonity, Config memory _config) Slasher(_autonity){
+    constructor(address payable _autonity, Config memory _config) {
         autonity = Autonity(_autonity);
         epochPeriod = autonity.getCurrentEpochPeriod();
         Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
@@ -356,7 +356,7 @@ contract Accountability is IAccountability, Slasher {
         _val.provableFaultCount += 1;
         uint256 jailtime = config.jailFactor * _val.provableFaultCount * epochPeriod;
 
-        (uint256 slashingAmount, uint256 jailReleaseBlock, bool isJailbound) = _slashAtRate(_val, _slashingRate, jailtime, ValidatorState.jailed, ValidatorState.jailbound);
+        (uint256 slashingAmount, uint256 jailReleaseBlock, bool isJailbound) = autonity.slash(_val, _slashingRate, jailtime, ValidatorState.jailed, ValidatorState.jailbound);
         emit SlashingEvent(_val.nodeAddress, slashingAmount, jailReleaseBlock, isJailbound, _event.id);
     }
 

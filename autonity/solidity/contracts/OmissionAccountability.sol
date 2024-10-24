@@ -7,7 +7,7 @@ import {Slasher} from "./Slasher.sol";
 import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
 
 
-contract OmissionAccountability is IOmissionAccountability, Slasher {
+contract OmissionAccountability is IOmissionAccountability{
     // Used for fixed-point arithmetic during computation of inactivity score
     uint256 public constant SCALE_FACTOR = 10_000;
 
@@ -65,7 +65,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         address _operator,
         address[] memory _treasuries,
         Config memory _config
-    ) Slasher(_autonity) {
+    ) {
         autonity = Autonity(_autonity);
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
@@ -271,7 +271,7 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
                     uint256 slashingAmount;
                     uint256 jailReleaseBlock;
                     bool isJailbound;
-                    (slashingAmount, jailReleaseBlock, isJailbound) = _slashAtRate(_val, slashingRate, jailingPeriod, ValidatorState.jailedForInactivity, ValidatorState.jailboundForInactivity);
+                    (slashingAmount, jailReleaseBlock, isJailbound) = autonity.slash(_val, slashingRate, jailingPeriod, ValidatorState.jailedForInactivity, ValidatorState.jailboundForInactivity);
                     emit InactivitySlashingEvent(_val.nodeAddress, slashingAmount, jailReleaseBlock, isJailbound);
                 } else {
                     // if not, only jail

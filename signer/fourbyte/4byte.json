@@ -156,5 +156,8 @@
   "4da3baec": "finalizeInitialization(uint256)",
   "0aac2da1": "getCurrentEpochPeriod()",
   "affb1cf1": "getEpochByHeight(uint256)",
-  "dbf26c36": "getEpochInfoStruct()"
+  "dbf26c36": "getEpochInfoStruct()",
+  "9ba2fc50": "slash((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint8,uint8)",
+  "b1344271": "slasher()",
+  "e744bfa9": "slashAtRate((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint8,uint8)"
 }
