@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
-import "../interfaces/ILiquidLogic.sol";
-import "../interfaces/IStakeProxy.sol";
+
+import "../interfaces/ILiquid.sol";
 import "./LiquidStorage.sol";
 
 // References:
@@ -40,7 +40,7 @@ import "./LiquidStorage.sol";
 //   implementation.
 //
 
-contract LiquidLogic is ILiquidLogic, LiquidStorage {
+contract LiquidLogic is ILiquid, LiquidStorage {
 
     // TODO: Better solution to address the fractional terms in fee
     // computations?
@@ -136,11 +136,6 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
             require(_sent, "Failed to send NTN");
         }
 
-        // Send the AUT
-        if (_isContract(msg.sender)) {
-            IStakeProxy(msg.sender).receiveATN{value: _atnRealisedFees}();
-            return;
-        }
         //   solhint-disable-next-line avoid-low-level-calls
         (_sent, ) = msg.sender.call{value: _atnRealisedFees}("");
         require(_sent, "Failed to send ATN");
@@ -338,14 +333,6 @@ contract LiquidLogic is ILiquidLogic, LiquidStorage {
 
         allowances[_owner][_spender] = _amount;
         emit Approval(_owner, _spender, _amount);
-    }
-
-    function _isContract(address _to) private view returns (bool) {
-        uint _size;
-        assembly {
-            _size := extcodesize(_to)
-        }
-        return _size > 0;
     }
 
     /*
