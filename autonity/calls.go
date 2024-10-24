@@ -319,6 +319,9 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 	}
 
 	for _, schedule := range genesisConfig.Schedules {
+		if schedule.VaultAddress != params.NonStakableVestingContractAddress {
+			return fmt.Errorf("vault address has no smart contract deployed")
+		}
 		if err := evmContracts.CreateSchedule(schedule); err != nil {
 			return fmt.Errorf("error while creating schedules: %w", err)
 		}
