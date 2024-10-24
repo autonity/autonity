@@ -39,7 +39,7 @@ const (
 	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
 	retryPeriod = 10
 	// number of buckets to allocate in the fixed cache
-	numBuckets = 499
+	numBuckets = 1999
 	// max number of entries in each packet
 	numEntries = 10
 )
@@ -69,7 +69,7 @@ func New(nodeKey *ecdsa.PrivateKey,
 		knownMessages:   knownMessages,
 		vmConfig:        vmConfig,
 		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-		messageCh:       make(chan events.UnverifiedMessageEvent, 1000),
+		messageCh:       make(chan events.UnverifiedMessageEvent, 5000),
 		jailed:          make(map[common.Address]uint64),
 		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
 		futureMinHeight: math.MaxUint64,

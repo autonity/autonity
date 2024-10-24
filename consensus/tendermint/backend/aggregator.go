@@ -898,6 +898,9 @@ loop:
 					// if current height, process them
 					a.processRound(h, r)
 				}
+				if h < coreHeight {
+					delete(a.messages, h)
+				}
 			}
 			// cleanup
 			a.messagesFrom = make(map[common.Address][]common.Hash)

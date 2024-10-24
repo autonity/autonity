@@ -14,21 +14,19 @@ import (
 )
 
 type Gossiper struct {
-	knownMessages      *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
-	address            common.Address                         // address of the local peer
-	broadcaster        consensus.Broadcaster
-	logger             log.Logger
-	stopped            chan struct{}
-	concurrencyLimiter chan struct{}
+	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	address       common.Address                         // address of the local peer
+	broadcaster   consensus.Broadcaster
+	logger        log.Logger
+	stopped       chan struct{}
 }
 
 func NewGossiper(knownMessages *fixsizecache.Cache[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
 	return &Gossiper{
-		knownMessages:      knownMessages,
-		address:            address,
-		logger:             logger,
-		stopped:            stopped,
-		concurrencyLimiter: make(chan struct{}, 64),
+		knownMessages: knownMessages,
+		address:       address,
+		logger:        logger,
+		stopped:       stopped,
 	}
 }
 
@@ -72,13 +70,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 				continue
 			}
 			p.Cache().Add(hash, true)
-			g.concurrencyLimiter <- struct{}{}
-			go func() {
-				defer func() {
-					<-g.concurrencyLimiter
-				}()
-				p.SendRaw(code, payload) //nolint
-			}()
+			go p.SendRaw(code, payload) //nolint
 		}
 	}
 }
