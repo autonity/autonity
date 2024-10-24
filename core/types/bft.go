@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/autonity/autonity/crypto"
@@ -19,21 +18,8 @@ var (
 	//TODO differentiate the digest between IBFT and Tendermint
 	BFTDigest = common.HexToHash("0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365")
 
-	BFTExtraVanity = 32 // Fixed number of extra-data bytes reserved for validator vanity
-
 	inmemoryAddresses  = 500 // Number of recent addresses from ecrecover
 	recentAddresses, _ = lru.NewARC(inmemoryAddresses)
-
-	// ErrInvalidBFTHeaderExtra is returned if the length of extra-data is less than 32 bytes
-	ErrInvalidBFTHeaderExtra = errors.New("invalid pos header extra-data")
-	// ErrInvalidSignature is returned when given signature is not signed by given address.
-	ErrInvalidSignature = errors.New("invalid signature")
-	// ErrInvalidQuorumCertificate is returned if the committed seal is not signed by any of parent validators.
-	ErrInvalidQuorumCertificate = errors.New("invalid quorum certificate")
-	// ErrEmptyQuorumCertificate is returned if the field of quorum certificate is empty.
-	ErrEmptyQuorumCertificate = errors.New("empty quorum certificate")
-	// ErrNegativeRound is returned if the round field is negative
-	ErrNegativeRound = errors.New("negative round")
 )
 
 // BFTFilteredHeader returns a filtered header which some information (like proposerSeal, quorumCertificate)
@@ -43,7 +29,7 @@ func BFTFilteredHeader(h *Header, keepSeal bool) *Header {
 	if !keepSeal {
 		newHeader.ProposerSeal = []byte{}
 	}
-	newHeader.QuorumCertificate = AggregateSignature{}
+	newHeader.QuorumCertificate = nil
 	newHeader.Round = 0
 	newHeader.Extra = []byte{}
 	return newHeader
@@ -80,34 +66,4 @@ func ECRecover(header *Header) (common.Address, error) {
 	}
 	recentAddresses.Add(hash, addr)
 	return addr, nil
-}
-
-// TODO: All these Write* functions do useless checks as we always create the input ourselves. Remove them?
-
-// WriteSeal writes the extra-data field of the given header with the given seals.
-func WriteSeal(h *Header, seal []byte) error {
-	if len(seal) != common.SealLength {
-		return ErrInvalidSignature
-	}
-	h.ProposerSeal = make([]byte, len(seal))
-	copy(h.ProposerSeal, seal)
-	return nil
-}
-
-// WriteRound writes the round field of the block header.
-func WriteRound(h *Header, round int64) error {
-	if round < 0 {
-		return ErrNegativeRound
-	}
-	h.Round = uint64(round)
-	return nil
-}
-
-// WriteQuorumCertificate writes the extra-data field of a block header with given quorumCertificate
-func WriteQuorumCertificate(h *Header, quorumCertificate AggregateSignature) error {
-	if quorumCertificate.Signature == nil || quorumCertificate.Signers == nil || quorumCertificate.Signers.Len() == 0 {
-		return ErrInvalidQuorumCertificate
-	}
-	h.QuorumCertificate = quorumCertificate.Copy()
-	return nil
 }

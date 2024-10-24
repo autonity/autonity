@@ -33,7 +33,7 @@ type UnhandledMsg struct {
 var (
 	// errDecodeFailed is returned when decode message fails
 	errDecodeFailed = errors.New("fail to decode tendermint message")
-	// errDecodeFailed is returned when a consensus message is discarded because the signer is jailed
+	// errJailed is returned when a consensus message is discarded because the signer is jailed
 	ErrJailed    = errors.New("signer is jailed")
 	NetworkCodes = map[uint8]uint64{
 		message.ProposalCode:  ProposeNetworkMsg,

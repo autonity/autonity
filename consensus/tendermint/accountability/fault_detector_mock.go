@@ -5,6 +5,7 @@
 //
 //	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
 //
+
 // Package accountability is a generated GoMock package.
 package accountability
 
@@ -44,6 +45,21 @@ func NewMockChainContext(ctrl *gomock.Controller) *MockChainContext {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockChainContext) EXPECT() *MockChainContextMockRecorder {
 	return m.recorder
+}
+
+// CommitteeOfHeight mocks base method.
+func (m *MockChainContext) CommitteeOfHeight(height uint64) (*types.Committee, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeOfHeight", height)
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitteeOfHeight indicates an expected call of CommitteeOfHeight.
+func (mr *MockChainContextMockRecorder) CommitteeOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainContext)(nil).CommitteeOfHeight), height)
 }
 
 // Config mocks base method.
@@ -100,6 +116,21 @@ func (m *MockChainContext) Engine() consensus.Engine {
 func (mr *MockChainContextMockRecorder) Engine() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Engine", reflect.TypeOf((*MockChainContext)(nil).Engine))
+}
+
+// EpochOfHeight mocks base method.
+func (m *MockChainContext) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EpochOfHeight indicates an expected call of EpochOfHeight.
+func (mr *MockChainContextMockRecorder) EpochOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainContext)(nil).EpochOfHeight), height)
 }
 
 // GetBlock mocks base method.
@@ -229,19 +260,6 @@ func (mr *MockChainContextMockRecorder) State() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockChainContext)(nil).State))
 }
 
-func (m *MockChainContext) CommitteeOfHeight(height uint64) (*types.Committee, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitteeOfHeight", height)
-	ret0, _ := ret[0].(*types.Committee)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockChainContextMockRecorder) CommitteeOfHeight(height any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainContext)(nil).CommitteeOfHeight), height)
-}
-
 // StateAt mocks base method.
 func (m *MockChainContext) StateAt(root common.Hash) (*state.StateDB, error) {
 	m.ctrl.T.Helper()
@@ -283,19 +301,4 @@ func (m *MockChainContext) Validator() core.Validator {
 func (mr *MockChainContextMockRecorder) Validator() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validator", reflect.TypeOf((*MockChainContext)(nil).Validator))
-}
-
-// EpochOfHeight mocks base method
-func (m *MockChainContext) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EpochOfHeight")
-	ret0, _ := ret[0].(*types.EpochInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EpochOfHeight indicates an expected call of EpochOfHeight
-func (mr *MockChainContextMockRecorder) EpochOfHeight(height any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainContext)(nil).EpochOfHeight), height)
 }

@@ -20,17 +20,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/common/hexutil"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/ethdb"
-	"github.com/autonity/autonity/metrics"
-	"github.com/autonity/autonity/node"
-	"github.com/davecgh/go-spew/spew"
 	"os"
 	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/node"
+
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
@@ -39,7 +43,6 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -170,7 +173,8 @@ func initGenesis(ctx *cli.Context) error {
 	if err := json.NewDecoder(file).Decode(genesis); err != nil {
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
-	// Make AutonityContract and Tendermint consensus mandatory for the time being.
+
+	// check mandatory configs
 	if genesis.Config == nil {
 		utils.Fatalf("No config section in genesis.json")
 	}
@@ -180,10 +184,13 @@ func initGenesis(ctx *cli.Context) error {
 	if genesis.Config.OracleContractConfig == nil {
 		utils.Fatalf("No Oracle Contract config section in genesis.json")
 	}
+	if genesis.Config.OmissionAccountabilityConfig == nil {
+		utils.Fatalf("No Omission accountability config section in genesis.json")
+	}
 
-	if err := genesis.Config.AutonityContractConfig.Prepare(); err != nil {
-		spew.Dump(genesis.Config.AutonityContractConfig)
-		utils.Fatalf("autonity contract section is invalid. error:%v", err.Error())
+	if err := genesis.Config.Prepare(); err != nil {
+		spew.Dump(genesis.Config)
+		utils.Fatalf("chain config is invalid. error:%v", err.Error())
 	}
 
 	// Open an initialise both full and light databases

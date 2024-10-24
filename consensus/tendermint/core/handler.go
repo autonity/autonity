@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -20,12 +21,12 @@ const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
-
 	chainHead := c.backend.HeadBlock().Header()
 	epoch, err := c.Backend().EpochOfHeight(chainHead.Number.Uint64() + 1)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("failed to fetch epoch information for height: %d, err: %s", chainHead.Number.Uint64()+1, err.Error()))
 	}
+
 	c.epoch = epoch
 	c.protocolContracts = contract
 	committeeSet := com.NewWeightedRandomSamplingCommittee(chainHead, epoch.Committee, c.protocolContracts)

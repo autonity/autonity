@@ -21,6 +21,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"math/big"
 	"sync"
 
@@ -68,6 +70,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
+	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -87,6 +90,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
+	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -107,6 +111,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -127,6 +132,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -147,6 +153,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{17}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
+	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
 	common.BytesToAddress([]byte{251}): &POPVerifier{},
@@ -221,15 +228,15 @@ const (
 	DataLen = common.HashLength
 )
 
-// error variables for committee selector
 var (
-	errUnauthorized       = errors.New("caller address not authorize")
-	errBadInput           = errors.New("not enough input")
+	errUnauthorized       = errors.New("caller address not authorized")
+	errBadInput           = errors.New("input is invalid")
 	errBadCommitteeSize   = errors.New("invalid max committee size")
 	errBadValidatorSize   = errors.New("invalid size of validator list")
 	errNoActiveValidator  = errors.New("no active validators with positive stake")
 	errBadConsensusKeyLen = errors.New("invalid consensus key length")
 	errExcludedValidator  = errors.New("excluding validator")
+	errNonEmptyProof      = errors.New("activity proof should be empty")
 )
 
 type Upgrader struct{}
@@ -1356,6 +1363,136 @@ func (c checkEnode) Run(input []byte, _ uint64, _ *EVM, _ common.Address) ([]byt
 	copy(out, address.Bytes())
 	copy(out[32:], false32Byte)
 	return out, nil
+}
+
+func readCommittee(db StateDB, caller common.Address, committeeSlot common.Hash) *types.Committee {
+	committeeSize := int(db.GetState(caller, committeeSlot).Big().Uint64())
+	members := make([]types.CommitteeMember, committeeSize)
+
+	committeeOffset := crypto.Keccak256Hash(committeeSlot.Bytes())
+	for i := 0; i < committeeSize; i++ {
+		nodeAddress := common.BytesToAddress(db.GetState(caller, committeeOffset).Bytes())
+		committeeOffset = common.BytesToHash(new(big.Int).Add(committeeOffset.Big(), common.Big1).Bytes())
+		votingPower := db.GetState(caller, committeeOffset).Big()
+		committeeOffset = common.BytesToHash(new(big.Int).Add(committeeOffset.Big(), common.Big1).Bytes())
+		consensusKeySlot := crypto.Keccak256Hash(committeeOffset.Bytes())
+		consensusKeyBytes1 := db.GetState(caller, consensusKeySlot).Bytes()
+		consensusKeySlot = common.BytesToHash(new(big.Int).Add(consensusKeySlot.Big(), common.Big1).Bytes())
+		consensusKeyBytes2 := db.GetState(caller, consensusKeySlot).Bytes()
+		consensusKeyBytes := append(consensusKeyBytes1, consensusKeyBytes2[:blst.BLSPubkeyLength-DataLen]...)
+		committeeOffset = common.BytesToHash(new(big.Int).Add(committeeOffset.Big(), common.Big1).Bytes())
+
+		members[i] = types.CommitteeMember{
+			Address:           nodeAddress,
+			VotingPower:       votingPower,
+			ConsensusKeyBytes: consensusKeyBytes,
+		}
+	}
+
+	committee := &types.Committee{Members: members}
+	err := committee.Enrich()
+	if err != nil {
+		panic("cannot unmarshal bls public keys from committee members: " + err.Error())
+	}
+	return committee
+}
+
+type absenteesComputer struct{}
+
+func (c absenteesComputer) RequiredGas(_ []byte) uint64 {
+	return params.AbsenteesComputerGas
+}
+
+func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, caller common.Address) ([]byte, error) {
+	// if we are in testMode (used by truffle tests) just return no absents and zero effort
+	if evm.chainConfig.TestMode {
+		return makeReturnData(false, common.Big0, []common.Address{}), nil
+	}
+
+	if caller != params.OmissionAccountabilityContractAddress {
+		return nil, errUnauthorized
+	}
+
+	// input is always one packed boolean (1 byte) + 2 uint256 (32 bytes each)
+	if len(input) != 1+DataLen+DataLen {
+		// TODO(lorenzo): should we panic here? incorrect input --> we have a programming error. However other precompiles deal with it this way
+		return nil, errBadInput
+	}
+	if !(input[0] == byte(0) || input[0] == byte(1)) {
+		return nil, errBadInput
+	}
+	mustBeEmpty := input[0] == byte(1)
+	delta := new(big.Int).SetBytes(input[1:33])
+	committeeSlot := common.BytesToHash(input[33:])
+
+	committee := readCommittee(evm.StateDB, caller, committeeSlot)
+	proof := evm.Context.ActivityProof
+	targetRound := evm.Context.ActivityProofRound
+
+	// during the first delta blocks of the epoch, the proof should be empty. If not, reject proposal
+	if mustBeEmpty {
+		if proof != nil {
+			return nil, errNonEmptyProof
+		}
+		return makeReturnData(false, new(big.Int), []common.Address{}), nil
+	}
+
+	// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
+	if proof == nil {
+		return makeReturnData(true, new(big.Int), []common.Address{}), nil
+	}
+
+	targetHeight := blockNumber - delta.Uint64()
+	targetHash := evm.Context.GetHash(targetHeight)
+
+	headerSeal := message.PrepareCommittedSeal(targetHash, int64(targetRound), new(big.Int).SetUint64(targetHeight))
+	signers, power, err := proof.Validate(headerSeal, committee, true)
+	if err != nil {
+		// it should never happen that we cannot aggregate public keys fetched from state
+		if errors.Is(err, types.ErrNonAggregatablePublicKeys) {
+			panic("cannot aggregate keys fetched from state: " + err.Error())
+		}
+		return nil, fmt.Errorf("invalid activity proof: %w", err)
+	}
+
+	proposerEffort := new(big.Int).Set(power)
+	proposerEffort.Sub(proposerEffort, bft.Quorum(committee.TotalVotingPower()))
+
+	absentees := deriveAbsentees(signers, committee)
+	return makeReturnData(false, proposerEffort, absentees), nil
+}
+
+func makeReturnData(isProposerFaulty bool, proposerEffort *big.Int, absentees []common.Address) []byte {
+	// do not pack the bool to make decoding easier in precompiled.sol
+	length := DataLen + DataLen + DataLen + DataLen // 1 bool + 1 uint256 + the offset of the dynamic addresses array + the length of the dynamic addresses array
+
+	out := make([]byte, length)
+	if isProposerFaulty {
+		copy(out[0:DataLen], common.LeftPadBytes([]byte{1}, DataLen))
+	} else {
+		copy(out[0:DataLen], common.LeftPadBytes([]byte{0}, DataLen))
+	}
+	copy(out[DataLen:DataLen*2], common.LeftPadBytes(proposerEffort.Bytes(), DataLen))
+
+	copy(out[DataLen*2:DataLen*3], common.LeftPadBytes(new(big.Int).SetUint64(DataLen*3).Bytes(), DataLen))              // offset
+	copy(out[DataLen*3:DataLen*4], common.LeftPadBytes(new(big.Int).SetUint64(uint64(len(absentees))).Bytes(), DataLen)) // length
+
+	for _, absentee := range absentees {
+		out = append(out, common.LeftPadBytes(absentee.Bytes(), DataLen)...)
+	}
+
+	return out
+}
+
+func deriveAbsentees(signers map[common.Address]struct{}, committee *types.Committee) []common.Address {
+	var absentees []common.Address
+	for _, member := range committee.Members {
+		_, found := signers[member.Address]
+		if !found {
+			absentees = append(absentees, member.Address)
+		}
+	}
+	return absentees
 }
 
 // POPVerifier verifies the proof of possession of consensus key.

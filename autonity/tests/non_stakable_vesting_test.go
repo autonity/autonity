@@ -25,13 +25,13 @@ func TestContractCreation(t *testing.T) {
 
 	r.run("schedule nominal amount cannot exceed total nominal amount", func(r *runner) {
 		_, err := r.nonStakableVesting.CreateSchedule(
-			operator, new(big.Int).Add(totalNominal, common.Big1), common.Big0, common.Big0, common.Big1,
+			r.operator, new(big.Int).Add(totalNominal, common.Big1), common.Big0, common.Big0, common.Big1,
 		)
 		require.Equal(r.t, "execution reverted: not enough funds to create a new schedule", err.Error())
 
 		r.NoError(
 			r.nonStakableVesting.CreateSchedule(
-				operator, totalNominal, common.Big0, common.Big0, common.Big1,
+				r.operator, totalNominal, common.Big0, common.Big0, common.Big1,
 			),
 		)
 	})
@@ -42,30 +42,30 @@ func TestContractCreation(t *testing.T) {
 		for i := 1; i < schduleCount; i++ {
 			r.NoError(
 				r.nonStakableVesting.CreateSchedule(
-					operator, eachScheduleNominal, common.Big0, common.Big0, common.Big1,
+					r.operator, eachScheduleNominal, common.Big0, common.Big0, common.Big1,
 				),
 			)
 		}
 
 		_, err := r.nonStakableVesting.CreateSchedule(
-			operator, new(big.Int).Add(eachScheduleNominal, common.Big1), common.Big0, common.Big0, common.Big1,
+			r.operator, new(big.Int).Add(eachScheduleNominal, common.Big1), common.Big0, common.Big0, common.Big1,
 		)
 		require.Equal(r.t, "execution reverted: not enough funds to create a new schedule", err.Error())
 
 		r.NoError(
 			r.nonStakableVesting.CreateSchedule(
-				operator, eachScheduleNominal, common.Big0, common.Big0, common.Big1,
+				r.operator, eachScheduleNominal, common.Big0, common.Big0, common.Big1,
 			),
 		)
 
 		_, err = r.nonStakableVesting.CreateSchedule(
-			operator, common.Big1, common.Big0, common.Big0, common.Big1,
+			r.operator, common.Big1, common.Big0, common.Big0, common.Big1,
 		)
 		require.Equal(r.t, "execution reverted: not enough funds to create a new schedule", err.Error())
 	})
 
 	r.run("contract needs to subsribe to schedule", func(r *runner) {
-		_, err := r.nonStakableVesting.NewContract(operator, user, common.Big1, common.Big0)
+		_, err := r.nonStakableVesting.NewContract(r.operator, user, common.Big1, common.Big0)
 		require.Equal(r.t, "execution reverted: invalid schedule ID", err.Error())
 	})
 
@@ -79,7 +79,7 @@ func TestContractCreation(t *testing.T) {
 		totalDuration.Div(totalDuration, big.NewInt(1000)) // so each second generates 1000 NTN
 		r.NoError(
 			r.nonStakableVesting.CreateSchedule(
-				operator, amount, start, cliffDuration, totalDuration,
+				r.operator, amount, start, cliffDuration, totalDuration,
 			),
 		)
 	}
