@@ -1029,6 +1029,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     }
 
     /**
+    * @notice Returns the current epoch info of the chain in a struct.
+    * Needed to avoid stack too deep issues in the omission contract
+    */
+    function getEpochInfoStruct() external view virtual returns (EpochInfo memory){
+       return epochInfos[epochID];
+    }
+
+    /**
      * @notice Returns the block committee.
      * @return Current block committee if called before finalize(), next block committee if called after.
      */

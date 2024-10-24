@@ -69,13 +69,13 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         autonity = Autonity(_autonity);
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
-        (Autonity.CommitteeMember[] memory members,,,,uint256 delta) = autonity.getEpochInfo();
-        require(delta == config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
+        Autonity.EpochInfo memory epochInfo = autonity.getEpochInfoStruct();
+        require(epochInfo.delta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
 
         operator = _operator;
         config = _config;
-        for (uint256 i = 0; i < members.length; i++) {
-            committee.push(members[i]);
+        for (uint256 i = 0; i < epochInfo.committee.length; i++) {
+            committee.push(epochInfo.committee[i]);
         }
         treasuries = _treasuries;
 

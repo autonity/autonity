@@ -155,5 +155,6 @@
   "c024cc2c": "setEpochBlock(uint256)",
   "4da3baec": "finalizeInitialization(uint256)",
   "0aac2da1": "getCurrentEpochPeriod()",
-  "affb1cf1": "getEpochByHeight(uint256)"
+  "affb1cf1": "getEpochByHeight(uint256)",
+  "dbf26c36": "getEpochInfoStruct()"
 }
