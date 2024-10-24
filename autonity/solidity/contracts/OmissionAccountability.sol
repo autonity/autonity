@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {Autonity} from "./Autonity.sol";
+import {Autonity, ValidatorState} from "./Autonity.sol";
 import {Precompiled} from "./Precompiled.sol";
 import {Slasher} from "./Slasher.sol";
 import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
+
 
 contract OmissionAccountability is IOmissionAccountability, Slasher {
     // Used for fixed-point arithmetic during computation of inactivity score
@@ -68,13 +69,13 @@ contract OmissionAccountability is IOmissionAccountability, Slasher {
         autonity = Autonity(_autonity);
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
-        (Autonity.CommitteeMember[] memory committee,,,,uint256 delta) = autonity.getEpochInfo();
+        (Autonity.CommitteeMember[] memory members,,,,uint256 delta) = autonity.getEpochInfo();
         require(delta == config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
 
         operator = _operator;
         config = _config;
-        for (uint256 i = 0; i < committee.length; i++) {
-            committee.push(committee[i]);
+        for (uint256 i = 0; i < members.length; i++) {
+            committee.push(members[i]);
         }
         treasuries = _treasuries;
 
