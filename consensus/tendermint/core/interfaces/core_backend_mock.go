@@ -105,6 +105,21 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockChain", reflect.TypeOf((*MockBackend)(nil).BlockChain))
 }
 
+// EpochOfHeight mocks base method.
+func (m *MockBackend) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EpochOfHeight", height)
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EpochOfHeight indicates an expected call of EpochOfHeight.
+func (mr *MockBackendMockRecorder) EpochOfHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockBackend)(nil).EpochOfHeight), height)
+}
+
 // Broadcast mocks base method.
 func (m *MockBackend) Broadcast(committee *types.Committee, message message.Msg) {
 	m.ctrl.T.Helper()
