@@ -183,23 +183,23 @@ func TestGetters(t *testing.T) {
 	deployer := params.DeployerAddress
 	validators, err := randomValidators(10, 100)
 	require.NoError(t, err)
+	var header *types.Header
+	db, contract, contractAddress, err := deployAutonity(10, validators, deployer)
+	require.NoError(t, err)
 
-	t.Run("getEpochInfo", func(t *testing.T) {
-		var header *types.Header
-		db, contract, contractAddress, err := deployAutonity(10, validators, deployer)
-		require.NoError(t, err)
+	_, err = callContractFunctionAs(contract, contractAddress, db, header, contractAbi, deployer, "finalizeInitialization")
+	require.NoError(t, err)
 
-		_, err = callContractFunctionAs(contract, contractAddress, db, header, contractAbi, deployer, "finalizeInitialization")
-		require.NoError(t, err)
+	autonity := &AutonityContract{
+		EVMContract: EVMContract{
+			evmProvider: contract.evmProvider,
+			contractABI: contractAbi,
+			db:          contract.db,
+			chainConfig: contract.chainConfig,
+		},
+	}
 
-		autonity := &AutonityContract{
-			EVMContract: EVMContract{
-				evmProvider: contract.evmProvider,
-				contractABI: contractAbi,
-				db:          contract.db,
-				chainConfig: contract.chainConfig,
-			},
-		}
+	t.Run("Test getEpochInfo properly unmarshalls", func(t *testing.T) {
 		info, err := autonity.callGetEpochInfo(db, header)
 		require.NoError(t, err)
 		require.NotNil(t, info)
@@ -208,6 +208,17 @@ func TestGetters(t *testing.T) {
 		require.Equal(t, uint64(30), info.NextEpochBlock.Uint64())
 		require.Len(t, info.Committee.Members, 10)
 	})
+
+	t.Run("Test getEpochByHeight properly unmarshalls", func(t *testing.T) {
+		info, err := autonity.callEpochByHeight(db, header, big.NewInt(0))
+		require.NoError(t, err)
+		require.NotNil(t, info)
+
+		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
+		require.Equal(t, uint64(30), info.NextEpochBlock.Uint64())
+		require.Len(t, info.Committee.Members, 10)
+	})
+
 }
 
 func deployAutonity(

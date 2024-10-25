@@ -1064,7 +1064,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     * @notice Returns the epoch info of the height.
     */
     // todo: Jason, add some test for this function by using the new contract test framework.
-    function getEpochByHeight(uint256 _height) public view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
+    function getEpochByHeight(uint256 _height) public view virtual returns (EpochInfo memory) {
         require(_height <= lastFinalizedBlock+1, "cannot get epoch for a future block");
 
         uint256 blockEpochID = epochID;
@@ -1073,13 +1073,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
             blockEpochID = blockEpochMap[_height];
         }
 
-        EpochInfo memory epochInfo = epochInfos[blockEpochID];
-
-        CommitteeMember[] memory members = epochInfo.committee;
-        uint256 previous = epochInfo.previousEpochBlock;
-        uint256 current = epochInfo.epochBlock;
-        uint256 next = epochInfo.nextEpochBlock;
-        return (members, previous, current, next);
+        return epochInfos[blockEpochID];
     }
 
     /**
