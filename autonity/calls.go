@@ -569,7 +569,7 @@ func (c *AutonityContract) callEpochByHeight(state vm.StateDB, header *types.Hea
 	}
 
 	var info AutonityEpochInfo
-	data, err := c.contractABI.Unpack("getEpochInfo", output)
+	data, err := c.contractABI.Unpack("getEpochByHeight", output)
 	if err != nil {
 		return nil, err
 	}
