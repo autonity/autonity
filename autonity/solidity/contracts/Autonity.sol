@@ -961,13 +961,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, Upgradeable {
     /**
     * @notice Returns the current epoch info of the chain.
     */
-    function getEpochInfo() external view virtual returns (CommitteeMember[] memory, uint256, uint256, uint256) {
-        EpochInfo memory epochInfo = epochInfos[epochID];
-        CommitteeMember[] memory members = epochInfo.committee;
-        uint256 previous = epochInfo.previousEpochBlock;
-        uint256 current = epochInfo.epochBlock;
-        uint256 next = epochInfo.nextEpochBlock;
-        return (members, previous, current, next);
+    function getEpochInfo() external view virtual returns (EpochInfo memory) {
+        return epochInfos[epochID];
     }
 
     /**

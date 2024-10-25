@@ -74,7 +74,7 @@ define gen-contract
 
 	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@cat  $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo '")\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo Generating Abi for $(2)
 	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_DIR)/$(2).go

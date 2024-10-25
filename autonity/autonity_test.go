@@ -178,6 +178,33 @@ func TestUpdateEnode(t *testing.T) {
 	})
 }
 
+func TestGetters(t *testing.T) {
+	contractAbi := &generated.AutonityAbi
+	deployer := params.DeployerAddress
+	validators, err := randomValidators(10, 100)
+	require.NoError(t, err)
+
+	t.Run("getEpochInfo", func(t *testing.T) {
+		var header *types.Header
+		db, contract, contractAddress, err := deployAutonity(10, validators, deployer)
+		require.NoError(t, err)
+
+		_, err = callContractFunctionAs(contract, contractAddress, db, header, contractAbi, deployer, "finalizeInitialization")
+		require.NoError(t, err)
+
+		autonity := &AutonityContract{
+			EVMContract: *contract,
+		}
+		info, err := autonity.callGetEpochInfo(db, header)
+		require.NoError(t, err)
+		require.NotNil(t, info)
+
+		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
+		require.Equal(t, uint64(30), info.NextEpochBlock.Uint64())
+		require.Len(t, info.Committee.Members, 10)
+	})
+}
+
 func deployAutonity(
 	committeeSize int, validators []params.Validator, deployer common.Address,
 ) (*state.StateDB, *EVMContract, common.Address, error) {
@@ -373,6 +400,8 @@ func autonityTestConfig() AutonityConfig {
 
 func createTestVM(state vm.StateDB) *vm.EVM {
 	vmBlockContext := vm.BlockContext{
+		// some calls fail when time is nil
+		Time:        common.Big1,
 		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
 		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
 		BlockNumber: common.Big0,
@@ -391,6 +420,8 @@ func testEVMProvider() func(header *types.Header, origin common.Address, stateDB
 			Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
 			CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
 			BlockNumber: common.Big0,
+			// some calls fail when time is nil
+			Time: common.Big1,
 		}
 		txContext := vm.TxContext{
 			Origin:   common.Address{},
