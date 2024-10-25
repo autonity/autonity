@@ -568,13 +568,12 @@ func (c *AutonityContract) callEpochByHeight(state vm.StateDB, header *types.Hea
 		return nil, err
 	}
 
-	var info AutonityEpochInfo
 	data, err := c.contractABI.Unpack("getEpochByHeight", output)
 	if err != nil {
 		return nil, err
 	}
 
-	info = *abi.ConvertType(data[0], new(AutonityEpochInfo)).(*AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(AutonityEpochInfo)).(*AutonityEpochInfo)
 
 	committee := &types.Committee{}
 	for _, member := range info.Committee {
@@ -608,13 +607,12 @@ func (c *AutonityContract) callGetEpochInfo(state vm.StateDB, header *types.Head
 		return nil, err
 	}
 
-	var info AutonityEpochInfo
 	data, err := c.contractABI.Unpack("getEpochInfo", output)
 	if err != nil {
 		return nil, err
 	}
 
-	info = *abi.ConvertType(data[0], new(AutonityEpochInfo)).(*AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(AutonityEpochInfo)).(*AutonityEpochInfo)
 
 	committee := &types.Committee{}
 	for _, member := range info.Committee {
