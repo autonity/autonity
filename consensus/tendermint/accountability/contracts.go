@@ -2,10 +2,12 @@ package accountability
 
 import (
 	"errors"
-	"github.com/autonity/autonity/params/generated"
 	"math"
 	"math/big"
 	"strconv"
+
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
@@ -986,43 +988,43 @@ func maxEvidenceMessages(committeeSize int) int {
 }
 
 func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*types.Committee, error) {
-	var committeeSet []types.CommitteeMember
-	previousEpochBlock := new(big.Int)
-	curEpochBlock := new(big.Int)
-	nextEpochBlock := new(big.Int)
-	if err := acCall(evm, caller, "getEpochByHeight", &[]any{&committeeSet, &previousEpochBlock, &curEpochBlock, &nextEpochBlock}, new(big.Int).SetUint64(height)); err != nil {
+	// as the gas of the precompile functions are resolved by its corresponding RequiredGas() interface, thus this gas
+	// consumption of reading committee is not counted into the original TXN, thus it does not make sense to resolve
+	// the gas cap for this call.
+	gas := uint64(math.MaxUint64)
+	packedArgs, err := generated.AutonityAbi.Pack("getEpochByHeight", new(big.Int).SetUint64(height))
+	if err != nil {
+		return nil, err
+	}
+	// Todo(scott): consider using the existing call on the for callEpochByHeight from the autonity package
+	ret, _, err := evm.Call(vm.AccountRef(caller), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
+	if err != nil {
 		return nil, err
 	}
 
-	if len(committeeSet) == 0 {
+	data, err := generated.AutonityAbi.Unpack("getEpochByHeight", ret)
+	if err != nil {
+		return nil, err
+	}
+
+	info := *abi.ConvertType(data[0], new(autonity.AutonityEpochInfo)).(*autonity.AutonityEpochInfo)
+
+	if len(info.Committee) == 0 {
 		panic("get empty committee set for height: " + strconv.FormatUint(height, 10))
 	}
 
-	committee := &types.Committee{Members: committeeSet}
+	committee := &types.Committee{}
+	for _, member := range info.Committee {
+		committee.Members = append(committee.Members, types.CommitteeMember{
+			Address:           member.Addr,
+			VotingPower:       member.VotingPower,
+			ConsensusKeyBytes: member.ConsensusKey,
+		})
+	}
 	// As the committee is already sorted by the contract, thus we don't need sort again.
 	if err := committee.Enrich(); err != nil {
 		return nil, err
 	}
 
 	return committee, nil
-}
-
-func acCall(evm *vm.EVM, caller common.Address, function string, result any, args ...any) error {
-	packedArgs, err := generated.AutonityAbi.Pack(function, args...)
-	if err != nil {
-		return err
-	}
-
-	// as the gas of the precompile functions are resolved by its corresponding RequiredGas() interface, thus this gas
-	// consumption of reading committee is not counted into the original TXN, thus it does not make sense to resolve
-	// the gas cap for this call.
-	gas := uint64(math.MaxUint64)
-	ret, _, err := evm.Call(vm.AccountRef(caller), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
-	if err != nil {
-		return err
-	}
-	if err = generated.AutonityAbi.UnpackIntoInterface(result, function, ret); err != nil {
-		return err
-	}
-	return nil
 }
