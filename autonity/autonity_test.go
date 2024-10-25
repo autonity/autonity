@@ -193,7 +193,12 @@ func TestGetters(t *testing.T) {
 		require.NoError(t, err)
 
 		autonity := &AutonityContract{
-			EVMContract: *contract,
+			EVMContract: EVMContract{
+				evmProvider: contract.evmProvider,
+				contractABI: contractAbi,
+				db:          contract.db,
+				chainConfig: contract.chainConfig,
+			},
 		}
 		info, err := autonity.callGetEpochInfo(db, header)
 		require.NoError(t, err)
