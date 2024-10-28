@@ -14,6 +14,8 @@ abstract contract ScheduleController {
     mapping(address => Schedule[]) private vaultSchedules;
     address[] private vaults;
 
+    event NewSchedule(address indexed scheduleVault, uint256 amount, uint256 start, uint256 totalDuration);
+
     /**
      * @notice Creates a new schedule.
      * @param _scheduleVault address of the vault which holds the token for this schedule
@@ -36,6 +38,7 @@ abstract contract ScheduleController {
             vaults.push(_scheduleVault);
         }
         _schedules.push(Schedule(_amount, 0, _startTime, _totalDuration, 0));
+        emit NewSchedule(_scheduleVault, _amount, _startTime, _totalDuration);
     }
 
     function _unlockSchedules(uint256 _unlockTime) internal virtual returns (uint256 _newUnlocked) {
