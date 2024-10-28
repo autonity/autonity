@@ -142,16 +142,16 @@ type Runner struct {
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	Autonity               *Autonity
-	Accountability         *Accountability
-	Oracle                 *Oracle
-	Acu                    *ACU
-	SupplyControl          *SupplyControl
-	Stabilization          *Stabilization
-	UpgradeManager         *UpgradeManager
-	InflationController    *InflationController
-	StakableVestingManager *StakableVestingManager
-	NonStakableVesting     *NonStakableVesting
+	Autonity                *Autonity
+	Accountability          *Accountability
+	Oracle                  *Oracle
+	Acu                     *ACU
+	SupplyControl           *SupplyControl
+	Stabilization           *Stabilization
+	UpgradeManager          *UpgradeManager
+	InflationController     *InflationController
+	StakeableVestingManager *StakeableVestingManager
+	NonStakeableVesting     *NonStakeableVesting
 
 	Committee Committee // genesis validators for easy access
 }
@@ -289,11 +289,11 @@ func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address)
 	return &contract{address, parsed, r}
 }
 
-func (r *Runner) StakableVestingContractObject(user common.Address, contractID *big.Int) *IStakableVesting {
-	address, _, err := r.StakableVestingManager.GetContractAccount0(nil, user, contractID)
+func (r *Runner) StakeableVestingContractObject(user common.Address, contractID *big.Int) *IStakeableVesting {
+	address, _, err := r.StakeableVestingManager.GetContractAccount0(nil, user, contractID)
 	require.NoError(r.T, err)
-	return &IStakableVesting{
-		r.contractObject(IStakableVestingMetaData, address),
+	return &IStakeableVesting{
+		r.contractObject(IStakeableVestingMetaData, address),
 	}
 }
 
@@ -512,27 +512,27 @@ func Setup(t *testing.T, _ *params.ChainConfig) *Runner {
 	require.Equal(t, r.InflationController.address, params.InflationControllerContractAddress)
 
 	//
-	// Step 9: Stakable Vesting contract deployment
+	// Step 9: Stakeable Vesting contract deployment
 	//
-	_, _, r.StakableVestingManager, err = r.DeployStakableVestingManager(
+	_, _, r.StakeableVestingManager, err = r.DeployStakeableVestingManager(
 		nil,
 		r.Autonity.address,
 	)
 	require.NoError(t, err)
-	require.Equal(t, r.StakableVestingManager.address, params.StakableVestingManagerContractAddress)
+	require.Equal(t, r.StakeableVestingManager.address, params.StakeableVestingManagerContractAddress)
 	r.NoError(
-		r.Autonity.Mint(Operator, r.StakableVestingManager.address, params.DefaultStakableVestingGenesis.TotalNominal),
+		r.Autonity.Mint(Operator, r.StakeableVestingManager.address, params.DefaultStakeableVestingGenesis.TotalNominal),
 	)
 
 	//
-	// Step 10: Non-Stakable Vesting contract deployment
+	// Step 10: Non-Stakeable Vesting contract deployment
 	//
-	_, _, r.NonStakableVesting, err = r.DeployNonStakableVesting(
+	_, _, r.NonStakeableVesting, err = r.DeployNonStakeableVesting(
 		nil,
 		r.Autonity.address,
 	)
 	require.NoError(t, err)
-	require.Equal(t, r.NonStakableVesting.address, params.NonStakableVestingContractAddress)
+	require.Equal(t, r.NonStakeableVesting.address, params.NonStakeableVestingContractAddress)
 
 	// set protocol contracts
 	r.NoError(

@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../../interfaces/IStakableVesting.sol";
+import "../../interfaces/IStakeableVesting.sol";
 import {PendingStakingRequest, QueueLib} from "./QueueLib.sol";
-import "./StakableVestingStorage.sol";
+import "./StakeableVestingStorage.sol";
 import "./ValidatorManager.sol";
 
 /**
- * @title Stakable Vesting Smart Contract for vesting and staking funds
+ * @title Stakeable Vesting Smart Contract for vesting and staking funds
  * @notice It does not support to act as a treasury account. So only delegated staking works with this.
  */
-contract StakableVestingLogic is StakableVestingStorage, ContractBase, ValidatorManager, IStakableVesting {
+contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting {
 
     using QueueLib for StakingRequestQueue;
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
-        managerContract = IStakableVestingManager(payable(msg.sender));
+        managerContract = IStakeableVestingManager(payable(msg.sender));
     }
 
     /**
@@ -25,7 +25,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @param _startTime start time of the contract
      * @param _cliffDuration cliff duration of the contract
      * @param _totalDuration total duration of the contract
-     * @custom:restricted-to StakableVestingManager contract
+     * @custom:restricted-to StakeableVestingManager contract
      */
     function createContract(
         address _beneficiary,
@@ -36,7 +36,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     ) virtual external onlyManager {
         require(beneficiary == address(0), "contract already created");
         beneficiary = _beneficiary;
-        stakableContract = _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
+        stakeableContract = _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
         contractValuation = ContractValuation(_amount, 0);
     }
 
@@ -45,7 +45,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @custom:restricted-to operator account
      */
     function setManagerContract(address _managerContract) virtual external onlyOperator {
-        managerContract = IStakableVestingManager(payable(_managerContract));
+        managerContract = IStakeableVestingManager(payable(_managerContract));
     }
 
     /**
@@ -66,7 +66,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         _updateFunds();
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
         // first NTN is released
-        uint256 _remainingUnlocked = _releaseNTN(stakableContract, _unlocked);
+        uint256 _remainingUnlocked = _releaseNTN(stakeableContract, _unlocked);
         // if there still remains some unlocked funds, i.e. not enough NTN, then LNTN is released
         _remainingUnlocked = _releaseAllVestedLNTN(_remainingUnlocked);
         _updateWithdrawnShare(_unlocked - _remainingUnlocked, _totalValue);
@@ -79,7 +79,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     function releaseAllNTN() virtual external onlyBeneficiary {
         _cleanup();
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
-        uint256 _remainingUnlocked = _releaseNTN(stakableContract, _unlocked);
+        uint256 _remainingUnlocked = _releaseNTN(stakeableContract, _unlocked);
         _updateWithdrawnShare(_unlocked - _remainingUnlocked, _totalValue);
     }
 
@@ -112,7 +112,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         _cleanup();
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
         require(_amount <= _unlocked, "not enough unlocked funds");
-        uint256 _remaining = _releaseNTN(stakableContract, _amount);
+        uint256 _remaining = _releaseNTN(stakeableContract, _amount);
         _updateWithdrawnShare(_amount - _remaining, _totalValue);
     }
 
@@ -133,7 +133,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
         require(_value <= _unlocked, "not enough unlocked funds");
 
-        stakableContract.withdrawnValue += _value;
+        stakeableContract.withdrawnValue += _value;
         _transferLNTN(_amount, _validator);
         emit FundsReleased(beneficiary, address(_liquidStateContract(_validator)), _amount);
         _updateWithdrawnShare(_value, _totalValue);
@@ -166,12 +166,12 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      */
     function updateFundsAndGetContract() external onlyBeneficiary returns (ContractBase.Contract memory) {
         _updateFunds();
-        return stakableContract;
+        return stakeableContract;
     }
 
     /**
      * @notice Used by beneficiary to bond some NTN of the contract.
-     * All bondings are delegated, as stakable vesting smart contract cannot own a validator node.
+     * All bondings are delegated, as stakeable vesting smart contract cannot own a validator node.
      * @param _validator address of the validator for bonding
      * @param _amount amount of NTN to bond
      */
@@ -219,7 +219,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @dev It is not expected to fall into the fallback function. Implemeted fallback() to get a proper reverting message.
      */
     fallback() payable external virtual {
-        revert("fallback not implemented for StakableVestingLogic");
+        revert("fallback not implemented for StakeableVestingLogic");
     }
 
     /**
@@ -312,7 +312,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
                 emit FundsReleased(msg.sender, address(_liquidStateContract(_validator)), _liquid);
             }
         }
-        stakableContract.withdrawnValue += _availableUnlockedFunds - _remaining;
+        stakeableContract.withdrawnValue += _availableUnlockedFunds - _remaining;
     }
 
     function _updateWithdrawnShare(uint256 _withdrawnValue, uint256 _totalValue) internal {
@@ -325,7 +325,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     }
 
     function _withdrawableVestedFunds() internal view returns (uint256 _unlockedValue, uint256 _totalValue) {
-        if (autonity.lastEpochTime() < stakableContract.start + stakableContract.cliffDuration) {
+        if (autonity.lastEpochTime() < stakeableContract.start + stakeableContract.cliffDuration) {
             return (0, 0);
         }
         return _vestedFunds();
@@ -336,12 +336,12 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      */
     function _vestedFunds() internal view returns (uint256 _unlockedValue, uint256 _totalValue) {
         uint256 _time = autonity.lastEpochTime();
-        uint256 _start = stakableContract.start;
+        uint256 _start = stakeableContract.start;
         if (_time < _start) {
             return (0, 0);
         }
 
-        uint256 _totalDuration = stakableContract.totalDuration;
+        uint256 _totalDuration = stakeableContract.totalDuration;
         uint256 _totalShare = contractValuation.totalShare;
         uint256 _withdrawnShare = contractValuation.withdrawnShare;
         uint256 _unlockedShare;
@@ -377,7 +377,7 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
     function _updateFunds() internal {
         _handlePendingBondingRequest();
         _handlePendingUnbondingRequest();
-        stakableContract.currentNTNAmount = autonity.balanceOf(address(this));
+        stakeableContract.currentNTNAmount = autonity.balanceOf(address(this));
     }
 
     /**
@@ -559,11 +559,11 @@ contract StakableVestingLogic is StakableVestingStorage, ContractBase, Validator
      * @notice Returns the contract.
      */
     function getContract() virtual external view returns (ContractBase.Contract memory) {
-        return stakableContract;
+        return stakeableContract;
     }
 
     /**
-     * @notice Returns the address of the `StakableVestingManager` smart contract.
+     * @notice Returns the address of the `StakeableVestingManager` smart contract.
      */
     function getManagerContractAddress() virtual external view returns (address) {
         return address(managerContract);

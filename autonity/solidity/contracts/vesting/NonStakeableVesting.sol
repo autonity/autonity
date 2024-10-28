@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "./BeneficiaryHandler.sol";
 import "./ContractBase.sol";
 
-contract NonStakableVesting is BeneficiaryHandler, ContractBase {
+contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
 
     struct ScheduleTracker {
         uint256 unsubscribedAmount;
@@ -24,7 +24,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     constructor(address payable _autonity) AccessAutonity(_autonity) {}
 
     /**
-     * @notice Creates a new non-stakable contract which subscribes to some schedule.
+     * @notice Creates a new non-stakeable contract which subscribes to some schedule.
      * If the contract is created before the start timestamp, the beneficiary is entitled to NTN as it unlocks.
      * Otherwise, the contract already has some unlocked NTN which is not entitled to beneficiary. However, NTN that will
      * be unlocked in future will be entitled to beneficiary.
@@ -149,7 +149,7 @@ contract NonStakableVesting is BeneficiaryHandler, ContractBase {
     }
 
     /**
-     * @dev Calculates the total value of the contract, which is constant for non stakable contracts.
+     * @dev Calculates the total value of the contract, which is constant for non stakeable contracts.
      * @param _contractID unique global id of the contract
      */
     function _calculateTotalValue(uint256 _contractID) internal view returns (uint256) {

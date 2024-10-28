@@ -71,23 +71,23 @@ var (
 		SlashingRatePrecision:          10_000,
 	}
 
-	DefaultNonStakableVestingGenesis = &NonStakableVestingGenesis{}
+	DefaultNonStakeableVestingGenesis = &NonStakeableVestingGenesis{}
 
-	DefaultStakableVestingGenesis = &StakableVestingGenesis{
+	DefaultStakeableVestingGenesis = &StakeableVestingGenesis{
 		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
 	}
 
-	DeployerAddress                       = common.Address{}
-	AutonityContractAddress               = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress         = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress                 = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress                    = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress          = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress          = crypto.CreateAddress(DeployerAddress, 5)
-	UpgradeManagerContractAddress         = crypto.CreateAddress(DeployerAddress, 6)
-	InflationControllerContractAddress    = crypto.CreateAddress(DeployerAddress, 7)
-	StakableVestingManagerContractAddress = crypto.CreateAddress(DeployerAddress, 8)
-	NonStakableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
+	DeployerAddress                        = common.Address{}
+	AutonityContractAddress                = crypto.CreateAddress(DeployerAddress, 0)
+	AccountabilityContractAddress          = crypto.CreateAddress(DeployerAddress, 1)
+	OracleContractAddress                  = crypto.CreateAddress(DeployerAddress, 2)
+	ACUContractAddress                     = crypto.CreateAddress(DeployerAddress, 3)
+	SupplyControlContractAddress           = crypto.CreateAddress(DeployerAddress, 4)
+	StabilizationContractAddress           = crypto.CreateAddress(DeployerAddress, 5)
+	UpgradeManagerContractAddress          = crypto.CreateAddress(DeployerAddress, 6)
+	InflationControllerContractAddress     = crypto.CreateAddress(DeployerAddress, 7)
+	StakeableVestingManagerContractAddress = crypto.CreateAddress(DeployerAddress, 8)
+	NonStakeableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
 )
 
 type AutonityContractGenesis struct {
@@ -460,8 +460,8 @@ func (s *InflationControllerGenesis) SetDefaults() {
 	}
 }
 
-type NonStakableVestingGenesis struct {
-	NonStakableContracts []NonStakableVestingData `json:"nonStakableVestingContracts"`
+type NonStakeableVestingGenesis struct {
+	NonStakeableContracts []NonStakeableVestingData `json:"nonStakeableVestingContracts"`
 }
 
 type Schedule struct {
@@ -482,24 +482,24 @@ func (s *Schedule) Validate() error {
 		return errors.New("amount must be specified")
 	}
 	if s.VaultAddress == common.HexToAddress("0") {
-		s.VaultAddress = NonStakableVestingContractAddress
+		s.VaultAddress = NonStakeableVestingContractAddress
 	}
 	return nil
 }
 
-type NonStakableVestingData struct {
+type NonStakeableVestingData struct {
 	Beneficiary   common.Address `json:"beneficiary"`
 	Amount        *big.Int       `json:"amount"`
 	ScheduleID    *big.Int       `json:"scheduleID"`
 	CliffDuration *big.Int       `json:"cliffDuration"`
 }
 
-type StakableVestingGenesis struct {
-	TotalNominal      *big.Int              `json:"totalNominal"`
-	StakableContracts []StakableVestingData `json:"stakableVestingContracts"`
+type StakeableVestingGenesis struct {
+	TotalNominal       *big.Int               `json:"totalNominal"`
+	StakeableContracts []StakeableVestingData `json:"stakeableVestingContracts"`
 }
 
-type StakableVestingData struct {
+type StakeableVestingData struct {
 	Beneficiary   common.Address `json:"beneficiary"`
 	Amount        *big.Int       `json:"amount"`
 	Start         *big.Int       `json:"startTime"`
@@ -507,8 +507,8 @@ type StakableVestingData struct {
 	TotalDuration *big.Int       `json:"totalDuration"`
 }
 
-func (s *StakableVestingGenesis) SetDefaults() {
+func (s *StakeableVestingGenesis) SetDefaults() {
 	if s.TotalNominal == nil {
-		s.TotalNominal = DefaultStakableVestingGenesis.TotalNominal
+		s.TotalNominal = DefaultStakeableVestingGenesis.TotalNominal
 	}
 }

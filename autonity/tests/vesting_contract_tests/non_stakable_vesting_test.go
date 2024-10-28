@@ -13,7 +13,7 @@ import (
 
 var operator = tests.Operator
 
-func TestReleaseFromNonStakableContract(t *testing.T) {
+func TestReleaseFromNonStakeableContract(t *testing.T) {
 	var amount int64 = 100
 	start := time.Now().Unix() + 10
 	// having (amount = end - start) makes (unlockedFunds = time - start)
@@ -31,11 +31,11 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 	}
 
 	tests.RunWithSetup("vested and withdrawale vested funds are 0 before start", setup, func(r *tests.Runner) {
-		vestedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		vestedFunds, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, vestedFunds.Cmp(common.Big0) == 0)
 
-		withdrawable, _, err := r.NonStakableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
+		withdrawable, _, err := r.NonStakeableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, withdrawable.Cmp(common.Big0) == 0)
 
@@ -45,11 +45,11 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 	tests.RunWithSetup("vested funds increase but withdrawale vested funds are 0 after start and before cliff", setup, func(r *tests.Runner) {
 		currentTime := r.WaitForEpochsUntil(start + 2)
 		require.True(r.T, currentTime < cliff, "cannot test, cliff reached")
-		vestedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		vestedFunds, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, big.NewInt(currentTime-start-1), vestedFunds)
 
-		withdrawable, _, err := r.NonStakableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
+		withdrawable, _, err := r.NonStakeableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, withdrawable.Cmp(common.Big0) == 0)
 
@@ -58,10 +58,10 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 
 	tests.RunWithSetup("vested and withdrawale vested funds are equal after cliff", setup, func(r *tests.Runner) {
 		r.WaitForEpochsUntil(cliff + 1)
-		vestedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		vestedFunds, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 
-		withdrawable, _, err := r.NonStakableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
+		withdrawable, _, err := r.NonStakeableVesting.WithdrawableVestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, vestedFunds, withdrawable)
 	})
@@ -78,7 +78,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, epochID, newEpochID, "cannot test if epoch progresses")
 
-		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -87,7 +87,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		releaseAllNTN(r, user, unlockedFunds)
 
 		// unlocked funds should be 0 now
-		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, unlockedFunds.Cmp(common.Big0) == 0)
 
@@ -100,7 +100,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlockAmount := big.NewInt(currentTime - start - 1)
 		require.True(r.T, unlockAmount.Cmp(common.Big2) >= 0, "cannot test")
-		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -108,7 +108,7 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		releaseNTN(r, user, releaseAmount, true, false)
 
 		unlockAmount = new(big.Int).Sub(unlockAmount, releaseAmount)
-		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -121,13 +121,13 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		r.WaitForEpochsUntil(end + 1)
 
 		unlockAmount := big.NewInt(amount)
-		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
 		// wait some more, shouldn't unlock more
 		r.WaitNextEpoch()
-		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
@@ -135,12 +135,12 @@ func TestReleaseFromNonStakableContract(t *testing.T) {
 		releaseAmount := common.Big1
 		releaseNTN(r, user, releaseAmount, true, false)
 		unlockAmount = new(big.Int).Sub(unlockAmount, releaseAmount)
-		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 
 		r.WaitNextEpoch()
-		unlockedFunds, _, err = r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err = r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, unlockAmount, unlockedFunds)
 		releaseNTN(r, user, new(big.Int).Add(unlockAmount, common.Big1), false, false)
@@ -186,20 +186,20 @@ func TestTreasuryFunds(t *testing.T) {
 		require.True(r.T, expiredFunds > 0, "cannot test")
 
 		subscribeToSchedule(r, user, big.NewInt(subscribedAmount), common.Big0, common.Big0)
-		expiredFromContract, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
+		expiredFromContract, _, err := r.NonStakeableVesting.GetExpiredFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, big.NewInt(expiredFunds), expiredFromContract)
 		return r
 	}
 
 	tests.RunWithSetup("expired funds go to treasury", newSetup, func(r *tests.Runner) {
-		expiredFromContract, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
+		expiredFromContract, _, err := r.NonStakeableVesting.GetExpiredFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		r.WaitForEpochsUntil(end + 1)
 
 		userFunds := new(big.Int).Sub(big.NewInt(subscribedAmount), expiredFromContract)
 		treasuryFunds := new(big.Int).Add(expiredFromContract, big.NewInt(unsubscribedAmount))
-		scheduleTracker, _, err := r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		scheduleTracker, _, err := r.NonStakeableVesting.GetScheduleTracker(nil, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, big.NewInt(unsubscribedAmount), scheduleTracker.UnsubscribedAmount)
 		require.Equal(r.T, expiredFromContract, scheduleTracker.ExpiredFromContract)
@@ -207,14 +207,14 @@ func TestTreasuryFunds(t *testing.T) {
 		releaseNTN(r, user, new(big.Int).Add(userFunds, common.Big1), false, true)
 		releaseNTN(r, user, userFunds, true, true)
 		releaseTreasuryFunds(r, treasuryFunds, true)
-		scheduleTracker, _, err = r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		scheduleTracker, _, err = r.NonStakeableVesting.GetScheduleTracker(nil, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, new(big.Int).Add(scheduleTracker.UnsubscribedAmount, scheduleTracker.ExpiredFromContract).Cmp(common.Big0) == 0)
 		releaseAllNTN(r, user, userFunds)
 	})
 
 	tests.RunWithSetup("expired funds can be withdrawn by treasury any time after they are expired", newSetup, func(r *tests.Runner) {
-		expiredFromContract, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
+		expiredFromContract, _, err := r.NonStakeableVesting.GetExpiredFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, end+1 > r.Evm.Context.Time.Int64(), "cannot test, contract ended already")
 
@@ -222,20 +222,20 @@ func TestTreasuryFunds(t *testing.T) {
 		require.NoError(r.T, err)
 		balance := r.GetNewtonBalanceOf(treasury)
 		r.NoError(
-			r.NonStakableVesting.ReleaseExpiredFundsForTreasury(
+			r.NonStakeableVesting.ReleaseExpiredFundsForTreasury(
 				tests.FromSender(treasury, nil),
 				common.Big0,
 			),
 		)
 		newBalance := r.GetNewtonBalanceOf(treasury)
 		require.Equal(r.T, new(big.Int).Add(balance, expiredFromContract), newBalance)
-		scheduleTracker, _, err := r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		scheduleTracker, _, err := r.NonStakeableVesting.GetScheduleTracker(nil, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, scheduleTracker.ExpiredFromContract.Cmp(common.Big0) == 0)
 
 		balance = newBalance
 		r.NoError(
-			r.NonStakableVesting.ReleaseExpiredFundsForTreasury(
+			r.NonStakeableVesting.ReleaseExpiredFundsForTreasury(
 				tests.FromSender(treasury, nil),
 				common.Big0,
 			),
@@ -245,49 +245,49 @@ func TestTreasuryFunds(t *testing.T) {
 	})
 }
 
-func TestNonStakableAccessRestriction(t *testing.T) {
+func TestNonStakeableAccessRestriction(t *testing.T) {
 	user := tests.User
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		r.NoError(
-			r.Autonity.CreateSchedule(operator, r.NonStakableVesting.Address(), common.Big1, r.Evm.Context.Time, common.Big1),
+			r.Autonity.CreateSchedule(operator, r.NonStakeableVesting.Address(), common.Big1, r.Evm.Context.Time, common.Big1),
 		)
 		return r
 	}
 
 	tests.RunWithSetup("only operator can create new contract", setup, func(r *tests.Runner) {
-		_, err := r.NonStakableVesting.NewContract(nil, user, common.Big0, common.Big0, common.Big0)
+		_, err := r.NonStakeableVesting.NewContract(nil, user, common.Big0, common.Big0, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 	})
 
 	tests.RunWithSetup("only operator can change contract beneficiary", setup, func(r *tests.Runner) {
-		_, err := r.NonStakableVesting.ChangeContractBeneficiary(nil, user, common.Big0, user)
+		_, err := r.NonStakeableVesting.ChangeContractBeneficiary(nil, user, common.Big0, user)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not the operator", err.Error())
 	})
 
 	tests.RunWithSetup("only treasury account can claim treasury funds", setup, func(r *tests.Runner) {
-		_, err := r.NonStakableVesting.ReleaseAllFundsForTreasury(
+		_, err := r.NonStakeableVesting.ReleaseAllFundsForTreasury(
 			tests.FromSender(tests.User, nil),
 			common.Big0,
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
 
-		_, err = r.NonStakableVesting.ReleaseAllFundsForTreasury(nil, common.Big0)
+		_, err = r.NonStakeableVesting.ReleaseAllFundsForTreasury(nil, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
 
-		_, err = r.NonStakableVesting.ReleaseExpiredFundsForTreasury(
+		_, err = r.NonStakeableVesting.ReleaseExpiredFundsForTreasury(
 			tests.FromSender(tests.User, nil),
 			common.Big0,
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
 
-		_, err = r.NonStakableVesting.ReleaseExpiredFundsForTreasury(nil, common.Big0)
+		_, err = r.NonStakeableVesting.ReleaseExpiredFundsForTreasury(nil, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: caller is not treasury account", err.Error())
 	})
@@ -301,7 +301,7 @@ func TestContractCreation(t *testing.T) {
 	}
 
 	tests.RunWithSetup("contract needs to subsribe to schedule", setup, func(r *tests.Runner) {
-		_, err := r.NonStakableVesting.NewContract(operator, user, common.Big1, common.Big0, common.Big0)
+		_, err := r.NonStakeableVesting.NewContract(operator, user, common.Big1, common.Big0, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: schedule does not exist", err.Error())
 	})
@@ -318,18 +318,18 @@ func TestContractCreation(t *testing.T) {
 	}
 
 	tests.RunWithSetup("contract nominal amount cannot exceed schedule nominal amount", newSetup, func(r *tests.Runner) {
-		_, err := r.NonStakableVesting.NewContract(operator, user, big.NewInt(amount+1), common.Big0, cliffDuration)
+		_, err := r.NonStakeableVesting.NewContract(operator, user, big.NewInt(amount+1), common.Big0, cliffDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
 		subscribeToSchedule(r, user, common.Big1, common.Big0, cliffDuration)
 
-		_, err = r.NonStakableVesting.NewContract(operator, user, big.NewInt(amount), common.Big0, cliffDuration)
+		_, err = r.NonStakeableVesting.NewContract(operator, user, big.NewInt(amount), common.Big0, cliffDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
 
 		newUser := common.HexToAddress("0x88")
 		require.NotEqual(r.T, newUser, user)
-		_, err = r.NonStakableVesting.NewContract(operator, newUser, big.NewInt(amount), common.Big0, cliffDuration)
+		_, err = r.NonStakeableVesting.NewContract(operator, newUser, big.NewInt(amount), common.Big0, cliffDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
 	})
@@ -347,20 +347,20 @@ func TestContractCreation(t *testing.T) {
 		// unlockAmount from schedule shows as expired funds in contract
 		// total amount of contract is reduced by the amount of expired funds
 
-		unlockedFunds, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlockedFunds, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.True(r.T, unlockedFunds.Cmp(common.Big0) == 0)
-		contract, _, err := r.NonStakableVesting.GetContract(nil, user, common.Big0)
+		contract, _, err := r.NonStakeableVesting.GetContract(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		expiredCalculated := new(big.Int).Sub(big.NewInt(amount), contract.CurrentNTNAmount)
 		require.True(r.T, expiredCalculated.Cmp(common.Big0) == 1, "nothing expired")
 		require.Equal(r.T, big.NewInt(unlockAmount), expiredCalculated)
 
-		expiredFunds, _, err := r.NonStakableVesting.GetExpiredFunds(nil, user, common.Big0)
+		expiredFunds, _, err := r.NonStakeableVesting.GetExpiredFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, expiredCalculated, expiredFunds)
 
-		scheduleTracker, _, err := r.NonStakableVesting.GetScheduleTracker(nil, common.Big0)
+		scheduleTracker, _, err := r.NonStakeableVesting.GetScheduleTracker(nil, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, expiredCalculated, scheduleTracker.ExpiredFromContract)
 	})
@@ -370,13 +370,13 @@ func TestContractCreation(t *testing.T) {
 		subscribeToSchedule(r, user, subscribeAmount, common.Big0, cliffDuration)
 		r.WaitForEpochsUntil(end + 1)
 		// all should unlock, user should be able to claim everything
-		unlocked, _, err := r.NonStakableVesting.VestedFunds(nil, user, common.Big0)
+		unlocked, _, err := r.NonStakeableVesting.VestedFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
 		require.Equal(r.T, subscribeAmount, unlocked)
 		balance, _, err := r.Autonity.BalanceOf(nil, user)
 		require.NoError(r.T, err)
 		r.NoError(
-			r.NonStakableVesting.ReleaseAllNTN(
+			r.NonStakeableVesting.ReleaseAllNTN(
 				tests.FromSender(user, nil), common.Big0,
 			),
 		)
@@ -388,7 +388,7 @@ func TestContractCreation(t *testing.T) {
 
 func subscribeToSchedule(r *tests.Runner, beneficiary common.Address, amount, scheduleID, cliffDuration *big.Int) {
 	r.NoError(
-		r.NonStakableVesting.NewContract(
+		r.NonStakeableVesting.NewContract(
 			operator, beneficiary, amount, scheduleID, cliffDuration,
 		),
 	)
@@ -399,7 +399,7 @@ func createSchedule(r *tests.Runner, amount, startTime, endTime int64) {
 	endBig := big.NewInt(endTime)
 	r.NoError(
 		r.Autonity.CreateSchedule(
-			operator, r.NonStakableVesting.Address(), big.NewInt(amount),
+			operator, r.NonStakeableVesting.Address(), big.NewInt(amount),
 			big.NewInt(startTime), new(big.Int).Sub(endBig, startBig),
 		),
 	)
@@ -409,7 +409,7 @@ func createSchedule(r *tests.Runner, amount, startTime, endTime int64) {
 func releaseNTN(r *tests.Runner, user common.Address, releaseAmount *big.Int, success, revert bool) {
 	balance := r.GetNewtonBalanceOf(user)
 	release := func() {
-		_, err := r.NonStakableVesting.ReleaseNTN(
+		_, err := r.NonStakeableVesting.ReleaseNTN(
 			tests.FromSender(user, nil),
 			common.Big0,
 			releaseAmount,
@@ -438,7 +438,7 @@ func releaseNTN(r *tests.Runner, user common.Address, releaseAmount *big.Int, su
 func releaseAllNTN(r *tests.Runner, user common.Address, unlocked *big.Int) {
 	balance := r.GetNewtonBalanceOf(user)
 	r.NoError(
-		r.NonStakableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
+		r.NonStakeableVesting.ReleaseAllNTN(tests.FromSender(user, nil), common.Big0),
 	)
 	newBalance := r.GetNewtonBalanceOf(user)
 	require.True(r.T, new(big.Int).Add(balance, unlocked).Cmp(newBalance) == 0)
@@ -448,7 +448,7 @@ func releaseTreasuryFunds(r *tests.Runner, funds *big.Int, success bool, reverti
 	treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
 	require.NoError(r.T, err)
 	balance := r.GetNewtonBalanceOf(treasury)
-	_, err = r.NonStakableVesting.ReleaseAllFundsForTreasury(
+	_, err = r.NonStakeableVesting.ReleaseAllFundsForTreasury(
 		tests.FromSender(treasury, nil),
 		common.Big0,
 	)

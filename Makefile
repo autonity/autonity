@@ -96,8 +96,8 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,test-contract/,AccountabilityTest)
 	@$(call gen-contract,test-contract/,AutonityTest)
 	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
-	@$(call gen-contract,vesting/,NonStakableVesting)
-	@$(call gen-contract,vesting/,StakableVestingManager)
+	@$(call gen-contract,vesting/,NonStakeableVesting)
+	@$(call gen-contract,vesting/,StakeableVestingManager)
 	# update 4byte selector for clef
 	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate

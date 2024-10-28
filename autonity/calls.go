@@ -55,11 +55,11 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployInflationControllerContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the inflation controller contract: %w", err)
 	}
-	if err := DeployStakableVestingContract(genesisConfig, evmContracts); err != nil {
-		return fmt.Errorf("error when deploying the stakable vesting contract: %w", err)
+	if err := DeployStakeableVestingContract(genesisConfig, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the stakeable vesting contract: %w", err)
 	}
-	if err := DeployNonStakableVestingContract(genesisConfig, evmContracts); err != nil {
-		return fmt.Errorf("error when deploying the non-stakable vesting contract: %w", err)
+	if err := DeployNonStakeableVestingContract(genesisConfig, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the non-stakeable vesting contract: %w", err)
 	}
 	return nil
 }
@@ -161,46 +161,46 @@ func DeployInflationControllerContract(config *params.ChainConfig, evmContracts 
 	return nil
 }
 
-func DeployStakableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
-	if config.StakableVestingConfig == nil {
+func DeployStakeableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	if config.StakeableVestingConfig == nil {
 		log.Info("Config missing, using default parameters for the Stakeable Vesting contract")
-		config.StakableVestingConfig = params.DefaultStakableVestingGenesis
+		config.StakeableVestingConfig = params.DefaultStakeableVestingGenesis
 	} else {
-		config.StakableVestingConfig.SetDefaults()
+		config.StakeableVestingConfig.SetDefaults()
 	}
-	if err := evmContracts.DeployStakableVestingContract(
-		generated.StakableVestingManagerBytecode, params.AutonityContractAddress,
+	if err := evmContracts.DeployStakeableVestingContract(
+		generated.StakeableVestingManagerBytecode, params.AutonityContractAddress,
 	); err != nil {
-		log.Error("DeployStakableVestingContract failed", "err", err)
+		log.Error("DeployStakeableVestingContract failed", "err", err)
 		return fmt.Errorf("failed to deploy stakeable vesting contract: %w", err)
 	}
-	log.Info("Deployed Stakeable Vesting contract", "address", params.StakableVestingManagerContractAddress)
-	if err := evmContracts.Mint(params.StakableVestingManagerContractAddress, config.StakableVestingConfig.TotalNominal); err != nil {
+	log.Info("Deployed Stakeable Vesting contract", "address", params.StakeableVestingManagerContractAddress)
+	if err := evmContracts.Mint(params.StakeableVestingManagerContractAddress, config.StakeableVestingConfig.TotalNominal); err != nil {
 		return fmt.Errorf("error while minting total nominal to stakeable vesting contract: %w", err)
 	}
-	for _, vesting := range config.StakableVestingConfig.StakableContracts {
-		if err := evmContracts.NewStakableContract(vesting); err != nil {
+	for _, vesting := range config.StakeableVestingConfig.StakeableContracts {
+		if err := evmContracts.NewStakeableContract(vesting); err != nil {
 			return fmt.Errorf("failed to create new stakeable vesting contract: %w", err)
 		}
 	}
 	return nil
 }
 
-func DeployNonStakableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
-	if config.NonStakableVestingConfig == nil {
-		log.Info("Config missing, using default parameters for the Non-Stakable Vesting contract")
-		config.NonStakableVestingConfig = params.DefaultNonStakableVestingGenesis
+func DeployNonStakeableVestingContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	if config.NonStakeableVestingConfig == nil {
+		log.Info("Config missing, using default parameters for the Non-Stakeable Vesting contract")
+		config.NonStakeableVestingConfig = params.DefaultNonStakeableVestingGenesis
 	}
-	if err := evmContracts.DeployNonStakableVestingContract(
-		generated.NonStakableVestingBytecode, params.AutonityContractAddress,
+	if err := evmContracts.DeployNonStakeableVestingContract(
+		generated.NonStakeableVestingBytecode, params.AutonityContractAddress,
 	); err != nil {
-		log.Error("DeployNonStakableVestingContract failed", "err", err)
+		log.Error("DeployNonStakeableVestingContract failed", "err", err)
 		return fmt.Errorf("failed to deploy non-stakeable vesting contract: %w", err)
 	}
-	log.Info("Deployed Non-Stakeable Vesting contract", "address", params.NonStakableVestingContractAddress)
-	for _, vesting := range config.NonStakableVestingConfig.NonStakableContracts {
-		if err := evmContracts.NewNonStakableContract(vesting); err != nil {
-			return fmt.Errorf("failed to create new non-stakable vesting contract: %w", err)
+	log.Info("Deployed Non-Stakeable Vesting contract", "address", params.NonStakeableVestingContractAddress)
+	for _, vesting := range config.NonStakeableVestingConfig.NonStakeableContracts {
+		if err := evmContracts.NewNonStakeableContract(vesting); err != nil {
+			return fmt.Errorf("failed to create new non-stakeable vesting contract: %w", err)
 		}
 	}
 	return nil
@@ -320,7 +320,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 	}
 
 	for _, schedule := range genesisConfig.Schedules {
-		if schedule.VaultAddress != params.NonStakableVestingContractAddress {
+		if schedule.VaultAddress != params.NonStakeableVestingContractAddress {
 			return fmt.Errorf("vault address has no smart contract deployed")
 		}
 		if err := evmContracts.CreateSchedule(schedule); err != nil {
@@ -457,7 +457,7 @@ func (c *AutonityContract) CreateSchedule(header *types.Header, statedb vm.State
 	return nil
 }
 
-func (c *NonStakableVestingContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.NonStakableVestingData) error {
+func (c *NonStakeableVestingContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.NonStakeableVestingData) error {
 	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.ScheduleID, contract.CliffDuration)
 	if err != nil {
 		return fmt.Errorf("error while generating call data for newContract: %w", err)
@@ -471,7 +471,7 @@ func (c *NonStakableVestingContract) NewContract(header *types.Header, statedb v
 	return nil
 }
 
-func (c *StakableVestingManagerContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.StakableVestingData) error {
+func (c *StakeableVestingManagerContract) NewContract(header *types.Header, statedb vm.StateDB, contract params.StakeableVestingData) error {
 	packedArgs, err := c.contractABI.Pack("newContract", contract.Beneficiary, contract.Amount, contract.Start, contract.CliffDuration, contract.TotalDuration)
 	if err != nil {
 		return fmt.Errorf("error while generating call data for newContract: %w", err)

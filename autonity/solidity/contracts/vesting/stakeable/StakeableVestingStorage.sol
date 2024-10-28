@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../../interfaces/IStakableVestingManager.sol";
+import "../../interfaces/IStakeableVestingManager.sol";
 import "../ContractBase.sol";
 import {StakingRequestQueue} from "./QueueLib.sol";
 import "./ValidatorManagerStorage.sol";
 
-abstract contract StakableVestingStorage is ValidatorManagerStorage {
+abstract contract StakeableVestingStorage is ValidatorManagerStorage {
     constructor() {}
     address internal beneficiary;
-    IStakableVestingManager internal managerContract;
-    ContractBase.Contract internal stakableContract;
+    IStakeableVestingManager internal managerContract;
+    ContractBase.Contract internal stakeableContract;
 
     struct ContractValuation {
         uint256 totalShare;

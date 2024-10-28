@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../interfaces/IStakableVestingManager.sol";
+import "../interfaces/IStakeableVestingManager.sol";
 import "./BeneficiaryHandler.sol";
-import "./stakable/StakableVestingLogic.sol";
-import "./stakable/StakableVestingState.sol";
+import "./stakeable/StakeableVestingLogic.sol";
+import "./stakeable/StakeableVestingState.sol";
 
-contract StakableVestingManager is BeneficiaryHandler, IStakableVestingManager {
+contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager {
     uint256 public contractVersion = 1;
 
-    address public stakableVestingLogicContract;
+    address public stakeableVestingLogicContract;
 
-    IStakableVesting[] private contracts;
+    IStakeableVesting[] private contracts;
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
-        stakableVestingLogicContract = address(new StakableVestingLogic(_autonity));
+        stakeableVestingLogicContract = address(new StakeableVestingLogic(_autonity));
     }
 
-    function setStakableVestingLogicContract(address _contract) virtual external onlyOperator {
+    function setStakeableVestingLogicContract(address _contract) virtual external onlyOperator {
         require(_contract != address(0), "invalid contract address");
-        stakableVestingLogicContract = _contract;
+        stakeableVestingLogicContract = _contract;
     }
 
     /**
-     * @notice Creates a new stakable contract. the operation is invalid if the cliff duration is already past.
+     * @notice Creates a new stakeable contract. the operation is invalid if the cliff duration is already past.
      * @param _beneficiary address of the beneficiary
      * @param _amount total amount of NTN to be vested
      * @param _startTime start time of the contract
@@ -43,18 +43,18 @@ contract StakableVestingManager is BeneficiaryHandler, IStakableVestingManager {
 
         uint256 _contractID = _newContractCreated(_beneficiary);
         require(_contractID == contracts.length, "invalid contract id");
-        IStakableVesting _stakableVestingContract = IStakableVesting(
-            address(new StakableVestingState(payable(autonity)))
+        IStakeableVesting _stakeableVestingContract = IStakeableVesting(
+            address(new StakeableVestingState(payable(autonity)))
         );
-        _stakableVestingContract.createContract(
+        _stakeableVestingContract.createContract(
             _beneficiary,
             _amount,
             _startTime,
             _cliffDuration,
             _totalDuration
         );
-        contracts.push(_stakableVestingContract);
-        bool _sent = autonity.transfer(address(_stakableVestingContract), _amount);
+        contracts.push(_stakeableVestingContract);
+        bool _sent = autonity.transfer(address(_stakeableVestingContract), _amount);
         require(_sent, "failed to transfer NTN");
     }
 
@@ -89,7 +89,7 @@ contract StakableVestingManager is BeneficiaryHandler, IStakableVestingManager {
      * @notice Returns the smart contract account that holds the corresponding stake-able vesting contract.
      * @param _uniqueContractID unique id of the contract
      */
-    function getContractAccount(uint256 _uniqueContractID) external virtual view returns (IStakableVesting) {
+    function getContractAccount(uint256 _uniqueContractID) external virtual view returns (IStakeableVesting) {
         require(_uniqueContractID < contracts.length, "invalid contract id");
         return contracts[_uniqueContractID];
     }
@@ -99,7 +99,7 @@ contract StakableVestingManager is BeneficiaryHandler, IStakableVestingManager {
      * @param _beneficiary address of the beneficiary of the contract
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
      */
-    function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakableVesting) {
+    function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakeableVesting) {
         return contracts[getUniqueContractID(_beneficiary, _id)];
     }
 
@@ -107,9 +107,9 @@ contract StakableVestingManager is BeneficiaryHandler, IStakableVestingManager {
      * @notice Returns all the smart contract accounts that holds the corresponding stake-able vesting contract.
      * @param _beneficiary address of the beneficiary of the contract
      */
-    function getContractAccounts(address _beneficiary) external virtual view returns (IStakableVesting[] memory) {
+    function getContractAccounts(address _beneficiary) external virtual view returns (IStakeableVesting[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
-        IStakableVesting[] memory _contracts = new IStakableVesting[] (_contractIDs.length);
+        IStakeableVesting[] memory _contracts = new IStakeableVesting[] (_contractIDs.length);
         for (uint256 i = 0; i < _contractIDs.length; i++) {
             _contracts[i] = contracts[_contractIDs[i]];
         }

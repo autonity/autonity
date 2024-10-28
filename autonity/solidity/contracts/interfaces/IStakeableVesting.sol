@@ -3,7 +3,7 @@ pragma solidity >=0.8.2 ;
 
 import "../vesting/ContractBase.sol";
 
-interface IStakableVesting {
+interface IStakeableVesting {
     function createContract(address _beneficiary, uint256 _amount, uint256 _startTime, uint256 _cliffDuration, uint256 _totalDuration) external;
     function changeContractBeneficiary(address _recipient) external;
     function setManagerContract(address _managerContract) external;
