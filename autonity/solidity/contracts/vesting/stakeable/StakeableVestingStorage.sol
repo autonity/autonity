@@ -6,6 +6,7 @@ import "../ContractBase.sol";
 import {StakingRequestQueue} from "./QueueLib.sol";
 import "./ValidatorManagerStorage.sol";
 
+/** @title Storage of the Stakeable Vesting Smart Contract for vesting and staking funds */
 abstract contract StakeableVestingStorage is ValidatorManagerStorage {
     constructor() {}
     address internal beneficiary;

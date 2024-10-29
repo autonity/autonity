@@ -7,8 +7,9 @@ import "./StakeableVestingStorage.sol";
 import "./ValidatorManager.sol";
 
 /**
- * @title Stakeable Vesting Smart Contract for vesting and staking funds
+ * @title Logic of the Stakeable Vesting Smart Contract for vesting and staking funds
  * @notice It does not support to act as a treasury account. So only delegated staking works with this.
+ * @dev Only one smart contract is deployed by `StakeableVestingManager` which is used by separate accounts.
  */
 contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting {
 

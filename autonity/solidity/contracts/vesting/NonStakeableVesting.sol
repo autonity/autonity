@@ -4,6 +4,11 @@ pragma solidity ^0.8.0;
 import "./BeneficiaryHandler.sol";
 import "./ContractBase.sol";
 
+/**
+ * @title Non-Stakeable Vesting Smart Contract for vesting funds
+ * @notice Vesting contracts are created under existing schedules.
+ * Schedules are stored in Autonity contract under the address of this smart contract.
+ */
 contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
 
     struct ScheduleTracker {

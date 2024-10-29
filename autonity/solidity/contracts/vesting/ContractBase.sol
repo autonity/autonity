@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../AccessAutonity.sol";
 
+/** @title Handler of the base functions for vesting contract of both types stakeable and non-stakeable */
 abstract contract ContractBase is AccessAutonity {
 
     event FundsReleased(address indexed to, address indexed token, uint256 amount);

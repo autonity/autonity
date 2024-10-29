@@ -3,6 +3,10 @@ pragma solidity ^0.8.0;
 
 import "./ValidatorManagerStorage.sol";
 
+/**
+ * @title Manager contract that manages validator related operations
+ * @dev Can be reused by any staking contract that stakes from a single delegator.
+ */
 abstract contract ValidatorManager is ValidatorManagerStorage {
 
     /*

@@ -4,6 +4,10 @@ pragma solidity ^0.8.0;
 import "../../lib/DelegateCaller.sol";
 import "./StakeableVestingStorage.sol";
 
+/**
+ * @title State of the Stakeable Vesting Smart Contract for vesting and staking funds
+ * @notice Each stakeable vesting contract has its own separate smart contract.
+ */
 contract StakeableVestingState is StakeableVestingStorage {
     using DelegateCaller for address;
 

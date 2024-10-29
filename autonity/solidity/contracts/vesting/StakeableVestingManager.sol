@@ -6,6 +6,11 @@ import "./BeneficiaryHandler.sol";
 import "./stakeable/StakeableVestingLogic.sol";
 import "./stakeable/StakeableVestingState.sol";
 
+/**
+ * @title Manager Contract for stakeable vesting smart contracts
+ * @notice It only creates new stakeable vesting contract which deploys new smart contract for each new stakeable vesting contract.
+ * It can also manage the beneficiary of an existing stakeable vesting contract.
+ */
 contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager {
     uint256 public contractVersion = 1;
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../AccessAutonity.sol";
 
+/** @title Manager of the beneficiary list */
 abstract contract BeneficiaryHandler is AccessAutonity {
 
     /**
