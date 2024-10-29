@@ -39,7 +39,7 @@ func Test_ProfileLimitBreach(t *testing.T) {
 	mockMemUsage := func(stats *runtime.MemStats) {
 		stats.Alloc = cfg.memThreshold + 10
 	}
-	defer os.RemoveAll(cfg.profileDir)
+	//defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
 	ms.getCPUPercent = mockCPUUsage
@@ -75,7 +75,7 @@ func Test_DateChangeResetsProfileCount(t *testing.T) {
 	cfg := DefaultMonitorConfig
 	cfg.monitoringInterval = time.Second * 2
 	cfg.profileDir = os.TempDir() + "/profile_date"
-	defer os.RemoveAll(cfg.profileDir)
+	//defer os.RemoveAll(cfg.profileDir)
 	ms := setupService(&cfg)
 	ms.getCPUPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
@@ -120,7 +120,7 @@ func Test_ErrorHandling(t *testing.T) {
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
 	cfg.profileDir = os.TempDir() + "/profile_error"
-	defer os.RemoveAll(cfg.profileDir)
+	//defer os.RemoveAll(cfg.profileDir)
 	ms := setupService(&cfg)
 	ms.getCPUPercent = mockCPUUsage
 	ms.getMemUsage = mockMemUsage
@@ -154,7 +154,7 @@ func Test_CPUThresholdBreach(t *testing.T) {
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
 	cfg.profileDir = os.TempDir() + "/profile_cpu_resource"
-	defer os.RemoveAll(cfg.profileDir)
+	//defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
 	ms.getCPUPercent = mockCPUUsage
@@ -197,7 +197,7 @@ func Test_MemoryThresholdBreach(t *testing.T) {
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
 	cfg.profileDir = os.TempDir() + "/profile_mem_resource"
-	defer os.RemoveAll(cfg.profileDir)
+	//defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
 	ms.getCPUPercent = mockCPUUsage
@@ -245,7 +245,7 @@ func Test_GoroutineThresholdBreach(t *testing.T) {
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
 	cfg.profileDir = os.TempDir() + "/profile_gr_resource"
-	defer os.RemoveAll(cfg.profileDir)
+	//defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
 	ms.getCPUPercent = mockCPUUsage
