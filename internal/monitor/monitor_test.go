@@ -95,8 +95,8 @@ func Test_DateChangeResetsProfileCount(t *testing.T) {
 	ms.Stop()
 }
 
-// Test case for error handling in CPU and memory fetching
-func Test_StopService_SystemState_NotBeingChecked(t *testing.T) {
+// Test case stop start service handling
+func Test_StopService_SystemState_NotBeingChecked(_ *testing.T) {
 	cfg := DefaultMonitorConfig
 	ms := setupService(&cfg)
 	// Start the monitoring service
@@ -153,7 +153,7 @@ func Test_CPUThresholdBreach(t *testing.T) {
 	cfg.monitoringInterval = time.Second * 2
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
-	cfg.profileDir = os.TempDir() + "/profile_resource"
+	cfg.profileDir = os.TempDir() + "/profile_cpu_resource"
 	defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
@@ -196,7 +196,7 @@ func Test_MemoryThresholdBreach(t *testing.T) {
 	cfg.monitoringInterval = time.Second * 2
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
-	cfg.profileDir = os.TempDir() + "/profile_resource"
+	cfg.profileDir = os.TempDir() + "/profile_mem_resource"
 	defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
@@ -227,7 +227,7 @@ func Test_MemoryThresholdBreach(t *testing.T) {
 	ms.Stop()
 }
 
-// run goroutine threshold breadh
+// run goroutine threshold breach
 func Test_GoroutineThresholdBreach(t *testing.T) {
 	mockCPUUsage := func(_ time.Duration, _ bool) ([]float64, error) {
 		return []float64{79.0}, nil // Simulate CPU usage exceeding threshold
@@ -244,7 +244,7 @@ func Test_GoroutineThresholdBreach(t *testing.T) {
 	cfg.monitoringInterval = time.Second * 2
 	cfg.cpuProfilingDuration = time.Second
 	cfg.traceDuration = time.Second
-	cfg.profileDir = os.TempDir() + "/profile_resource"
+	cfg.profileDir = os.TempDir() + "/profile_gr_resource"
 	defer os.RemoveAll(cfg.profileDir)
 
 	ms := setupService(&cfg)
