@@ -63,7 +63,6 @@
   "0b21fb1d": "setMaxUnbondAppliedGas(uint256)",
   "ee7ff28d": "setMaxUnbondReleasedGas(uint256)",
   "cb696f54": "setMinimumBaseFee(uint256)",
-  "1a0cf2e5": "setNonStakableVestingContract(address)",
   "520fdbbc": "setOperatorAccount(address)",
   "496ccd9b": "setOracleContract(address)",
   "cfd19fb9": "setStabilizationContract(address)",
@@ -138,5 +137,13 @@
   "25ce1bb9": "getNextEpochBlock()",
   "ae1da0b5": "lastFinalizedBlock()",
   "e08b14ed": "setCommittee(address[])",
-  "affb1cf1": "getEpochByHeight(uint256)"
+  "affb1cf1": "getEpochByHeight(uint256)",
+  "9358928b": "circulatingSupply()",
+  "354c40a7": "createSchedule(address,uint256,uint256,uint256)",
+  "fed76a56": "getMaxScheduleDuration()",
+  "7264c4da": "getSchedule(address,uint256)",
+  "088566e9": "getTotalSchedules(address)",
+  "8d347287": "getUnbondingShare(uint256)",
+  "e294df7c": "isUnbondingReleased(uint256)",
+  "8bb2e477": "setMaxScheduleDuration(uint256)"
 }
