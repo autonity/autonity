@@ -125,10 +125,10 @@ func TestScheduleOperation(t *testing.T) {
 
 		epochID, _, err := r.Autonity.EpochID(nil)
 		require.NoError(r.T, err)
-		_, _, currentEpochBlock, nextEpochBlock, _, err := r.Autonity.GetEpochInfo(nil)
+		info, _, err := r.Autonity.GetEpochInfo(nil)
 		require.NoError(r.T, err)
 		// don't go to next epoch, but produce enough blocks that will unlock new tokens if unlocking is not epoch based
-		produceBlocks := new(big.Int).Sub(nextEpochBlock, currentEpochBlock).Int64() - 1
+		produceBlocks := new(big.Int).Sub(info.NextEpochBlock, info.EpochBlock).Int64() - 1
 		r.WaitNBlocks(int(produceBlocks))
 		newEpochID, _, err := r.Autonity.EpochID(nil)
 		require.NoError(r.T, err)

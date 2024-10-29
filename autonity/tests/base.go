@@ -342,12 +342,12 @@ func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	require.NoError(r.T, err)
 	inflationReserve, _, err := r.Autonity.InflationReserve(nil)
 	require.NoError(r.T, err)
-	_, _, currentEpochBlock, nextEpochBlock, _, err := r.Autonity.GetEpochInfo(nil)
+	info, _, err := r.Autonity.GetEpochInfo(nil)
 	require.NoError(r.T, err)
 	// get inflation reward
 	lastEpochTime, _, err := r.Autonity.LastEpochTime(nil)
 	require.NoError(r.T, err)
-	currentEpochTime := new(big.Int).Add(lastEpochTime, new(big.Int).Sub(nextEpochBlock, currentEpochBlock))
+	currentEpochTime := new(big.Int).Add(lastEpochTime, new(big.Int).Sub(info.NextEpochBlock, info.EpochBlock))
 	rewardsToDistribute.RewardNTN, _, err = r.InflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
 	require.NoError(r.T, err)
 	// get atn reward
