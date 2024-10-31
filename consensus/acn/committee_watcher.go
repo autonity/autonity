@@ -36,11 +36,13 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	currentHead := acn.chain.CurrentHeader()
 	currentState, err := acn.chain.StateAt(currentHead.Root)
 	if err != nil {
-		panic(err)
+		acn.log.Error("Could not retrieve state at head block", "err", err)
+		//panic(err)
 	}
 	epoch, err := acn.chain.ProtocolContracts().EpochByHeight(currentHead, currentState, currentHead.Number)
 	if err != nil {
-		panic(err)
+		acn.log.Error("Could not retrieve epoch at head block", "err", err)
+		//panic(err)
 	}
 
 	committee := epoch.Committee

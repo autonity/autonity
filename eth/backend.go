@@ -20,12 +20,13 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
@@ -621,11 +622,11 @@ func (s *Ethereum) validatorController() {
 	currentHead := s.blockchain.CurrentHeader()
 	currentState, err := s.blockchain.StateAt(currentHead.Root)
 	if err != nil {
-		panic(err)
+		s.log.Error("Could not retrieve state at head block", "err", err)
 	}
 	epoch, err := s.blockchain.ProtocolContracts().EpochByHeight(currentHead, currentState, currentHead.Number)
 	if err != nil {
-		panic(err)
+		s.log.Error("Could not retrieve epoch at head block", "err", err)
 	}
 	committee := epoch.Committee
 	if committee.MemberByAddress(s.address) != nil {
