@@ -37,8 +37,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 public constant WITHHOLDING_THRESHOLD_PRECISION = 10_000;
 
 
+    // any change in Validator struct must be synced with offset constants in core/vm/contracts.go
     struct Validator {
-        // any change in Validator struct must be synced with offset constants in core/vm/contracts.go
         address payable treasury;
         address nodeAddress;
         address oracleAddress;
@@ -61,9 +61,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         ValidatorState state;
     }
 
+    /* Any change in CommitteeMember struct must be synced with:
+     * 1. CommitteeSelector code to write committee in DB (see `CommitteeSelector.updateCommittee` function in core/vm/contracts.go)
+     * 2. AbsenteeComputer code to read the committee from the DB (see `readCommittee` function in core/vm/contracts.go)
+     */
     struct CommitteeMember {
-        // any change in Validator struct must be synced with CommitteeSelector code to write committee in DB
-        // see CommitteeSelector.updateCommittee function in core/vm/contracts.go
         address addr;
         uint256 votingPower;
         bytes consensusKey;
@@ -173,7 +175,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     mapping(uint256=>EpochInfo) internal epochInfos;
 
     CommitteeMember[] internal committee;
-    uint256 public atnTotalRedistributed;
     uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
@@ -1284,7 +1285,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
 
         // Redistribute fees through the Liquid Newton contract
-        atnTotalRedistributed += _atn;
         uint256 atnTotalWithheld = 0;
         uint256 ntnTotalWithheld = 0;
         for (uint256 i = 0; i < committee.length; i++) {
@@ -1330,7 +1330,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
                     // and let the treasury know that call failed
                     if (_sent == false) {
                         emit CallFailed(_val.treasury, "", _returnData);
-                        atnTotalRedistributed -= _atnSelfReward;
                     }
                 }
                 uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
@@ -1357,7 +1356,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             if (_sent == false) {
                 emit CallFailed(config.policy.withheldRewardsPool, "", _returnData);
             }
-            atnTotalRedistributed -= atnTotalWithheld;
         }
         if(ntnTotalWithheld > 0){
             _transfer(address(this),config.policy.withheldRewardsPool,ntnTotalWithheld);

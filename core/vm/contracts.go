@@ -1374,6 +1374,7 @@ func readCommittee(db StateDB, caller common.Address, committeeSlot common.Hash)
 		committeeOffset = common.BytesToHash(new(big.Int).Add(committeeOffset.Big(), common.Big1).Bytes())
 		votingPower := db.GetState(caller, committeeOffset).Big()
 		committeeOffset = common.BytesToHash(new(big.Int).Add(committeeOffset.Big(), common.Big1).Bytes())
+		// the reading of the consensus key assumes that the key is 48 bytes long. This will break if the consensus key changes length.
 		consensusKeySlot := crypto.Keccak256Hash(committeeOffset.Bytes())
 		consensusKeyBytes1 := db.GetState(caller, consensusKeySlot).Bytes()
 		consensusKeySlot = common.BytesToHash(new(big.Int).Add(consensusKeySlot.Big(), common.Big1).Bytes())
@@ -1424,7 +1425,6 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	delta := new(big.Int).SetBytes(input[1:33])
 	committeeSlot := common.BytesToHash(input[33:])
 
-	committee := readCommittee(evm.StateDB, caller, committeeSlot)
 	proof := evm.Context.ActivityProof
 	targetRound := evm.Context.ActivityProofRound
 
@@ -1443,8 +1443,9 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 
 	targetHeight := blockNumber - delta.Uint64()
 	targetHash := evm.Context.GetHash(targetHeight)
-
 	headerSeal := message.PrepareCommittedSeal(targetHash, int64(targetRound), new(big.Int).SetUint64(targetHeight))
+
+	committee := readCommittee(evm.StateDB, caller, committeeSlot)
 	signers, power, err := proof.Validate(headerSeal, committee, true)
 	if err != nil {
 		// it should never happen that we cannot aggregate public keys fetched from state
