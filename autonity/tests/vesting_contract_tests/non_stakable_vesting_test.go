@@ -11,8 +11,6 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
-var operator = tests.Operator
-
 func TestReleaseFromNonStakeableContract(t *testing.T) {
 	var amount int64 = 100
 	start := time.Now().Unix() + 10
@@ -251,7 +249,7 @@ func TestNonStakeableAccessRestriction(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		r.NoError(
-			r.Autonity.CreateSchedule(operator, r.NonStakeableVesting.Address(), common.Big1, r.Evm.Context.Time, common.Big1),
+			r.Autonity.CreateSchedule(r.Operator, r.NonStakeableVesting.Address(), common.Big1, r.Evm.Context.Time, common.Big1),
 		)
 		return r
 	}
@@ -301,7 +299,7 @@ func TestContractCreation(t *testing.T) {
 	}
 
 	tests.RunWithSetup("contract needs to subsribe to schedule", setup, func(r *tests.Runner) {
-		_, err := r.NonStakeableVesting.NewContract(operator, user, common.Big1, common.Big0, common.Big0)
+		_, err := r.NonStakeableVesting.NewContract(r.Operator, user, common.Big1, common.Big0, common.Big0)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: schedule does not exist", err.Error())
 	})
@@ -318,18 +316,18 @@ func TestContractCreation(t *testing.T) {
 	}
 
 	tests.RunWithSetup("contract nominal amount cannot exceed schedule nominal amount", newSetup, func(r *tests.Runner) {
-		_, err := r.NonStakeableVesting.NewContract(operator, user, big.NewInt(amount+1), common.Big0, cliffDuration)
+		_, err := r.NonStakeableVesting.NewContract(r.Operator, user, big.NewInt(amount+1), common.Big0, cliffDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
 		subscribeToSchedule(r, user, common.Big1, common.Big0, cliffDuration)
 
-		_, err = r.NonStakeableVesting.NewContract(operator, user, big.NewInt(amount), common.Big0, cliffDuration)
+		_, err = r.NonStakeableVesting.NewContract(r.Operator, user, big.NewInt(amount), common.Big0, cliffDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
 
 		newUser := common.HexToAddress("0x88")
 		require.NotEqual(r.T, newUser, user)
-		_, err = r.NonStakeableVesting.NewContract(operator, newUser, big.NewInt(amount), common.Big0, cliffDuration)
+		_, err = r.NonStakeableVesting.NewContract(r.Operator, newUser, big.NewInt(amount), common.Big0, cliffDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: not enough funds to create a new contract under schedule", err.Error())
 	})
@@ -389,7 +387,7 @@ func TestContractCreation(t *testing.T) {
 func subscribeToSchedule(r *tests.Runner, beneficiary common.Address, amount, scheduleID, cliffDuration *big.Int) {
 	r.NoError(
 		r.NonStakeableVesting.NewContract(
-			operator, beneficiary, amount, scheduleID, cliffDuration,
+			r.Operator, beneficiary, amount, scheduleID, cliffDuration,
 		),
 	)
 }
@@ -399,7 +397,7 @@ func createSchedule(r *tests.Runner, amount, startTime, endTime int64) {
 	endBig := big.NewInt(endTime)
 	r.NoError(
 		r.Autonity.CreateSchedule(
-			operator, r.NonStakeableVesting.Address(), big.NewInt(amount),
+			r.Operator, r.NonStakeableVesting.Address(), big.NewInt(amount),
 			big.NewInt(startTime), new(big.Int).Sub(endBig, startBig),
 		),
 	)

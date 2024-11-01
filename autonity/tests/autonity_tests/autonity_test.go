@@ -29,7 +29,7 @@ func TestCirculatingSupply(t *testing.T) {
 
 		amount := big.NewInt(100)
 		r.NoError(
-			r.Autonity.Mint(operator, tests.User, amount),
+			r.Autonity.Mint(r.Operator, tests.User, amount),
 		)
 		newTotalSupply, _, err := r.Autonity.TotalSupply(nil)
 		require.NoError(r.T, err)
@@ -42,7 +42,7 @@ func TestCirculatingSupply(t *testing.T) {
 	tests.RunWithSetup("burning decreases both circulating and total supply", setup, func(r *tests.Runner) {
 		mintAmount := big.NewInt(100)
 		r.NoError(
-			r.Autonity.Mint(operator, tests.User, mintAmount),
+			r.Autonity.Mint(r.Operator, tests.User, mintAmount),
 		)
 		totalSupply, _, err := r.Autonity.TotalSupply(nil)
 		require.NoError(r.T, err)
@@ -50,7 +50,7 @@ func TestCirculatingSupply(t *testing.T) {
 		require.NoError(r.T, err)
 		burnAmount := big.NewInt(60)
 		r.NoError(
-			r.Autonity.Burn(operator, tests.User, burnAmount),
+			r.Autonity.Burn(r.Operator, tests.User, burnAmount),
 		)
 		newTotalSupply, _, err := r.Autonity.TotalSupply(nil)
 		require.NoError(r.T, err)

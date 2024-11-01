@@ -708,7 +708,7 @@ func TestRewardTracking(t *testing.T) {
 		users, validators, liquidStateContracts = initiate(r)
 		// set commission rate = 0, so all rewards go to delegation
 		r.NoError(
-			r.Autonity.SetTreasuryFee(operator, common.Big0),
+			r.Autonity.SetTreasuryFee(r.Operator, common.Big0),
 		)
 		for _, validator := range r.Committee.Validators {
 			r.NoError(
@@ -1081,7 +1081,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid contract id", err.Error())
 		r.NoError(
-			r.StakeableVestingManager.ChangeContractBeneficiary(operator, user, contractID, newUser),
+			r.StakeableVestingManager.ChangeContractBeneficiary(r.Operator, user, contractID, newUser),
 		)
 		beneficiary, _, err = stakeableContract.GetBeneficiary(nil)
 		require.NoError(r.T, err)
@@ -1112,7 +1112,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 
 		// change beneficiary
 		r.NoError(
-			r.StakeableVestingManager.ChangeContractBeneficiary(operator, user, contractID, newUser),
+			r.StakeableVestingManager.ChangeContractBeneficiary(r.Operator, user, contractID, newUser),
 		)
 		newAtnBalance := r.GetBalanceOf(user)
 		require.Equal(r.T, new(big.Int).Add(rewards.AtnRewards, atnBalance), newAtnBalance)
@@ -1150,7 +1150,7 @@ func TestSlashingAffect(t *testing.T) {
 		_, _, accountabilityContract, err = r.DeployAccountabilityTest(nil, r.Autonity.Address(), config)
 		require.NoError(r.T, err)
 		r.NoError(
-			r.Autonity.SetAccountabilityContract(operator, accountabilityContract.Address()),
+			r.Autonity.SetAccountabilityContract(r.Operator, accountabilityContract.Address()),
 		)
 
 		offender = r.Committee.Validators[0].NodeAddress
@@ -1486,7 +1486,7 @@ func TestFunctions(t *testing.T) {
 		require.NoError(r.T, err)
 		r.NoError(
 			r.Autonity.Mint(
-				operator,
+				r.Operator,
 				contract.Address(),
 				big.NewInt(contractTotalAmount),
 			),
@@ -1907,7 +1907,7 @@ func createContract(r *tests.Runner, beneficiary common.Address, amount, startTi
 	endBig := big.NewInt(endTime)
 	r.NoError(
 		r.StakeableVestingManager.NewContract(
-			operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
+			r.Operator, beneficiary, big.NewInt(amount), big.NewInt(startTime),
 			new(big.Int).Sub(cliffBig, startBig), new(big.Int).Sub(endBig, startBig),
 		),
 	)

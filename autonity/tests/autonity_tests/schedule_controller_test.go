@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var operator = tests.Operator
-
 func TestScheduleAccessRestriction(t *testing.T) {
 	user := tests.User
 	setup := func() *tests.Runner {
@@ -74,7 +72,7 @@ func TestScheduleOperation(t *testing.T) {
 		maxAllowedDuration, _, err := r.Autonity.GetMaxScheduleDuration(nil)
 		require.NoError(r.T, err)
 		totalDuration := new(big.Int).Add(maxAllowedDuration, common.Big1)
-		_, err = r.Autonity.CreateSchedule(operator, vaultAddress, big.NewInt(amount), common.Big0, totalDuration)
+		_, err = r.Autonity.CreateSchedule(r.Operator, vaultAddress, big.NewInt(amount), common.Big0, totalDuration)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: schedule total duration exceeds max allowed duration", err.Error())
 	})
@@ -149,7 +147,7 @@ func createSchedule(r *tests.Runner, vaultAddress common.Address, amount, startT
 	}
 	r.NoError(
 		r.Autonity.CreateSchedule(
-			operator, vaultAddress, big.NewInt(amount),
+			r.Operator, vaultAddress, big.NewInt(amount),
 			big.NewInt(startTime), big.NewInt(totalDuration),
 		),
 	)
