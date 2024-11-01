@@ -67,6 +67,11 @@ contract OmissionAccountability is IOmissionAccountability {
         address[] memory _treasuries,
         Config memory _config
     ) {
+        // config sanity checks
+        require(_config.inactivityThreshold <= SCALE_FACTOR, "inactivity threshold cannot exceed scale factor");
+        require(_config.pastPerformanceWeight <= SCALE_FACTOR, "past performance weight cannot exceed scale factor");
+        require(_config.initialSlashingRate <= SCALE_FACTOR, "initial slashing rate cannot exceed scale factor");
+
         autonity = Autonity(_autonity);
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
