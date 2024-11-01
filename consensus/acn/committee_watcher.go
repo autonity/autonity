@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 )
 
@@ -32,17 +33,27 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 
 	wasValidating := false
 
+	var (
+		currentHead  *types.Header
+		currentState *state.StateDB
+		err          error
+	)
 	// read the committee base on latest state.
-	currentHead := acn.chain.CurrentHeader()
-	currentState, err := acn.chain.StateAt(currentHead.Root)
-	if err != nil {
-		acn.log.Error("Could not retrieve state at head block", "err", err)
-		//panic(err)
+	currentHead = acn.chain.CurrentHeader()
+	for {
+		currentState, err = acn.chain.StateAt(currentHead.Root)
+		if err != nil {
+			acn.log.Debug("Could not retrieve state at head block", "err", err)
+			// try parent
+			currentHead = acn.chain.GetHeader(currentHead.ParentHash, currentHead.Number.Uint64()-1)
+			continue
+		}
+		break
 	}
 	epoch, err := acn.chain.ProtocolContracts().EpochByHeight(currentHead, currentState, currentHead.Number)
 	if err != nil {
 		acn.log.Error("Could not retrieve epoch at head block", "err", err)
-		//panic(err)
+		panic(err)
 	}
 
 	committee := epoch.Committee

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/core/state"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
@@ -619,14 +620,26 @@ func (s *Ethereum) validatorController() {
 	wasValidating := false
 
 	// read the committee base on latest state.
-	currentHead := s.blockchain.CurrentHeader()
-	currentState, err := s.blockchain.StateAt(currentHead.Root)
-	if err != nil {
-		s.log.Error("Could not retrieve state at head block", "err", err)
+	var (
+		currentHead  *types.Header
+		currentState *state.StateDB
+		err          error
+	)
+	currentHead = s.blockchain.CurrentHeader()
+	for {
+		currentState, err = s.blockchain.StateAt(currentHead.Root)
+		if err != nil {
+			s.log.Debug("Could not retrieve state at head block", "err", err)
+			currentHead = s.blockchain.GetHeader(currentHead.ParentHash, currentHead.Number.Uint64()-1)
+			continue
+		}
+		break
 	}
+
 	epoch, err := s.blockchain.ProtocolContracts().EpochByHeight(currentHead, currentState, currentHead.Number)
 	if err != nil {
 		s.log.Error("Could not retrieve epoch at head block", "err", err)
+		panic(err)
 	}
 	committee := epoch.Committee
 	if committee.MemberByAddress(s.address) != nil {
@@ -635,7 +648,6 @@ func (s *Ethereum) validatorController() {
 		s.log.Info("Starting node as validator")
 		wasValidating = true
 	}
-
 	for {
 		select {
 		case ev := <-chainHeadCh:
