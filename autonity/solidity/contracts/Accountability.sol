@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import "./interfaces/IAccountability.sol";
 import "./Autonity.sol";
-import {Slasher} from "./Slasher.sol";
 
 contract Accountability is IAccountability {
 
