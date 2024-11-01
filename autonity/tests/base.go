@@ -282,6 +282,10 @@ func activityProof(committee []AutonityValidator, headerSeal common.Hash, absent
 
 // sets up an activity proof, `absentees` are excluded from it
 func (r *Runner) setupActivityProofAndCoinbase(proposer common.Address, absentees map[common.Address]struct{}) {
+	// if we are in TestMode, no need to set the activity proof, it will not be verified anyway
+	if r.Evm.ChainConfig().TestMode {
+		return
+	}
 	// initialize empty map if absentees was left nil
 	if absentees == nil {
 		absentees = make(map[common.Address]struct{})

@@ -102,7 +102,10 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 	end := contractTotalAmount + start
 	user := tests.User
 	setup := func() *tests.Runner {
-		return tests.Setup(t, nil)
+		r := tests.Setup(t, nil)
+		// setting test mode to speed up, we don't care about activity proofs nor AC permissioning here
+		r.Evm.ChainConfig().TestMode = true
+		return r
 	}
 	initiate := func(r *tests.Runner) (
 		userBalance *big.Int,
@@ -256,6 +259,8 @@ func TestBonding(t *testing.T) {
 	end := contractTotalAmount + start
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		// setting test mode to speed up, we don't care about activity proofs nor AC permissioning here
+		r.Evm.ChainConfig().TestMode = true
 		return r
 	}
 	initiate := func(r *tests.Runner) (
@@ -477,7 +482,10 @@ func TestUnbonding(t *testing.T) {
 	bondingAmount := big.NewInt(contractTotalAmount / int64(validatorCount))
 
 	setup := func() *tests.Runner {
-		return tests.Setup(t, nil)
+		r := tests.Setup(t, nil)
+		// setting test mode to speed up, we don't care about activity proofs nor AC permissioning here
+		r.Evm.ChainConfig().TestMode = true
+		return r
 	}
 
 	initiate := func(r *tests.Runner) (
@@ -631,7 +639,10 @@ func TestRewardTracking(t *testing.T) {
 	contractCount := 2
 
 	setup := func() *tests.Runner {
-		return tests.Setup(t, nil)
+		r := tests.Setup(t, nil)
+		// setting test mode to speed up, we don't care about activity proofs nor AC permissioning here
+		r.Evm.ChainConfig().TestMode = true
+		return r
 	}
 
 	initiate := func(r *tests.Runner) (
@@ -1134,7 +1145,6 @@ func TestSlashingAffect(t *testing.T) {
 	setup := func() *tests.Runner {
 		accountability.LoadPrecompiles()
 		r := tests.Setup(t, nil)
-		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 		createContract(r, user, contractTotalAmount, start, cliff, end)
 		return r
 	}
