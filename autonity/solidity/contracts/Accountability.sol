@@ -337,33 +337,33 @@ contract Accountability is IAccountability {
     * @dev Emit a {SlashingEvent} event for the fined account
     */
     function _slash(Event memory _event, uint256 _epochOffencesCount) internal {
-        address offender = _event.offender;
+        address _offender = _event.offender;
 
         // last reporter is the beneficiary
-        beneficiaries[offender] = _event.reporter;
+        beneficiaries[_offender] = _event.reporter;
 
         // if already jailbound, validator has 0 stake
-        if (autonity.getValidatorState(offender) == ValidatorState.jailbound) {
+        if (autonity.getValidatorState(_offender) == ValidatorState.jailbound) {
             return;
         }
 
-        uint256 baseRate = _baseSlashingRate(_ruleSeverity(_event.rule));
+        uint256 _baseRate = _baseSlashingRate(_ruleSeverity(_event.rule));
 
-        uint256 slashingRate = baseRate +
+        uint256 _slashingRate = _baseRate +
             (_epochOffencesCount * config.collusionFactor) +
-            (history[offender] * config.historyFactor);
+            (history[_offender] * config.historyFactor);
 
-        history[offender] += 1;
-        uint256 jailtime = config.jailFactor * history[offender] * epochPeriod;
+        history[_offender] += 1;
+        uint256 _jailtime = config.jailFactor * history[_offender] * epochPeriod;
 
-        (uint256 slashingAmount, uint256 jailReleaseBlock, bool isJailbound) = autonity.slashAndJail(
-            offender,
-            slashingRate,
-            jailtime,
+        (uint256 _slashingAmount, uint256 _jailReleaseBlock, bool _isJailbound) = autonity.slashAndJail(
+            _offender,
+            _slashingRate,
+            _jailtime,
             ValidatorState.jailed,
             ValidatorState.jailbound
         );
-        emit SlashingEvent(offender, slashingAmount, jailReleaseBlock, isJailbound, _event.id);
+        emit SlashingEvent(_offender, _slashingAmount, _jailReleaseBlock, _isJailbound, _event.id);
     }
 
     /**
