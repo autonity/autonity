@@ -303,6 +303,26 @@ func (r *Runner) setupActivityProofAndCoinbase(proposer common.Address, absentee
 	}
 }
 
+func (r *Runner) lastMinedHeight() uint64 {
+	return r.Evm.Context.BlockNumber.Uint64() - 1
+}
+
+// for omission
+func (r *Runner) lastTargetHeight() uint64 {
+	config, _, err := r.OmissionAccountability.Config(nil)
+	require.NoError(r.T, err)
+	delta := config.Delta.Uint64()
+
+	epochBlockBig, _, err := r.Autonity.GetLastEpochBlock(nil)
+	require.NoError(r.T, err)
+	epochBlock := epochBlockBig.Uint64()
+
+	lastHeight := r.lastMinedHeight()
+
+	require.Greater(r.T, lastHeight, epochBlock+delta)
+	return lastHeight - delta
+}
+
 func (r *Runner) WaitNBlocks(n int) {
 	start := r.Evm.Context.BlockNumber
 	epochID, _, err := r.Autonity.EpochID(nil)

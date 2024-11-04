@@ -74,6 +74,12 @@ func setupProofAndAutonityFinalize(r *Runner, proposer common.Address, absentees
 	autonityFinalize(r)
 }
 
+func faultyProposers(r *Runner) uint64 {
+	n, _, err := r.OmissionAccountability.FaultyProposersInWindow(nil)
+	require.NoError(r.T, err)
+	return n.Uint64()
+}
+
 func inactivityCounter(r *Runner, validator common.Address) int {
 	counter, _, err := r.OmissionAccountability.InactivityCounter(nil, validator)
 	require.NoError(r.T, err)
@@ -1199,5 +1205,105 @@ func TestProtocolParameterChange(t *testing.T) {
 	require.Error(t, err)
 	_, err = r.OmissionAccountability.SetLookbackWindow(r.Operator, new(big.Int).SetUint64(1))
 	require.NoError(t, err)
+
+}
+
+func TestFaultyProposerCount(t *testing.T) {
+	t.Run("standard scenario", func(t *testing.T) {
+		r := Setup(t, configOverride)
+
+		customDelta := uint64(5)
+		customLookback := uint64(5)
+		_, err := r.OmissionAccountability.SetDelta(r.Operator, new(big.Int).SetUint64(customDelta))
+		require.NoError(t, err)
+		_, err = r.OmissionAccountability.SetLookbackWindow(r.Operator, new(big.Int).SetUint64(customLookback))
+		require.NoError(t, err)
+
+		// close the epoch to apply new omission params
+		r.WaitNextEpoch()
+		t.Logf("Starting new epoch at block: %d", r.Evm.Context.BlockNumber.Int64())
+
+		r.WaitNBlocks(int(customDelta) * 2)
+
+		// NOTE: blocks numbers mentioned below are relative to the epoch block of the past epoch
+		// leave activity proof empty at block 11, proposer is faulty
+		autonityFinalize(r)
+		require.Equal(t, uint64(1), faultyProposers(r))
+		require.True(t, faultyProposer(r, int64(r.lastTargetHeight())))
+		t.Logf("proposer faulty for height: %d, target height: %d", r.lastMinedHeight(), r.lastTargetHeight())
+
+		// mine three blocks with non-empty activity proof
+		r.WaitNBlocks(3)
+
+		// another empty proof
+		autonityFinalize(r)
+		require.Equal(t, uint64(2), faultyProposers(r))
+		require.True(t, faultyProposer(r, int64(r.lastTargetHeight())))
+		t.Logf("proposer faulty for height: %d, target height: %d", r.lastMinedHeight(), r.lastTargetHeight())
+
+		// one more non-empty proof
+		r.WaitNBlocks(1)
+
+		/* so in terms of targetHeight, we are now in this situation:
+		*  block 1-5: ok
+		*  block 6: faulty
+		*  block 7: ok
+		*  block 8: ok
+		*  block 9: ok
+		*  block 10: faulty
+		*  block 11: ok
+		*
+		* For block 11, if we don't count the faulty proposer extension, the lookback window should be (6,11]
+		* However since block 10 is faulty, it will get extended to (5,11]. However also block 6 is faulty,
+		* So it should get further extended to (4,11]. Therefore the number of faulty proposers should still be 2
+		 */
+
+		require.Equal(t, uint64(2), faultyProposers(r))
+
+		// now it should decrease to 1, as the window will be (7,12]. Then gets extended to (6,12] due to block 10
+		r.WaitNBlocks(1)
+		require.Equal(t, uint64(1), faultyProposers(r))
+
+	})
+	t.Run("multiple faulty proposer at the tail of the window", func(t *testing.T) {
+		r := Setup(t, configOverride)
+
+		customDelta := uint64(5)
+		customLookback := uint64(5)
+		_, err := r.OmissionAccountability.SetDelta(r.Operator, new(big.Int).SetUint64(customDelta))
+		require.NoError(t, err)
+		_, err = r.OmissionAccountability.SetLookbackWindow(r.Operator, new(big.Int).SetUint64(customLookback))
+		require.NoError(t, err)
+
+		// close the epoch to apply new omission params
+		r.WaitNextEpoch()
+		t.Logf("Starting new epoch at block: %d", r.Evm.Context.BlockNumber.Int64())
+
+		r.WaitNBlocks(int(customDelta) * 2)
+
+		// NOTE: blocks numbers mentioned below are relative to the epoch block of the past epoch
+		// leave activity proof empty at block 11, proposer is faulty
+		autonityFinalize(r)
+		require.Equal(t, uint64(1), faultyProposers(r))
+		require.True(t, faultyProposer(r, int64(r.lastTargetHeight())))
+		t.Logf("proposer faulty for height: %d, target height: %d", r.lastMinedHeight(), r.lastTargetHeight())
+
+		// leave activity proof empty at block 12, proposer is faulty
+		autonityFinalize(r)
+		require.Equal(t, uint64(2), faultyProposers(r))
+		require.True(t, faultyProposer(r, int64(r.lastTargetHeight())))
+		t.Logf("proposer faulty for height: %d, target height: %d", r.lastMinedHeight(), r.lastTargetHeight())
+
+		// mine four blocks with non-empty activity proof
+		r.WaitNBlocks(4)
+
+		// faulty proposers should still be two
+		require.Equal(t, uint64(2), faultyProposers(r))
+
+		// one more block with non-empty activity proof, now faulty proposer should go directly to 0
+		r.WaitNBlocks(1)
+		require.Equal(t, uint64(0), faultyProposers(r))
+
+	})
 
 }

@@ -113,13 +113,13 @@ contract OmissionAccountability is IOmissionAccountability {
 
         uint256 _targetHeight = block.number - config.delta;
 
-        // decrease the faulty proposer count if the one dropping out of the window is faulty
+        // if we have already processed a full lookback window,
+        // decrease the faulty proposer count for each faulty proposer at the tail of the window
         // window: (h - delta - lookback - faultyProposers, h - delta]
-        if (
-            (_targetHeight > epochBlock + config.lookbackWindow + faultyProposersInWindow) &&
-            (faultyProposers[_targetHeight - config.lookbackWindow - faultyProposersInWindow])
-        ) {
-            faultyProposersInWindow--;
+        if (_targetHeight >= epochBlock + config.lookbackWindow + faultyProposersInWindow) {
+            while(faultyProposersInWindow > 0 && faultyProposers[_targetHeight - config.lookbackWindow - faultyProposersInWindow + 1]) {
+                faultyProposersInWindow--;
+            }
         }
 
         if (_isProposerOmissionFaulty) {
