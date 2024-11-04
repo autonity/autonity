@@ -2,11 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {Autonity, ValidatorState} from "./Autonity.sol";
+import {SLASHING_RATE_PRECISION} from "./ProtocolConstants.sol";
 
 contract Slasher {
     address private autonity;
-
-    uint256 public constant SLASHING_RATE_PRECISION = 10_000;
 
     constructor(address _autonity){
         autonity = _autonity; // we could use msg.sender but it would make deploying a new upgraded slasher contract harder
@@ -62,7 +61,6 @@ contract Slasher {
         _val.jailReleaseBlock = 0;
         _val.state = _newJailboundState;
     }
-
 
     /**
     * @dev applies slashing to the passed validator struct

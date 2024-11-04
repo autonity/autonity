@@ -71,11 +71,13 @@ var (
 	}
 
 	/*
-	* 1. percentage values assume 10_000 as scaling factor
-	* 2. the following equation needs to be respected: pastPerformanceWeight <= InactivityThreshold
+	* 1. InactivityThreshold and PastPerformanceWeight need to be scaled based on the OmissionAccountability.sol SCALE_FACTOR
+	* 2. InitialSlashingRate needs to be scaled based on the Slasher.sol SLASHING_RATE_PRECISION
+	* 3. the following equation needs to be respected: pastPerformanceWeight <= InactivityThreshold
 	*    this ensures that a validator with 100% inactivity in epoch x and 0% inactivity in epoch x+n,
 	*    will not be considered inactive again at epoch x+n
-	* 3. lookbackWindow and delta needs to be >= 1
+	* 4. lookbackWindow needs to be >= 1
+	* 5. delta needs to be >= 2
 	 */
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
 		InactivityThreshold:    1000,   // 10%
