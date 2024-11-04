@@ -184,6 +184,14 @@ contract Slasher {
         return (_val, _slashingAmount, false);
     }
 
+    /**
+      * @notice returns the precision used for slashing
+      * @return slashing precision
+      */
+    function getSlashingPrecision() external view returns (uint256) {
+        return SLASHING_RATE_PRECISION;
+    }
+
     modifier onlyAutonity {
         require(
             msg.sender == autonity,

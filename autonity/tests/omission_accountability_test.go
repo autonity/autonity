@@ -104,10 +104,10 @@ func omissionScaleFactor(r *Runner) *big.Int {
 	return factor
 }
 
-func slashingRatePrecision(_ *Runner) *big.Int {
-	// TODO: find a way to fetch this dynamically. Right now the Slashing Rate precision is a file-level constant in ProtocolConstants.sol
-	// which means that it gets hardcoded directly into the bytecode. It doesn't make it to the ABI, and therefore there is no binding for it
-	return new(big.Int).SetUint64(10_000)
+func slashingRatePrecision(r *Runner) *big.Int {
+	precision, _, err := r.slasherContract().GetSlashingPrecision(nil)
+	require.NoError(r.T, err)
+	return precision
 }
 
 func proposerEffort(r *Runner, validator common.Address) *big.Int {
