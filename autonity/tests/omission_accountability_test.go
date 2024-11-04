@@ -509,6 +509,20 @@ func TestOmissionPunishments(t *testing.T) {
 		return config
 	})
 
+	// deploy and set the AccountabilityTest contract. We will need write access to the beneficiaries map later
+	_, _, accountabilityTest, err := r.DeployAccountabilityTest(nil, r.Autonity.address, AccountabilityConfig{
+		InnocenceProofSubmissionWindow: big.NewInt(int64(params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow)),
+		BaseSlashingRateLow:            big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
+		BaseSlashingRateMid:            big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
+		CollusionFactor:                big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
+		HistoryFactor:                  big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
+		JailFactor:                     big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),
+	})
+	require.NoError(t, err)
+	r.NoError(
+		r.Autonity.SetAccountabilityContract(r.Operator, accountabilityTest.address),
+	)
+
 	delta, _, err := r.OmissionAccountability.GetDelta(nil)
 	require.NoError(t, err)
 
@@ -587,7 +601,9 @@ func TestOmissionPunishments(t *testing.T) {
 	}
 	val1 := validator(r, val1Address)
 	totalSlashedVal1 := val1.TotalSlashed
-	_, err = r.Autonity.Jail(&runOptions{origin: r.Accountability.address}, val1Address, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
+	_, err = r.Autonity.Jail(&runOptions{origin: accountabilityTest.address}, val1Address, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
+	require.NoError(t, err)
+	_, err = accountabilityTest.AddBeneficiary(nil, val1Address, proposer)
 	require.NoError(t, err)
 
 	val2BeforeSlash := validator(r, val2Address)
@@ -625,6 +641,20 @@ func TestProposerRewardDistribution(t *testing.T) {
 			return config
 		})
 
+		// deploy and set the AccountabilityTest contract. We will need write access to the beneficiaries map later
+		_, _, accountabilityTest, err := r.DeployAccountabilityTest(nil, r.Autonity.address, AccountabilityConfig{
+			InnocenceProofSubmissionWindow: big.NewInt(int64(params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow)),
+			BaseSlashingRateLow:            big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
+			BaseSlashingRateMid:            big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
+			CollusionFactor:                big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
+			HistoryFactor:                  big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
+			JailFactor:                     big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),
+		})
+		require.NoError(t, err)
+		r.NoError(
+			r.Autonity.SetAccountabilityContract(r.Operator, accountabilityTest.address),
+		)
+
 		maxCommitteeSizeBig, _, err := r.Autonity.GetMaxCommitteeSize(nil)
 		require.NoError(r.T, err)
 		maxCommitteeSize := newFloat(maxCommitteeSizeBig)
@@ -658,7 +688,9 @@ func TestProposerRewardDistribution(t *testing.T) {
 		t.Logf("atn balance before: %s, ntn balance before %s", toString(atnBalanceBefore), toString(ntnBalanceBefore))
 
 		// set validator state to jailed so that he will not receive any reward other the proposer one
-		_, err = r.Autonity.Jail(&runOptions{origin: r.Accountability.address}, proposer, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
+		_, err = r.Autonity.Jail(&runOptions{origin: accountabilityTest.address}, proposer, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
+		require.NoError(t, err)
+		_, err = accountabilityTest.AddBeneficiary(nil, proposer, r.Committee.Validators[1].NodeAddress)
 		require.NoError(t, err)
 
 		r.Evm.Context.BlockNumber = new(big.Int).SetInt64(int64(omissionEpochPeriod))

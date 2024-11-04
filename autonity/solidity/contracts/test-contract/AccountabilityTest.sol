@@ -29,4 +29,8 @@ contract AccountabilityTest is Accountability {
       Accountability._promoteGuiltyAccusations();
    }
 
+   function addBeneficiary(address _offender, address _reporter) public {
+      beneficiaries[_offender] = _reporter;
+   }
+
 }

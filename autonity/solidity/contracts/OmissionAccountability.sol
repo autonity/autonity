@@ -416,6 +416,7 @@ contract OmissionAccountability is IOmissionAccountability {
     */
     function setInactivityThreshold(uint256 _inactivityThreshold) external virtual onlyOperator {
         require(_inactivityThreshold <= SCALE_FACTOR, "cannot exceed scale factor");
+        require(_inactivityThreshold >= config.pastPerformanceWeight, "inactivityThreshold needs to be greater or equal to pastPerformanceWeight");
         config.inactivityThreshold = _inactivityThreshold;
     }
 
