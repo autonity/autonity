@@ -1240,6 +1240,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
 
     function _getValidator(address _addr) internal virtual view returns (Validator memory){
+        require(_addr != address(0), "cannot request empty validator");
         require(validators[_addr].nodeAddress == _addr, "validator not registered");
         return validators[_addr];
     }
