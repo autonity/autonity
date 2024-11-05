@@ -59,23 +59,20 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * Update lastUnrealisedFeeFactor and transfer treasury fees.
      * @custom:restricted-to the autonity contract
      */
-    function redistribute(uint256 _ntnReward) external virtual payable onlyAutonity returns (uint256, uint256) {
+    function redistribute(uint256 _ntnReward) external virtual payable onlyAutonity returns (uint256) {
         uint256 _atnReward = msg.value;
         // Step 1 : transfer entitled amount of fees to validator's
         // treasury account.
-        uint256 _atnValidatorReward = (_atnReward * commissionRate) / COMMISSION_RATE_PRECISION;
-        require(_atnValidatorReward <= _atnReward, "invalid atn validator reward");
+        uint256 _atnValidatorReward = _calculateValidatorCommission(_atnReward);
         _atnReward -= _atnValidatorReward;
         (bool _sent, ) = treasury.call{value: _atnValidatorReward, gas:2300}("");
         if (_sent == false) {
             treasuryUnclaimedATN += _atnValidatorReward;
         }
 
-        uint256 _ntnValidatorReward = (_ntnReward * commissionRate) / COMMISSION_RATE_PRECISION;
-        require(_ntnValidatorReward <= _ntnReward, "invalid ntn validator reward");
-        _ntnReward -= _ntnValidatorReward;
-        if (_ntnValidatorReward > 0) {
-            autonityContract.transfer(treasury, _ntnValidatorReward);
+        uint256 _ntnValidatorReward = _calculateValidatorCommission(_ntnReward);
+        if (_ntnReward > 0) {
+            autonityContract.autobond(validator, _ntnValidatorReward, _ntnReward - _ntnValidatorReward);
         }
 
         // Step 2 : perform redistribution amongst liquid stake token
@@ -83,14 +80,10 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         uint256 _atnFeeFactorThisReward = (_atnReward * FEE_FACTOR_UNIT_RECIP) / supply;
         atnLastUnrealisedFeeFactor = atnLastUnrealisedFeeFactor + _atnFeeFactorThisReward;
 
-        uint256 _ntnFeeFactorThisReward = (_ntnReward * FEE_FACTOR_UNIT_RECIP) / supply;
-        ntnLastUnrealisedFeeFactor = ntnLastUnrealisedFeeFactor + _ntnFeeFactorThisReward;
-
         // Compute the maximum amount that can be claimed after
         // rounding.
         uint256 _atnMaxClaimable = (_atnFeeFactorThisReward * supply) / FEE_FACTOR_UNIT_RECIP;
-        uint256 _ntnMaxClaimable = (_ntnFeeFactorThisReward * supply) / FEE_FACTOR_UNIT_RECIP;
-        return (_atnValidatorReward + _atnMaxClaimable, _ntnValidatorReward + _ntnMaxClaimable);
+        return _atnValidatorReward + _atnMaxClaimable;
     }
 
     /**
@@ -125,19 +118,11 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Withdraws all fees earned so far by the caller.
      */
     function claimRewards() external virtual {
-        (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) = _realiseFees(msg.sender);
+        uint256 _atnRealisedFees = _realiseFees(msg.sender);
         delete atnRealisedFees[msg.sender];
-        delete ntnRealisedFees[msg.sender];
-
-        // Send the NTN
-        bool _sent;
-        if (_ntnRealisedFees > 0) {
-            _sent = autonityContract.transfer(msg.sender, _ntnRealisedFees);
-            require(_sent, "Failed to send NTN");
-        }
 
         //   solhint-disable-next-line avoid-low-level-calls
-        (_sent, ) = msg.sender.call{value: _atnRealisedFees}("");
+        (bool _sent, ) = msg.sender.call{value: _atnRealisedFees}("");
         require(_sent, "Failed to send ATN");
     }
 
@@ -256,7 +241,6 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         if (_value == _balance) { // aka balances[_delegator] == 0
             // get back some gas
             delete atnUnrealisedFeeFactors[_delegator];
-            delete ntnUnrealisedFeeFactors[_delegator];
         }
         // when transferring, this value will just be increased
         // again by the same amount.
@@ -271,31 +255,24 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * delegator, so should not be called if the delegators balance is
      * known to be zero (or the caller should handle this case itself).
      * @param _delegator, the target account to compute fees.
-     * @return _atnRealisedFees that is the calculated amount of AUT that
-     * the delegator is entitled to withdraw.
-     * @return _ntnRealisedFees that is the calculated amount of NTN that
+     * @return _atnRealisedFees that is the calculated amount of ATN that
      * the delegator is entitled to withdraw.
      */
-    function _realiseFees(address _delegator) private returns (uint256 _atnRealisedFees, uint256 _ntnRealisedFees) {
+    function _realiseFees(address _delegator) private returns (uint256 _atnRealisedFees) {
         uint256 _balance = balances[_delegator];
         uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, atnLastUnrealisedFeeFactor, atnUnrealisedFeeFactors[_delegator]);
 
         _atnRealisedFees = atnRealisedFees[_delegator] + _atnUnrealisedFee;
         atnRealisedFees[_delegator] = _atnRealisedFees;
         atnUnrealisedFeeFactors[_delegator] = atnLastUnrealisedFeeFactor;
-
-        uint256 _ntnUnrealisedFee = _computeUnrealisedFees(_balance, ntnLastUnrealisedFeeFactor, ntnUnrealisedFeeFactors[_delegator]);
-        _ntnRealisedFees = ntnRealisedFees[_delegator] + _ntnUnrealisedFee;
-        ntnRealisedFees[_delegator] = _ntnRealisedFees;
-        ntnUnrealisedFeeFactors[_delegator] = ntnLastUnrealisedFeeFactor;
     }
 
     /**
-     * @dev Computes atn or ntn unrealised fees.
+     * @dev Computes atn unrealised fees.
      * @param _balance LNTN balance
-     * @param _lastUnrealisedFeeFactor last unrealised fee factor for atn or ntn
-     * @param _unrealisedFeeFactors unrealised fee factor for atn or ntn
-     * @return uint256 atn or ntn unrealised fee.
+     * @param _lastUnrealisedFeeFactor last unrealised fee factor for atn
+     * @param _unrealisedFeeFactors unrealised fee factor for atn
+     * @return uint256 atn unrealised fee.
      */
     function _computeUnrealisedFees(uint256 _balance, uint256 _lastUnrealisedFeeFactor, uint256 _unrealisedFeeFactors)
         private pure returns (uint256) {
@@ -335,6 +312,11 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         emit Approval(_owner, _spender, _amount);
     }
 
+    function _calculateValidatorCommission(uint256 _reward) internal virtual view returns (uint256) {
+        uint256 _commission = (_reward * commissionRate) / COMMISSION_RATE_PRECISION;
+        return _commission;
+    }
+
     /*
      ============================================================
         Getters
@@ -342,15 +324,13 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      */
 
     /**
-     * @notice Calculates the total claimable fees (ATN and NTN) earned by the delegator to-date.
+     * @notice Calculates the total claimable fees (ATN) earned by the delegator to-date.
      * @param _account Delegator account.
      */
-    function unclaimedRewards(address _account) external virtual view returns (uint256 _unclaimedATN, uint256 _unclaimedNTN) {
+    function unclaimedRewards(address _account) external virtual view returns (uint256) {
         uint256 _balance = balances[_account];
         uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, atnLastUnrealisedFeeFactor, atnUnrealisedFeeFactors[_account]);
-        _unclaimedATN = atnRealisedFees[_account] + _atnUnrealisedFee;
-        uint256 _ntnUnrealisedFee = _computeUnrealisedFees(_balance, ntnLastUnrealisedFeeFactor, ntnUnrealisedFeeFactors[_account]);
-        _unclaimedNTN = ntnRealisedFees[_account] + _ntnUnrealisedFee;
+        return atnRealisedFees[_account] + _atnUnrealisedFee;
     }
 
     /**

@@ -63,8 +63,6 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
      */
     function _clearValidators() internal {
         address _myAddress = address(this);
-        uint256 _atn;
-        uint256 _ntn;
         LinkedValidator storage _validator;
         uint256 _epochID = _getEpochID();
         for (uint256 _idx = 0; _idx < linkedValidators.length ; _idx++) {
@@ -78,8 +76,7 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
                 if (_validator.liquidStateContract.balanceOf(_myAddress) > 0) {
                     break;
                 }
-                (_atn, _ntn) = _validator.liquidStateContract.unclaimedRewards(_myAddress);
-                if (_atn > 0 || _ntn > 0) {
+                if (_validator.liquidStateContract.unclaimedRewards(_myAddress) > 0) {
                     break;
                 }
                 _removeValidator(linkedValidators[_idx]);
@@ -117,7 +114,7 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
         return autonity.epochID();
     }
 
-    function _unclaimedRewards(address _validator) internal view returns (uint256, uint256) {
+    function _unclaimedRewards(address _validator) internal view returns (uint256) {
         return _getLiquidStateContract(_validator).unclaimedRewards(address(this));
     }
 

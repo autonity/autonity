@@ -98,6 +98,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 internal headUnbondingID;
     uint256 internal lastUnlockedUnbonding;
 
+    struct Autobond {
+        uint256 selfBond;
+        uint256 totalBond;
+    }
+
+    mapping (address => Autobond) internal autobondingMap;
+    address[] internal validatorsUnderAutobonding;
+
     /* Used to track commission rate change*/
     struct CommissionRateChangeRequest {
         address validator;
@@ -238,6 +246,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
     event EpochPeriodUpdated(uint256 period, uint256 appliedAtBlock);
     event NewEpoch(uint256 epoch);
+
+    /**
+     * @notice This event is emitted when the inflation reward at epoch end is auto-bonded to validators.
+     */
+    event NewAutobond(address indexed validator, uint256 selfBondedAmount, uint256 delegatedAmount);
 
     /**
      * @notice This event is emitted when a call to an address fails in a protocol function (like finalize()).
@@ -865,6 +878,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return (_oracleVoters, _afdReporters, _treasuries);
     }
 
+    function autobond(address _address, uint256 _selfBond, uint256 _delegated) external virtual onlyAtEpochEnd onlyRewardDistributer(_address) {
+        require(accounts[msg.sender] >= _selfBond + _delegated, "not enough balance");
+        require(_address != address(0), "validator address cannot be zero");
+        require(validators[_address].nodeAddress == _address, "validator not registered");
+
+        accounts[msg.sender] -= _selfBond + _delegated;
+        _autobond(_address, _selfBond, _delegated);
+    }
+
     /*
     ============================================================
         Slashing API
@@ -1227,6 +1249,22 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         _;
     }
 
+    modifier onlyRewardDistributer(address _validator) {
+        require(
+            address(config.contracts.accountabilityContract) == msg.sender
+            || address(config.contracts.omissionAccountabilityContract) == msg.sender
+            || address(validators[_validator].liquidStateContract) == msg.sender
+            , "caller is not a reward distributer"
+        );
+        _;
+    }
+
+    modifier onlyAtEpochEnd() {
+        // require(true, "it passes");
+        require(block.number >= epochInfos[epochID].nextEpochBlock, "epoch is not ended");
+        _;
+    }
+
     /*
     ============================================================
 
@@ -1330,14 +1368,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
                     }
                 }
                 uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
-                if (_ntnSelfReward > 0) {
-                    _transfer(address(this), _val.treasury, _ntnSelfReward);
-                }
+                _autobond(_val.nodeAddress, _ntnSelfReward, 0);
+                
                 uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
                 uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
                     _transfer(address(this), address(_val.liquidStateContract), _ntnDelegationReward);
-                    _val.liquidStateContract.redistribute{value: _atnDelegationReward}(_ntnDelegationReward);
+                    _val.liquidStateContract.redistribute{value: _atnDelegationReward}(accounts[address(_val.liquidStateContract)]);
                 }
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
@@ -1520,6 +1557,28 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
     }
 
+    function _autobond(address _address, uint256 _selfBond, uint256 _delegated) internal virtual {
+        if (_selfBond == 0 && _delegated == 0) {
+            return;
+        }
+        Autobond storage _request = autobondingMap[_address];
+        if (_request.totalBond == 0) {
+            validatorsUnderAutobonding.push(_address);
+        }
+
+        _request.selfBond += _selfBond;
+        _request.totalBond += _selfBond + _delegated;
+        emit NewAutobond(_address, _selfBond, _delegated);
+    }
+
+    function _applyAutobonding(address _address) internal virtual {
+        Validator storage _validator = validators[_address];
+        Autobond storage _request = autobondingMap[_address];
+        _validator.selfBondedStake += _request.selfBond;
+        _validator.bondedStake += _request.totalBond;
+        delete autobondingMap[_address];
+    }
+
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
         Validator storage _validator = validators[_validatorAddress];
         bool selfDelegation = _recipient == _validator.treasury;
@@ -1639,6 +1698,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
                      _applyBonding(i++)){}
 
         tailBondingID = headBondingID;
+        
+        // apply auto-bonding
+        uint256 _length = validatorsUnderAutobonding.length;
+        for (uint256 i = 0; i < _length; i++) {
+            _applyAutobonding(validatorsUnderAutobonding[i]);
+        }
+        delete validatorsUnderAutobonding;
+
         if(tailUnbondingID == headUnbondingID) {
             // everything else already processed, return early
             return;

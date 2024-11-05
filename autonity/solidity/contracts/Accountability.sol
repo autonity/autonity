@@ -135,8 +135,7 @@ contract Accountability is IAccountability, AccessAutonity {
         // In this case we only reward the last reporter.
         address _reporterTreasury = autonity.getValidator(beneficiaries[_offender]).treasury;
 
-        try autonity.transfer(_reporterTreasury, _ntnReward) {}
-        catch {}
+        autonity.autobond(_reporterTreasury, _ntnReward, 0);
 
         // if for some reasons, funds can't be transferred to the reporter treasury (sneaky contract)
         (bool ok, ) = _reporterTreasury.call{value:msg.value, gas: 2300}("");

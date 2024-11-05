@@ -323,7 +323,7 @@ contract OmissionAccountability is IOmissionAccountability {
                 }
 
                 if (_ntnProposerReward > 0) {
-                    autonity.transfer(treasuries[i], _ntnProposerReward);
+                    autonity.autobond(_nodeAddress, _ntnProposerReward, 0);
                 }
 
                 // reset after usage

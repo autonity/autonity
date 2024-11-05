@@ -18,8 +18,8 @@ interface IStakeableVesting {
     function unbond(address _validator, uint256 _amount) external returns (uint256);
     function claimRewards(address _validator) external;
     function claimRewards() external;
-    function unclaimedRewards(address _validator) external view returns (uint256 _atnRewards, uint256 _ntnRewards);
-    function unclaimedRewards() external view returns (uint256 _atnRewards, uint256 _ntnRewards);
+    function unclaimedRewards(address _validator) external view returns (uint256);
+    function unclaimedRewards() external view returns (uint256);
     function vestedFunds() external view returns (uint256);
     function withdrawableVestedFunds() external view returns (uint256);
     function contractTotalValue() external view returns (uint256);

@@ -363,13 +363,11 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         require(_sent, "LNTN transfer failed");
     }
 
-    function _sendRewards(uint256 _atnReward, uint256 _ntnReward) internal {
+    function _sendRewards(uint256 _atnReward) internal {
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
         (bool _sent, ) = beneficiary.call{value: _atnReward}("");
         require(_sent, "failed to send ATN");
-
-        _transferNTN(beneficiary, _ntnReward);
     }
 
     /**
@@ -487,9 +485,8 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     function _claimAndSendRewards(address _validator) internal {
         address _myAddress = address(this);
         uint256 _atnBalance = _myAddress.balance;
-        uint256 _ntnBalance = autonity.balanceOf(_myAddress);
         _liquidStateContract(_validator).claimRewards();
-        _sendRewards(_myAddress.balance - _atnBalance, autonity.balanceOf(_myAddress) - _ntnBalance);
+        _sendRewards(_myAddress.balance - _atnBalance);
     }
 
     /**
@@ -498,12 +495,11 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     function _claimAndSendRewards() internal {
         address _myAddress = address(this);
         uint256 _atnBalance = _myAddress.balance;
-        uint256 _ntnBalance = autonity.balanceOf(_myAddress);
         uint256 _length = linkedValidators.length;
         for (uint256 i = 0; i < _length; i++) {
             _liquidStateContract(linkedValidators[i]).claimRewards();
         }
-        _sendRewards(_myAddress.balance - _atnBalance, autonity.balanceOf(_myAddress) - _ntnBalance);
+        _sendRewards(_myAddress.balance - _atnBalance);
     }
 
     /*
@@ -515,22 +511,20 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Returns unclaimed rewards from bonding to validator.
      * @param _validator validator address
-     * @return _atnRewards unclaimed ATN rewards
-     * @return _ntnRewards unclaimed NTN rewards
      */
-    function unclaimedRewards(address _validator) virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
-        (_atnRewards, _ntnRewards) = _unclaimedRewards(_validator);
+    function unclaimedRewards(address _validator) virtual external view returns (uint256) {
+        return _unclaimedRewards(_validator);
     }
 
     /**
      * @notice Returns the amount of all unclaimed rewards due to all the bonding from the contract entitled to beneficiary.
      */
-    function unclaimedRewards() virtual external view returns (uint256 _atnRewards, uint256 _ntnRewards) {
+    function unclaimedRewards() virtual external view returns (uint256) {
+        uint256 _atnRewards;
         for (uint256 i = 0; i < linkedValidators.length; i++) {
-            (uint256 _atn, uint256 _ntn) = _unclaimedRewards(linkedValidators[i]);
-            _atnRewards += _atn;
-            _ntnRewards += _ntn;
+            _atnRewards += _unclaimedRewards(linkedValidators[i]);
         }
+        return _atnRewards;
     }
 
     /**

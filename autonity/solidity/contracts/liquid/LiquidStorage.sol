@@ -13,9 +13,6 @@ contract LiquidStorage {
     mapping(address => uint256) internal atnRealisedFees;
     mapping(address => uint256) internal atnUnrealisedFeeFactors;
     uint256 internal atnLastUnrealisedFeeFactor;
-    mapping(address => uint256) internal ntnRealisedFees;
-    mapping(address => uint256) internal ntnUnrealisedFeeFactors;
-    uint256 internal ntnLastUnrealisedFeeFactor;
 
     string internal liquidName;
     string internal liquidSymbol;
