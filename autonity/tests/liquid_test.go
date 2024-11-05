@@ -71,7 +71,7 @@ func TestAccess(t *testing.T) {
 
 	r.Run("only autonity can redistribute", func(r *Runner) {
 		_, err := liquidState.Redistribute(
-			nil, common.Big1,
+			nil, common.Big0,
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: Call restricted to the Autonity Contract", err.Error())
@@ -174,7 +174,8 @@ func TestFunctions(t *testing.T) {
 	delegatorA := r.Committee.Validators[1].NodeAddress
 	delegatorB := r.Committee.Validators[2].NodeAddress
 	delegatorC := r.Committee.Validators[3].NodeAddress
-	liquidState := deployLiquid(r, validator, treasury)
+	liquidState := r.LiquidStateContract(validator)
+	updateCommissionRate(r, validator, 0)
 
 	validatorMint := new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor)
 	r.NoError(
@@ -190,41 +191,23 @@ func TestFunctions(t *testing.T) {
 
 	r.GiveMeSomeMoney(r.Autonity.address, new(big.Int).Mul(big.NewInt(10000), params.DecimalFactor))
 
-	r.Run("check name and symbol", func(r *Runner) {
-		name, _, err := liquidState.Name(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, "LNTN-27", name)
-		symbol, _, err := liquidState.Symbol(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, "LNTN-27", symbol)
-	})
-
 	r.Run("reward single validator", func(r *Runner) {
 		// Initial state
 		checkLiquidBalance(r, liquidState, delegatorA, common.Big0)
 		checkLiquidBalance(r, liquidState, delegatorB, common.Big0)
 
-		checkReward(r, liquidState, validator, common.Big0, common.Big0)
-		checkReward(r, liquidState, delegatorA, common.Big0, common.Big0)
-		checkReward(r, liquidState, delegatorB, common.Big0, common.Big0)
+		checkReward(r, liquidState, validator, common.Big0)
+		checkReward(r, liquidState, delegatorA, common.Big0)
+		checkReward(r, liquidState, delegatorB, common.Big0)
 
 		// Send 10 ATN as a reward.  Perform a call first (not a tx)
 		// in order to check the returned value.
 		liquidReward := new(big.Int).Mul(big.NewInt(10), params.DecimalFactor)
-		atnDistributed, ntnDistributed, _, err := liquidState.CallRedistribute(r, FromSender(r.Autonity.address, liquidReward), liquidReward)
+		atnDistributed, _, err := liquidState.CallRedistribute(r, FromSender(r.Autonity.address, liquidReward), common.Big0)
 		require.NoError(r.T, err)
-		// out, _ := r.CallNoError(
-		// 	liquidState.SimulateCall(
-		// 		liquidState.contract,
-		// 		FromSender(r.Autonity.address, liquidReward),
-		// 		"redistribute", liquidReward,
-		// 	),
-		// )
 		require.True(r.T, liquidReward.Cmp(atnDistributed) >= 0)
-		require.True(r.T, liquidReward.Cmp(ntnDistributed) >= 0)
 		precision := new(big.Int).Div(params.DecimalFactor, big.NewInt(10000))
-		require.True(r.T, new(big.Int).Sub(liquidReward, precision).Cmp(ntnDistributed) <= 0)
-		require.True(r.T, new(big.Int).Sub(liquidReward, precision).Cmp(ntnDistributed) <= 0)
+		require.True(r.T, new(big.Int).Sub(liquidReward, precision).Cmp(atnDistributed) <= 0)
 
 		redistributeLiquidReward(r, liquidState, liquidReward)
 
@@ -236,9 +219,9 @@ func TestFunctions(t *testing.T) {
 		checkLiquidBalance(r, liquidState, delegatorA, common.Big0)
 		checkLiquidBalance(r, liquidState, delegatorB, common.Big0)
 
-		checkReward(r, liquidState, validator, liquidReward, liquidReward)
-		checkReward(r, liquidState, delegatorA, common.Big0, common.Big0)
-		checkReward(r, liquidState, delegatorB, common.Big0, common.Big0)
+		checkReward(r, liquidState, validator, liquidReward)
+		checkReward(r, liquidState, delegatorA, common.Big0)
+		checkReward(r, liquidState, delegatorB, common.Big0)
 	})
 
 	r.Run("reward multiple validators", func(r *Runner) {
@@ -266,13 +249,13 @@ func TestFunctions(t *testing.T) {
 		redistributeLiquidReward(r, liquidState, liquidReward)
 
 		expectedReward := new(big.Int).Mul(big.NewInt(10), params.DecimalFactor)
-		checkReward(r, liquidState, validator, expectedReward, expectedReward)
+		checkReward(r, liquidState, validator, expectedReward)
 
 		expectedReward = new(big.Int).Mul(big.NewInt(8), params.DecimalFactor)
-		checkReward(r, liquidState, delegatorA, expectedReward, expectedReward)
+		checkReward(r, liquidState, delegatorA, expectedReward)
 
 		expectedReward = new(big.Int).Mul(big.NewInt(2), params.DecimalFactor)
-		checkReward(r, liquidState, delegatorB, expectedReward, expectedReward)
+		checkReward(r, liquidState, delegatorB, expectedReward)
 	})
 
 	r.Run("transfer LNEW", func(r *Runner) {
@@ -311,16 +294,16 @@ func TestFunctions(t *testing.T) {
 		redistributeLiquidReward(r, liquidState, liquidReward)
 		// validator has 10 + 10
 		expectedReward := new(big.Int).Mul(big.NewInt(20), params.DecimalFactor)
-		checkReward(r, liquidState, validator, expectedReward, expectedReward)
+		checkReward(r, liquidState, validator, expectedReward)
 		// delegatorA has 8 + 5
 		expectedReward = new(big.Int).Mul(big.NewInt(13), params.DecimalFactor)
-		checkReward(r, liquidState, delegatorA, expectedReward, expectedReward)
+		checkReward(r, liquidState, delegatorA, expectedReward)
 		// delegatorB has 2 + 2
 		expectedReward = new(big.Int).Mul(big.NewInt(4), params.DecimalFactor)
-		checkReward(r, liquidState, delegatorB, expectedReward, expectedReward)
+		checkReward(r, liquidState, delegatorB, expectedReward)
 		// delegatorC has 3
 		expectedReward = new(big.Int).Mul(big.NewInt(3), params.DecimalFactor)
-		checkReward(r, liquidState, delegatorC, expectedReward, expectedReward)
+		checkReward(r, liquidState, delegatorC, expectedReward)
 	})
 
 	r.Run("burn LNEW", func(r *Runner) {
@@ -346,10 +329,10 @@ func TestFunctions(t *testing.T) {
 		redistributeLiquidReward(r, liquidState, liquidReward)
 
 		expectedReward := new(big.Int).Mul(big.NewInt(10), params.DecimalFactor)
-		checkReward(r, liquidState, validator, expectedReward, expectedReward)
+		checkReward(r, liquidState, validator, expectedReward)
 
 		expectedReward = new(big.Int).Mul(big.NewInt(5), params.DecimalFactor)
-		checkReward(r, liquidState, delegatorA, expectedReward, expectedReward)
+		checkReward(r, liquidState, delegatorA, expectedReward)
 	})
 
 	r.Run("claiming rewards", func(r *Runner) {
@@ -363,13 +346,13 @@ func TestFunctions(t *testing.T) {
 		liquidReward := new(big.Int).Mul(big.NewInt(20), params.DecimalFactor)
 		redistributeLiquidReward(r, liquidState, liquidReward)
 		expectedReward := new(big.Int).Mul(big.NewInt(10), params.DecimalFactor)
-		withdrawAndCheck(r, liquidState, delegatorA, expectedReward, expectedReward)
+		withdrawAndCheck(r, liquidState, delegatorA, expectedReward)
 
 		// Send 40 AUT as a reward (validator and delegatorA each earns 20). Withdraw and check balance.
 		liquidReward = new(big.Int).Mul(big.NewInt(40), params.DecimalFactor)
 		redistributeLiquidReward(r, liquidState, liquidReward)
 		expectedReward = new(big.Int).Mul(big.NewInt(20), params.DecimalFactor)
-		withdrawAndCheck(r, liquidState, delegatorA, expectedReward, expectedReward)
+		withdrawAndCheck(r, liquidState, delegatorA, expectedReward)
 	})
 
 	r.Run("accumulating rewards", func(r *Runner) {
@@ -412,7 +395,7 @@ func TestFunctions(t *testing.T) {
 
 		// Check delegatorA's total fees were 10 + 5 + 10 = 25
 		expectedReward := new(big.Int).Mul(big.NewInt(25), params.DecimalFactor)
-		checkReward(r, liquidState, delegatorA, expectedReward, expectedReward)
+		checkReward(r, liquidState, delegatorA, expectedReward)
 	})
 
 	r.Run("commission", func(r *Runner) {
@@ -471,7 +454,7 @@ func TestFunctions(t *testing.T) {
 
 		// Check delegatorA's total fees: 10 + 5 + 10 = 25
 		expectedReward := new(big.Int).Mul(big.NewInt(25), params.DecimalFactor)
-		checkReward(r, newLiquidState, delegatorA, expectedReward, expectedReward)
+		checkReward(r, newLiquidState, delegatorA, expectedReward)
 	})
 
 	r.Run("allowances", func(r *Runner) {
@@ -604,6 +587,16 @@ func TestFunctions(t *testing.T) {
 		)
 		checkLiquidBalance(r, liquidState, delegatorA, common.Big0)
 	})
+
+	r.Run("check name and symbol", func(r *Runner) {
+		liquidState = deployLiquid(r, validator, treasury)
+		name, _, err := liquidState.Name(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, "LNTN-27", name)
+		symbol, _, err := liquidState.Symbol(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, "LNTN-27", symbol)
+	})
 }
 
 func checkLiquidBalance(r *Runner, liquidState *ILiquid, user common.Address, expecedBalance *big.Int) {
@@ -618,7 +611,7 @@ func checkLockedLiquidBalance(r *Runner, liquidState *ILiquid, user common.Addre
 	require.True(r.T, lockedBalance.Cmp(expecedLockedBalance) == 0)
 }
 
-func checkReward(r *Runner, liquidState *ILiquid, user common.Address, atnReward, ntnReward *big.Int) {
+func checkReward(r *Runner, liquidState *ILiquid, user common.Address, atnReward *big.Int) {
 	abi, err := ILiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
 	liquidLogicInterface := ILiquid{
@@ -627,30 +620,23 @@ func checkReward(r *Runner, liquidState *ILiquid, user common.Address, atnReward
 	unclaimedRewards, _, err := liquidLogicInterface.UnclaimedRewards(nil, user)
 	require.NoError(r.T, err)
 
-	require.True(r.T, unclaimedRewards.UnclaimedATN.Cmp(atnReward) == 0)
-	require.True(r.T, unclaimedRewards.UnclaimedNTN.Cmp(ntnReward) == 0)
+	require.Equal(r.T, atnReward.String(), unclaimedRewards.String())
 }
 
 func withdrawAndCheck(
-	r *Runner, liquidState *ILiquid, user common.Address, atnReward, ntnReward *big.Int,
+	r *Runner, liquidState *ILiquid, user common.Address, atnReward *big.Int,
 ) {
-	ntnBalance, _, err := r.Autonity.BalanceOf(nil, user)
-	require.NoError(r.T, err)
 	atnBalance := r.GetBalanceOf(user)
 
-	checkReward(r, liquidState, user, atnReward, ntnReward)
+	checkReward(r, liquidState, user, atnReward)
 
 	r.NoError(
 		liquidState.ClaimRewards(FromSender(user, nil)),
 	)
 
-	checkReward(r, liquidState, user, common.Big0, common.Big0)
+	checkReward(r, liquidState, user, common.Big0)
 
-	ntnNewBalance, _, err := r.Autonity.BalanceOf(nil, user)
-	require.NoError(r.T, err)
 	atnNewBalance := r.GetBalanceOf(user)
-
-	require.Equal(r.T, new(big.Int).Add(ntnBalance, ntnReward), ntnNewBalance)
 	require.Equal(r.T, new(big.Int).Add(atnBalance, atnReward), atnNewBalance)
 }
 
@@ -661,7 +647,7 @@ func redistributeLiquidReward(r *Runner, liquidState *ILiquid, reward *big.Int) 
 	r.NoError(
 		liquidState.Redistribute(
 			FromSender(r.Autonity.address, reward),
-			reward,
+			common.Big0,
 		),
 	)
 }
@@ -688,6 +674,26 @@ func deployLiquid(
 	require.NoError(r.T, err)
 	return &ILiquid{
 		&contract{liquidState.address, abi, r},
+	}
+}
+
+func updateCommissionRate(r *Runner, validator common.Address, commissionRatePercent int64) {
+	validatorInfo, _, err := r.Autonity.GetValidator(nil, validator)
+	require.NoError(r.T, err)
+	r.NoError(
+		r.Autonity.ChangeCommissionRate(
+			FromSender(validatorInfo.Treasury, nil),
+			validator,
+			big.NewInt(commissionRatePercent*100),
+		),
+	)
+
+	currentCommission := validatorInfo.CommissionRate.Int64()
+	for currentCommission != commissionRatePercent*100 {
+		r.WaitNextEpoch()
+		validatorInfo, _, err = r.Autonity.GetValidator(nil, validator)
+		require.NoError(r.T, err)
+		currentCommission = validatorInfo.CommissionRate.Int64()
 	}
 }
 

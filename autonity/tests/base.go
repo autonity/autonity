@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/blst"
-	"math"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/stretchr/testify/require"
 
@@ -323,24 +324,27 @@ func (r *Runner) lastTargetHeight() uint64 {
 	return lastHeight - delta
 }
 
+func (r *Runner) FinalizeBlock() {
+	// Finalize is not the only block closing operation - fee redistribution is missing and prob
+	// other stuff. Left as todo.
+	_, err := r.Autonity.Finalize(&runOptions{origin: common.Address{}})
+	// consider monitoring gas cost here and fail if it's too much
+	require.NoError(r.T, err, "finalize function error in block", r.Evm.Context.BlockNumber)
+	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
+	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
+	// clean up activity proof related data
+	r.Evm.Context.ActivityProof = nil
+	r.Evm.Context.ActivityProofRound = 0
+	r.Evm.Context.Coinbase = common.Address{}
+}
+
 func (r *Runner) WaitNBlocks(n int) {
-	start := r.Evm.Context.BlockNumber
 	epochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
 	for i := 0; i < n; i++ {
 		// set validator 0 as proposer always
 		r.setupActivityProofAndCoinbase(r.Committee.Validators[0].NodeAddress, nil)
-		// Finalize is not the only block closing operation - fee redistribution is missing and prob
-		// other stuff. Left as todo.
-		_, err := r.Autonity.Finalize(&runOptions{origin: common.Address{}})
-		// consider monitoring gas cost here and fail if it's too much
-		require.NoError(r.T, err, "finalize function error in waitNblocks", i)
-		r.Evm.Context.BlockNumber = new(big.Int).Add(big.NewInt(int64(i+1)), start)
-		r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
-		// clean up activity proof related data
-		r.Evm.Context.ActivityProof = nil
-		r.Evm.Context.ActivityProofRound = 0
-		r.Evm.Context.Coinbase = common.Address{}
+		r.FinalizeBlock()
 	}
 	newEpochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
@@ -410,6 +414,35 @@ type EpochReward struct {
 	RewardNTN *big.Int
 }
 
+func (r *Runner) RewardsForValidatorAfterOneEpoch(validator common.Address) EpochReward {
+	committee, _, err := r.Autonity.GetCommittee(nil)
+	require.NoError(r.T, err)
+	found := false
+	var votingPower *big.Int
+	for _, member := range committee {
+		if validator == member.Addr {
+			found = true
+			votingPower = member.VotingPower
+			break
+		}
+	}
+	if !found {
+		return EpochReward{common.Big0, common.Big0}
+	}
+
+	reward := r.RewardsAfterOneEpoch()
+	config, _, err := r.Autonity.Config(nil)
+	require.NoError(r.T, err)
+	treasuryReward := new(big.Int).Div(new(big.Int).Mul(reward.RewardATN, config.Policy.TreasuryFee), params.DecimalFactor)
+
+	totalStake, _, err := r.Autonity.EpochTotalBondedStake(nil)
+	require.NoError(r.T, err)
+	atnReward := new(big.Int).Sub(reward.RewardATN, treasuryReward)
+	atnReward = new(big.Int).Div(new(big.Int).Mul(atnReward, votingPower), totalStake)
+	ntnReward := new(big.Int).Div(new(big.Int).Mul(reward.RewardNTN, votingPower), totalStake)
+	return EpochReward{atnReward, ntnReward}
+}
+
 func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	// get supply and inflationReserve to calculate inflation reward
 	supply, _, err := r.Autonity.CirculatingSupply(nil)
@@ -422,10 +455,14 @@ func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	lastEpochTime, _, err := r.Autonity.LastEpochTime(nil)
 	require.NoError(r.T, err)
 	currentEpochTime := new(big.Int).Add(lastEpochTime, new(big.Int).Sub(info.NextEpochBlock, info.EpochBlock))
-	rewardsToDistribute.RewardNTN, _, err = r.InflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
+	inflationReward, _, err := r.InflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
 	require.NoError(r.T, err)
+	if inflationReward.Cmp(inflationReserve) == 1 {
+		inflationReward = inflationReserve
+	}
 	// get atn reward
 	rewardsToDistribute.RewardATN = r.GetBalanceOf(r.Autonity.Address())
+	rewardsToDistribute.RewardNTN = new(big.Int).Add(inflationReward, r.GetNewtonBalanceOf(r.Autonity.Address()))
 	return rewardsToDistribute
 }
 
@@ -476,6 +513,11 @@ func copyConfig(original *params.AutonityContractGenesis) *params.AutonityContra
 		panic("cannot unmarshal autonity genesis config: " + err.Error())
 	}
 	return genesisCopy
+}
+
+func SetInflationReserveZero(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+	config.InitialInflationReserve = (*math.HexOrDecimal256)(big.NewInt(0))
+	return config
 }
 
 func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *params.AutonityContractGenesis) *Runner {

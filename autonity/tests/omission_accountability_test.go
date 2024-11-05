@@ -44,20 +44,6 @@ var configOverrideIncreasedStake = func(config *params.AutonityContractGenesis) 
 	return defaultOverrideGenesis
 }
 
-// helpers
-func omissionFinalize(r *Runner, epochEnd bool) {
-	_, err := r.OmissionAccountability.Finalize(FromAutonity, epochEnd)
-	require.NoError(r.T, err)
-	r.T.Logf("Omission accountability, finalized block: %d", r.Evm.Context.BlockNumber)
-	// advance the block context as if we mined a block
-	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
-	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
-	// clean up activity proof data
-	r.Evm.Context.Coinbase = common.Address{}
-	r.Evm.Context.ActivityProof = nil
-	r.Evm.Context.ActivityProofRound = 0
-}
-
 func autonityFinalize(r *Runner) { //nolint
 	_, err := r.Autonity.Finalize(nil)
 	require.NoError(r.T, err)
@@ -420,25 +406,25 @@ func TestInactivityScore(t *testing.T) {
 
 	// simulate epoch.
 	proposer := r.Committee.Validators[0].NodeAddress
-	inactiveBlockStreak := make([]int, len(r.Committee.Validators))
-	inactiveCounters := make([]*big.Int, len(r.Committee.Validators))
-	for i := range inactiveCounters {
-		inactiveCounters[i] = new(big.Int)
+	inactiveBlockStreak := make(map[common.Address]int)
+	inactiveCounters := make(map[common.Address]*big.Int)
+	for _, v := range r.Committee.Validators {
+		inactiveCounters[v.NodeAddress] = new(big.Int)
 	}
 	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
 		absentees := make(map[common.Address]struct{})
-		for i := range r.Committee.Validators {
-			if r.Committee.Validators[i].NodeAddress == proposer {
+		for _, v := range r.Committee.Validators {
+			if v.NodeAddress == proposer {
 				continue // keep proposer always online
 			}
 			if rand.Intn(30) != 0 {
-				absentees[r.Committee.Validators[i].NodeAddress] = struct{}{}
-				inactiveBlockStreak[i]++
+				absentees[v.NodeAddress] = struct{}{}
+				inactiveBlockStreak[v.NodeAddress]++
 			} else {
-				inactiveBlockStreak[i] = 0
+				inactiveBlockStreak[v.NodeAddress] = 0
 			}
-			if inactiveBlockStreak[i] >= lookback {
-				inactiveCounters[i] = new(big.Int).Add(inactiveCounters[i], common.Big1)
+			if inactiveBlockStreak[v.NodeAddress] >= lookback {
+				inactiveCounters[v.NodeAddress] = new(big.Int).Add(inactiveCounters[v.NodeAddress], common.Big1)
 			}
 		}
 
@@ -451,43 +437,43 @@ func TestInactivityScore(t *testing.T) {
 	require.Equal(t, initialCommitteeSize, len(r.Committee.Validators))
 
 	// check score computation
-	pastInactivityScore := make([]*big.Float, len(r.Committee.Validators))
+	pastInactivityScore := make(map[common.Address]*big.Float)
 	denominator := new(big.Int).SetUint64(uint64(omissionEpochPeriod) - delta.Uint64() - uint64(lookback) + 1)
-	for i, val := range r.Committee.Validators {
-		score := new(big.Float).Quo(newFloat(inactiveCounters[i]), newFloat(denominator))
+	for _, val := range r.Committee.Validators {
+		score := new(big.Float).Quo(newFloat(inactiveCounters[val.NodeAddress]), newFloat(denominator))
 
 		expectedInactivityScoreFloat := new(big.Float).Mul(score, currentPerformanceWeight) // + 0 * pastPerformanceWeight
-		pastInactivityScore[i] = expectedInactivityScoreFloat
+		pastInactivityScore[val.NodeAddress] = expectedInactivityScoreFloat
 
 		expectedInactivityScoreFloatScaled := new(big.Float).Mul(expectedInactivityScoreFloat, scaleFactor)
 		expectedInactivityScore, _ := expectedInactivityScoreFloatScaled.Int(nil)
 
-		r.T.Logf("i %d, expectedInactivityScoreFloat %s, expectedInactivityScore %s, inactivityScore %v", i, toString(expectedInactivityScoreFloat), expectedInactivityScore.String(), inactivityScore(r, val.NodeAddress))
+		r.T.Logf("validator %s, expectedInactivityScoreFloat %s, expectedInactivityScore %s, inactivityScore %v", common.Bytes2Hex(val.NodeAddress[:]), toString(expectedInactivityScoreFloat), expectedInactivityScore.String(), inactivityScore(r, val.NodeAddress))
 
 		require.Equal(r.T, int(expectedInactivityScore.Uint64()), inactivityScore(r, val.NodeAddress))
 	}
 
 	// simulate another epoch
 	r.WaitNBlocks(int(delta.Int64()))
-	inactiveBlockStreak = make([]int, len(r.Committee.Validators))
-	inactiveCounters = make([]*big.Int, len(r.Committee.Validators))
-	for i := range inactiveCounters {
-		inactiveCounters[i] = new(big.Int)
+	inactiveBlockStreak = make(map[common.Address]int)
+	inactiveCounters = make(map[common.Address]*big.Int)
+	for _, v := range r.Committee.Validators {
+		inactiveCounters[v.NodeAddress] = new(big.Int)
 	}
 	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
 		absentees := make(map[common.Address]struct{})
-		for i := range r.Committee.Validators {
-			if r.Committee.Validators[i].NodeAddress == proposer {
+		for _, v := range r.Committee.Validators {
+			if v.NodeAddress == proposer {
 				continue // keep proposer always online
 			}
 			if rand.Intn(30) != 0 {
-				absentees[r.Committee.Validators[i].NodeAddress] = struct{}{}
-				inactiveBlockStreak[i]++
+				absentees[v.NodeAddress] = struct{}{}
+				inactiveBlockStreak[v.NodeAddress]++
 			} else {
-				inactiveBlockStreak[i] = 0
+				inactiveBlockStreak[v.NodeAddress] = 0
 			}
-			if inactiveBlockStreak[i] >= lookback {
-				inactiveCounters[i] = new(big.Int).Add(inactiveCounters[i], common.Big1)
+			if inactiveBlockStreak[v.NodeAddress] >= lookback {
+				inactiveCounters[v.NodeAddress] = new(big.Int).Add(inactiveCounters[v.NodeAddress], common.Big1)
 			}
 		}
 
@@ -499,17 +485,17 @@ func TestInactivityScore(t *testing.T) {
 	require.Equal(t, initialCommitteeSize, len(r.Committee.Validators))
 
 	// check score computation
-	for i, val := range r.Committee.Validators {
-		score := new(big.Float).Quo(newFloat(inactiveCounters[i]), newFloat(denominator))
+	for _, val := range r.Committee.Validators {
+		score := new(big.Float).Quo(newFloat(inactiveCounters[val.NodeAddress]), newFloat(denominator))
 
 		expectedInactivityScoreFloat1 := new(big.Float).Mul(score, currentPerformanceWeight)
-		expectedInactivityScoreFloat2 := new(big.Float).Mul(pastInactivityScore[i], pastPerformanceWeight)
+		expectedInactivityScoreFloat2 := new(big.Float).Mul(pastInactivityScore[val.NodeAddress], pastPerformanceWeight)
 		expectedInactivityScoreFloat := new(big.Float).Add(expectedInactivityScoreFloat1, expectedInactivityScoreFloat2)
 
 		expectedInactivityScoreFloatScaled := new(big.Float).Mul(expectedInactivityScoreFloat, scaleFactor)
 		expectedInactivityScore, _ := expectedInactivityScoreFloatScaled.Int(nil)
 
-		r.T.Logf("i %d, expectedInactivityScoreFloat %s, expectedInactivityScore %s, inactivityScore %v", i, toString(expectedInactivityScoreFloat), expectedInactivityScore.String(), inactivityScore(r, val.NodeAddress))
+		r.T.Logf("validator %s, expectedInactivityScoreFloat %s, expectedInactivityScore %s, inactivityScore %v", common.Bytes2Hex(val.NodeAddress[:]), toString(expectedInactivityScoreFloat), expectedInactivityScore.String(), inactivityScore(r, val.NodeAddress))
 		// precision loss cumulates across subsequent epochs due to the weighted sum, thus as there can be some instability
 		// in this test, we allow a tolerance of 1
 		expectNearlyEqual(t, expectedInactivityScore, big.NewInt(int64(inactivityScore(r, val.NodeAddress))), 1)
@@ -709,8 +695,8 @@ func TestProposerRewardDistribution(t *testing.T) {
 		proposer := r.Committee.Validators[0].NodeAddress
 		proposerTreasury := r.Committee.Validators[0].Treasury
 		atnBalanceBefore := newFloat(r.GetBalanceOf(proposerTreasury))
-		ntnBalanceBefore := newFloat(ntnBalance(r, proposerTreasury))
-		t.Logf("atn balance before: %s, ntn balance before %s", toString(atnBalanceBefore), toString(ntnBalanceBefore))
+		stakesBefore := newFloat(r.Committee.Validators[0].BondedStake)
+		t.Logf("atn balance before: %s, ntn balance before %s", toString(atnBalanceBefore), toString(stakesBefore))
 
 		// set validator state to jailed so that he will not receive any reward other the proposer one
 		_, err = r.Autonity.Jail(&runOptions{origin: accountabilityTest.address}, proposer, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
@@ -742,26 +728,33 @@ func TestProposerRewardDistribution(t *testing.T) {
 		t.Logf("atn expected reward: %s, ntn expected reward: %s", toString(atnExpectedReward), toString(ntnExpectedReward))
 
 		atnExpectedBalance := new(big.Float).Add(atnBalanceBefore, atnExpectedReward)
-		ntnExpectedBalance := new(big.Float).Add(ntnBalanceBefore, ntnExpectedReward)
+		stakesExpected := new(big.Float).Add(stakesBefore, ntnExpectedReward)
 
-		t.Logf("atn expected balance: %s, ntn expected balance: %s", toString(atnExpectedBalance), toString(ntnExpectedBalance))
+		t.Logf("atn expected balance: %s, ntn expected balance: %s", toString(atnExpectedBalance), toString(stakesExpected))
 
 		atnActualBalance := r.GetBalanceOf(proposerTreasury)
-		ntnActualBalance := ntnBalance(r, proposerTreasury)
-		t.Logf("atn actual balance: %s, ntn actual balance: %s", atnActualBalance.String(), ntnActualBalance.String())
+		validatorInfo, _, err := r.Autonity.GetValidator(nil, proposer)
+		require.NoError(t, err)
+		stakesActual := validatorInfo.BondedStake
+		t.Logf("atn actual balance: %s, ntn actual balance: %s", atnActualBalance.String(), stakesActual.String())
 
 		atnExpectedBalanceInt, _ := atnExpectedBalance.Int(nil)
-		ntnExpectedBalanceInt, _ := ntnExpectedBalance.Int(nil)
+		stakesExpectedInt, _ := stakesExpected.Int(nil)
 
 		t.Logf("balance diff atn: %s", new(big.Int).Sub(atnExpectedBalanceInt, atnActualBalance).String())
-		t.Logf("balance diff ntn: %s", new(big.Int).Sub(ntnExpectedBalanceInt, ntnActualBalance).String())
+		t.Logf("balance diff ntn: %s", new(big.Int).Sub(stakesExpectedInt, stakesActual).String())
 
 		require.Equal(t, atnExpectedBalanceInt.String(), atnActualBalance.String())
-		require.Equal(t, ntnExpectedBalanceInt.String(), ntnActualBalance.String())
+		require.Equal(t, stakesExpectedInt.String(), stakesActual.String())
 	})
+
 	t.Run("Rewards are correctly distributed among proposers", func(t *testing.T) {
 		r := Setup(t, func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
 			config.EpochPeriod = uint64(omissionEpochPeriod)
+			config.TreasuryFee = 0
+			// set max committee and ProposerRewardRate so that all rewards go to proposer
+			config.ProposerRewardRate = 10_000
+			config.MaxCommitteeSize = 4
 			return config
 		})
 
@@ -771,48 +764,50 @@ func TestProposerRewardDistribution(t *testing.T) {
 		r.WaitNBlocks(int(delta.Int64()))
 
 		totalEffort := new(big.Int)
-		efforts := make([]*big.Int, len(r.Committee.Validators))
-		atnBalances := make([]*big.Int, len(r.Committee.Validators))
-		ntnBalances := make([]*big.Int, len(r.Committee.Validators))
+		efforts := make(map[common.Address]*big.Int)
+		atnBalances := make(map[common.Address]*big.Int)
+		stakes := make(map[common.Address]*big.Int)
 		totalPower := new(big.Int)
-		for i, val := range r.Committee.Validators {
-			efforts[i] = new(big.Int)
-			atnBalances[i] = r.GetBalanceOf(val.Treasury)
-			ntnBalances[i] = ntnBalance(r, val.Treasury)
+		for _, val := range r.Committee.Validators {
+			efforts[val.NodeAddress] = new(big.Int)
+			atnBalances[val.NodeAddress] = r.GetBalanceOf(val.Treasury)
+			stakes[val.NodeAddress] = val.BondedStake
 			totalPower.Add(totalPower, val.BondedStake)
 		}
+		simulatedAtnRewards := new(big.Int).SetInt64(4545445)
+		r.GiveMeSomeMoney(r.Autonity.address, simulatedAtnRewards)
+		simulatedNtnRewards := r.RewardsAfterOneEpoch().RewardNTN
 		// simulate epoch
 		fullProofEffort := new(big.Int).Sub(totalPower, bft.Quorum(totalPower)) // effort for a full proof
 		for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
 			proposerIndex := rand.Intn(len(r.Committee.Validators))
 			totalEffort.Add(totalEffort, fullProofEffort)
-			efforts[proposerIndex].Add(efforts[proposerIndex], fullProofEffort)
-			r.setupActivityProofAndCoinbase(r.Committee.Validators[proposerIndex].NodeAddress, nil)
-			omissionFinalize(r, h == omissionEpochPeriod)
+			nodeAddress := r.Committee.Validators[proposerIndex].NodeAddress
+			efforts[nodeAddress].Add(efforts[nodeAddress], fullProofEffort)
+			r.setupActivityProofAndCoinbase(nodeAddress, nil)
+			r.FinalizeBlock()
+			// omissionFinalize(r, h == omissionEpochPeriod)
 		}
+		r.generateNewCommittee()
 
-		simulatedNtnRewards := new(big.Int).SetInt64(5968565)
-		simulatedAtnRewards := new(big.Int).SetInt64(4545445)
-		r.GiveMeSomeMoney(r.Autonity.address, simulatedAtnRewards)
-		_, err = r.Autonity.Mint(r.Operator, r.OmissionAccountability.address, simulatedNtnRewards)
-		require.NoError(r.T, err)
-		_, err = r.OmissionAccountability.DistributeProposerRewards(&runOptions{origin: r.Autonity.address, value: simulatedAtnRewards}, simulatedNtnRewards)
-		require.NoError(t, err)
+		// _, err = r.Autonity.Mint(r.Operator, r.OmissionAccountability.address, simulatedNtnRewards)
+		// require.NoError(r.T, err)
+		// _, err = r.OmissionAccountability.DistributeProposerRewards(&runOptions{origin: r.Autonity.address, value: simulatedAtnRewards}, simulatedNtnRewards)
+		// require.NoError(t, err)
 
-		for i, val := range r.Committee.Validators {
-			atnExpectedIncrement := new(big.Int).Mul(efforts[i], simulatedAtnRewards)
+		for _, val := range r.Committee.Validators {
+			atnExpectedIncrement := new(big.Int).Mul(efforts[val.NodeAddress], simulatedAtnRewards)
 			atnExpectedIncrement.Div(atnExpectedIncrement, totalEffort)
-			ntnExpectedIncrement := new(big.Int).Mul(efforts[i], simulatedNtnRewards)
+			ntnExpectedIncrement := new(big.Int).Mul(efforts[val.NodeAddress], simulatedNtnRewards)
 			ntnExpectedIncrement.Div(ntnExpectedIncrement, totalEffort)
-			atnExpectedBalance := new(big.Int).Add(atnBalances[i], atnExpectedIncrement)
-			ntnExpectedBalance := new(big.Int).Add(ntnBalances[i], ntnExpectedIncrement)
-			t.Logf("validator %d, effort %s, total effort %s, expectedBalance atn %s, expectedBalanceNtn %s", i, efforts[i].String(), totalEffort.String(), atnExpectedBalance.String(), ntnExpectedBalance.String())
+			atnExpectedBalance := new(big.Int).Add(atnBalances[val.NodeAddress], atnExpectedIncrement)
+			stakesExpected := new(big.Int).Add(stakes[val.NodeAddress], ntnExpectedIncrement)
+			t.Logf("validator %s, effort %s, total effort %s, expectedBalance atn %s, expectedStakes %s", common.Bytes2Hex(val.NodeAddress[:]), efforts[val.NodeAddress].String(), totalEffort.String(), atnExpectedBalance.String(), stakesExpected.String())
 
 			atnBalance := r.GetBalanceOf(val.Treasury)
-			ntnBalance := ntnBalance(r, val.Treasury)
 
 			require.Equal(t, atnExpectedBalance.String(), atnBalance.String())
-			require.Equal(t, ntnExpectedBalance.String(), ntnBalance.String())
+			require.Equal(t, stakesExpected.String(), val.BondedStake.String())
 
 			// effort counters should be zeroed out
 			require.Equal(r.T, common.Big0.String(), proposerEffort(r, val.NodeAddress).String())
@@ -909,7 +904,7 @@ func TestRewardWithholding(t *testing.T) {
 		absentees := make(map[common.Address]struct{})
 		for i := range r.Committee.Validators {
 			if i == 0 {
-				continue // let's keep at least a guy inside the committee
+				continue // let's keep at least one guy inside the committee
 			}
 			if rand.Intn(30) != 0 {
 				absentees[r.Committee.Validators[i].NodeAddress] = struct{}{}
@@ -921,31 +916,32 @@ func TestRewardWithholding(t *testing.T) {
 	atnRewards := new(big.Int).SetUint64(5467879877987) // random amount
 	// this has to match the ntn inflation unlocked NTNs.
 	// Can be retrieved by adding in solidity a revert(Helpers.toString(accounts[address(this)])); in Finalize
+	// Also can be used `r.RewardsAfterOneEpoch()` function to calculate rewards
 	ntnRewards := new(big.Int).SetUint64(8220842843566600000)
 	r.GiveMeSomeMoney(r.Autonity.address, atnRewards)
 
-	atnBalancesBefore := make([]*big.Int, len(r.Committee.Validators))
-	ntnBalancesBefore := make([]*big.Int, len(r.Committee.Validators))
+	atnBalancesBefore := make(map[common.Address]*big.Int)
+	stakesBefore := make(map[common.Address]*big.Int)
 	totalPower := new(big.Int)
-	for i, val := range r.Committee.Validators {
+	for _, val := range r.Committee.Validators {
 		validatorStruct := validator(r, val.NodeAddress)
 		// we assume that all stake is self bonded in this test
 		require.Equal(t, validatorStruct.SelfBondedStake.String(), validatorStruct.BondedStake.String())
-		atnBalancesBefore[i] = r.GetBalanceOf(val.Treasury)
-		ntnBalancesBefore[i] = ntnBalance(r, val.Treasury)
-		t.Logf("validator %d, atn balance before: %s, ntn balance before %s", i, atnBalancesBefore[i].String(), ntnBalancesBefore[i].String())
+		atnBalancesBefore[val.NodeAddress] = r.GetBalanceOf(val.Treasury)
+		stakesBefore[val.NodeAddress] = validatorStruct.BondedStake
+		t.Logf("validator %s, atn balance before: %s, bonded stake before balance before %s", common.Bytes2Hex(val.NodeAddress[:]), atnBalancesBefore[val.NodeAddress].String(), stakesBefore[val.NodeAddress].String())
 		totalPower.Add(totalPower, validatorStruct.SelfBondedStake)
 	}
 	atnPoolBefore := r.GetBalanceOf(withheldRewardPool)
 	ntnPoolBefore := ntnBalance(r, withheldRewardPool)
 
 	setupProofAndAutonityFinalize(r, proposer, nil)
+	r.generateNewCommittee()
 
 	atnTotalWithheld := new(big.Int)
 	ntnTotalWithheld := new(big.Int)
-	for i, val := range r.Committee.Validators {
-		validatorStruct := validator(r, val.NodeAddress)
-		power := validatorStruct.SelfBondedStake
+	for _, val := range r.Committee.Validators {
+		power := stakesBefore[val.NodeAddress]
 
 		// compute reward without withholding
 		atnFullReward := new(big.Int).Mul(power, atnRewards)
@@ -957,7 +953,7 @@ func TestRewardWithholding(t *testing.T) {
 		score := new(big.Int).SetInt64(int64(inactivityScore(r, val.NodeAddress)))
 		var ntnWithheld *big.Int
 		var atnWithheld *big.Int
-		t.Logf("validator index %d, score: %d", i, score.Uint64())
+		t.Logf("validator %s, score: %d", common.Bytes2Hex(val.NodeAddress[:]), score.Uint64())
 		if score.Uint64() <= customInactivityThreshold {
 			atnWithheld = new(big.Int).Mul(atnFullReward, score)
 			atnWithheld.Div(atnWithheld, omissionScaleFactor(r))
@@ -972,12 +968,12 @@ func TestRewardWithholding(t *testing.T) {
 		ntnTotalWithheld.Add(ntnTotalWithheld, ntnWithheld)
 
 		// check validator balance
-		atnExpectedBalance := new(big.Int).Add(atnFullReward, atnBalancesBefore[i])
+		atnExpectedBalance := new(big.Int).Add(atnFullReward, atnBalancesBefore[val.NodeAddress])
 		atnExpectedBalance.Sub(atnExpectedBalance, atnWithheld)
-		ntnExpectedBalance := new(big.Int).Add(ntnFullReward, ntnBalancesBefore[i])
-		ntnExpectedBalance.Sub(ntnExpectedBalance, ntnWithheld)
+		stakesExpected := new(big.Int).Add(ntnFullReward, stakesBefore[val.NodeAddress])
+		stakesExpected.Sub(stakesExpected, ntnWithheld)
 		require.Equal(t, atnExpectedBalance.String(), r.GetBalanceOf(val.Treasury).String())
-		require.Equal(t, ntnExpectedBalance.String(), ntnBalance(r, val.Treasury).String())
+		require.Equal(t, stakesExpected.String(), val.BondedStake.String())
 	}
 	atnExpectedPoolBalance := atnPoolBefore.Add(atnPoolBefore, atnTotalWithheld)
 	ntnExpectedPoolBalance := ntnPoolBefore.Add(ntnPoolBefore, ntnTotalWithheld)

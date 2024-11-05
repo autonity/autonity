@@ -66,8 +66,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// claimable fees should be 0 before epoch
 	for i := range liquidStateContracts {
 		unclaimed, _ := liquidStateContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
-		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedATN.Bytes())
-		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedNTN.Bytes())
+		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.Bytes())
 	}
 
 	// wait for epoch
@@ -106,6 +105,6 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 		totalValRewards := new(big.Int).Div(new(big.Int).Mul(totalRewards, big.NewInt(epochStake[i])), big.NewInt(totalStake))
 		valCommission := new(big.Int).Div(new(big.Int).Mul(totalValRewards, big.NewInt(12)), big.NewInt(100))
 		stakerReward := new(big.Int).Sub(totalValRewards, valCommission)
-		require.Equal(t, new(big.Int).Div(new(big.Int).Mul(stakerReward, big.NewInt(stake[i])), big.NewInt(epochStake[i])), unclaimed.UnclaimedATN)
+		require.Equal(t, new(big.Int).Div(new(big.Int).Mul(stakerReward, big.NewInt(stake[i])), big.NewInt(epochStake[i])), unclaimed)
 	}
 }

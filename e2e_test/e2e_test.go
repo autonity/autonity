@@ -312,8 +312,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// claimable fees should be 0 before epoch
 	for i := range liquidStateContracts {
 		unclaimed, _ := liquidStateContracts[i].UnclaimedRewards(&bind.CallOpts{}, validators[i].Treasury)
-		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedATN.Bytes())
-		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.UnclaimedNTN.Bytes())
+		require.Equal(t, big.NewInt(0).Bytes(), unclaimed.Bytes())
 	}
 
 	// wait for epoch

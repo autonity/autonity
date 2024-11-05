@@ -1257,8 +1257,7 @@ contract('Autonity', function (accounts) {
           const fee_factor_unit_recip = toBN(1000000000)
 
           let val0Liquid = await liquidStateContract.at(val0.liquidStateContract)
-          let data = await val0Liquid.unclaimedRewards(alice)
-          let unclaimedRewardsV0 = data._unclaimedATN
+          let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards(alice)
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
           assert.equal(unclaimedRewardsV0.toString(),delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toString())
           // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
@@ -1271,8 +1270,7 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV0.toString(),_unclaimedRewardsV0.toString())
           
           let val1Liquid = await liquidStateContract.at(val1.liquidStateContract)
-          data = await val1Liquid.unclaimedRewards(bob)
-          let unclaimedRewardsV1 = data._unclaimedATN
+          let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards(bob)
           // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
           assert.equal(unclaimedRewardsV1.toString(),delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toString())
           // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
@@ -1285,8 +1283,7 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV1.toString(),_unclaimedRewardsV1.toString())
 
           let val2Liquid = await liquidStateContract.at(val2.liquidStateContract)
-          data = await val2Liquid.unclaimedRewards(alice)
-          let unclaimedRewardsV2 = data._unclaimedATN
+          let unclaimedRewardsV2 = await val2Liquid.unclaimedRewards(alice)
           assert.equal(unclaimedRewardsV2.toString(),delegatorRewardV2.sub(commissionIncomeV2).toString())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV2)
           
@@ -1297,8 +1294,7 @@ contract('Autonity', function (accounts) {
           assert.equal(unclaimedRewardsV2.toString(),_unclaimedRewardsV2.toString())
           
           let val3Liquid = await liquidStateContract.at(val3.liquidStateContract)
-          data = await val3Liquid.unclaimedRewards(bob)
-          let unclaimedRewardsV3 = data._unclaimedATN
+          let unclaimedRewardsV3 = await val3Liquid.unclaimedRewards(bob)
           assert.equal(unclaimedRewardsV3.toString(),delegatorRewardV3.sub(commissionIncomeV3).toString())
           totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV3)
           
