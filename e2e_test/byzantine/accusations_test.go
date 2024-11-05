@@ -24,21 +24,26 @@ func selfAndCsize(c *core.Core, h uint64) (*types.CommitteeMember, int) {
 
 type AccusationPO struct {
 	*core.Core
+	accused bool
 }
 
 func newAccusationPO(c interfaces.Core) interfaces.Broadcaster {
-	return &AccusationPO{c.(*core.Core)}
+	return &AccusationPO{Core: c.(*core.Core), accused: false}
 }
 
 // simulate an old proposal not backed by a quorum preVotes to trigger the accusation of rule PO
 func (s *AccusationPO) Broadcast(msg message.Msg) {
 	proposal, isProposal := msg.(*message.Propose)
-	if !isProposal {
+	if !isProposal || s.accused {
 		s.BroadcastAll(msg)
 		return
 	}
 	// find a next proposing round.
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
+	// if the next proposing round is the same as the current round, then find the next proposing round.
+	if nPR == msg.R()+1 {
+		nPR = e2e.NextProposeRound(nPR, s.Core)
+	}
 	vR := nPR - 1
 
 	self, _ := selfAndCsize(s.Core, msg.H())
@@ -56,6 +61,8 @@ func (s *AccusationPO) Broadcast(msg message.Msg) {
 	s.Logger().Info("PO Accusation rule simulation")
 	s.BroadcastAll(proposal)
 	s.BroadcastAll(invalidProposal)
+
+	s.accused = true
 }
 
 type AccusationPVN struct {
