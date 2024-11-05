@@ -411,7 +411,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
-	n := network[0]
+	n := network[4]
 	// Send a TX to see that the network is working
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
