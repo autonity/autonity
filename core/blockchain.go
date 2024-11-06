@@ -207,12 +207,6 @@ type BlockChain struct {
 	// Readers don't need to take it, they can just read the database.
 	chainmu *syncx.ClosableMutex
 
-	// Current head epoch block of the blockchain, it is the latest epoch block that was inserted to blockchain.
-	// This epoch block of the blockchain can grow slower than the epoch head of header chain in some sync mode, i.e.
-	// in snap sync the header chain can grow faster than the blockchain. Thus, we create two different references
-	// of epoch head for the blockchain synchronization context and the header chain synchronization context.
-	//currentEpochBlock atomic.Value
-
 	currentBlock     atomic.Value // Current head of the blockchain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
@@ -309,7 +303,6 @@ func NewBlockChain(db ethdb.Database,
 
 	var nilBlock *types.Block
 	bc.currentBlock.Store(nilBlock)
-	//bc.currentEpochBlock.Store(nilBlock)
 	bc.currentFastBlock.Store(nilBlock)
 
 	// Initialize the chain with ancient data if it isn't empty.
@@ -515,7 +508,6 @@ func (bc *BlockChain) loadLastState() error {
 		bc.log.Warn("Head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
-	bc.log.Debug("Storing current block", "currentBlock", currentBlock.Number().Uint64())
 	// Everything seems to be fine, set as the head block
 	bc.currentBlock.Store(currentBlock)
 	headBlockGauge.Update(int64(currentBlock.NumberU64()))
@@ -534,10 +526,6 @@ func (bc *BlockChain) loadLastState() error {
 		bc.log.Warn("Epoch head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
-	bc.log.Debug("Storing current epoch block", "block", epochBlock.Number().Uint64())
-	// Everything seems to be fine, set as the head epoch block
-	//bc.currentEpochBlock.Store(epochBlock)
-
 	// Restore the last known head header
 	currentHeader := currentBlock.Header()
 	if head := rawdb.ReadHeadHeaderHash(bc.db); head != (common.Hash{}) {
@@ -546,7 +534,6 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 	bc.hc.SetCurrentHeader(currentHeader)
-	bc.log.Debug("Storing current header", "header", currentHeader.Number.Uint64())
 
 	// Restore the last known head fast block
 	bc.currentFastBlock.Store(currentBlock)
@@ -759,7 +746,6 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 		if err := batch.Write(); err != nil {
 			bc.log.Crit("Failed to update epoch header markers", "err", err)
 		}
-		//bc.currentEpochBlock.Store(block)
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
 		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}
@@ -803,7 +789,6 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	// Last update all in-memory chain markers
 	bc.genesisBlock = genesis
 	bc.currentBlock.Store(bc.genesisBlock)
-	//bc.currentEpochBlock.Store(bc.genesisBlock)
 	headBlockGauge.Update(int64(bc.genesisBlock.NumberU64()))
 	bc.hc.SetGenesis(bc.genesisBlock.Header())
 	bc.hc.SetCurrentHeader(bc.genesisBlock.Header())
@@ -875,7 +860,6 @@ func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	// Update all in-memory chain markers in the last step
 	bc.hc.SetCurrentHeader(block.Header())
 	if block.IsEpochHead() {
-		//bc.currentEpochBlock.Store(block)
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
 		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}

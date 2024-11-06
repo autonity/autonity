@@ -647,14 +647,6 @@ func (hc *HeaderChain) CurrentHeadEpochHeader() *types.Header {
 	return header
 }
 
-//	func (hc *HeaderChain) PreviousEpochHeader(heigh) *types.Header {
-//		header, ok := hc.currentEpochHeader.Load().(*types.Header)
-//		if !ok {
-//			return nil
-//		}
-//		return header.
-//	}
-//
 // SetCurrentHeadEpochHeader sets the in-memory head epoch header marker of the canonical chan
 // as the given header.
 func (hc *HeaderChain) SetCurrentHeadEpochHeader(head *types.Header) {
