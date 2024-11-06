@@ -213,11 +213,16 @@ func DeployACUContract(config *params.ChainConfig, evmContracts *GenesisEVMContr
 func DeployAccountabilityContract(config *params.AccountabilityGenesis, evmContracts *GenesisEVMContracts) error {
 	accountabilityConfig := AccountabilityConfig{
 		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(config.InnocenceProofSubmissionWindow),
-		BaseSlashingRateLow:            new(big.Int).SetUint64(config.BaseSlashingRateLow),
-		BaseSlashingRateMid:            new(big.Int).SetUint64(config.BaseSlashingRateMid),
-		CollusionFactor:                new(big.Int).SetUint64(config.CollusionFactor),
-		HistoryFactor:                  new(big.Int).SetUint64(config.HistoryFactor),
-		JailFactor:                     new(big.Int).SetUint64(config.JailFactor),
+		BaseSlashingRates: AccountabilityBaseSlashingRates{
+			Low:  new(big.Int).SetUint64(config.BaseSlashingRateLow),
+			Mid:  new(big.Int).SetUint64(config.BaseSlashingRateMid),
+			High: new(big.Int).SetUint64(config.BaseSlashingRateHigh),
+		},
+		Factors: AccountabilityFactors{
+			Collusion: new(big.Int).SetUint64(config.CollusionFactor),
+			History:   new(big.Int).SetUint64(config.HistoryFactor),
+			Jail:      new(big.Int).SetUint64(config.JailFactor),
+		},
 	}
 	err := evmContracts.DeployAccountabilityContract(params.AutonityContractAddress, accountabilityConfig, generated.AccountabilityBytecode)
 	if err != nil {

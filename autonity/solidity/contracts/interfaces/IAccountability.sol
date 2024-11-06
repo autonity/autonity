@@ -16,12 +16,6 @@ interface IAccountability {
     function distributeRewards(address _validator, uint256 _ntnReward) external payable;
 
     /**
-    * @notice called by the Autonity Contract when the epoch period is updated.
-    * @param _newPeriod the new epoch period.
-    */
-    function setEpochPeriod(uint256 _newPeriod) external;
-
-    /**
     * @notice called by the Autonity Contract when the committee is updated.
     * @param _committee the new committee member addresses;
     */

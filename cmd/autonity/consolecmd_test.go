@@ -74,11 +74,12 @@ var genesis = `{
 				},
 				"accountability": {
 					  "innocenceProofSubmissionWindow": 30,
-					  "baseSlashingRateLow": 500,
-					  "baseSlashingRateMid": 1000,
-					  "collusionFactor": 550,
-					  "historyFactor": 750,
-					  "jailFactor": 60
+					  "baseSlashingRateLow": 400,
+					  "baseSlashingRateMid": 600,
+					  "baseSlashingRateHigh": 800,
+					  "collusionFactor": 200,
+					  "historyFactor": 500,
+					  "jailFactor": 48
 					},
     			"oracle": {
       				"votePeriod": 30

@@ -18,12 +18,16 @@ const SLASHING_RATE_PRECISION = 10000; // needs to match the slashing rate preci
 
 const ACCOUNTABILITY_CONFIG = {
         "innocenceProofSubmissionWindow": 30,
-        "latestAccountabilityEventsRange": 256,
-        "baseSlashingRateLow": 500,
-        "baseSlashingRateMid": 1000,
-        "collusionFactor": 550,
-        "historyFactor": 750,
-        "jailFactor": 60,
+        "baseSlashingRates" : {
+            "low": 400,
+            "mid": 600,
+            "high": 800,
+        },
+        "factors" : {
+            "collusion": 200,
+            "history": 500,
+            "jail": 48,
+        },
     };
 
 const OMISSION_ACCOUNTABILITY_CONFIG = {

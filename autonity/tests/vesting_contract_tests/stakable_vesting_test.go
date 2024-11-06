@@ -1221,6 +1221,9 @@ func TestSlashingAffect(t *testing.T) {
 		require.NoError(r.T, err)
 		previousStake := validator.BondedStake
 
+		epochPeriod, _, err := r.Autonity.GetCurrentEpochPeriod(nil)
+		require.NoError(r.T, err)
+
 		r.NoError(
 			accountabilityContract.Slash(
 				nil,
@@ -1234,6 +1237,7 @@ func TestSlashingAffect(t *testing.T) {
 					ReportingBlock: common.Big0,
 				},
 				common.Big0,
+				epochPeriod,
 			),
 		)
 		validator, _, err = r.Autonity.GetValidator(nil, offender)
@@ -1283,6 +1287,9 @@ func TestSlashingAffect(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, big.NewInt(contractTotalAmount), totalValue)
 
+		epochPeriod, _, err := r.Autonity.GetCurrentEpochPeriod(nil)
+		require.NoError(r.T, err)
+
 		validator, _, err := r.Autonity.GetValidator(nil, offender)
 		require.NoError(r.T, err)
 		previousStake := validator.UnbondingStake
@@ -1299,6 +1306,7 @@ func TestSlashingAffect(t *testing.T) {
 					ReportingBlock: common.Big0,
 				},
 				common.Big0,
+				epochPeriod,
 			),
 		)
 		validator, _, err = r.Autonity.GetValidator(nil, offender)

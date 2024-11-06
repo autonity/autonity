@@ -276,8 +276,15 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
 };
 
 function ruleToRate(accountabilityConfig,rule){
-  //TODO(lorenzo) create mapping rule to rate once finalized in autonity.sol. bypass severity conversion?
-  return accountabilityConfig.baseSlashingRateMid
+  if(rule == 9) { // equivocation
+    return accountabilityConfig.baseSlashingRates.low
+  }
+  if(rule >= 0 && rule <= 6) {
+    return accountabilityConfig.baseSlashingRates.mid
+  }
+  if(rule == 7 || rule == 8){ // invalid proposal and invalid proposer
+    return accountabilityConfig.baseSlashingRates.high
+  }
 }
 
 async function signTransaction(from, to, privateKey, methodRequest = null) {
@@ -392,7 +399,7 @@ function keccakHash(input) {
   return keccak256(Buffer.from(input)).toString('hex');
 }
 
-async function slash(config, accountability, epochOffenceCount, offender, reporter) {
+async function slash(config, accountability, epochOffenceCount, offender, reporter, epochPeriod) {
   const event = {
     "eventType": 0,
     "rule": 0, // PN rule --> severity mid
@@ -405,7 +412,7 @@ async function slash(config, accountability, epochOffenceCount, offender, report
     "reportingBlock": 2,
     "messageHash": 0,
   }
-  let tx = await accountability.slash(event, epochOffenceCount);
+  let tx = await accountability.slash(event, epochOffenceCount, epochPeriod);
   let txEvent;
   truffleAssert.eventEmitted(tx, 'SlashingEvent', (ev) => {
     txEvent = ev;

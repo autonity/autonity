@@ -61,13 +61,15 @@ var (
 		InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_900), DecimalFactor), big.NewInt(1_000))), // -1.429
 	}
 
+	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
 	DefaultAccountabilityConfig = &AccountabilityGenesis{
-		InnocenceProofSubmissionWindow: 100,
-		BaseSlashingRateLow:            1000, // 10%
-		BaseSlashingRateMid:            2000, // 20%
-		CollusionFactor:                500,  // 5%
-		HistoryFactor:                  750,  // 7.5%
-		JailFactor:                     48,   // 1 day with 30 mins epoch
+		InnocenceProofSubmissionWindow: 100, // 100 blocks
+		BaseSlashingRateLow:            400, // 4%
+		BaseSlashingRateMid:            600, // 6%
+		BaseSlashingRateHigh:           800, // 8%
+		CollusionFactor:                200, // 2%
+		HistoryFactor:                  500, // 5%
+		JailFactor:                     48,  // 48 epochs, i.e. 1 day with 30 mins epoch
 	}
 
 	/*
@@ -147,11 +149,14 @@ type AccountabilityGenesis struct {
 	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
 
 	// Slashing parameters
-	BaseSlashingRateLow uint64 `json:"baseSlashingRateLow"`
-	BaseSlashingRateMid uint64 `json:"baseSlashingRateMid"`
-	CollusionFactor     uint64 `json:"collusionFactor"`
-	HistoryFactor       uint64 `json:"historyFactor"`
-	JailFactor          uint64 `json:"jailFactor"`
+	BaseSlashingRateLow  uint64 `json:"baseSlashingRateLow"`
+	BaseSlashingRateMid  uint64 `json:"baseSlashingRateMid"`
+	BaseSlashingRateHigh uint64 `json:"baseSlashingRateHigh"`
+
+	// Factors
+	CollusionFactor uint64 `json:"collusionFactor"`
+	HistoryFactor   uint64 `json:"historyFactor"`
+	JailFactor      uint64 `json:"jailFactor"`
 }
 
 // OmissionAccountabilityGenesis defines the omission fault detection parameters

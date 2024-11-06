@@ -33,7 +33,7 @@ async function slashAndVerify(autonity,accountability,accountabilityConfig,event
   let baseRate = utils.ruleToRate(accountabilityConfig,event.rule)
   let history = await accountability.history(offender.nodeAddress);
 
-  let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(history).mul(toBN(accountabilityConfig.historyFactor)));
+  let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.factors.collusion))).add(toBN(history).mul(toBN(accountabilityConfig.factors.history)));
   // cannot slash more than 100%
   if(slashingRate.gt(toBN(SLASHING_RATE_PRECISION))) {
     slashingRate = toBN(SLASHING_RATE_PRECISION)
@@ -45,8 +45,9 @@ async function slashAndVerify(autonity,accountability,accountabilityConfig,event
 
   let autonityTreasury = await autonity.getTreasuryAccount()
   let autonityTreasuryBalance = await autonity.balanceOf(autonityTreasury)
- 
-  let tx = await accountability.slash(event,epochOffenceCount)
+
+  let epochPeriod = await autonity.getCurrentEpochPeriod();
+  let tx = await accountability.slash(event,epochOffenceCount,epochPeriod)
   let slashingBlock = tx.receipt.blockNumber
   let offenderSlashed = await autonity.getValidator(offender.nodeAddress);
   
@@ -108,12 +109,16 @@ contract('Accountability', function (accounts) {
 
   const accountabilityConfig = {
     "innocenceProofSubmissionWindow": 30,
-    "latestAccountabilityEventsRange": 256,
-    "baseSlashingRateLow": 500,
-    "baseSlashingRateMid": 1000,
-    "collusionFactor": 550,
-    "historyFactor": 750,
-    "jailFactor": 60,
+    "baseSlashingRates" : {
+      "low": 400,
+      "mid": 600,
+      "high": 800,
+    },
+    "factors" : {
+      "collusion": 200,
+      "history": 500,
+      "jail": 48,
+    },
   }
   const genesisPrivateKeys = config.GENESIS_PRIVATE_KEYS
 
@@ -246,7 +251,7 @@ contract('Accountability', function (accounts) {
 
         let baseRate = utils.ruleToRate(accountabilityConfig,event.rule);
 
-        let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(histories[i]).mul(toBN(accountabilityConfig.historyFactor)));
+        let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.factors.collusion))).add(toBN(histories[i]).mul(toBN(accountabilityConfig.factors.history)));
         // cannot slash more than 100%
         if(slashingRate.gt(toBN(SLASHING_RATE_PRECISION))) {
           slashingRate = toBN(SLASHING_RATE_PRECISION)
@@ -354,7 +359,7 @@ contract('Accountability', function (accounts) {
       let epochOffenceCount = 1;
       let baseRate = utils.ruleToRate(accountabilityConfig,event.rule);
 
-      let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.collusionFactor))).add(toBN(history).mul(toBN(accountabilityConfig.historyFactor)));
+      let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.factors.collusion))).add(toBN(history).mul(toBN(accountabilityConfig.factors.history)));
       // cannot slash more than 100%
       if(slashingRate.gt(toBN(SLASHING_RATE_PRECISION))) {
         slashingRate = toBN(SLASHING_RATE_PRECISION)

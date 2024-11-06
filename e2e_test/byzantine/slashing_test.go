@@ -63,7 +63,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 	// creates a network of validators and starts all the nodes in it
 	// and sneak default slashing parameters
 	network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *core2.Genesis) {
-		baseRate = genesis.Config.AccountabilityConfig.BaseSlashingRateMid
+		baseRate = genesis.Config.AccountabilityConfig.BaseSlashingRateHigh
 		collusionFactor = genesis.Config.AccountabilityConfig.CollusionFactor
 		historyFactor = genesis.Config.AccountabilityConfig.HistoryFactor
 		genesis.Config.AutonityContractConfig.EpochPeriod = epochPeriod
@@ -284,9 +284,9 @@ func TestHistoryFactor(t *testing.T) {
 	accountabilityConfig, err := accountabilityContract.Config(nil)
 	require.NoError(t, err)
 
-	baseRate := accountabilityConfig.BaseSlashingRateMid
-	collusionFactor := accountabilityConfig.CollusionFactor
-	historyFactor := accountabilityConfig.HistoryFactor
+	baseRate := accountabilityConfig.BaseSlashingRates.High
+	collusionFactor := accountabilityConfig.Factors.Collusion
+	historyFactor := accountabilityConfig.Factors.History
 	slashingRatePrecision := new(big.Int).SetUint64(SlashingRatePrecision)
 
 	// one offender in total

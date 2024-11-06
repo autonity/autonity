@@ -82,11 +82,12 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
 	accountabilityConfig, err := accountabilityContract.Config(nil)
 	require.NoError(t, err)
-	require.Equal(t, params.TestAccountabilityConfig.HistoryFactor, accountabilityConfig.HistoryFactor.Uint64())
-	require.Equal(t, params.TestAccountabilityConfig.CollusionFactor, accountabilityConfig.CollusionFactor.Uint64())
-	require.Equal(t, params.TestAccountabilityConfig.JailFactor, accountabilityConfig.JailFactor.Uint64())
-	require.Equal(t, params.TestAccountabilityConfig.BaseSlashingRateMid, accountabilityConfig.BaseSlashingRateMid.Uint64())
-	require.Equal(t, params.TestAccountabilityConfig.BaseSlashingRateLow, accountabilityConfig.BaseSlashingRateLow.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.HistoryFactor, accountabilityConfig.Factors.History.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.CollusionFactor, accountabilityConfig.Factors.Collusion.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.JailFactor, accountabilityConfig.Factors.Jail.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.BaseSlashingRateLow, accountabilityConfig.BaseSlashingRates.Low.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.BaseSlashingRateMid, accountabilityConfig.BaseSlashingRates.Mid.Uint64())
+	require.Equal(t, params.TestAccountabilityConfig.BaseSlashingRateHigh, accountabilityConfig.BaseSlashingRates.High.Uint64())
 	require.Equal(t, params.TestAccountabilityConfig.InnocenceProofSubmissionWindow, accountabilityConfig.InnocenceProofSubmissionWindow.Uint64())
 	// Oracle Contract -- todo
 	// ACU Contract -- todo

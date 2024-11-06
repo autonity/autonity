@@ -6,8 +6,8 @@ import "../Accountability.sol";
 contract AccountabilityTest is Accountability {
    constructor(address payable _autonity, Config memory _config) Accountability(_autonity,_config) {}
 
-   function slash(Event memory _event, uint256 _epochOffencesCount) public {
-        Accountability._slash(_event,_epochOffencesCount);
+   function slash(Event memory _event, uint256 _epochOffencesCount, uint256 _epochPeriod) public {
+        Accountability._slash(_event,_epochOffencesCount, _epochPeriod);
    }
    
    function handleValidFaultProof(Event memory _event) public {

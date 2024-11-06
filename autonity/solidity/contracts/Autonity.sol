@@ -165,7 +165,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     // save new epoch period on epoch period update,
     // it is applied to the protocol right after the end of current epoch.
-    uint256 public epochPeriodToBeApplied;
+    uint256 public newEpochPeriod;
 
     uint256 public lastFinalizedBlock;
     uint256 public lastEpochTime;
@@ -175,7 +175,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     mapping(uint256=>EpochInfo) internal epochInfos;
 
     CommitteeMember[] internal committee;
-    uint256 public epochReward;
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
@@ -238,7 +237,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
     event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
-    event EpochPeriodUpdated(uint256 period, uint256 toBeAppliedAtBlock);
+    event EpochPeriodUpdated(uint256 period, uint256 appliedAtBlock);
     event NewEpoch(uint256 epoch);
 
     /**
@@ -268,7 +267,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         Config memory _config
     ) internal {
         config = _config;
-        epochPeriodToBeApplied = _config.protocol.epochPeriod;
+        newEpochPeriod = _config.protocol.epochPeriod;
         inflationReserve = config.policy.initialInflationReserve;
 
         // deploy liquid logic and slasher
@@ -554,11 +553,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
         uint256 _lookbackWindow = config.contracts.omissionAccountabilityContract.getLookbackWindow();
         uint256 _delta = config.contracts.omissionAccountabilityContract.getDelta();
+        require(_period > 0, "epoch period cannot be 0");
         require(_period > _delta + _lookbackWindow -1,"epoch period needs to be greater than delta+lookbackWindow-1");
 
-        epochPeriodToBeApplied = _period;
-        uint256 _toBeAppliedAtBlock = epochInfos[epochID].nextEpochBlock;
-        emit EpochPeriodUpdated(_period, _toBeAppliedAtBlock);
+        newEpochPeriod = _period;
+        uint256 _appliedAtBlock = epochInfos[epochID].nextEpochBlock;
+        emit EpochPeriodUpdated(_period, _appliedAtBlock);
     }
 
     /*
@@ -810,10 +810,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             config.contracts.omissionAccountabilityContract.setCommittee(committee, _newTreasuries);
 
             // apply new epoch period.
-            if (config.protocol.epochPeriod != epochPeriodToBeApplied && epochPeriodToBeApplied != 0) {
-                config.protocol.epochPeriod = epochPeriodToBeApplied;
-                config.contracts.accountabilityContract.setEpochPeriod(epochPeriodToBeApplied);
-            }
+            config.protocol.epochPeriod = newEpochPeriod;
 
             // update epoch information
             config.contracts.omissionAccountabilityContract.setEpochBlock(block.number);
@@ -995,7 +992,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Returns the epoch period. If there will be an update at epoch end, the new epoch period is returned
     */
     function getEpochPeriod() external view virtual returns (uint256) {
-            return epochPeriodToBeApplied;
+            return newEpochPeriod;
     }
 
     /**

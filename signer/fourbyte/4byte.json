@@ -175,5 +175,6 @@
   "e3deef9c": "setCommittee((address,uint256,bytes)[],address[])",
   "c024cc2c": "setEpochBlock(uint256)",
   "625fb940": "ACTIVITY_CONTRACT()",
-  "c1f1884b": "getSlashingPrecision()"
+  "c1f1884b": "getSlashingPrecision()",
+  "241ed650": "newEpochPeriod()"
 }

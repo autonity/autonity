@@ -345,7 +345,7 @@ contract('Autonity', function (accounts) {
             // modifying config so we get slashingAmount = totalStake - 1, the highest slash possible without triggering fairness issue
             const expectedBondedStake = SLASHING_RATE_PRECISION;
             const expectedSlash = expectedBondedStake - 1;
-            config.collusionFactor = expectedSlash - parseInt(config.baseSlashingRateMid);
+            config.factors.collusion = expectedSlash - parseInt(config.baseSlashingRates.mid);
             accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});
             await autonity.setAccountabilityContract(accountability.address, {from:operator});
 
@@ -396,7 +396,8 @@ contract('Autonity', function (accounts) {
 
             for (let iter = 0; iter < validatorAddresses.length; iter++) {
                 const validator = validatorAddresses[iter];
-                let {txEvent, _} = await utils.slash(config, accountability, 1, validator, validator);
+                let epochPeriod = await autonity.getCurrentEpochPeriod();
+                let {txEvent, _} = await utils.slash(config, accountability, 1, validator, validator,epochPeriod);
                 // checking if highest possible slashing can be done without triggering fairness issue
                 // cannot slash (totalStake - 1) because both delegated and unbonding slash is floored
                 assert.equal(txEvent.amount.toNumber(), expectedSlash-1, "highest slash did not happen");

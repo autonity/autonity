@@ -763,13 +763,15 @@ var (
 		MaxScheduleDuration:     uint64(3 * SecondsInYear),
 	}
 
+	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
 	TestAccountabilityConfig = &AccountabilityGenesis{
-		InnocenceProofSubmissionWindow: 30,   // to shorten the tests
-		BaseSlashingRateLow:            1000, // 10%
-		BaseSlashingRateMid:            2000, // 20%
-		CollusionFactor:                500,  // 5%
-		HistoryFactor:                  750,  // 7.5%
-		JailFactor:                     48,   // 1 day with 30 mins epoch
+		InnocenceProofSubmissionWindow: 30,  // 30 blocks, to shorten the tests
+		BaseSlashingRateLow:            400, // 4%
+		BaseSlashingRateMid:            600, // 6%
+		BaseSlashingRateHigh:           800, // 8%
+		CollusionFactor:                200, // 2%
+		HistoryFactor:                  500, // 5%
+		JailFactor:                     48,  // 48 epochs, i.e. 1 day with 30 mins epoch
 	}
 
 	TestChainConfig = &ChainConfig{

@@ -550,11 +550,16 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	//
 	_, _, r.Accountability, err = r.DeployAccountability(nil, r.Autonity.address, AccountabilityConfig{
 		InnocenceProofSubmissionWindow: big.NewInt(int64(params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow)),
-		BaseSlashingRateLow:            big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
-		BaseSlashingRateMid:            big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
-		CollusionFactor:                big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
-		HistoryFactor:                  big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
-		JailFactor:                     big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),
+		BaseSlashingRates: AccountabilityBaseSlashingRates{
+			Low:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
+			Mid:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
+			High: big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateHigh)),
+		},
+		Factors: AccountabilityFactors{
+			Collusion: big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
+			History:   big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
+			Jail:      big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, r.Accountability.address, params.AccountabilityContractAddress)
