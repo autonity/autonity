@@ -266,6 +266,10 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 				err = sb.verifyHeader(chainConfig, header, parent, epoch, hash)
 			}
 
+			if err != nil {
+				sb.logger.Error("VerifyHeaders", "Error verifying header", "error", err)
+			}
+
 			// cross epoch header check, update the committee and epoch boundary if current header is an epoch head.
 			// the verification behind this header will be continued with the updated epoch info.
 			if header.IsEpochHeader() {

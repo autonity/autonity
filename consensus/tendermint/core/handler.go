@@ -22,6 +22,8 @@ const syncTimeOut = 30 * time.Second
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	chainHead := c.backend.HeadBlock().Header()
+
+	c.logger.Debug("Starting core - fetching epoch info", "epoch of height", chainHead.Number.Uint64()+1)
 	epoch, err := c.Backend().EpochOfHeight(chainHead.Number.Uint64() + 1)
 	if err != nil {
 		panic(fmt.Sprintf("failed to fetch epoch information for height: %d, err: %s", chainHead.Number.Uint64()+1, err.Error()))

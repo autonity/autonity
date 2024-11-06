@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/rawdb"
@@ -34,7 +36,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -559,8 +560,25 @@ func (hc *HeaderChain) EpochOfHeight(height uint64, _ consensus.HeaderWithStateF
 	// as header chain does not have the state db, thus we cannot query it from state db.
 	// In this case, we just return this error which means the caller should discard the batch of headers,
 	// and the protocol will start another batch of sync with the correct head.
-	if height <= epochHead.Number.Uint64() || height > epochHead.Epoch.NextEpochBlock.Uint64() {
+	if height > epochHead.Epoch.NextEpochBlock.Uint64() {
 		return nil, consensus.ErrOutOfEpochRange
+	}
+
+	for {
+		log.Debug("EpochOfHeight", "epoch head", epochHead.Number.Uint64())
+		if epochHead.Number.Uint64() == 0 {
+			break
+		}
+		if height > epochHead.Number.Uint64() && height <= epochHead.Epoch.NextEpochBlock.Uint64() {
+			break
+		}
+		epochHeadNum := epochHead.Epoch.PreviousEpochBlock.Uint64()
+		epochHead = hc.GetHeaderByNumber(epochHeadNum)
+		if epochHead == nil {
+			// must not happen
+			log.Error("EpochOfHeight", "epoch Head", "nil")
+			return nil, consensus.ErrOutOfEpochRange
+		}
 	}
 
 	epoch := &types.EpochInfo{
@@ -630,6 +648,14 @@ func (hc *HeaderChain) CurrentHeadEpochHeader() *types.Header {
 	return header
 }
 
+//	func (hc *HeaderChain) PreviousEpochHeader(heigh) *types.Header {
+//		header, ok := hc.currentEpochHeader.Load().(*types.Header)
+//		if !ok {
+//			return nil
+//		}
+//		return header.
+//	}
+//
 // SetCurrentHeadEpochHeader sets the in-memory head epoch header marker of the canonical chan
 // as the given header.
 func (hc *HeaderChain) SetCurrentHeadEpochHeader(head *types.Header) {

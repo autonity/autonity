@@ -33,7 +33,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	wasValidating := false
 
 	// read the committee base on latest state.
-	currentHead := acn.chain.CurrentHeader()
+	currentHead := acn.chain.CurrentBlock().Header()
 	currentState, err := acn.chain.StateAt(currentHead.Root)
 	if err != nil {
 		panic(err)

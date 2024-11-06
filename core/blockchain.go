@@ -325,6 +325,7 @@ func NewBlockChain(db ethdb.Database,
 		}
 	}
 	if err := bc.loadLastState(); err != nil {
+		bc.log.Error("new blockchain", "loadstate failure", "error", err)
 		return nil, err
 	}
 
@@ -514,6 +515,7 @@ func (bc *BlockChain) loadLastState() error {
 		bc.log.Warn("Head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
+	bc.log.Debug("Storing current block", "currentBlock", currentBlock.Number().Uint64())
 	// Everything seems to be fine, set as the head block
 	bc.currentBlock.Store(currentBlock)
 	headBlockGauge.Update(int64(currentBlock.NumberU64()))
@@ -532,6 +534,7 @@ func (bc *BlockChain) loadLastState() error {
 		bc.log.Warn("Epoch head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
+	bc.log.Debug("Storing current epoch block", "block", epochBlock.Number().Uint64())
 	// Everything seems to be fine, set as the head epoch block
 	bc.currentEpochBlock.Store(epochBlock)
 
@@ -543,6 +546,7 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 	bc.hc.SetCurrentHeader(currentHeader)
+	bc.log.Debug("Storing current header", "header", currentHeader.Number.Uint64())
 
 	// Restore the last known head fast block
 	bc.currentFastBlock.Store(currentBlock)
@@ -564,6 +568,7 @@ func (bc *BlockChain) loadLastState() error {
 	bc.log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(int64(currentHeader.Time), 0)))
 	bc.log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd, "age", common.PrettyAge(time.Unix(int64(currentBlock.Time()), 0)))
 	bc.log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd, "age", common.PrettyAge(time.Unix(int64(currentFastBlock.Time()), 0)))
+	bc.log.Info("Loaded most recent epochBlock", "number", epochBlock.Number(), "hash", epochBlock.Hash(), "td", fastTd, "age", common.PrettyAge(time.Unix(int64(epochBlock.Time()), 0)))
 	if pivot := rawdb.ReadLastPivotNumber(bc.db); pivot != nil {
 		bc.log.Info("Loaded last fast-sync pivot marker", "number", *pivot)
 	}
@@ -619,7 +624,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 						beyondRoot, rootNumber = true, newHeadBlock.NumberU64()
 					}
 					if _, err := state.New(newHeadBlock.Root(), bc.stateCache, bc.snaps); err != nil {
-						bc.log.Trace("Block state missing, rewinding further", "number", newHeadBlock.NumberU64(), "hash", newHeadBlock.Hash())
+						bc.log.Trace("Block state missing, rewinding further", "number", newHeadBlock.NumberU64(), "hash", newHeadBlock.Hash(), "err", err)
 						if pivot == nil || newHeadBlock.NumberU64() > *pivot {
 							parent := bc.GetBlock(newHeadBlock.ParentHash(), newHeadBlock.NumberU64()-1)
 							if parent != nil {

@@ -20,12 +20,13 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
@@ -618,7 +619,7 @@ func (s *Ethereum) validatorController() {
 	wasValidating := false
 
 	// read the committee base on latest state.
-	currentHead := s.blockchain.CurrentHeader()
+	currentHead := s.blockchain.CurrentBlock().Header()
 	currentState, err := s.blockchain.StateAt(currentHead.Root)
 	if err != nil {
 		panic(err)

@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -66,34 +65,41 @@ func (bc *BlockChain) EpochOfHeight(height uint64, customFetcher consensus.Heade
 		bc.epochCache.Add(height, epoch)
 		return epoch, nil
 	}
+	epoch, err := bc.hc.EpochOfHeight(height, customFetcher)
+	if err != nil {
+		return nil, err
+	}
+	//bc.log.Debug("query epoch of height", "height", height, "with state at", currentHeader.Number.Uint64())
+	bc.epochCache.Add(height, epoch)
+	return epoch, nil
 
 	// the latest epoch head should be in the most case.
-	epoch, err := bc.LatestEpoch()
-	if err != nil {
-		panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
-	}
-
-	if height > epoch.EpochBlock.Uint64() && height <= epoch.NextEpochBlock.Uint64() {
-		bc.epochCache.Add(height, epoch)
-		return epoch, nil
-	}
+	//epoch, err := bc.LatestEpoch()
+	//if err != nil {
+	//	panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
+	//}
+	//
+	//if height > epoch.EpochBlock.Uint64() && height <= epoch.NextEpochBlock.Uint64() {
+	//	bc.epochCache.Add(height, epoch)
+	//	return epoch, nil
+	//}
 
 	// otherwise try to get committee from state db of the height.
 	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
-	fetcher := defaultFetcher(bc)
-	if customFetcher != nil {
-		fetcher = customFetcher
-	}
-	header, stateDB, err := fetcher()
-	if err != nil {
-		return nil, err
-	}
-
-	bc.log.Debug("query epoch of height", "height", height, "with state at", header.Number.Uint64())
-	epoch, err = bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
-	if err != nil {
-		return nil, err
-	}
+	//fetcher := defaultFetcher(bc)
+	//if customFetcher != nil {
+	//	fetcher = customFetcher
+	//}
+	//header, stateDB, err := fetcher()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//bc.log.Debug("query epoch of height", "height", height, "with state at", header.Number.Uint64())
+	//epoch, err = bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
+	//if err != nil {
+	//	return nil, err
+	//}
 	// if we are using a custom fetcher, we could be in the process of building an optimistic block
 	// therefore do not save the epoch in the cache, as the parent block is not finalized yet.
 	if customFetcher == nil {
@@ -105,8 +111,10 @@ func (bc *BlockChain) EpochOfHeight(height uint64, customFetcher consensus.Heade
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
 	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
+	bc.log.Debug("Loading latest epoch", "epoch block", epochBlock.Number().Uint64())
 	// double check if chain head fit into current epoch range, otherwise we query latest epoch from state DB.
 	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {
+		bc.log.Debug("Returning epoch block", "epoch block", epochBlock.Number().Uint64())
 		epochInfo := &types.EpochInfo{
 			Epoch:      *epochBlock.Header().Epoch.Copy(),
 			EpochBlock: epochBlock.Number(),
