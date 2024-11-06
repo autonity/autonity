@@ -118,6 +118,8 @@ def stabilization(
         sender=users.deployer,
     )
     supply_control.setStabilizer(contract.address, sender=users.operator)
+    ## CDP restrictions are tested in the golang framework
+    contract.removeCDPRestrictions(sender=users.operator)
     return contract
 
 
