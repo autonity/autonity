@@ -149,7 +149,7 @@ func (sb *Backend) BlockChain() *core.BlockChain {
 
 // used by tendermint core to fetch the current epoch info. We always use the default fetcher, as there is no notion of optimistic block in consensus.
 func (sb *Backend) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
-	return sb.BlockChain().EpochOfHeight(height, nil)
+	return sb.BlockChain().EpochByHeight(height, nil)
 }
 
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {

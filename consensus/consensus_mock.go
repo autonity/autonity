@@ -76,7 +76,7 @@ func (mr *MockChainHeaderReaderMockRecorder) CurrentHeader() *gomock.Call {
 }
 
 // EpochOfHeight mocks base method.
-func (m *MockChainHeaderReader) EpochOfHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error) {
+func (m *MockChainHeaderReader) EpochByHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EpochOfHeight", height, fetcher)
 	ret0, _ := ret[0].(*types.EpochInfo)
@@ -87,7 +87,7 @@ func (m *MockChainHeaderReader) EpochOfHeight(height uint64, fetcher HeaderWithS
 // EpochOfHeight indicates an expected call of EpochOfHeight.
 func (mr *MockChainHeaderReaderMockRecorder) EpochOfHeight(height, fetcher any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochOfHeight), height, fetcher)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochByHeight), height, fetcher)
 }
 
 // GetHeader mocks base method.
@@ -212,7 +212,7 @@ func (mr *MockChainReaderMockRecorder) Engine() *gomock.Call {
 }
 
 // EpochOfHeight mocks base method.
-func (m *MockChainReader) EpochOfHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error) {
+func (m *MockChainReader) EpochByHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EpochOfHeight", height, fetcher)
 	ret0, _ := ret[0].(*types.EpochInfo)
@@ -223,7 +223,7 @@ func (m *MockChainReader) EpochOfHeight(height uint64, fetcher HeaderWithStateFn
 // EpochOfHeight indicates an expected call of EpochOfHeight.
 func (mr *MockChainReaderMockRecorder) EpochOfHeight(height, fetcher any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainReader)(nil).EpochOfHeight), height, fetcher)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainReader)(nil).EpochByHeight), height, fetcher)
 }
 
 // GetBlock mocks base method.

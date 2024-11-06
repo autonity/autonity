@@ -32,7 +32,7 @@ import (
 )
 
 func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
-	epoch, err := bc.EpochOfHeight(height, nil)
+	epoch, err := bc.EpochByHeight(height, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func defaultFetcher(bc *BlockChain) consensus.HeaderWithStateFn {
 	}
 }
 
-func (bc *BlockChain) EpochOfHeight(height uint64, customFetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
+func (bc *BlockChain) EpochByHeight(height uint64, customFetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
 	// always get it from LRU cache first
 	if epoch, ok := bc.epochCache.Get(height); ok {
 		return epoch.(*types.EpochInfo), nil
@@ -80,7 +80,7 @@ func (bc *BlockChain) EpochOfHeight(height uint64, customFetcher consensus.Heade
 		return epoch, nil
 	}
 
-	epoch, err := bc.hc.EpochOfHeight(height, nil)
+	epoch, err := bc.hc.EpochByHeight(height, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -90,28 +90,8 @@ func (bc *BlockChain) EpochOfHeight(height uint64, customFetcher consensus.Heade
 
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
-	epochBlock, ok := bc.currentEpochBlock.Load().(*types.Block)
-	bc.log.Debug("Loading latest epoch", "epoch block", epochBlock.Number().Uint64())
-	// double check if chain head fit into current epoch range, otherwise we query latest epoch from state DB.
-	if ok && bc.CurrentBlock().Number().Cmp(epochBlock.Header().Epoch.NextEpochBlock) < 0 {
-		bc.log.Debug("Returning epoch block", "epoch block", epochBlock.Number().Uint64())
-		epochInfo := &types.EpochInfo{
-			Epoch:      *epochBlock.Header().Epoch.Copy(),
-			EpochBlock: epochBlock.Number(),
-		}
-		return epochInfo, nil
-	}
-
-	// For snap sync or fast sync case we need to get epoch info from state DB:
-	// as snap sync/fast sync mode might miss the latest epoch block before the
-	// pivot block, thus, for header verification after pivot block, we can load
-	// it from state db.
-	currentBlock := bc.CurrentBlock()
-	st, err := bc.StateAt(currentBlock.Header().Root)
-	if err != nil {
-		return nil, err
-	}
-	return bc.protocolContracts.EpochInfo(currentBlock.Header(), st)
+	height := bc.currentBlock.Load().(*types.Block).Number().Uint64()
+	return bc.hc.EpochByHeight(height, nil)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

@@ -88,7 +88,7 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 	}
 
 	// get the epoch information for the header we are verifying
-	epoch, err := chain.EpochOfHeight(header.Number.Uint64(), nil)
+	epoch, err := chain.EpochByHeight(header.Number.Uint64(), nil)
 	if err != nil {
 		return fmt.Errorf("cannot fetch epoch information for height %d: %w", header.Number.Uint64(), err)
 	}
@@ -240,7 +240,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 
 	go func() {
 		firstHeight := headers[0].Number.Uint64()
-		epoch, err := chain.EpochOfHeight(firstHeight, nil)
+		epoch, err := chain.EpochByHeight(firstHeight, nil)
 		// short circuit, if we cannot find the correct epoch for the 1st header, we quit this batch of verification.
 		if err != nil {
 			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHeight)
@@ -259,7 +259,6 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			}
 
 			if parent == nil {
-				sb.logger.Error("VerifyHeaders", "cannot find parent header", header.ParentHash)
 				err = consensus.ErrUnknownAncestor
 			} else {
 				// check header against parent and parent epoch head.
@@ -351,7 +350,7 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 
 	height := header.Number.Uint64()
 	// use a custom fetcher to be able to fetch epoch information in the case we are building an optimistic block at the epoch boundary
-	epochInfo, err := sb.BlockChain().EpochOfHeight(height, func() (*types.Header, *state.StateDB, error) {
+	epochInfo, err := sb.BlockChain().EpochByHeight(height, func() (*types.Header, *state.StateDB, error) {
 		return parentHeader, parentState, nil
 	})
 	if err != nil {

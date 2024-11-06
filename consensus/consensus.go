@@ -52,7 +52,7 @@ type ChainHeaderReader interface {
 	// GetTd retrieves the total difficulty from the database by hash and number.
 	GetTd(hash common.Hash, number uint64) *big.Int
 
-	EpochOfHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error)
+	EpochByHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error)
 }
 
 type HeaderWithStateFn func() (*types.Header, *state.StateDB, error)
