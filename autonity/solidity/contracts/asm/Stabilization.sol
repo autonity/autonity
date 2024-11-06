@@ -73,6 +73,11 @@ contract Stabilization is IStabilization {
     IOracle private _oracle;
     ISupplyControl private _supplyControl;
 
+    // Parameters for initial CDP restrictions
+    bool private _restricted;
+    address private _atnSupplyOperator;
+    uint256 private _defaultGenesisBorrowInterestRate;
+
     /// Collateral Token was deposited into a CDP
     /// @param account The CDP account address
     /// @param amount Collateral Token deposited
@@ -149,6 +154,18 @@ contract Stabilization is IStabilization {
         _;
     }
 
+    // Restricted to the atnSupplyOperator during the initial CDP restrictions
+    modifier restrictedSupplyOperator() {
+        if (_restricted && msg.sender != _atnSupplyOperator) revert Unauthorized();
+        _;
+    }
+
+    // Completely disabled during the initial CDP restrictions
+    modifier restricted() {
+        if (_restricted) revert Unauthorized();
+        _;
+    }
+
     /// Create and deploy the ASM Stabilization Contract.
     /// @param config_ Stabilization configuration
     /// @param autonity Address of the Autonity Contract
@@ -173,6 +190,10 @@ contract Stabilization is IStabilization {
         _oracle = IOracle(oracle);
         _supplyControl = ISupplyControl(supplyControl);
         _collateralToken = collateralToken;
+
+        _restricted = true;
+        _defaultGenesisBorrowInterestRate = config_.borrowInterestRate;
+        config.borrowInterestRate = 0;
     }
 
     /*
@@ -187,7 +208,7 @@ contract Stabilization is IStabilization {
     /// Stabilization contract to spend Collateral Token on their behalf for
     /// the full amount to be deposited.
     /// @param amount Units of Collateral Token to deposit (non-zero)
-    function deposit(uint256 amount) external nonZeroAmount(amount) {
+    function deposit(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
         if (_collateralToken.allowance(msg.sender, address(this)) < amount)
             revert InsufficientAllowance();
 
@@ -206,7 +227,7 @@ contract Stabilization is IStabilization {
     /// The CDP must not be liquidatable and the withdrawal must not reduce the
     /// remaining Collateral Token amount below the minimum collateral amount.
     /// @param amount Units of Collateral Token to withdraw
-    function withdraw(uint256 amount) external nonZeroAmount(amount) {
+    function withdraw(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
         CDP storage cdp = cdps[msg.sender];
         if (amount > cdp.collateral) revert InvalidAmount();
         (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
@@ -241,7 +262,7 @@ contract Stabilization is IStabilization {
     /// borrow limit, the debt after borrowing must satisfy the minimum debt
     /// requirement.
     /// @param amount Auton to borrow
-    function borrow(uint256 amount) external nonZeroAmount(amount) {
+    function borrow(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
         CDP storage cdp = cdps[msg.sender];
         (uint256 debt, uint256 accrued) = _debtAmount(cdp, block.timestamp);
         debt += amount;
@@ -276,7 +297,7 @@ contract Stabilization is IStabilization {
     /// The transaction value is the payment amount. The debt after payment
     /// must satisfy the minimum debt requirement. The payment first covers
     /// the outstanding interest debt before the principal debt.
-    function repay() external payable {
+    function repay() external payable restrictedSupplyOperator {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = cdps[msg.sender];
         if (cdp.principal == 0) revert NoDebtPosition();
@@ -313,7 +334,7 @@ contract Stabilization is IStabilization {
     /// transaction value is the payment amount. After covering the CDP's debt,
     /// any surplus is refunded to the liquidator.
     /// @param account The CDP account address to liquidate
-    function liquidate(address account) external payable {
+    function liquidate(address account) external payable restricted {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
@@ -391,6 +412,20 @@ contract Stabilization is IStabilization {
     /// @dev Restricted to the operator.
     function setSupplyControl(address supplyControl) external onlyOperator {
         _supplyControl = ISupplyControl(supplyControl);
+    }
+
+    /// Set the _atnSupplyOperator address.
+    /// @param atnSupplyOperator The _atnSupplyOperator address
+    /// @dev Restricted to the operator.
+    function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
+        _atnSupplyOperator = atnSupplyOperator;
+    }
+
+    /// Transition out of the restricted state.
+    /// @dev Restricted to the operator.
+    function removeCDPRestrictions() external onlyOperator {
+        _restricted = false;
+        config.borrowInterestRate = _defaultGenesisBorrowInterestRate;
     }
 
     /*
