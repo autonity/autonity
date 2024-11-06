@@ -65,46 +65,26 @@ func (bc *BlockChain) EpochOfHeight(height uint64, customFetcher consensus.Heade
 		bc.epochCache.Add(height, epoch)
 		return epoch, nil
 	}
-	epoch, err := bc.hc.EpochOfHeight(height, customFetcher)
+
+	if customFetcher != nil {
+		// when we are building an optimistic block we will use the cached state via customFetcher
+		header, stateDB, err := customFetcher()
+		if err != nil {
+			return nil, err
+		}
+		epoch, err := bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
+		if err != nil {
+			return nil, err
+		}
+		// we intentionally do not add in the epochCache because this flow is only for optimistic blocks
+		return epoch, nil
+	}
+
+	epoch, err := bc.hc.EpochOfHeight(height, nil)
 	if err != nil {
 		return nil, err
 	}
-	//bc.log.Debug("query epoch of height", "height", height, "with state at", currentHeader.Number.Uint64())
 	bc.epochCache.Add(height, epoch)
-	return epoch, nil
-
-	// the latest epoch head should be in the most case.
-	//epoch, err := bc.LatestEpoch()
-	//if err != nil {
-	//	panic(fmt.Sprintf("missing epoch head, chain DB might corrupted with error %s ", err.Error()))
-	//}
-	//
-	//if height > epoch.EpochBlock.Uint64() && height <= epoch.NextEpochBlock.Uint64() {
-	//	bc.epochCache.Add(height, epoch)
-	//	return epoch, nil
-	//}
-
-	// otherwise try to get committee from state db of the height.
-	// snap sync/fast sync will go here to fetch committee from a downloaded state db.
-	//fetcher := defaultFetcher(bc)
-	//if customFetcher != nil {
-	//	fetcher = customFetcher
-	//}
-	//header, stateDB, err := fetcher()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//bc.log.Debug("query epoch of height", "height", height, "with state at", header.Number.Uint64())
-	//epoch, err = bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
-	//if err != nil {
-	//	return nil, err
-	//}
-	// if we are using a custom fetcher, we could be in the process of building an optimistic block
-	// therefore do not save the epoch in the cache, as the parent block is not finalized yet.
-	if customFetcher == nil {
-		bc.epochCache.Add(height, epoch)
-	}
 	return epoch, nil
 }
 
