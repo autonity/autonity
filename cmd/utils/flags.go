@@ -36,6 +36,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/consensus/acn"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/internal/monitor"
 
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/tracers"
@@ -1672,6 +1673,10 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 
 func RegisterConsensusService(stack *node.Node, backend *eth.Ethereum, netID uint64) {
 	acn.New(stack, backend, netID)
+}
+
+func RegisterMonitorService(stack *node.Node) {
+	monitor.New(stack, &monitor.DefaultMonitorConfig)
 }
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
