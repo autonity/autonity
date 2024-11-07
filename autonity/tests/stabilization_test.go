@@ -32,6 +32,7 @@ func TestRestrictedFunctionAccess(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = r.Autonity.Approve(FromSender(testUser, common.Big0), r.Stabilization.Address(), common.Big256)
+		require.NoError(t, err)
 
 		// test user is not the ATN supply operator
 		_, err = r.Stabilization.Deposit(FromSender(testUser, common.Big0), big.NewInt(1000))
