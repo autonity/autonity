@@ -72,12 +72,8 @@ func (bc *BlockChain) EpochByHeight(height uint64, customFetcher consensus.Heade
 		if err != nil {
 			return nil, err
 		}
-		epoch, err := bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
-		if err != nil {
-			return nil, err
-		}
 		// we intentionally do not add in the epochCache because this flow is only for optimistic blocks
-		return epoch, nil
+		return bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
 	}
 
 	epoch, err := bc.hc.EpochByHeight(height, nil)
