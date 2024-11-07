@@ -40,17 +40,6 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	return epoch.Committee, nil
 }
 
-func defaultFetcher(bc *BlockChain) consensus.HeaderWithStateFn {
-	return func() (*types.Header, *state.StateDB, error) {
-		currentHeader := bc.CurrentHeader()
-		stateDB, err := bc.StateAt(currentHeader.Root)
-		if err != nil {
-			return nil, nil, err
-		}
-		return currentHeader, stateDB, nil
-	}
-}
-
 func (bc *BlockChain) EpochByHeight(height uint64, customFetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
 	// always get it from LRU cache first
 	if epoch, ok := bc.epochCache.Get(height); ok {

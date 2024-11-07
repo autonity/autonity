@@ -24,12 +24,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/olekukonko/tablewriter"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/ethdb/leveldb"
 	"github.com/autonity/autonity/ethdb/memorydb"
 	"github.com/autonity/autonity/log"
-	"github.com/olekukonko/tablewriter"
 )
 
 // freezerdb is a database wrapper that enabled freezer data retrievals.
@@ -389,7 +390,7 @@ func InspectDatabase(db ethdb.Database, keyPrefix, keyStart []byte) error {
 		default:
 			var accounted bool
 			for _, meta := range [][]byte{
-				databaseVersionKey, headHeaderKey, headEpochHeaderKey, headEpochBlockKey, headBlockKey, headFastBlockKey, lastPivotKey,
+				databaseVersionKey, headHeaderKey, headEpochHeaderKey, headBlockKey, headFastBlockKey, lastPivotKey,
 				fastTrieProgressKey, snapshotDisabledKey, SnapshotRootKey, snapshotJournalKey,
 				snapshotGeneratorKey, snapshotRecoveryKey, txIndexTailKey, fastTxLookupLimitKey,
 				uncleanShutdownKey, badBlockKey, transitionStatusKey,

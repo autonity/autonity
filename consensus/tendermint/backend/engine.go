@@ -462,7 +462,7 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 }
 
 func (sb *Backend) EpochByHeight(height *big.Int) (*types.EpochInfo, error) {
-	header := sb.BlockChain().CurrentHeader()
+	header := sb.BlockChain().CurrentBlock().Header()
 	stateDB, err := sb.blockchain.StateAt(header.Root)
 	if err != nil {
 		return nil, err

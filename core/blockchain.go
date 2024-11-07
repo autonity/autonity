@@ -512,20 +512,6 @@ func (bc *BlockChain) loadLastState() error {
 	bc.currentBlock.Store(currentBlock)
 	headBlockGauge.Update(int64(currentBlock.NumberU64()))
 
-	// Restore the last known epoch head block
-	epochHead := rawdb.ReadEpochBlockHash(bc.db)
-	if epochHead == (common.Hash{}) {
-		// Corrupt or empty database, init from scratch
-		bc.log.Warn("Empty database, resetting chain")
-		return bc.Reset()
-	}
-	// Make sure the entire head epoch block is available
-	epochBlock := bc.GetBlockByHash(epochHead)
-	if epochBlock == nil {
-		// Corrupt or empty database, init from scratch
-		bc.log.Warn("Epoch head block missing, resetting chain", "hash", head)
-		return bc.Reset()
-	}
 	// Restore the last known head header
 	currentHeader := currentBlock.Header()
 	if head := rawdb.ReadHeadHeaderHash(bc.db); head != (common.Hash{}) {
@@ -555,7 +541,6 @@ func (bc *BlockChain) loadLastState() error {
 	bc.log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd, "age", common.PrettyAge(time.Unix(int64(currentHeader.Time), 0)))
 	bc.log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd, "age", common.PrettyAge(time.Unix(int64(currentBlock.Time()), 0)))
 	bc.log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd, "age", common.PrettyAge(time.Unix(int64(currentFastBlock.Time()), 0)))
-	bc.log.Info("Loaded most recent epochBlock", "number", epochBlock.Number(), "hash", epochBlock.Hash(), "td", fastTd, "age", common.PrettyAge(time.Unix(int64(epochBlock.Time()), 0)))
 	if pivot := rawdb.ReadLastPivotNumber(bc.db); pivot != nil {
 		bc.log.Info("Loaded last fast-sync pivot marker", "number", *pivot)
 	}
@@ -741,7 +726,6 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 	// update epoch header markers as well if the pivot block is an epoch head.
 	if block.IsEpochHead() {
 		batch := bc.db.NewBatch()
-		rawdb.WriteEpochBlockHash(batch, block.Hash())
 		rawdb.WriteEpochHeaderHash(batch, block.Hash())
 		if err := batch.Write(); err != nil {
 			bc.log.Crit("Failed to update epoch header markers", "err", err)
@@ -843,7 +827,6 @@ func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	batch := bc.db.NewBatch()
 	// update head epoch markers in DB for both blockchain and the header chain.
 	if block.IsEpochHead() {
-		rawdb.WriteEpochBlockHash(batch, block.Hash())
 		rawdb.WriteEpochHeaderHash(batch, block.Hash())
 	}
 	rawdb.WriteHeadHeaderHash(batch, block.Hash())

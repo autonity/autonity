@@ -715,7 +715,6 @@ func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, d
 			}
 			// reset both the epoch markers of blockchain and header chain, the epoch head
 			// in-memory marker of blockchain is reset when rewind is done.
-			rawdb.WriteEpochBlockHash(markerBatch, newHeadEpochHeader.Hash())
 			rawdb.WriteEpochHeaderHash(markerBatch, newHeadEpochHeader.Hash())
 			hc.currentEpochHeader.Store(newHeadEpochHeader)
 			headEpochHeaderGauge.Update(newHeadEpochHeader.Number.Int64())
