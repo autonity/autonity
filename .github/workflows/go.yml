@@ -43,6 +43,9 @@ jobs:
   # should not be impacted by the time taken to fill the cache.
   prepare-cache:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -113,6 +116,9 @@ jobs:
   prepare-byzantine:
     needs: prepare-cache
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -138,6 +144,9 @@ jobs:
   byzantine:
     needs: prepare-byzantine
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     strategy:
       matrix:
         tests: ${{ fromJSON(needs.prepare-byzantine.outputs.matrix) }}
@@ -159,6 +168,9 @@ jobs:
   prepare-contracts:
     needs: prepare-cache
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -184,6 +196,9 @@ jobs:
   contracts:
     needs: prepare-contracts
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
       GORACE: "history_size=7"
@@ -226,6 +241,9 @@ jobs:
   tendermint-tests-coverage:
     needs: prepare-cache
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -257,6 +275,9 @@ jobs:
   lint:
     needs: prepare-cache
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -280,6 +301,9 @@ jobs:
   # contract-tests-asm runs the ASM test using the APE framework
   contract-tests-asm:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     needs: prepare-cache
     strategy:
       matrix:
@@ -311,6 +335,9 @@ jobs:
   docker-e2e-tests-part1:
     needs: prepare-cache
     runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -336,6 +363,9 @@ jobs:
   docker-e2e-tests-part2:
     needs: prepare-cache
     runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -361,6 +391,9 @@ jobs:
   docker-e2e-tests-part3:
     needs: prepare-cache
     runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -386,6 +419,9 @@ jobs:
   docker-e2e-tests-part4:
     needs: prepare-cache
     runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -411,6 +447,9 @@ jobs:
   docker-e2e-tests-part5:
     needs: prepare-cache
     runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -436,6 +475,9 @@ jobs:
   docker-e2e-tests-part6:
     needs: prepare-cache
     runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/setup-go@v4
         with:
