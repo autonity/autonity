@@ -302,7 +302,7 @@ func TestHandleCommit(t *testing.T) {
 		precommitTimeout: NewTimeout(Precommit, logger),
 		committee:        committeeSet,
 	}
-	backendMock.EXPECT().EpochOfHeight(c.Height().Uint64()+1).AnyTimes().Return(epoch, nil)
+	backendMock.EXPECT().EpochByHeight(c.Height().Uint64()+1).AnyTimes().Return(epoch, nil)
 	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block)
 	backendMock.EXPECT().Post(gomock.Any()).MaxTimes(1)
 	backendMock.EXPECT().ProcessFutureMsgs(uint64(4)).MaxTimes(1)

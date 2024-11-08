@@ -575,7 +575,7 @@ func (hc *HeaderChain) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 		epochHead = hc.GetHeaderByNumber(epochHeadNum)
 		if epochHead == nil {
 			// must not happen
-			log.Error("EpochOfHeight", "epoch Head", "nil")
+			log.Error("EpochByHeight", "epoch Head", "nil")
 			return nil, consensus.ErrOutOfEpochRange
 		}
 	}

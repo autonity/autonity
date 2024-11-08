@@ -146,7 +146,7 @@ func TestRunRuleEngine(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
-		chainMock.EXPECT().CommitteeOfHeight(checkPointHeight).Return(committee, nil)
+		chainMock.EXPECT().CommitteeByHeight(checkPointHeight).Return(committee, nil)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)

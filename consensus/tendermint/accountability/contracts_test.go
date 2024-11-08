@@ -1176,7 +1176,7 @@ func TestInnocenceVerifier(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	chainMock := NewMockChainContext(ctrl)
-	chainMock.EXPECT().CommitteeOfHeight(height).AnyTimes().Return(committee, nil)
+	chainMock.EXPECT().CommitteeByHeight(height).AnyTimes().Return(committee, nil)
 
 	proposalPO := newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx)
 	votesPO := make([]message.Vote, committee.Len())
