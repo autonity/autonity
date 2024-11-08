@@ -64,6 +64,7 @@ type monitorService struct {
 }
 
 func New(stack *node.Node, cfg *Config) {
+	cfg.profileDir = filepath.Join(stack.InstanceDir(), cfg.profileDir)
 	ms := &monitorService{
 		config:           cfg,
 		wg:               sync.WaitGroup{},
