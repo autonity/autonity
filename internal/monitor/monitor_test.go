@@ -189,7 +189,7 @@ func Test_MemoryThresholdBreach(t *testing.T) {
 	}
 
 	mockMemUsage := func(stats *runtime.MemStats) {
-		stats.Alloc = 5 * 1024 * 1024 // Memory below threshold
+		stats.Alloc = 7 * 1024 * 1024 // Memory below threshold
 	}
 
 	cfg := DefaultMonitorConfig
@@ -239,7 +239,7 @@ func Test_GoroutineThresholdBreach(t *testing.T) {
 
 	cfg := DefaultMonitorConfig
 	mockGRNum := func() int {
-		return 4000
+		return 7000
 	}
 	cfg.monitoringInterval = time.Second * 2
 	cfg.cpuProfilingDuration = time.Second
