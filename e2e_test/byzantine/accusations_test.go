@@ -39,10 +39,6 @@ func (s *AccusationPO) Broadcast(msg message.Msg) {
 	}
 	// find a next proposing round.
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
-	// if the next proposing round is the same as the current round, then find the next proposing round.
-	if nPR == msg.R()+1 {
-		nPR = e2e.NextProposeRound(nPR, s.Core)
-	}
 	vR := nPR - 1
 
 	self, _ := selfAndCsize(s.Core, msg.H())

@@ -1,14 +1,12 @@
 package types
 
 import (
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
+	"github.com/stretchr/testify/require"
 	"log"
 	"math/big"
 	"testing"
-
-	"github.com/stretchr/testify/require"
-
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common"
 )
@@ -197,9 +195,7 @@ func TestCommittee_Proposer(t *testing.T) {
 	}
 
 	proposer := c.Proposer(1, 0)
-	// as MaxRound is used as a seed for calculating the proposer, this test will fail if we change
-	// constants.MaxRound to a different value
-	if proposer != c.Members[0].Address {
+	if proposer != c.Members[1].Address {
 		t.Errorf("expected proposer to be address %v, got %v", c.Members[1].Address, proposer)
 	}
 }

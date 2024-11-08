@@ -33,7 +33,7 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	// that verified proposal is not finalized in the particular round hence this safety
 	// check to ensure that the block parent hash is same as last hash in core
 	if c.Backend().HeadBlock().Hash() != block.ParentHash() {
-		log.Info("verified proposal was not finalized in the last round aborting send proposal", "last header hash", c.Backend().HeadBlock().Hash(), "block parent hash", block.ParentHash())
+		log.Info("verified proposal was not finalized in the last round", "aborting send proposal", "last header hash", c.Backend().HeadBlock().Hash(), "block parent hash", block.ParentHash())
 		return
 	}
 
