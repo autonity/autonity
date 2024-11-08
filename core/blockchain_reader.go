@@ -31,8 +31,8 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error) {
-	epoch, err := bc.EpochByHeight(height, nil)
+func (bc *BlockChain) CommitteeByHeight(height uint64) (*types.Committee, error) {
+	epoch, err := bc.EpochByHeight(height)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (bc *BlockChain) CommitteeOfHeight(height uint64) (*types.Committee, error)
 	return epoch.Committee, nil
 }
 
-func (bc *BlockChain) EpochByHeight(height uint64, customFetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
+func (bc *BlockChain) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	// always get it from LRU cache first
 	if epoch, ok := bc.epochCache.Get(height); ok {
 		return epoch.(*types.EpochInfo), nil
@@ -55,17 +55,7 @@ func (bc *BlockChain) EpochByHeight(height uint64, customFetcher consensus.Heade
 		return epoch, nil
 	}
 
-	if customFetcher != nil {
-		// when we are building an optimistic block we will use the cached state via customFetcher
-		header, stateDB, err := customFetcher()
-		if err != nil {
-			return nil, err
-		}
-		// we intentionally do not add in the epochCache because this flow is only for optimistic blocks
-		return bc.protocolContracts.EpochByHeight(header, stateDB, new(big.Int).SetUint64(height))
-	}
-
-	epoch, err := bc.hc.EpochByHeight(height, nil)
+	epoch, err := bc.hc.EpochByHeight(height)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +66,7 @@ func (bc *BlockChain) EpochByHeight(height uint64, customFetcher consensus.Heade
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
 	height := bc.currentBlock.Load().(*types.Block).Number().Uint64()
-	return bc.hc.EpochByHeight(height, nil)
+	return bc.hc.EpochByHeight(height)
 }
 
 // CurrentHeader retrieves the current head header of the canonical chain. The

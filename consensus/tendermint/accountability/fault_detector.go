@@ -36,7 +36,7 @@ type ChainContext interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 	HasBadBlock(hash common.Hash) bool
 	Validator() core.Validator
-	CommitteeOfHeight(height uint64) (*types.Committee, error)
+	CommitteeByHeight(height uint64) (*types.Committee, error)
 }
 
 const (
@@ -304,7 +304,7 @@ loop:
 			}
 
 			h := decodedProof.Message.H()
-			committee, err := fd.blockchain.CommitteeOfHeight(h)
+			committee, err := fd.blockchain.CommitteeByHeight(h)
 			if err != nil {
 				fd.logger.Error("Can't retrieve committee for message", "err", err, "height", h)
 				break
@@ -353,7 +353,7 @@ loop:
 // todo(youssef): this needs to be thoroughly verified accounting for edge cases scenarios at
 // the epoch limit. Also the contract side enforcement is missing.
 func (fd *FaultDetector) canReport(height uint64) bool {
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	committee, err := fd.blockchain.CommitteeByHeight(height)
 	if err != nil {
 		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
 	}
@@ -617,7 +617,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 		return nil
 	}
 
-	committee, err := fd.blockchain.CommitteeOfHeight(height)
+	committee, err := fd.blockchain.CommitteeByHeight(height)
 	if err != nil {
 		fd.logger.Crit("cannot find committee for height", "err", err, "height", height)
 	}
@@ -1323,7 +1323,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 
 	// account for equivocation for votes.
 	var err error
-	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
+	committee, err := fd.blockchain.CommitteeByHeight(m.H())
 	if err != nil {
 		panic(fmt.Sprintf("cannot find committee for height %d", m.H()))
 	}
@@ -1355,7 +1355,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 
 	// account for equivocation for votes.
 	var err error
-	committee, err := fd.blockchain.CommitteeOfHeight(m.H())
+	committee, err := fd.blockchain.CommitteeByHeight(m.H())
 	if err != nil {
 		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
 	}
@@ -1392,7 +1392,7 @@ func errorToRule(err error) autonity.Rule {
 }
 
 func isProposerValid(chain ChainContext, m message.Msg) bool {
-	committee, err := chain.CommitteeOfHeight(m.H())
+	committee, err := chain.CommitteeByHeight(m.H())
 	if err != nil {
 		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
 	}

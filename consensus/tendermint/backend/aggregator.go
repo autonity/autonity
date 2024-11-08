@@ -674,7 +674,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		a.logger.Crit("future message in aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 	}
 
-	committee, err := a.backend.BlockChain().CommitteeOfHeight(msg.H())
+	committee, err := a.backend.BlockChain().CommitteeByHeight(msg.H())
 	if err != nil {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
@@ -765,7 +765,7 @@ loop:
 				//clean up
 				roundInfo.proposals = make([]events.UnverifiedMessageEvent, 0)
 
-				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
 				if err != nil {
 					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
@@ -801,7 +801,7 @@ loop:
 
 				roundInfo := a.messages[height][round]
 
-				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
 				if err != nil {
 					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}
@@ -831,7 +831,7 @@ loop:
 				height := e.Height
 				round := e.Round
 
-				committee, err := a.backend.BlockChain().CommitteeOfHeight(height)
+				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
 				if err != nil {
 					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
 				}

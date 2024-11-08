@@ -182,7 +182,7 @@ func handleConsensusMsg[T any, PT interface {
 
 func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender common.Address) (bool, error) {
 
-	committee, err := sb.BlockChain().CommitteeOfHeight(msg.H())
+	committee, err := sb.BlockChain().CommitteeByHeight(msg.H())
 	if err != nil {
 		// since this is not a future message, we should always have the committee of the height.
 		sb.logger.Crit("Missing committee for non-future consensus message", "height", msg.H())

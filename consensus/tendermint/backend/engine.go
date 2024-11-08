@@ -88,7 +88,7 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 	}
 
 	// get the epoch information for the header we are verifying
-	epoch, err := chain.EpochByHeight(header.Number.Uint64(), nil)
+	epoch, err := chain.EpochByHeight(header.Number.Uint64())
 	if err != nil {
 		return fmt.Errorf("cannot fetch epoch information for height %d: %w", header.Number.Uint64(), err)
 	}
@@ -240,7 +240,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 
 	go func() {
 		firstHeight := headers[0].Number.Uint64()
-		epoch, err := chain.EpochByHeight(firstHeight, nil)
+		epoch, err := chain.EpochByHeight(firstHeight)
 		// short circuit, if we cannot find the correct epoch for the 1st header, we quit this batch of verification.
 		if err != nil {
 			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHeight)
@@ -350,9 +350,7 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 
 	height := header.Number.Uint64()
 	// use a custom fetcher to be able to fetch epoch information in the case we are building an optimistic block at the epoch boundary
-	epochInfo, err := sb.BlockChain().EpochByHeight(height, func() (*types.Header, *state.StateDB, error) {
-		return parentHeader, parentState, nil
-	})
+	epochInfo, err := sb.blockchain.ProtocolContracts().EpochByHeight(header, parentState, new(big.Int).SetUint64(height))
 	if err != nil {
 		return fmt.Errorf("error while fetching epoch information for height %d: %w", height, err)
 	}
@@ -459,15 +457,6 @@ func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensu
 	}
 
 	return receipt, epochInfo, nil
-}
-
-func (sb *Backend) EpochByHeight(height *big.Int) (*types.EpochInfo, error) {
-	header := sb.BlockChain().CurrentBlock().Header()
-	stateDB, err := sb.blockchain.StateAt(header.Root)
-	if err != nil {
-		return nil, err
-	}
-	return sb.BlockChain().ProtocolContracts().EpochByHeight(header, stateDB, height)
 }
 
 // Seal generates a new block for the given input block with the local miner's

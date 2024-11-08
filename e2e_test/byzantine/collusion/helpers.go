@@ -1,10 +1,11 @@
 package collusion
 
 import (
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"math/rand"
 	"sync"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
@@ -126,7 +127,7 @@ func sendPrevote(c *core.Core, rule autonity.Rule) {
 	}
 
 	// send prevote for the planned invalid proposal.
-	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	committee, err := c.Backend().BlockChain().CommitteeByHeight(h)
 	if err != nil {
 		panic(err)
 	}
@@ -167,7 +168,7 @@ func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
 	}
 
 	// send invalid proposal with the planed data.
-	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	committee, err := c.Backend().BlockChain().CommitteeByHeight(h)
 	if err != nil {
 		panic(err)
 	}

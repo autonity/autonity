@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"fmt"
+
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
 
@@ -185,7 +186,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if the proof does not come from a committee member
 	msgHeight := proof.Message.H()
-	committee, err := fd.blockchain.CommitteeOfHeight(msgHeight)
+	committee, err := fd.blockchain.CommitteeByHeight(msgHeight)
 	if err != nil {
 		fd.logger.Error("cannot get committee for height", "error", err, "height", msgHeight)
 		return err
@@ -329,7 +330,7 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
 	escalatedOnes := fd.getExpiredOffChainAccusation(currentChainHeight)
 	for _, accusation := range escalatedOnes {
-		committee, err := fd.blockchain.CommitteeOfHeight(accusation.Message.H())
+		committee, err := fd.blockchain.CommitteeByHeight(accusation.Message.H())
 		if err != nil {
 			panic(fmt.Sprintf("cannot get committee of height: %d", accusation.Message.H()))
 		}

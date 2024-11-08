@@ -215,7 +215,7 @@ func TestGossip(t *testing.T) {
 func TestVerifyProposal(t *testing.T) {
 	blockchain, backend := newBlockChain(1)
 	blocks := make([]*types.Block, 5)
-	committee, err := blockchain.CommitteeOfHeight(0)
+	committee, err := blockchain.CommitteeByHeight(0)
 	require.NoError(t, err)
 
 	for i := range blocks {
@@ -294,7 +294,7 @@ func TestSign(t *testing.T) {
 func TestCommit(t *testing.T) {
 	t.Run("Broadcaster is not set", func(t *testing.T) {
 		chain, backend := newBlockChain(4)
-		committee, err := chain.CommitteeOfHeight(0)
+		committee, err := chain.CommitteeByHeight(0)
 		require.NoError(t, err)
 
 		commitCh := make(chan *types.Block, 1)
@@ -332,7 +332,7 @@ func TestCommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		chain, engine := newBlockChain(1)
-		committee, err := chain.CommitteeOfHeight(0)
+		committee, err := chain.CommitteeByHeight(0)
 		require.NoError(t, err)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		if err != nil {

@@ -202,7 +202,7 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 	if !ok {
 		panic("cannot simulate duplicated off chain accusation")
 	}
-	committee, err := backEnd.BlockChain().CommitteeOfHeight(msg.H())
+	committee, err := backEnd.BlockChain().CommitteeByHeight(msg.H())
 	if err != nil {
 		panic(err)
 	}
@@ -259,7 +259,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 
 	// collect some out of updated consensus msg
 	for h := uint64(2); h <= msg.H(); h++ {
-		committee, err := backEnd.BlockChain().CommitteeOfHeight(h)
+		committee, err := backEnd.BlockChain().CommitteeByHeight(h)
 		if err != nil {
 			panic(err)
 		}

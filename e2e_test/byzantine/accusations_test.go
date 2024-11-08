@@ -14,7 +14,7 @@ import (
 )
 
 func selfAndCsize(c *core.Core, h uint64) (*types.CommitteeMember, int) {
-	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	committee, err := c.Backend().BlockChain().CommitteeByHeight(h)
 	if err != nil {
 		panic(err)
 	}

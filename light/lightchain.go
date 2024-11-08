@@ -26,6 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
@@ -37,7 +39,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -504,8 +505,8 @@ func (lc *LightChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return lc.hc.GetTd(hash, number)
 }
 
-func (lc *LightChain) EpochByHeight(h uint64, fetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
-	return lc.hc.EpochByHeight(h, fetcher)
+func (lc *LightChain) EpochByHeight(h uint64) (*types.EpochInfo, error) {
+	return lc.hc.EpochByHeight(h)
 }
 
 // GetHeaderByNumberOdr retrieves the total difficult from the database or

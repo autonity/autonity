@@ -133,7 +133,7 @@ func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, quorumCertificat
 }
 
 // EpochOfHeight mocks base method.
-func (m *MockBackend) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
+func (m *MockBackend) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EpochOfHeight", height)
 	ret0, _ := ret[0].(*types.EpochInfo)
@@ -144,7 +144,7 @@ func (m *MockBackend) EpochOfHeight(height uint64) (*types.EpochInfo, error) {
 // EpochOfHeight indicates an expected call of EpochOfHeight.
 func (mr *MockBackendMockRecorder) EpochOfHeight(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockBackend)(nil).EpochOfHeight), height)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockBackend)(nil).EpochByHeight), height)
 }
 
 // FutureMsgs mocks base method.

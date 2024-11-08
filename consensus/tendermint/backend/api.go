@@ -18,6 +18,7 @@ package backend
 
 import (
 	"fmt"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -25,7 +26,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
-	"math/big"
 )
 
 // API is a user facing RPC API to dump BFT state
@@ -39,7 +39,7 @@ func (api *API) GetCommittee(number *rpc.BlockNumber) (*types.Committee, error) 
 	if number == nil {
 		return nil, fmt.Errorf("block number cannot be nil")
 	}
-	epoch, err := api.tendermint.EpochByHeight(new(big.Int).SetUint64(uint64(*number)))
+	epoch, err := api.tendermint.EpochByHeight(uint64(*number))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (api *API) GetCommitteeAtHash(hash common.Hash) (*types.Committee, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	epoch, err := api.tendermint.EpochByHeight(header.Number)
+	epoch, err := api.tendermint.EpochByHeight(header.Number.Uint64())
 	if err != nil {
 		return nil, err
 	}

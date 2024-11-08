@@ -90,7 +90,7 @@ func (c *colludedC1Follower) SendPrecommit(_ context.Context, _ bool) {
 	}
 
 	// send precommit for the planned invalid proposal.
-	committee, err := c.Backend().BlockChain().CommitteeOfHeight(h)
+	committee, err := c.Backend().BlockChain().CommitteeByHeight(h)
 	if err != nil {
 		panic(err)
 	}

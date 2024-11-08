@@ -370,7 +370,7 @@ func (c *Core) setInitialState(r int64) {
 		lastBlockMined := c.backend.HeadBlock()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
 		c.committee.SetLastHeader(lastBlockMined.Header())
-		epoch, err := c.Backend().EpochOfHeight(c.Height().Uint64())
+		epoch, err := c.Backend().EpochByHeight(c.Height().Uint64())
 		if err != nil {
 			panic(err)
 		}
