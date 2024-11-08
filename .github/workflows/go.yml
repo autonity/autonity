@@ -77,6 +77,9 @@ jobs:
   tests:
     needs: prepare-cache
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
       GORACE: "history_size=7"
