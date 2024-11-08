@@ -42,9 +42,9 @@ type Config struct {
 
 var DefaultMonitorConfig = Config{
 	cpuThreshold:         80,
-	numGoroutines:        3000,
-	memThreshold:         4 * 1024 * 1024,
-	profilePerDay:        5,
+	numGoroutines:        6000,
+	memThreshold:         6 * 1024 * 1024,
+	profilePerDay:        3,
 	monitoringInterval:   time.Second * 60,
 	cpuProfilingDuration: time.Second * 20,
 	traceDuration:        time.Second * 5,
@@ -206,16 +206,19 @@ func (ms *monitorService) checkSystemState() {
 	ms.getMemUsage(m)
 	currentMem := m.Alloc
 	if currentMem > ms.config.memThreshold {
+		log.Info("system memory is beyond threshold, dumping profiles", "current memmory", currentMem, "threshold", ms.config.memThreshold)
 		ms.config.memThreshold = uint64(float64(currentMem) * MemScaleFactor)
 		thresholdBreach = true
 	}
 	currentGoroutines := ms.getGoroutinesNum()
 	if currentGoroutines > ms.config.numGoroutines {
+		log.Info("number of running goroutines are beyond threshold, dumping profiles", "current goroutines", currentGoroutines, "threshold", ms.config.numGoroutines)
 		ms.config.numGoroutines = int(float64(currentGoroutines) * GoroutineScaleFactor)
 		thresholdBreach = true
 	}
 	currentCPU := cpuUsage[0]
 	if currentCPU > ms.config.cpuThreshold {
+		log.Info("system cpu usage is beyond threshold, dumping profiles", "current cpu", currentCPU, "threshold", ms.config.cpuThreshold)
 		ms.config.cpuThreshold = currentCPU * CPUScaleFactor
 		thresholdBreach = true
 	}
