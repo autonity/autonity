@@ -348,15 +348,18 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 		header.Time = uint64(time.Now().Unix())
 	}
 
-	height := header.Number.Uint64()
-	// use a custom fetcher to be able to fetch epoch information in the case we are building an optimistic block at the epoch boundary
-	epochInfo, err := sb.blockchain.ProtocolContracts().EpochByHeight(header, parentState, new(big.Int).SetUint64(height))
+	// try fetching from the chain, this would fail on epoch boundary
+	epochInfo, err := sb.EpochByHeight(header.Number.Uint64())
 	if err != nil {
-		return fmt.Errorf("error while fetching epoch information for height %d: %w", height, err)
+		// we are expected to land here on epoch boundaries
+		epochInfo, err = sb.blockchain.ProtocolContracts().EpochByHeight(parentHeader, parentState, header.Number)
+		if err != nil {
+			return fmt.Errorf("error while fetching epoch information for height %d: %w", header.Number.Uint64(), err)
+		}
 	}
 
 	// assemble nodes' activity proof of height h from the msgs of h-delta
-	proof, round, err := sb.assembleActivityProof(height, epochInfo)
+	proof, round, err := sb.assembleActivityProof(header.Number.Uint64(), epochInfo)
 	if err != nil {
 		return fmt.Errorf("error while assembling activity proof: %w", err)
 	}
