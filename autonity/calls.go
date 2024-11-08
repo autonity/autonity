@@ -657,7 +657,7 @@ func recordFinalizeGasUsage(isEpochHeader bool, number uint64, usedGas int64) {
 	}
 }
 
-func (c *AutonityContract) CallGetConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
+func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
 	var config AutonityConfig
 	_, err := c.AutonityContractCall(state, header, "config", &config)
 	return &config, err
