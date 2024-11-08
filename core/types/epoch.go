@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+	"slices"
+	"sync"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
-	"math/big"
-	"slices"
-	"sync"
 )
 
 var _ = (*Epoch)(nil)
@@ -348,7 +349,7 @@ func (c *Committee) Enrich() error {
 // election algorithm as proposer election in AC contract. The underlying sorted committee is sourced from the AC contract.
 func (c *Committee) Proposer(height uint64, round int64) common.Address {
 	totalVotingPower := c.TotalVotingPower()
-	seed := big.NewInt(constants.MaxRound)
+	seed := big.NewInt(constants.ProposerElectionCycleConstant)
 	// for power weighted sampling, we distribute seed into a 256bits key-space, and compute the hit index.
 	h := new(big.Int).SetUint64(height)
 	r := new(big.Int).SetInt64(round)
