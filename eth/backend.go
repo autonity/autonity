@@ -104,6 +104,7 @@ type Ethereum struct {
 	netRPCService *ethapi.PublicNetAPI
 
 	p2pServer        *p2p.Server
+	consensusServer  *p2p.Server
 	topologySelector networkTopology
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and address)
@@ -199,6 +200,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.ExecutionServer(),
+		consensusServer:   stack.ConsensusServer(),
 		topologySelector:  NewGraphTopology(maxFullMeshPeers),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
@@ -348,7 +350,7 @@ func (s *Ethereum) APIs() []rpc.API {
 		apis = append(apis, rpc.API{
 			Namespace: "aut",
 			Version:   params.Version,
-			Service:   NewAutonityContractAPI(s.BlockChain(), s.BlockChain().ProtocolContracts()),
+			Service:   NewAutonityContractAPI(s.BlockChain(), s.BlockChain().ProtocolContracts(), s.consensusServer),
 			Public:    true,
 		})
 	}

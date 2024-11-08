@@ -657,6 +657,12 @@ func recordFinalizeGasUsage(isEpochHeader bool, number uint64, usedGas int64) {
 	}
 }
 
+func (c *AutonityContract) CallGetConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
+	var config AutonityConfig
+	_, err := c.AutonityContractCall(state, header, "config", &config)
+	return &config, err
+}
+
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, error) {
 	var updateReady bool
 	var epochEnded bool

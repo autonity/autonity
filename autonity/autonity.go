@@ -125,8 +125,13 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 type AutonityContract struct {
 	EVMContract
 	*AutonityFilterer // allows to watch for Autonity Contract events
+	address           common.Address
 
 	proposers map[uint64]map[int64]common.Address // map[height][round] --> proposer
+}
+
+func (ac *AutonityContract) Address() common.Address {
+	return ac.address
 }
 
 type ProtocolContracts struct {
@@ -583,6 +588,7 @@ type GenesisEVMContracts struct {
 }
 
 func (c *GenesisEVMContracts) DeployAutonityContract(bytecode []byte, validators []params.Validator, config AutonityConfig) error {
+	c.AutonityContract.address = params.AutonityContractAddress
 	return c.AutonityContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, validators, config)
 }
 

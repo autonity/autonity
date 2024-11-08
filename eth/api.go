@@ -24,12 +24,12 @@ import (
 	"io"
 	"math/big"
 	"os"
-	"reflect"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -611,7 +611,25 @@ func (api *PrivateDebugAPI) GetAccessibleState(from, to rpc.BlockNumber) (uint64
 // struct would be better defined in the rpc package or in the autonity
 // package, circular dependencies make it infeasible.
 type AutonityContractAPI struct {
-	calls map[string]reflect.Value
+	bc     *core.BlockChain
+	ac     *autonity.ProtocolContracts
+	server *p2p.Server
+}
+
+func (a *AutonityContractAPI) Config() (*autonity.AutonityConfig, error) {
+	st, err := a.bc.State()
+	if err != nil {
+		return nil, err
+	}
+	return a.ac.CallGetConfig(st, a.bc.CurrentHeader())
+}
+
+func (a *AutonityContractAPI) Address() common.Address {
+	return a.ac.AutonityContract.Address()
+}
+
+func (a *AutonityContractAPI) AcnPeers() []*p2p.Peer {
+	return a.server.Peers()
 }
 
 // NewAutonityContractAPI builds a map of function name to method representing
@@ -622,67 +640,6 @@ type AutonityContractAPI struct {
 // themselves make no use of the method receiver. This design is required to be
 // able to fit into the current approach taken for registering rpc services.
 // See rpc.Server.RegisterName().
-func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.ProtocolContracts) *AutonityContractAPI {
-	var contractABI = ac.ABI()
-	var contractViewMethods = make(map[string]reflect.Value)
-
-	for n, m := range contractABI.Methods {
-		functionName := n
-		// Only expose read-only functions.
-		if m.IsConstant() {
-			// The RPC service expect the first argument of an API method to be the receiver object.
-			inArgs := []reflect.Type{reflect.TypeOf(&AutonityContractAPI{})}
-			inArgs = append(inArgs, m.Inputs.Types()...)
-			sig := reflect.FuncOf(inArgs, []reflect.Type{
-				reflect.TypeOf((*interface{})(nil)).Elem(),
-				reflect.TypeOf((*error)(nil)).Elem(),
-			}, false)
-
-			contractViewMethods[functionName] = reflect.MakeFunc(sig,
-				func(args []reflect.Value) []reflect.Value {
-					// makereturn converts the return types to reflect.Value
-					makereturn := func(res interface{}, err error) []reflect.Value {
-						return []reflect.Value{reflect.ValueOf(&res).Elem(), reflect.ValueOf(&err).Elem()}
-					}
-					stateDB, err := bc.State()
-					if err != nil {
-						return makereturn(nil, err)
-					}
-					var iargs []interface{}
-					// args[0] is the reflect.Value of *AutonityContractAPI.
-					for i, arg := range args[1:] {
-						// If the argument is a pointer it is then an optional parameter for the RPC handler. The
-						// json unmarshalling function set it to nil if the argument isn't set in the RPC call.
-						// There are no optional parameters for the Autonity contract methods. Solidity doesn't
-						// even support them and the packing function will crash if nil is passed.
-						if arg.Kind() == reflect.Ptr && arg.IsNil() {
-							return makereturn(nil, fmt.Errorf("missing value for required argument %d", i))
-						}
-						iargs = append(iargs, arg.Interface())
-					}
-
-					// Pack the arguments call the function and then unpack the result and return it.
-					packedArgs, err := contractABI.Pack(functionName, iargs...)
-					if err != nil {
-						return makereturn(nil, err)
-					}
-					packedResult, _, err := ac.CallContractFunc(stateDB, bc.CurrentHeader(), packedArgs)
-					if err != nil {
-						return makereturn(nil, err)
-					}
-					result, err := contractABI.Unpack(functionName, packedResult)
-
-					// If the result slice contains only one element then just return the element.
-					if len(result) == 1 {
-						return makereturn(result[0], err)
-					}
-					return makereturn(result, err)
-				})
-		}
-	}
-	return &AutonityContractAPI{calls: contractViewMethods}
-}
-
-func (a *AutonityContractAPI) AllMethods() map[string]reflect.Value {
-	return a.calls
+func NewAutonityContractAPI(bc *core.BlockChain, ac *autonity.ProtocolContracts, acnServer *p2p.Server) *AutonityContractAPI {
+	return &AutonityContractAPI{bc: bc, ac: ac, server: acnServer}
 }
