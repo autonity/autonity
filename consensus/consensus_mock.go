@@ -75,19 +75,19 @@ func (mr *MockChainHeaderReaderMockRecorder) CurrentHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeader", reflect.TypeOf((*MockChainHeaderReader)(nil).CurrentHeader))
 }
 
-// EpochOfHeight mocks base method.
-func (m *MockChainHeaderReader) EpochByHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error) {
+// EpochByHeight mocks base method.
+func (m *MockChainHeaderReader) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EpochOfHeight", height, fetcher)
+	ret := m.ctrl.Call(m, "EpochByHeight", height)
 	ret0, _ := ret[0].(*types.EpochInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// EpochOfHeight indicates an expected call of EpochOfHeight.
-func (mr *MockChainHeaderReaderMockRecorder) EpochOfHeight(height, fetcher any) *gomock.Call {
+// EpochByHeight indicates an expected call of EpochByHeight.
+func (mr *MockChainHeaderReaderMockRecorder) EpochByHeight(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochByHeight), height, fetcher)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochByHeight", reflect.TypeOf((*MockChainHeaderReader)(nil).EpochByHeight), height)
 }
 
 // GetHeader mocks base method.
@@ -211,19 +211,19 @@ func (mr *MockChainReaderMockRecorder) Engine() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Engine", reflect.TypeOf((*MockChainReader)(nil).Engine))
 }
 
-// EpochOfHeight mocks base method.
-func (m *MockChainReader) EpochByHeight(height uint64, fetcher HeaderWithStateFn) (*types.EpochInfo, error) {
+// EpochByHeight mocks base method.
+func (m *MockChainReader) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EpochOfHeight", height, fetcher)
+	ret := m.ctrl.Call(m, "EpochByHeight", height)
 	ret0, _ := ret[0].(*types.EpochInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// EpochOfHeight indicates an expected call of EpochOfHeight.
-func (mr *MockChainReaderMockRecorder) EpochOfHeight(height, fetcher any) *gomock.Call {
+// EpochByHeight indicates an expected call of EpochByHeight.
+func (mr *MockChainReaderMockRecorder) EpochByHeight(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainReader)(nil).EpochByHeight), height, fetcher)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochByHeight", reflect.TypeOf((*MockChainReader)(nil).EpochByHeight), height)
 }
 
 // GetBlock mocks base method.

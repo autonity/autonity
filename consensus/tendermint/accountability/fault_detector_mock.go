@@ -47,19 +47,19 @@ func (m *MockChainContext) EXPECT() *MockChainContextMockRecorder {
 	return m.recorder
 }
 
-// CommitteeOfHeight mocks base method.
-func (m *MockChainContext) CommitteeOfHeight(height uint64) (*types.Committee, error) {
+// CommitteeByHeight mocks base method.
+func (m *MockChainContext) CommitteeByHeight(height uint64) (*types.Committee, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitteeOfHeight", height)
+	ret := m.ctrl.Call(m, "CommitteeByHeight", height)
 	ret0, _ := ret[0].(*types.Committee)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CommitteeOfHeight indicates an expected call of CommitteeOfHeight.
-func (mr *MockChainContextMockRecorder) CommitteeOfHeight(height any) *gomock.Call {
+// CommitteeByHeight indicates an expected call of CommitteeByHeight.
+func (mr *MockChainContextMockRecorder) CommitteeByHeight(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeOfHeight", reflect.TypeOf((*MockChainContext)(nil).CommitteeOfHeight), height)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeByHeight", reflect.TypeOf((*MockChainContext)(nil).CommitteeByHeight), height)
 }
 
 // Config mocks base method.
@@ -118,19 +118,19 @@ func (mr *MockChainContextMockRecorder) Engine() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Engine", reflect.TypeOf((*MockChainContext)(nil).Engine))
 }
 
-// EpochOfHeight mocks base method.
-func (m *MockChainContext) EpochByHeight(height uint64, fetcher consensus.HeaderWithStateFn) (*types.EpochInfo, error) {
+// EpochByHeight mocks base method.
+func (m *MockChainContext) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EpochOfHeight", height, fetcher)
+	ret := m.ctrl.Call(m, "EpochByHeight", height)
 	ret0, _ := ret[0].(*types.EpochInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// EpochOfHeight indicates an expected call of EpochOfHeight.
-func (mr *MockChainContextMockRecorder) EpochOfHeight(height, fetcher any) *gomock.Call {
+// EpochByHeight indicates an expected call of EpochByHeight.
+func (mr *MockChainContextMockRecorder) EpochByHeight(height any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochOfHeight", reflect.TypeOf((*MockChainContext)(nil).EpochByHeight), height, fetcher)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EpochByHeight", reflect.TypeOf((*MockChainContext)(nil).EpochByHeight), height)
 }
 
 // GetBlock mocks base method.
