@@ -1,13 +1,15 @@
 package tests
 
 import (
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/params"
 )
 
 const BigFloatPrecision = 256 // will allow full representation of the solidity uint256 range
@@ -150,6 +152,11 @@ func ntnBalance(r *Runner, addr common.Address) *big.Int {
 	balance, _, err := r.Autonity.BalanceOf(nil, addr)
 	require.NoError(r.T, err)
 	return balance
+}
+
+func expectNearlyEqual(t *testing.T, expected, actual *big.Int, tolerance int64) {
+	diff := new(big.Int).Abs(new(big.Int).Sub(expected, actual))
+	require.True(t, diff.Cmp(big.NewInt(tolerance)) <= 0, "expected %v, got %v", expected, actual)
 }
 
 func TestAccessControl(t *testing.T) {
@@ -503,7 +510,9 @@ func TestInactivityScore(t *testing.T) {
 		expectedInactivityScore, _ := expectedInactivityScoreFloatScaled.Int(nil)
 
 		r.T.Logf("i %d, expectedInactivityScoreFloat %s, expectedInactivityScore %s, inactivityScore %v", i, toString(expectedInactivityScoreFloat), expectedInactivityScore.String(), inactivityScore(r, val.NodeAddress))
-		require.Equal(r.T, int(expectedInactivityScore.Uint64()), inactivityScore(r, val.NodeAddress))
+		// precision loss cumulates across subsequent epochs due to the weighted sum, thus as there can be some instability
+		// in this test, we allow a tolerance of 1
+		expectNearlyEqual(t, expectedInactivityScore, big.NewInt(int64(inactivityScore(r, val.NodeAddress))), 1)
 	}
 }
 
