@@ -26,7 +26,6 @@ enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jai
 uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable {
-    uint256 internal constant MAX_ROUND = 99;
     uint256 internal constant CONSENSUS_KEY_LEN = 48;
     uint256 internal constant BLS_PROOF_LEN = 96;
     uint256 internal constant ECDSA_SIGNATURE_LEN = 65;
