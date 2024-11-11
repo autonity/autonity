@@ -133,12 +133,12 @@ contract Accountability is IAccountability, AccessAutonity {
         // There is an edge-case scenario where slashing events for the
         // same accused validator are created during the same epoch.
         // In this case we only reward the last reporter.
-        address _reporterTreasury = autonity.getValidator(beneficiaries[_offender]).treasury;
+        Autonity.Validator memory _reporter = autonity.getValidator(beneficiaries[_validator]);
 
-        autonity.autobond(_reporterTreasury, _ntnReward, 0);
+        autonity.autobond(_reporter.nodeAddress, _ntnReward, 0);
 
         // if for some reasons, funds can't be transferred to the reporter treasury (sneaky contract)
-        (bool ok, ) = _reporterTreasury.call{value:msg.value, gas: 2300}("");
+        (bool ok, ) = _reporter.treasury.call{value:msg.value, gas: 2300}("");
         // well, too bad, it goes to the autonity global treasury.
         if(!ok) {
             autonity.getTreasuryAccount().call{value:msg.value}("");
