@@ -617,11 +617,12 @@ type AutonityContractAPI struct {
 }
 
 func (a *AutonityContractAPI) Config() (*autonity.AutonityConfig, error) {
-	st, err := a.bc.State()
+	cb := a.bc.CurrentBlock()
+	st, err := a.bc.StateAt(cb.Root())
 	if err != nil {
 		return nil, err
 	}
-	return a.ac.CallConfig(st, a.bc.CurrentHeader())
+	return a.ac.CallConfig(st, cb.Header())
 }
 
 func (a *AutonityContractAPI) Address() common.Address {
