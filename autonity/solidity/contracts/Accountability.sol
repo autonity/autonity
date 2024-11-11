@@ -133,7 +133,7 @@ contract Accountability is IAccountability, AccessAutonity {
         // There is an edge-case scenario where slashing events for the
         // same accused validator are created during the same epoch.
         // In this case we only reward the last reporter.
-        Autonity.Validator memory _reporter = autonity.getValidator(beneficiaries[_validator]);
+        Autonity.Validator memory _reporter = autonity.getValidator(beneficiaries[_offender]);
 
         autonity.autobond(_reporter.nodeAddress, _ntnReward, 0);
 
