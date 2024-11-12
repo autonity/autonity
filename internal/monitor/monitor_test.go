@@ -69,7 +69,7 @@ func Test_DateChangeResetsProfileCount(t *testing.T) {
 	}
 
 	mockMemUsage := func(stats *runtime.MemStats) {
-		stats.Alloc = 2 * 1024 * 1024 // Memory below threshold
+		stats.Alloc = 2 * 1024 * 1024 * 1024 // Memory below threshold
 	}
 
 	cfg := DefaultMonitorConfig
@@ -112,7 +112,7 @@ func Test_ErrorHandling(t *testing.T) {
 
 	mockMemUsage := func(stats *runtime.MemStats) {
 		// No error in memory fetching
-		stats.Alloc = 2 * 1024 * 1024
+		stats.Alloc = 2 * 1024 * 1024 * 1024
 	}
 
 	cfg := DefaultMonitorConfig
@@ -146,7 +146,7 @@ func Test_CPUThresholdBreach(t *testing.T) {
 	}
 
 	mockMemUsage := func(stats *runtime.MemStats) {
-		stats.Alloc = 2 * 1024 * 1024 // Memory below threshold
+		stats.Alloc = 2 * 1024 * 1024 * 1024 // Memory below threshold
 	}
 
 	cfg := DefaultMonitorConfig
@@ -189,7 +189,7 @@ func Test_MemoryThresholdBreach(t *testing.T) {
 	}
 
 	mockMemUsage := func(stats *runtime.MemStats) {
-		stats.Alloc = 7 * 1024 * 1024 // Memory below threshold
+		stats.Alloc = 7 * 1024 * 1024 * 1024 // Memory below threshold
 	}
 
 	cfg := DefaultMonitorConfig
@@ -234,7 +234,7 @@ func Test_GoroutineThresholdBreach(t *testing.T) {
 	}
 
 	mockMemUsage := func(stats *runtime.MemStats) {
-		stats.Alloc = 2 * 1024 * 1024 // Memory below threshold
+		stats.Alloc = 2 * 1024 * 1024 * 1024 // Memory below threshold
 	}
 
 	cfg := DefaultMonitorConfig

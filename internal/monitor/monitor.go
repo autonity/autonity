@@ -43,7 +43,7 @@ type Config struct {
 var DefaultMonitorConfig = Config{
 	cpuThreshold:         80,
 	numGoroutines:        6000,
-	memThreshold:         6 * 1024 * 1024,
+	memThreshold:         6 * 1024 * 1024 * 1024,
 	profilePerDay:        3,
 	monitoringInterval:   time.Second * 60,
 	cpuProfilingDuration: time.Second * 20,
@@ -110,6 +110,76 @@ func (ms *monitorService) Protocols() []p2p.Protocol {
 	return nil
 }
 
+func (ms *monitorService) collectCPUDump(profileDir, postfix string) {
+	// cpu profiling
+	cpuDump := filepath.Join(profileDir, cpuDumpFile+postfix)
+	f, err := os.Create(cpuDump)
+	if err != nil {
+		log.Error("Couldn't create file to write cpu profile", "error", err)
+		return
+	}
+	defer f.Close()
+	err = pprof.StartCPUProfile(f)
+	if err != nil {
+		log.Error("Couldn't start cpu profiling", "error", err)
+		return
+	}
+	time.Sleep(ms.config.cpuProfilingDuration)
+	pprof.StopCPUProfile()
+	log.Info("dumped CPU profile", "path", cpuDump)
+}
+
+func (ms *monitorService) collectHeapDump(profileDir, postfix string) {
+	// mem profiling
+	memDump := filepath.Join(profileDir, memDumpFile+postfix)
+	f, err := os.Create(memDump)
+	if err != nil {
+		log.Error("Couldn't create file to write mem profile", "error", err)
+		return
+	}
+	defer f.Close()
+	err = pprof.WriteHeapProfile(f)
+	if err != nil {
+		log.Error("Couldn't write mem profile", "error", err)
+	}
+	log.Info("dumped heap profile", "path", memDump)
+}
+
+func (ms *monitorService) collectGoRoutines(profileDir, postfix string) {
+	// goroutines stack trace
+	goroutines := filepath.Join(profileDir, goroutineDumpFile+postfix)
+	f, err := os.Create(goroutines)
+	if err != nil {
+		log.Error("Couldn't create file to write goroutines", "error", err)
+		return
+	}
+	defer f.Close()
+	err = pprof.Lookup("goroutine").WriteTo(f, 2)
+	if err != nil {
+		log.Error("Couldn't write goroutines", "error", err)
+	}
+	log.Info("dumped goroutines", "path", goroutines)
+}
+
+func (ms *monitorService) collectGoTrace(profileDir, postfix string) {
+	// go tracing
+	traceDump := filepath.Join(profileDir, traceFile+postfix)
+	f, err := os.Create(traceDump)
+	if err != nil {
+		log.Error("Couldn't create file to write trace", "error", err)
+		return
+	}
+	defer f.Close()
+	err = trace.Start(f)
+	if err != nil {
+		log.Error("Couldn't start go trace", "error", err)
+		return
+	}
+	time.Sleep(ms.config.traceDuration)
+	trace.Stop()
+	log.Info("dumped go trace", "path", traceDump)
+}
+
 func (ms *monitorService) collectDiagnostics(currentDate string) {
 	profileDir := filepath.Join(ms.config.profileDir, currentDate)
 	err := os.MkdirAll(profileDir, 0774)
@@ -118,70 +188,10 @@ func (ms *monitorService) collectDiagnostics(currentDate string) {
 		return
 	}
 	postfix := "_" + strconv.Itoa(ms.profileCount+1)
-
-	// cpu profiling
-	cpuDump := filepath.Join(profileDir, cpuDumpFile+postfix)
-	f, err := os.Create(cpuDump)
-	if err != nil {
-		log.Error("Couldn't create file to write cpu profile", "error", err)
-		return
-	}
-	err = pprof.StartCPUProfile(f)
-	if err != nil {
-		f.Close()
-		log.Error("Couldn't start cpu profiling", "error", err)
-		return
-	}
-	time.Sleep(ms.config.cpuProfilingDuration)
-	pprof.StopCPUProfile()
-	f.Close()
-
-	// mem profiling
-	memDump := filepath.Join(profileDir, memDumpFile+postfix)
-	f, err = os.Create(memDump)
-	if err != nil {
-		log.Error("Couldn't create file to write mem profile", "error", err)
-		return
-	}
-	err = pprof.WriteHeapProfile(f)
-	if err != nil {
-		f.Close()
-		log.Error("Couldn't write mem profile", "error", err)
-		return
-	}
-	f.Close()
-
-	// goroutines stack trace
-	goroutines := filepath.Join(profileDir, goroutineDumpFile+postfix)
-	f, err = os.Create(goroutines)
-	if err != nil {
-		log.Error("Couldn't create file to write goroutines", "error", err)
-		return
-	}
-	err = pprof.Lookup("goroutine").WriteTo(f, 2)
-	if err != nil {
-		f.Close()
-		log.Error("Couldn't write goroutines", "error", err)
-		return
-	}
-	f.Close()
-
-	// go tracing
-	traceDump := filepath.Join(profileDir, traceFile+postfix)
-	f, err = os.Create(traceDump)
-	if err != nil {
-		log.Error("Couldn't create file to write trace", "error", err)
-		return
-	}
-	err = trace.Start(f)
-	if err != nil {
-		f.Close()
-		log.Error("Couldn't start go trace", "error", err)
-		return
-	}
-	time.Sleep(ms.config.traceDuration)
-	trace.Stop()
-	f.Close()
+	ms.collectCPUDump(profileDir, postfix)
+	ms.collectHeapDump(profileDir, postfix)
+	ms.collectGoRoutines(profileDir, postfix)
+	ms.collectGoTrace(profileDir, postfix)
 }
 
 func (ms *monitorService) checkSystemState() {
