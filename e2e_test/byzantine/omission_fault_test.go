@@ -3,6 +3,13 @@ package byzantine
 import (
 	"context"
 	"crypto/ecdsa"
+	"math/big"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
@@ -17,11 +24,6 @@ import (
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/params"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
 )
 
 const active = uint8(0)
@@ -154,6 +156,12 @@ func ntnBalanceOf(t *testing.T, autonity *autonity.Autonity, target common.Addre
 	balance, err := autonity.BalanceOf(nil, target)
 	require.NoError(t, err)
 	return balance
+}
+
+func ntnSelfBonded(t *testing.T, autonity *autonity.Autonity, validator common.Address) *big.Int {
+	val, err := autonity.GetValidator(nil, validator)
+	require.NoError(t, err)
+	return val.SelfBondedStake
 }
 
 const defaultEpochPeriod = 40
@@ -681,12 +689,12 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 
 	effortTrackers := make([]*lockedBigInt, numNodes)
 	initialAtn := make([]*big.Int, numNodes)
-	initialNtn := make([]*big.Int, numNodes)
+	initialNtnSelfBonded := make([]*big.Int, numNodes)
 	for i := 0; i < numNodes; i++ {
 		effortTrackers[i] = &lockedBigInt{value: new(big.Int)}
 		validators[i].TendermintServices = &interfaces.Services{Proposer: newEffortTrackerProposer(effortTrackers[i], customEpochPeriod)}
 		initialAtn[i] = new(big.Int).Set(validators[i].InitialEth)
-		initialNtn[i] = new(big.Int)
+		initialNtnSelfBonded[i] = new(big.Int).SetUint64(validators[i].Stake)
 	}
 
 	autonityAtns := new(big.Int).SetInt64(54644123324456465) // random amount
@@ -776,10 +784,10 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 
 		if isOnline(i) {
 			atnExpectedBalance := new(big.Int).Add(initialAtn[i], atnExpectedIncrement)
-			ntnExpectedBalance := new(big.Int).Add(initialNtn[i], ntnExpectedIncrement)
+			ntnExpectedBalance := new(big.Int).Add(initialNtnSelfBonded[i], ntnExpectedIncrement)
 			treasury := crypto.PubkeyToAddress(network[i].TreasuryKey.PublicKey)
 			require.Equal(t, atnExpectedBalance.String(), atnBalanceOf(t, network[0].WsClient, treasury).String())
-			require.Equal(t, ntnExpectedBalance.String(), ntnBalanceOf(t, autonityContract, treasury).String())
+			require.Equal(t, ntnExpectedBalance.String(), ntnSelfBonded(t, autonityContract, network[i].Address).String())
 		} else {
 			expectedWithheldRewardsAtn.Add(expectedWithheldRewardsAtn, atnExpectedIncrement)
 			expectedWithheldRewardsNtn.Add(expectedWithheldRewardsNtn, ntnExpectedIncrement)
