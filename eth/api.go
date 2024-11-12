@@ -30,6 +30,7 @@ import (
 
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/params"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -626,7 +627,7 @@ func (a *AutonityContractAPI) Config() (*autonity.AutonityConfig, error) {
 }
 
 func (a *AutonityContractAPI) Address() common.Address {
-	return a.ac.AutonityContract.Address()
+	return params.AutonityContractAddress
 }
 
 func (a *AutonityContractAPI) AcnPeers() []*p2p.Peer {
