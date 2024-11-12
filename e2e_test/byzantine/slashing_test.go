@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	core2 "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/crypto"
@@ -67,6 +68,14 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		collusionFactor = genesis.Config.AccountabilityConfig.CollusionFactor
 		historyFactor = genesis.Config.AccountabilityConfig.HistoryFactor
 		genesis.Config.AutonityContractConfig.EpochPeriod = epochPeriod
+
+		// to make sure stakes don't change via autobonding, we turn off inflation
+		genesis.Config.InflationContractConfig.InflationRateInitial = math.NewHexOrDecimal256(0)
+		// set transition period very far away
+		transitionPeriod, ok := big.NewInt(0).SetString("1000000000000000000000000", 10)
+		require.True(t, ok)
+		trans := math.HexOrDecimal256(*transitionPeriod)
+		genesis.Config.InflationContractConfig.InflationTransitionPeriod = &(trans)
 
 		//if stake is set, it means we need some other account to bond
 		if stake > 0 {
