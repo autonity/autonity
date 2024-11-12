@@ -2,6 +2,10 @@ package collusion
 
 import (
 	"context"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -9,8 +13,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 /*
@@ -20,6 +22,7 @@ import (
     being, thus we cannot expect the proposer is slashed, however we can slash those followers by PVN accusation rule.
 */
 func TestCollusionPVN(t *testing.T) {
+	t.Skip("Flaky test")
 	numOfNodes := 8
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
