@@ -3,18 +3,20 @@ package backend
 import (
 	"context"
 	"errors"
+	"math/big"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"os"
-	"sync"
-	"testing"
-	"time"
 
 	"go.uber.org/mock/gomock"
 
@@ -235,7 +237,11 @@ func TestVerifyHeader(t *testing.T) {
 
 // It assumes that we have a single committee member
 func addQuorumCertificate(chain *core.BlockChain, engine *Backend, b *types.Block) (*types.Block, message.Msg) {
-	self := &chain.Genesis().Header().Epoch.Committee.Members[0]
+	info, err := chain.EpochByHeight(b.NumberU64())
+	if err != nil {
+		panic(err)
+	}
+	self := &info.Committee.Members[0]
 
 	header := b.Header()
 	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, 1)

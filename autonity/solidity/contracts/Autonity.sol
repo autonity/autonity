@@ -1253,7 +1253,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     modifier onlyAtEpochEnd() {
-        // require(true, "it passes");
         require(block.number >= epochInfos[epochID].nextEpochBlock, "epoch is not ended");
         _;
     }
@@ -1296,19 +1295,21 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             }
         }
 
-        // Calculate initial proposer rewards (actual distribution is done after regular rewards)
-        uint256 _atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
-        uint256 _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
+        uint256 _atnProposerRewards;
+        uint256 _ntnProposerRewards;
 
         if (config.contracts.omissionAccountabilityContract.getTotalEffort() > 0) {
+            // Calculate initial proposer rewards (actual distribution is done after regular rewards)
+            _atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
+            _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
             _atn -= _atnProposerRewards;
             _ntn -= _ntnProposerRewards;
         }
 
         uint256 _omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
 
-        uint256[] memory _jailedValidators = new uint256[](committee.length);
-        uint256 _jailedValidatorsCount = 0;
+        uint256[] memory _jailedValidatorLocs = new uint256[](committee.length);
+        uint256 _jailedValidatorCount = 0;
 
         // Redistribute fees through the Liquid Newton contract
         uint256 _atnTotalWithheld = 0;
@@ -1322,8 +1323,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
                 // committee members in the jailed state were just found guilty in the current epoch.
                 // committee members in jailbound state are permanently jailed
                 if (_val.state == ValidatorState.jailed || _val.state == ValidatorState.jailbound) {
-                    _jailedValidators[_jailedValidatorsCount] = i;
-                    _jailedValidatorsCount++;
+                    _jailedValidatorLocs[_jailedValidatorCount] = i;
+                    _jailedValidatorCount++;
                     continue;
                 }
 
@@ -1377,12 +1378,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // NOTE: the following redistribution operations could change validator bondedStake, therefore they must be done after
         // the rewards distribution to avoid inconsistencies in the rewards distribution.
 
-        if (_jailedValidatorsCount > 0) {
-            for (uint256 i = 0; i < _jailedValidatorsCount; i++) {
-                uint256 _atnReward = (committee[_jailedValidators[i]].votingPower * _atn) / epochTotalBondedStake;
-                uint256 _ntnReward = (committee[_jailedValidators[i]].votingPower * _ntn) / epochTotalBondedStake;
+        if (_jailedValidatorCount > 0) {
+            for (uint256 i = 0; i < _jailedValidatorCount; i++) {
+                uint256 _jailedValidatorIndex = _jailedValidatorLocs[i];
+                uint256 _atnReward = (committee[_jailedValidatorIndex].votingPower * _atn) / epochTotalBondedStake;
+                uint256 _ntnReward = (committee[_jailedValidatorIndex].votingPower * _ntn) / epochTotalBondedStake;
                 _transfer(address(this), address(config.contracts.accountabilityContract), _ntnReward);
-                config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[_jailedValidators[i]].addr, _ntnReward);
+                config.contracts.accountabilityContract.distributeRewards{value: _atnReward}(committee[_jailedValidatorIndex].addr, _ntnReward);
             }
         }
 
