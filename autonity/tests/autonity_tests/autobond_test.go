@@ -84,6 +84,7 @@ func TestAutobondPermissions(t *testing.T) {
 			common.Big5,
 			common.Big2,
 		)
+		require.NoError(r.T, err)
 	})
 }
 
