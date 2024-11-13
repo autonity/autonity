@@ -150,3 +150,34 @@ func TestBondedIncrease(t *testing.T) {
 		require.Equal(r.T, new(big.Int).Add(oldTotalBonded, common.Big5), newTotalBonded)
 	})
 }
+
+func TestOnlyAutobondedRewards(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("autobonded rewards are the only rewards", setup, func(r *tests.Runner) {
+		validator := r.Committee.Validators[0]
+		balanceBefore, _, err := r.Autonity.BalanceOf(nil, validator.NodeAddress)
+		require.NoError(r.T, err)
+
+		val, _, err := r.Autonity.GetValidator(nil, validator.NodeAddress)
+		require.NoError(r.T, err)
+		stakeBefore := val.BondedStake
+
+		// wait some epochs
+		r.WaitNextEpoch()
+		r.WaitNextEpoch()
+		r.WaitNextEpoch()
+
+		val, _, err = r.Autonity.GetValidator(nil, validator.NodeAddress)
+		require.NoError(r.T, err)
+		stakeAfter := val.BondedStake
+
+		balanceAfter, _, err := r.Autonity.BalanceOf(nil, validator.NodeAddress)
+		require.NoError(r.T, err)
+
+		require.True(r.T, stakeAfter.Cmp(stakeBefore) > 0, "stake should increase for validators")
+		require.Equal(r.T, balanceBefore, balanceAfter, "balance should not increase for validators")
+	})
+}
