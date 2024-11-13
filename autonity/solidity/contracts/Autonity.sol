@@ -1247,7 +1247,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             address(config.contracts.accountabilityContract) == msg.sender
             || address(config.contracts.omissionAccountabilityContract) == msg.sender
             || address(validators[_validator].liquidStateContract) == msg.sender
-            , "caller is not a reward distributer"
+            , "caller is not a reward distributor"
         );
         _;
     }
