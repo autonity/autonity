@@ -241,11 +241,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     event NewEpoch(uint256 epoch);
 
     /**
-     * @notice This event is emitted when the inflation reward at epoch end is auto-bonded to validators.
-     */
-    event NewAutobond(address indexed validator, uint256 selfBondedAmount, uint256 delegatedAmount);
-
-    /**
      * @notice This event is emitted when a call to an address fails in a protocol function (like finalize()).
      * @param to address
      * @param methodSignature method signature of the call, empty in case of plain transaction
@@ -823,6 +818,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             uint256 _nextEpochBlock = block.number + config.protocol.epochPeriod;
             lastEpochTime = block.timestamp;
 
+            // NOTE: Rewards distribution depends on the current value of epochID,
+            // so we should always keep this epoch increment at the end of this block.
             epochID += 1;
             _addEpochInfo(epochID, EpochInfo(committee, _previousEpochBlock, block.number, _nextEpochBlock, _delta));
             emit NewEpoch(epochID);
@@ -871,7 +868,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return (_oracleVoters, _afdReporters, _treasuries);
     }
 
-    function autobond(address _validator, uint256 _selfBond, uint256 _delegated) external virtual onlyAtEpochEnd onlyRewardDistributer(_validator) {
+    function autobond(address _validator, uint256 _selfBond, uint256 _delegated) external virtual onlyAtEpochEnd onlyRewardDistributor(_validator) {
         require(accounts[msg.sender] >= _selfBond + _delegated, "not enough balance");
         require(_validator != address(0), "validator address cannot be zero");
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
@@ -1242,7 +1239,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         _;
     }
 
-    modifier onlyRewardDistributer(address _validator) {
+    modifier onlyRewardDistributor(address _validator) {
         require(
             address(config.contracts.accountabilityContract) == msg.sender
             || address(config.contracts.omissionAccountabilityContract) == msg.sender
@@ -1580,8 +1577,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         _val.selfBondedStake += _selfBond;
         _val.bondedStake += _selfBond + _delegated;
-
-        emit NewAutobond(_validator, _selfBond, _delegated);
     }
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
