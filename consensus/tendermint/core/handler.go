@@ -187,7 +187,10 @@ eventLoop:
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
 					}
-					break
+					// we still want to gossip old round messages
+					if !errors.Is(err, constants.ErrOldRoundMessage) {
+						break
+					}
 				}
 
 				if !c.noGossip {
@@ -331,8 +334,8 @@ func (c *Core) SendEvent(ev any) {
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	// These checks need to be repeated here due to backlogged messages being re-injected
 	if c.Height().Uint64() > msg.H() {
-		// TODO: should we gossip old height messages?
-		// and what about old round and future round msgs?
+		// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
+		// Moreover, I am still wondering if it would be useful to gossip old height messages, as they could be useful for accountability
 		c.logger.Debug("ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
 		return constants.ErrOldHeightMessage
 	}
@@ -385,7 +388,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		}
 		c.futureRoundLock.Unlock()
 
-		c.backend.Post(events.FuturePowerChangeEvent{Height: c.Height().Uint64(), Round: r})
+		go c.SendEvent(events.FuturePowerChangeEvent{Height: c.Height().Uint64(), Round: r})
 
 		c.roundSkipCheck(ctx, r)
 	}

@@ -146,7 +146,7 @@ func TestStartRound(t *testing.T) {
 		proposal := generateBlockProposal(e.curRound, e.curHeight, e.validRound, false, e.clientSigner, e.clientMember, e.previousValue.Header())
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
@@ -177,7 +177,7 @@ func TestStartRound(t *testing.T) {
 		e := NewConsensusEnv(t, customizer)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
@@ -608,7 +608,7 @@ func TestOldProposal(t *testing.T) {
 		prevoteMsgToBroadcast := message.NewPrevote(e.curRound, e.curHeight.Uint64(), e.curProposal.Block().Hash(), e.clientSigner, e.clientMember, e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
@@ -706,7 +706,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		prevoteMsg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 		e.setupCore(backendMock, e.clientAddress)
@@ -744,7 +744,7 @@ func TestPrevoteTimeout(t *testing.T) {
 		prevote2Msg := message.NewPrevote(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 2), member(e, 2), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
@@ -836,7 +836,7 @@ func TestQuorumPrevote(t *testing.T) {
 		precommitMsg := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), e.curProposal.Block().Hash(), e.clientSigner, e.clientMember, e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
@@ -883,7 +883,7 @@ func TestQuorumPrevote(t *testing.T) {
 		precommitMsg := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), e.curProposal.Block().Hash(), e.clientSigner, e.clientMember, e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
@@ -940,7 +940,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 	precommitMsg := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), common.Hash{}, e.clientSigner, e.clientMember, e.committeeSize)
 
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer waitForExpects(ctrl)
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
@@ -973,7 +973,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		lastHeader := &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
 		precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
@@ -1015,7 +1015,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		lastHeader := &types.Header{Number: big.NewInt(e.curHeight.Int64()).Sub(e.curHeight, common.Big1)}
 		precommit := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 1), member(e, 1), e.committeeSize)
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
@@ -1060,7 +1060,7 @@ func TestPrecommitTimeout(t *testing.T) {
 		precommitFrom2 := message.NewPrecommit(e.curRound, e.curHeight.Uint64(), generateBlock(e.curHeight, lastHeader).Hash(), signer(e, 2), member(e, 2), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
@@ -1131,7 +1131,8 @@ func TestPrecommitTimeout(t *testing.T) {
 		e := NewConsensusEnv(t, customizer)
 		timeoutE := TimeoutEvent{RoundWhenCalled: e.curRound, HeightWhenCalled: e.curHeight, Step: Precommit}
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
+
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
 		e.setupCore(backendMock, e.clientAddress)
@@ -1191,8 +1192,12 @@ func TestQuorumPrecommit(t *testing.T) {
 			}
 		})
 	backendMock.EXPECT().ProcessFutureMsgs(nextHeight).Times(1)
-	// In case of Timeout propose
-	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
+	backendMock.EXPECT().Post(gomock.Any()).MaxTimes(2)
+	backendMock.EXPECT().Post(TimeoutEvent{
+		RoundWhenCalled:  0,
+		HeightWhenCalled: new(big.Int).SetUint64(nextHeight),
+		Step:             Propose,
+	}).MaxTimes(1)
 
 	err := e.core.handleMsg(context.Background(), precommit)
 	assert.NoError(t, err)
@@ -1279,7 +1284,7 @@ func TestFutureRoundChange(t *testing.T) {
 		precommitMsg := message.NewPrecommit(futureRound, e.curHeight.Uint64(), common.Hash{}, signer(e, 1), member(e, 1), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)

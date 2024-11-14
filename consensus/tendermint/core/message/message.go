@@ -798,7 +798,10 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	if encoded.Signers == nil || encoded.Signers.Bits == nil || len(encoded.Signers.Bits) == 0 || encoded.Signers.Coefficients == nil {
+	if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
+		return constants.ErrInvalidMessage
+	}
+	if encoded.Signers.SanityCheck() != nil {
 		return constants.ErrInvalidMessage
 	}
 	p.height = encoded.Height
@@ -836,7 +839,10 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	if encoded.Signers == nil || encoded.Signers.Bits == nil || len(encoded.Signers.Bits) == 0 {
+	if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
+		return constants.ErrInvalidMessage
+	}
+	if encoded.Signers.SanityCheck() != nil {
 		return constants.ErrInvalidMessage
 	}
 	p.height = encoded.Height

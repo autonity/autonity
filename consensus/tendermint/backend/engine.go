@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -616,20 +617,20 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 }
 
 func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
+	// subscribe to relevant events
 	var subscriptions event.SubscriptionScope
 	newEpochEventCh := make(chan *autonity.AutonityNewEpoch)
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
-
 	subNewEpochEvent, _ := sb.blockchain.ProtocolContracts().WatchNewEpoch(nil, newEpochEventCh)
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
 	subscriptions.Track(subNewEpochEvent)
 	subscriptions.Track(subNewFaultProofs)
-
 	defer func() {
 		subscriptions.Close()
 		sb.wg.Done()
 	}()
 
+	// re-initialize jailed metadata from disk
 	currentHeader := sb.blockchain.CurrentBlock().Header()
 	state, err := sb.blockchain.StateAt(currentHeader.Root)
 	if err != nil {
@@ -642,18 +643,18 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	lastEpochID := lastEpochIDBig.Uint64()
 	jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
 	jailedAddresses := make([]common.Address, 0, jailedCount)
+	emptyAddress := common.Address{}
 	for i := 0; i < int(jailedCount); i++ {
 		address := rawdb.ReadJailedAddress(sb.database, lastEpochID, uint64(i))
-		if address != common.HexToAddress("0") {
+		if !bytes.Equal(address[:], emptyAddress[:]) {
 			jailedAddresses = append(jailedAddresses, address)
 		}
 	}
-
-	sb.jailedLock.Lock()
+	sb.jailed.Lock()
 	for _, address := range jailedAddresses {
-		sb.jailed[address] = lastEpochID
+		sb.jailed.validators[address] = lastEpochID
 	}
-	sb.jailedLock.Unlock()
+	sb.jailed.Unlock()
 
 	for {
 		select {
@@ -685,11 +686,11 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 					continue
 				}
 
-				sb.jailedLock.Lock()
+				sb.jailed.Lock()
 				// the validator is in a perpetual jailed state
 				// which should only be temporary until it gets updated at the next epoch event.
-				sb.jailed[ev.Offender] = epochID
-				sb.jailedLock.Unlock()
+				sb.jailed.validators[ev.Offender] = epochID
+				sb.jailed.Unlock()
 
 				// persist in db
 				jailedCount := rawdb.ReadJailedCount(sb.database, epochID)
@@ -713,21 +714,21 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				sb.logger.Crit("Failed to remove jailed validator from db", "err", err)
 			}
 			// remove from map
-			sb.jailedLock.Lock()
-			for k, epochID := range sb.jailed {
+			sb.jailed.Lock()
+			for k, epochID := range sb.jailed.validators {
 				if epochID <= lastEpochID {
-					delete(sb.jailed, k)
+					delete(sb.jailed.validators, k)
 				}
 			}
-			sb.jailedLock.Unlock()
+			sb.jailed.Unlock()
 			lastEpochID = ev.Epoch.Uint64()
 		}
 	}
 }
 
 func (sb *Backend) IsJailed(address common.Address) bool {
-	sb.jailedLock.RLock()
-	defer sb.jailedLock.RUnlock()
-	_, ok := sb.jailed[address]
+	sb.jailed.RLock()
+	defer sb.jailed.RUnlock()
+	_, ok := sb.jailed.validators[address]
 	return ok
 }

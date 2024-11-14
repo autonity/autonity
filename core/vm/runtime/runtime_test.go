@@ -18,6 +18,7 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"os"
 	"strings"
@@ -216,11 +217,11 @@ func BenchmarkEVM_CREATE2_1200(bench *testing.B) {
 	benchmarkEVM_Create(bench, "5b5862124f80600080f5600152600056")
 }
 
-func fakeHeader(n uint64, parentHash common.Hash) *types.Header {
+func fakeHeader(n uint64) *types.Header {
 	header := types.Header{
 		Coinbase:   common.HexToAddress("0x00000000000000000000000000000000deadbeef"),
 		Number:     big.NewInt(int64(n)),
-		ParentHash: parentHash,
+		ParentHash: common.BigToHash(new(big.Int).SetUint64(n - 1)),
 		Time:       1000,
 		Nonce:      types.BlockNonce{0x1},
 		Extra:      []byte{},
@@ -232,6 +233,7 @@ func fakeHeader(n uint64, parentHash common.Hash) *types.Header {
 
 type dummyChain struct {
 	counter int
+	n       uint64
 }
 
 // Engine retrieves the chain's consensus engine.
@@ -240,25 +242,17 @@ func (d *dummyChain) Engine() consensus.Engine {
 }
 
 // GetHeader returns the hash corresponding to their hash.
-func (d *dummyChain) GetHeader(h common.Hash, n uint64) *types.Header {
+func (d *dummyChain) GetHeader(_ common.Hash, number uint64) *types.Header {
 	d.counter++
-	parentHash := common.Hash{}
-	s := common.LeftPadBytes(big.NewInt(int64(n-1)).Bytes(), 32)
-	copy(parentHash[:], s)
-
-	//parentHash := common.Hash{byte(n - 1)}
-	//fmt.Printf("GetHeader(%x, %d) => header with parent %x\n", h, n, parentHash)
-	return fakeHeader(n, parentHash)
+	return fakeHeader(number)
 }
 
-func (d *dummyChain) GetHeaderByNumber(n uint64) *types.Header {
+func (d *dummyChain) GetHeaderByNumber(number uint64) *types.Header {
 	d.counter++
-	parentHash := common.Hash{}
-	s := common.LeftPadBytes(big.NewInt(int64(n-1)).Bytes(), 32)
-	copy(parentHash[:], s)
-
-	return fakeHeader(n, parentHash)
-
+	if number != d.n-2 {
+		panic("non grandparent retrieved by number") // currently only the grandparent is retrieved by number
+	}
+	return fakeHeader(number)
 }
 
 // TestBlockhash tests the blockhash operation. It's a bit special, since it internally
@@ -266,10 +260,7 @@ func (d *dummyChain) GetHeaderByNumber(n uint64) *types.Header {
 func TestBlockhash(t *testing.T) {
 	// Current head
 	n := uint64(1000)
-	parentHash := common.Hash{}
-	s := common.LeftPadBytes(big.NewInt(int64(n-1)).Bytes(), 32)
-	copy(parentHash[:], s)
-	header := fakeHeader(n, parentHash)
+	header := fakeHeader(n)
 
 	// This is the contract we're using. It requests the blockhash for current num (should be all zeroes),
 	// then iteratively fetches all blockhashes back to n-260.
@@ -279,61 +270,76 @@ func TestBlockhash(t *testing.T) {
 	// 3. the last non-zero hash
 	// By making the chain reader return hashes which correlate to the number, we can
 	// verify that it obtained the right hashes where it should
+	// to change: compile with Remix with solidity 0.8.19 and EVM version London. Then take the **runtime** bytecode.
 
 	/*
+		pragma solidity ^0.8.19;
 
-		pragma solidity ^0.5.3;
 		contract Hasher{
 
-			function test() public view returns (bytes32, bytes32, bytes32){
+			function test() public view returns (bytes32, bytes32, bytes32, bytes32){
 				uint256 x = block.number;
-				bytes32 first;
+
+				bytes32 current;
+				bytes32 parent;
+				bytes32 grandpa;
 				bytes32 last;
-				bytes32 zero;
-				zero = blockhash(x); // Should be zeroes
-				first = blockhash(x-1);
-				for(uint256 i = 2 ; i < 260; i++){
+				current = blockhash(x); // Should be zeroes
+				parent = blockhash(x-1);
+				grandpa = blockhash(x-2);
+
+				// check separately to simplify go test
+				if(uint256(blockhash(x-3)) != x-3) {
+					revert("hash mismatch detected");
+				}
+
+				for(uint256 i = 4 ; i < 300; i+=4){
 					bytes32 hash = blockhash(x - i);
 					if (uint256(hash) != 0){
 						last = hash;
+						// check that we are getting the correct hashes
+						if(uint256(hash) != x-i) {
+							revert("hash mismatch detected");
+						}
 					}
+
 				}
-				return (zero, first, last);
+				return (current, parent, grandpa, last);
 			}
 		}
-
 	*/
 	// The contract above
-	data := common.Hex2Bytes("6080604052348015600f57600080fd5b50600436106045576000357c010000000000000000000000000000000000000000000000000000000090048063f8a8fd6d14604a575b600080fd5b60506074565b60405180848152602001838152602001828152602001935050505060405180910390f35b600080600080439050600080600083409050600184034092506000600290505b61010481101560c35760008186034090506000816001900414151560b6578093505b5080806001019150506094565b508083839650965096505050505090919256fea165627a7a72305820462d71b510c1725ff35946c20b415b0d50b468ea157c8c77dff9466c9cb85f560029")
+	bytecode := "608060405234801561001057600080fd5b506004361061002b5760003560e01c8063f8a8fd6d14610030575b600080fd5b61003861005c565b60408051948552602085019390935291830152606082015260800160405180910390f35b60008080804380408280806100726001866101ef565b4092506100806002866101ef565b40915061008e6003866101ef565b6100996003876101ef565b4014610106576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f68617368206d69736d617463682064657465637465640000000000000000000060448201526064015b60405180910390fd5b60045b61012c8110156101b057600061011f82886101ef565b409050801561019d5791508161013582886101ef565b811461019d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f68617368206d69736d617463682064657465637465640000000000000000000060448201526064016100fd565b506101a9600482610208565b9050610109565b5092989197509550909350915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b81810381811115610202576102026101c0565b92915050565b80820180821115610202576102026101c056fea264697066735822122043e4cd908aceefa44abdcdf4829744ada9ad130549da5693509180a4e918574d64736f6c63430008130033"
 	// The method call to 'test()'
 	input := common.Hex2Bytes("f8a8fd6d")
-	chain := &dummyChain{}
-	ret, _, err := Execute(data, input, &Config{
-		GetHashFn:   core.GetHashFn(header, chain),
-		BlockNumber: new(big.Int).Set(header.Number),
-	})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(ret) != 96 {
-		t.Fatalf("expected returndata to be 96 bytes, got %d", len(ret))
-	}
 
-	zero := new(big.Int).SetBytes(ret[0:32])
-	first := new(big.Int).SetBytes(ret[32:64])
-	last := new(big.Int).SetBytes(ret[64:96])
-	if zero.BitLen() != 0 {
-		t.Fatalf("expected zeroes, got %x", ret[0:32])
+	chain := &dummyChain{n: n, counter: 0}
+	getHashFn := core.GetHashFn(header, chain)
+	callAndVerify := func() {
+		ret, _, err := Execute(common.Hex2Bytes(bytecode), input, &Config{
+			GetHashFn:   getHashFn,
+			BlockNumber: new(big.Int).Set(header.Number),
+		})
+		require.NoError(t, err)
+		require.Equal(t, 128, len(ret))
+
+		current := new(big.Int).SetBytes(ret[0:32])
+		parent := new(big.Int).SetBytes(ret[32:64])
+		grandpa := new(big.Int).SetBytes(ret[64:96])
+		last := new(big.Int).SetBytes(ret[96:128])
+		require.Equal(t, 0, current.BitLen())
+		require.Equal(t, n-1, parent.Uint64())
+		require.Equal(t, fakeHeader(n-2).Hash().Big().String(), grandpa.String()) // cannot fake the hash like the other ones since we use .Hash() for the grandpa
+		require.Equal(t, n-256, last.Uint64())                                    // only last 256 hashes are available to EVM
+		// 1 call to getHeaderByNumber to fetch the grandparent, the rest are GetHeader calls
+		require.Equal(t, 255, chain.counter)
 	}
-	if first.Uint64() != 999 {
-		t.Fatalf("second block should be 999, got %d (%x)", first, ret[32:64])
-	}
-	if last.Uint64() != 744 {
-		t.Fatalf("last block should be 744, got %d (%x)", last, ret[64:96])
-	}
-	if exp, got := 255, chain.counter; exp != got {
-		t.Errorf("suboptimal; too much chain iteration, expected %d, got %d", exp, got)
-	}
+	callAndVerify()
+
+	// call again the contract with the same getHasFn (as it would happen for two txs in the same block)
+	// all the hashes should be cached and we shouldn't call getHeader or GetHeaderByNumber anymore
+	callAndVerify()
+
 }
 
 type stepCounter struct {

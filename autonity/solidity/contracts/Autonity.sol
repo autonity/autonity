@@ -31,9 +31,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 internal constant ECDSA_SIGNATURE_LEN = 65;
     uint256 internal constant POP_LEN = 226; // Proof of possession length in bytes. (Enode, OracleNode, ValidatorNode)
 
-    uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
-    uint256 public constant PROPOSER_REWARD_RATE_PRECISION = 10_000;
-    uint256 public constant WITHHOLDING_THRESHOLD_PRECISION = 10_000;
+    uint256 public constant STANDARD_DECIMALS = 4;
+    uint256 public constant STANDARD_SCALE_FACTOR = 10 ** STANDARD_DECIMALS;
 
     // any change in Validator struct must be synced with offset constants in core/vm/contracts.go
     struct Validator {
@@ -496,7 +495,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     function changeCommissionRate(address _validator, uint256 _rate) public virtual {
         require(validators[_validator].nodeAddress == _validator, "validator must be registered");
         require(validators[_validator].treasury == msg.sender, "require caller to be validator admin account");
-        require(_rate <= COMMISSION_RATE_PRECISION, "require correct commission rate");
+        require(_rate <= STANDARD_SCALE_FACTOR, "require correct commission rate");
         CommissionRateChangeRequest memory _newRequest = CommissionRateChangeRequest(_validator, block.number, _rate);
         commissionRateChangeQueue[commissionRateChangeQueueLast] = _newRequest;
         commissionRateChangeQueueLast += 1;
@@ -539,12 +538,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
-        require(_proposerRewardRate <= PROPOSER_REWARD_RATE_PRECISION, "Cannot exceed 100%");
+        require(_proposerRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         config.policy.proposerRewardRate = _proposerRewardRate;
     }
 
     function setWithholdingThreshold(uint256 _withholdingThreshold) public virtual onlyOperator {
-        require(_withholdingThreshold <= WITHHOLDING_THRESHOLD_PRECISION, "Cannot exceed 100%");
+        require(_withholdingThreshold <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         config.policy.withholdingThreshold = _withholdingThreshold;
     }
 
@@ -1304,8 +1303,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         if (config.contracts.omissionAccountabilityContract.getTotalEffort() > 0) {
             // Calculate initial proposer rewards (actual distribution is done after regular rewards)
-            _atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
-            _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
+            _atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (STANDARD_SCALE_FACTOR * config.protocol.committeeSize);
+            _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (STANDARD_SCALE_FACTOR * config.protocol.committeeSize);
             _atn -= _atnProposerRewards;
             _ntn -= _ntnProposerRewards;
         }
@@ -1454,7 +1453,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         (_validator.nodeAddress, _err) = Precompiled.parseEnode(_validator.enode);
         require(_err == 0, "enode error");
         require(validators[_validator.nodeAddress].nodeAddress == address(0), "validator already registered");
-        require(_validator.commissionRate <= COMMISSION_RATE_PRECISION, "invalid commission rate");
+        require(_validator.commissionRate <= STANDARD_SCALE_FACTOR, "invalid commission rate");
     }
 
     function _deployLiquidStateContract(Validator memory _validator) internal virtual {

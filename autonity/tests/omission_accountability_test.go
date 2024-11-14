@@ -26,7 +26,9 @@ var omissionEpochPeriod = 130
 
 const active = uint8(0)
 const jailed = uint8(2)
+const jailbound = uint8(3)
 const jailedForInactivity = uint8(4)
+const jailboundForInactivity = uint8(5)
 
 // need a longer epoch for omission accountability tests
 var configOverride = func(config *params.AutonityContractGenesis) *params.AutonityContractGenesis {
@@ -98,10 +100,10 @@ func omissionScaleFactor(r *Runner) *big.Int {
 	return factor
 }
 
-func slashingRatePrecision(r *Runner) *big.Int {
-	precision, _, err := r.slasherContract().GetSlashingPrecision(nil)
+func slashingRateScaleFactor(r *Runner) *big.Int {
+	scaleFactor, _, err := r.slasherContract().GetSlashingScaleFactor(nil)
 	require.NoError(r.T, err)
-	return precision
+	return scaleFactor
 }
 
 func proposerEffort(r *Runner, validator common.Address) *big.Int {
@@ -120,6 +122,19 @@ func faultyProposer(r *Runner, targetHeight int64) bool {
 	faulty, _, err := r.OmissionAccountability.FaultyProposers(nil, new(big.Int).SetInt64(targetHeight))
 	require.NoError(r.T, err)
 	return faulty
+}
+
+func absenteesLastHeight(r *Runner) []common.Address {
+	absentees, _, err := r.OmissionAccountability.GetAbsenteesLastHeight(nil)
+	require.NoError(r.T, err)
+
+	return absentees
+}
+
+func lastActive(r *Runner, addr common.Address) int64 {
+	lastActive, _, err := r.OmissionAccountability.LastActive(nil, addr)
+	require.NoError(r.T, err)
+	return lastActive.Int64()
 }
 
 func isValidatorInactive(r *Runner, targetHeight int64, validator common.Address) bool {
@@ -143,6 +158,15 @@ func ntnBalance(r *Runner, addr common.Address) *big.Int {
 func expectNearlyEqual(t *testing.T, expected, actual *big.Int, tolerance int64) {
 	diff := new(big.Int).Abs(new(big.Int).Sub(expected, actual))
 	require.True(t, diff.Cmp(big.NewInt(tolerance)) <= 0, "expected %v, got %v", expected, actual)
+}
+
+func applyCustomParams(r *Runner, customDelta uint64, customLookback uint64) {
+	_, err := r.OmissionAccountability.SetDelta(r.Operator, new(big.Int).SetUint64(customDelta))
+	require.NoError(r.T, err)
+	_, err = r.OmissionAccountability.SetLookbackWindow(r.Operator, new(big.Int).SetUint64(customLookback))
+	require.NoError(r.T, err)
+	// close the epoch to apply new omission params
+	r.WaitNextEpoch()
 }
 
 func TestAccessControl(t *testing.T) {
@@ -248,20 +272,38 @@ func TestProposerLogic(t *testing.T) {
 
 // checks that the inactivity counters are correctly updated according to the lookback window (_recordAbsentees function)
 func TestInactivityCounter(t *testing.T) {
-	r := Setup(t, configOverrideIncreasedStake)
+	t.Run("delta=5, lookback=40", func(t *testing.T) {
+		runTestInactivityCounter(t, 5, 40, 130)
+	})
+	t.Run("delta=2, lookback=6", func(t *testing.T) {
+		runTestInactivityCounter(t, 2, 6, 60)
+	})
+	t.Run("delta=20, lookback=6", func(t *testing.T) {
+		runTestInactivityCounter(t, 20, 6, 130)
+	})
+	t.Run("delta=20, lookback=68", func(t *testing.T) {
+		runTestInactivityCounter(t, 20, 68, 200)
+	})
+	t.Run("delta=34, lookback=37", func(t *testing.T) {
+		runTestInactivityCounter(t, 34, 37, 200)
+	})
+}
+
+func runTestInactivityCounter(t *testing.T, delta int, lookback int, epochPeriod uint64) {
+	r := Setup(t, func(genesis *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+		customGenesis := configOverrideIncreasedStake(genesis)
+		customGenesis.EpochPeriod = epochPeriod
+		return customGenesis
+	})
 
 	// set maximum inactivity threshold for this test, we care only about the inactivity counters and not about the jailing
 	_, err := r.OmissionAccountability.SetInactivityThreshold(r.Operator, new(big.Int).SetUint64(10000))
 	require.NoError(t, err)
 
-	delta, _, err := r.OmissionAccountability.GetDelta(nil)
-	require.NoError(t, err)
+	applyCustomParams(r, uint64(delta), uint64(lookback))
+	t.Logf("last mined block: %d, delta: %d", r.lastMinedHeight(), delta)
 
-	r.WaitNBlocks(int(delta.Int64()))
-
-	config, _, err := r.OmissionAccountability.Config(nil)
-	require.NoError(r.T, err)
-	lookback := int(config.LookbackWindow.Uint64())
+	r.WaitNBlocks(delta)
 
 	proposer := r.Committee.Validators[0].NodeAddress
 	fullyOffline := r.Committee.Validators[1].NodeAddress
@@ -274,7 +316,7 @@ func TestInactivityCounter(t *testing.T) {
 		if i == lookback/2 {
 			absentees[partiallyOffline] = struct{}{}
 		}
-		targetHeight := r.Evm.Context.BlockNumber.Int64() - delta.Int64()
+		targetHeight := r.Evm.Context.BlockNumber.Int64() - int64(delta)
 		setupProofAndAutonityFinalize(r, proposer, absentees)
 		for absentee := range absentees {
 			require.True(r.T, isValidatorInactive(r, targetHeight, absentee))
@@ -340,7 +382,7 @@ func TestInactivityCounter(t *testing.T) {
 	require.Equal(r.T, partiallyOfflineIC+n, inactivityCounter(r, partiallyOffline))
 
 	//  close the epoch
-	for i := r.Evm.Context.BlockNumber.Int64(); i < int64(omissionEpochPeriod); i++ {
+	for i := r.Evm.Context.BlockNumber.Int64(); i < int64(epochPeriod)*2; i++ {
 		setupProofAndAutonityFinalize(r, proposer, nil)
 	}
 	t.Log("Closing epoch")
@@ -351,7 +393,7 @@ func TestInactivityCounter(t *testing.T) {
 	require.Equal(r.T, 0, inactivityCounter(r, partiallyOffline))
 	require.Equal(r.T, 0, inactivityCounter(r, fullyOffline))
 
-	r.WaitNBlocks(int(delta.Int64()))
+	r.WaitNBlocks(delta)
 	t.Logf("current consensus instance for height %d", r.Evm.Context.BlockNumber.Uint64())
 	otherValidator := r.Committee.Validators[3].NodeAddress
 	newAbsentees := make(map[common.Address]struct{})
@@ -382,27 +424,65 @@ func TestInactivityCounter(t *testing.T) {
 
 // checks that the inactivity scores are computed correctly
 func TestInactivityScore(t *testing.T) {
-	r := Setup(t, configOverrideIncreasedStake)
+	t.Run("delta=5, lookback=40, past=1000", func(t *testing.T) {
+		runTestInactivityScore(t, 5, 40, 130, 1000)
+	})
+	t.Run("delta=2, lookback=6, past=1000", func(t *testing.T) {
+		runTestInactivityScore(t, 2, 6, 60, 1000)
+	})
+	t.Run("delta=20, lookback=6, past=1000", func(t *testing.T) {
+		runTestInactivityScore(t, 20, 6, 130, 1000)
+	})
+	t.Run("delta=20, lookback=68, past=500", func(t *testing.T) {
+		runTestInactivityScore(t, 20, 68, 200, 500)
+	})
+	t.Run("delta=34, lookback=37, past=2500", func(t *testing.T) {
+		runTestInactivityScore(t, 34, 37, 200, 2500)
+	})
+	t.Run("delta=2, lookback=1, past=1000", func(t *testing.T) {
+		runTestInactivityScore(t, 2, 1, 60, 1000)
+	})
+	t.Run("delta=29, lookback=1, past=1000", func(t *testing.T) {
+		runTestInactivityScore(t, 2, 1, 60, 1000)
+	})
+	t.Run("delta=5, lookback=40, past=0", func(t *testing.T) {
+		runTestInactivityScore(t, 5, 40, 130, 0)
+	})
+	t.Run("delta=5, lookback=40, past=7500", func(t *testing.T) {
+		runTestInactivityScore(t, 5, 40, 130, 7500)
+	})
+	t.Run("delta=5, lookback=40, past=10000", func(t *testing.T) {
+		runTestInactivityScore(t, 5, 40, 130, 10000)
+	})
+}
+
+func runTestInactivityScore(t *testing.T, delta int, lookback int, epochPeriod uint64, pastPerformanceWeight uint64) {
+	r := Setup(t, func(genesis *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+		customGenesis := configOverrideIncreasedStake(genesis)
+		customGenesis.EpochPeriod = epochPeriod
+		return customGenesis
+	})
 
 	// set maximum inactivity threshold for this test, we care only about the inactivity scores and not about the jailing
 	scaleFactorInt := omissionScaleFactor(r)
 	_, err := r.OmissionAccountability.SetInactivityThreshold(r.Operator, scaleFactorInt)
 	require.NoError(t, err)
+	scaleFactor := newFloat(scaleFactorInt)
 
-	delta, _, err := r.OmissionAccountability.GetDelta(nil)
+	// set past performance weight
+	pastPerformanceWeightBig := new(big.Int).SetUint64(pastPerformanceWeight)
+	_, err = r.OmissionAccountability.SetPastPerformanceWeight(r.Operator, pastPerformanceWeightBig)
 	require.NoError(t, err)
 
-	scaleFactor := newFloat(scaleFactorInt)
+	applyCustomParams(r, uint64(delta), uint64(lookback))
+	t.Logf("last mined block: %d, delta: %d", r.lastMinedHeight(), delta)
 
 	initialCommitteeSize := len(r.Committee.Validators)
 
-	r.WaitNBlocks(int(delta.Int64()))
+	r.WaitNBlocks(delta)
 
-	config, _, err := r.OmissionAccountability.Config(nil)
-	require.NoError(r.T, err)
-	lookback := int(config.LookbackWindow.Uint64())
-	pastPerformanceWeight := new(big.Float).Quo(newFloat(config.PastPerformanceWeight), scaleFactor)
-	currentPerformanceWeight := new(big.Float).Sub(newFloat(common.Big1), pastPerformanceWeight)
+	pastPerformanceWeightFloat := new(big.Float).Quo(newFloat(pastPerformanceWeightBig), scaleFactor)
+	currentPerformanceWeight := new(big.Float).Sub(newFloat(common.Big1), pastPerformanceWeightFloat)
 
 	// simulate epoch.
 	proposer := r.Committee.Validators[0].NodeAddress
@@ -411,7 +491,7 @@ func TestInactivityScore(t *testing.T) {
 	for _, v := range r.Committee.Validators {
 		inactiveCounters[v.NodeAddress] = new(big.Int)
 	}
-	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
+	for h := delta + 1; h < int(epochPeriod)+1; h++ {
 		absentees := make(map[common.Address]struct{})
 		for _, v := range r.Committee.Validators {
 			if v.NodeAddress == proposer {
@@ -438,7 +518,7 @@ func TestInactivityScore(t *testing.T) {
 
 	// check score computation
 	pastInactivityScore := make(map[common.Address]*big.Float)
-	denominator := new(big.Int).SetUint64(uint64(omissionEpochPeriod) - delta.Uint64() - uint64(lookback) + 1)
+	denominator := new(big.Int).SetUint64(epochPeriod - uint64(delta) - uint64(lookback) + 1)
 	for _, val := range r.Committee.Validators {
 		score := new(big.Float).Quo(newFloat(inactiveCounters[val.NodeAddress]), newFloat(denominator))
 
@@ -454,13 +534,13 @@ func TestInactivityScore(t *testing.T) {
 	}
 
 	// simulate another epoch
-	r.WaitNBlocks(int(delta.Int64()))
+	r.WaitNBlocks(delta)
 	inactiveBlockStreak = make(map[common.Address]int)
 	inactiveCounters = make(map[common.Address]*big.Int)
 	for _, v := range r.Committee.Validators {
 		inactiveCounters[v.NodeAddress] = new(big.Int)
 	}
-	for h := int(delta.Int64()) + 1; h < omissionEpochPeriod+1; h++ {
+	for h := delta + 1; h < int(epochPeriod)+1; h++ {
 		absentees := make(map[common.Address]struct{})
 		for _, v := range r.Committee.Validators {
 			if v.NodeAddress == proposer {
@@ -489,7 +569,7 @@ func TestInactivityScore(t *testing.T) {
 		score := new(big.Float).Quo(newFloat(inactiveCounters[val.NodeAddress]), newFloat(denominator))
 
 		expectedInactivityScoreFloat1 := new(big.Float).Mul(score, currentPerformanceWeight)
-		expectedInactivityScoreFloat2 := new(big.Float).Mul(pastInactivityScore[val.NodeAddress], pastPerformanceWeight)
+		expectedInactivityScoreFloat2 := new(big.Float).Mul(pastInactivityScore[val.NodeAddress], pastPerformanceWeightFloat)
 		expectedInactivityScoreFloat := new(big.Float).Add(expectedInactivityScoreFloat1, expectedInactivityScoreFloat2)
 
 		expectedInactivityScoreFloatScaled := new(big.Float).Mul(expectedInactivityScoreFloat, scaleFactor)
@@ -634,7 +714,7 @@ func TestOmissionPunishments(t *testing.T) {
 	availableFunds := new(big.Int).Add(val2BeforeSlash.BondedStake, val2.UnbondingStake)
 	availableFunds.Add(availableFunds, val2.SelfUnbondingStake)
 	expectedSlashAmount := new(big.Int).Mul(expectedSlashRate, availableFunds)
-	expectedSlashAmount.Div(expectedSlashAmount, slashingRatePrecision(r))
+	expectedSlashAmount.Div(expectedSlashAmount, slashingRateScaleFactor(r))
 	t.Logf("expected slash rate: %s, available funds: %s, expected slash amount: %s", expectedSlashRate.String(), availableFunds.String(), expectedSlashAmount.String())
 	require.Equal(r.T, expectedSlashAmount.String(), new(big.Int).Sub(val2.TotalSlashed, val2BeforeSlash.TotalSlashed).String())
 }
@@ -675,10 +755,10 @@ func TestProposerRewardDistribution(t *testing.T) {
 		require.NoError(r.T, err)
 		proposerRewardRateBig := config.Policy.ProposerRewardRate
 		proposerRewardRate := newFloat(proposerRewardRateBig)
-		proposerRewardRatePrecisionBig, _, err := r.Autonity.PROPOSERREWARDRATEPRECISION(nil)
+		standardScaleFactorBig, _, err := r.Autonity.STANDARDSCALEFACTOR(nil)
 		require.NoError(t, err)
-		proposerRewardRatePrecision := newFloat(proposerRewardRatePrecisionBig)
-		t.Logf("proposer reward rate: %s, precision: %s", toString(proposerRewardRate), toString(proposerRewardRatePrecision))
+		standardScaleFactor := newFloat(standardScaleFactorBig)
+		t.Logf("proposer reward rate: %s, scale factor: %s", toString(proposerRewardRate), toString(standardScaleFactor))
 
 		autonityAtnsBig := new(big.Int).SetUint64(54644455456467) // random amount
 		t.Logf("atn rewards: %s", autonityAtnsBig.String())
@@ -713,8 +793,8 @@ func TestProposerRewardDistribution(t *testing.T) {
 		numeratorFactor := new(big.Float).Mul(proposerRewardRate, committeeSize)
 		t.Logf("numeratorFactor: %s", toString(numeratorFactor))
 
-		t.Logf("proposer reward rate precision: %s, max committee size: %s", toString(proposerRewardRatePrecision), toString(maxCommitteeSize))
-		denominator := new(big.Float).Mul(proposerRewardRatePrecision, maxCommitteeSize)
+		t.Logf("proposer reward rate scale factor: %s, max committee size: %s", toString(standardScaleFactor), toString(maxCommitteeSize))
+		denominator := new(big.Float).Mul(standardScaleFactor, maxCommitteeSize)
 		t.Logf("denominator: %s", toString(denominator))
 
 		numeratorAtn := new(big.Float).Mul(autonityAtns, numeratorFactor)
@@ -883,11 +963,19 @@ func TestRewardWithholding(t *testing.T) {
 		return config
 	})
 
+	extractNodeAddresses := func(vals []AutonityValidator) []common.Address {
+		addresses := make([]common.Address, 0)
+		for _, val := range vals {
+			addresses = append(addresses, val.NodeAddress)
+		}
+		return addresses
+	}
+
 	delta, _, err := r.OmissionAccountability.GetDelta(nil)
 	require.NoError(t, err)
 
 	// validators over threshold will get all their rewards withheld
-	customInactivityThreshold := uint64(6000)
+	customInactivityThreshold := uint64(4000)
 	_, err = r.OmissionAccountability.SetInactivityThreshold(r.Operator, new(big.Int).SetUint64(customInactivityThreshold))
 	require.NoError(t, err)
 
@@ -935,12 +1023,14 @@ func TestRewardWithholding(t *testing.T) {
 	atnPoolBefore := r.GetBalanceOf(withheldRewardPool)
 	ntnPoolBefore := ntnBalance(r, withheldRewardPool)
 
+	nodeAddresses := extractNodeAddresses(r.Committee.Validators) // save node addresses as some vals might get jailed if over inactivity threshold
 	setupProofAndAutonityFinalize(r, proposer, nil)
 	r.generateNewCommittee()
 
 	atnTotalWithheld := new(big.Int)
 	ntnTotalWithheld := new(big.Int)
-	for _, val := range r.Committee.Validators {
+	for _, nodeAddress := range nodeAddresses {
+		val := validator(r, nodeAddress)
 		power := stakesBefore[val.NodeAddress]
 
 		// compute reward without withholding
@@ -964,6 +1054,7 @@ func TestRewardWithholding(t *testing.T) {
 			atnWithheld = new(big.Int).Set(atnFullReward)
 			ntnWithheld = new(big.Int).Set(ntnFullReward)
 		}
+		t.Logf("validator %s, atn withheld %d, ntn withheld %d", common.Bytes2Hex(val.NodeAddress[:]), atnWithheld.Uint64(), ntnWithheld.Uint64())
 		atnTotalWithheld.Add(atnTotalWithheld, atnWithheld)
 		ntnTotalWithheld.Add(ntnTotalWithheld, ntnWithheld)
 
@@ -1320,5 +1411,226 @@ func TestFaultyProposerCount(t *testing.T) {
 		require.Equal(t, uint64(0), faultyProposers(r))
 
 	})
+	t.Run("random scenario - delta=5, lookback=5, faulty prob=1/4", func(t *testing.T) {
+		runRandomScenario(t, 5, 5, 4)
+	})
+	t.Run("random scenario - delta=5, lookback=5, faulty prob=1/2", func(t *testing.T) {
+		runRandomScenario(t, 5, 5, 2)
+	})
+	t.Run("random scenario - delta=5, lookback=5, faulty prob=1", func(t *testing.T) {
+		runRandomScenario(t, 5, 5, 1)
+	})
+	t.Run("random scenario - delta=5, lookback=5, faulty prob=1/10", func(t *testing.T) {
+		runRandomScenario(t, 5, 5, 10)
+	})
+	t.Run("random scenario - delta=5, lookback=5, faulty prob=1/20", func(t *testing.T) {
+		runRandomScenario(t, 5, 5, 20)
+	})
+	t.Run("random scenario - delta=5, lookback=5, faulty prob=1/999999999", func(t *testing.T) {
+		runRandomScenario(t, 5, 5, 999999999)
+	})
+	t.Run("random scenario - delta=2, lookback=5, faulty prob=1/4", func(t *testing.T) {
+		runRandomScenario(t, 2, 5, 4)
+	})
+	t.Run("random scenario - delta=5, lookback=1, faulty prob=1/4", func(t *testing.T) {
+		runRandomScenario(t, 5, 1, 4)
+	})
+	t.Run("random scenario - delta=2, lookback=1, faulty prob=1/4", func(t *testing.T) {
+		runRandomScenario(t, 2, 1, 4)
+	})
+	t.Run("random scenario - delta=45, lookback=5, faulty prob=1/4", func(t *testing.T) {
+		runRandomScenario(t, 45, 5, 4)
+	})
+	t.Run("random scenario - delta=5, lookback=55, faulty prob=1/4", func(t *testing.T) {
+		runRandomScenario(t, 5, 55, 4)
+	})
+	t.Run("random scenario - delta=23, lookback=31, faulty prob=1/4", func(t *testing.T) {
+		runRandomScenario(t, 23, 31, 4)
+	})
 
+}
+
+// e.g. nonFaultyProbability 4 --> 1/4 of probability that each height is faulty
+func runRandomScenario(t *testing.T, customDelta uint64, customLookback uint64, nonFaultyProbability int) {
+	r := Setup(t, configOverride)
+	applyCustomParams(r, customDelta, customLookback)
+
+	epochBlock := r.Evm.Context.BlockNumber.Uint64() - 1
+	t.Logf("Starting new epoch at block: %d, epoch block: %d", r.Evm.Context.BlockNumber.Int64(), epochBlock)
+
+	t.Logf("Mining %d blocks", customDelta)
+	r.WaitNBlocks(int(customDelta))
+
+	faults := make(map[int]struct{})
+
+	countFaults := func(currentHeight uint64) uint64 {
+		if currentHeight <= epochBlock+customDelta {
+			return 0
+		}
+
+		windowEnd := int(currentHeight - customDelta)                      // included
+		windowStart := max(int(epochBlock), windowEnd-int(customLookback)) // excluded
+
+		counter := 0
+		lastFaulty := -1
+		for h := windowEnd; h > windowStart-counter; h-- {
+			if h == int(epochBlock) {
+				break // finished available blocks
+			}
+			_, wasFaulty := faults[h]
+			if wasFaulty {
+				counter++
+				lastFaulty = h
+			}
+		}
+
+		// no faulty proposers in the window
+		if lastFaulty == -1 {
+			return uint64(counter)
+		}
+
+		// if after the last faulty (the oldest) there are lookback - 1 non faulty blocks, we can remove the faulty proposers at the tail of the window
+		// as soon as a non-faulty block will come, we will be able to complete the window without needing to extend to block oldest than `lastFaulty`
+		nonFaulty := 0
+		// exclude window end because in the contract this cleanup is done before we know whether windowEnd is faulty or not
+		// here we are instead mirroring it after the call is already executed
+		for h := lastFaulty; h < windowEnd; h++ {
+			_, wasFaulty := faults[h]
+			if !wasFaulty {
+				nonFaulty++
+			}
+		}
+		if nonFaulty >= int(customLookback)-1 {
+			// exclude window end because in the contract this cleanup is done before we know whether windowEnd is faulty or not
+			// here we are instead mirroring it after the call is already executed
+			for h := lastFaulty; h < windowEnd; h++ {
+				_, wasFaulty := faults[h]
+				if !wasFaulty {
+					break
+				}
+				counter--
+			}
+		}
+		return uint64(counter)
+	}
+
+	// randomly assign faulty proposers
+	for i := int(r.Evm.Context.BlockNumber.Uint64()); i < omissionEpochPeriod*2; i++ {
+		t.Logf("Mining block %d, targetHeight %d", i, i-int(customDelta))
+		if rand.Intn(nonFaultyProbability) != 0 {
+			// all good
+			r.WaitNBlocks(1)
+			t.Log("Proposer not faulty")
+		} else {
+			// proposer is faulty
+			autonityFinalize(r)
+			faults[i-int(customDelta)] = struct{}{}
+			t.Log("Proposer IS faulty")
+		}
+		faultCount := countFaults(uint64(i))
+		t.Logf("faulty proposers in window: %d", faultCount)
+		require.Equal(t, faultCount, faultyProposers(r))
+	}
+
+	// close epoch, faulty proposer number should drop to 0 regardless of fault or not
+	if rand.Intn(4) != 0 {
+		// all good
+		r.WaitNBlocks(1)
+	} else {
+		// proposer is faulty
+		autonityFinalize(r)
+	}
+	require.Equal(t, uint64(0), faultyProposers(r))
+}
+
+func TestLastActive(t *testing.T) {
+	r := Setup(t, configOverrideIncreasedStake)
+
+	delta, _, err := r.OmissionAccountability.GetDelta(nil)
+	require.NoError(t, err)
+
+	r.WaitNBlocks(int(delta.Int64()))
+
+	proposer := r.Committee.Validators[0].NodeAddress
+
+	// no one should be recorded in the absentees of last height + last active should be -1 for everyone
+	require.Equal(t, 0, len(absenteesLastHeight(r)))
+	for _, val := range r.Committee.Validators {
+		require.Equal(t, int64(-1), lastActive(r, val.NodeAddress))
+	}
+
+	// absent should be recorded into the last height absentees and his last active value should be updated
+	offline := r.Committee.Validators[1].NodeAddress
+	offlineVals := make(map[common.Address]struct{})
+	offlineVals[offline] = struct{}{}
+	setupProofAndAutonityFinalize(r, proposer, offlineVals)
+
+	absentees := absenteesLastHeight(r)
+	t.Log(absentees)
+	require.Equal(t, 1, len(absentees))
+	require.Equal(t, offline, absentees[0])
+
+	expectedLastActiveHeight := int64(r.lastTargetHeight()) - 1
+	t.Logf("Expected last active height: %d", expectedLastActiveHeight)
+
+	for _, val := range r.Committee.Validators {
+		if val.NodeAddress != offline {
+			require.Equal(t, int64(-1), lastActive(r, val.NodeAddress))
+		} else {
+			require.Equal(t, expectedLastActiveHeight, lastActive(r, val.NodeAddress))
+		}
+	}
+
+	// same guy is offline, his lastActive block should remain the same
+	// the other offline validators instead should have a more recent lastActive height
+	offline2 := r.Committee.Validators[2].NodeAddress
+	offlineVals[offline2] = struct{}{}
+
+	setupProofAndAutonityFinalize(r, proposer, offlineVals)
+	absentees = absenteesLastHeight(r)
+	t.Log(absentees)
+	require.Equal(t, 2, len(absentees))
+	require.Equal(t, offline, absentees[0])
+	require.Equal(t, offline2, absentees[1])
+	for _, val := range r.Committee.Validators {
+		switch val.NodeAddress {
+		case offline:
+			require.Equal(t, expectedLastActiveHeight, lastActive(r, val.NodeAddress))
+		case offline2:
+			require.Equal(t, expectedLastActiveHeight+1, lastActive(r, val.NodeAddress))
+		default:
+			require.Equal(t, int64(-1), lastActive(r, val.NodeAddress))
+		}
+	}
+
+	// everything should be cleared like in the initial state
+	r.WaitNBlocks(1)
+	require.Equal(t, 0, len(absenteesLastHeight(r)))
+	for _, val := range r.Committee.Validators {
+		require.Equal(t, int64(-1), lastActive(r, val.NodeAddress))
+	}
+
+	// reach last epoch block - 1
+	currentBlock := r.Evm.Context.BlockNumber.Uint64() - 1
+	r.WaitNBlocks(omissionEpochPeriod - int(currentBlock) - 2)
+
+	// have some absents, their last active block should change
+	expectedLastActiveHeight = int64(r.lastTargetHeight())
+	setupProofAndAutonityFinalize(r, proposer, offlineVals)
+	for _, val := range r.Committee.Validators {
+		switch val.NodeAddress {
+		case offline:
+			fallthrough
+		case offline2:
+			require.Equal(t, expectedLastActiveHeight, lastActive(r, val.NodeAddress))
+		default:
+			require.Equal(t, int64(-1), lastActive(r, val.NodeAddress))
+		}
+	}
+
+	// same validators still offline, however their lastActive counter should get reset by the epoch end (`setCommittee`)
+	setupProofAndAutonityFinalize(r, proposer, offlineVals)
+	for _, val := range r.Committee.Validators {
+		require.Equal(t, int64(-1), lastActive(r, val.NodeAddress))
+	}
 }

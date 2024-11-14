@@ -118,9 +118,8 @@ func TestMessageDecode(t *testing.T) {
 		proposal := NewPropose(1, 2, -1, block, defaultSigner, testCommitteeMember)
 		decoded := &Propose{}
 		reader := bytes.NewReader(proposal.Payload())
-		if err := rlp.Decode(reader, decoded); err != nil {
-			t.Fatalf("have %v, want nil", err)
-		}
+		err := rlp.Decode(reader, decoded)
+		require.NoError(t, err)
 		require.Equal(t, proposal.Code(), decoded.Code())
 		require.Equal(t, proposal.R(), decoded.R())
 		require.Equal(t, proposal.H(), decoded.H())

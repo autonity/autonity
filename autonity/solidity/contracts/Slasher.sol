@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {Autonity, ValidatorState} from "./Autonity.sol";
-import {SLASHING_RATE_PRECISION} from "./ProtocolConstants.sol";
+import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 
 contract Slasher {
     address private autonity;
@@ -87,11 +87,11 @@ contract Slasher {
     ) internal virtual returns (
         uint256 // slashingAmount
     ){
-        require(_slashingRate < SLASHING_RATE_PRECISION, "cannot slash 100% without jailbounding");
+        require(_slashingRate < SLASHING_RATE_SCALE_FACTOR, "cannot slash 100% without jailbounding");
         uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
 
         // here 0 <= slashingAmount < availableFunds
-        uint256 _slashingAmount = (_slashingRate * _availableFunds) / SLASHING_RATE_PRECISION;
+        uint256 _slashingAmount = (_slashingRate * _availableFunds) / SLASHING_RATE_SCALE_FACTOR;
 
         uint256 _remaining = _slashingAmount;
         // -------------------------------------------
@@ -168,7 +168,7 @@ contract Slasher {
     ){
 
         // in case of >= 100% slash, slash all funds and jailbound validator
-        if (_slashingRate >= SLASHING_RATE_PRECISION) {
+        if (_slashingRate >= SLASHING_RATE_SCALE_FACTOR) {
             uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
             _val.bondedStake = 0;
             _val.selfBondedStake = 0;
@@ -185,11 +185,11 @@ contract Slasher {
     }
 
     /**
-      * @notice returns the precision used for slashing
-      * @return slashing precision
+      * @notice returns the scale factor used for slashing
+      * @return slashing scale factor
       */
-    function getSlashingPrecision() external view returns (uint256) {
-        return SLASHING_RATE_PRECISION;
+    function getSlashingScaleFactor() external view returns (uint256) {
+        return SLASHING_RATE_SCALE_FACTOR;
     }
 
     modifier onlyAutonity {

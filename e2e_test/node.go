@@ -107,7 +107,7 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int) (*Node, error) {
+func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int, inMemory bool) (*Node, error) {
 	address := crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
@@ -127,7 +127,15 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 	//c.HTTPPort = freeport.GetOne(t)
 	//c.WSPort = freeport.GetOne(t)
 
-	nodeConfig.DataDir = ""
+	if !inMemory {
+		tempDir, err := os.MkdirTemp("", "autonity-datadir")
+		if err != nil {
+			return nil, err
+		}
+		nodeConfig.DataDir = tempDir
+	} else {
+		nodeConfig.DataDir = ""
+	}
 
 	// copy the base eth config, so we can modify it without damaging the
 	// original.
@@ -650,7 +658,7 @@ func NewNetworkFromValidators(_ *testing.T, validators []*gengen.Validator, star
 	}
 	network := make([]*Node, len(validators))
 	for i, u := range validators {
-		n, err := NewValidatorNode(u, g, i)
+		n, err := NewValidatorNode(u, g, i, false)
 		if len(validators) > 21 {
 			n.EthConfig.DatabaseCache = 16
 			n.EthConfig.DatabaseHandles = 8
@@ -754,7 +762,7 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 	for i, u := range validators {
 		wg.Add(1)
 		go func(id int, val *gengen.Validator) {
-			n, _ := NewValidatorNode(val, g, id)
+			n, _ := NewValidatorNode(val, g, id, true)
 			if id == 0 {
 				n.Config.WSPort = freeport.GetOne(t)
 			}

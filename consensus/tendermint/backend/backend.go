@@ -60,7 +60,7 @@ func New(
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
 	log log.Logger, noGossip bool,
-) *Backend {
+	isHeightExpired func(headHeight uint64, height uint64) bool) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -75,9 +75,14 @@ func New(
 		vmConfig:        vmConfig,
 		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 		messageCh:       make(chan events.UnverifiedMessageEvent, 5000),
-		jailed:          make(map[common.Address]uint64),
-		future:          make(map[uint64][]*events.UnverifiedMessageEvent),
-		futureMinHeight: math.MaxUint64,
+		isHeightExpired: isHeightExpired,
+		jailed: jailed{
+			validators: make(map[common.Address]uint64),
+		},
+		future: future{
+			messages:  make(map[uint64][]*events.UnverifiedMessageEvent),
+			minHeight: math.MaxUint64,
+		},
 	}
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
@@ -131,22 +136,28 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	vmConfig        *vm.Config
+	MsgStore        *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
+	aggregator      *aggregator
+	isHeightExpired func(headHeight uint64, height uint64) bool // pass a function to avoid import loops
 
-	vmConfig *vm.Config
+	jailed jailed // metadata for p2p jailed validators
+	future future // buffer for future height events and related metadata
+}
 
-	MsgStore   *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-	jailed     map[common.Address]uint64
-	jailedLock sync.RWMutex
+type future struct {
+	messages            map[uint64][]*events.UnverifiedMessageEvent // UnverifiedMessageEvent is used slightly inappropriately here, as the messages height messages still need to pass the checks in `handleDecodedMsg` before being posted to the aggregator.
+	minHeight           uint64                                      // lowest future height buffered in the message store
+	maxHeight           uint64                                      // highest future height buffered in the message store
+	size                uint64                                      // number of messages in the message store
+	lastProcessedHeight uint64                                      // last future height processed by Core. It is needed to avoid race condition which could delay a message.
+	sync.RWMutex
+}
 
-	aggregator *aggregator
-
-	// buffer for future height events and related metadata
-	future          map[uint64][]*events.UnverifiedMessageEvent // UnverifiedMessageEvent is used slightly inappropriately here, as the future height messages still need to pass the checks in `handleDecodedMsg` before being posted to the aggregator.
-	futureMinHeight uint64
-	futureMaxHeight uint64
-	futureSize      uint64
-	futureLock      sync.RWMutex
+type jailed struct {
+	validators map[common.Address]uint64 // maps validator address to the epoch in which he was jailed in
+	sync.RWMutex
 }
 
 func (sb *Backend) BlockChain() *core.BlockChain {
@@ -397,11 +408,11 @@ func (sb *Backend) SyncPeer(address common.Address) {
 
 // called by tendermint core to dump core state
 func (sb *Backend) FutureMsgs() []message.Msg {
-	sb.futureLock.RLock()
-	defer sb.futureLock.RUnlock()
+	sb.future.RLock()
+	defer sb.future.RUnlock()
 
 	var msgs []message.Msg
-	for _, evs := range sb.future {
+	for _, evs := range sb.future.messages {
 		for _, ev := range evs {
 			msgs = append(msgs, ev.Message)
 		}

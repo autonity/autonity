@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/crypto"
 	"io"
 	"math/big"
 	"reflect"
@@ -40,6 +41,26 @@ var (
 	errInvalidSignature          = errors.New("aggregate signature is invalid")
 	ErrNonAggregatablePublicKeys = errors.New("provided public keys cannot be aggregated")
 	errNoQuorum                  = errors.New("aggregate signature does not contain quorum voting power")
+)
+
+const (
+	/*
+	* We currently have in HeaderExtra:
+	* - ProposerSeal (ECDSA signature) = 65 bytes
+	* - Round (uint64) = 8 byte
+	* - ActivityProofRound (uint64) = 8 byte
+	* - QuorumCertificate (AggregateSignature) = BlsSignature + Signers struct = 96 bytes + n/4 bytes + 2n bytes = 9/4n + 96 bytes
+	*	with n being the committee size. This is the absolute worst case scenario, which I believe will rarely happen
+	* - Epoch = 3 *big.Int + committee = 3 * 32 + CommitteeMemberSize * n = 96 + (20+32+48) * n = 96 + 100n
+	* - ActivityProof, same as QuorumCertificate = 9/4n + 96 bytes
+	*
+	* Assuming n=1000, the worst case scenario total size of extra data will be:
+	* 65+8+8+96+9/4n+96+100n+9/4n+96 = 104.5n + 369 ~= 103kb
+	 */
+	maximumHeaderExtraLength = 110 * 1024 //110kb
+	maximumDifficultyBitlen  = 80
+	maximumBaseFeeBitlen     = 256
+	maximumVotingPowerBitlen = 256
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
@@ -89,8 +110,7 @@ type Header struct {
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"`
 	Nonce       BlockNonce     `json:"nonce"`
-	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
-	BaseFee *big.Int `json:"baseFeePerGas"`
+	BaseFee     *big.Int       `json:"baseFeePerGas" gencodec:"required"`
 
 	// autonity custom fields
 	ProposerSeal       []byte `json:"proposerSeal"        gencodec:"required"`
@@ -120,7 +140,7 @@ func (a *AggregateSignature) Copy() *AggregateSignature {
 }
 
 func (a *AggregateSignature) Malformed() bool {
-	return a.Signature == nil || a.Signers == nil || len(a.Signers.Bits) == 0
+	return a.Signature == nil || a.Signers == nil
 }
 
 // validates the aggregate signature. It does not modify any internal data structure nor does any caching
@@ -179,9 +199,7 @@ type originalHeader struct {
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"`
 	Nonce       BlockNonce     `json:"nonce"`
-
-	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
-	BaseFee *big.Int `json:"baseFeePerGas" rlp:"optional"`
+	BaseFee     *big.Int       `json:"baseFeePerGas" gencodec:"required"`
 
 	/*
 		TODO (MariusVanDerWijden) Add this field once needed
@@ -190,6 +208,7 @@ type originalHeader struct {
 	*/
 }
 
+// if anything gets added here, check that the `maximumHeaderExtraLength` still makes sense
 type headerExtra struct {
 	ProposerSeal       []byte `json:"proposerSeal"        gencodec:"required"`
 	Round              uint64 `json:"round"               gencodec:"required"`
@@ -265,21 +284,17 @@ func (h *Header) Size() common.StorageSize {
 // that the unbounded fields are stuffed with junk data to add processing
 // overhead
 func (h *Header) sanityCheck() error {
-	if h.Number != nil && !h.Number.IsUint64() {
+	if !h.Number.IsUint64() {
 		return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
 	}
-	if h.Difficulty != nil {
-		if diffLen := h.Difficulty.BitLen(); diffLen > 80 {
-			return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
-		}
+	if diffLen := h.Difficulty.BitLen(); diffLen > maximumDifficultyBitlen {
+		return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
 	}
-	if eLen := len(h.Extra); eLen > 100*1024 {
+	if eLen := len(h.Extra); eLen > maximumHeaderExtraLength {
 		return fmt.Errorf("too large block extradata: size %d", eLen)
 	}
-	if h.BaseFee != nil {
-		if bfLen := h.BaseFee.BitLen(); bfLen > 256 {
-			return fmt.Errorf("too large base fee: bitlen %d", bfLen)
-		}
+	if bfLen := h.BaseFee.BitLen(); bfLen > maximumBaseFeeBitlen {
+		return fmt.Errorf("too large base fee: bitlen %d", bfLen)
 	}
 
 	// check sanity of epoch info if the header is an epoch header.
@@ -319,24 +334,45 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 
+	// *big.Int fields sanity check
 	if origin.Number == nil {
 		return fmt.Errorf("header number is nil")
+	}
+	if origin.Difficulty == nil {
+		return fmt.Errorf("header difficulty is nil")
+	}
+	if origin.BaseFee == nil {
+		return fmt.Errorf("header base fee is nil")
 	}
 
 	if origin.MixDigest == BFTDigest {
 		hExtra := &headerExtra{}
-		err := rlp.DecodeBytes(origin.Extra, hExtra)
-		if err != nil {
+		if err := rlp.DecodeBytes(origin.Extra, hExtra); err != nil {
 			return err
 		}
 
-		// sanity nil checks
-		if hExtra.QuorumCertificate != nil && hExtra.QuorumCertificate.Malformed() {
-			return fmt.Errorf("malformed header quorum certificate")
+		// only genesis is allowed to have an empty proposer seal
+		if origin.Number.Uint64() != 0 && len(hExtra.ProposerSeal) != crypto.SignatureLength {
+			return fmt.Errorf("invalid proposer seal length: %d", len(hExtra.ProposerSeal))
 		}
 
-		if hExtra.ActivityProof != nil && hExtra.ActivityProof.Malformed() {
-			return fmt.Errorf("malformed header activity proof")
+		// sanity checks
+		if hExtra.QuorumCertificate != nil {
+			if hExtra.QuorumCertificate.Malformed() {
+				return fmt.Errorf("malformed header quorum certificate")
+			}
+			if err := hExtra.QuorumCertificate.Signers.SanityCheck(); err != nil {
+				return fmt.Errorf("invalid quorum certificate signers info: %w", err)
+			}
+		}
+
+		if hExtra.ActivityProof != nil {
+			if hExtra.ActivityProof.Malformed() {
+				return fmt.Errorf("malformed header activity proof")
+			}
+			if err := hExtra.ActivityProof.Signers.SanityCheck(); err != nil {
+				return fmt.Errorf("invalid activity proof signers info: %w", err)
+			}
 		}
 
 		if hExtra.ActivityProof == nil && hExtra.ActivityProofRound != 0 {
@@ -352,8 +388,21 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 				return fmt.Errorf("no members in committee set")
 			}
 
-			if err = hExtra.Epoch.Committee.Enrich(); err != nil {
+			if err := hExtra.Epoch.Committee.Enrich(); err != nil {
 				return fmt.Errorf("error while deserializing consensus keys: %w", err)
+			}
+
+			// sanity check the voting power of the members
+			for _, member := range hExtra.Epoch.Committee.Members {
+				if member.VotingPower == nil {
+					return fmt.Errorf("voting power should not be nil")
+				}
+				if member.VotingPower.BitLen() > maximumVotingPowerBitlen {
+					return fmt.Errorf("voting power too large for committee member, bitlen: %d", member.VotingPower.BitLen())
+				}
+				if member.VotingPower.Cmp(common.Big0) <= 0 {
+					return fmt.Errorf("invalid voting power for committee member (negative or equal to 0): %s", member.VotingPower.String())
+				}
 			}
 
 			if hExtra.Epoch.PreviousEpochBlock == nil || hExtra.Epoch.NextEpochBlock == nil {

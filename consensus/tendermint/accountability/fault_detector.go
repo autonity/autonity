@@ -146,7 +146,8 @@ func NewFaultDetector(
 		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
 		logger:                logger, // Todo(youssef): remove context
 	}
-	// todo(youssef): analyze chainEvent vs chainHeadEvent and very important: what to do during sync !
+	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
+	// ChainHeadEvent might be fired a single time for a batch of inserted blocks.
 	fd.ruleEngineBlockSub = fd.blockchain.SubscribeChainEvent(fd.ruleEngineBlockCh)
 	fd.chainEventSub = fd.blockchain.SubscribeChainEvent(fd.chainEventCh)
 
@@ -160,6 +161,7 @@ func NewFaultDetector(
 
 // Start listen for new block events from blockchain, do the tasks like take challenge and provide Proof for innocent, the
 // Fault Detector rule engine could also trigger from here to scan those msgs of msg store by applying rules.
+// TODO: should we start accountability module only once we are in sync with the chain? Right now it is started when the node starts.
 func (fd *FaultDetector) Start() {
 	fd.wg.Add(1)
 	go fd.eventReporter()
@@ -167,7 +169,7 @@ func (fd *FaultDetector) Start() {
 	go fd.consensusMsgHandlerLoop()
 }
 
-func (fd *FaultDetector) isHeightExpired(headHeight uint64, height uint64) bool {
+func IsHeightExpired(headHeight uint64, height uint64) bool {
 	return headHeight > HeightRange && height < headHeight-HeightRange
 }
 
@@ -189,7 +191,7 @@ tendermintMsgLoop:
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if fd.isHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentHeight, e.Message.H()) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -205,7 +207,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 			case events.OldMessageEvent:
-				if fd.isHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentHeight, e.Message.H()) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -257,7 +259,6 @@ tendermintMsgLoop:
 }
 
 // check to GC msg store for those msgs out of buffering window on every 60 blocks.
-// todo(youssef): this might tbe unsufficient and lead to a DDOS OOM attack
 func (fd *FaultDetector) checkMsgStoreGC(height uint64) {
 	if height > HeightRange && height%msgGCInterval == 0 {
 		threshold := height - HeightRange
@@ -350,27 +351,22 @@ loop:
 }
 
 // canReport assign the validator a dedicated time-window to submit the accountability event
-// todo(youssef): this needs to be thoroughly verified accounting for edge cases scenarios at
-// the epoch limit. Also the contract side enforcement is missing.
+// TODO: consider including smart contract side enforcement
 func (fd *FaultDetector) canReport(height uint64) bool {
 	committee, err := fd.blockchain.CommitteeByHeight(height)
 	if err != nil {
 		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
 	}
 
-	// each reporting slot contains reportingSlotPeriod block period that a unique and deterministic validator is asked to
-	// be the reporter of that slot period, then at the end block of that slot, the reporter reports
-	// available events. Thus, between each reporting slot, we have 5 block period to wait for
-	// accountability events to be mined by network, and it is also disaster friendly that if the last
-	// reporter fails, the next reporter will continue to report missing events.
+	// each validator is assigned a reporting slot
 	reporterIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
 
+	// TODO: consider allowing the validator to report for the entirety of the period
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
 	if height%reportingSlotPeriod != 0 {
 		return false
 	}
-	// todo(youssef): this seems like a non-committee member can't send a proof/ do we want that?
 	return committee.Members[reporterIndex].Address == fd.address
 }
 
@@ -609,9 +605,9 @@ func (fd *FaultDetector) processMsg(m message.Msg) error {
 
 // run rule engine over the specific height of consensus msgs, return the accountable events in proofs.
 func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.AccountabilityEvent {
-	// To avoid none necessary accusations, we wait for delta blocks to start rule scan.
-	// always skip the heights before first buffered height after the node start up, since it will rise lots of none
-	// sense accusations due to the missing of messages during the startup phase, it cost un-necessary payments
+	// To avoid unnecessary accusations, we wait for delta blocks to start scanning.
+	// always skip the heights before first buffered height after the node start up, since it will rise lots of
+	// nonsense accusations due to the missing of messages during the startup phase, thus causing un-necessary payments
 	// for the committee member.
 	if height <= fd.msgStore.FirstHeightBuffered() {
 		return nil

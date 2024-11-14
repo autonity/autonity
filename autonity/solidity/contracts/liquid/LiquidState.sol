@@ -17,7 +17,7 @@ contract LiquidState is LiquidStorage {
         address _liquidLogicAddress
     ) {
         // commissionRate <= 1.0
-        require(_commissionRate <= LiquidLogic(payable(_liquidLogicAddress)).COMMISSION_RATE_PRECISION());
+        require(_commissionRate <= LiquidLogic(payable(_liquidLogicAddress)).COMMISSION_RATE_SCALE_FACTOR());
 
         validator = _validator;
         treasury = _treasury;

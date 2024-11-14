@@ -177,5 +177,11 @@
   "625fb940": "ACTIVITY_CONTRACT()",
   "c1f1884b": "getSlashingPrecision()",
   "241ed650": "newEpochPeriod()",
-  "f7fcc510": "autobond(address,uint256,uint256)"
+  "f7fcc510": "autobond(address,uint256,uint256)",
+  "f3c70aad": "STANDARD_DECIMALS()",
+  "d144f00a": "STANDARD_SCALE_FACTOR()",
+  "d0c66054": "getSlashingScaleFactor()",
+  "72c81963": "COMMISSION_RATE_DECIMALS()",
+  "f5be3489": "COMMISSION_RATE_SCALE_FACTOR()",
+  "3b80e355": "FEE_FACTOR_UNIT_RECIP_DECIMALS()"
 }
