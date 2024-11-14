@@ -22,6 +22,8 @@ var (
 	twoSignatures      = byte(2)
 	multipleSignatures = byte(3)
 
+	maxAllowedSigners = 16384
+
 	ErrNilSigners          = errors.New("validator bitmap or coefficient array is nil")
 	ErrWrongSizeSigners    = errors.New("validator bitmap or coefficient array has incorrect size")
 	ErrEmptySigners        = errors.New("signers information is empty")
@@ -119,6 +121,22 @@ func (vb validatorBitmap) Set(validatorIndex int, value byte) {
 	byteIndex := validatorIndex / validatorsPerByte
 	vb[byteIndex] = vb[byteIndex] & setMasks[bitIndex]
 	vb[byteIndex] = vb[byteIndex] | valueShifted
+}
+
+// Correct full validation cannot be done until we know the committee size of this block,
+// but we can already ensure that the fields have sane values
+func (s *Signers) SanityCheck() error {
+	if len(s.Bits) == 0 {
+		return fmt.Errorf("validator bitmap is empty")
+	}
+	// 1 byte --> 4 validators
+	if len(s.Bits) > maxAllowedSigners/validatorsPerByte { // max 4kb of data
+		return fmt.Errorf("invalid Bits length: %d", len(s.Bits))
+	}
+	if len(s.Coefficients) > maxAllowedSigners { // max 32kb of data
+		return fmt.Errorf("invalid Coefficient length: %d", len(s.Coefficients))
+	}
+	return nil
 }
 
 // validates the sender info, used to ensure received aggregates have correctly sized buffers

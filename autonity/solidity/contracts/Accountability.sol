@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import "./interfaces/IAccountability.sol";
 import "./Autonity.sol";
-import {SLASHING_RATE_PRECISION} from "./ProtocolConstants.sol";
+import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 import {AccessAutonity} from "./AccessAutonity.sol";
 
 contract Accountability is IAccountability, AccessAutonity {
@@ -482,12 +482,12 @@ contract Accountability is IAccountability, AccessAutonity {
     function _ratesSanityCheck(BaseSlashingRates memory _rates) internal virtual {
         require(_rates.low <= _rates.mid, "slashing rate: low cannot exceed mid");
         require(_rates.mid <= _rates.high, "slashing rate: mid cannot exceed high");
-        require(_rates.high <= SLASHING_RATE_PRECISION, "slashing rate: high cannot exceed precision");
+        require(_rates.high <= SLASHING_RATE_SCALE_FACTOR, "slashing rate: high cannot exceed scale factor");
     }
 
     function _factorsSanityCheck(Factors memory _factors) internal virtual {
-        require(_factors.collusion <= SLASHING_RATE_PRECISION, "collusion factor cannot exceed slashing rate");
-        require(_factors.history <= SLASHING_RATE_PRECISION, "history factor cannot exceed slashing rate");
+        require(_factors.collusion <= SLASHING_RATE_SCALE_FACTOR, "collusion factor cannot exceed slashing rate scale factor");
+        require(_factors.history <= SLASHING_RATE_SCALE_FACTOR, "history factor cannot exceed slashing rate scale factor");
     }
 
 

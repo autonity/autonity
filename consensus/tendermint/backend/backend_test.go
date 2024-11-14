@@ -54,6 +54,10 @@ var (
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
 
+func fakeExpiryChecker(_ uint64, _ uint64) bool {
+	return false
+}
+
 func committeeAndBlsKeys(committeeSize int) (*types.Committee, []blst.SecretKey) {
 	committee := new(types.Committee)
 	secretKeys := make([]blst.SecretKey, committeeSize)
@@ -467,7 +471,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := tdmcore.NewMsgStore()
 	// Use the first key as private key
-	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false)
+	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false, fakeExpiryChecker)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

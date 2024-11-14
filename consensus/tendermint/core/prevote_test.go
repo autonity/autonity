@@ -98,7 +98,7 @@ func TestHandlePrevote(t *testing.T) {
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		messages := message.NewMap()
 		curRoundMessages := messages.GetOrCreate(2)

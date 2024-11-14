@@ -72,7 +72,7 @@ func TestHeaderHash(t *testing.T) {
 		// Non-BFT header tests, PoS fields should not be taken into account.
 		{
 			Header{},
-			common.HexToHash("0xc3bd2d00745c03048a5616146a96f5ff78e54efb9e5b04af208cdaff6f3830ee"),
+			common.HexToHash("0x31775027428c8e2ea15ba3512c7dc42bc356fe2cba2a82b537b3633f7e1907ab"),
 		},
 		{
 			originalHeader,

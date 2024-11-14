@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {Autonity, ValidatorState} from "./Autonity.sol";
 import {Precompiled} from "./lib/Precompiled.sol";
 import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
-import {SLASHING_RATE_PRECISION} from "./ProtocolConstants.sol";
+import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 
 contract OmissionAccountability is IOmissionAccountability {
     // Used for fixed-point arithmetic during computation of inactivity score
@@ -70,7 +70,7 @@ contract OmissionAccountability is IOmissionAccountability {
         // config sanity checks
         require(_config.inactivityThreshold <= SCALE_FACTOR, "inactivity threshold cannot exceed scale factor");
         require(_config.pastPerformanceWeight <= SCALE_FACTOR, "past performance weight cannot exceed scale factor");
-        require(_config.initialSlashingRate <= SLASHING_RATE_PRECISION, "initial slashing rate cannot exceed slashing rate precision");
+        require(_config.initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "initial slashing rate cannot exceed slashing rate scale factor");
 
         autonity = Autonity(_autonity);
 
@@ -451,7 +451,7 @@ contract OmissionAccountability is IOmissionAccountability {
     * @param _initialSlashingRate, the new value for the initial slashing rate
     */
     function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
-        require(_initialSlashingRate <= SLASHING_RATE_PRECISION, "cannot exceed slashing rate precision");
+        require(_initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "cannot exceed slashing rate scale factor");
         config.initialSlashingRate = _initialSlashingRate;
     }
 
