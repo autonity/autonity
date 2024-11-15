@@ -67,6 +67,12 @@ interface IOracle {
      */
     function finalize() external returns (bool);
 
+    /**
+     * @notice Called when the previous round is ended. Updates the voter info for new voters.
+     * @dev Only accessible from the Autonity Contract.
+     */
+    function updateVoters() external;
+
 
     /**
     * @dev Signal that rewards are available. Only accessible from the autonity contract.
@@ -78,7 +84,7 @@ interface IOracle {
      * @notice Called to update the list of the oracle voters.
      * @dev Only accessible from the Autonity Contract.
      */
-    function setVoters(address[] memory _newVoters) external;
+    function setVoters(address[] memory _newVoters, address[] memory _treasury, address[] memory _validator) external;
 
     /**
      * @notice Called to update the governance operator account.

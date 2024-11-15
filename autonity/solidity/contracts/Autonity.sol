@@ -564,6 +564,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         require(_period > 0, "epoch period cannot be 0");
         require(_period > _delta + _lookbackWindow -1, "epoch period needs to be greater than delta+lookbackWindow-1");
 
+        // we need this check to update new voters at the end of voting round
+        uint256 _votePeriod = config.contracts.oracleContract.getVotePeriod();
+        require(_votePeriod * 2 <= _period, "epoch period is too small");
+
         newEpochPeriod = _period;
         uint256 _appliedAtBlock = epochInfos[epochID].nextEpochBlock;
         emit EpochPeriodUpdated(_period, _appliedAtBlock);
@@ -786,6 +790,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         bool _epochEnded = block.number >= epochInfos[epochID].nextEpochBlock;
         config.contracts.accountabilityContract.finalize(_epochEnded);
         uint256 _delta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
+        bool newRound = config.contracts.oracleContract.finalize();
 
         if (_epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
@@ -813,7 +818,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
             // compute the committee for new epoch
             (address[] memory _newOracles, address[] memory _newCommittee, address[] memory _newTreasuries) = computeCommittee();
-            config.contracts.oracleContract.setVoters(_newOracles);
+            config.contracts.oracleContract.setVoters(_newOracles, _newTreasuries, _newCommittee);
             config.contracts.accountabilityContract.setCommittee(_newCommittee);
             config.contracts.omissionAccountabilityContract.setCommittee(committee, _newTreasuries);
 
@@ -833,8 +838,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             emit NewEpoch(epochID);
         }
 
-        bool newRound = config.contracts.oracleContract.finalize();
         if (newRound) {
+            config.contracts.oracleContract.updateVoters();
             try config.contracts.acuContract.update() {}
             catch {}
         }
