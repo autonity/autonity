@@ -160,8 +160,12 @@ contract Oracle is IOracle {
 
         // Voter voted on every symbols
         for (uint256 i = 0; i < _reports.length; i++) {
-            require(_reports[i].price > 0, "price must be positive");
-            require(_reports[i].confidence <= 100 && _reports[i].confidence != 0, "invalid confidence score");
+            require(_reports[i].confidence <= 100, "invalid confidence score");
+            require(
+                (_reports[i].price > 0 && _reports[i].confidence > 0) ||
+                (_reports[i].price == 0 && _reports[i].confidence == 0),
+                "confidence/price error"
+            );
             reports[symbols[i]][msg.sender] = _reports[i];
         }
         voterInfo[msg.sender].reportAvailable = true;
