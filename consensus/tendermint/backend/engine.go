@@ -641,14 +641,19 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	}
 	lastEpochID := lastEpochIDBig.Uint64()
 	jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
+	jailedAddresses := make([]common.Address, 0, jailedCount)
 	for i := 0; i < int(jailedCount); i++ {
 		address := rawdb.ReadJailedAddress(sb.database, lastEpochID, uint64(i))
 		if address != common.HexToAddress("0") {
-			sb.jailedLock.Lock()
-			sb.jailed[address] = lastEpochID
-			sb.jailedLock.Unlock()
+			jailedAddresses = append(jailedAddresses, address)
 		}
 	}
+
+	sb.jailedLock.Lock()
+	for _, address := range jailedAddresses {
+		sb.jailed[address] = lastEpochID
+	}
+	sb.jailedLock.Unlock()
 
 	for {
 		select {
