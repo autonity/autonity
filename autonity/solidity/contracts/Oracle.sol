@@ -18,7 +18,7 @@ contract Oracle is IOracle {
         uint256 round; // The last round the voter participated in
         uint256 commit; // The commit hash of the voter's last report
         uint256 performance; // The performance score of the voter
-        address payable treasury;
+        address treasury;
         address validator;
         bool isVoter; // Indicates if the address is a registered voter
         bool reportAvailable; // Indicates if the last report is available for the voter
@@ -242,10 +242,10 @@ contract Oracle is IOracle {
             // Transfer ATN rewards
             // 2300 gas fowarded with send()
             // funds for failed transfers will be redistributed for the next round
-            payable(voterTreasuries[_voter]).send(_atn);
+            voterInfo[_voter].treasury.call{value:_atn, gas: 2300}("");
 
             // Transfer NTN rewards
-            config.autonity.autobond(voterNodeAddresses[_voter], _ntn, 0);
+            config.autonity.autobond(voterInfo[_voter].validator, _ntn, 0);
 
             rewardPeriodPerformance[_voter] = 0;
             rewardReceivers.remove(_voter);
