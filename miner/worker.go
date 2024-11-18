@@ -74,6 +74,10 @@ const (
 
 	// staleThreshold is the maximum depth of the acceptable stale block.
 	staleThreshold = 7
+
+	// capBlockSize is the capped block size, which is 1MB less than the MaxMsgSize (10MB) of dev-p2p protocol,
+	// reserving 1MB for the block header which might contain extra data for consensus and accountability protocol.
+	capBlockSize = 9 * 1024 * 1024
 )
 
 // environment is the worker's current environment and holds all
@@ -88,6 +92,7 @@ type environment struct {
 
 	header       *types.Header
 	txs          []*types.Transaction
+	txsSize      common.StorageSize // track the total size of the packed transactions
 	receipts     []*types.Receipt
 	parentHeader *types.Header
 }
@@ -99,6 +104,7 @@ func (env *environment) copy() *environment {
 		state:        env.state.Copy(),
 		tcount:       env.tcount,
 		coinbase:     env.coinbase,
+		txsSize:      env.txsSize,
 		header:       types.CopyHeader(env.header),
 		receipts:     copyReceipts(env.receipts),
 		parentHeader: types.CopyHeader(env.parentHeader),
@@ -728,6 +734,7 @@ func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*
 		return nil, err
 	}
 	env.txs = append(env.txs, tx)
+	env.txsSize += tx.Size()
 	env.receipts = append(env.receipts, receipt)
 
 	return receipt.Logs, nil
@@ -771,6 +778,14 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 		if tx == nil {
 			break
 		}
+
+		// cap the maximum txs size of a block.
+		// The current ENV is not always exist in legacy tests, thus to check it nil to prevent panic.
+		if w.current != nil && w.current.txsSize+tx.Size() > capBlockSize {
+			w.eth.Logger().Info("Stop packing new txn", "capped block size", capBlockSize, "current TXNs size", w.current.txsSize)
+			break
+		}
+
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
