@@ -59,10 +59,11 @@ contract Oracle is IOracle {
     bool private newVotersAccessUpdated;
     uint256 private round;
     mapping(string => Price)[] internal prices;
-    //rewards accounting
-    bool private rewardsReady;
-    uint256 private aggregatedScore;
 
+    //rewards accounting
+    uint256 private aggregatedScore;
+    // voting periods are not necessarily in sync with epoch rewards, so we need to keep track of
+    // rewards for each over the epoch, and distribute for all voting periods that concluded this epoch
     EnumerableSet.AddressSet private rewardReceivers;
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
