@@ -627,37 +627,26 @@ func (w *worker) resultLoop() {
 
 			// The logs inside the task.env.state may contain parent block's logs as we copied the parent state when
 			// making environment for the child of an optimistic parent block for consensus pipeline optimization.
-			// Thus, we do a deep copies of receipts and logs from the task's execution environment, and update the
-			// corresponding block location without modifying the source task environment.
-			var (
-				receipts = make([]*types.Receipt, len(task.env.receipts))
-				logs     []*types.Log
-			)
-			for i, taskReceipt := range task.env.receipts {
-				receipt := new(types.Receipt)
-				receipts[i] = receipt
-				*receipt = *taskReceipt
+			// Thus, we just deep copy logs from the receipts of the current block execution environment.
+			var logs []*types.Log
 
-				// add block location fields
-				receipt.BlockHash = hash
-				receipt.BlockNumber = block.Number()
-				receipt.TransactionIndex = uint(i)
-
-				// Update the block hash in all logs since it is now available and not when the
-				// receipt/log of individual transactions were created.
-				receipt.Logs = make([]*types.Log, len(taskReceipt.Logs))
-				for i, taskLog := range taskReceipt.Logs {
-					l := new(types.Log)
-					receipt.Logs[i] = l
-					*l = *taskLog
-					l.BlockHash = hash
+			// Update the block hash in all logs since it is now available and not when the
+			// receipt/log of individual transactions were created.
+			for i, r := range task.env.receipts {
+				r.BlockHash = block.Hash()
+				r.BlockNumber = block.Number()
+				r.TransactionIndex = uint(i)
+				for _, l := range r.Logs {
+					l.BlockHash = block.Hash()
 				}
-				logs = append(logs, receipt.Logs...)
+				logs = append(logs, r.Logs...)
 			}
 
 			// Commit block and state to database.
 			persistStart := time.Now()
-			_, err := w.chain.WriteBlockAndSetHead(block, receipts, logs, task.env.state, true)
+
+			// As the environment is no longer used anymore, we won't copy the receipts to announce the new block.
+			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, logs, task.env.state, true)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
 				continue
