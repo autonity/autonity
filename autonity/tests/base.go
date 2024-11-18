@@ -610,15 +610,27 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	// Step 3: Oracle contract deployment
 	//
 	voters := make([]common.Address, len(autonityGenesis.Validators))
+	nodeAddresses := make([]common.Address, len(autonityGenesis.Validators))
+	treasuries := make([]common.Address, len(autonityGenesis.Validators))
 	for _, val := range autonityGenesis.Validators {
 		voters = append(voters, val.OracleAddress)
+		treasuries = append(treasuries, val.Treasury)
+		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
 	}
 	_, _, r.Oracle, err = r.DeployOracle(nil,
 		voters,
-		r.Autonity.address,
-		autonityConfig.Protocol.OperatorAccount,
+		nodeAddresses,
+		treasuries,
 		params.DefaultGenesisOracleConfig.Symbols,
-		new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.VotePeriod))
+		OracleConfig{
+			Autonity:                  r.Autonity.address,
+			Operator:                  autonityConfig.Protocol.OperatorAccount,
+			VotePeriod:                new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.VotePeriod),
+			OutlierDetectionThreshold: new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.OutlierDetectionThreshold),
+			OutlierSlashingThreshold:  new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.OutlierSlashingThreshold),
+			BaseSlashingRate:          new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.BaseSlashingRate),
+		},
+	)
 	require.NoError(t, err)
 	require.Equal(t, r.Oracle.address, params.OracleContractAddress)
 	//
@@ -715,10 +727,6 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	//
 	// Step 11: Omission Accountability Contract Deployment
 	//
-	treasuries := make([]common.Address, len(autonityGenesis.Validators))
-	for i, val := range autonityGenesis.Validators {
-		treasuries[i] = val.Treasury
-	}
 	_, _, r.OmissionAccountability, err = r.DeployOmissionAccountability(nil, r.Autonity.address, autonityConfig.Protocol.OperatorAccount, treasuries, OmissionAccountabilityConfig{
 		InactivityThreshold:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InactivityThreshold)),
 		LookbackWindow:         big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.LookbackWindow)),

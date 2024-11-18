@@ -72,13 +72,13 @@ interface IOracle {
     * @dev Signal that rewards are available. Only accessible from the autonity contract.
     *
     */
-    function receiveRewards() external payable returns (bool);
+    function distributeRewards(uint256 _ntnRewards) external payable;
 
     /**
      * @notice Called to update the list of the oracle voters.
      * @dev Only accessible from the Autonity Contract.
      */
-    function setVoters(address[] memory _newVoters) external;
+    function setVoters(address[] memory _newVoters, address[] memory _newNodeAddresses, address[] memory _newTreasuries) external;
 
     /**
      * @notice Called to update the governance operator account.

@@ -784,8 +784,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         // use >= instead of == to facilitate tests on truffle
         bool _epochEnded = block.number >= epochInfos[epochID].nextEpochBlock;
+
+        // finalize all auxiliary contracts
         config.contracts.accountabilityContract.finalize(_epochEnded);
         uint256 _delta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
+        bool newRound = config.contracts.oracleContract.finalize();
+        if (newRound) {
+            try config.contracts.acuContract.update() {}
+            catch {}
+        }
 
         if (_epochEnded) {
             // We first calculate the new NTN injected supply for this epoch
@@ -813,7 +820,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
             // compute the committee for new epoch
             (address[] memory _newOracles, address[] memory _newCommittee, address[] memory _newTreasuries) = computeCommittee();
-            config.contracts.oracleContract.setVoters(_newOracles);
+            config.contracts.oracleContract.setVoters(_newOracles, _newCommittee, _newTreasuries);
             config.contracts.accountabilityContract.setCommittee(_newCommittee);
             config.contracts.omissionAccountabilityContract.setCommittee(committee, _newTreasuries);
 
@@ -831,12 +838,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             epochID += 1;
             _addEpochInfo(epochID, EpochInfo(committee, _previousEpochBlock, block.number, _nextEpochBlock, _delta));
             emit NewEpoch(epochID);
-        }
-
-        bool newRound = config.contracts.oracleContract.finalize();
-        if (newRound) {
-            try config.contracts.acuContract.update() {}
-            catch {}
         }
 
         return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _delta);
@@ -1300,8 +1301,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             }
         }
 
+        // first we need to reduce total _atn and _ntn by the oracle and proposer rewards
         uint256 _atnProposerRewards;
         uint256 _ntnProposerRewards;
+        uint256 _atnOracleRewards = _atn * config.policy.oracleRewardRate / ORACLE_REWARD_RATE_PRECISION;
+        uint256 _ntnOracleRewards = _ntn * config.policy.oracleRewardRate / ORACLE_REWARD_RATE_PRECISION;
 
         if (config.contracts.omissionAccountabilityContract.getTotalEffort() > 0) {
             // Calculate initial proposer rewards (actual distribution is done after regular rewards)
@@ -1309,13 +1313,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (PROPOSER_REWARD_RATE_PRECISION * config.protocol.committeeSize);
         }
 
-        uint256 _atnOracleRewards = _atn * config.policy.oracleRewardRate / ORACLE_REWARD_RATE_PRECISION;
-        uint256 _ntnOracleRewards = _ntn * config.policy.oracleRewardRate / ORACLE_REWARD_RATE_PRECISION;
-        _transfer(address(this), address(config.contracts.oracleContract), _ntnOracleRewards);
-        config.contracts.oracleContract.receiveRewards{value:_atnOracleRewards}();
-
-        _atn -= _atnProposerRewards + _atnOracleRewards;
-        _ntn -= _ntnProposerRewards + _ntnOracleRewards;
+        _atn -= _atnOracleRewards + _atnProposerRewards;
+        _ntn -=  _ntnOracleRewards + _ntnProposerRewards;
 
         uint256 _omissionScaleFactor = config.contracts.omissionAccountabilityContract.getScaleFactor();
 
@@ -1408,6 +1407,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _transfer(address(this), _omission, _ntnProposerRewards);
             config.contracts.omissionAccountabilityContract.distributeProposerRewards{value: _atnProposerRewards}(accounts[_omission]);
         }
+
+        _transfer(address(this), address(config.contracts.oracleContract), _ntnOracleRewards);
+        config.contracts.oracleContract.distributeRewards{value:_atnOracleRewards}(_ntnOracleRewards);
 
         // send withheld funds to the appropriate pool
         if (_atnTotalWithheld > 0) {
