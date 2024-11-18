@@ -18,6 +18,8 @@ contract Oracle is IOracle {
         uint256 round; // The last round the voter participated in
         uint256 commit; // The commit hash of the voter's last report
         uint256 performance; // The performance score of the voter
+        address payable treasury;
+        address validator;
         bool isVoter; // Indicates if the address is a registered voter
         bool reportAvailable; // Indicates if the last report is available for the voter
     }
@@ -41,7 +43,6 @@ contract Oracle is IOracle {
 
     // ==== Public state variables ====
     Config public config;
-    int256 public lastVoterUpdateRound = type(int256).min;
     int256 public symbolUpdatedRound = type(int256).min; // todo(youssef): confused why not uint256
     uint256 public lastRoundBlock;
     mapping(address => VoterInfo) public voterInfo;
@@ -54,9 +55,8 @@ contract Oracle is IOracle {
 
     address[] private voters;
     address[] private newVoters;
-    mapping(address => address) private voterTreasuries;
-    mapping(address => address) private voterNodeAddresses;
-
+    bool private newVotersSet;
+    bool private newVotersAccessUpdated;
     uint256 private round;
     mapping(string => Price)[] internal prices;
     //rewards accounting
@@ -85,8 +85,8 @@ contract Oracle is IOracle {
         newSymbols = _symbols;
 
         for (uint i = 0; i < _voters.length; i++) {
-            voterTreasuries[_voters[i]] = _treasuries[i];
-            voterNodeAddresses[_voters[i]] = _nodeAddresses[i];
+            voterInfo[_voters[i]].treasury = _treasuries[i];
+            voterInfo[_voters[i]].validator = _nodeAddresses[i];
         }
 
         _votersSort(_voters, int(0), int(_voters.length - 1));
@@ -98,6 +98,7 @@ contract Oracle is IOracle {
         for (uint i = 0; i < _voters.length; i++) {
             voterInfo[_voters[i]].isVoter = true;
         }
+        _checkVotePeriod(_config.votePeriod);
     }
 
     /**
@@ -200,12 +201,6 @@ contract Oracle is IOracle {
 
         _finalizeRewards();
 
-        // votingInfo update happens a round later then setting of new voters,
-        // because we still want to aggregate vote for lastVoterSet in the voterupdateround+1
-        if (lastVoterUpdateRound + 1 == int256(round)) {
-            _updateVotingInfo();
-        }
-
         lastRoundBlock = block.number;
         round += 1;
         // symbol update should happen in the symbolUpdatedRound+2 since we expect
@@ -258,8 +253,27 @@ contract Oracle is IOracle {
         rewardPeriodAggregatedScore = 0;
     }
 
-    /**
-      * @notice Aggregates reports for a specific symbol.
+    function updateVoters() onlyAutonity external {
+        // this votingInfo is updated with the newVoter set just so that the new voters
+        // are able to send their first vote, but they will not be used for aggregation
+        // in this round
+        if (newVotersSet == true) {
+            for(uint i = 0; i < newVoters.length; i++) {
+                voterInfo[newVoters[i]].isVoter = true;
+            }
+            newVotersAccessUpdated = true;
+            newVotersSet = false;
+        }
+        else if (newVotersAccessUpdated == true) {
+            // votingInfo update happens a round later then setting of new voters,
+            // because we still want to aggregate vote for lastVoterSet
+            _updateVotingInfo();
+            newVotersAccessUpdated = false;
+        }
+    }
+
+   /**
+     * @notice Aggregates reports for a specific symbol.
      * @param _sindex The index of the symbol to aggregate.
      * @dev This function detects outliers and calculates the final price for the symbol.
      */
@@ -393,28 +407,16 @@ contract Oracle is IOracle {
      * @dev Only accessible from the Autonity Contract.
      * @dev IOracle interface method implementation.
      */
-    function setVoters(
-        address[] memory _newVoters,
-        address[] memory _newNodeAddresses,
-        address[] memory _newTreasuries
-    ) onlyAutonity external {
+    function setVoters(address[] memory _newVoters, address[] memory _treasury, address[] memory _validator) onlyAutonity external {
         require(_newVoters.length != 0, "Voters can't be empty");
-        require(_newVoters.length == _newNodeAddresses.length, "voters and node addresses must be equal length");
-        require(_newVoters.length == _newTreasuries.length, "voters and treasuries must be equal length");
-
-        for (uint i = 0; i < _newVoters.length; i++) {
-            voterTreasuries[_newVoters[i]] = _newTreasuries[i];
-            voterNodeAddresses[_newVoters[i]] = _newNodeAddresses[i];
-
-            // this votingInfo is updated with the newVoter set just so that the new voters
-            // are able to send their first vote, but they will not be used for aggregation
-            // in this round
-            voterInfo[newVoters[i]].isVoter = true;
+        for (uint256 i = 0; i < _newVoters.length; i++) {
+            VoterInfo storage _voterInfo = voterInfo[_newVoters[i]];
+            _voterInfo.treasury = payable(_treasury[i]);
+            _voterInfo.validator = _validator[i];
         }
-
         _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
         newVoters = _newVoters;
-        lastVoterUpdateRound = int256(round);
+        newVotersSet = true;
     }
 
     /**
@@ -430,6 +432,7 @@ contract Oracle is IOracle {
     * @dev IOracle interface method implementation..
     */
     function setVotePeriod(uint _votePeriod) external onlyOperator {
+        _checkVotePeriod(_votePeriod);
         config.votePeriod = _votePeriod;
     }
 
@@ -446,6 +449,14 @@ contract Oracle is IOracle {
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
         config.outlierDetectionThreshold = _outlierDetectionThreshold;
         config.baseSlashingRate = _baseSlashingRate;
+    }
+
+    function _checkVotePeriod(uint _votePeriod) internal {
+        // we need this check to update new voters at the end of voting round
+        uint256 _epochPeriod = config.autonity.getCurrentEpochPeriod();
+        require(_votePeriod * 2 <= _epochPeriod, "vote period is too big");
+        _epochPeriod = config.autonity.getEpochPeriod();
+        require(_votePeriod * 2 <= _epochPeriod, "vote period is too big");
     }
 
     function _updateVotingInfo() internal {
@@ -559,13 +570,13 @@ contract Oracle is IOracle {
      * @return _totalReports The total count of non-outlier reports collected.
      */
     function _findOutliers(int256 _median, string memory _symbol)
-    internal
-    returns (
-        address[] memory _outliers,
-        uint256 _totalOutliers,
-        Report[] memory _filteredReports,
-        uint256 _totalReports
-    )
+        internal
+        returns (
+            address[] memory _outliers,
+            uint256 _totalOutliers,
+            Report[] memory _filteredReports,
+            uint256 _totalReports
+        )
     {
         _filteredReports = new Report[](voters.length);
         _outliers = new address[](voters.length);
