@@ -625,20 +625,25 @@ func (w *worker) resultLoop() {
 				continue
 			}
 
+			var logs []*types.Log
 			// Update the block hash in all logs since it is now available and not when the
 			// receipt/log of individual transactions were created.
 			for i, r := range task.env.receipts {
 				r.BlockHash = block.Hash()
 				r.BlockNumber = block.Number()
 				r.TransactionIndex = uint(i)
-				for _, l := range r.Logs {
-					l.BlockHash = block.Hash()
+				for i, taskLog := range r.Logs {
+					l := new(types.Log)
+					r.Logs[i] = l
+					*l = *taskLog
+					taskLog.BlockHash = block.Hash()
 				}
+				logs = append(logs, r.Logs...)
 			}
 
 			// Commit block and state to database.
 			persistStart := time.Now()
-			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, task.env.state.Logs(), task.env.state, true)
+			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, logs, task.env.state, true)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
 				continue
