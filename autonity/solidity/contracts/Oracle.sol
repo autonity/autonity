@@ -88,6 +88,7 @@ contract Oracle is IOracle {
         for (uint i = 0; i < _voters.length; i++) {
             voterInfo[_voters[i]].treasury = _treasuries[i];
             voterInfo[_voters[i]].validator = _nodeAddresses[i];
+            voterInfo[_voters[i]].isVoter = true;
         }
 
         _votersSort(_voters, int(0), int(_voters.length - 1));
@@ -96,9 +97,6 @@ contract Oracle is IOracle {
         round = 1;
         // create the space for first index in prices array
         prices.push();
-        for (uint i = 0; i < _voters.length; i++) {
-            voterInfo[_voters[i]].isVoter = true;
-        }
         _checkVotePeriod(_config.votePeriod);
     }
 
@@ -412,7 +410,7 @@ contract Oracle is IOracle {
         require(_newVoters.length != 0, "Voters can't be empty");
         for (uint256 i = 0; i < _newVoters.length; i++) {
             VoterInfo storage _voterInfo = voterInfo[_newVoters[i]];
-            _voterInfo.treasury = payable(_treasury[i]);
+            _voterInfo.treasury = _treasury[i];
             _voterInfo.validator = _validator[i];
         }
         _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
