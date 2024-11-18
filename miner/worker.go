@@ -627,6 +627,8 @@ func (w *worker) resultLoop() {
 
 			// The logs inside the task.env.state may contain parent block's logs as we copied the parent state when
 			// making environment for the child of an optimistic parent block for consensus pipeline optimization.
+			// Thus, we do a deep copies of receipts and logs from the task's execution environment, and update the
+			// corresponding block location without modifying the source task environment.
 			var (
 				receipts = make([]*types.Receipt, len(task.env.receipts))
 				logs     []*types.Log
