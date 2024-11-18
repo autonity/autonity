@@ -779,8 +779,8 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 			break
 		}
 
-		// cap the maximum txs size of a block.
-		// The current ENV is not always exist in legacy tests, thus to check it nil to prevent panic.
+		// Cap the maximum size of packed TXNs in a block before we run into the unexpected errors due to
+		// the limits of msg size in dev-p2p layer. As current ENV is not always exist in legacy tests, check nil to prevent panic.
 		if w.current != nil && w.current.txsSize+tx.Size() > capBlockSize {
 			w.eth.Logger().Info("Stop packing new txn", "capped block size", capBlockSize, "current TXNs size", w.current.txsSize)
 			break
