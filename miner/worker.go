@@ -679,8 +679,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		hash  common.Hash
 	)
 	if optimisticCandidate {
-		// copying the cached parent block's state for current block's assembling.
-		// It also copies the logs of the txn receipts of the parent block.
+		// Making environment by coping cached optimistic parent block's state also copies the receipt logs.
 		if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
 			sealHash := w.engine.SealHash(parent.Header())
 			w.pendingMu.Lock()
