@@ -625,6 +625,9 @@ func (w *worker) resultLoop() {
 				continue
 			}
 
+			// The logs inside the task.env.state may contain parent block's logs as we copied the parent state when
+			// making environment for the child of an optimistic parent block for consensus pipeline optimization.
+			// Thus, we construct logs from the task.env.receipts that is unique for block.
 			var logs []*types.Log
 			// Update the block hash in all logs since it is now available and not when the
 			// receipt/log of individual transactions were created.
@@ -676,6 +679,8 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		hash  common.Hash
 	)
 	if optimisticCandidate {
+		// copying the cached parent block's state for current block's assembling.
+		// It also copies the logs of the txn receipts of the parent block.
 		if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
 			sealHash := w.engine.SealHash(parent.Header())
 			w.pendingMu.Lock()
