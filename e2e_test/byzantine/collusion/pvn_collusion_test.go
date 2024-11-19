@@ -9,6 +9,7 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -19,6 +20,7 @@ import (
 )
 
 const collusionHeight = 5
+
 /*
 *
   - TestCollusionPVN, it creates a faulty party and nominates a leader to propose an invalid new proposal, while
@@ -26,7 +28,6 @@ const collusionHeight = 5
     being, thus we cannot expect the proposer is slashed, however we can slash those followers by PVN accusation rule.
 */
 func TestCollusionPVN(t *testing.T) {
-	//	t.Skip("Flaky test")
 	numOfNodes := 8
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -39,7 +40,7 @@ func TestCollusionPVN(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(90, 150, false)
+	err = network.WaitToMineNBlocks(120, 150, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	// Accusation of PVN should rise since followers prevote for the planed invalid value.
@@ -81,19 +82,26 @@ type colludedPVNFollower struct {
 func (c *colludedPVNFollower) SendPrevote(_ context.Context, _ bool) {
 	// send prevote for the planned invalid proposal for PVN
 	h := c.Height().Uint64()
-	if h != collusionHeight {
-		return
-	}
 	r := c.Round()
-	b := types.NewBlockWithHeader(newBlockHeader(h))
-	e2e.FuzBlock(b, new(big.Int).SetUint64(h))
+	value := common.Hash{}
+	if h != collusionHeight {
+		proposal := c.CurRoundMessages().Proposal()
+		if proposal == nil {
+			return
+		}
+		value = proposal.Block().Hash()
+	} else {
+		b := types.NewBlockWithHeader(newBlockHeader(h))
+		e2e.FuzBlock(b, new(big.Int).SetUint64(h))
+		value = b.Hash()
+	}
 	// send prevote for the planned invalid proposal.
 	committee, err := c.Backend().BlockChain().CommitteeByHeight(h)
 	if err != nil {
 		panic(err)
 	}
-	log.Debug("prevote collusion simulated", "rule", c.Height(), "r", r, "v", b.Hash(), "node", c.Address())
-	vote := message.NewPrevote(r, h, b.Hash(), c.Backend().Sign, committee.MemberByAddress(c.Address()), committee.Len())
+	log.Debug("prevote collusion simulated", "rule", c.Height(), "r", r, "v", value, "node", c.Address())
+	vote := message.NewPrevote(r, h, value, c.Backend().Sign, committee.MemberByAddress(c.Address()), committee.Len())
 	c.SetSentPrevote(true)
 	c.BroadcastAll(vote)
 }
