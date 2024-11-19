@@ -777,6 +777,14 @@ var (
 		JailFactor:                     48,  // 48 epochs, i.e. 1 day with 30 mins epoch
 	}
 
+	TestOracleConfig = &OracleContractGenesis{
+		Symbols:                   OracleInitialSymbols,
+		VotePeriod:                10,
+		OutlierDetectionThreshold: 100,
+		OutlierSlashingThreshold:  100,
+		BaseSlashingRate:          10,
+	}
+
 	TestChainConfig = &ChainConfig{
 		big.NewInt(1337),
 		big.NewInt(0),
@@ -799,7 +807,7 @@ var (
 		new(EthashConfig),
 		TestAutonityContractConfig,
 		TestAccountabilityConfig,
-		DefaultGenesisOracleConfig,
+		TestOracleConfig,
 		DefaultInflationControllerGenesis,
 		AsmConfig{
 			ACUContractConfig:           DefaultAcuContractGenesis,

@@ -623,13 +623,12 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		treasuries,
 		params.DefaultGenesisOracleConfig.Symbols,
 		OracleConfig{
-			Autonity: r.Autonity.address,
-			Operator: autonityConfig.Protocol.OperatorAccount,
-			// ToDo: the default genesis config vote period is too high, we should lower it in the default test config
-			VotePeriod:                new(big.Int).SetUint64(10),
-			OutlierDetectionThreshold: new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.OutlierDetectionThreshold),
-			OutlierSlashingThreshold:  new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.OutlierSlashingThreshold),
-			BaseSlashingRate:          new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.BaseSlashingRate),
+			Autonity:                  r.Autonity.address,
+			Operator:                  autonityConfig.Protocol.OperatorAccount,
+			VotePeriod:                new(big.Int).SetUint64(params.TestOracleConfig.VotePeriod),
+			OutlierDetectionThreshold: new(big.Int).SetUint64(params.TestOracleConfig.OutlierDetectionThreshold),
+			OutlierSlashingThreshold:  new(big.Int).SetUint64(params.TestOracleConfig.OutlierSlashingThreshold),
+			BaseSlashingRate:          new(big.Int).SetUint64(params.TestOracleConfig.BaseSlashingRate),
 		},
 	)
 	require.NoError(t, err)
