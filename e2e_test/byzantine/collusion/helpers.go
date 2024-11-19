@@ -105,8 +105,7 @@ func initCollusion(vals []*gengen.Validator, rule autonity.Rule, planer collusio
 
 	b := &collusion{
 		rule:      rule,
-		leader:    faultyMembers[0],
-		followers: faultyMembers[1:],
+		followers: faultyMembers[:],
 	}
 	planer.setupRoles(b.leader, b.followers)
 
@@ -185,7 +184,7 @@ func setupCollusionContext(c faultyBroadcaster, rule autonity.Rule) {
 	leader := c.Address()
 	futureHeight := c.Height().Uint64() + 5
 	round := int64(0)
-	epoch, _ := c.Backend().BlockChain().LatestEpoch()
+	epoch, _ := c.Backend().BlockChain().EpochByHeight(c.Height().Uint64())
 
 	contract := c.Backend().BlockChain().ProtocolContracts()
 	for ; ; round++ {
