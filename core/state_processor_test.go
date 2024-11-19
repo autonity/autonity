@@ -61,7 +61,7 @@ func TestStateProcessorErrors(t *testing.T) {
 			Ethash:                       new(params.EthashConfig),
 			AutonityContractConfig:       params.TestAutonityContractConfig,
 			AccountabilityConfig:         params.DefaultAccountabilityConfig,
-			OracleContractConfig:         params.DefaultGenesisOracleConfig,
+			OracleContractConfig:         params.TestOracleConfig,
 			OmissionAccountabilityConfig: params.DefaultOmissionAccountabilityConfig,
 		}
 		signer  = types.LatestSigner(config)
@@ -236,7 +236,7 @@ func TestStateProcessorErrors(t *testing.T) {
 					LondonBlock:                  big.NewInt(1000),
 					AutonityContractConfig:       params.TestAutonityContractConfig,
 					AccountabilityConfig:         params.DefaultAccountabilityConfig,
-					OracleContractConfig:         params.DefaultGenesisOracleConfig,
+					OracleContractConfig:         params.TestOracleConfig,
 					OmissionAccountabilityConfig: params.DefaultOmissionAccountabilityConfig,
 				},
 				Alloc: GenesisAlloc{

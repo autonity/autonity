@@ -22,7 +22,7 @@ import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
-    enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
+enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
 uint8 constant DECIMALS = 18;
 
 contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable {
