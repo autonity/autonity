@@ -83,7 +83,7 @@ func (c *colludedPVNFollower) SendPrevote(_ context.Context, _ bool) {
 	// send prevote for the planned invalid proposal for PVN
 	h := c.Height().Uint64()
 	r := c.Round()
-	value := common.Hash{}
+	var value common.Hash
 	if h != collusionHeight {
 		proposal := c.CurRoundMessages().Proposal()
 		if proposal == nil {
