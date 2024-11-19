@@ -585,7 +585,7 @@ contract Oracle is IOracle {
             }
             // median here is assumed to be non-0.
             // we don't want the following to underflow
-            int256 _ratio = (_median - int256(uint256(reports[_symbol][_voter].price)) * 100) / _median;
+            int256 _ratio = (_median - int256(uint256(reports[_symbol][_voter].price))) * 100 / _median;
             if (_ratio <= config.outlierDetectionThreshold && - 1 * _ratio <= config.outlierDetectionThreshold) {
                 _filteredReports[_totalReports++] = reports[_symbol][_voter];
                 // take advantage of this iteration to include performance calculation
