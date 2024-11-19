@@ -66,7 +66,7 @@ var genesisTest = struct {
 					]
 				},
     			"oracle": {
-      				"votePeriod": 30
+      				"votePeriod": 10
 				},
 				"accountability": {
 					  "innocenceProofSubmissionWindow": 30,
@@ -135,7 +135,7 @@ var genesisTest = struct {
 					]
 				},
     			"oracle": {
-      				"votePeriod": 30
+      				"votePeriod": 10
 				},
 				"accountability": {
 					  "innocenceProofSubmissionWindow": 30,
@@ -192,7 +192,7 @@ var genesisTest = struct {
 					]
 				},
     			"oracle": {
-      				"votePeriod": 30
+      				"votePeriod": 10
 				},
 				"accountability": {
 					  "innocenceProofSubmissionWindow": 30,

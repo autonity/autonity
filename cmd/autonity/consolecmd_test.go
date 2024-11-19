@@ -82,7 +82,7 @@ var genesis = `{
 					  "jailFactor": 48
 					},
     			"oracle": {
-      				"votePeriod": 30
+      				"votePeriod": 10
 				},
 				"omissionAccountability": {
                       "inactivityThreshold": 1000,
