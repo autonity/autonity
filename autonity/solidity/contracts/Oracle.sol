@@ -60,8 +60,6 @@ contract Oracle is IOracle {
     uint256 private round;
     mapping(string => Price)[] internal prices;
 
-    //rewards accounting
-    uint256 private aggregatedScore;
     // voting periods are not necessarily in sync with epoch rewards, so we need to keep track of
     // rewards for each over the epoch, and distribute for all voting periods that concluded this epoch
     EnumerableSet.AddressSet private rewardReceivers;
@@ -233,8 +231,9 @@ contract Oracle is IOracle {
         if (rewardPeriodAggregatedScore == 0) {
             return;
         }
-        for (uint256 i = 0; i < rewardReceivers.length(); i++) {
-            address _voter = rewardReceivers.at(i);
+        address[] memory _receivers = rewardReceivers.values();
+        for (uint256 i = 0; i < _receivers.length; i++) {
+            address _voter = _receivers[i];
             uint256 _atn = (_totalATN * rewardPeriodPerformance[_voter]) / rewardPeriodAggregatedScore;
             uint256 _ntn = (_totalNTN * rewardPeriodPerformance[_voter]) / rewardPeriodAggregatedScore;
 
@@ -591,7 +590,6 @@ contract Oracle is IOracle {
                 _filteredReports[_totalReports++] = reports[_symbol][_voter];
                 // take advantage of this iteration to include performance calculation
                 voterInfo[_voter].performance += reports[_symbol][_voter].confidence;
-                aggregatedScore += reports[_symbol][_voter].confidence;
             } else {
                 _outliers[i - _totalReports] = _voter;
             }

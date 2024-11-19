@@ -1415,7 +1415,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
 
         _transfer(address(this), address(config.contracts.oracleContract), _ntnOracleRewards);
-        config.contracts.oracleContract.distributeRewards{value: _atnOracleRewards}(_ntnOracleRewards);
+        config.contracts.oracleContract.distributeRewards{value: _atnOracleRewards}(
+            accounts[address(config.contracts.oracleContract)]
+        );
 
         // send withheld funds to the appropriate pool
         if (_atnTotalWithheld > 0) {
