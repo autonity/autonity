@@ -105,7 +105,8 @@ func initCollusion(vals []*gengen.Validator, rule autonity.Rule, planer collusio
 
 	b := &collusion{
 		rule:      rule,
-		followers: faultyMembers[:],
+		leader:    faultyMembers[0],
+		followers: faultyMembers[1:],
 	}
 	planer.setupRoles(b.leader, b.followers)
 

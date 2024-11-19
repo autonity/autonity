@@ -65,12 +65,13 @@ func newCollusionPVNPlaner() *collusionPVNPlanner {
 func (p *collusionPVNPlanner) setupRoles(leader *gengen.Validator, followers []*gengen.Validator) {
 	// To simulate PVN collusion, we ask a member to be leader to propose an invalid new proposal,
 	// and the followers should pre-vote for the invalid proposal as a valid one.
+	leader.TendermintServices = &interfaces.Services{Prevoter: newColludedPVNNode}
 	for _, f := range followers {
-		f.TendermintServices = &interfaces.Services{Prevoter: newColludedPVNFollower}
+		f.TendermintServices = &interfaces.Services{Prevoter: newColludedPVNNode}
 	}
 }
 
-func newColludedPVNFollower(c interfaces.Core) interfaces.Prevoter {
+func newColludedPVNNode(c interfaces.Core) interfaces.Prevoter {
 	return &colludedPVNFollower{c.(*core.Core), c.Prevoter()}
 }
 
