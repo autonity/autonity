@@ -477,4 +477,25 @@ func TestVotersUpdate(t *testing.T) {
 		checkCommittee(r, newCommitteeSet)
 		checkVoterUpdate(r, oldVoters)
 	})
+
+	RunWithSetup("new voters are updated properly (new voters and old voters have empty intersection set) with edge case on voting period (votingPeriod * 2 = epochPeriod)", setup, func(r *Runner) {
+		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		votingPeriod := new(big.Int).Div(epochPeriod, big.NewInt(2))
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, votingPeriod),
+		)
+		if epochPeriod.Int64()%2 == 1 {
+			r.NoError(
+				r.Autonity.SetEpochPeriod(r.Operator, new(big.Int).Sub(epochPeriod, common.Big1)),
+			)
+		}
+		r.WaitNextEpoch()
+		newCommitteeSet := addToCommittee(r, 2)
+		removeFromCommittee(r, len(r.Committee.Validators))
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, oldVoters)
+	})
 }
