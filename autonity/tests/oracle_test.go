@@ -1,25 +1,18 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
-	"github.com/stretchr/testify/require"
+	"github.com/autonity/autonity/params"
 )
-
-func makeCommit(salt *big.Int, sender common.Address, reports []*big.Int) *big.Int {
-	buffer := make([]byte, 0)
-	for i := range reports {
-		buffer = append(buffer, common.LeftPadBytes(reports[i].Bytes(), 32)...)
-	}
-	buffer = append(buffer, common.LeftPadBytes(salt.Bytes(), 32)...)
-	buffer = append(buffer, sender.Bytes()...)
-	return new(big.Int).SetBytes(crypto.Keccak256(buffer))
-}
 
 /*
 func TestSimpleVote(t *testing.T) {
@@ -89,6 +82,151 @@ func TestSimpleVote(t *testing.T) {
 }
 
 */
+
+// abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.
+var ReportABIEncodeSchema = []byte("[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"struct Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}]")
+
+func genReports(n int) []IOracleReport {
+	var reports []IOracleReport
+	for i := 0; i < n; i++ {
+		reports = append(reports, IOracleReport{
+			Price:      big.NewInt(1000),
+			Confidence: 100,
+		})
+	}
+	return reports
+}
+
+func makeCommit(t *testing.T, salt *big.Int, sender common.Address, reports []IOracleReport) *big.Int {
+	var args abi.Arguments
+	err := json.Unmarshal(ReportABIEncodeSchema, &args)
+	require.NoError(t, err)
+
+	var hash common.Hash
+	bytes, err := args.Pack(reports, salt, sender)
+	require.NoError(t, err)
+
+	hash = crypto.Keccak256Hash(bytes)
+	return new(big.Int).SetBytes(hash[:])
+
+}
+
+func TestRewardsDistribution(t *testing.T) {
+	// we purposefully pick an epoch period that does not divide evenly into the vote period
+	// this checks that the rewards are distributed correctly even when the rewards distribution does not
+	// align with the vote period end (default vote period in testing is 10 blocks)
+	epochPeriod := 55
+
+	setup := func() *Runner {
+		r := Setup(t, func(genesis *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+			genesis.ProposerRewardRate = 0
+			// set oracle reward rate to 100% to simplify the test
+			genesis.OracleRewardRate = 10_000
+			genesis.EpochPeriod = uint64(epochPeriod)
+			genesis.TreasuryFee = 0
+			return genesis
+		})
+		return r
+	}
+
+	RunWithSetup("all correctly reporting voters get equal reward", setup, func(r *Runner) {
+		// set up some rewards
+		r.GiveMeSomeMoney(r.Autonity.address, big.NewInt(1_000_000_000_000))
+		totalRewards := r.RewardsAfterOneEpoch()
+
+		oracle := r.Oracle
+
+		symbols, _, err := oracle.GetSymbols(nil)
+		require.NoError(t, err)
+
+		period, _, err := oracle.GetVotePeriod(nil)
+		require.NoError(t, err)
+		votePeriod := int(period.Int64())
+
+		ntnStakes := make(map[common.Address]*big.Int)
+		atnBalances := make(map[common.Address]*big.Int)
+		for _, val := range r.Committee.Validators {
+			ntnStakes[val.Treasury] = val.SelfBondedStake
+			atnBalances[val.Treasury] = r.GetBalanceOf(val.Treasury)
+		}
+
+		voters := func() []common.Address {
+			var vs []common.Address
+			for _, val := range r.Committee.Validators {
+				vs = append(vs, val.OracleAddress)
+			}
+			return vs
+		}()
+
+		// initial commit
+		for _, voter := range voters {
+			_, err := oracle.Vote(
+				&runOptions{origin: voter},
+				makeCommit(r.T, big.NewInt(0), voter, genReports(len(symbols))),
+				nil,
+				big.NewInt(1),
+				0,
+			)
+			require.NoError(t, err)
+		}
+
+		r.WaitNBlocks(votePeriod)
+
+		// now vote until the end of the epoch
+		for i := 0; i < (epochPeriod/votePeriod)-1; i++ {
+			for _, voter := range voters {
+				_, err := oracle.Vote(
+					&runOptions{origin: voter},
+					makeCommit(r.T, big.NewInt(int64(i+1)), voter, genReports(len(symbols))),
+					genReports(len(symbols)),
+					big.NewInt(int64(i)),
+					0,
+				)
+				require.NoError(t, err)
+			}
+			r.WaitNBlocks(votePeriod)
+		}
+
+		// check performance
+		for _, voter := range voters {
+			performance, _, err := oracle.GetRewardPeriodPerformance(nil, voter)
+			require.NoError(t, err)
+			// should be confidence * n_symbols * n_rounds
+			require.Equal(t, big.NewInt(int64(len(symbols)*100*(epochPeriod/votePeriod-1))), performance)
+		}
+
+		// there may still be some blocks left in the epoch
+		r.WaitNextEpoch()
+
+		// performance should be reset to zero
+		for _, voter := range voters {
+			performance, _, err := oracle.GetRewardPeriodPerformance(nil, voter)
+			require.NoError(t, err)
+			require.Equal(t, uint64(0), performance.Uint64())
+		}
+
+		// rewards should be distributed according to performance / num_voters
+		expectedNTNReward := new(big.Int).Div(totalRewards.RewardNTN, big.NewInt(int64(len(voters))))
+		expectedATNReward := new(big.Int).Div(totalRewards.RewardATN, big.NewInt(int64(len(voters))))
+		for _, val := range r.Committee.Validators {
+			ntnStakeBefore := ntnStakes[val.Treasury]
+			atnBalanceBefore := atnBalances[val.Treasury]
+
+			info, _, err := r.Autonity.GetValidator(nil, val.NodeAddress)
+			require.NoError(t, err)
+
+			ntnStakeAfter := info.SelfBondedStake
+			atnBalanceAfter := r.GetBalanceOf(val.Treasury)
+
+			diffNTN := new(big.Int).Sub(ntnStakeAfter, ntnStakeBefore)
+			diffATN := new(big.Int).Sub(atnBalanceAfter, atnBalanceBefore)
+
+			require.Equal(t, expectedNTNReward, diffNTN)
+			require.True(t, diffATN.Cmp(big.NewInt(0)) > 0)
+			require.Equal(t, expectedATNReward, diffATN)
+		}
+	})
+}
 
 func TestReportPacking(t *testing.T) {
 	// Define your Solidity-like function arguments

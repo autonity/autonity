@@ -401,6 +401,13 @@ contract Oracle is IOracle {
     }
 
     /**
+    * @notice Retrieve the performance for a voter in this reward (epoch) period.
+    */
+    function getRewardPeriodPerformance(address _voter) external view returns (uint256) {
+        return rewardPeriodPerformance[_voter];
+    }
+
+    /**
     * @notice Retrieve the vote period.
     * @dev IOracle interface method implementation.
     */
