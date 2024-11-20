@@ -354,10 +354,10 @@ func DeployOracleContract(genesisConfig *params.ChainConfig, evmContracts *Genes
 	treasuries := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
 	nodeAddresses := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
 
-	for _, val := range genesisConfig.AutonityContractConfig.Validators {
-		voters = append(voters, val.OracleAddress)
-		treasuries = append(treasuries, val.Treasury)
-		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
+	for i, val := range genesisConfig.AutonityContractConfig.Validators {
+		voters[i] = val.OracleAddress
+		treasuries[i] = val.Treasury
+		nodeAddresses[i] = *val.NodeAddress
 	}
 
 	err := evmContracts.DeployOracleContract(
