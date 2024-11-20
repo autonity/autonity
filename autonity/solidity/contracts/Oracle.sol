@@ -61,8 +61,12 @@ contract Oracle is IOracle {
     mapping(string => Price)[] internal prices;
 
     // voting periods are not necessarily in sync with epoch rewards, so we need to keep track of
-    // rewards for each over the epoch, and distribute for all voting periods that concluded this epoch
+    // rewards for each voter over the epoch, and distribute for all voting periods that concluded this epoch
     EnumerableSet.AddressSet private rewardReceivers;
+
+    // in the voterInfo mapping we only store the performance for the current voting round
+    // in order to persist information between epochs and voter sets, we keep a separate accumulating
+    // mapping for all rounds ended this epoch
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
 
