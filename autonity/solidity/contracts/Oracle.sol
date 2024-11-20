@@ -210,7 +210,7 @@ contract Oracle is IOracle {
         return true;
     }
 
-    function _finalizeRewards() onlyAutonity internal {
+    function _finalizeRewards() internal {
         for (uint256 i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             if (voterInfo[_voter].performance > 0) {
