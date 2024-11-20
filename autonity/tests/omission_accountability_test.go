@@ -754,6 +754,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 			config.TreasuryFee = 0
 			// set max committee and ProposerRewardRate so that all rewards go to proposer
 			config.ProposerRewardRate = 10_000
+			config.OracleRewardRate = 0
 			config.MaxCommitteeSize = 4
 			return config
 		})
