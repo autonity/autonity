@@ -101,6 +101,12 @@ interface IOracle {
     * @notice Retrieve the current voters in the committee.
     */
     function getVoters() external view returns(address[] memory);
+
+    /**
+    * @notice Retrieve the new voters in the committee.
+    */
+    function getNewVoters() external view returns(address[] memory);
+
     /**
      * @notice Retrieve the current round ID.
     */

@@ -369,11 +369,19 @@ contract Oracle is IOracle {
     }
 
     /**
-    * @notice Retrieve the list of participants in the Oracle process.
-    * @dev IOracle interface method implementation.
-    */
-    function getVoters() external view returns (address[] memory) {
+     * @notice Retrieve the list of new participants in the Oracle process.
+     * @dev IOracle interface method implementation.
+     */
+    function getNewVoters() external view returns (address[] memory) {
         return newVoters;
+    }
+
+    /**
+     * @notice Retrieve the list of participants in the Oracle process.
+     * @dev IOracle interface method implementation.
+     */
+    function getVoters() external view returns (address[] memory) {
+        return voters;
     }
 
     /**

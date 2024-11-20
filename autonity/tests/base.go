@@ -582,10 +582,12 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	require.Equal(t, r.Autonity.address, params.AutonityContractAddress)
 	_, err = r.Autonity.FinalizeInitialization(nil, new(big.Int).SetUint64(params.DefaultOmissionAccountabilityConfig.Delta))
 	require.NoError(t, err)
+
 	r.Committee.LiquidStateContracts = make([]*ILiquid, 0, len(autonityGenesis.Validators))
-	for _, v := range autonityGenesis.Validators {
+	for i, v := range autonityGenesis.Validators {
 		validator, _, err := r.Autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.T, err)
+		r.Committee.Validators[i] = validator
 		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.LiquidStateContract(validator.NodeAddress))
 	}
 	//
