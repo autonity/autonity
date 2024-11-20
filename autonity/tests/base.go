@@ -612,10 +612,10 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	voters := make([]common.Address, len(autonityGenesis.Validators))
 	nodeAddresses := make([]common.Address, len(autonityGenesis.Validators))
 	treasuries := make([]common.Address, len(autonityGenesis.Validators))
-	for _, val := range autonityGenesis.Validators {
-		voters = append(voters, val.OracleAddress)
-		treasuries = append(treasuries, val.Treasury)
-		nodeAddresses = append(nodeAddresses, *val.NodeAddress)
+	for i, val := range autonityGenesis.Validators {
+		voters[i] = val.OracleAddress
+		treasuries[i] = val.Treasury
+		nodeAddresses[i] = *val.NodeAddress
 	}
 	_, _, r.Oracle, err = r.DeployOracle(nil,
 		voters,

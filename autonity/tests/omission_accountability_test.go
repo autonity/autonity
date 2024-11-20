@@ -880,6 +880,7 @@ func TestRewardWithholding(t *testing.T) {
 		config.TreasuryFee = 0        // same
 		// increase voting power of validator 0 to reach quorum in proofs easily
 		config.Validators[0].BondedStake = new(big.Int).Mul(config.Validators[1].BondedStake, big.NewInt(6))
+		config.OracleRewardRate = 0
 		return config
 	})
 
