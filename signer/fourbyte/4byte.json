@@ -184,5 +184,6 @@
   "f0141d84": "getDecimals()",
   "da78110e": "setVoters(address[],address[],address[])",
   "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)",
-  "b6a702b3": "updateVoters()"
+  "b6a702b3": "updateVoters()",
+  "077945d3": "getNewVoters()"
 }
