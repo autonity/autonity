@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -220,8 +221,8 @@ func (r *Runner) GetNewtonBalanceOf(account common.Address) *big.Int {
 	return balance
 }
 
-func (r *Runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte, params ...any) (common.Address, uint64, *contract, error) {
-	args, err := abi.Pack("", params...)
+func (r *Runner) deployContract(opts *runOptions, contractAbi *abi.ABI, bytecode []byte, params ...any) (common.Address, uint64, *contract, error) {
+	args, err := contractAbi.Pack("", params...)
 	require.NoError(r.T, err)
 	data := append(bytecode, args...)
 	gas := uint64(math.MaxUint64)
@@ -233,8 +234,12 @@ func (r *Runner) deployContract(opts *runOptions, abi *abi.ABI, bytecode []byte,
 			value = opts.value
 		}
 	}
-	_, contractAddress, leftOverGas, err := r.Evm.Create(vm.AccountRef(r.Evm.Origin), data, gas, value)
-	return contractAddress, gas - leftOverGas, &contract{contractAddress, abi, r}, err
+	out, contractAddress, leftOverGas, err := r.Evm.Create(vm.AccountRef(r.Evm.Origin), data, gas, value)
+	if err != nil {
+		reason, _ := abi.UnpackRevert(out)
+		return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, fmt.Errorf("%w: %s", err, reason)
+	}
+	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, err
 }
 
 // generates an activity proof signed by all committee members, `absentees` excluded
@@ -822,4 +827,36 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 		Epoch:          common.Big0,                           // assigned contract-side
 		MessageHash:    common.Big0,                           // assigned contract-side
 	}
+}
+
+func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, blst.SecretKey, error) {
+	var privateKey *ecdsa.PrivateKey
+	var secretKey blst.SecretKey
+	var err error
+	for {
+		privateKey, err = crypto.GenerateKey()
+		if err == nil {
+			break
+		}
+	}
+	for {
+		secretKey, err = blst.RandKey()
+		if err == nil {
+			break
+		}
+	}
+	// ecdsaSecretKeyList[i] = privateKey
+	// blsSecretKeyList[i] = &secretKey
+	consensusKey := secretKey.PublicKey()
+	publicKey := privateKey.PublicKey
+	enode := "enode://" + string(crypto.PubECDSAToHex(&publicKey)[2:]) + "@3.209.45.79:30303"
+	address := crypto.PubkeyToAddress(publicKey)
+	validator := params.Validator{
+		Treasury:      address,
+		Enode:         enode,
+		OracleAddress: address,
+		ConsensusKey:  consensusKey.Marshal(),
+	}
+	pop, err := crypto.AutonityPOPProof(privateKey, privateKey, address.Hex(), secretKey)
+	return validator, pop, privateKey, secretKey, err
 }

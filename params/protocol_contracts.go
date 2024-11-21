@@ -495,7 +495,7 @@ func (s *Schedule) Validate() error {
 	if s.Amount == nil {
 		return errors.New("amount must be specified")
 	}
-	if s.VaultAddress == common.HexToAddress("0") {
+	if deep.Equal(s.VaultAddress, common.Address{}) {
 		s.VaultAddress = NonStakeableVestingContractAddress
 	}
 	return nil

@@ -182,6 +182,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
+    mapping(address => uint256) internal oraclesExist; // 0 for false, true otherwise
     uint256 internal stakeSupply;
     uint256 internal stakeCirculating;
     uint256 public inflationReserve;
@@ -286,12 +287,18 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _validators[i].liquidSupply = 0;
             _validators[i].liquidStateContract = ILiquid(address(0));
             _validators[i].bondedStake = 0;
+            _validators[i].selfBondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.policy.delegationRate;
             _validators[i].state = ValidatorState.active;
             _validators[i].selfUnbondingStakeLocked = 0;
+            _validators[i].unbondingStake = 0;
+            _validators[i].selfUnbondingStake = 0;
+            _validators[i].unbondingShares = 0;
+            _validators[i].selfUnbondingShares = 0;
 
             _verifyEnode(_validators[i]);
+            _registerOracle(_validators[i].oracleAddress);
             _deployLiquidStateContract(_validators[i]);
 
             accounts[_validators[i].treasury] += _bondedStake;
@@ -1468,6 +1475,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         validators[_validator.nodeAddress] = _validator;
     }
 
+    function _registerOracle(address _oracle) internal virtual {
+        require(oraclesExist[_oracle] == 0, "oracle server exists");
+        oraclesExist[_oracle] = 1;
+    }
+
     function _verifyAndRegisterValidator(Validator memory _validator, bytes memory _signatures) internal virtual {
         require(_signatures.length == POP_LEN, "Invalid proof length");
         require(_validator.oracleAddress == address(uint160(_validator.oracleAddress)), "Invalid oracle address");
@@ -1498,6 +1510,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         require(signers[1] == _validator.oracleAddress, "Invalid oracle key ownership proof provided");
         require(Precompiled.popVerification(_validator.consensusKey, blsSignature, _validator.treasury) == Precompiled.SUCCESS,
             "Invalid consensus key ownership proof for registration");
+        _registerOracle(_validator.oracleAddress);
 
         // all good, now deploy liquidity contract.
         _deployLiquidStateContract(_validator);
