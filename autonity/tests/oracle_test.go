@@ -492,6 +492,15 @@ func TestVotersUpdate(t *testing.T) {
 		voters := getVoters(r)
 		newVoterCheck(r, voters, true)
 		voterCheck(r, voters)
+
+		// check if old voters got their access removed
+		for v := range oldVoters {
+			if _, ok := voters[v]; !ok {
+				voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+				require.NoError(r.T, err)
+				require.False(r.T, voterInfo.IsVoter)
+			}
+		}
 	}
 
 	getCommitteeSet := func(r *Runner) map[common.Address]struct{} {
