@@ -67,18 +67,24 @@ interface IOracle {
      */
     function finalize() external returns (bool);
 
+    /**
+     * @notice Called when the previous round is ended. Updates the voter info for new voters.
+     * @dev Only accessible from the Autonity Contract.
+     */
+    function updateVoters() external;
+
 
     /**
     * @dev Signal that rewards are available. Only accessible from the autonity contract.
     *
     */
-    function receiveRewards() external payable returns (bool);
+    function distributeRewards(uint256 _ntnRewards) external payable;
 
     /**
      * @notice Called to update the list of the oracle voters.
      * @dev Only accessible from the Autonity Contract.
      */
-    function setVoters(address[] memory _newVoters) external;
+    function setVoters(address[] memory _newVoters, address[] memory _treasury, address[] memory _validator) external;
 
     /**
      * @notice Called to update the governance operator account.
@@ -95,6 +101,12 @@ interface IOracle {
     * @notice Retrieve the current voters in the committee.
     */
     function getVoters() external view returns(address[] memory);
+
+    /**
+    * @notice Retrieve the new voters in the committee.
+    */
+    function getNewVoters() external view returns(address[] memory);
+
     /**
      * @notice Retrieve the current round ID.
     */

@@ -351,12 +351,19 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 
 func DeployOracleContract(genesisConfig *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
 	voters := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
-	for _, val := range genesisConfig.AutonityContractConfig.Validators {
-		voters = append(voters, val.OracleAddress)
+	treasuries := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+	nodeAddresses := make([]common.Address, len(genesisConfig.AutonityContractConfig.Validators))
+
+	for i, val := range genesisConfig.AutonityContractConfig.Validators {
+		voters[i] = val.OracleAddress
+		treasuries[i] = val.Treasury
+		nodeAddresses[i] = *val.NodeAddress
 	}
 
 	err := evmContracts.DeployOracleContract(
 		voters,
+		nodeAddresses,
+		treasuries,
 		genesisConfig.OracleContractConfig.Symbols,
 		OracleConfig{
 			Autonity:                  params.AutonityContractAddress,

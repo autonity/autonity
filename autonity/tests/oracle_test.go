@@ -1,24 +1,18 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
 )
-
-func makeCommit(salt *big.Int, sender common.Address, reports []*big.Int) *big.Int {
-	buffer := make([]byte, 0)
-	for i := range reports {
-		buffer = append(buffer, common.LeftPadBytes(reports[i].Bytes(), 32)...)
-	}
-	buffer = append(buffer, common.LeftPadBytes(salt.Bytes(), 32)...)
-	buffer = append(buffer, sender.Bytes()...)
-	return new(big.Int).SetBytes(crypto.Keccak256(buffer))
-}
 
 /*
 func TestSimpleVote(t *testing.T) {
@@ -89,6 +83,151 @@ func TestSimpleVote(t *testing.T) {
 
 */
 
+// abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.
+var ReportABIEncodeSchema = []byte("[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"struct Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}]")
+
+func genReports(n int) []IOracleReport {
+	var reports []IOracleReport
+	for i := 0; i < n; i++ {
+		reports = append(reports, IOracleReport{
+			Price:      big.NewInt(1000),
+			Confidence: 100,
+		})
+	}
+	return reports
+}
+
+func makeCommit(t *testing.T, salt *big.Int, sender common.Address, reports []IOracleReport) *big.Int {
+	var args abi.Arguments
+	err := json.Unmarshal(ReportABIEncodeSchema, &args)
+	require.NoError(t, err)
+
+	var hash common.Hash
+	bytes, err := args.Pack(reports, salt, sender)
+	require.NoError(t, err)
+
+	hash = crypto.Keccak256Hash(bytes)
+	return new(big.Int).SetBytes(hash[:])
+
+}
+
+func TestRewardsDistribution(t *testing.T) {
+	// we purposefully pick an epoch period that does not divide evenly into the vote period
+	// this checks that the rewards are distributed correctly even when the rewards distribution does not
+	// align with the vote period end (default vote period in testing is 10 blocks)
+	epochPeriod := 55
+
+	setup := func() *Runner {
+		r := Setup(t, func(genesis *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+			genesis.ProposerRewardRate = 0
+			// set oracle reward rate to 100% to simplify the test
+			genesis.OracleRewardRate = 10_000
+			genesis.EpochPeriod = uint64(epochPeriod)
+			genesis.TreasuryFee = 0
+			return genesis
+		})
+		return r
+	}
+
+	RunWithSetup("all correctly reporting voters get equal reward", setup, func(r *Runner) {
+		// set up some rewards
+		r.GiveMeSomeMoney(r.Autonity.address, big.NewInt(1_000_000_000_000))
+		totalRewards := r.RewardsAfterOneEpoch()
+
+		oracle := r.Oracle
+
+		symbols, _, err := oracle.GetSymbols(nil)
+		require.NoError(t, err)
+
+		period, _, err := oracle.GetVotePeriod(nil)
+		require.NoError(t, err)
+		votePeriod := int(period.Int64())
+
+		ntnStakes := make(map[common.Address]*big.Int)
+		atnBalances := make(map[common.Address]*big.Int)
+		for _, val := range r.Committee.Validators {
+			ntnStakes[val.Treasury] = val.SelfBondedStake
+			atnBalances[val.Treasury] = r.GetBalanceOf(val.Treasury)
+		}
+
+		voters := func() []common.Address {
+			var vs []common.Address
+			for _, val := range r.Committee.Validators {
+				vs = append(vs, val.OracleAddress)
+			}
+			return vs
+		}()
+
+		// initial commit
+		for _, voter := range voters {
+			_, err := oracle.Vote(
+				&runOptions{origin: voter},
+				makeCommit(r.T, big.NewInt(0), voter, genReports(len(symbols))),
+				nil,
+				big.NewInt(1),
+				0,
+			)
+			require.NoError(t, err)
+		}
+
+		r.WaitNBlocks(votePeriod)
+
+		// now vote until the end of the epoch
+		for i := 0; i < (epochPeriod/votePeriod)-1; i++ {
+			for _, voter := range voters {
+				_, err := oracle.Vote(
+					&runOptions{origin: voter},
+					makeCommit(r.T, big.NewInt(int64(i+1)), voter, genReports(len(symbols))),
+					genReports(len(symbols)),
+					big.NewInt(int64(i)),
+					0,
+				)
+				require.NoError(t, err)
+			}
+			r.WaitNBlocks(votePeriod)
+		}
+
+		// check performance
+		for _, voter := range voters {
+			performance, _, err := oracle.GetRewardPeriodPerformance(nil, voter)
+			require.NoError(t, err)
+			// should be confidence * n_symbols * n_rounds
+			require.Equal(t, big.NewInt(int64(len(symbols)*100*(epochPeriod/votePeriod-1))), performance)
+		}
+
+		// there may still be some blocks left in the epoch
+		r.WaitNextEpoch()
+
+		// performance should be reset to zero
+		for _, voter := range voters {
+			performance, _, err := oracle.GetRewardPeriodPerformance(nil, voter)
+			require.NoError(t, err)
+			require.Equal(t, uint64(0), performance.Uint64())
+		}
+
+		// rewards should be distributed according to performance / num_voters
+		expectedNTNReward := new(big.Int).Div(totalRewards.RewardNTN, big.NewInt(int64(len(voters))))
+		expectedATNReward := new(big.Int).Div(totalRewards.RewardATN, big.NewInt(int64(len(voters))))
+		for _, val := range r.Committee.Validators {
+			ntnStakeBefore := ntnStakes[val.Treasury]
+			atnBalanceBefore := atnBalances[val.Treasury]
+
+			info, _, err := r.Autonity.GetValidator(nil, val.NodeAddress)
+			require.NoError(t, err)
+
+			ntnStakeAfter := info.SelfBondedStake
+			atnBalanceAfter := r.GetBalanceOf(val.Treasury)
+
+			diffNTN := new(big.Int).Sub(ntnStakeAfter, ntnStakeBefore)
+			diffATN := new(big.Int).Sub(atnBalanceAfter, atnBalanceBefore)
+
+			require.Equal(t, expectedNTNReward, diffNTN)
+			require.True(t, diffATN.Cmp(big.NewInt(0)) > 0)
+			require.Equal(t, expectedATNReward, diffATN)
+		}
+	})
+}
+
 func TestReportPacking(t *testing.T) {
 	// Define your Solidity-like function arguments
 	addressType, _ := abi.NewType("address", "", nil)
@@ -125,4 +264,385 @@ func TestReportPacking(t *testing.T) {
 	fmt.Printf("Encoded data: %x\n", packed)
 	res, _ := args.Unpack(packed)
 	fmt.Println(res)
+}
+
+func TestVotingPeriodUpdate(t *testing.T) {
+	setup := func() *Runner {
+		r := Setup(t, nil)
+		// set big values for testing
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, big.NewInt(100)),
+		)
+		r.WaitNextEpoch()
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, big.NewInt(30)),
+		)
+		return r
+	}
+
+	RunWithSetup("voting period cannot be too big", setup, func(r *Runner) {
+		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		require.True(r.T, epochPeriod.Cmp(common.Big2) >= 0, "cannot test")
+		maxVotingPeriod := new(big.Int).Div(epochPeriod, big.NewInt(2))
+		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, maxVotingPeriod),
+		)
+
+		// change the parity
+		epochPeriod = new(big.Int).Add(epochPeriod, common.Big1)
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, epochPeriod),
+		)
+		r.WaitNextEpoch()
+		newEpochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, epochPeriod, newEpochPeriod)
+		maxVotingPeriod = new(big.Int).Div(epochPeriod, big.NewInt(2))
+		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, maxVotingPeriod),
+		)
+	})
+
+	RunWithSetup("epoch period cannot be too small", setup, func(r *Runner) {
+		votingPeriod, _, err := r.Oracle.GetVotePeriod(nil)
+		require.NoError(r.T, err)
+		require.True(r.T, votingPeriod.Cmp(common.Big1) >= 0, "cannot test")
+		minEpochPeriod := new(big.Int).Mul(votingPeriod, big.NewInt(2))
+		_, err = r.Autonity.SetEpochPeriod(r.Operator, new(big.Int).Sub(minEpochPeriod, common.Big1))
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: epoch period is too small", err.Error())
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, minEpochPeriod),
+		)
+	})
+
+	RunWithSetup("voting period respects both current and new epoch period", setup, func(r *Runner) {
+		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		require.True(r.T, epochPeriod.Cmp(common.Big2) >= 0, "cannot test")
+
+		// set new epoch period bigger
+		newEpochPeriod := new(big.Int).Add(epochPeriod, big.NewInt(10))
+		maxVotingPeriod := new(big.Int).Div(epochPeriod, big.NewInt(2))
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, newEpochPeriod),
+		)
+		currentEpochPeriod, _, err := r.Autonity.GetCurrentEpochPeriod(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, epochPeriod, currentEpochPeriod)
+		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
+		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, maxVotingPeriod),
+		)
+
+		r.WaitNextEpoch()
+		epochPeriod = newEpochPeriod
+		currentEpochPeriod, _, err = r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, epochPeriod, currentEpochPeriod)
+
+		// set new epoch period smaller
+		newEpochPeriod = new(big.Int).Sub(epochPeriod, big.NewInt(10))
+		maxVotingPeriod = new(big.Int).Div(newEpochPeriod, big.NewInt(2))
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, newEpochPeriod),
+		)
+		currentEpochPeriod, _, err = r.Autonity.GetCurrentEpochPeriod(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, epochPeriod, currentEpochPeriod)
+		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, maxVotingPeriod),
+		)
+	})
+}
+
+func TestVotersUpdate(t *testing.T) {
+
+	newVoterCheck := func(r *Runner, voters map[common.Address]struct{}, isVoter bool) {
+		newVoters, _, err := r.Oracle.GetNewVoters(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, len(r.Committee.Validators), len(newVoters))
+
+		newVoterSet := make(map[common.Address]struct{})
+		for _, v := range newVoters {
+			newVoterSet[v] = struct{}{}
+		}
+
+		for _, v := range r.Committee.Validators {
+			_, ok := newVoterSet[v.OracleAddress]
+			require.True(r.T, ok)
+			voterInfo, _, err := r.Oracle.VoterInfo(nil, v.OracleAddress)
+			require.NoError(r.T, err)
+			require.Equal(r.T, v.Treasury, voterInfo.Treasury)
+			require.Equal(r.T, v.NodeAddress, voterInfo.Validator)
+			if _, ok := voters[v.OracleAddress]; ok {
+				require.Equal(r.T, true, voterInfo.IsVoter)
+			} else {
+				require.Equal(r.T, isVoter, voterInfo.IsVoter)
+			}
+		}
+	}
+
+	voterCheck := func(r *Runner, expectedVoters map[common.Address]struct{}) {
+		voters, _, err := r.Oracle.GetVoters(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, len(expectedVoters), len(voters))
+		for _, v := range voters {
+			_, ok := expectedVoters[v]
+			require.True(r.T, ok)
+			voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+			require.NoError(r.T, err)
+			validator, _, err := r.Autonity.GetValidator(nil, voterInfo.Validator)
+			require.NoError(r.T, err)
+			require.Equal(r.T, validator.Treasury, voterInfo.Treasury)
+			require.Equal(r.T, true, voterInfo.IsVoter)
+		}
+	}
+
+	getVoters := func(r *Runner) map[common.Address]struct{} {
+		voters := make(map[common.Address]struct{})
+		for _, v := range r.Committee.Validators {
+			voters[v.OracleAddress] = struct{}{}
+		}
+		return voters
+	}
+
+	setup := func() *Runner {
+		r := Setup(t, SetInflationReserveZero)
+		require.True(r.T, len(r.Committee.Validators) >= 4, "cannot test")
+		// all validators
+		allValidators := r.Committee.Validators
+		voterCount := 2
+		for i := voterCount; i < len(allValidators); i++ {
+			require.Equal(r.T, allValidators[i].SelfBondedStake, allValidators[i].BondedStake)
+			r.NoError(
+				r.Autonity.Unbond(
+					FromSender(allValidators[i].Treasury, nil),
+					allValidators[i].NodeAddress,
+					allValidators[i].SelfBondedStake,
+				),
+			)
+		}
+		// so that voting period is not a factor of epoch period
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, big.NewInt(127)),
+		)
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, big.NewInt(11)),
+		)
+		r.WaitNextEpoch()
+		require.Equal(r.T, voterCount, len(r.Committee.Validators))
+
+		// check voter info update
+		r.WaitNextEpoch()
+		voters := getVoters(r)
+		voterCheck(r, voters)
+		newVoterCheck(r, voters, true)
+
+		for {
+			released, _, err := r.Autonity.IsUnbondingReleased(nil, common.Big0)
+			require.NoError(r.T, err)
+			if released {
+				break
+			}
+			r.WaitNextEpoch()
+		}
+		return r
+	}
+
+	progressRound := func(r *Runner, round *big.Int) {
+		for {
+			r.WaitNBlocks(1)
+			newRound, _, err := r.Oracle.GetRound(nil)
+			require.NoError(r.T, err)
+			if newRound.Cmp(round) == 1 {
+				require.Equal(r.T, new(big.Int).Add(round, common.Big1), newRound, "cannot test") // newRound == round+1
+				break
+			}
+		}
+	}
+
+	checkVoterUpdate := func(r *Runner, oldVoters map[common.Address]struct{}) {
+		voterCheck(r, oldVoters)
+		newVoterCheck(r, oldVoters, false)
+
+		// progress round
+		round, _, err := r.Oracle.GetRound(nil)
+		require.NoError(r.T, err)
+		progressRound(r, round)
+		// new voters should get access for voting, but voters array not updated yet
+		round = new(big.Int).Add(round, common.Big1)
+		voterCheck(r, oldVoters)
+		newVoterCheck(r, oldVoters, true)
+
+		// progress round
+		progressRound(r, round)
+		// voters array should be updated
+		voters := getVoters(r)
+		newVoterCheck(r, voters, true)
+		voterCheck(r, voters)
+
+		// check if old voters got their access removed
+		for v := range oldVoters {
+			if _, ok := voters[v]; !ok {
+				voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+				require.NoError(r.T, err)
+				require.False(r.T, voterInfo.IsVoter)
+			}
+		}
+	}
+
+	getCommitteeSet := func(r *Runner) map[common.Address]struct{} {
+		committeeSet := make(map[common.Address]struct{})
+		for _, c := range r.Committee.Validators {
+			committeeSet[c.NodeAddress] = struct{}{}
+		}
+		return committeeSet
+	}
+
+	getAllValidators := func(r *Runner) []common.Address {
+		allValidators, _, err := r.Autonity.GetValidators(nil)
+		require.NoError(r.T, err)
+		return allValidators
+	}
+
+	checkCommittee := func(r *Runner, expectedCommittee map[common.Address]struct{}) {
+		committeeSet := getCommitteeSet(r)
+		require.Equal(r.T, len(expectedCommittee), len(committeeSet))
+		for c := range committeeSet {
+			_, ok := expectedCommittee[c]
+			require.True(r.T, ok)
+		}
+	}
+
+	addToCommittee := func(r *Runner, newVoter int) map[common.Address]struct{} {
+		committeeSet := getCommitteeSet(r)
+		allValidators := getAllValidators(r)
+		newCommitteeSet := make(map[common.Address]struct{})
+		for i := 0; newVoter > 0 && i < len(allValidators); i++ {
+			if _, ok := committeeSet[allValidators[i]]; ok {
+				continue
+			}
+			newVoter--
+			validator, _, err := r.Autonity.GetValidator(nil, allValidators[i])
+			require.NoError(r.T, err)
+			newtonBalance := r.GetNewtonBalanceOf(validator.Treasury)
+			r.NoError(
+				r.Autonity.Bond(
+					FromSender(validator.Treasury, nil),
+					validator.NodeAddress,
+					newtonBalance,
+				),
+			)
+			newCommitteeSet[validator.NodeAddress] = struct{}{}
+		}
+		require.True(r.T, newVoter == 0, "cannot test")
+		return newCommitteeSet
+	}
+
+	removeFromCommittee := func(r *Runner, removeVoter int) map[common.Address]struct{} {
+		require.True(r.T, removeVoter <= len(r.Committee.Validators))
+		removed := make(map[common.Address]struct{})
+		for i := 0; i < removeVoter; i++ {
+			validator := r.Committee.Validators[i]
+			r.NoError(
+				r.Autonity.Unbond(
+					FromSender(validator.Treasury, nil),
+					validator.NodeAddress,
+					validator.SelfBondedStake,
+				),
+			)
+			removed[validator.NodeAddress] = struct{}{}
+		}
+		return removed
+	}
+
+	RunWithSetup("new voters are updated properly (new voters and old voters have empty intersection set)", setup, func(r *Runner) {
+		newCommitteeSet := addToCommittee(r, 2)
+		removeFromCommittee(r, len(r.Committee.Validators))
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, oldVoters)
+	})
+
+	RunWithSetup("new voters are updated properly (new voters and old voters are same)", setup, func(r *Runner) {
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkVoterUpdate(r, oldVoters)
+	})
+
+	RunWithSetup("new voters are updated properly (new voters and old voters have non-empty intersection set)", setup, func(r *Runner) {
+		require.True(r.T, len(r.Committee.Validators) > 1, "cannot test")
+		newCommitteeSet := addToCommittee(r, 1)
+		removed := removeFromCommittee(r, 1)
+		for _, c := range r.Committee.Validators {
+			if _, ok := removed[c.NodeAddress]; !ok {
+				newCommitteeSet[c.NodeAddress] = struct{}{}
+			}
+		}
+		require.True(r.T, len(newCommitteeSet) > 1, "cannot test")
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, oldVoters)
+	})
+
+	RunWithSetup("new voters are updated properly (new voters set is a subset of old voters set)", setup, func(r *Runner) {
+		require.True(r.T, len(r.Committee.Validators) > 1, "cannot test")
+		removed := removeFromCommittee(r, 1)
+		newCommitteeSet := make(map[common.Address]struct{})
+		for _, c := range r.Committee.Validators {
+			if _, ok := removed[c.NodeAddress]; !ok {
+				newCommitteeSet[c.NodeAddress] = struct{}{}
+			}
+		}
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, oldVoters)
+	})
+
+	RunWithSetup("new voters are updated properly (new voters set is a superset of old voters set)", setup, func(r *Runner) {
+		newCommitteeSet := addToCommittee(r, 1)
+		for _, c := range r.Committee.Validators {
+			newCommitteeSet[c.NodeAddress] = struct{}{}
+		}
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, oldVoters)
+	})
+
+	RunWithSetup("new voters are updated properly (new voters and old voters have empty intersection set) with edge case on voting period (votingPeriod * 2 = epochPeriod)", setup, func(r *Runner) {
+		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		votingPeriod := new(big.Int).Div(epochPeriod, big.NewInt(2))
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, votingPeriod),
+		)
+		if epochPeriod.Int64()%2 == 1 {
+			r.NoError(
+				r.Autonity.SetEpochPeriod(r.Operator, new(big.Int).Sub(epochPeriod, common.Big1)),
+			)
+		}
+		r.WaitNextEpoch()
+		newCommitteeSet := addToCommittee(r, 2)
+		removeFromCommittee(r, len(r.Committee.Validators))
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, oldVoters)
+	})
 }

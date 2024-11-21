@@ -547,6 +547,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 			InitialInflationReserve: (*big.Int)(autonityGenesis.InitialInflationReserve),
 			WithholdingThreshold:    new(big.Int).SetUint64(autonityGenesis.WithholdingThreshold),
 			ProposerRewardRate:      new(big.Int).SetUint64(autonityGenesis.ProposerRewardRate),
+			OracleRewardRate:        new(big.Int).SetUint64(autonityGenesis.OracleRewardRate),
 			WithheldRewardsPool:     autonityGenesis.Operator,
 			TreasuryAccount:         autonityGenesis.Operator,
 		},
@@ -581,10 +582,12 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	require.Equal(t, r.Autonity.address, params.AutonityContractAddress)
 	_, err = r.Autonity.FinalizeInitialization(nil, new(big.Int).SetUint64(params.DefaultOmissionAccountabilityConfig.Delta))
 	require.NoError(t, err)
+
 	r.Committee.LiquidStateContracts = make([]*ILiquid, 0, len(autonityGenesis.Validators))
-	for _, v := range autonityGenesis.Validators {
+	for i, v := range autonityGenesis.Validators {
 		validator, _, err := r.Autonity.GetValidator(nil, *v.NodeAddress)
 		require.NoError(r.T, err)
+		r.Committee.Validators[i] = validator
 		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.LiquidStateContract(validator.NodeAddress))
 	}
 	//
@@ -609,15 +612,27 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	// Step 3: Oracle contract deployment
 	//
 	voters := make([]common.Address, len(autonityGenesis.Validators))
-	for _, val := range autonityGenesis.Validators {
-		voters = append(voters, val.OracleAddress)
+	nodeAddresses := make([]common.Address, len(autonityGenesis.Validators))
+	treasuries := make([]common.Address, len(autonityGenesis.Validators))
+	for i, val := range autonityGenesis.Validators {
+		voters[i] = val.OracleAddress
+		treasuries[i] = val.Treasury
+		nodeAddresses[i] = *val.NodeAddress
 	}
 	_, _, r.Oracle, err = r.DeployOracle(nil,
 		voters,
-		r.Autonity.address,
-		autonityConfig.Protocol.OperatorAccount,
+		nodeAddresses,
+		treasuries,
 		params.DefaultGenesisOracleConfig.Symbols,
-		new(big.Int).SetUint64(params.DefaultGenesisOracleConfig.VotePeriod))
+		OracleConfig{
+			Autonity:                  r.Autonity.address,
+			Operator:                  autonityConfig.Protocol.OperatorAccount,
+			VotePeriod:                new(big.Int).SetUint64(params.TestOracleConfig.VotePeriod),
+			OutlierDetectionThreshold: new(big.Int).SetUint64(params.TestOracleConfig.OutlierDetectionThreshold),
+			OutlierSlashingThreshold:  new(big.Int).SetUint64(params.TestOracleConfig.OutlierSlashingThreshold),
+			BaseSlashingRate:          new(big.Int).SetUint64(params.TestOracleConfig.BaseSlashingRate),
+		},
+	)
 	require.NoError(t, err)
 	require.Equal(t, r.Oracle.address, params.OracleContractAddress)
 	//
@@ -714,10 +729,6 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	//
 	// Step 11: Omission Accountability Contract Deployment
 	//
-	treasuries := make([]common.Address, len(autonityGenesis.Validators))
-	for i, val := range autonityGenesis.Validators {
-		treasuries[i] = val.Treasury
-	}
 	_, _, r.OmissionAccountability, err = r.DeployOmissionAccountability(nil, r.Autonity.address, autonityConfig.Protocol.OperatorAccount, treasuries, OmissionAccountabilityConfig{
 		InactivityThreshold:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InactivityThreshold)),
 		LookbackWindow:         big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.LookbackWindow)),

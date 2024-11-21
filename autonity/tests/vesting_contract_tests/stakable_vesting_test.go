@@ -10,6 +10,7 @@ import (
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
+	"github.com/autonity/autonity/params"
 )
 
 // 1 million NTN
@@ -636,7 +637,10 @@ func TestRewardTracking(t *testing.T) {
 	contractCount := 2
 
 	setup := func() *tests.Runner {
-		r := tests.Setup(t, tests.SetInflationReserveZero)
+		r := tests.Setup(t, func(genesis *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+			genesis.OracleRewardRate = 0
+			return tests.SetInflationReserveZero(genesis)
+		})
 		// setting test mode to speed up, we don't care about activity proofs nor AC permissioning here
 		r.Evm.ChainConfig().TestMode = true
 		return r

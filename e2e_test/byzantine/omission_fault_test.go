@@ -703,6 +703,7 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 		genesis.Config.AutonityContractConfig.ProposerRewardRate = 10000          // all rewards are distributed based on proposer effort for ease of testing
 		genesis.Config.AutonityContractConfig.MaxCommitteeSize = uint64(numNodes) // make the committee full to not have reward reduction due to committee factor
 		genesis.Config.AutonityContractConfig.TreasuryFee = 0
+		genesis.Config.AutonityContractConfig.OracleRewardRate = 0
 		genesis.Alloc[params.AutonityContractAddress] = core.GenesisAccount{Balance: autonityAtns} // give some ATNs to AC for rewards
 	})
 	require.NoError(t, err)

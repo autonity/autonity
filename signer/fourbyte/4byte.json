@@ -177,5 +177,13 @@
   "625fb940": "ACTIVITY_CONTRACT()",
   "c1f1884b": "getSlashingPrecision()",
   "241ed650": "newEpochPeriod()",
-  "f7fcc510": "autobond(address,uint256,uint256)"
+  "f7fcc510": "autobond(address,uint256,uint256)",
+  "39494a06": "ORACLE_REWARD_RATE_PRECISION()",
+  "ed5676e9": "setOracleRewardRate(uint256)",
+  "59974e38": "distributeRewards(uint256)",
+  "f0141d84": "getDecimals()",
+  "da78110e": "setVoters(address[],address[],address[])",
+  "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)",
+  "b6a702b3": "updateVoters()",
+  "077945d3": "getNewVoters()"
 }

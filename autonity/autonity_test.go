@@ -396,6 +396,7 @@ func autonityTestConfig() AutonityConfig {
 			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
 			WithholdingThreshold:    new(big.Int).SetUint64(params.TestAutonityContractConfig.WithholdingThreshold),
 			ProposerRewardRate:      new(big.Int).SetUint64(params.TestAutonityContractConfig.ProposerRewardRate),
+			OracleRewardRate:        new(big.Int).SetUint64(params.TestAutonityContractConfig.OracleRewardRate),
 			WithheldRewardsPool:     params.TestAutonityContractConfig.Operator,
 			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
 		},
