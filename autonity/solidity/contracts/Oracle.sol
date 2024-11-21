@@ -298,7 +298,7 @@ contract Oracle is IOracle {
         if (_count > 0) {
             int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
             // exclude and detect outliers
-            (address[] memory _outliers, uint256 _totalOutliers, Report[] memory _filteredReports, uint256 _totalConfidence)
+            (address[] memory _outliers, uint256 _totalOutliers, Report[] memory _filteredReports, uint256 _reportsCount)
             = _findOutliers(_priceMedian, _symbol);
             // There is an extreme edge-case where everyone is detected outlier. This is left todo.
             // punish outliers if found
@@ -306,6 +306,7 @@ contract Oracle is IOracle {
                 _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
                 emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
             }
+            _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
             _success = true;
         } else {
             // use past value for price if unsuccesful
@@ -610,10 +611,9 @@ contract Oracle is IOracle {
                 // take advantage of this iteration to include performance calculation
                 voterInfo[_voter].performance += reports[_symbol][_voter].confidence;
             } else {
-                _outliers[i - _totalReports] = _voter;
+                _outliers[_totalOutliers++] = _voter;
             }
         }
-        _totalOutliers = voters.length - _totalReports;
         return (_outliers, _totalOutliers, _filteredReports, _totalReports);
     }
 
@@ -638,10 +638,10 @@ contract Oracle is IOracle {
             return;
         }
 
-        uint256 slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
-                            uint256(_report.confidence) *
-                        config.baseSlashingRate; // some scaling is prob needed here.
-        // accountability.slash(validator object, slashing rate, jail time);
+        uint256 _slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
+                               uint256(_report.confidence) *
+                               config.baseSlashingRate; // some scaling is prob needed here.
+        config.autonity.slash(voterInfo[_outlier].validator, _slashingRate);
     }
 
     /*
