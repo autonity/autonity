@@ -14,60 +14,91 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-/*
 func TestSimpleVote(t *testing.T) {
-	r := setup(t, nil)
-	symbols, _, _ := r.oracle.GetSymbols(nil)
-	votePeriod, _, _ := r.oracle.GetVotePeriod(nil)
+	r := Setup(t, nil)
+	symbols, _, _ := r.Oracle.GetSymbols(nil)
+	votePeriod, _, _ := r.Oracle.GetVotePeriod(nil)
 	tests := []struct {
-		votes    [][]*big.Int
+		votes    [][]IOracleReport
 		expected []*big.Int
 	}{
 		{
-			votes: [][]*big.Int{
-				{big.NewInt(1), big.NewInt(90009), big.NewInt(90), big.NewInt(100)},
-				{big.NewInt(10093), big.NewInt(988), big.NewInt(90), big.NewInt(99188129399)},
-				{big.NewInt(457645765), big.NewInt(237492837498), big.NewInt(18), big.NewInt(100)},
-				{big.NewInt(1), big.NewInt(90009), big.NewInt(90), big.NewInt(100)},
+			votes: [][]IOracleReport{
+				{
+					// Happy case scenario: no outliers, 100% confidence
+					{big.NewInt(225), 100},
+					{big.NewInt(226), 100},
+					{big.NewInt(228), 100},
+					{big.NewInt(230), 100},
+				},
+				{
+					// no outliers, different confidence
+					// median = 12900
+					{big.NewInt(13500), 50},
+					{big.NewInt(12600), 70},
+					{big.NewInt(12800), 100},
+					{big.NewInt(13000), 1},
+				},
+				{
+					// one outlier above median
+					// median = 13250 | upper threshold = 15369 @ 1.16
+					{big.NewInt(13500), 50},
+					{big.NewInt(12600), 70},
+					{big.NewInt(15370), 100}, // outlier +16%
+					{big.NewInt(13000), 1},
+				},
+				{
+					// one outlier below median
+					// median = 12800 | lower threshold = 10752
+					{big.NewInt(13500), 50},
+					{big.NewInt(12600), 70},
+					{big.NewInt(10753), 100}, // outlier -16%
+					{big.NewInt(13000), 1},
+				},
 			},
-			expected: []*big.Int{big.NewInt(95)},
+			expected: []*big.Int{
+				big.NewInt(95),
+				big.NewInt(12895),
+			},
 		},
 	}
 
-	test := func(r *runner, n int) {
+	test := func(r *Runner, n int) {
 		var (
-			committedVotes = make([][]*big.Int, len(r.committee.validators))
-			currentVotes   = make([][]*big.Int, len(r.committee.validators))
+			committedVotes = make([][]IOracleReport, len(r.Committee.Validators))
+			currentVotes   = make([][]IOracleReport, len(r.Committee.Validators))
 			rounds         = len(tests[n].votes)
 		)
 		for round := 0; round <= rounds; round++ {
-			for i, validator := range r.committee.validators {
+			for i, validator := range r.Committee.Validators {
 				if currentVotes[i] == nil {
-					currentVotes[i] = make([]*big.Int, len(symbols))
+					currentVotes[i] = make([]IOracleReport, len(symbols))
 				}
 				if committedVotes[i] == nil {
-					committedVotes[i] = make([]*big.Int, len(symbols))
+					committedVotes[i] = make([]IOracleReport, len(symbols))
 				}
 				for s := range symbols {
 					if round == 0 {
-						committedVotes[i][s] = common.Big0
+						committedVotes[i][s] = IOracleReport{common.Big0, 0}
+
 					}
 					if round == rounds {
-						currentVotes[i][s] = common.Big0
+						currentVotes[i][s] = IOracleReport{common.Big0, 0}
 					} else {
 						currentVotes[i][s] = tests[n].votes[round][i]
 					}
 				}
-				_, err := r.oracle.Vote(
+				_, err := r.Oracle.Vote(
 					&runOptions{origin: validator.OracleAddress},
-					makeCommit(common.Big1, validator.OracleAddress, currentVotes[i]),
+					makeCommit(r.T, common.Big1, validator.OracleAddress, currentVotes[i]),
 					committedVotes[i],
 					common.Big1,
+					87,
 				)
-				require.NoError(r.t, err)
+				require.NoError(r.T, err)
 			}
-			r.waitNBlocks(int(votePeriod.Int64()))
-			data, _, err := r.oracle.LatestRoundData(nil, symbols[0])
+			r.WaitNBlocks(int(votePeriod.Int64()))
+			data, _, err := r.Oracle.LatestRoundData(nil, symbols[0])
 			require.NoError(t, err)
 			fmt.Println(data)
 			committedVotes, currentVotes = currentVotes, committedVotes
@@ -75,13 +106,11 @@ func TestSimpleVote(t *testing.T) {
 	}
 
 	for n := range tests {
-		r.run(fmt.Sprintf("test vote - %d", n), func(r *runner) {
+		r.Run(fmt.Sprintf("test vote - %d", n), func(r *Runner) {
 			test(r, n)
 		})
 	}
 }
-
-*/
 
 // abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.
 var ReportABIEncodeSchema = []byte("[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"struct Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}]")

@@ -780,8 +780,8 @@ var (
 	TestOracleConfig = &OracleContractGenesis{
 		Symbols:                   OracleInitialSymbols,
 		VotePeriod:                10,
-		OutlierDetectionThreshold: 100,
-		OutlierSlashingThreshold:  100,
+		OutlierDetectionThreshold: 15,
+		OutlierSlashingThreshold:  20,
 		BaseSlashingRate:          10,
 	}
 
