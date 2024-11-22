@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"math/big"
 	"time"
 
@@ -616,31 +617,101 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 	sb.hasBadBlock = bc.HasBadBlock
 }
 
+func (sb *Backend) epochIdByHeader(header *types.Header) (uint64, error) {
+	stateDB, err := sb.blockchain.StateAt(header.Root)
+	if err != nil {
+		return 0, err
+	}
+	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.EpochID(header, stateDB)
+	if err != nil {
+		return 0, err
+	}
+	return lastEpochIDBig.Uint64(), nil
+}
+
+// checks if the passed value is lower than the minimum value stored in the array.
+// the array is assumed to be ordered in ascending order.
+// whatever element is considered >= empty array
+func lowerThanMin(values []uint64, value uint64) bool {
+	if len(values) == 0 {
+		return false
+	}
+	return value < values[0]
+}
+
+// appends the value to the array unless already present.
+// keeps it sorted ascending
+func appendIfNotPresent(values []uint64, value uint64) []uint64 {
+	n := len(values)
+
+	switch {
+	case n == 0:
+		// empty array, just append the value
+		values = append(values, value)
+		break
+	case value < values[n-1]:
+		// this should not happen, as events should always be related to bigger and bigger heights
+		// in case something weird happens (e.g. chain rewind), ensure the element is not already in the array and sort
+		found := false
+		for _, v := range values {
+			if v == value {
+				found = true
+			}
+		}
+		if !found {
+			values = append(values, value)
+			slices.Sort(values)
+		}
+		break
+	case value == values[n-1]:
+		// already have the value, do nothing
+		break
+	case value > values[n-1]:
+		// value is bigger than the max, append it at the end
+		values = append(values, value)
+		break
+	}
+	return values
+}
+
 func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	// subscribe to relevant events
 	var subscriptions event.SubscriptionScope
-	newEpochEventCh := make(chan *autonity.AutonityNewEpoch)
+	epochHeadCh := make(chan core.EpochHeadEvent)
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
-	subNewEpochEvent, _ := sb.blockchain.ProtocolContracts().WatchNewEpoch(nil, newEpochEventCh)
+	subEpochHead := sb.blockchain.SubscribeEpochHeadEvent(epochHeadCh)
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
-	subscriptions.Track(subNewEpochEvent)
+	subscriptions.Track(subEpochHead)
 	subscriptions.Track(subNewFaultProofs)
 	defer func() {
 		subscriptions.Close()
 		sb.wg.Done()
 	}()
 
-	// re-initialize jailed metadata from disk
+	// variables needed for p2p jailing rotation. Once we reach F voting power p2p jailed, unjail the oldest ones
+	// to preserve network liveness
+	var committee *types.Committee                // committee for the current epoch
+	var F *big.Int                                // F voting power of the committee
+	heights := make([]uint64, 0)                  // heights in which a p2p jailing happened, must stay sorted ascending
+	atHeight := make(map[uint64][]common.Address) // maps height --> validators jailed at that height
+	power := message.NewAggregatedPower()         // power of the p2p jailed validator for the current epoch
+
+	// get current epoch id and committee
 	currentHeader := sb.blockchain.CurrentBlock().Header()
-	state, err := sb.blockchain.StateAt(currentHeader.Root)
+	lastEpochID, err := sb.epochIdByHeader(currentHeader)
 	if err != nil {
-		sb.logger.Crit("Could not retrieve state at head block", "err", err)
+		sb.logger.Crit("failed to obtain last epoch id", "err", err, "height", currentHeader.Number.Uint64())
 	}
-	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.EpochID(currentHeader, state)
+	// query committee
+	committee, err = sb.blockchain.CommitteeByHeight(currentHeader.Number.Uint64())
 	if err != nil {
-		sb.logger.Crit("Could not retrieve epoch id", "err", err)
+		sb.logger.Crit("Could not retrieve committee", "err", err, "height", currentHeader.Number.Uint64())
 	}
-	lastEpochID := lastEpochIDBig.Uint64()
+	F = bft.F(committee.TotalVotingPower())
+
+	// TODO: need to re-populate heights, atHeight and power from disk as well (maybe power can be re-computed)
+
+	// re-initialize jailed metadata from disk
 	jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
 	jailedAddresses := make([]common.Address, 0, jailedCount)
 	emptyAddress := common.Address{}
@@ -662,36 +733,78 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			return
 		case <-subNewFaultProofs.Err():
 			return
+		case <-subEpochHead.Err():
+			return
 		case <-sb.stopped:
 			return
 		case ev := <-newFaultProofCh:
+			// fetch the event related to the proof
+			faultEvent, err := sb.blockchain.ProtocolContracts().Events(nil, ev.Id)
+			if err != nil {
+				// this should never happen
+				sb.logger.Crit("Can't retrieve accountability event", "id", ev.Id)
+			}
+			reportingHeight := faultEvent.ReportingBlock.Uint64()
+
 			// a fault proof against our own node has been finalized on-chain
 			// we cannot do anything about it now, let's just write a summary for the validator operator
 			if ev.Offender == sb.address {
-				event, err := sb.blockchain.ProtocolContracts().Events(nil, ev.Id)
-				if err != nil {
-					// this should never happen
-					sb.logger.Crit("Can't retrieve accountability event", "id", ev.Id)
-				}
-				eventType := autonity.AccountabilityEventType(event.EventType).String()
-				rule := autonity.Rule(event.Rule).String()
-				explanation := autonity.Rule(event.Rule).Explanation()
-				sb.logger.Warn("Your validator has been found guilty of consensus misbehaviour", "address", event.Offender, "event id", ev.Id.Uint64(), "event type", eventType, "rule", rule, "block", event.Block.Uint64(), "epoch", event.Epoch.Uint64(), "faulty message hash", common.BigToHash(event.MessageHash))
+				eventType := autonity.AccountabilityEventType(faultEvent.EventType).String()
+				rule := autonity.Rule(faultEvent.Rule).String()
+				explanation := autonity.Rule(faultEvent.Rule).Explanation()
+				sb.logger.Warn("Your validator has been found guilty of consensus misbehaviour", "address", faultEvent.Offender, "event id", ev.Id.Uint64(), "event type", eventType, "rule", rule, "block", faultEvent.Block.Uint64(), "epoch", faultEvent.Epoch.Uint64(), "faulty message hash", common.BigToHash(faultEvent.MessageHash))
 				sb.logger.Warn(explanation)
+				// allow self-jailing by not breaking here. It will not affect msg processing anyways, because the self-messages
+				// do not go through the backend checks as they are posted directly to Core and FD. However we need this to have
+				// a correctly synced p2p jailed rotation with the other validators
 			}
 			if !sb.IsJailed(ev.Offender) {
 				epochID := ev.Epoch.Uint64()
-				if epochID < lastEpochID {
-					// we don't care about these jailed validators as they are not in the committee anymore
+				if epochID < lastEpochID || lowerThanMin(heights, reportingHeight) {
+					// if epochId < lastEpochID --> offender is not in the committee anymore
+					// if lowerThanMin == true --> we already un-jailed the jailed validators of that height due to p2p jailing rotation
 					continue
 				}
+				//TODO: think about possible edge cases where events from epoch x+1 are received before we receive the EpochHeadEvent
+				offenderValidator := committee.MemberByAddress(ev.Offender)
 
 				sb.jailed.Lock()
 				// the validator is in a perpetual jailed state
 				// which should only be temporary until it gets updated at the next epoch event.
 				sb.jailed.validators[ev.Offender] = epochID
+
+				// update rotation metadata according to jailed validator
+				heights = appendIfNotPresent(heights, reportingHeight)
+				atHeight[reportingHeight] = append(atHeight[reportingHeight], ev.Offender)
+				power.Set(int(offenderValidator.Index), offenderValidator.VotingPower)
+
+				// perform rotation if needed
+				if power.Power().Cmp(F) > 0 {
+					belowF := false // actually below or equal
+					// start unjailing from oldest heights
+					var i int
+					for i = 0; i < len(heights); i++ {
+						unjailingHeight := heights[i]
+						for _, unjailedAddress := range atHeight[unjailingHeight] {
+							delete(sb.jailed.validators, unjailedAddress)
+							// TODO: reflect this change in the disk db as well
+							unjailedValidator := committee.MemberByAddress(unjailedAddress)
+							power.Unset(int(unjailedValidator.Index), unjailedValidator.VotingPower)
+							if power.Power().Cmp(F) <= 0 {
+								belowF = true // still unjail all other validators for this height to ensure fairness, but then stop unjailing
+							}
+						}
+						delete(atHeight, unjailingHeight)
+						if belowF {
+							break
+						}
+					}
+					// i always <= len(heights-1), since we will unjail everyone at the last height and go below F for sure
+					heights = heights[i+1:]
+				}
 				sb.jailed.Unlock()
 
+				// TODO: store also the additional data struct (heights, atHeight and power) in the db
 				// persist in db
 				jailedCount := rawdb.ReadJailedCount(sb.database, epochID)
 				batch := sb.database.NewBatch()
@@ -701,11 +814,12 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 					sb.logger.Crit("Batch write failed", "err", err)
 				}
 			}
-		case ev := <-newEpochEventCh:
+		case ev := <-epochHeadCh:
 			// remove jailed validators from db
 			// they cannot be in committee and their messages are discarded
 			jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
 			batch := sb.database.NewBatch()
+			// TODO: cleanup also additional structs (heights, atHeight and power)
 			for i := 0; i < int(jailedCount); i++ {
 				rawdb.DeleteJailedAddress(batch, lastEpochID, uint64(i))
 			}
@@ -721,7 +835,19 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				}
 			}
 			sb.jailed.Unlock()
-			lastEpochID = ev.Epoch.Uint64()
+
+			// clean up rotation data structures
+			heights = make([]uint64, 0, len(heights))
+			atHeight = make(map[uint64][]common.Address)
+			power = message.NewAggregatedPower()
+
+			// update committee and last epoch id
+			committee = ev.Header.Epoch.Committee
+			F = bft.F(committee.TotalVotingPower())
+			lastEpochID, err = sb.epochIdByHeader(ev.Header)
+			if err != nil {
+				sb.logger.Crit("Failed to obtain last epoch id", "err", err)
+			}
 		}
 	}
 }

@@ -608,7 +608,7 @@ func TestOldProposal(t *testing.T) {
 		prevoteMsgToBroadcast := message.NewPrevote(e.curRound, e.curHeight.Uint64(), e.curProposal.Block().Hash(), e.clientSigner, e.clientMember, e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)

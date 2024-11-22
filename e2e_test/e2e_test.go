@@ -1119,7 +1119,6 @@ func extractBackend(engine consensus.Engine) *backend.Backend {
 }
 
 func TestJailingPersistence(t *testing.T) {
-
 	vals, err := Validators(t, 12, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
@@ -1183,9 +1182,8 @@ func thirdEquivocator(c interfaces.Core) interfaces.Broadcaster {
 
 // test that once we p2p jail 1/3 of voting power, we unjail the oldest jailed validators to avoid losing liveness
 func TestJailingRotation(t *testing.T) {
-	t.Skip("TODO")
-	// 6 nodes --> f = 2
-	vals, err := Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	// 7 nodes --> f = 2
+	vals, err := Validators(t, 7, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set nodes that are doing equivocation

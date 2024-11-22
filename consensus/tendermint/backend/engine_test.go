@@ -323,6 +323,58 @@ OUT1:
 	chain.Stop()
 }
 
+func TestLowerThanMin(t *testing.T) {
+	require.False(t, lowerThanMin([]uint64{}, 4))
+	require.False(t, lowerThanMin([]uint64{}, 0))
+	require.True(t, lowerThanMin([]uint64{2}, 1))
+	require.True(t, lowerThanMin([]uint64{56, 125}, 25))
+	require.False(t, lowerThanMin([]uint64{56, 58}, 56))
+	require.False(t, lowerThanMin([]uint64{56, 89, 99}, 57))
+	require.True(t, lowerThanMin([]uint64{56, 89, 99}, 5))
+}
+
+func TestAppendIfNotPresent(t *testing.T) {
+	values := make([]uint64, 0)
+	values = appendIfNotPresent(values, uint64(1))
+	t.Log(values)
+	require.Equal(t, uint64(1), values[0])
+	values = appendIfNotPresent(values, uint64(1))
+	t.Log(values)
+	require.Equal(t, uint64(1), values[0])
+	require.Equal(t, 1, len(values))
+	values = appendIfNotPresent(values, uint64(5))
+	t.Log(values)
+	require.Equal(t, uint64(1), values[0])
+	require.Equal(t, uint64(5), values[1])
+	require.Equal(t, 2, len(values))
+	values = appendIfNotPresent(values, uint64(35))
+	t.Log(values)
+	require.Equal(t, uint64(1), values[0])
+	require.Equal(t, uint64(5), values[1])
+	require.Equal(t, uint64(35), values[2])
+	require.Equal(t, 3, len(values))
+	values = appendIfNotPresent(values, uint64(35))
+	t.Log(values)
+	require.Equal(t, 3, len(values))
+
+	// out-of-order value that is already present
+	values = appendIfNotPresent(values, uint64(5))
+	t.Log(values)
+	require.Equal(t, uint64(1), values[0])
+	require.Equal(t, uint64(5), values[1])
+	require.Equal(t, uint64(35), values[2])
+	require.Equal(t, 3, len(values))
+
+	// out-of-order value not already present
+	values = appendIfNotPresent(values, uint64(12))
+	t.Log(values)
+	require.Equal(t, uint64(1), values[0])
+	require.Equal(t, uint64(5), values[1])
+	require.Equal(t, uint64(12), values[2])
+	require.Equal(t, uint64(35), values[3])
+	require.Equal(t, 4, len(values))
+}
+
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeadersAbortValidation(t *testing.T) {
 	chain, engine := newBlockChain(1)

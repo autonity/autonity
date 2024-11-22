@@ -33,6 +33,28 @@ func TestAggregatedPower(t *testing.T) {
 	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(3))
 	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(4))
 	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(5))
+
+	aggregatedPower.Unset(0, common.Big1)
+	require.Equal(t, big.NewInt(5), aggregatedPower.Power())
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(0))
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(1))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(2))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(3))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(4))
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(5))
+
+	aggregatedPower.Unset(0, common.Big1)
+	require.Equal(t, big.NewInt(5), aggregatedPower.Power())
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(0))
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(1))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(2))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(3))
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(4))
+	require.Equal(t, uint(1), aggregatedPower.Signers().Bit(5))
+
+	aggregatedPower.Unset(5, common.Big3)
+	require.Equal(t, big.NewInt(2), aggregatedPower.Power())
+	require.Equal(t, uint(0), aggregatedPower.Signers().Bit(5))
 }
 
 func TestContribution(t *testing.T) {

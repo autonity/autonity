@@ -24,6 +24,15 @@ func (p *AggregatedPower) Set(index int, power *big.Int) {
 	p.power.Add(p.power, power)
 }
 
+func (p *AggregatedPower) Unset(index int, power *big.Int) {
+	if p.signers.Bit(index) == 0 {
+		return
+	}
+
+	p.signers.SetBit(p.signers, index, 0)
+	p.power.Sub(p.power, power)
+}
+
 func (p *AggregatedPower) Power() *big.Int {
 	return p.power
 
