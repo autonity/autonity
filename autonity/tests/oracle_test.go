@@ -473,16 +473,22 @@ func TestVotersUpdate(t *testing.T) {
 		}
 	}
 
-	checkVoterUpdate := func(r *Runner, oldVoters map[common.Address]struct{}) {
-		voterCheck(r, oldVoters)
-		newVoterCheck(r, oldVoters, false)
-
-		// progress round
+	// set `newVoterImmediateAccess = true` if voting round ended after epoch is ended
+	checkVoterUpdate := func(r *Runner, newVoterImmediateAccess bool, oldVoters map[common.Address]struct{}) {
 		round, _, err := r.Oracle.GetRound(nil)
 		require.NoError(r.T, err)
-		progressRound(r, round)
-		// new voters should get access for voting, but voters array not updated yet
-		round = new(big.Int).Add(round, common.Big1)
+
+		if !newVoterImmediateAccess {
+			// voting round did not end yet, so new voters did not get access yet
+			voterCheck(r, oldVoters)
+			newVoterCheck(r, oldVoters, false)
+			// progress round
+			progressRound(r, round)
+			// new voters should get access for voting, but voters array not updated yet
+			round = new(big.Int).Add(round, common.Big1)
+		}
+
+		// new voters should get access but voters array not updated yet
 		voterCheck(r, oldVoters)
 		newVoterCheck(r, oldVoters, true)
 
@@ -574,13 +580,13 @@ func TestVotersUpdate(t *testing.T) {
 		oldVoters := getVoters(r)
 		r.WaitNextEpoch()
 		checkCommittee(r, newCommitteeSet)
-		checkVoterUpdate(r, oldVoters)
+		checkVoterUpdate(r, false, oldVoters)
 	})
 
 	RunWithSetup("new voters are updated properly (new voters and old voters are same)", setup, func(r *Runner) {
 		oldVoters := getVoters(r)
 		r.WaitNextEpoch()
-		checkVoterUpdate(r, oldVoters)
+		checkVoterUpdate(r, false, oldVoters)
 	})
 
 	RunWithSetup("new voters are updated properly (new voters and old voters have non-empty intersection set)", setup, func(r *Runner) {
@@ -596,7 +602,7 @@ func TestVotersUpdate(t *testing.T) {
 		oldVoters := getVoters(r)
 		r.WaitNextEpoch()
 		checkCommittee(r, newCommitteeSet)
-		checkVoterUpdate(r, oldVoters)
+		checkVoterUpdate(r, false, oldVoters)
 	})
 
 	RunWithSetup("new voters are updated properly (new voters set is a subset of old voters set)", setup, func(r *Runner) {
@@ -611,7 +617,7 @@ func TestVotersUpdate(t *testing.T) {
 		oldVoters := getVoters(r)
 		r.WaitNextEpoch()
 		checkCommittee(r, newCommitteeSet)
-		checkVoterUpdate(r, oldVoters)
+		checkVoterUpdate(r, false, oldVoters)
 	})
 
 	RunWithSetup("new voters are updated properly (new voters set is a superset of old voters set)", setup, func(r *Runner) {
@@ -622,10 +628,10 @@ func TestVotersUpdate(t *testing.T) {
 		oldVoters := getVoters(r)
 		r.WaitNextEpoch()
 		checkCommittee(r, newCommitteeSet)
-		checkVoterUpdate(r, oldVoters)
+		checkVoterUpdate(r, false, oldVoters)
 	})
 
-	RunWithSetup("new voters are updated properly (new voters and old voters have empty intersection set) with edge case on voting period (votingPeriod * 2 = epochPeriod)", setup, func(r *Runner) {
+	RunWithSetup("new voters are updated properly with edge case on voting period (votingPeriod * 2 = epochPeriod)", setup, func(r *Runner) {
 		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
 		require.NoError(r.T, err)
 		votingPeriod := new(big.Int).Div(epochPeriod, big.NewInt(2))
@@ -643,6 +649,72 @@ func TestVotersUpdate(t *testing.T) {
 		oldVoters := getVoters(r)
 		r.WaitNextEpoch()
 		checkCommittee(r, newCommitteeSet)
-		checkVoterUpdate(r, oldVoters)
+		checkVoterUpdate(r, false, oldVoters)
+	})
+
+	RunWithSetup("voting period and epoch period ends together with edge case (votingPeriod * 2 = epochPeriod)", setup, func(r *Runner) {
+		// make the vote period 1 so it ends with epoch period
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, common.Big1),
+		)
+		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		if epochPeriod.Int64()%2 == 1 {
+			r.NoError(
+				r.Autonity.SetEpochPeriod(
+					r.Operator,
+					new(big.Int).Add(epochPeriod, common.Big1),
+				),
+			)
+		}
+		r.WaitNextEpoch()
+		// new voting round and epoch starts together
+		// set the edge case (votingPeriod * 2 = epochPeriod)
+		epochPeriod, _, err = r.Autonity.GetEpochPeriod(nil)
+		require.NoError(r.T, err)
+		r.NoError(
+			r.Oracle.SetVotePeriod(
+				r.Operator,
+				new(big.Int).Div(epochPeriod, common.Big2),
+			),
+		)
+
+		// test the conditions
+		votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, new(big.Int).Mul(votePeriod, common.Big2), epochPeriod, "(votingPeriod * 2 = epochPeriod) not true")
+		// see if the voting round and epoch coincides
+		epochID, _, err := r.Autonity.EpochID(nil)
+		require.NoError(r.T, err)
+		targetEpochID := new(big.Int).Add(epochID, common.Big1)
+		votingRound, _, err := r.Oracle.GetRound(nil)
+		require.NoError(r.T, err)
+		targetVotingRound := new(big.Int).Add(votingRound, common.Big2)
+
+		for epochID.Cmp(targetEpochID) == -1 && votingRound.Cmp(targetVotingRound) == -1 {
+			r.WaitNBlocks(1)
+			epochID, _, err = r.Autonity.EpochID(nil)
+			require.NoError(r.T, err)
+			votingRound, _, err = r.Oracle.GetRound(nil)
+			require.NoError(r.T, err)
+		}
+
+		require.Equal(r.T, targetEpochID, epochID, "voting round reached but epoch did not")
+		require.Equal(r.T, targetVotingRound, votingRound, "epoch reached but voting round did not")
+
+		// check voter update
+		newCommitteeSet := addToCommittee(r, 2)
+		removeFromCommittee(r, len(r.Committee.Validators))
+		oldVoters := getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, true, oldVoters)
+		// check again
+		newCommitteeSet = addToCommittee(r, 2)
+		removeFromCommittee(r, len(r.Committee.Validators))
+		oldVoters = getVoters(r)
+		r.WaitNextEpoch()
+		checkCommittee(r, newCommitteeSet)
+		checkVoterUpdate(r, true, oldVoters)
 	})
 }
