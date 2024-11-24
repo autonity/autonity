@@ -638,6 +638,8 @@ contract Oracle is IOracle {
             return;
         }
 
+        //TODO: this slashing rate computing can result an >= SLASHING_RATE_PRECISION (10,000) rate,
+        //  which means a >= 100% slashing, we need to evaluate the correctness of this formula.
         uint256 _slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
                                uint256(_report.confidence) *
                                config.baseSlashingRate; // some scaling is prob needed here.
