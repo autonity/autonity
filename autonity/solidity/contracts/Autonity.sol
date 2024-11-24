@@ -1249,7 +1249,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * This should be abstracted by a separate smart-contract.
     */
     modifier onlyAccountability {
-        require(address(config.contracts.accountabilityContract) == msg.sender || address(config.contracts.omissionAccountabilityContract) == msg.sender, "caller is not an accountability contract");
+        require(address(config.contracts.accountabilityContract) == msg.sender
+        || address(config.contracts.omissionAccountabilityContract) == msg.sender
+        || address(config.contracts.oracleContract) == msg.sender, "caller is not an accountability contract");
         _;
     }
 
