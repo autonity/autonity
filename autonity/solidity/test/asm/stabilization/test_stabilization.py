@@ -11,15 +11,17 @@ from ape.api import AccountAPI
 from ape.contracts import ContractContainer
 from web3 import Web3
 from web3.constants import ADDRESS_ZERO
+from eth_abi import encode
+from eth_utils import keccak
 
 ATN_TOTAL_SUPPLY = int(100 * 1e18)
 ERC20_CONTRACT = ape.project.path / pathlib.Path("test/asm/ERC20Basic.sol")
-ORACLE_SCALE = 7  # oracle contract constant
+ORACLE_SCALE = 18  # oracle contract constant
 PRB_MATH_E = Decimal(2.718281828459045235)  # match prb-math exactly
-PRICE_NTN = int(1.234567 * 10**ORACLE_SCALE)
+PRICE_NTN = int(1.234567 * 10 ** ORACLE_SCALE)
 PRICE_NTN_18D = PRICE_NTN * 10 ** (18 - ORACLE_SCALE)
 SCALE = 18
-SCALING_FACTOR = int(10**SCALE)
+SCALING_FACTOR = int(10 ** SCALE)
 SECONDS_IN_YEAR = Decimal(365 * 24 * 60 * 60)
 
 
@@ -63,27 +65,39 @@ def collateral_token(users):
 def oracle_factory(project, users):
     def mkoracle(price, voting_period=1):
         price = int(price)
-        contract = project.Oracle.deploy(
-            [users.voter],
-            users.autonity,
-            users.autonity,
-            ["NTN-ATN"],
-            voting_period,
+        autonity_mock = project.OracleAutonityMockTest.deploy(
+            3 * voting_period,  # epoch_period ensures valid voting periods
             sender=users.deployer,
         )
-        # commit: (prices, salt, voter_address)
-        commit = Web3.solidity_keccak(
-            ["uint256[]", "uint256", "address"],
-            [[price], 123, users.voter.address],
+        contract = project.Oracle.deploy(
+            [users.voter],  # voters
+            [users.voter],  # treasuries
+            [users.voter],  # node addresses
+            ["NTN-ATN"],  # pairs
+            {
+                "autonity": autonity_mock.address,
+                "operator": users.autonity,
+                "votePeriod": voting_period,
+                "outlierDetectionThreshold": 100,
+                "outlierSlashingThreshold": 100,
+                "baseSlashingRate": 10,
+            },
+            sender=users.deployer,
         )
-        contract.vote(commit, [], 0, sender=users.voter)  # commit
+        autonity_mock.setOracle(contract.address, sender=users.deployer)
+        # commit: (prices, salt, voter_address)
+        commit = keccak(encode(
+            ["(uint120,uint8)[]", "uint256", "address"],
+            [[(price, 100)], 123, users.voter.address],
+        ))
+        contract.vote(commit, [], 0, 0, sender=users.voter)  # commit
         ape.chain.mine()
-        contract.finalize(sender=users.autonity)
+        autonity_mock.finalize(sender=users.autonity)
         contract.vote(
-            Web3.solidity_keccak([], []), [price], 123, sender=users.voter
+            Web3.solidity_keccak([], []), [{"price": price, "confidence": 100}], 123, 0, sender=users.voter
         )  # reveal
         ape.chain.mine(voting_period)
-        contract.finalize(sender=users.autonity)
+        autonity_mock.finalize(sender=users.autonity)
         return contract
 
     return mkoracle
@@ -105,7 +119,7 @@ def supply_control(project, users):
 
 @pytest.fixture
 def stabilization(
-    project, users, collateral_token, basic_config, oracle_factory, supply_control
+        project, users, collateral_token, basic_config, oracle_factory, supply_control
 ):
     oracle = oracle_factory(PRICE_NTN)
     contract = project.Stabilization.deploy(
@@ -179,7 +193,7 @@ def borrow_scenario(stabilization, deposit_scenario):
 
 
 def test_constructor_zero_mcr(
-    project, users, collateral_token, basic_config, oracle_factory, supply_control
+        project, users, collateral_token, basic_config, oracle_factory, supply_control
 ):
     basic_config.minCollateralizationRatio = 0
     oracle = oracle_factory(PRICE_NTN)
@@ -196,7 +210,7 @@ def test_constructor_zero_mcr(
 
 
 def test_constructor_invalid_ratios(
-    project, users, collateral_token, basic_config, oracle_factory, supply_control
+        project, users, collateral_token, basic_config, oracle_factory, supply_control
 ):
     oracle = oracle_factory(PRICE_NTN)
     # liquidationRatio == minCollateralizationRatio
@@ -254,7 +268,7 @@ def test_deposit_initial(stabilization, funded_accounts, collateral_token, users
     deposit_amount = int(funded_amount / 2)
     assert stabilization.accounts() == []
     with check_token_transfer(
-        collateral_token, users.account1, stabilization, deposit_amount
+            collateral_token, users.account1, stabilization, deposit_amount
     ):
         receipt = stabilization.deposit(deposit_amount, sender=users.account1)
     cdp = stabilization.cdps(users.account1)
@@ -267,15 +281,15 @@ def test_deposit_initial(stabilization, funded_accounts, collateral_token, users
 
 def test_deposit_subsequent(stabilization, deposit_scenario, collateral_token, users):
     with check_token_transfer(
-        collateral_token, users.account1, stabilization, deposit_scenario.deposit_amount
+            collateral_token, users.account1, stabilization, deposit_scenario.deposit_amount
     ):
         receipt = stabilization.deposit(
             deposit_scenario.deposit_amount, sender=deposit_scenario.user
         )
     cdp = stabilization.cdps(deposit_scenario.user)
     assert (
-        collateral_token.balanceOf(deposit_scenario.user)
-        == 8 * deposit_scenario.deposit_amount
+            collateral_token.balanceOf(deposit_scenario.user)
+            == 8 * deposit_scenario.deposit_amount
     )
     assert cdp.timestamp > 0
     assert cdp.collateral == 2 * deposit_scenario.deposit_amount
@@ -303,14 +317,14 @@ def test_deposit_second_user(stabilization, deposit_scenario, collateral_token, 
     assert deposit_scenario.user != other_user
     assert stabilization.cdps(other_user).collateral == 0
     with check_token_transfer(
-        collateral_token, other_user, stabilization, deposit_scenario.deposit_amount
+            collateral_token, other_user, stabilization, deposit_scenario.deposit_amount
     ):
         receipt = stabilization.deposit(
             deposit_scenario.deposit_amount, sender=other_user
         )
     assert (
-        collateral_token.balanceOf(other_user)
-        == deposit_scenario.funded_amount - deposit_scenario.deposit_amount
+            collateral_token.balanceOf(other_user)
+            == deposit_scenario.funded_amount - deposit_scenario.deposit_amount
     )
     cdp = stabilization.cdps(other_user)
     assert cdp.timestamp > 0
@@ -333,10 +347,10 @@ def test_withdraw_zero(stabilization, deposit_scenario):
 
 def test_withdraw_full_deposit(stabilization, collateral_token, deposit_scenario):
     with check_token_transfer(
-        collateral_token,
-        stabilization,
-        deposit_scenario.user,
-        deposit_scenario.deposit_amount,
+            collateral_token,
+            stabilization,
+            deposit_scenario.user,
+            deposit_scenario.deposit_amount,
     ):
         receipt = stabilization.withdraw(
             deposit_scenario.deposit_amount, sender=deposit_scenario.user
@@ -421,7 +435,7 @@ def test_borrow_zero(stabilization, deposit_scenario):
 def test_borrow_to_limit(stabilization, supply_control, deposit_scenario, chain):
     cdp_before = stabilization.cdps(deposit_scenario.user)
     with auton_transfer_checker(
-        chain, supply_control, deposit_scenario.user, deposit_scenario.borrow_limit
+            chain, supply_control, deposit_scenario.user, deposit_scenario.borrow_limit
     ) as check:
         receipt = stabilization.borrow(
             deposit_scenario.borrow_limit, sender=deposit_scenario.user
@@ -441,7 +455,7 @@ def test_borrow_subsequent(stabilization, supply_control, borrow_scenario, chain
     interest = debt - borrow_scenario.borrow_amount
     amount = int((borrow_scenario.borrow_limit - debt) / 2)
     with auton_transfer_checker(
-        chain, supply_control, borrow_scenario.user, amount
+            chain, supply_control, borrow_scenario.user, amount
     ) as check:
         receipt = stabilization.borrow(amount, sender=borrow_scenario.user)
         check(receipt)
@@ -454,7 +468,7 @@ def test_borrow_subsequent(stabilization, supply_control, borrow_scenario, chain
 def test_borrow_minimum(stabilization, supply_control, deposit_scenario, chain):
     min_debt = stabilization.config().minDebtRequirement
     with auton_transfer_checker(
-        chain, supply_control, deposit_scenario.user, min_debt
+            chain, supply_control, deposit_scenario.user, min_debt
     ) as check:
         receipt = stabilization.borrow(min_debt, sender=deposit_scenario.user)
         check(receipt)
@@ -513,9 +527,9 @@ def test_repay_zero(stabilization, borrow_scenario):
 def test_repay_invalid_position(stabilization, borrow_scenario, chain):
     timestamp = chain.pending_timestamp
     too_much = (
-        1
-        + stabilization.debtAmount(borrow_scenario.user, timestamp)
-        - stabilization.config().minDebtRequirement
+            1
+            + stabilization.debtAmount(borrow_scenario.user, timestamp)
+            - stabilization.config().minDebtRequirement
     )
     with ape.reverts(stabilization.InvalidDebtPosition):
         stabilization.repay(value=too_much, sender=borrow_scenario.user)
@@ -536,8 +550,8 @@ def test_repay_to_minimum_debt(stabilization, borrow_scenario, chain):
 def test_repay_interest(stabilization, borrow_scenario, chain):
     timestamp = chain.pending_timestamp
     interest = (
-        stabilization.debtAmount(borrow_scenario.user, timestamp)
-        - borrow_scenario.borrow_amount
+            stabilization.debtAmount(borrow_scenario.user, timestamp)
+            - borrow_scenario.borrow_amount
     )
     receipt = stabilization.repay(value=interest, sender=borrow_scenario.user)
     cdp = stabilization.cdps(borrow_scenario.user)
@@ -638,12 +652,12 @@ def test_interest_due(stabilization):
 
 
 def test_collateral_price_is_scaled(
-    project,
-    users,
-    collateral_token,
-    basic_config,
-    oracle_factory,
-    supply_control,
+        project,
+        users,
+        collateral_token,
+        basic_config,
+        oracle_factory,
+        supply_control,
 ):
     oracle = oracle_factory(PRICE_NTN)
     contract = project.Stabilization.deploy(
