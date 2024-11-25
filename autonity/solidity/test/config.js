@@ -15,7 +15,7 @@ const MIN_EPOCH_PERIOD = 30;
 const VERSION = 0;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const SLASHING_RATE_PRECISION = 10000; // needs to match the slashing rate precision in Slasher.sol
-const ORACLE_REWARD_RATE = 1000;
+const ORACLE_REWARD_RATE = 0; // tests for oracle rewards are outside of the Truffle tests
 
 const ACCOUNTABILITY_CONFIG = {
         "innocenceProofSubmissionWindow": 30,
