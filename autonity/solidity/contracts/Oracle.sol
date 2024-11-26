@@ -4,6 +4,7 @@ pragma solidity >=0.8.2 < 0.9.0;
 import "./interfaces/IOracle.sol";
 import "./Autonity.sol";
 import {EnumerableSet} from "./utils/AddressSet.sol";
+import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
 
 /**
  * @title Autonity Protocol - Oracle Contract
@@ -638,11 +639,16 @@ contract Oracle is IOracle {
             return;
         }
 
-        //TODO: this slashing rate computing can result an >= SLASHING_RATE_PRECISION (10,000) rate,
-        //  which means a >= 100% slashing, we need to evaluate the correctness of this formula.
+        // TODO: to formal evaluate the correctness of this formula.
         uint256 _slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
                                uint256(_report.confidence) *
                                config.baseSlashingRate; // some scaling is prob needed here.
+
+        // Capped the oracle slashing rate
+        if (_slashingRate > ORACLE_SLASHING_RATE_CAP) {
+            _slashingRate = ORACLE_SLASHING_RATE_CAP;
+        }
+
         config.autonity.slash(voterInfo[_outlier].validator, _slashingRate);
     }
 
