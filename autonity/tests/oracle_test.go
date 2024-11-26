@@ -226,6 +226,82 @@ func TestRewardsDistribution(t *testing.T) {
 			require.Equal(t, expectedATNReward, diffATN)
 		}
 	})
+
+	RunWithSetup("old voters can also get rewards", setup, func(r *Runner) {
+		symbols, _, err := r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+		oldVoter := r.Committee.Validators[0]
+		// remove `oldVoter` from committee by reducing committee size
+		r.NoError(
+			r.Autonity.SetCommitteeSize(
+				r.Operator,
+				big.NewInt(int64(len(r.Committee.Validators))-1),
+			),
+		)
+		r.NoError(
+			r.Autonity.Unbond(
+				FromSender(oldVoter.Treasury, nil),
+				oldVoter.NodeAddress,
+				oldVoter.SelfBondedStake,
+			),
+		)
+		epochInfo, _, err := r.Autonity.GetEpochInfo(nil)
+		require.NoError(r.T, err)
+		r.WaitNBlocks(int(epochInfo.NextEpochBlock.Int64() - r.Evm.Context.BlockNumber.Int64()))
+		currentRound, _, err := r.Oracle.GetRound(nil)
+		require.NoError(r.T, err)
+		currentEpochID, _, err := r.Autonity.EpochID(nil)
+		require.NoError(r.T, err)
+		votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
+		require.NoError(r.T, err)
+
+		// the next block ends epoch, vote before it so the next vote earns reward
+		r.NoError(
+			r.Oracle.Vote(
+				FromSender(oldVoter.OracleAddress, nil),
+				makeCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
+				nil,
+				common.Big0,
+				0,
+			),
+		)
+		r.WaitNBlocks(int(votePeriod.Int64()))
+		newRound, _, err := r.Oracle.GetRound(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, new(big.Int).Add(currentRound, common.Big1), newRound)
+		newEpochID, _, err := r.Autonity.EpochID(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, new(big.Int).Add(currentEpochID, common.Big1), newEpochID)
+		// check if `oldVoter` is removed from committee
+		committee, _, err := r.Autonity.GetCommittee(nil)
+		require.NoError(r.T, err)
+		for _, c := range committee {
+			require.NotEqual(r.T, oldVoter.NodeAddress, c.Addr)
+		}
+
+		// vote again from old voter and get reward in the next epoch
+		r.NoError(
+			r.Oracle.Vote(
+				FromSender(oldVoter.OracleAddress, nil),
+				makeCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
+				genReports(len(symbols)),
+				common.Big0,
+				0,
+			),
+		)
+		r.GiveMeSomeMoney(r.Autonity.address, big.NewInt(1000_000_000))
+		rewards := r.RewardsAfterOneEpoch()
+		rewards.RewardNTN = new(big.Int).Add(rewards.RewardNTN, r.GetNewtonBalanceOf(r.Oracle.address))
+		atnBalance := r.GetBalanceOf(oldVoter.Treasury)
+		validatorInfo, _, err := r.Autonity.GetValidator(nil, oldVoter.NodeAddress)
+		require.NoError(r.T, err)
+		selfBondedStake := validatorInfo.SelfBondedStake
+		r.WaitNextEpoch()
+		require.Equal(r.T, new(big.Int).Add(atnBalance, rewards.RewardATN), r.GetBalanceOf(oldVoter.Treasury), "did not get atn reward")
+		validatorInfo, _, err = r.Autonity.GetValidator(nil, oldVoter.NodeAddress)
+		require.NoError(r.T, err)
+		require.Equal(r.T, new(big.Int).Add(selfBondedStake, rewards.RewardNTN), validatorInfo.SelfBondedStake, "did not get ntn reward")
+	})
 }
 
 func TestReportPacking(t *testing.T) {
