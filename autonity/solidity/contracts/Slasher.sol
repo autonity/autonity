@@ -77,23 +77,6 @@ contract Slasher {
         Autonity.Validator memory,
         uint256
     ){
-        // Todo: discuss if it is too crucial for oracle network?
-        // As oracle accountability can compute >= 100% slashing rate,  in case of >= 100% slash,
-        // slash all funds and jailbound validator.
-        if (_slashingRate >= SLASHING_RATE_PRECISION) {
-            uint256 _availableFunds = _val.bondedStake + _val.unbondingStake + _val.selfUnbondingStake;
-            if (_availableFunds == 0) {
-                return (_val, _availableFunds);
-            }
-            _val.bondedStake = 0;
-            _val.selfBondedStake = 0;
-            _val.selfUnbondingStake = 0;
-            _val.unbondingStake = 0;
-            _val.totalSlashed += _availableFunds;
-            //_jailbound(_val, _newJailboundState); // shall we do this jailBound?
-            return (_val, _availableFunds);
-        }
-
         uint256 _slashingAmount = _slash(_val, _slashingRate);
         return (_val, _slashingAmount);
     }
