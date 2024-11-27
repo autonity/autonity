@@ -327,7 +327,9 @@ func (r *Runner) lastTargetHeight() uint64 {
 func (r *Runner) FinalizeBlock() {
 	// Finalize is not the only block closing operation - fee redistribution is missing and prob
 	// other stuff. Left as todo.
-	_, err := r.Autonity.Finalize(&runOptions{origin: common.Address{}})
+	epochID, _, err := r.Autonity.EpochID(nil)
+	require.NoError(r.T, err)
+	_, err = r.Autonity.Finalize(&runOptions{origin: common.Address{}})
 	// consider monitoring gas cost here and fail if it's too much
 	require.NoError(r.T, err, "finalize function error in block", r.Evm.Context.BlockNumber)
 	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
@@ -336,20 +338,18 @@ func (r *Runner) FinalizeBlock() {
 	r.Evm.Context.ActivityProof = nil
 	r.Evm.Context.ActivityProofRound = 0
 	r.Evm.Context.Coinbase = common.Address{}
-}
-
-func (r *Runner) WaitNBlocks(n int) {
-	epochID, _, err := r.Autonity.EpochID(nil)
-	require.NoError(r.T, err)
-	for i := 0; i < n; i++ {
-		// set validator 0 as proposer always
-		r.setupActivityProofAndCoinbase(r.Committee.Validators[0].NodeAddress, nil)
-		r.FinalizeBlock()
-	}
 	newEpochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
 	if newEpochID.Cmp(epochID) != 0 {
 		r.generateNewCommittee()
+	}
+}
+
+func (r *Runner) WaitNBlocks(n int) {
+	for i := 0; i < n; i++ {
+		// set validator 0 as proposer always
+		r.setupActivityProofAndCoinbase(r.Committee.Validators[0].NodeAddress, nil)
+		r.FinalizeBlock()
 	}
 }
 
