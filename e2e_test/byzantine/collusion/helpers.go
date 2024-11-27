@@ -157,6 +157,11 @@ func sendProposal(c faultyBroadcaster, rule autonity.Rule, msg message.Msg) {
 	}
 
 	h, r, v := ctx.context()
+	if rule == autonity.PVN && h < c.Height().Uint64() {
+		c.SetupCollusionContext()
+		c.BroadcastAll(msg)
+		return
+	}
 	if h != c.Height().Uint64() {
 		c.BroadcastAll(msg)
 		return

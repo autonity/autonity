@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -615,22 +617,44 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 }
 
 func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
+	// subscribe to relevant events
 	var subscriptions event.SubscriptionScope
+	newEpochEventCh := make(chan *autonity.AutonityNewEpoch)
 	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
-	slashingEventCh := make(chan *autonity.AccountabilitySlashingEvent)
-	chainHeadCh := make(chan core.ChainHeadEvent)
-
+	subNewEpochEvent, _ := sb.blockchain.ProtocolContracts().WatchNewEpoch(nil, newEpochEventCh)
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
-	subSlashingEvent, _ := sb.blockchain.ProtocolContracts().WatchSlashingEvent(nil, slashingEventCh)
-	subChainHead := sb.blockchain.SubscribeChainHeadEvent(chainHeadCh)
+	subscriptions.Track(subNewEpochEvent)
 	subscriptions.Track(subNewFaultProofs)
-	subscriptions.Track(subSlashingEvent)
-	subscriptions.Track(subChainHead)
-
 	defer func() {
 		subscriptions.Close()
 		sb.wg.Done()
 	}()
+
+	// re-initialize jailed metadata from disk
+	currentHeader := sb.blockchain.CurrentBlock().Header()
+	state, err := sb.blockchain.StateAt(currentHeader.Root)
+	if err != nil {
+		sb.logger.Crit("Could not retrieve state at head block", "err", err)
+	}
+	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.EpochID(currentHeader, state)
+	if err != nil {
+		sb.logger.Crit("Could not retrieve epoch id", "err", err)
+	}
+	lastEpochID := lastEpochIDBig.Uint64()
+	jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
+	jailedAddresses := make([]common.Address, 0, jailedCount)
+	emptyAddress := common.Address{}
+	for i := 0; i < int(jailedCount); i++ {
+		address := rawdb.ReadJailedAddress(sb.database, lastEpochID, uint64(i))
+		if !bytes.Equal(address[:], emptyAddress[:]) {
+			jailedAddresses = append(jailedAddresses, address)
+		}
+	}
+	sb.jailed.Lock()
+	for _, address := range jailedAddresses {
+		sb.jailed.validators[address] = lastEpochID
+	}
+	sb.jailed.Unlock()
 
 	for {
 		select {
@@ -655,41 +679,56 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				sb.logger.Warn("Your validator has been found guilty of consensus misbehaviour", "address", event.Offender, "event id", ev.Id.Uint64(), "event type", eventType, "rule", rule, "block", event.Block.Uint64(), "epoch", event.Epoch.Uint64(), "faulty message hash", common.BigToHash(event.MessageHash))
 				sb.logger.Warn(explanation)
 			}
-			sb.jailedLock.Lock()
-			// a 0 value means that the validator is in a perpetual jailed state
-			// which should only be temporary until it gets updated at the next
-			// slashing event.
-			sb.jailed[ev.Offender] = 0
-			sb.jailedLock.Unlock()
-		case ev := <-slashingEventCh:
-			// local node got slashed, print out information about the slashing that can be correlated with the information about the fault proof above.
-			if ev.Validator == sb.address {
-				sb.logger.Warn("Your validator has been slashed", "amount", ev.Amount.Uint64(), "jail release block", ev.ReleaseBlock.Uint64(), "jailbound", ev.IsJailbound, "event id", ev.EventId.Uint64())
-			}
-			sb.jailedLock.Lock()
-			if ev.IsJailbound {
-				// the validator is jailed permanently, won't be able to enter committee and
-				// his messages will be discarded at validation, no need to keep track
-				delete(sb.jailed, ev.Validator)
-			} else {
-				sb.jailed[ev.Validator] = ev.ReleaseBlock.Uint64()
-			}
-			sb.jailedLock.Unlock()
-		case ev := <-chainHeadCh:
-			sb.jailedLock.Lock()
-			for k, v := range sb.jailed {
-				if v < ev.Block.NumberU64() && v != 0 {
-					delete(sb.jailed, k)
+			if !sb.IsJailed(ev.Offender) {
+				epochID := ev.Epoch.Uint64()
+				if epochID < lastEpochID {
+					// we don't care about these jailed validators as they are not in the committee anymore
+					continue
+				}
+
+				sb.jailed.Lock()
+				// the validator is in a perpetual jailed state
+				// which should only be temporary until it gets updated at the next epoch event.
+				sb.jailed.validators[ev.Offender] = epochID
+				sb.jailed.Unlock()
+
+				// persist in db
+				jailedCount := rawdb.ReadJailedCount(sb.database, epochID)
+				batch := sb.database.NewBatch()
+				rawdb.WriteJailedAddress(batch, epochID, jailedCount, ev.Offender)
+				rawdb.WriteJailedCount(batch, epochID, jailedCount+1)
+				if err := batch.Write(); err != nil {
+					sb.logger.Crit("Batch write failed", "err", err)
 				}
 			}
-			sb.jailedLock.Unlock()
+		case ev := <-newEpochEventCh:
+			// remove jailed validators from db
+			// they cannot be in committee and their messages are discarded
+			jailedCount := rawdb.ReadJailedCount(sb.database, lastEpochID)
+			batch := sb.database.NewBatch()
+			for i := 0; i < int(jailedCount); i++ {
+				rawdb.DeleteJailedAddress(batch, lastEpochID, uint64(i))
+			}
+			rawdb.DeleteJailedCount(batch, lastEpochID)
+			if err := batch.Write(); err != nil {
+				sb.logger.Crit("Failed to remove jailed validator from db", "err", err)
+			}
+			// remove from map
+			sb.jailed.Lock()
+			for k, epochID := range sb.jailed.validators {
+				if epochID <= lastEpochID {
+					delete(sb.jailed.validators, k)
+				}
+			}
+			sb.jailed.Unlock()
+			lastEpochID = ev.Epoch.Uint64()
 		}
 	}
 }
 
 func (sb *Backend) IsJailed(address common.Address) bool {
-	sb.jailedLock.RLock()
-	defer sb.jailedLock.RUnlock()
-	_, ok := sb.jailed[address]
+	sb.jailed.RLock()
+	defer sb.jailed.RUnlock()
+	_, ok := sb.jailed.validators[address]
 	return ok
 }

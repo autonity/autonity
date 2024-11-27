@@ -42,13 +42,12 @@ import "./LiquidStorage.sol";
 
 contract LiquidLogic is ILiquid, LiquidStorage {
 
-    // TODO: Better solution to address the fractional terms in fee
-    // computations?
-    //
-    // If fee computations are to be performed to 9 decimal places,
-    // this value should be 1,000,000,000.
-    uint256 public constant FEE_FACTOR_UNIT_RECIP = 1_000_000_000;
-    uint256 public constant COMMISSION_RATE_PRECISION = 10_000;
+    // TODO: Better solution to address the fractional terms in fee computations?
+
+    uint256 public constant FEE_FACTOR_UNIT_RECIP_DECIMALS = 9;
+    uint256 public constant FEE_FACTOR_UNIT_RECIP = 10 ** FEE_FACTOR_UNIT_RECIP_DECIMALS;
+    uint256 public constant COMMISSION_RATE_DECIMALS = 4;
+    uint256 public constant COMMISSION_RATE_SCALE_FACTOR = 10 ** COMMISSION_RATE_DECIMALS;
 
     constructor() {
         autonityContract = Autonity(payable(msg.sender));
@@ -313,7 +312,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     }
 
     function _calculateValidatorCommission(uint256 _reward) internal virtual view returns (uint256) {
-        uint256 _commission = (_reward * commissionRate) / COMMISSION_RATE_PRECISION;
+        uint256 _commission = (_reward * commissionRate) / COMMISSION_RATE_SCALE_FACTOR;
         return _commission;
     }
 

@@ -104,6 +104,9 @@ var (
 
 	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
 	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
+
+	jailedValidatorCount   = []byte("JailedCount")
+	jailedValidatorAddress = []byte("JailedAddress")
 )
 
 const (
@@ -146,6 +149,19 @@ func encodeBlockNumber(number uint64) []byte {
 	enc := make([]byte, 8)
 	binary.BigEndian.PutUint64(enc, number)
 	return enc
+}
+
+// jailedCountKeyPrefix = jailedValidatorCount + epochID (uint64 big endian)
+func jailedCountKeyPrefix(number uint64) []byte {
+	return append(jailedValidatorCount, encodeBlockNumber(number)...)
+}
+
+// jailedAddressKeyPrefix = jailedValidatorAddress + jaildCount (uint64 big endian)
+func jailedAddressKeyPrefix(epochID, index uint64) []byte {
+	return append(
+		jailedValidatorAddress,
+		append(encodeBlockNumber(epochID), encodeBlockNumber(index)...)...,
+	)
 }
 
 // headerKeyPrefix = headerPrefix + num (uint64 big endian)

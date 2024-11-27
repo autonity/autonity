@@ -27,7 +27,7 @@ var (
 
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
-	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USDC", "NTN-USDC", "NTN-ATN"}
+	OracleInitialSymbols       = []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "ATN-USD", "NTN-USD", "NTN-ATN"}
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
 		Symbols:                   OracleInitialSymbols,
 		VotePeriod:                OracleVotePeriod,
@@ -511,7 +511,7 @@ func (s *Schedule) Validate() error {
 	if s.Amount == nil {
 		return errors.New("amount must be specified")
 	}
-	if s.VaultAddress == common.HexToAddress("0") {
+	if deep.Equal(s.VaultAddress, common.Address{}) {
 		s.VaultAddress = NonStakeableVestingContractAddress
 	}
 	return nil

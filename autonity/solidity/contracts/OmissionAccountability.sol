@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {Autonity, ValidatorState} from "./Autonity.sol";
 import {Precompiled} from "./lib/Precompiled.sol";
 import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
-import {SLASHING_RATE_PRECISION} from "./ProtocolConstants.sol";
+import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 
 contract OmissionAccountability is IOmissionAccountability {
     // Used for fixed-point arithmetic during computation of inactivity score
@@ -23,19 +23,19 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     // shadow copies of variables in Autonity.sol, updated once a epoch
-    Autonity.CommitteeMember[] private committee;
-    address[] private treasuries; // treasuries of the committee members
-    uint256 private epochBlock;
+    Autonity.CommitteeMember[] internal committee;
+    address[] internal treasuries; // treasuries of the committee members
+    uint256 internal epochBlock;
 
-    uint256 private newLookbackWindow; // applied at epoch end
-    uint256 private newDelta;          // applied at epoch end
-    address private operator;
+    uint256 internal newLookbackWindow; // applied at epoch end
+    uint256 internal newDelta;          // applied at epoch end
+    address internal operator;
 
     mapping(uint256 => bool) public faultyProposers;                         // marks height where proposer is faulty
     uint256 public faultyProposersInWindow;                                  // number of faulty proposers in the current lookback window
 
     mapping(uint256 => mapping(address => bool)) public inactiveValidators;  // inactive validators for each height
-    address[] public absenteesLastHeight;                                    // absentees of previous height
+    address[] internal absenteesLastHeight;                                    // absentees of previous height
     // last active block in the epoch for a validator. default value of -1 means they are not on a offline blocks streak. It gets reset at epoch rotation when the new committee is set.
     mapping(address => int256) public lastActive;
 
@@ -70,7 +70,7 @@ contract OmissionAccountability is IOmissionAccountability {
         // config sanity checks
         require(_config.inactivityThreshold <= SCALE_FACTOR, "inactivity threshold cannot exceed scale factor");
         require(_config.pastPerformanceWeight <= SCALE_FACTOR, "past performance weight cannot exceed scale factor");
-        require(_config.initialSlashingRate <= SLASHING_RATE_PRECISION, "initial slashing rate cannot exceed slashing rate precision");
+        require(_config.initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "initial slashing rate cannot exceed slashing rate scale factor");
 
         autonity = Autonity(_autonity);
 
@@ -378,6 +378,14 @@ contract OmissionAccountability is IOmissionAccountability {
     }
 
     /*
+    * @notice get the absentees of last height
+    * @return the absentees of last height
+    */
+    function getAbsenteesLastHeight() external view virtual returns (address[] memory){
+        return absenteesLastHeight;
+    }
+
+    /*
     * @notice sets committee node addresses and treasuries
     * @dev restricted to the Autonity contract. It is used to mirror this information in the omission contract when the autonity contract changes
     * @param _committee, committee members
@@ -451,7 +459,7 @@ contract OmissionAccountability is IOmissionAccountability {
     * @param _initialSlashingRate, the new value for the initial slashing rate
     */
     function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
-        require(_initialSlashingRate <= SLASHING_RATE_PRECISION, "cannot exceed slashing rate precision");
+        require(_initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "cannot exceed slashing rate scale factor");
         config.initialSlashingRate = _initialSlashingRate;
     }
 

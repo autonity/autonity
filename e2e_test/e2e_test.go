@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
 	"os"
@@ -1074,4 +1076,160 @@ func TestLoad(t *testing.T) {
 	err = network.WaitToMineNBlocks(1800, 2300, false)
 	require.NoError(t, err)
 	close(closeCh)
+}
+
+func newPrevoteEquivocator(c interfaces.Core) interfaces.Broadcaster {
+	return &PrevoteEquivocator{hasEquivocated: false, equivocateAfter: 0, Core: c.(*core.Core)}
+}
+
+type PrevoteEquivocator struct {
+	hasEquivocated  bool   // will only equivocate once
+	equivocateAfter uint64 // will only equivocate after this height
+	*core.Core
+}
+
+// will send only a single equivocated prevote
+func (s *PrevoteEquivocator) Broadcast(msg message.Msg) {
+	s.BroadcastAll(msg)
+	if s.hasEquivocated || msg.H() <= s.equivocateAfter {
+		return
+	}
+	if _, isPrevote := msg.(*message.Prevote); !isPrevote {
+		return
+	}
+	committee, err := s.Core.Backend().BlockChain().CommitteeByHeight(msg.H())
+	if err != nil {
+		panic(err)
+	}
+
+	self := committee.MemberByAddress(s.Core.Address())
+	csize := committee.Len()
+	msgEq := message.NewPrevote(msg.R(), msg.H(), NonNilValue, s.Backend().Sign, self, csize)
+	s.Logger().Info("Equivocation simulation", "height", msg.H())
+	s.BroadcastAll(msgEq)
+	s.hasEquivocated = true
+}
+
+func extractBackend(engine consensus.Engine) *backend.Backend {
+	back, ok := engine.(*backend.Backend)
+	if !ok {
+		panic("cannot cast engine to consensus backend")
+	}
+	return back
+}
+
+func TestJailingPersistence(t *testing.T) {
+
+	vals, err := Validators(t, 12, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	// set node that is doing equivocation
+	equivocatorIndex := 11
+	vals[equivocatorIndex].TendermintServices = &interfaces.Services{Broadcaster: newPrevoteEquivocator}
+
+	customEpochPeriod := uint64(100)
+	network, err := NewNetworkFromValidators(t, vals, true, func(genesis *ccore.Genesis) {
+		genesis.Config.AutonityContractConfig.EpochPeriod = customEpochPeriod
+		genesis.Config.OmissionAccountabilityConfig.InactivityThreshold = 10000 // do not jail for inactivity in this test
+	})
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// mine some blocks, needs to be greater than the reporting period (currently 20) of the fault detector
+	// otherwise the misbehaviour will not be posted on chain
+	err = network.WaitToMineNBlocks(40, 60, false)
+	require.NoError(t, err)
+
+	// val 11 should have been jailed
+	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+
+	// shutdown val 0 and bring it back up, val 11 should still be in the jailed mapping
+	err = network[0].Restart()
+	require.NoError(t, err)
+
+	time.Sleep(1 * time.Second) // give time to faulty validator watcher routine to run first time
+
+	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+
+	// shutdown node 1 and restart it after the epoch end, the jailed mapping should be cleared
+	err = network[1].Close(false)
+	require.NoError(t, err)
+	network[1].Wait()
+
+	// close the epoch, the jailed mapping should be cleared
+	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod))
+	require.NoError(t, err)
+
+	require.False(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+
+	// when restarting node 1 should clear his jailed database according to the epoch change
+	err = network[1].Start()
+	require.NoError(t, err)
+	time.Sleep(1 * time.Second)
+	require.False(t, extractBackend(network[1].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+}
+
+func firstEquivocator(c interfaces.Core) interfaces.Broadcaster {
+	return &PrevoteEquivocator{hasEquivocated: false, equivocateAfter: 0, Core: c.(*core.Core)}
+}
+
+func secondEquivocator(c interfaces.Core) interfaces.Broadcaster {
+	return &PrevoteEquivocator{hasEquivocated: false, equivocateAfter: 50, Core: c.(*core.Core)}
+}
+
+func thirdEquivocator(c interfaces.Core) interfaces.Broadcaster {
+	return &PrevoteEquivocator{hasEquivocated: false, equivocateAfter: 100, Core: c.(*core.Core)}
+}
+
+// test that once we p2p jail 1/3 of voting power, we unjail the oldest jailed validators to avoid losing liveness
+func TestJailingRotation(t *testing.T) {
+	t.Skip("TODO")
+	// 6 nodes --> f = 2
+	vals, err := Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	// set nodes that are doing equivocation
+	firstEquivocatorIndex := 1
+	secondEquivocatorIndex := 2
+	thirdEquivocatorIndex := 3
+	vals[firstEquivocatorIndex].TendermintServices = &interfaces.Services{Broadcaster: firstEquivocator}
+	vals[secondEquivocatorIndex].TendermintServices = &interfaces.Services{Broadcaster: secondEquivocator}
+	vals[thirdEquivocatorIndex].TendermintServices = &interfaces.Services{Broadcaster: thirdEquivocator}
+
+	customEpochPeriod := uint64(200)
+	network, err := NewNetworkFromValidators(t, vals, true, func(genesis *ccore.Genesis) {
+		genesis.Config.AutonityContractConfig.EpochPeriod = customEpochPeriod
+		genesis.Config.OmissionAccountabilityConfig.InactivityThreshold = 10000 // do not jail for inactivity in this test
+	})
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// mine some blocks, first equivocator should get jailed
+	err = network.WaitToMineNBlocks(50, int(customEpochPeriod), false)
+	require.NoError(t, err)
+
+	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[firstEquivocatorIndex].Address))
+
+	// mine some more, also the second equivocator should get jailed. the first one should remain jailed
+	err = network.WaitToMineNBlocks(50, int(customEpochPeriod), false)
+	require.NoError(t, err)
+
+	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[firstEquivocatorIndex].Address))
+	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[secondEquivocatorIndex].Address))
+
+	// mine some more, third equivocator should get jailed. Second one should remain jailed, while first one should get unjailed
+	err = network.WaitToMineNBlocks(50, int(customEpochPeriod), false)
+	require.NoError(t, err)
+
+	require.False(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[firstEquivocatorIndex].Address))
+	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[secondEquivocatorIndex].Address))
+	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[thirdEquivocatorIndex].Address))
+
+	// close the epoch, everyone free
+	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod))
+	require.NoError(t, err)
+
+	require.False(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[firstEquivocatorIndex].Address))
+	require.False(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[secondEquivocatorIndex].Address))
+	require.False(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[thirdEquivocatorIndex].Address))
 }

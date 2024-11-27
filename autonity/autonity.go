@@ -252,10 +252,11 @@ func (c *AutonityContract) MinimumBaseFee(block *types.Header, db vm.StateDB) (*
 }
 
 func (c *AutonityContract) EpochPeriod(block *types.Header, db vm.StateDB) (*big.Int, error) {
-	if block.Number.Uint64() <= 1 {
-		return new(big.Int).SetUint64(c.chainConfig.AutonityContractConfig.EpochPeriod), nil
-	}
 	return c.callGetEpochPeriod(db, block)
+}
+
+func (c *AutonityContract) EpochID(block *types.Header, db vm.StateDB) (*big.Int, error) {
+	return c.callEpochID(db, block)
 }
 
 // Proposer election is now computed by committee structure, it is on longer depends on AC contract.

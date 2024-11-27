@@ -99,7 +99,7 @@ func (fd *FaultDetector) eventReporter() {
 		case uint8(autonity.Innocence):
 			tx, err = fd.protocolContracts.HandleInnocenceProof(fd.txOpts, event)
 		default:
-			panic("Skip unknown accountability event")
+			panic("Unknown accountability event")
 		}
 
 		if err == nil {

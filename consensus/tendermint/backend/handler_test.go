@@ -17,6 +17,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -86,6 +87,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
+			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
 			eventMux: eventMux,
 		}
@@ -107,6 +109,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
 		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
+			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
 			eventMux: eventMux,
 		}
@@ -129,7 +132,8 @@ func TestSynchronisationMessage(t *testing.T) {
 
 func TestNewChainHead(t *testing.T) {
 	t.Run("engine not started, error returned", func(t *testing.T) {
-		b := &Backend{}
+		b := &Backend{
+			database: rawdb.NewMemoryDatabase()}
 
 		err := b.NewChainHead()
 		if err != ErrStoppedEngine {
@@ -151,6 +155,7 @@ func TestNewChainHead(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
+			database:     rawdb.NewMemoryDatabase(),
 			core:         tendermintC,
 			evDispatcher: evDispathcer,
 			gossiper:     g,
@@ -186,9 +191,9 @@ func TestSignerJailed(t *testing.T) {
 	defer ctrl.Finish()
 	setupMocks(backend, ctrl, t)
 
-	backend.jailedLock.Lock()
-	backend.jailed[member.Address] = 0
-	backend.jailedLock.Unlock()
+	backend.jailed.Lock()
+	backend.jailed.validators[member.Address] = 0
+	backend.jailed.Unlock()
 
 	errCh := make(chan error, 1)
 	_, err := backend.HandleMsg(testAddress, msg, errCh)
@@ -223,12 +228,12 @@ func TestFutureHeightMessage(t *testing.T) {
 		_, err := backend.HandleMsg(testAddress, msg, errCh)
 		require.NoError(t, err)
 
-		backend.futureLock.RLock()
-		defer backend.futureLock.RUnlock()
-		require.Equal(t, 1, len(backend.future[futureHeight]))
-		require.Equal(t, data.Hash(), backend.future[futureHeight][0].Message.Hash())
-		require.Equal(t, futureHeight, backend.futureMaxHeight)
-		require.Equal(t, uint64(1), backend.futureSize)
+		backend.future.RLock()
+		defer backend.future.RUnlock()
+		require.Equal(t, 1, len(backend.future.messages[futureHeight]))
+		require.Equal(t, data.Hash(), backend.future.messages[futureHeight][0].Message.Hash())
+		require.Equal(t, futureHeight, backend.future.maxHeight)
+		require.Equal(t, uint64(1), backend.future.size)
 	})
 	t.Run("if future message buffer is full, messages farther in the future are dropped", func(t *testing.T) {
 		chain, backend := newBlockChain(1)
@@ -247,10 +252,10 @@ func TestFutureHeightMessage(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		backend.futureLock.RLock()
-		defer backend.futureLock.RUnlock()
-		require.Equal(t, maxFutureMsgs, len(backend.future))
-		require.Equal(t, uint64(maxFutureMsgs), backend.futureSize) // works because we send only one message per height
+		backend.future.RLock()
+		defer backend.future.RUnlock()
+		require.Equal(t, maxFutureMsgs, len(backend.future.messages))
+		require.Equal(t, uint64(maxFutureMsgs), backend.future.size) // works because we send only one message per height
 	})
 	t.Run("When processing future height messages, future height messages are re-injected", func(t *testing.T) {
 		chain, backend := newBlockChain(1)
@@ -268,14 +273,14 @@ func TestFutureHeightMessage(t *testing.T) {
 		backend.saveFutureMsg(vote, errCh, common.Address{})
 		backend.saveFutureMsg(vote, errCh, common.Address{})
 
-		backend.futureLock.RLock()
-		require.Equal(t, uint64(4), backend.futureSize)
-		backend.futureLock.RUnlock()
+		backend.future.RLock()
+		require.Equal(t, uint64(4), backend.future.size)
+		backend.future.RUnlock()
 
 		backend.ProcessFutureMsgs(1)
 
-		backend.futureLock.RLock()
-		require.Equal(t, uint64(0), backend.futureSize)
-		backend.futureLock.RUnlock()
+		backend.future.RLock()
+		require.Equal(t, uint64(0), backend.future.size)
+		backend.future.RUnlock()
 	})
 }

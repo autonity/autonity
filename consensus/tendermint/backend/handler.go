@@ -35,6 +35,7 @@ var (
 	errDecodeFailed = errors.New("fail to decode tendermint message")
 	// errJailed is returned when a consensus message is discarded because the signer is jailed
 	ErrJailed    = errors.New("signer is jailed")
+	ErrNotFuture = errors.New("message is not future height anymore")
 	NetworkCodes = map[uint8]uint64{
 		message.ProposalCode:  ProposeNetworkMsg,
 		message.PrevoteCode:   PrevoteNetworkMsg,
@@ -100,6 +101,10 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
+		}
+		if sb.IsJailed(sender) {
+			sb.logger.Debug("Ignoring sync message from jailed validator", "from", sender)
+			return true, ErrJailed
 		}
 		sb.logger.Debug("Received sync message", "from", sender)
 		go sb.Post(events.SyncEvent{Addr: sender})
@@ -172,16 +177,25 @@ func handleConsensusMsg[T any, PT interface {
 	}
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
-	if msg.H() > sb.core.Height().Uint64() {
-		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", sb.core.Height().Uint64())
-		sb.saveFutureMsg(msg, errCh, sender)
+	// TODO: Due to a race condition a message that is considered as future could become current,
+	// but remain stuck into the future message buffer forever
+	currentHeight := sb.core.Height().Uint64()
+	if msg.H() > currentHeight {
+		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", currentHeight)
+		err := sb.saveFutureMsg(msg, errCh, sender)
+		// if we receive `ErrNotFuture`, keep processing the message as it is now a current height message
+		if err == nil || !errors.Is(err, ErrNotFuture) {
+			return true, err
+		}
+	}
+	// if the height is so old that it is not useful even for accountability, discard it right away. No need to waste resources on this.
+	if sb.isHeightExpired(currentHeight, msg.H()) {
 		return true, nil
 	}
 	return sb.handleDecodedMsg(msg, errCh, sender)
 }
 
 func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender common.Address) (bool, error) {
-
 	committee, err := sb.BlockChain().CommitteeByHeight(msg.H())
 	if err != nil {
 		// since this is not a future message, we should always have the committee of the height.
@@ -202,12 +216,18 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
+		allJailed := true
 		for _, signerIndex := range vote.Signers().FlattenUniq() {
 			signer := committee.Members[signerIndex].Address
-			if sb.IsJailed(signer) {
-				sb.logger.Debug("Vote message contains signature from jailed validator, ignoring message", "address", signer)
-				return true, ErrJailed
+			if !sb.IsJailed(signer) {
+				allJailed = false
+				break
 			}
+		}
+		// unless all signers are jailed, we still process aggregates
+		if allJailed {
+			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
+			return true, ErrJailed
 		}
 	default:
 		sb.logger.Crit("Tendermint backend processing unknown message")
@@ -222,7 +242,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	return true, nil
 }
 
-func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, sender common.Address) {
+func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, sender common.Address) error {
 	// create event that will be re-injected in handleDecodedMsg when we reach the correct height
 	e := &events.UnverifiedMessageEvent{
 		Message: msg,
@@ -231,72 +251,80 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, sender com
 	}
 	h := msg.H()
 
-	sb.futureLock.Lock()
-	defer sb.futureLock.Unlock()
+	sb.future.Lock()
+	defer sb.future.Unlock()
 
-	if h < sb.futureMinHeight {
-		sb.futureMinHeight = h
+	// this if deals with a possible race condition where a message is considered future, however core changes height and process the future messages
+	// before `msg` is stored into the future message buffer. Without this if `msg` would get stuck into the future message store until we change height again.
+	if h <= sb.future.lastProcessedHeight {
+		return ErrNotFuture
 	}
-	if h > sb.futureMaxHeight {
-		sb.futureMaxHeight = h
+
+	if h < sb.future.minHeight {
+		sb.future.minHeight = h
 	}
-	sb.future[h] = append(sb.future[h], e)
-	sb.futureSize++
+	if h > sb.future.maxHeight {
+		sb.future.maxHeight = h
+	}
+	sb.future.messages[h] = append(sb.future.messages[h], e)
+	sb.future.size++
 
 	// if needed, drop heights until we are back under the threshold
-	for sb.futureSize > maxFutureMsgs {
-		maxHeightEvs, ok := sb.future[sb.futureMaxHeight]
-		sb.logger.Debug("deleting excess future height messages", "height", sb.futureMaxHeight)
+	for sb.future.size > maxFutureMsgs {
+		maxHeightEvs, ok := sb.future.messages[sb.future.maxHeight]
+		sb.logger.Debug("deleting excess future height messages", "height", sb.future.maxHeight)
 		if ok {
-			sb.futureSize -= uint64(len(maxHeightEvs))
+			sb.future.size -= uint64(len(maxHeightEvs))
 			// remove messages from knowMessages cache so they can be received again
 			go func(evs []*events.UnverifiedMessageEvent) {
 				for _, e := range evs {
 					sb.knownMessages.Remove(e.Message.Hash())
 				}
 			}(maxHeightEvs)
-			delete(sb.future, sb.futureMaxHeight)
+			delete(sb.future.messages, sb.future.maxHeight)
 		}
 		// This value might be different wrt the actual maximum in the map (because of holes in future msg heights)
 		// however it is always going to be >= actualMaximum, so it is fine
-		sb.futureMaxHeight--
+		sb.future.maxHeight--
 
 		// TODO: might want to remove this once we are sure everything works as intended
-		if sb.futureMaxHeight < sb.futureMinHeight-1 {
+		if sb.future.maxHeight < sb.future.minHeight-1 {
 			log.Crit("inconsistent state in future message buffer")
 		}
 	}
+	return nil
 }
 
 // re-inject future height messages
 func (sb *Backend) ProcessFutureMsgs(height uint64) {
-	sb.futureLock.Lock()
-	defer sb.futureLock.Unlock()
+	sb.future.Lock()
+	defer sb.future.Unlock()
 
 	// shortcircuit if:
 	// - we have no future messages
 	// - minimum future height is greater than height
-	if sb.futureSize == 0 || sb.futureMinHeight > height {
+	if sb.future.size == 0 || sb.future.minHeight > height {
 		return
 	}
 
 	// process future messages up to current height
-	for h := sb.futureMinHeight; h <= height; h++ {
-		evs, ok := sb.future[h]
+	for h := sb.future.minHeight; h <= height; h++ {
+		evs, ok := sb.future.messages[h]
 		// there might be holes in heights in the future messages
 		if ok {
-			sb.logger.Debug("processing future height messages", "height", h, "n", len(sb.future[h]))
+			sb.logger.Debug("processing future height messages", "height", h, "n", len(sb.future.messages[h]))
 			for _, e := range evs {
 				sb.handleDecodedMsg(e.Message, e.ErrCh, e.Sender)
-				sb.futureSize--
+				sb.future.size--
 			}
-			delete(sb.future, h)
+			delete(sb.future.messages, h)
 		}
 	}
 
 	// This value might be different wrt the actual minimum in the map (because of holes in future msg heights)
 	// however it is always going to be <= actualMinimum, so it is fine (even though not optimal)
-	sb.futureMinHeight = height + 1
+	sb.future.minHeight = height + 1
+	sb.future.lastProcessedHeight = height
 }
 
 // SetBroadcaster implements consensus.Handler.SetBroadcaster

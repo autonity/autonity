@@ -625,6 +625,11 @@ func (w *worker) resultLoop() {
 				continue
 			}
 
+			// The logs inside the task.env.state may contain parent block's logs as we copied the parent state when
+			// making environment for the child of an optimistic parent block for consensus pipeline optimization.
+			// Thus, we just deep copy logs from the receipts of the current block execution environment.
+			var logs []*types.Log
+
 			// Update the block hash in all logs since it is now available and not when the
 			// receipt/log of individual transactions were created.
 			for i, r := range task.env.receipts {
@@ -634,11 +639,14 @@ func (w *worker) resultLoop() {
 				for _, l := range r.Logs {
 					l.BlockHash = block.Hash()
 				}
+				logs = append(logs, r.Logs...)
 			}
 
 			// Commit block and state to database.
 			persistStart := time.Now()
-			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, task.env.state.Logs(), task.env.state, true)
+
+			// As the environment is no longer used anymore, we won't copy the receipts to announce the new block.
+			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, logs, task.env.state, true)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
 				continue
@@ -671,6 +679,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		hash  common.Hash
 	)
 	if optimisticCandidate {
+		// Making environment by coping cached optimistic parent block's state also copies the receipt logs.
 		if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
 			sealHash := w.engine.SealHash(parent.Header())
 			w.pendingMu.Lock()
