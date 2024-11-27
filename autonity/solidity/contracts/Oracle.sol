@@ -163,7 +163,7 @@ contract Oracle is IOracle {
 
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
-        if (_reports.length != symbols.length) { // todo: why not require?
+        if (_reports.length != symbols.length) {
             return;
         }
 
@@ -228,7 +228,7 @@ contract Oracle is IOracle {
     }
 
     function distributeRewards(uint256 _ntn) onlyAutonity external payable {
-        uint256 _atn = msg.value;
+        uint256 _atn = address(this).balance;
         _performRewardDistribution(_atn, _ntn);
     }
 
@@ -426,7 +426,14 @@ contract Oracle is IOracle {
      * @dev Only accessible from the Autonity Contract.
      * @dev IOracle interface method implementation.
      */
-    function setVoters(address[] memory _newVoters, address[] memory _treasury, address[] memory _validator) onlyAutonity external {
+    function setVoters(
+        address[] memory _newVoters,
+        address[] memory _treasury,
+        address[] memory _validator
+    )
+        onlyAutonity
+        external
+    {
         require(_newVoters.length != 0, "Voters can't be empty");
         for (uint256 i = 0; i < _newVoters.length; i++) {
             VoterInfo storage _voterInfo = voterInfo[_newVoters[i]];

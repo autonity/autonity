@@ -530,29 +530,56 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.protocol.committeeSize = _size;
     }
 
-    /*
-    * @notice Set the unbonding period. Restricted to the Operator account.
-    * @param _size Positive integer.
-    */
+    /**
+     * @notice Sets the unbonding period for the policy configuration.
+     * @dev Can only be called by an operator. Updates `config.policy.unbondingPeriod`.
+     * @param _period The new unbonding period, in blocks.
+     */
     function setUnbondingPeriod(uint256 _period) public virtual onlyOperator {
         config.policy.unbondingPeriod = _period;
     }
 
+    /**
+     * @notice Sets the proposer reward rate for the policy configuration.
+     * @dev Can only be called by an operator. Updates `config.policy.proposerRewardRate`.
+     *     - The reward rate must not exceed `STANDARD_SCALE_FACTOR` (100%).
+     *     - The proposer reward rate plus the oracle reward rate must not exceed 100%
+     * @param _proposerRewardRate The new reward rate for proposers (scaled by `STANDARD_SCALE_FACTOR`).
+     */
     function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
         require(_proposerRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         config.policy.proposerRewardRate = _proposerRewardRate;
     }
 
+    /**
+     * @notice Sets the oracle reward rate for the policy configuration.
+     * @dev Can only be called by an operator. Updates `config.policy.oracleRewardRate`.
+     *      - The reward rate must not exceed `STANDARD_SCALE_FACTOR` (100%).
+     *      - The proposer reward rate plus the oracle reward rate must not exceed 100%
+     * @param _oracleRewardRate The new reward rate for oracles (scaled by `STANDARD_SCALE_FACTOR`).
+     */
     function setOracleRewardRate(uint256 _oracleRewardRate) public virtual onlyOperator {
         require(_oracleRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         config.policy.oracleRewardRate = _oracleRewardRate;
     }
 
+    /**
+     * @notice Sets the withholding threshold for the policy configuration.
+     * @dev Can only be called by an operator. Updates `config.policy.withholdingThreshold`.
+     *      The threshold must not exceed `STANDARD_SCALE_FACTOR` (100%).
+     * @param _withholdingThreshold The new withholding threshold (scaled by `STANDARD_SCALE_FACTOR`).
+     */
     function setWithholdingThreshold(uint256 _withholdingThreshold) public virtual onlyOperator {
         require(_withholdingThreshold <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         config.policy.withholdingThreshold = _withholdingThreshold;
     }
 
+    /**
+     * @notice Sets the address of the pool to which withheld rewards will be sent.
+     * @dev Can only be called by an operator. Updates `config.policy.withheldRewardsPool`.
+     *      The provided address must not be the zero address.
+     * @param _pool The address of the withheld rewards pool.
+     */
     function setWithheldRewardsPool(address payable _pool) public virtual onlyOperator {
         require(_pool != address(0), "pool cannot be zero address");
         config.policy.withheldRewardsPool = _pool;
