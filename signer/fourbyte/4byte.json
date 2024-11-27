@@ -183,5 +183,12 @@
   "d0c66054": "getSlashingScaleFactor()",
   "72c81963": "COMMISSION_RATE_DECIMALS()",
   "f5be3489": "COMMISSION_RATE_SCALE_FACTOR()",
-  "3b80e355": "FEE_FACTOR_UNIT_RECIP_DECIMALS()"
+  "3b80e355": "FEE_FACTOR_UNIT_RECIP_DECIMALS()",
+  "ed5676e9": "setOracleRewardRate(uint256)",
+  "59974e38": "distributeRewards(uint256)",
+  "f0141d84": "getDecimals()",
+  "077945d3": "getNewVoters()",
+  "da78110e": "setVoters(address[],address[],address[])",
+  "b6a702b3": "updateVoters()",
+  "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)"
 }
