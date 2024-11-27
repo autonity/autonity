@@ -7,15 +7,17 @@ import pytest
 from ape.api import AccountAPI
 from web3 import Web3
 from web3.constants import ADDRESS_ZERO
+from eth_abi import encode
+from eth_utils import keccak
 
 INT256_MAX = (
     57896044618658097711785492504343953926634992332820282019728792003956564819967
 )
-ORACLE_SCALE_FACTOR = int(10**7)
+ORACLE_SCALE_FACTOR = int(10 ** 18)
 
 ACUTestData = namedtuple(
     "ACUTestData",
-    ["contract", "oracle", "symbols", "quantities", "prices", "scale_factor"],
+    ["contract", "oracle", "symbols", "quantities", "prices", "scale_factor", "autonity_mock"],
 )
 
 INVALID_BASKET_ERROR = "0x4ff799c5"
@@ -46,29 +48,45 @@ def users(accounts):
 @pytest.fixture
 def oracle_factory(project, users):
     def mkoracle(symbols, prices=(), voting_period=60):
-        contract = project.Oracle.deploy(
-            [users.voter],
-            users.autonity,
-            users.operator,
-            symbols,
-            voting_period,
+        autonity_mock = project.OracleAutonityMockTest.deploy(
+            3 * voting_period,  # epoch_period
             sender=users.deployer,
         )
+        contract = project.Oracle.deploy(
+            [users.voter],  # voters
+            [users.voter],  # treasuries
+            [users.voter],  # node addresses
+            symbols,
+            {
+                "autonity": autonity_mock.address,
+                "operator": users.operator,
+                "votePeriod": voting_period,
+                "outlierDetectionThreshold": 100,
+                "outlierSlashingThreshold": 100,
+                "baseSlashingRate": 10,
+            },
+            sender=users.deployer,
+        )
+        autonity_mock.setOracle(contract.address, sender=users.deployer)
         if prices:
             # commit: (prices, salt, voter_address)
-            commit = Web3.solidity_keccak(
-                ["int256[]", "uint256", "address"],
-                [prices, 123, users.voter.address],
-            )
-            contract.vote(commit, [], 0, sender=users.voter)  # commit
+            commit = keccak(encode(
+                ["(uint120,uint8)[]", "uint256", "address"],
+                [[(p, 100) for p in prices], 123, users.voter.address],
+            ))
+            contract.vote(commit, [], 0, 0, sender=users.voter)  # commit
             ape.chain.mine(voting_period)
-            contract.finalize(sender=users.autonity)
+            autonity_mock.finalize(sender=users.deployer)
             contract.vote(
-                Web3.solidity_keccak([], []), prices, 123, sender=users.voter
+                Web3.solidity_keccak([], []),
+                [{"price": p, "confidence": 100} for p in prices],
+                123,
+                0,
+                sender=users.voter
             )  # reveal
             ape.chain.mine(voting_period)
-            contract.finalize(sender=users.autonity)
-        return contract
+            autonity_mock.finalize(sender=users.autonity)
+        return contract, autonity_mock
 
     return mkoracle
 
@@ -83,7 +101,7 @@ def tracing(networks):
 @pytest.fixture
 def acu_basic(project, users, oracle_factory):
     symbols = ["AAA", "BBB", "CCC"]
-    oracle = oracle_factory(symbols)
+    oracle, autonity_mock = oracle_factory(symbols)
     scale = 5
     scale_factor = int(1e5)
     quantities = [i * scale_factor for i in range(len(symbols))]
@@ -103,13 +121,14 @@ def acu_basic(project, users, oracle_factory):
         quantities=quantities,
         prices=None,
         scale_factor=scale_factor,
+        autonity_mock=autonity_mock,
     )
 
 
 @pytest.fixture
 def acu_primed(project, users, oracle_factory):
     scale = 5
-    scale_factor = int(10**scale)
+    scale_factor = int(10 ** scale)
     symbols = [
         "AUD-USD",
         "CAD-USD",
@@ -143,7 +162,7 @@ def acu_primed(project, users, oracle_factory):
             Decimal("1.41"),
         )
     ]
-    oracle = oracle_factory(symbols, prices, voting_period=30)
+    oracle, autonity_mock = oracle_factory(symbols, prices, voting_period=30)
     for symbol, price in zip(symbols, prices):
         assert oracle.latestRoundData(symbol).price == price
     contract = project.ACU.deploy(
@@ -162,6 +181,7 @@ def acu_primed(project, users, oracle_factory):
         quantities=quantities,
         prices=prices,
         scale_factor=scale_factor,
+        autonity_mock=autonity_mock
     )
 
 
@@ -210,7 +230,7 @@ def test_modify_basket(acu_basic, users):
     new_basket = ["X", "Y"]
     new_quantities = [1, 2]
     new_scale = 18
-    new_scale_factor = int(10**new_scale)
+    new_scale_factor = int(10 ** new_scale)
     receipt = acu_basic.contract.modifyBasket(
         new_basket, new_quantities, new_scale, sender=users.operator
     )
@@ -262,15 +282,15 @@ def test_set_operator_unauthorized(acu_basic, accounts, users):
 def test_set_oracle(acu_basic, oracle_factory, users):
     symbols = ["FOO"]
     prices = [123]
-    voting_period = 1
-    new_oracle = oracle_factory(symbols, prices, voting_period)
+    voting_period = 3
+    new_oracle, _ = oracle_factory(symbols, prices, voting_period)
     for symbol, price in zip(symbols, prices):
         assert new_oracle.latestRoundData(symbol).price == price
     acu_basic.contract.setOracle(new_oracle, sender=users.autonity)
 
 
 def test_set_oracle_unauthorized(acu_basic, oracle_factory, users):
-    new_oracle = oracle_factory(["FOO"])
+    new_oracle, _ = oracle_factory(["FOO"])
     for unauth_user in [users.deployer, users.operator, users.caller]:
         with ape.reverts(acu_basic.contract.Unauthorized):
             acu_basic.contract.setOracle(new_oracle, sender=unauth_user)
@@ -318,9 +338,9 @@ def test_update_same_round(acu_primed, accounts, users, tracing):
 
 
 def test_update_missing_price(acu_basic, users, tracing):
-    vote_period = acu_basic.oracle.votePeriod()
+    vote_period = acu_basic.oracle.getVotePeriod()
     ape.chain.mine(vote_period)
-    acu_basic.oracle.finalize(sender=users.autonity)
+    acu_basic.autonity_mock.finalize(sender=users.autonity)
     for symbol in acu_basic.symbols:
         assert acu_basic.oracle.latestRoundData(symbol).success is False
     receipt = acu_basic.contract.update(sender=users.autonity)

@@ -76,7 +76,7 @@ contract("Oracle", accounts => {
       const proposerInitBalance = toBN(await web3.eth.getBalance(proposer));
       const autonityInitBalance = toBN(await web3.eth.getBalance(autonity.address));
 
-      await oracle.vote(0, [], 0, {from:accounts[8]});
+      await oracle.vote(0, [], 0, 0, {from:accounts[8]});
 
       // check that voter balance did not change (refund was successfull)
       const updatedBalance = toBN(await web3.eth.getBalance(accounts[8]))
@@ -98,7 +98,7 @@ contract("Oracle", accounts => {
       // first vote gets refunded
       let origBalance = toBN(await web3.eth.getBalance(accounts[8]));
       let round = await oracle.getRound()
-      await oracle.vote(0, [], 0, {from:accounts[8]});
+      await oracle.vote(0, [], 0, 0, {from:accounts[8]});
       let updatedBalance = toBN(await web3.eth.getBalance(accounts[8]))
       assert.equal(updatedBalance.toString(), origBalance.toString());
 
@@ -115,7 +115,7 @@ contract("Oracle", accounts => {
 
       // second vote should fail, with !=0 gas expense
       await truffleAssert.fails(
-          oracle.vote(0,[],0,{from:accounts[8]}),
+          oracle.vote(0, [], 0, 0,{from:accounts[8]}),
           truffleAssert.ErrorType.REVERT,
           "already voted"
       );

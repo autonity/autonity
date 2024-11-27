@@ -136,10 +136,10 @@ async function mockEnodePrecompile() {
       const verifyEnodeAddr = "0x00000000000000000000000000000000000000ff";
       await setCode(verifyEnodeAddr, code, "enode verifier").then(
         (result) => {
-            console.log(result); 
+            console.log(result);
         },
         (error) => {
-            console.log(error); 
+            console.log(error);
     });
 }
 
@@ -152,10 +152,10 @@ async function mockCommitteeSelectorPrecompile() {
   const contractAddress = "0x00000000000000000000000000000000000000fa";
   await setCode(contractAddress, code, "committee selector").then(
     (result) => {
-        console.log(result); 
+        console.log(result);
     },
     (error) => {
-        console.log(error); 
+        console.log(error);
     });
 }
 
@@ -194,7 +194,7 @@ async function _mineEmptyBlock() {
       method: "evm_mine",
     }, (err, res) => {
       if (res?.result) { resolve(); }
-      else { 
+      else {
         reject();
       }
     });
@@ -214,14 +214,23 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
 
   // accountability contract
   const accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
-  
+
   // oracle contract
-  let voters = validators.map((item, index) => (item.oracleAddress));
-  const oracle = await Oracle.new(voters, autonity.address, operator, [], 30, {from: deployer});
+  let voters = validators.map((item) => (item.oracleAddress));
+  let treasuries = validators.map((item) => (item.treasury));
+  let nodes = validators.map((item) => (item.nodeAddress));
+  const oracle = await Oracle.new(voters, nodes, treasuries, [], {
+    autonity: autonity.address,
+    operator,
+    votePeriod: 3,
+    outlierDetectionThreshold: 100,
+    outlierSlashingThreshold: 100,
+    baseSlashingRate: 10,
+  }, {from: deployer});
 
   // acu contract (temporary empty basket and scale = 2)
   const acu = await Acu.new([], [], 2, autonity.address, operator, oracle.address, {from: deployer});
-  
+
   // supply control contract. we will set the stabilizer address later
   const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000",{from:deployer,value:1})
 
@@ -231,9 +240,8 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
 
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
-  
+
   // omission accountability contract
-  let treasuries = validators.map((item, index) => (item.treasury));
   const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, treasuries, omissionAccountabilityConfig, {from:deployer})
 
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
