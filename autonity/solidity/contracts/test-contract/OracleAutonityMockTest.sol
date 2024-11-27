@@ -21,10 +21,7 @@ contract OracleAutonityMockTest {
         bool newRound = oracle.finalize();
 
         if (newRound) {
-            try oracle.updateVoters(){
-            } catch {
-                revert("OracleAutonityMockTest: updateVoters failed");
-            }
+            oracle.updateVoters();
         }
     }
 
