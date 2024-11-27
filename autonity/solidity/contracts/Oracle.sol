@@ -19,8 +19,6 @@ contract Oracle is IOracle {
         uint256 round; // The last round the voter participated in
         uint256 commit; // The commit hash of the voter's last report
         uint256 performance; // The performance score of the voter
-        address treasury;
-        address validator;
         bool isVoter; // Indicates if the address is a registered voter
         bool reportAvailable; // Indicates if the last report is available for the voter
     }
@@ -68,6 +66,8 @@ contract Oracle is IOracle {
     // in the voterInfo mapping we only store the performance for the current voting round
     // in order to persist information between epochs and voter sets, we keep a separate accumulating
     // mapping for all rounds ended this epoch
+    mapping(address => address) public voterTreasuries;
+    mapping(address => address) public voterValidators;
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
 
@@ -89,8 +89,8 @@ contract Oracle is IOracle {
         newSymbols = _symbols;
 
         for (uint i = 0; i < _voters.length; i++) {
-            voterInfo[_voters[i]].treasury = _treasuries[i];
-            voterInfo[_voters[i]].validator = _nodeAddresses[i];
+            voterTreasuries[_voters[i]] = _treasuries[i];
+            voterValidators[_voters[i]] = _nodeAddresses[i];
             voterInfo[_voters[i]].isVoter = true;
         }
 
@@ -245,10 +245,10 @@ contract Oracle is IOracle {
             // Transfer ATN rewards
             // 2300 gas fowarded with send()
             // funds for failed transfers will be redistributed for the next round
-            voterInfo[_voter].treasury.call{value:_atn, gas: 2300}("");
+            voterTreasuries[_voter].call{value:_atn, gas: 2300}("");
 
             // Transfer NTN rewards
-            config.autonity.autobond(voterInfo[_voter].validator, _ntn, 0);
+            config.autonity.autobond(voterValidators[_voter], _ntn, 0);
 
             rewardPeriodPerformance[_voter] = 0;
             rewardReceivers.remove(_voter);
@@ -436,9 +436,8 @@ contract Oracle is IOracle {
     {
         require(_newVoters.length != 0, "Voters can't be empty");
         for (uint256 i = 0; i < _newVoters.length; i++) {
-            VoterInfo storage _voterInfo = voterInfo[_newVoters[i]];
-            _voterInfo.treasury = _treasury[i];
-            _voterInfo.validator = _validator[i];
+            voterTreasuries[_newVoters[i]] = _treasury[i];
+            voterValidators[_newVoters[i]]= _validator[i];
         }
         _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
         newVoters = _newVoters;
@@ -656,7 +655,7 @@ contract Oracle is IOracle {
             _slashingRate = ORACLE_SLASHING_RATE_CAP;
         }
 
-        config.autonity.slash(voterInfo[_outlier].validator, _slashingRate);
+        config.autonity.slash(voterValidators[_outlier], _slashingRate);
     }
 
     /*

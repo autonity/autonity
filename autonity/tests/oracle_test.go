@@ -489,8 +489,14 @@ func TestVotersUpdate(t *testing.T) {
 			require.True(r.T, ok)
 			voterInfo, _, err := r.Oracle.VoterInfo(nil, v.OracleAddress)
 			require.NoError(r.T, err)
-			require.Equal(r.T, v.Treasury, voterInfo.Treasury)
-			require.Equal(r.T, v.NodeAddress, voterInfo.Validator)
+			voterValidator, _, err := r.Oracle.VoterValidators(nil, v.OracleAddress)
+			require.NoError(r.T, err)
+
+			voterTreasury, _, err := r.Oracle.VoterTreasuries(nil, v.OracleAddress)
+			require.NoError(r.T, err)
+			require.Equal(r.T, v.Treasury, voterTreasury)
+			require.Equal(r.T, v.NodeAddress, voterValidator)
+
 			if _, ok := voters[v.OracleAddress]; ok {
 				require.Equal(r.T, true, voterInfo.IsVoter)
 			} else {
@@ -508,9 +514,13 @@ func TestVotersUpdate(t *testing.T) {
 			require.True(r.T, ok)
 			voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
 			require.NoError(r.T, err)
-			validator, _, err := r.Autonity.GetValidator(nil, voterInfo.Validator)
+			voterValidator, _, err := r.Oracle.VoterValidators(nil, v)
 			require.NoError(r.T, err)
-			require.Equal(r.T, validator.Treasury, voterInfo.Treasury)
+			validator, _, err := r.Autonity.GetValidator(nil, voterValidator)
+			require.NoError(r.T, err)
+			voterTreasury, _, err := r.Oracle.VoterTreasuries(nil, v)
+			require.NoError(r.T, err)
+			require.Equal(r.T, validator.Treasury, voterTreasury)
 			require.Equal(r.T, true, voterInfo.IsVoter)
 		}
 	}
