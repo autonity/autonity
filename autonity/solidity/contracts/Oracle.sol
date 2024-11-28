@@ -641,7 +641,7 @@ contract Oracle is IOracle {
         int256 _diffRatio = (int256(uint256(_report.price)) - _median) * 100 / _median;
         //price is 120 bits max so _diffratio squared is at most 240 bits
         _diffRatio = _diffRatio * _diffRatio;
-        if (_diffRatio < config.outlierSlashingThreshold) {
+        if (_diffRatio <= config.outlierSlashingThreshold) {
             return;
         }
 
