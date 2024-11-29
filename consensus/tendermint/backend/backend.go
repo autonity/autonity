@@ -152,7 +152,11 @@ type future struct {
 	maxHeight           uint64                                      // highest future height buffered in the message store
 	size                uint64                                      // number of messages in the message store
 	lastProcessedHeight uint64                                      // last future height processed by Core. It is needed to avoid race condition which could delay a message.
+	heightThreshold     uint64                                      // threshold for future height for which we always keep the future message
 	sync.RWMutex
+	// cached epoch infos to check necessity of the future message
+	nextEpochBlock uint64
+	epochPeriod    uint64
 }
 
 type jailed struct {
