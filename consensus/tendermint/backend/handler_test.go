@@ -345,7 +345,7 @@ func TestFutureHeightMessage(t *testing.T) {
 
 			require.Equal(t, heightMsgLen, len(backend.future.messages[futureHeight]))
 			require.Equal(t, maxFutureHeight, backend.future.maxHeight)
-			require.Equal(t, uint64(size), backend.future.size)
+			require.Equal(t, size, backend.future.size)
 		}
 
 		myHeight := backend.core.Height().Uint64()
