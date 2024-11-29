@@ -29,7 +29,7 @@ import (
 )
 
 func TestSealCommitted(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, nil)
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	require.NoError(t, err)
 	expectedBlock, err := engine.AddSeal(block)
@@ -47,7 +47,7 @@ func TestSealCommitted(t *testing.T) {
 
 func TestVerifyHeader(t *testing.T) {
 	t.Run("miscellaneous cases", func(t *testing.T) {
-		chain, engine := newBlockChain(1)
+		chain, engine := newBlockChain(1, nil)
 
 		// errEmptyQuorumCertificate case
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -106,7 +106,7 @@ func TestVerifyHeader(t *testing.T) {
 		require.True(t, errors.Is(err, errInvalidNonce))
 	})
 	t.Run("activity proof related cases", func(t *testing.T) {
-		chain, engine := newBlockChain(1)
+		chain, engine := newBlockChain(1, nil)
 
 		// proof should be empty at the first delta block of the epoch
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -187,7 +187,7 @@ func TestVerifyHeader(t *testing.T) {
 	})
 	// isolate following test case as it require a more complex setup (multiple committee members)
 	t.Run("activity proof with not enough power", func(t *testing.T) {
-		genesis, nodeKeys, consensusKeys := getGenesisAndKeys(2)
+		genesis, nodeKeys, consensusKeys := getGenesisAndKeys(2, nil)
 
 		// lower voting power of validator[1]
 		genesis.Config.AutonityContractConfig.Validators[1].BondedStake = new(big.Int).SetUint64(1)
@@ -265,7 +265,7 @@ func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, nil)
 
 	// success case
 	var headers []*types.Header
@@ -325,7 +325,7 @@ OUT1:
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeadersAbortValidation(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, nil)
 
 	// success case
 	var headers []*types.Header
@@ -390,7 +390,7 @@ OUT2:
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyErrorHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, nil)
 
 	// success case
 	var headers []*types.Header
@@ -601,7 +601,7 @@ func TestStart(t *testing.T) {
 	t.Run("engine is not running, no errors", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		chain, _ := newBlockChain(1)
+		chain, _ := newBlockChain(1, nil)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
@@ -642,7 +642,7 @@ func TestStart(t *testing.T) {
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
-		chain, _ := newBlockChain(1)
+		chain, _ := newBlockChain(1, nil)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
@@ -668,7 +668,7 @@ func TestStart(t *testing.T) {
 	t.Run("engine is not running, started from multiple goroutines", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		chain, _ := newBlockChain(1)
+		chain, _ := newBlockChain(1, nil)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
@@ -731,7 +731,7 @@ func TestMultipleRestart(t *testing.T) {
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 	tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
-	chain, _ := newBlockChain(1)
+	chain, _ := newBlockChain(1, nil)
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 
@@ -796,7 +796,7 @@ func TestBackendSealHash(t *testing.T) {
 
 func TestAssembleProof(t *testing.T) {
 	t.Run("for the first delta blocks of the epoch, assembling should return empty proof", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
@@ -817,7 +817,7 @@ func TestAssembleProof(t *testing.T) {
 		require.Equal(t, err, nil)
 	})
 	t.Run("from block Delta+1 of the epoch, assembling should return a valid proof", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 
 		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
 		epoch, err := chain.LatestEpoch()
@@ -867,7 +867,7 @@ func TestAssembleProof(t *testing.T) {
 
 	})
 	t.Run("proof should be empty if we do not have quorum precommits to provide", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 
 		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
 		epoch, err := chain.LatestEpoch()

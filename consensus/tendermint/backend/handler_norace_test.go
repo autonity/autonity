@@ -24,7 +24,7 @@ import (
 
 func TestUnhandledMsgs(t *testing.T) {
 	t.Run("core not running, unhandled messages are saved", func(t *testing.T) {
-		blockchain, backend := newBlockChain(1)
+		blockchain, backend := newBlockChain(1, nil)
 		engine := blockchain.Engine().(consensus.BFT)
 
 		ctrl := gomock.NewController(t)
@@ -84,7 +84,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 		broadcaster.EXPECT().FindPeer(gomock.Any()).Return(mockedPeer, true).AnyTimes()
 
-		blockchain, backend := newBlockChain(1)
+		blockchain, backend := newBlockChain(1, nil)
 		backend.SetBroadcaster(broadcaster)
 		engine := blockchain.Engine().(consensus.BFT)
 		// we close the engine for enabling cache storing

@@ -163,7 +163,7 @@ func makeBogusEvent(msg message.Msg) events.UnverifiedMessageEvent {
 func TestAggregatorMessageHandling(t *testing.T) {
 	t.Run("current height, current round proposal should be processed right away", func(t *testing.T) {
 		// the chain will not autonomously mine as there is no miner module providing candidate blocks
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 		sub := backend.Subscribe(events.MessageEvent{})
 
 		// don't care that it has empty proposer seal, we just want to check that aggregator sends it to Core
@@ -264,7 +264,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 	})
 	t.Run("current height, current round prevote should be processed by time-based aggregation", func(t *testing.T) {
 		committeeSize := 4
-		chain, backend := newBlockChain(committeeSize)
+		chain, backend := newBlockChain(committeeSize, nil)
 		sub := backend.Subscribe(events.MessageEvent{})
 		genesis := chain.Genesis()
 		genesisCommittee := genesis.Header().Epoch.Committee
@@ -293,7 +293,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 	})
 	t.Run("current height, future round prevote should be processed if F voting power is reached", func(t *testing.T) {
 		committeeSize := 4
-		chain, backend := newBlockChain(committeeSize)
+		chain, backend := newBlockChain(committeeSize, nil)
 		sub := backend.Subscribe(events.MessageEvent{})
 		genesis := chain.Genesis()
 		genesisCommittee := genesis.Header().Epoch.Committee
@@ -334,7 +334,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 	})
 	t.Run("current height, future round complex aggregate carrying quorum should trigger processing", func(t *testing.T) {
 		committeeSize := 4
-		chain, backend := newBlockChain(committeeSize)
+		chain, backend := newBlockChain(committeeSize, nil)
 		genesis := chain.Genesis()
 		genesisCommittee := genesis.Header().Epoch.Committee
 
@@ -383,7 +383,7 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 		require.Equal(t, prevote.Hash(), events[0].Message.Hash())
 	})
 	t.Run("Old height messages are processed by the stale messages time-based aggregation", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 		genesis := chain.Genesis()
 		subMessageEvent := backend.Subscribe(events.MessageEvent{})
 		subOldMessageEvent := backend.Subscribe(events.OldMessageEvent{})
