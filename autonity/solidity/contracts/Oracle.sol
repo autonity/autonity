@@ -179,8 +179,7 @@ contract Oracle is IOracle {
         for (uint256 i = 0; i < _reports.length; i++) {
             require(_reports[i].confidence <= 100, "invalid confidence score");
             require(
-                (_reports[i].price > 0 && _reports[i].confidence > 0) ||
-                (_reports[i].price == 0 && _reports[i].confidence == 0),
+                (_reports[i].price > 0 && _reports[i].confidence > 0) ,
                 "confidence/price error"
             );
             reports[symbols[i]][msg.sender] = _reports[i];
@@ -292,10 +291,9 @@ contract Oracle is IOracle {
             }
             _totalReports[_count++] = reports[_symbol][_voter];
         }
-
+        // at this stage if count > 0 we must have valid strictly positive reports available.
         uint256 _price = 0;
         bool _success = false;
-
         if (_count > 0) {
             int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
             // exclude and detect outliers
