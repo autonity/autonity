@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
@@ -303,12 +302,18 @@ func (sb *Backend) saveFutureMsg(myHeight uint64, msg message.Msg, errCh chan<- 
 }
 
 func (sb *Backend) isFutureMsgTooFar(myHeight, msgHeight uint64) bool {
+	// `sb.future.heightThreshold` is calculated using `params.BootingTime`
+	// any messages in this threshold is accepted
 	if msgHeight <= myHeight+sb.future.heightThreshold {
 		return false
 	}
+	// For further messages, we consider them necessary if it belongs to the current epoch or next epoch.
+	// Message further than next epoch are considered too far
+
 	// genesis block should be prepared and committed before starting consensus
 	// so we should always have `myHeight > 0`
 	// this update will happen at most once per epoch if there are future messages in some epoch
+	// that are further away than `sb.future.heightThreshold`
 	if sb.future.nextEpochBlock == 0 || sb.future.nextEpochBlock < myHeight-1 {
 		// update epoch info cache
 		epochInfo, err := sb.EpochByHeight(myHeight - 1)
@@ -316,7 +321,6 @@ func (sb *Backend) isFutureMsgTooFar(myHeight, msgHeight uint64) bool {
 			sb.logger.Crit("cannot read epoch info from the state", "height", myHeight-1, "err", err)
 		}
 		sb.future.nextEpochBlock = epochInfo.NextEpochBlock.Uint64()
-		fmt.Printf("nextEpochBlock %v for height %v\n", sb.future.nextEpochBlock, myHeight-1)
 
 		hearer := sb.blockchain.GetBlockByNumber(myHeight - 1).Header()
 		state, err := sb.blockchain.StateAt(hearer.Root)
@@ -328,7 +332,6 @@ func (sb *Backend) isFutureMsgTooFar(myHeight, msgHeight uint64) bool {
 			sb.logger.Crit("Could not retrieve epoch period", "err", err)
 		}
 		sb.future.epochPeriod = epochPeriod.Uint64()
-		fmt.Printf("epochPeriod %v for height %v\n", sb.future.epochPeriod, myHeight-1)
 	}
 
 	return msgHeight > sb.future.nextEpochBlock+sb.future.epochPeriod
