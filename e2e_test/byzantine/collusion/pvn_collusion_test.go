@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
@@ -17,6 +18,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 )
 
 const collusionHeight = 5
@@ -39,8 +41,16 @@ func TestCollusionPVN(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
+	accContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(users[0].NodeKey, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+	_, err = accContract.SetInnocenceProofSubmissionWindow(transactor, big.NewInt(80))
+	require.NoError(t, err)
+
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(120, 150, false)
+	err = network.WaitToMineNBlocks(80, 100, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	// Accusation of PVN should rise since followers prevote for the planed invalid value.
