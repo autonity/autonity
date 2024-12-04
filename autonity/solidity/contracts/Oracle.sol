@@ -164,7 +164,7 @@ contract Oracle is IOracle {
 
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
-        if (_reports.length != _symbols.length) {
+        if (_reports.length != _symbols.length || _reports.length == 0) {
             return;
         }
 
@@ -289,7 +289,9 @@ contract Oracle is IOracle {
         for (uint i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             // if there is no available report from this validator we must account for it.
-            if (!voterInfo[_voter].reportAvailable) {
+            // if the price is 0, but the .reportAvailable is true, it means that the voter
+            // submitted a partial set of reports, which did not include this symbol.
+            if (!voterInfo[_voter].reportAvailable || reports[_symbol][_voter].price == 0) {
                 continue;
             }
             _totalReports[_count++] = reports[_symbol][_voter];
@@ -609,7 +611,7 @@ contract Oracle is IOracle {
         _outliers = new address[](voters.length);
         for (uint256 i = 0; i < voters.length; i++) {
             address _voter = voters[i];
-            if (!voterInfo[_voter].reportAvailable) {
+            if (!voterInfo[_voter].reportAvailable || reports[_symbol][_voter].price == 0) {
                 continue;
             }
             // median here is assumed to be non-0.
