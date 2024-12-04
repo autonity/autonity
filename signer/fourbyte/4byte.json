@@ -190,5 +190,6 @@
   "077945d3": "getNewVoters()",
   "da78110e": "setVoters(address[],address[],address[])",
   "b6a702b3": "updateVoters()",
-  "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)"
+  "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)",
+  "17dc92c8": "vote(uint256,string[],(uint120,uint8)[],uint256,uint8)"
 }

@@ -47,7 +47,7 @@ interface IOracle {
      * respect the list of symbols returned by {getSymbols}.
      *
      */
-    function vote(uint256 _commit,  Report[] calldata _reports, uint256 _salt, uint8 _extra) external;
+    function vote(uint256 _commit,  string[] calldata symbols, Report[] calldata _reports, uint256 _salt, uint8 _extra) external;
 
     /**
      * @notice Get data about a specific round, using the roundId.

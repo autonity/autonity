@@ -74,11 +74,12 @@ def oracle_factory(project, users):
                 ["(uint120,uint8)[]", "uint256", "address"],
                 [[(p, 100) for p in prices], 123, users.voter.address],
             ))
-            contract.vote(commit, [], 0, 0, sender=users.voter)  # commit
+            contract.vote(commit, [], [], 0, 0, sender=users.voter)  # commit
             ape.chain.mine(voting_period)
             autonity_mock.finalize(sender=users.deployer)
             contract.vote(
                 Web3.solidity_keccak([], []),
+                symbols,
                 [{"price": p, "confidence": 100} for p in prices],
                 123,
                 0,

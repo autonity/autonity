@@ -91,6 +91,7 @@ func TestSimpleVote(t *testing.T) {
 				_, err := r.Oracle.Vote(
 					&runOptions{origin: validator.OracleAddress},
 					makeCommit(r.T, common.Big1, validator.OracleAddress, currentVotes[i]),
+					symbols,
 					committedVotes[i],
 					common.Big1,
 					87,
@@ -193,6 +194,7 @@ func TestRewardsDistribution(t *testing.T) {
 				&runOptions{origin: voter},
 				makeCommit(r.T, big.NewInt(0), voter, genReports(len(symbols))),
 				nil,
+				nil,
 				big.NewInt(1),
 				0,
 			)
@@ -207,6 +209,7 @@ func TestRewardsDistribution(t *testing.T) {
 				_, err := oracle.Vote(
 					&runOptions{origin: voter},
 					makeCommit(r.T, big.NewInt(int64(i+1)), voter, genReports(len(symbols))),
+					symbols,
 					genReports(len(symbols)),
 					big.NewInt(int64(i)),
 					0,
@@ -290,6 +293,7 @@ func TestRewardsDistribution(t *testing.T) {
 				FromSender(oldVoter.OracleAddress, nil),
 				makeCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
 				nil,
+				nil,
 				common.Big0,
 				0,
 			),
@@ -313,6 +317,7 @@ func TestRewardsDistribution(t *testing.T) {
 			r.Oracle.Vote(
 				FromSender(oldVoter.OracleAddress, nil),
 				makeCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
+				symbols,
 				genReports(len(symbols)),
 				common.Big0,
 				0,

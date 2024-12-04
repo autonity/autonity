@@ -139,6 +139,7 @@ contract Oracle is IOracle {
      */
     function vote(
         uint256 _commit,
+        string[] calldata _symbols,
         Report[] calldata _reports,
         uint256 _salt,
         uint8 _extra
@@ -163,7 +164,7 @@ contract Oracle is IOracle {
 
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
-        if (_reports.length != symbols.length) {
+        if (_reports.length != _symbols.length) {
             return;
         }
 
@@ -183,6 +184,7 @@ contract Oracle is IOracle {
                 (_reports[i].price == 0 && _reports[i].confidence == 0),
                 "confidence/price error"
             );
+            require(_validSymbol(_symbols[i]), "invalid symbol");
             reports[symbols[i]][msg.sender] = _reports[i];
         }
         voterInfo[msg.sender].reportAvailable = true;
@@ -656,6 +658,15 @@ contract Oracle is IOracle {
         }
 
         config.autonity.slash(voterValidators[_outlier], _slashingRate);
+    }
+
+    function _validSymbol(string memory _symbol) internal view returns (bool) {
+        for (uint i = 0; i < symbols.length; i++) {
+            if (keccak256(abi.encodePacked(symbols[i])) == keccak256(abi.encodePacked(_symbol))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /*

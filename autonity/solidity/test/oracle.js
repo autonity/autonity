@@ -183,7 +183,7 @@ contract("Oracle", accounts => {
     }
 
     // regenerate commits from round right before
-    setCommits(rounds.slice(fromRound-1));
+    setCommits(rounds.slice(fromRound - 1));
 
     return rounds;
   }
@@ -370,10 +370,10 @@ contract("Oracle", accounts => {
       generateRoundData(2, symbols);
       const commit = rounds[0].voters[0].commit;
       // balance before vote
-      await oracle.vote(commit, [], 0, 0, {from: voterAccounts[0]});
+      await oracle.vote(commit, [], [], 0, 0, {from: voterAccounts[0]});
       // second vote should revert
       await truffleAssert.fails(
-        oracle.vote(commit, [], 0, 0, {from: voterAccounts[0]}),
+        oracle.vote(commit, [], [], 0, 0, {from: voterAccounts[0]}),
         truffleAssert.ErrorType.REVERT,
         "already voted",
       );
@@ -386,11 +386,11 @@ contract("Oracle", accounts => {
         const {voters} = rounds[rId];
         await Promise.all(voters.map(async (voter, i) => {
           if (rId === 0) {
-            await oracle.vote(voter.commit, [], 0, 0, {from: voterAccounts[i]});
+            await oracle.vote(voter.commit, [], [], 0, 0, {from: voterAccounts[i]});
           } else {
             const {commit, salt} = voter;
             // vote with empty report
-            await oracle.vote(commit, [], salt, 0, {from: voterAccounts[i]});
+            await oracle.vote(commit, [], [], salt, 0, {from: voterAccounts[i]});
             //TODO: should be verified by slashing event
           }
         }));
@@ -406,9 +406,9 @@ contract("Oracle", accounts => {
           const {commit, prices, salt} = round.voters[i];
           //TODO(tariq) low priority. check that vote correctly trigger the update of the `reports` structure
           if (rId === 0) {
-            await oracle.vote(commit, [], 0, 0, {from: voterAccounts[i]});
+            await oracle.vote(commit, [], [], 0, 0, {from: voterAccounts[i]});
           } else {
-            await oracle.vote(commit, prices, salt, 0, {from: voterAccounts[i]});
+            await oracle.vote(commit, symbols, prices, salt, 0, {from: voterAccounts[i]});
           }
         }
         await waitForNRounds(1)
@@ -432,9 +432,9 @@ contract("Oracle", accounts => {
         for (let i = 0; i < round.voters.length; i++) {
           const {commit, prices, salt} = round.voters[i];
           if (rId === 0) {
-            await oracle.vote(commit, [], 0, 0, {from: voterAccounts[i]});
+            await oracle.vote(commit, [], [], 0, 0, {from: voterAccounts[i]});
           } else {
-            await oracle.vote(commit, prices, salt, 0, {from: voterAccounts[i]});
+            await oracle.vote(commit, symbols, prices, salt, 0, {from: voterAccounts[i]});
           }
         }
         await waitForNRounds(1)
@@ -467,9 +467,9 @@ contract("Oracle", accounts => {
           //  reports[symbols[i]][msg.sender] = INVALID_PRICE;
           if (rId === 0) {
             commit = 243432; // wrong commit values for all voters
-            await oracle.vote(commit, [], 0, 0, {from: voterAccounts[i]});
+            await oracle.vote(commit, [], [], 0, 0, {from: voterAccounts[i]});
           } else {
-            await oracle.vote(commit, prices, salt, 0, {from: voterAccounts[i]});
+            await oracle.vote(commit, symbols, prices, salt, 0, {from: voterAccounts[i]});
           }
         }
         await waitForNRounds(1)
@@ -497,9 +497,9 @@ contract("Oracle", accounts => {
         for (let i = 0; i < round.voters.length; i++) {
           const {commit, prices, salt, address} = round.voters[i];
           if (rId === 0) {
-            await oracle.vote(commit, [], 0, 0, {from: address});
+            await oracle.vote(commit, [], [], 0, 0, {from: address});
           } else {
-            await oracle.vote(commit, prices, salt, 0, {from: address});
+            await oracle.vote(commit, symbols, prices, salt, 0, {from: address});
           }
         }
         if (rId === 2) {
@@ -512,7 +512,7 @@ contract("Oracle", accounts => {
           );
         }
         await waitForNRounds(1)
-        console.log("finished round", rId+1);
+        console.log("finished round", rId + 1);
       }
       let roundData = await oracle.latestRoundData("NTN-GBP");
       const roundID = roundData[0];
@@ -526,12 +526,13 @@ contract("Oracle", accounts => {
       // symbols change in round 4, new commits from round 3
       updateRoundData(4, newSymbols, voterAccounts);
       for (let rId = 0; rId < 5; rId++) {
+        const currentRoundSymbols = rId < 4 ? symbols : newSymbols;
         for (let i = 0; i < rounds[rId].voters.length; i++) {
           const {commit, prices, salt, address} = rounds[rId].voters[i];
           if (rId === 0) {
-            await oracle.vote(commit, [], 0, 0, {from: address});
+            await oracle.vote(commit, [], [], 0, 0, {from: address});
           } else {
-            await oracle.vote(commit, prices, salt, 0, {from: address});
+            await oracle.vote(commit, currentRoundSymbols, prices, salt, 0, {from: address});
           }
         }
         if (rId === 2) {
@@ -565,12 +566,13 @@ contract("Oracle", accounts => {
       updateRoundData(4, newSymbols, newVoters);
 
       for (let rId = 0; rId < rounds.length - 1; rId++) {
+        const currentRoundSymbols = rId < 4 ? symbols : newSymbols;
         for (let i = 0; i < rounds[rId].voters.length; i++) {
           const {commit, prices, salt, address} = rounds[rId].voters[i];
           if (rId === 0) {
-            await oracle.vote(commit, [], 0, 0, {from: address});
+            await oracle.vote(commit, [], [], 0, 0, {from: address});
           } else {
-            await oracle.vote(commit, prices, salt, 0, {from: address});
+            await oracle.vote(commit, currentRoundSymbols, prices, salt, 0, {from: address});
           }
         }
         if (rId === 2) {
