@@ -57,7 +57,13 @@ const (
 	* Assuming n=1000, the worst case scenario total size of extra data will be:
 	* 65+8+8+96+9/4n+96+100n+9/4n+96 = 104.5n + 369 ~= 103kb
 	 */
-	maximumHeaderExtraLength = 110 * 1024 //110kb
+	maximumHeaderExtraSize = 110 * 1024 //110kb
+	// 6 hashes + 1 address +  3 uint256 (*big.Int) + 3 uint64 + 1 bloom filter + 1 block nonce + extra len
+	maximumOriginalHeaderSize = 6*common.HashLength + 1*common.AddressLength + 3*32 + 3*8 + BloomByteLength + 8
+	maximumHeaderSize         = maximumOriginalHeaderSize + maximumHeaderExtraSize //nolint
+	// size of a "sensible" header, i.e. committee size = 100 and no overlapping signatures with coefficient > 2
+	sensibleHeaderExtraSize  = 65 + 8 + 8 + 96 + (100 / 4) + 96 + (100 * 100) + 96 + (100 / 4) // ~= 11kb
+	sensibleHeaderSize       = maximumOriginalHeaderSize + sensibleHeaderExtraSize             //nolint
 	maximumDifficultyBitlen  = 80
 	maximumBaseFeeBitlen     = 256
 	maximumVotingPowerBitlen = 256
@@ -93,6 +99,7 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
 // Header represents a block header in the Autonity blockchain.
+// NOTE: if field get changed here, modify also the constants for the maximum header size at the top of the file.
 type Header struct {
 	// NOTE: HeaderParentHashFromRLP relies on ParentHash being the first element of the struct. Do not move it.
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
@@ -290,7 +297,7 @@ func (h *Header) sanityCheck() error {
 	if diffLen := h.Difficulty.BitLen(); diffLen > maximumDifficultyBitlen {
 		return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
 	}
-	if eLen := len(h.Extra); eLen > maximumHeaderExtraLength {
+	if eLen := len(h.Extra); eLen > maximumHeaderExtraSize {
 		return fmt.Errorf("too large block extradata: size %d", eLen)
 	}
 	if bfLen := h.BaseFee.BitLen(); bfLen > maximumBaseFeeBitlen {
