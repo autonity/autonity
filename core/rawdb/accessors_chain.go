@@ -356,7 +356,6 @@ func ReadHeaderRange(db ethdb.Reader, number uint64, count uint64) []rlp.RawValu
 	}
 
 	//read remaining from ancients
-	// TODO: our headers are bigger, should we allow for more data?
 	data, err := db.AncientRange(freezerHeaderTable, i+1-count, count, 2*1024*1024)
 	if err == nil && uint64(len(data)) == count {
 		// the data is on the order [h, h+1, .., n] -- reordering needed
