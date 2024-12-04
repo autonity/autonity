@@ -34963,17 +34963,18 @@ func (_StakeableVestingStorage *StakeableVestingStorageTransactorRaw) Transact(o
 
 // SupplyControlMetaData contains all meta data concerning the SupplyControl contract.
 var SupplyControlMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"stabilizer_\",\"type\":\"address\"}],\"stateMutability\":\"payable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidAmount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroValue\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Burn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Mint\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"availableSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"stabilizer_\",\"type\":\"address\"}],\"name\":\"setStabilizer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stabilizer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"stabilizer_\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"burnableGenesisSupply_\",\"type\":\"uint256\"}],\"stateMutability\":\"payable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidAmount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroValue\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Burn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Mint\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"availableSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"burn\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"burnableGenesisSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"stabilizer_\",\"type\":\"address\"}],\"name\":\"setStabilizer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"stabilizer\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 	Sigs: map[string]string{
 		"7ecc2b56": "availableSupply()",
 		"44df8e70": "burn()",
+		"59599203": "burnableGenesisSupply()",
 		"40c10f19": "mint(address,uint256)",
 		"b3ab15fb": "setOperator(address)",
 		"db7f521a": "setStabilizer(address)",
 		"7e47961c": "stabilizer()",
 		"18160ddd": "totalSupply()",
 	},
-	Bin: "0x6080604052604051610512380380610512833981016040819052610022916100a5565b3460000361004357604051637c946ed760e01b815260040160405180910390fd5b600280546001600160a01b039485166001600160a01b031991821617909155600380549385169382169390931790925560008054919093169116179055346001556100e8565b80516001600160a01b03811681146100a057600080fd5b919050565b6000806000606084860312156100ba57600080fd5b6100c384610089565b92506100d160208501610089565b91506100df60408501610089565b90509250925092565b61041b806100f76000396000f3fe6080604052600436106100705760003560e01c80637e47961c1161004e5780637e47961c146100c85780637ecc2b5614610100578063b3ab15fb14610113578063db7f521a1461013357600080fd5b806318160ddd1461007557806340c10f191461009e57806344df8e70146100c0575b600080fd5b34801561008157600080fd5b5061008b60015481565b6040519081526020015b60405180910390f35b3480156100aa57600080fd5b506100be6100b9366004610399565b610153565b005b6100be610265565b3480156100d457600080fd5b506000546100e8906001600160a01b031681565b6040516001600160a01b039091168152602001610095565b34801561010c57600080fd5b504761008b565b34801561011f57600080fd5b506100be61012e3660046103c3565b6102e5565b34801561013f57600080fd5b506100be61014e3660046103c3565b610331565b6000546001600160a01b0316331461017d576040516282b42960e81b815260040160405180910390fd5b6001600160a01b03821615806101a057506000546001600160a01b038381169116145b156101be57604051634e46966960e11b815260040160405180910390fd5b8015806101ca57504781115b156101e85760405163162908e360e11b815260040160405180910390fd5b6040516001600160a01b0383169082156108fc029083906000818181858888f1935050505015801561021e573d6000803e3d6000fd5b50604080516001600160a01b0384168152602081018390527f0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885910160405180910390a15050565b3460000361028657604051637c946ed760e01b815260040160405180910390fd5b6000546001600160a01b031633146102b0576040516282b42960e81b815260040160405180910390fd5b6040513481527fb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb9060200160405180910390a1565b6002546001600160a01b0316331461030f576040516282b42960e81b815260040160405180910390fd5b600380546001600160a01b0319166001600160a01b0392909216919091179055565b6003546001600160a01b0316331461035b576040516282b42960e81b815260040160405180910390fd5b600080546001600160a01b0319166001600160a01b0392909216919091179055565b80356001600160a01b038116811461039457600080fd5b919050565b600080604083850312156103ac57600080fd5b6103b58361037d565b946020939093013593505050565b6000602082840312156103d557600080fd5b6103de8261037d565b939250505056fea26469706673582212207646b2e6881a2d6269951386532b4fc6a3409fe50e89f6a55b709c4060cd997f64736f6c63430008150033",
+	Bin: "0x60806040526040516105d03803806105d0833981016040819052610022916100a8565b3460000361004357604051637c946ed760e01b815260040160405180910390fd5b600380546001600160a01b03199081166001600160a01b0396871617909155600480548216948616949094179093556000805490931691909316179055346001556002556100f3565b80516001600160a01b03811681146100a357600080fd5b919050565b600080600080608085870312156100be57600080fd5b6100c78561008c565b93506100d56020860161008c565b92506100e36040860161008c565b6060959095015193969295505050565b6104ce806101026000396000f3fe60806040526004361061007b5760003560e01c80637e47961c1161004e5780637e47961c146100e95780637ecc2b5614610121578063b3ab15fb14610134578063db7f521a1461015457600080fd5b806318160ddd1461008057806340c10f19146100a957806344df8e70146100cb57806359599203146100d3575b600080fd5b34801561008c57600080fd5b5061009660015481565b6040519081526020015b60405180910390f35b3480156100b557600080fd5b506100c96100c4366004610425565b610174565b005b6100c9610286565b3480156100df57600080fd5b5061009660025481565b3480156100f557600080fd5b50600054610109906001600160a01b031681565b6040516001600160a01b0390911681526020016100a0565b34801561012d57600080fd5b5047610096565b34801561014057600080fd5b506100c961014f36600461044f565b610371565b34801561016057600080fd5b506100c961016f36600461044f565b6103bd565b6000546001600160a01b0316331461019e576040516282b42960e81b815260040160405180910390fd5b6001600160a01b03821615806101c157506000546001600160a01b038381169116145b156101df57604051634e46966960e11b815260040160405180910390fd5b8015806101eb57504781115b156102095760405163162908e360e11b815260040160405180910390fd5b6040516001600160a01b0383169082156108fc029083906000818181858888f1935050505015801561023f573d6000803e3d6000fd5b50604080516001600160a01b0384168152602081018390527f0f6798a560793a54c3bcfe86a93cde1e73087d944c0ea20544137d4121396885910160405180910390a15050565b346000036102a757604051637c946ed760e01b815260040160405180910390fd5b6000546001600160a01b031633146102d1576040516282b42960e81b815260040160405180910390fd5b6002541561033c5760025434908111156102f4575060028054600090915561030c565b34600260008282546103069190610471565b90915550505b60405160009082156108fc0290839083818181858288f19350505050158015610339573d6000803e3d6000fd5b50505b6040513481527fb90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb9060200160405180910390a1565b6003546001600160a01b0316331461039b576040516282b42960e81b815260040160405180910390fd5b600480546001600160a01b0319166001600160a01b0392909216919091179055565b6004546001600160a01b031633146103e7576040516282b42960e81b815260040160405180910390fd5b600080546001600160a01b0319166001600160a01b0392909216919091179055565b80356001600160a01b038116811461042057600080fd5b919050565b6000806040838503121561043857600080fd5b61044183610409565b946020939093013593505050565b60006020828403121561046157600080fd5b61046a82610409565b9392505050565b8181038181111561049257634e487b7160e01b600052601160045260246000fd5b9291505056fea26469706673582212204b07804bc25e994452444c2415de46c61e0a676fc46b81ed0577e50938fb2e7364736f6c63430008150033",
 }
 
 // SupplyControlABI is the input ABI used to generate the binding from.
@@ -34989,7 +34990,7 @@ var SupplyControlFuncSigs = SupplyControlMetaData.Sigs
 var SupplyControlBin = SupplyControlMetaData.Bin
 
 // DeploySupplyControl deploys a new Ethereum contract, binding an instance of SupplyControl to it.
-func DeploySupplyControl(auth *bind.TransactOpts, backend bind.ContractBackend, autonity common.Address, operator common.Address, stabilizer_ common.Address) (common.Address, *types.Transaction, *SupplyControl, error) {
+func DeploySupplyControl(auth *bind.TransactOpts, backend bind.ContractBackend, autonity common.Address, operator common.Address, stabilizer_ common.Address, burnableGenesisSupply_ *big.Int) (common.Address, *types.Transaction, *SupplyControl, error) {
 	parsed, err := SupplyControlMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -34998,7 +34999,7 @@ func DeploySupplyControl(auth *bind.TransactOpts, backend bind.ContractBackend, 
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(SupplyControlBin), backend, autonity, operator, stabilizer_)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(SupplyControlBin), backend, autonity, operator, stabilizer_, burnableGenesisSupply_)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -35176,6 +35177,37 @@ func (_SupplyControl *SupplyControlSession) AvailableSupply() (*big.Int, error) 
 // Solidity: function availableSupply() view returns(uint256)
 func (_SupplyControl *SupplyControlCallerSession) AvailableSupply() (*big.Int, error) {
 	return _SupplyControl.Contract.AvailableSupply(&_SupplyControl.CallOpts)
+}
+
+// BurnableGenesisSupply is a free data retrieval call binding the contract method 0x59599203.
+//
+// Solidity: function burnableGenesisSupply() view returns(uint256)
+func (_SupplyControl *SupplyControlCaller) BurnableGenesisSupply(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _SupplyControl.contract.Call(opts, &out, "burnableGenesisSupply")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// BurnableGenesisSupply is a free data retrieval call binding the contract method 0x59599203.
+//
+// Solidity: function burnableGenesisSupply() view returns(uint256)
+func (_SupplyControl *SupplyControlSession) BurnableGenesisSupply() (*big.Int, error) {
+	return _SupplyControl.Contract.BurnableGenesisSupply(&_SupplyControl.CallOpts)
+}
+
+// BurnableGenesisSupply is a free data retrieval call binding the contract method 0x59599203.
+//
+// Solidity: function burnableGenesisSupply() view returns(uint256)
+func (_SupplyControl *SupplyControlCallerSession) BurnableGenesisSupply() (*big.Int, error) {
+	return _SupplyControl.Contract.BurnableGenesisSupply(&_SupplyControl.CallOpts)
 }
 
 // Stabilizer is a free data retrieval call binding the contract method 0x7e47961c.

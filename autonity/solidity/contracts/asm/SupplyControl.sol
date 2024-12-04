@@ -26,6 +26,9 @@ contract SupplyControl is ISupplyControl {
     /// The total supply of Auton under management.
     uint256 public totalSupply;
 
+    /// The ATN genesis supply to be burned
+    uint256 public burnableGenesisSupply;
+
     /// The Autonity Contract address.
     address private _autonity;
 
@@ -65,12 +68,14 @@ contract SupplyControl is ISupplyControl {
     constructor(
         address autonity,
         address operator,
-        address stabilizer_
+        address stabilizer_,
+        uint256 burnableGenesisSupply_
     ) payable nonZeroValue {
         _autonity = autonity;
         _operator = operator;
         stabilizer = stabilizer_;
         totalSupply = msg.value;
+        burnableGenesisSupply = burnableGenesisSupply_;
     }
 
     /// Mint Auton and send it to the recipient.
@@ -90,6 +95,16 @@ contract SupplyControl is ISupplyControl {
     /// Burn Auton by taking it out of circulation.
     /// @dev Only the stabilizer is authorized to burn Auton.
     function burn() external payable nonZeroValue onlyStabilizer {
+        if (burnableGenesisSupply > 0) {
+            uint256 _toBurn = msg.value;
+            if (msg.value > burnableGenesisSupply) {
+                _toBurn = burnableGenesisSupply;
+                burnableGenesisSupply = 0;
+            } else {
+                burnableGenesisSupply -= msg.value;
+            }
+            payable(address(0)).transfer(_toBurn);
+        }
         emit Burn(msg.value);
     }
 

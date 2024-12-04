@@ -37,7 +37,7 @@ type GenesisBond struct {
 	Bonds         []Delegation
 }
 
-func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts) error {
+func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evmContracts *GenesisEVMContracts, atnAlloc *big.Int) error {
 	if err := DeployAutonityContract(genesisConfig.AutonityContractConfig, genesisBonds, evmContracts, genesisConfig.OmissionAccountabilityConfig.Delta); err != nil {
 		return fmt.Errorf("error when deploying the autonity contract: %w", err)
 	}
@@ -50,7 +50,7 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployACUContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the ACU contract: %w", err)
 	}
-	if err := DeploySupplyControlContract(genesisConfig, evmContracts); err != nil {
+	if err := DeploySupplyControlContract(genesisConfig, evmContracts, atnAlloc); err != nil {
 		return fmt.Errorf("error when deploying the supply control contract: %w", err)
 	}
 	if err := DeployStabilizationContract(genesisConfig, evmContracts); err != nil {
@@ -114,7 +114,7 @@ func DeployStabilizationContract(config *params.ChainConfig, evmContracts *Genes
 	return nil
 }
 
-func DeploySupplyControlContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+func DeploySupplyControlContract(config *params.ChainConfig, evmContracts *GenesisEVMContracts, atnAlloc *big.Int) error {
 	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
 
 	evmContracts.AddBalance(params.DeployerAddress, value)
@@ -122,8 +122,10 @@ func DeploySupplyControlContract(config *params.ChainConfig, evmContracts *Genes
 		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
 		params.StabilizationContractAddress,
+		atnAlloc,
 		generated.SupplyControlBytecode,
-		value)
+		value,
+	)
 
 	if err != nil {
 		log.Error("DeploySupplyControlContract failed", "err", err)

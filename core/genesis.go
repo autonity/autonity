@@ -323,6 +323,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	if err != nil {
 		panic(err)
 	}
+
+	totalAtnAlloc := big.NewInt(0)
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
@@ -330,6 +332,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		for key, value := range account.Storage {
 			statedb.SetState(addr, key, value)
 		}
+		totalAtnAlloc = new(big.Int).Add(totalAtnAlloc, account.Balance)
 	}
 
 	genesisBonds := g.Alloc.ToGenesisBonds()
@@ -338,7 +341,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 
 	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
-	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
+	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts, totalAtnAlloc); err != nil {
 		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
 	}
 	committee, err := evmContracts.AutonityContract.Committee(nil, statedb)

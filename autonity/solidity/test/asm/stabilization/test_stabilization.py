@@ -112,6 +112,7 @@ def supply_control(project, users):
         # Stabilization Contract at this point of the test setup. But once we know,
         # then it is set by calling `setStabilizer()`.
         ADDRESS_ZERO,
+        0,  # no initially minted value
         sender=users.deployer,
         value=ATN_TOTAL_SUPPLY,
     )

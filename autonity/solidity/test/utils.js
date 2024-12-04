@@ -232,7 +232,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   const acu = await Acu.new([], [], 2, autonity.address, operator, oracle.address, {from: deployer});
 
   // supply control contract. we will set the stabilizer address later
-  const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000",{from:deployer,value:1})
+  const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000", 0, {from:deployer,value:1})
 
   // stabilization contract, random temporary config and zeroAddress as collateral token
 

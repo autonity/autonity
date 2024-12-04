@@ -37,6 +37,7 @@ def supply_control(project, users):
         users.autonity,
         users.operator,
         users.stabilizer,
+        0, # no initially supplied value
         sender=users.deployer,
         value=TOTAL_SUPPLY,
     )
@@ -53,6 +54,7 @@ def test_deploy_zero_value(project, users):
             users.autonity,
             users.operator,
             users.stabilizer,
+            0, # no initially supplied value
             sender=users.deployer,
             value=0,
         )

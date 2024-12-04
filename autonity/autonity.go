@@ -639,8 +639,25 @@ func (c *GenesisEVMContracts) DeployACUContract(
 	return c.ACUContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, symbols, quantities, scale, autonity, operator, oracle)
 }
 
-func (c *GenesisEVMContracts) DeploySupplyControlContract(autonity common.Address, operator common.Address, stabilizationContract common.Address, bytecode []byte, value *big.Int) error {
-	return c.SupplyControlContract.DeployContractWithValue(nil, params.DeployerAddress, c.statedb, bytecode, value, autonity, operator, stabilizationContract)
+func (c *GenesisEVMContracts) DeploySupplyControlContract(
+	autonity common.Address,
+	operator common.Address,
+	stabilizationContract common.Address,
+	genesisATNSupply *big.Int,
+	bytecode []byte,
+	value *big.Int,
+) error {
+	return c.SupplyControlContract.DeployContractWithValue(
+		nil,
+		params.DeployerAddress,
+		c.statedb,
+		bytecode,
+		value,
+		autonity,
+		operator,
+		stabilizationContract,
+		genesisATNSupply,
+	)
 }
 
 func (c *GenesisEVMContracts) AddBalance(address common.Address, value *big.Int) {

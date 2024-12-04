@@ -661,10 +661,14 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	// Step 5: Supply Control Deployment
 	//
 	r.Evm.StateDB.AddBalance(common.Address{}, (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation))
-	_, _, r.SupplyControl, err = r.DeploySupplyControl(&runOptions{value: (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation)},
+	_, _, r.SupplyControl, err = r.DeploySupplyControl(
+		&runOptions{value: (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation)},
 		r.Autonity.address,
 		autonityConfig.Protocol.OperatorAccount,
-		params.StabilizationContractAddress)
+		params.StabilizationContractAddress,
+		// TODO: this should be configurable
+		big.NewInt(int64(1_000_000)),
+	)
 	require.NoError(t, err)
 	require.Equal(t, r.SupplyControl.address, params.SupplyControlContractAddress)
 	//
