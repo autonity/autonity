@@ -185,7 +185,7 @@ contract Oracle is IOracle {
                 "confidence/price error"
             );
             require(_validSymbol(_symbols[i]), "invalid symbol");
-            reports[symbols[i]][msg.sender] = _reports[i];
+            reports[_symbols[i]][msg.sender] = _reports[i];
         }
         voterInfo[msg.sender].reportAvailable = true;
     }
