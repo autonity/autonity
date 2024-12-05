@@ -31,16 +31,16 @@ var (
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
 		Symbols:                   OracleInitialSymbols,
 		VotePeriod:                OracleVotePeriod,
-		OutlierDetectionThreshold: 100,
-		OutlierSlashingThreshold:  100,
+		OutlierDetectionThreshold: 10,
+		OutlierSlashingThreshold:  10,
 		BaseSlashingRate:          10,
 	}
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
 	DefaultAcuContractGenesis = &AcuContractGenesis{
-		Symbols:    []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "USD-USD", "SEK-USD"},
-		Quantities: []uint64{21_300, 18_700, 14_300, 10_400, 1_760_000, 18_000, 141_000},
-		Scale:      uint64(5),
+		Symbols:    []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "USD-USD"},
+		Quantities: []uint64{1_744_583, 1_598_986, 1_058_522, 886_091, 175_605_573, 12_318_802, 1_148_285},
+		Scale:      uint64(7),
 	}
 
 	// DefaultStabilizationGenesis contains the default values for the ASM Stabilization contract
@@ -49,7 +49,7 @@ var (
 		LiquidationRatio:          (*math.HexOrDecimal256)(math.MustParseBig256("1_800_000_000_000_000_000")),
 		MinCollateralizationRatio: (*math.HexOrDecimal256)(math.MustParseBig256("2_000_000_000_000_000_000")),
 		MinDebtRequirement:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000")),
-		TargetPrice:               (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000_000_000_000_000")),
+		TargetPrice:               (*math.HexOrDecimal256)(math.MustParseBig256("1_618_034_000_000_000_000")),
 	}
 
 	DefaultSupplyControlGenesis = &SupplyControlGenesis{
@@ -59,9 +59,9 @@ var (
 	DefaultInflationControllerGenesis = &InflationControllerGenesis{
 		InflationRateInitial:      (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(75), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 7.5% AR
 		InflationRateTransition:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(55), DecimalFactor), big.NewInt(1000*SecondsInYear))),        // 5.5% AR
-		InflationReserveDecayRate: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_328), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.328% AR
-		InflationTransitionPeriod: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear), DecimalFactor)),
-		InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_900), DecimalFactor), big.NewInt(1_000))), // -1.429
+		InflationReserveDecayRate: (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(17_317), DecimalFactor), big.NewInt(100_000*SecondsInYear))), // 17.3168186793% AR
+		InflationTransitionPeriod: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(4*SecondsInYear+SecondsInDay), DecimalFactor)),                                // (4+1/365) years
+		InflationCurveConvexity:   (*math.HexOrDecimal256)(new(big.Int).Div(new(big.Int).Mul(big.NewInt(-1_779), DecimalFactor), big.NewInt(1_000))),                 // -1.7794797758
 	}
 
 	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
@@ -107,10 +107,19 @@ var (
 		Delta:                  5,      // 5 blocks
 	}
 
-	DefaultNonStakeableVestingGenesis = &NonStakeableVestingGenesis{}
+	DefaultNonStakeableVestingGenesis = &NonStakeableVestingGenesis{
+		// TODO: fill the array NonStakeableContracts
+	}
 
 	DefaultStakeableVestingGenesis = &StakeableVestingGenesis{
-		TotalNominal: new(big.Int).Mul(big.NewInt(26_500_000), DecimalFactor), // 26.5 million NTN
+		TotalNominal: new(big.Int).Add(
+			new(big.Int).Mul(big.NewInt(21_466_666), DecimalFactor),
+			new(big.Int).Div(
+				new(big.Int).Mul(big.NewInt(6_666_666), DecimalFactor),
+				big.NewInt(10_000_000),
+			),
+		), // 21466666.6666666 NTN
+		// TODO: fill the array StakeableContracts
 	}
 
 	DeployerAddress                        = common.Address{}

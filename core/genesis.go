@@ -519,10 +519,7 @@ func DefaultGenesisBlock() *Genesis {
 // DefaultPiccadillyGenesisBlock returns the Piccadilly network genesis block.
 func DefaultPiccadillyGenesisBlock() *Genesis {
 	var (
-		sdpAccount  = common.HexToAddress("0x8b914020A7099E4723f45561E897fa2740885A55")
-		agfTreasury = common.HexToAddress("0x05C2ee5d563E75E431649CaECE1a598f862e5B02")
-		ctlTreasury = common.HexToAddress("0xaeD49e2A958F08338079294B2bC1E512eeB87914")
-		ctlReserve  = common.HexToAddress("0xD3C5aC14d9815e1867a05b1A8B8269aDB0FA46C6")
+		sdpAccount = common.HexToAddress("0x8b914020A7099E4723f45561E897fa2740885A55")
 	)
 	g := &Genesis{
 		Config:     params.PiccadillyChainConfig,
@@ -534,34 +531,41 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 		Alloc: map[common.Address]GenesisAccount{
 			sdpAccount: { // SDP Simulator Account
 				Balance:       new(big.Int).Mul(big.NewInt(100), big.NewInt(params.Ether)),
-				NewtonBalance: new(big.Int).Mul(big.NewInt(5_528_000), params.NTNDecimalFactor), // Initial Unbonded Newton Amount
+				NewtonBalance: new(big.Int).Mul(big.NewInt(7_600_000), params.NTNDecimalFactor), // Initial Unbonded Newton Amount
 				Bonds:         make(map[common.Address]*big.Int),
 			},
 			params.PiccadillyChainConfig.AutonityContractConfig.Operator: {
-				Balance: new(big.Int).Mul(big.NewInt(50), big.NewInt(params.Ether)),
-			},
-			agfTreasury: {
-				Balance:       new(big.Int).Mul(big.NewInt(350), big.NewInt(params.Ether)),
-				NewtonBalance: new(big.Int).Mul(big.NewInt(1_899_950), params.NTNDecimalFactor),
-			},
-			ctlTreasury: {
-				Balance:       new(big.Int).Mul(big.NewInt(444), big.NewInt(params.Ether)),
-				NewtonBalance: new(big.Int).Mul(big.NewInt(20_880_000), params.NTNDecimalFactor),
-			},
-			ctlReserve: {
-				Balance:       common.Big0,
-				NewtonBalance: new(big.Int).Mul(big.NewInt(17_500_050), params.NTNDecimalFactor),
+				Balance: new(big.Int).Mul(big.NewInt(10), big.NewInt(params.Ether)),
 			},
 		},
 	}
+	// it is assumed that all validators have different treasury addresses in genesis sequence
+	// otherwise the following won't work
 	for _, v := range g.Config.AutonityContractConfig.Validators {
-		if *v.NodeAddress != v.OracleAddress {
-			g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
-			g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
-		} else {
-			g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: new(big.Int).Mul(common.Big2, big.NewInt(params.Ether))}
-		}
-		g.Alloc[sdpAccount].Bonds[*v.NodeAddress] = new(big.Int).Mul(big.NewInt(74_000), params.NTNDecimalFactor)
+		// give 1 ATN to treasury, 0.5 ATN to validator node and 0.5 ATN to oracle node
+		balances := make(map[common.Address]*big.Int)
+		balances[v.Treasury] = big.NewInt(0)
+		balances[*v.NodeAddress] = big.NewInt(0)
+		balances[v.OracleAddress] = big.NewInt(0)
+
+		balances[v.Treasury] = new(big.Int).Add(balances[v.Treasury], big.NewInt(params.Ether))
+		balances[*v.NodeAddress] = new(big.Int).Add(
+			balances[*v.NodeAddress],
+			new(big.Int).Div(big.NewInt(params.Ether), common.Big2),
+		)
+		balances[v.OracleAddress] = new(big.Int).Add(
+			balances[v.OracleAddress],
+			new(big.Int).Div(big.NewInt(params.Ether), common.Big2),
+		)
+
+		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: balances[*v.NodeAddress]}
+		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: balances[v.OracleAddress]}
+		g.Alloc[v.Treasury] = GenesisAccount{Balance: balances[v.Treasury]}
+
+		// self bond 1 NTN
+		g.Alloc[v.Treasury].Bonds[*v.NodeAddress] = new(big.Int).Mul(common.Big1, params.NTNDecimalFactor)
+		// delegate 100_000 NTN from sdp account
+		g.Alloc[sdpAccount].Bonds[*v.NodeAddress] = new(big.Int).Mul(big.NewInt(100_000), params.NTNDecimalFactor)
 	}
 	return g
 }

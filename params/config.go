@@ -72,12 +72,12 @@ var (
 	Ntn10000     = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
 	Ntn40000     = new(big.Int).Mul(big.NewInt(40_000), NtnPrecision)
 
-	PiccadillyGenesisTime, _       = time.Parse(time.RFC3339, "2024-06-21T14:00:00Z")
+	PiccadillyGenesisTime, _       = time.Parse(time.RFC3339, "2024-12-05T13:00:00Z")
 	PiccadillyGenesisUnixTimestamp = PiccadillyGenesisTime.Unix()
 
 	// PiccadillyChainConfig contains the chain parameters to run a node on the Piccadilly test network.
 	PiccadillyChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_100_003),
+		ChainID:                 big.NewInt(65_100_004),
 		HomesteadBlock:          common.Big0,
 		DAOForkBlock:            common.Big0,
 		DAOForkSupport:          true,
@@ -101,16 +101,17 @@ var (
 			EpochPeriod:             30 * 60,
 			UnbondingPeriod:         6 * 60 * 60,
 			BlockPeriod:             1,
-			MaxCommitteeSize:        28,
-			MaxScheduleDuration:     uint64(3 * SecondsInYear),
+			MaxCommitteeSize:        30,
+			MaxScheduleDuration:     uint64(4*SecondsInYear + SecondsInDay), // 126230400 seconds
 			Operator:                common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
 			Treasury:                common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
 			WithheldRewardsPool:     common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"), // TODO: set to another account if we do not want to send withheld rewards to the AC treasury
 			TreasuryFee:             10_000_000_000_000_000,
-			DelegationRate:          1000, // 10%
-			WithholdingThreshold:    0,    // 0%, no tolerance
-			ProposerRewardRate:      1000, // 10% TODO: is this enough?
-			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
+			DelegationRate:          1000,                                                                            // 10%
+			WithholdingThreshold:    0,                                                                               // 0%, no tolerance
+			ProposerRewardRate:      1000,                                                                            // 10% TODO: is this enough?
+			OracleRewardRate:        1000,                                                                            // 10%
+			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)), // 40M NTN
 			Validators: []*Validator{
 				// Ctl-1
 				{
@@ -367,78 +368,20 @@ var (
 			StabilizationContractConfig: DefaultStabilizationGenesis,
 			SupplyControlConfig: &SupplyControlGenesis{
 				InitialAllocation:
-				//  2^256 - 1 - TotalGenesisAtnAlloc (1000ATN)
+				//  2^256 - 1 - TotalGenesisAtnAlloc (1042 ATN)
 				(*math.HexOrDecimal256)(new(big.Int).Sub(
 					new(big.Int).Sub(
 						new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), // 2^256
-						new(big.Int).Mul(big.NewInt(1000), big.NewInt(Ether)), // 1000 * 10^18
+						new(big.Int).Mul(big.NewInt(1042), big.NewInt(Ether)), // 1042 * 10^18
 					),
 					common.Big1)),
 			},
 		},
 		AccountabilityConfig:         DefaultAccountabilityConfig,
 		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
-		NonStakeableVestingConfig: &NonStakeableVestingGenesis{
-			NonStakeableContracts: []NonStakeableVestingData{
-				{
-					Beneficiary:   common.HexToAddress("0xB0984E6bB363040394BcDdf317A27E3B9b064438"),
-					Amount:        new(big.Int).Mul(big.NewInt(25_000), DecimalFactor),
-					ScheduleID:    common.Big0,
-					CliffDuration: big.NewInt(0),
-				},
-				{
-					Beneficiary:   common.HexToAddress("0xa905CF052623eF4aB76b5ee32b4De81e9C9edfA6"),
-					Amount:        new(big.Int).Mul(big.NewInt(25_000), DecimalFactor),
-					ScheduleID:    common.Big1,
-					CliffDuration: big.NewInt(0),
-				},
-				{
-					Beneficiary:   common.HexToAddress("0x908e3106157f3807Daadc7D5B74A67E26A2124b6"),
-					Amount:        new(big.Int).Mul(big.NewInt(25_000), DecimalFactor),
-					ScheduleID:    common.Big2,
-					CliffDuration: big.NewInt(0),
-				},
-				{
-					Beneficiary:   common.HexToAddress("0x908e3106157f3807Daadc7D5B74A67E26A2124b6"),
-					Amount:        new(big.Int).Mul(big.NewInt(25_000), DecimalFactor),
-					ScheduleID:    common.Big2,
-					CliffDuration: big.NewInt(0),
-				},
-				{
-					Beneficiary:   common.HexToAddress("0xa905CF052623eF4aB76b5ee32b4De81e9C9edfA6"),
-					Amount:        new(big.Int).Mul(big.NewInt(25_000), DecimalFactor),
-					ScheduleID:    common.Big0,
-					CliffDuration: big.NewInt(0),
-				},
-			},
-		},
-		StakeableVestingConfig: &StakeableVestingGenesis{
-			TotalNominal: new(big.Int).Mul(big.NewInt(1_000_000), DecimalFactor),
-			StakeableContracts: []StakeableVestingData{
-				{
-					Beneficiary:   common.HexToAddress("0xB0984E6bB363040394BcDdf317A27E3B9b064438"),
-					Amount:        new(big.Int).Mul(big.NewInt(100), DecimalFactor),
-					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp),
-					CliffDuration: common.Big0,
-					TotalDuration: big.NewInt(4 * 7 * SecondsInDay),
-				},
-				{
-					Beneficiary:   common.HexToAddress("0xa905CF052623eF4aB76b5ee32b4De81e9C9edfA6"),
-					Amount:        new(big.Int).Mul(big.NewInt(100), DecimalFactor),
-					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp),
-					CliffDuration: big.NewInt(2 * 7 * SecondsInDay),
-					TotalDuration: big.NewInt(4 * 7 * SecondsInDay),
-				},
-				{
-					Beneficiary:   common.HexToAddress("0x908e3106157f3807Daadc7D5B74A67E26A2124b6"),
-					Amount:        new(big.Int).Mul(big.NewInt(100), DecimalFactor),
-					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp + 2*7*SecondsInDay),
-					CliffDuration: big.NewInt(2 * 7 * SecondsInDay),
-					TotalDuration: big.NewInt(4 * 7 * SecondsInDay),
-				},
-			},
-		},
-		InflationContractConfig: DefaultInflationControllerGenesis,
+		NonStakeableVestingConfig:    DefaultNonStakeableVestingGenesis,
+		StakeableVestingConfig:       DefaultStakeableVestingGenesis,
+		InflationContractConfig:      DefaultInflationControllerGenesis,
 	}
 
 	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
