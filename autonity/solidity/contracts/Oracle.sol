@@ -36,7 +36,6 @@ contract Oracle is IOracle {
         address operator; // Address of the operator
         uint votePeriod; // Duration of the voting period
         int256 outlierDetectionThreshold; // Threshold for outlier detection
-        int256 outlierSlashingThreshold; // Threshold for slashing outliers
         uint256 baseSlashingRate; // Base rate for slashing
     }
 
@@ -463,13 +462,11 @@ contract Oracle is IOracle {
     * @notice Setter for the internal slashing and outlier detection configuration.
     */
     function setSlashingConfig(
-        int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,
         uint256 _baseSlashingRate)
     external
     onlyOperator
     {
-        config.outlierSlashingThreshold = _outlierSlashingThreshold;
         config.outlierDetectionThreshold = _outlierDetectionThreshold;
         config.baseSlashingRate = _baseSlashingRate;
     }
@@ -638,15 +635,13 @@ contract Oracle is IOracle {
         voterInfo[_outlier].reportAvailable = false;
         int256 _diffRatio = (int256(uint256(_report.price)) - _median) * 100 / _median;
         //price is 120 bits max so _diffratio squared is at most 240 bits
-        _diffRatio = _diffRatio * _diffRatio;
-        if (_diffRatio <= config.outlierSlashingThreshold) {
-            return;
-        }
+        // for outliers, we have `abs(_diffRatio) > config.outlierDetectionThreshold` filtered in `_findOutliers` function
+        uint256 _slashingFactor = uint256(
+            (_diffRatio - config.outlierDetectionThreshold) * (_diffRatio - config.outlierDetectionThreshold)
+        );
 
         // TODO: to formal evaluate the correctness of this formula.
-        uint256 _slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
-                               uint256(_report.confidence) *
-                               config.baseSlashingRate; // some scaling is prob needed here.
+        uint256 _slashingRate = _slashingFactor * uint256(_report.confidence) * config.baseSlashingRate;
 
         // Capped the oracle slashing rate
         if (_slashingRate > ORACLE_SLASHING_RATE_CAP) {

@@ -634,7 +634,6 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 			Operator:                  autonityConfig.Protocol.OperatorAccount,
 			VotePeriod:                new(big.Int).SetUint64(params.TestOracleConfig.VotePeriod),
 			OutlierDetectionThreshold: new(big.Int).SetUint64(params.TestOracleConfig.OutlierDetectionThreshold),
-			OutlierSlashingThreshold:  new(big.Int).SetUint64(params.TestOracleConfig.OutlierSlashingThreshold),
 			BaseSlashingRate:          new(big.Int).SetUint64(params.TestOracleConfig.BaseSlashingRate),
 		},
 	)

@@ -370,7 +370,6 @@ func DeployOracleContract(genesisConfig *params.ChainConfig, evmContracts *Genes
 			Operator:                  genesisConfig.AutonityContractConfig.Operator,
 			VotePeriod:                new(big.Int).SetUint64(genesisConfig.OracleContractConfig.VotePeriod),
 			OutlierDetectionThreshold: new(big.Int).SetUint64(genesisConfig.OracleContractConfig.OutlierDetectionThreshold),
-			OutlierSlashingThreshold:  new(big.Int).SetUint64(genesisConfig.OracleContractConfig.OutlierSlashingThreshold),
 			BaseSlashingRate:          new(big.Int).SetUint64(genesisConfig.OracleContractConfig.BaseSlashingRate),
 		},
 		genesisConfig.OracleContractConfig.Bytecode,
