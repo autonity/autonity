@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -961,6 +962,9 @@ func TestRewardWithholding(t *testing.T) {
 		config.TreasuryFee = 0        // same
 		// increase voting power of validator 0 to reach quorum in proofs easily
 		config.Validators[0].BondedStake = new(big.Int).Mul(config.Validators[1].BondedStake, big.NewInt(6))
+		for _, v := range config.Validators {
+			fmt.Printf("v %v\n", v.BondedStake)
+		}
 		config.OracleRewardRate = 0
 		return config
 	})
@@ -1004,11 +1008,8 @@ func TestRewardWithholding(t *testing.T) {
 	}
 
 	atnRewards := new(big.Int).SetUint64(5467879877987) // random amount
-	// this has to match the ntn inflation unlocked NTNs.
-	// Can be retrieved by adding in solidity a revert(Helpers.toString(accounts[address(this)])); in Finalize
-	// Also can be used `r.RewardsAfterOneEpoch()` function to calculate rewards
-	ntnRewards := new(big.Int).SetUint64(8220842843566600000)
 	r.GiveMeSomeMoney(r.Autonity.address, atnRewards)
+	ntnRewards := r.RewardsAfterOneEpoch().RewardNTN
 
 	atnBalancesBefore := make(map[common.Address]*big.Int)
 	stakesBefore := make(map[common.Address]*big.Int)
