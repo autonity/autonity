@@ -148,65 +148,57 @@ import (
 	"github.com/autonity/autonity/common"
 );
 
-func mustParseString(str string) *big.Int {
-	ret, ok := new(big.Int).SetString(str, 10)
-	if !ok {
-		panic("failed to parse big int")
-	}
-	return ret
-}
-
-var piccadillyATNallocs = []struct {
-	address common.Address
-	value   *big.Int
+var PiccadillyATNallocs = []struct {
+	Address common.Address
+	Value   *big.Int
 }{
 {{- range .ATNGenesis }}
-	{address: common.HexToAddress("{{ .Account }}"), value: mustParseString("{{ .Value }}")},
+	{Address: common.HexToAddress("{{ .Account }}"), Value: mustParseString("{{ .Value }}")},
 {{- end }}
 }
 
-var piccadillyNTNallocs = []struct {
-	address common.Address
-	value   *big.Int
+var PiccadillyNTNallocs = []struct {
+	Address common.Address
+	Value   *big.Int
 }{
 {{- range .NTNgenesis }}
-	{address: common.HexToAddress("{{ .Account }}"), value: mustParseString("{{ .Value }}")},
+	{Address: common.HexToAddress("{{ .Account }}"), Value: mustParseString("{{ .Value }}")},
 {{- end }}
 }
 
-var piccadillyLSNTNallocs = []struct {
-	address common.Address
-	value   *big.Int
+var PiccadillyLSNTNallocs = []struct {
+	Address common.Address
+	Value   *big.Int
 }{
 {{- range .NTNLS }}
-	{address: common.HexToAddress("{{ .Account }}"), value: mustParseString("{{ .Value }}")},
+	{Address: common.HexToAddress("{{ .Account }}"), Value: mustParseString("{{ .Value }}")},
 {{- end }}
 }
 
-var piccadillyLNSNTNallocs = []struct {
-	address common.Address
-	value   *big.Int
+var PiccadillyLNSNTNallocs = []struct {
+	Address common.Address
+	Value   *big.Int
 }{
 {{- range .NTNLNS }}
-	{address: common.HexToAddress("{{ .Account }}"), value: mustParseString("{{ .Value }}")},
+	{Address: common.HexToAddress("{{ .Account }}"), Value: mustParseString("{{ .Value }}")},
 {{- end }}
 }
 
-var piccadillyGVNTNallocs = []struct {
-	address common.Address
-	value   *big.Int
+var PiccadillyGVNTNallocs = []struct {
+	Address common.Address
+	Value   *big.Int
 }{
 {{- range .NTNGVBonds }}
-	{address: common.HexToAddress("{{ .Account }}"), value: mustParseString("{{ .Value }}")},
+	{Address: common.HexToAddress("{{ .Account }}"), Value: mustParseString("{{ .Value }}")},
 {{- end }}
 }
 
-var piccadillySDPDelegations = []struct {
-	address common.Address
-	value   *big.Int
+var PiccadillySDPDelegations = []struct {
+	Address common.Address
+	Value   *big.Int
 }{
 {{- range .SDPDelegations }}
-	{address: common.HexToAddress("{{ .Account }}"), value: mustParseString("{{ .Value }}")},
+	{Address: common.HexToAddress("{{ .Account }}"), Value: mustParseString("{{ .Value }}")},
 {{- end }}
 }
 

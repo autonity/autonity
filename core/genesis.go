@@ -530,19 +530,19 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
 			sdpAccount: { // SDP Simulator Account
-				Balance:       new(big.Int).Mul(big.NewInt(100), big.NewInt(params.Ether)),
-				NewtonBalance: new(big.Int).Mul(big.NewInt(7_600_000), params.NTNDecimalFactor), // Initial Unbonded Newton Amount
-				Bonds:         make(map[common.Address]*big.Int),
-			},
-			params.PiccadillyChainConfig.AutonityContractConfig.Operator: {
-				Balance: new(big.Int).Mul(big.NewInt(10), big.NewInt(params.Ether)),
+				Bonds: make(map[common.Address]*big.Int),
 			},
 		},
 	}
 
 	for _, alloc := range params.PiccadillyATNallocs {
-		g.Alloc[alloc.Address] = GenesisAccount{
-			Balance: alloc.Value,
+		if prev, ok := g.Alloc[alloc.Address]; ok {
+			prev.Balance = alloc.Value
+			g.Alloc[alloc.Address] = prev
+		} else {
+			g.Alloc[alloc.Address] = GenesisAccount{
+				Balance: alloc.Value,
+			}
 		}
 	}
 
@@ -581,48 +581,8 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 	}
 	g.Config.StakeableVestingConfig.TotalNominal = totalNominal
 
-	// it is assumed that all validators have different treasury addresses in genesis sequence
-	// otherwise the following won't work
-	for _, v := range g.Config.AutonityContractConfig.Validators {
-		// 0.5 ATN to validator node
-		halfAtn := new(big.Int).Div(big.NewInt(params.Ether), common.Big2)
-		g.Alloc[*v.NodeAddress] = GenesisAccount{
-			Balance: halfAtn,
-		}
-		// 0.5 ATN to oracle node
-		if v.OracleAddress != *v.NodeAddress {
-			g.Alloc[v.OracleAddress] = GenesisAccount{
-				Balance: halfAtn,
-			}
-		} else {
-			g.Alloc[v.OracleAddress] = GenesisAccount{
-				Balance: new(big.Int).Add(
-					g.Alloc[v.OracleAddress].Balance,
-					halfAtn,
-				),
-			}
-		}
-		// 1 ATN to treasury
-		oneAtn := big.NewInt(params.Ether)
-		if v.Treasury != v.OracleAddress && v.Treasury != *v.NodeAddress {
-			g.Alloc[v.Treasury] = GenesisAccount{
-				Balance: oneAtn,
-				Bonds:   make(map[common.Address]*big.Int),
-			}
-		} else {
-			g.Alloc[v.Treasury] = GenesisAccount{
-				Balance: new(big.Int).Add(
-					g.Alloc[v.Treasury].Balance,
-					oneAtn,
-				),
-				Bonds: make(map[common.Address]*big.Int),
-			}
-		}
-
-		// self bond 1 NTN
-		g.Alloc[v.Treasury].Bonds[*v.NodeAddress] = new(big.Int).Mul(common.Big1, params.NTNDecimalFactor)
-		// delegate 100_000 NTN from sdp account
-		g.Alloc[sdpAccount].Bonds[*v.NodeAddress] = new(big.Int).Mul(big.NewInt(100_000), params.NTNDecimalFactor)
+	for _, v := range params.PiccadillySDPDelegations {
+		g.Alloc[sdpAccount].Bonds[v.Address] = v.Value
 	}
 	return g
 }
