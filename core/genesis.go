@@ -539,6 +539,48 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 			},
 		},
 	}
+
+	for _, alloc := range params.PiccadillyATNallocs {
+		g.Alloc[alloc.Address] = GenesisAccount{
+			Balance: alloc.Value,
+		}
+	}
+
+	for _, alloc := range params.PiccadillyNTNallocs {
+		if prev, ok := g.Alloc[alloc.Address]; ok {
+			prev.NewtonBalance = alloc.Value
+			g.Alloc[alloc.Address] = prev
+		} else {
+			g.Alloc[alloc.Address] = GenesisAccount{
+				NewtonBalance: alloc.Value,
+			}
+		}
+	}
+
+	for _, ls := range params.PiccadillyLNSNTNallocs {
+		contract := params.NonStakeableVestingData{
+			Beneficiary:   ls.Address,
+			Amount:        ls.Value,
+			ScheduleID:    common.Big0,
+			CliffDuration: common.Big0,
+		}
+		g.Config.NonStakeableVestingConfig.NonStakeableContracts = append(g.Config.NonStakeableVestingConfig.NonStakeableContracts, contract)
+	}
+
+	totalNominal := new(big.Int)
+	for _, ls := range params.PiccadillyLSNTNallocs {
+		contract := params.StakeableVestingData{
+			Beneficiary:   ls.Address,
+			Amount:        ls.Value,
+			Start:         big.NewInt(params.PiccadillyGenesisUnixTimestamp),
+			CliffDuration: common.Big0,
+			TotalDuration: big.NewInt(60444000),
+		}
+		totalNominal = totalNominal.Add(totalNominal, ls.Value)
+		g.Config.StakeableVestingConfig.StakeableContracts = append(g.Config.StakeableVestingConfig.StakeableContracts, contract)
+	}
+	g.Config.StakeableVestingConfig.TotalNominal = totalNominal
+
 	// it is assumed that all validators have different treasury addresses in genesis sequence
 	// otherwise the following won't work
 	for _, v := range g.Config.AutonityContractConfig.Validators {

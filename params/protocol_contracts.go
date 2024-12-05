@@ -108,18 +108,11 @@ var (
 	}
 
 	DefaultNonStakeableVestingGenesis = &NonStakeableVestingGenesis{
-		// TODO: fill the array NonStakeableContracts
+		NonStakeableContracts: make([]NonStakeableVestingData, 0),
 	}
 
 	DefaultStakeableVestingGenesis = &StakeableVestingGenesis{
-		TotalNominal: new(big.Int).Add(
-			new(big.Int).Mul(big.NewInt(21_466_666), DecimalFactor),
-			new(big.Int).Div(
-				new(big.Int).Mul(big.NewInt(6_666_666), DecimalFactor),
-				big.NewInt(10_000_000),
-			),
-		), // 21466666.6666666 NTN
-		// TODO: fill the array StakeableContracts
+		StakeableContracts: make([]StakeableVestingData, 0),
 	}
 
 	DeployerAddress                        = common.Address{}
