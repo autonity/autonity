@@ -347,8 +347,9 @@ contract Stabilization is IStabilization {
                 config.liquidationRatio
             )
         ) revert NotLiquidatable();
+        
+        if (msg.value < debt) revert InsufficientPayment();
         uint surplus = msg.value - debt;
-        if (surplus < 0) revert InsufficientPayment();
 
         uint256 collateral = cdp.collateral;
         cdp.timestamp = block.timestamp;
