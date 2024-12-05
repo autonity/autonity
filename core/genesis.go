@@ -542,25 +542,40 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 	// it is assumed that all validators have different treasury addresses in genesis sequence
 	// otherwise the following won't work
 	for _, v := range g.Config.AutonityContractConfig.Validators {
-		// give 1 ATN to treasury, 0.5 ATN to validator node and 0.5 ATN to oracle node
-		balances := make(map[common.Address]*big.Int)
-		balances[v.Treasury] = big.NewInt(0)
-		balances[*v.NodeAddress] = big.NewInt(0)
-		balances[v.OracleAddress] = big.NewInt(0)
-
-		balances[v.Treasury] = new(big.Int).Add(balances[v.Treasury], big.NewInt(params.Ether))
-		balances[*v.NodeAddress] = new(big.Int).Add(
-			balances[*v.NodeAddress],
-			new(big.Int).Div(big.NewInt(params.Ether), common.Big2),
-		)
-		balances[v.OracleAddress] = new(big.Int).Add(
-			balances[v.OracleAddress],
-			new(big.Int).Div(big.NewInt(params.Ether), common.Big2),
-		)
-
-		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: balances[*v.NodeAddress]}
-		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: balances[v.OracleAddress]}
-		g.Alloc[v.Treasury] = GenesisAccount{Balance: balances[v.Treasury]}
+		// 0.5 ATN to validator node
+		halfAtn := new(big.Int).Div(big.NewInt(params.Ether), common.Big2)
+		g.Alloc[*v.NodeAddress] = GenesisAccount{
+			Balance: halfAtn,
+		}
+		// 0.5 ATN to oracle node
+		if v.OracleAddress != *v.NodeAddress {
+			g.Alloc[v.OracleAddress] = GenesisAccount{
+				Balance: halfAtn,
+			}
+		} else {
+			g.Alloc[v.OracleAddress] = GenesisAccount{
+				Balance: new(big.Int).Add(
+					g.Alloc[v.OracleAddress].Balance,
+					halfAtn,
+				),
+			}
+		}
+		// 1 ATN to treasury
+		oneAtn := big.NewInt(params.Ether)
+		if v.Treasury != v.OracleAddress && v.Treasury != *v.NodeAddress {
+			g.Alloc[v.Treasury] = GenesisAccount{
+				Balance: oneAtn,
+				Bonds:   make(map[common.Address]*big.Int),
+			}
+		} else {
+			g.Alloc[v.Treasury] = GenesisAccount{
+				Balance: new(big.Int).Add(
+					g.Alloc[v.Treasury].Balance,
+					oneAtn,
+				),
+				Bonds: make(map[common.Address]*big.Int),
+			}
+		}
 
 		// self bond 1 NTN
 		g.Alloc[v.Treasury].Bonds[*v.NodeAddress] = new(big.Int).Mul(common.Big1, params.NTNDecimalFactor)
