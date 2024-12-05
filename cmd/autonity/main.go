@@ -272,7 +272,8 @@ func prepare(ctx *cli.Context) {
 ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
 ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
 
-Take part in Piccadilly Circus Games Round 6! More infos @ https://game.autonity.org
+Take part in the Piccadilly Tiber Challenges! More infos @ https://autonity.org
+Please remain tuned to our social channels for announcements
 Discord:  https://discord.com/invite/autonity 
 Telegram: https://t.me/autonity
 X:        https://twitter.com/autonity_
