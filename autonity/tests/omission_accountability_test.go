@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -763,11 +762,9 @@ func TestProposerRewardDistribution(t *testing.T) {
 
 		autonityAtnsBig := new(big.Int).SetUint64(54644455456467) // random amount
 		t.Logf("atn rewards: %s", autonityAtnsBig.String())
-		// this has to match the ntn inflation unlocked NTNs.
-		// Can be retrieved by adding in solidity a revert(Helpers.toString(accounts[address(this)])); in Finalize
-		ntnRewardsBig := new(big.Int).SetUint64(8205384319979600000)
-		t.Logf("ntn rewards: %s", ntnRewardsBig.String())
 		r.GiveMeSomeMoney(r.Autonity.address, autonityAtnsBig)
+		ntnRewardsBig := r.RewardsAfterOneEpoch().RewardNTN
+		t.Logf("ntn rewards: %s", ntnRewardsBig.String())
 
 		autonityAtns := newFloat(autonityAtnsBig)
 		ntnRewards := newFloat(ntnRewardsBig)
@@ -962,9 +959,6 @@ func TestRewardWithholding(t *testing.T) {
 		config.TreasuryFee = 0        // same
 		// increase voting power of validator 0 to reach quorum in proofs easily
 		config.Validators[0].BondedStake = new(big.Int).Mul(config.Validators[1].BondedStake, big.NewInt(6))
-		for _, v := range config.Validators {
-			fmt.Printf("v %v\n", v.BondedStake)
-		}
 		config.OracleRewardRate = 0
 		return config
 	})
