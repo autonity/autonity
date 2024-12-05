@@ -32,7 +32,6 @@ var (
 		Symbols:                   OracleInitialSymbols,
 		VotePeriod:                OracleVotePeriod,
 		OutlierDetectionThreshold: 100,
-		OutlierSlashingThreshold:  100,
 		BaseSlashingRate:          10,
 	}
 
@@ -380,7 +379,6 @@ type OracleContractGenesis struct {
 	Symbols                   []string      `json:"symbols"`
 	VotePeriod                uint64        `json:"votePeriod"`
 	OutlierDetectionThreshold uint64        `json:"outlierDetectionThreshold"`
-	OutlierSlashingThreshold  uint64        `json:"outlierSlashingThreshold"`
 	BaseSlashingRate          uint64        `json:"baseSlashingRate"`
 }
 
@@ -399,9 +397,6 @@ func (g *OracleContractGenesis) SetDefaults() error {
 	}
 	if g.VotePeriod == 0 {
 		g.VotePeriod = OracleVotePeriod
-	}
-	if g.OutlierSlashingThreshold == 0 {
-		g.OutlierSlashingThreshold = DefaultGenesisOracleConfig.OutlierSlashingThreshold
 	}
 	if g.BaseSlashingRate == 0 {
 		g.BaseSlashingRate = DefaultGenesisOracleConfig.BaseSlashingRate

@@ -781,7 +781,6 @@ var (
 		Symbols:                   OracleInitialSymbols,
 		VotePeriod:                10,
 		OutlierDetectionThreshold: 15,
-		OutlierSlashingThreshold:  20,
 		BaseSlashingRate:          10,
 	}
 
