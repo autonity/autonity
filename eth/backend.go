@@ -708,7 +708,7 @@ func (s *Ethereum) genesisCountdown() {
 	if committee.MemberByAddress(s.address) != nil {
 		s.log.Warn("**************************************************************")
 		s.log.Warn("Local node is detected GENESIS VALIDATOR")
-		s.log.Warn("Please remain tuned to our Telegram channel for announcements")
+		s.log.Warn("Please remain tuned to our Telegram/Discord channels for announcements")
 		s.log.Warn("**************************************************************")
 	}
 	var (
