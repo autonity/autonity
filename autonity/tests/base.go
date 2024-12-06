@@ -603,6 +603,12 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		r,
 	}}
 
+	r.OmissionAccountability = &OmissionAccountability{&contract{
+		params.OmissionAccountabilityContractAddress,
+		&generated.OmissionAccountabilityAbi,
+		r,
+	}}
+
 	// TODO: replicate truffle tests default config.
 
 	r.Operator = &runOptions{origin: genesisConfig.Config.AutonityContractConfig.Operator}

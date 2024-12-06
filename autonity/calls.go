@@ -61,6 +61,8 @@ func newErrorWithRevertReason(err error, ret []byte) error {
 // with the given args, and returns the output unpacked into the result
 // interface.
 // It returns the gas used for the call
+//
+//revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
 func AutonityContractCall(evm *vm.EVM, function string, result any, args ...any) (uint64, error) {
 	packedArgs, err := generated.AutonityAbi.Pack(function, args...)
 	if err != nil {

@@ -16,28 +16,31 @@ import (
 )
 
 func TestGenesisSteps(t *testing.T) {
-	stateDB, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	require.NoError(t, err)
+	newEVM := func() *vm.EVM {
+		stateDB, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		require.NoError(t, err)
 
-	vmBlockContext := vm.BlockContext{
-		Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
-			db.SubBalance(sender, amount)
-			db.AddBalance(recipient, amount)
-		},
-		CanTransfer: func(db vm.StateDB, addr common.Address, amount *big.Int) bool {
-			return db.GetBalance(addr).Cmp(amount) >= 0
-		},
-		BlockNumber: common.Big0,
-		Time:        big.NewInt(time.Now().Unix()),
-	}
-	txContext := vm.TxContext{
-		Origin:   common.Address{},
-		GasPrice: common.Big0,
-	}
+		vmBlockContext := vm.BlockContext{
+			Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
+				db.SubBalance(sender, amount)
+				db.AddBalance(recipient, amount)
+			},
+			CanTransfer: func(db vm.StateDB, addr common.Address, amount *big.Int) bool {
+				return db.GetBalance(addr).Cmp(amount) >= 0
+			},
+			BlockNumber: common.Big0,
+			Time:        big.NewInt(time.Now().Unix()),
+		}
+		txContext := vm.TxContext{
+			Origin:   common.Address{},
+			GasPrice: common.Big0,
+		}
 
-	evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
+		return vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
+	}
 
 	t.Run("Test autonity deploy step", func(t *testing.T) {
+		evm := newEVM()
 		err := executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{deployAutonityContract})
 		require.NoError(t, err)
 
@@ -47,6 +50,7 @@ func TestGenesisSteps(t *testing.T) {
 	})
 
 	t.Run("Test execute genesis delegations", func(t *testing.T) {
+		evm := newEVM()
 		validator1 := *params.TestChainConfig.AutonityContractConfig.Validators[0].NodeAddress
 		validator2 := *params.TestChainConfig.AutonityContractConfig.Validators[1].NodeAddress
 
@@ -93,6 +97,7 @@ func TestGenesisSteps(t *testing.T) {
 	})
 
 	t.Run("Test create autonity schedules", func(t *testing.T) {
+		evm := newEVM()
 		config := params.TestChainConfig
 		config.AutonityContractConfig.Schedules = []params.Schedule{
 			{
@@ -126,6 +131,7 @@ func TestGenesisSteps(t *testing.T) {
 	})
 
 	t.Run("Test finalize autonity initialization", func(t *testing.T) {
+		evm := newEVM()
 		err := executeGenesisSequence(
 			params.TestChainConfig,
 			[]GenesisBond{},
@@ -152,6 +158,7 @@ func TestGenesisSteps(t *testing.T) {
 	})
 
 	t.Run("Test deploy accountability contract", func(t *testing.T) {
+		evm := newEVM()
 		err := executeGenesisSequence(
 			params.TestChainConfig,
 			[]GenesisBond{},
@@ -172,6 +179,7 @@ func TestGenesisSteps(t *testing.T) {
 	})
 
 	t.Run("Test deploy oracle contract", func(t *testing.T) {
+		evm := newEVM()
 		err := executeGenesisSequence(
 			params.TestChainConfig,
 			[]GenesisBond{},
