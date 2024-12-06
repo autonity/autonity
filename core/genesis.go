@@ -557,6 +557,7 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 		}
 	}
 
+	nonStakeableContracts := make([]params.NonStakeableVestingData, 0, len(params.PiccadillyLNSNTNallocs))
 	for _, ls := range params.PiccadillyLNSNTNallocs {
 		contract := params.NonStakeableVestingData{
 			Beneficiary:   ls.Address,
@@ -564,10 +565,14 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 			ScheduleID:    common.Big0,
 			CliffDuration: common.Big0,
 		}
-		g.Config.NonStakeableVestingConfig.NonStakeableContracts = append(g.Config.NonStakeableVestingConfig.NonStakeableContracts, contract)
+		nonStakeableContracts = append(nonStakeableContracts, contract)
+	}
+	g.Config.NonStakeableVestingConfig = &params.NonStakeableVestingGenesis{
+		NonStakeableContracts: nonStakeableContracts,
 	}
 
 	totalNominal := new(big.Int)
+	stakeableContracts := make([]params.StakeableVestingData, 0, len(params.PiccadillyLSNTNallocs))
 	for _, ls := range params.PiccadillyLSNTNallocs {
 		contract := params.StakeableVestingData{
 			Beneficiary:   ls.Address,
@@ -577,9 +582,12 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 			TotalDuration: big.NewInt(60444000),
 		}
 		totalNominal = totalNominal.Add(totalNominal, ls.Value)
-		g.Config.StakeableVestingConfig.StakeableContracts = append(g.Config.StakeableVestingConfig.StakeableContracts, contract)
+		stakeableContracts = append(stakeableContracts, contract)
 	}
-	g.Config.StakeableVestingConfig.TotalNominal = totalNominal
+	g.Config.StakeableVestingConfig = &params.StakeableVestingGenesis{
+		TotalNominal:       totalNominal,
+		StakeableContracts: stakeableContracts,
+	}
 
 	for _, v := range params.PiccadillySDPDelegations {
 		g.Alloc[sdpAccount].Bonds[v.Address] = v.Value

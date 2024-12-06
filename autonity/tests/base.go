@@ -717,8 +717,12 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	)
 	require.NoError(t, err)
 	require.Equal(t, r.StakeableVestingManager.address, params.StakeableVestingManagerContractAddress)
+	totalNominal := params.DefaultStakeableVestingGenesis.TotalNominal
+	if totalNominal.Cmp(common.Big0) == 0 {
+		totalNominal = new(big.Int).Mul(big.NewInt(1_000_000), params.NTNDecimalFactor) // 1M NTN
+	}
 	r.NoError(
-		r.Autonity.Mint(r.Operator, r.StakeableVestingManager.address, params.DefaultStakeableVestingGenesis.TotalNominal),
+		r.Autonity.Mint(r.Operator, r.StakeableVestingManager.address, totalNominal),
 	)
 
 	//
