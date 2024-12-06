@@ -115,11 +115,15 @@ func TestSimpleVote(t *testing.T) {
 // abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.
 var ReportABIEncodeSchema = []byte("[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"struct Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}]")
 
-func genReports(n int) []IOracleReport {
+func genReports(n int, price ...int) []IOracleReport {
+	defaultPrice := 1000
+	if len(price) > 0 {
+		defaultPrice = price[0]
+	}
 	var reports []IOracleReport
 	for i := 0; i < n; i++ {
 		reports = append(reports, IOracleReport{
-			Price:      big.NewInt(1000),
+			Price:      big.NewInt(int64(defaultPrice)),
 			Confidence: 100,
 		})
 	}
@@ -831,5 +835,107 @@ func TestVotersUpdate(t *testing.T) {
 		r.WaitNextEpoch()
 		checkCommittee(r, newCommitteeSet)
 		checkVoterUpdate(r, true, oldVoters)
+	})
+}
+
+func TestAllOutliersAreNotSlashed(t *testing.T) {
+	setup := func() *Runner {
+		r := Setup(t, nil)
+		r.NoError(
+			r.Oracle.SetSlashingConfig(
+				r.Operator,
+				big.NewInt(int64(params.DefaultGenesisOracleConfig.OutlierSlashingThreshold)),  // 10%
+				big.NewInt(int64(params.DefaultGenesisOracleConfig.OutlierDetectionThreshold)), // 15%
+				big.NewInt(int64(params.DefaultGenesisOracleConfig.BaseSlashingRate)),
+			),
+		)
+		return r
+	}
+
+	testSlashing := func(
+		r *Runner, voters int,
+		slashed, outliers []bool,
+		prices []int,
+	) {
+		symbols, _, err := r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+		validators := make([]common.Address, 0, voters)
+		oracles := make([]common.Address, 0, voters)
+		stakes := make([]*big.Int, 0, voters)
+		for i := 0; i < voters; i++ {
+			validators = append(validators, r.Committee.Validators[i].NodeAddress)
+			oracles = append(oracles, r.Committee.Validators[i].OracleAddress)
+			stakes = append(stakes, r.Committee.Validators[i].BondedStake)
+		}
+
+		vote := func() {
+			for i, v := range oracles {
+				r.NoError(
+					r.Oracle.Vote(
+						FromSender(v, nil),
+						makeCommit(r.T, common.Big0, v, genReports(len(symbols), prices[i])),
+						genReports(len(symbols), prices[i]),
+						common.Big0,
+						0,
+					),
+				)
+			}
+		}
+
+		nextRound := func() {
+			round, _, err := r.Oracle.GetRound(nil)
+			require.NoError(r.T, err)
+			votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
+			require.NoError(r.T, err)
+			r.WaitNBlocks(int(votePeriod.Int64()))
+			newRound, _, err := r.Oracle.GetRound(nil)
+			require.NoError(r.T, err)
+			require.Equal(r.T, new(big.Int).Add(round, common.Big1), newRound)
+			round = newRound
+		}
+
+		vote()
+		nextRound()
+		vote()
+		for _, v := range oracles {
+			info, _, err := r.Oracle.VoterInfo(nil, v)
+			require.NoError(r.T, err)
+			require.True(r.T, info.ReportAvailable)
+		}
+		nextRound()
+
+		for i, v := range validators {
+			valInfo, _, err := r.Autonity.GetValidator(nil, v)
+			require.NoError(r.T, err)
+			if slashed[i] {
+				require.True(r.T, valInfo.BondedStake.Cmp(stakes[i]) == -1, "did not get slashed")
+			} else {
+				require.True(r.T, valInfo.BondedStake.Cmp(stakes[i]) == 0, "got slashed")
+			}
+
+			voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+			require.NoError(r.T, err)
+			if outliers[i] {
+				require.False(r.T, voterInfo.ReportAvailable)
+			} else {
+				require.True(r.T, voterInfo.ReportAvailable)
+			}
+		}
+	}
+
+	RunWithSetup("outliers ratio < sqrt(slashingThreshold) are not slashed", setup, func(r *Runner) {
+		// change the prices if params.DefaultGenesisOracleConfig is changed
+		prices := []int{85, 100, 116}
+		outliers := []bool{true, false, true}
+		slashed := []bool{false, false, true}
+		testSlashing(r, len(prices), slashed, outliers, prices)
+	})
+
+	RunWithSetup("outliers ratio < sqrt(slashingThreshold) are not slashed", setup, func(r *Runner) {
+		// change the prices if params.DefaultGenesisOracleConfig is changed
+		prices := []int{84, 100, 115}
+		outliers := []bool{true, false, true}
+		slashed := []bool{true, false, false}
+		testSlashing(r, len(prices), slashed, outliers, prices)
 	})
 }

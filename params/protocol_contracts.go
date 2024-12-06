@@ -31,8 +31,8 @@ var (
 	DefaultGenesisOracleConfig = &OracleContractGenesis{
 		Symbols:                   OracleInitialSymbols,
 		VotePeriod:                OracleVotePeriod,
-		OutlierDetectionThreshold: 10,
-		OutlierSlashingThreshold:  10,
+		OutlierDetectionThreshold: 10,  // 10%
+		OutlierSlashingThreshold:  225, // 15%
 		BaseSlashingRate:          10,
 	}
 
