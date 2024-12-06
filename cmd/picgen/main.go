@@ -50,7 +50,7 @@ func parseAtnAllocs() []Alloc {
 	if err != nil {
 		panic(err)
 	}
-	var data []Alloc
+	data := make([]Alloc, 0)
 	for i, record := range records {
 		if i == 0 { // Skip the header row
 			continue
@@ -75,7 +75,6 @@ func parseNTNallocs() (genesis, ls, lns, gvBonds []Alloc) {
 	if err != nil {
 		panic(err)
 	}
-	var data []Alloc
 	for i, record := range records {
 		if i == 0 { // Skip the header row
 			continue
@@ -94,9 +93,8 @@ func parseNTNallocs() (genesis, ls, lns, gvBonds []Alloc) {
 		case "3":
 			gvBonds = append(gvBonds, alloc)
 		}
-		data = append(data)
 	}
-	return
+	return genesis, ls, lns, gvBonds
 }
 
 func parseSDPDelegation() []Alloc {
@@ -111,7 +109,7 @@ func parseSDPDelegation() []Alloc {
 	if err != nil {
 		panic(err)
 	}
-	var data []Alloc
+	data := make([]Alloc, 0)
 	for i, record := range records {
 		if i == 0 { // Skip the header row
 			continue
