@@ -113,6 +113,7 @@ var (
 
 	DefaultStakeableVestingGenesis = &StakeableVestingGenesis{
 		StakeableContracts: make([]StakeableVestingData, 0),
+		TotalNominal:       big.NewInt(0),
 	}
 
 	DeployerAddress                        = common.Address{}
