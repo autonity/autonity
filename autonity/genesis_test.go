@@ -93,6 +93,15 @@ func TestGenesisSteps(t *testing.T) {
 	})
 
 	t.Run("Test create autonity schedules", func(t *testing.T) {
+		config := params.TestChainConfig
+		config.AutonityContractConfig.Schedules = []params.Schedule{
+			{
+				Start:         big.NewInt(time.Now().Unix() + 10),
+				TotalDuration: big.NewInt(100),
+				Amount:        big.NewInt(100),
+				VaultAddress:  common.Address{99},
+			},
+		}
 		err := executeGenesisSequence(
 			params.TestChainConfig,
 			[]GenesisBond{},
@@ -101,7 +110,88 @@ func TestGenesisSteps(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		schedule := new(ScheduleControllerSchedule)
+		_, err = AutonityContractCall(
+			evm,
+			"getSchedule",
+			&schedule,
+			config.AutonityContractConfig.Schedules[0].VaultAddress,
+			big.NewInt(int64(0)),
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, config.AutonityContractConfig.Schedules[0].Start, schedule.Start)
+		require.Equal(t, config.AutonityContractConfig.Schedules[0].TotalDuration, schedule.TotalDuration)
+		require.Equal(t, config.AutonityContractConfig.Schedules[0].Amount, schedule.TotalAmount)
 	})
+
+	t.Run("Test finalize autonity initialization", func(t *testing.T) {
+		err := executeGenesisSequence(
+			params.TestChainConfig,
+			[]GenesisBond{},
+			evm,
+			[]genesisStep{deployAutonityContract, executeGenesisDelegations, createAutonitySchedules},
+		)
+		require.NoError(t, err)
+		getCommitteeEnodes := func() []string {
+			var result []string
+			_, err := AutonityContractCall(evm, "getCommitteeEnodes", &result)
+			require.NoError(t, err)
+			return result
+		}
+		require.Empty(t, getCommitteeEnodes())
+
+		err = executeGenesisSequence(
+			params.TestChainConfig,
+			[]GenesisBond{},
+			evm,
+			[]genesisStep{finalizeAutonityInitialization},
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, getCommitteeEnodes())
+	})
+
+	t.Run("Test deploy accountability contract", func(t *testing.T) {
+		err := executeGenesisSequence(
+			params.TestChainConfig,
+			[]GenesisBond{},
+			evm,
+			[]genesisStep{
+				deployAutonityContract,
+				executeGenesisDelegations,
+				createAutonitySchedules,
+				finalizeAutonityInitialization,
+				deployAccountabilityContract,
+			},
+		)
+		require.NoError(t, err)
+
+		// Check that the accountability contract was deployed
+		code := evm.StateDB.GetCode(params.AccountabilityContractAddress)
+		require.NotEmpty(t, code)
+	})
+
+	t.Run("Test deploy oracle contract", func(t *testing.T) {
+		err := executeGenesisSequence(
+			params.TestChainConfig,
+			[]GenesisBond{},
+			evm,
+			[]genesisStep{
+				deployAutonityContract,
+				executeGenesisDelegations,
+				createAutonitySchedules,
+				finalizeAutonityInitialization,
+				deployAccountabilityContract,
+				deployOracleContract,
+			},
+		)
+		require.NoError(t, err)
+
+		// Check that the oracle contract was deployed
+		code := evm.StateDB.GetCode(params.OracleContractAddress)
+		require.NotEmpty(t, code)
+	})
+
 	// TODO(scott) test the remaining genesis steps
 }
 
