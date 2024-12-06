@@ -900,6 +900,7 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 			info, _, err := r.Oracle.VoterInfo(nil, v)
 			require.NoError(r.T, err)
 			require.True(r.T, info.ReportAvailable)
+			require.True(r.T, info.IsVoter)
 		}
 		nextRound()
 
@@ -912,8 +913,9 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 				require.True(r.T, valInfo.BondedStake.Cmp(stakes[i]) == 0, "got slashed")
 			}
 
-			voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+			voterInfo, _, err := r.Oracle.VoterInfo(nil, oracles[i])
 			require.NoError(r.T, err)
+			require.True(r.T, voterInfo.IsVoter)
 			if outliers[i] {
 				require.False(r.T, voterInfo.ReportAvailable)
 			} else {
