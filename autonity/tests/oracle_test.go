@@ -891,7 +891,6 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 			newRound, _, err := r.Oracle.GetRound(nil)
 			require.NoError(r.T, err)
 			require.Equal(r.T, new(big.Int).Add(round, common.Big1), newRound)
-			round = newRound
 		}
 
 		vote()
