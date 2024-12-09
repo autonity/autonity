@@ -21,13 +21,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/crypto"
 	"io"
 	"math/big"
 	"reflect"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"

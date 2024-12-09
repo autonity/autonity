@@ -19,6 +19,7 @@ import (
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -473,7 +474,6 @@ func TestAPIs(t *testing.T) {
 
 // needed because backend.Close() also stops the aggregator. It checks that Stop() is called at maximum once
 func fakeAggregator() *aggregator {
-	mux := new(event.TypeMux)
 	stopped := false
 	fakeAggregator := &aggregator{
 		logger: log.Root(),
@@ -485,7 +485,6 @@ func fakeAggregator() *aggregator {
 				panic("aggregator stopped two times")
 			}
 		},
-		coreSub: mux.Subscribe(),
 	}
 	return fakeAggregator
 }
@@ -506,6 +505,8 @@ func TestClose(t *testing.T) {
 
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
+		coreEventCh := make(chan events.CoreEvent, 10)
+		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 
 		b := &Backend{
 			database:   rawdb.NewMemoryDatabase(),
@@ -526,6 +527,8 @@ func TestClose(t *testing.T) {
 		defer ctrl.Finish()
 
 		tendermintC := interfaces.NewMockCore(ctrl)
+		coreEventCh := make(chan events.CoreEvent, 10)
+		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -551,6 +554,8 @@ func TestClose(t *testing.T) {
 		defer ctrl.Finish()
 
 		tendermintC := interfaces.NewMockCore(ctrl)
+		coreEventCh := make(chan events.CoreEvent, 10)
+		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
@@ -604,6 +609,8 @@ func TestStart(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
+		coreEventCh := make(chan events.CoreEvent, 10)
+		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
@@ -638,10 +645,12 @@ func TestStart(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
+		coreEventCh := make(chan events.CoreEvent, 10)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
+		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		chain, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
@@ -672,7 +681,9 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
+		coreEventCh := make(chan events.CoreEvent, 10)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
+		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
@@ -730,7 +741,9 @@ func TestMultipleRestart(t *testing.T) {
 	tendermintC := interfaces.NewMockCore(ctrl)
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
+	coreEventCh := make(chan events.CoreEvent, 10)
 	tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
+	tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 	chain, _ := newBlockChain(1)
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)

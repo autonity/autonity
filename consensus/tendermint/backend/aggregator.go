@@ -16,7 +16,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
@@ -149,15 +148,14 @@ type aggregator struct {
 
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
-	coreSub *event.TypeMuxSubscription // core events
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	logger  log.Logger
+	//coreSub *event.TypeMuxSubscription // core events
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	logger log.Logger
 }
 
 func (a *aggregator) start(ctx context.Context) {
 	a.logger.Info("Starting the aggregator routine")
-	a.coreSub = a.backend.Subscribe(events.RoundChangeEvent{}, events.PowerChangeEvent{}, events.FuturePowerChangeEvent{})
 	ctx, a.cancel = context.WithCancel(ctx)
 	a.wg.Add(1)
 	go a.loop(ctx)
@@ -731,12 +729,14 @@ loop:
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)
-		case ev, ok := <-a.coreSub.Chan():
+		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
 			if !ok {
 				break loop
 			}
-			switch e := ev.Data.(type) {
+			height := ev.Height()
+			round := ev.Round()
+			switch e := ev.(type) {
 			case events.RoundChangeEvent:
 				/* a round change happened in Core
 				* messages that we had buffered as future round might now be current round, therefore:
@@ -746,8 +746,6 @@ loop:
 				* Note: we cannot have complex aggregates, as if we receive a complex aggregate for a future round,
 				* we would instantly process it and move to that future round
 				 */
-				height := e.Height
-				round := e.Round
 
 				if a.empty(height, round) {
 					break
@@ -791,10 +789,8 @@ loop:
 				}
 			case events.PowerChangeEvent:
 				// a power change happened in Core: re-do quorum checks on individual votes and simple aggregates
-				height := e.Height
-				round := e.Round
-				code := e.Code
-				value := e.Value
+				code := e.Code()
+				value := e.Value()
 				if a.empty(height, round) {
 					break
 				}
@@ -828,8 +824,6 @@ loop:
 					PowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.FuturePowerChangeEvent:
-				height := e.Height
-				round := e.Round
 
 				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
 				if err != nil {
@@ -917,6 +911,6 @@ loop:
 func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
-	a.coreSub.Unsubscribe()
+	//a.coreSub.Unsubscribe()
 	a.wg.Wait()
 }
