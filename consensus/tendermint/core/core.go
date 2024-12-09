@@ -19,6 +19,8 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
+const EventQueueSize = 16
+
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
 	messagesMap := message.NewMap()
@@ -44,8 +46,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
-		//TODO: channel size
-		eventCh: make(chan events.CoreEvent, 100),
+		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -139,7 +140,7 @@ type Core struct {
 	currBlockTimeStamp time.Time
 	noGossip           bool
 
-	eventCh chan events.CoreEvent
+	eventCh chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
 }
 
 func (c *Core) EventCh() <-chan events.CoreEvent {

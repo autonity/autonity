@@ -911,6 +911,5 @@ loop:
 func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
-	//a.coreSub.Unsubscribe()
 	a.wg.Wait()
 }
