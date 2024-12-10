@@ -148,7 +148,6 @@ type aggregator struct {
 
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
-	//coreSub *event.TypeMuxSubscription // core events
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 	logger log.Logger
