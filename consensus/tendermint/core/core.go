@@ -19,7 +19,7 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-const EventQueueSize = 16
+const EventQueueSize = 100
 
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
@@ -367,7 +367,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 	c.processFuture(previousRound, round)
-	go c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
+	c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
 }
 
 func (c *Core) setInitialState(r int64) {

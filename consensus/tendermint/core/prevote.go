@@ -55,7 +55,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 		// We only process old rounds while future rounds messages are pushed on to the backlog
 		oldRoundMessages := c.messages.GetOrCreate(prevote.R())
 		oldRoundMessages.AddPrevote(prevote)
-		go c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
+		c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
 
 		// Proposal would be nil if node haven't received the proposal yet.
 		proposal := c.curRoundMessages.Proposal()
@@ -74,7 +74,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
 	c.curRoundMessages.AddPrevote(prevote)
-	go c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
+	c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
 
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote)
 	// check upon conditions for current round proposal

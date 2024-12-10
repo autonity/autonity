@@ -395,7 +395,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		}
 		c.futureRoundLock.Unlock()
 
-		go c.SendEvent(events.NewFuturePowerChangeEvent(c.Height().Uint64(), r))
+		c.SendEvent(events.NewFuturePowerChangeEvent(c.Height().Uint64(), r))
 
 		c.roundSkipCheck(ctx, r)
 	}
