@@ -34,7 +34,7 @@ func TestAPI_AcnPeers(t *testing.T) {
 	require.NoError(t, err)
 
 	// test json un-marshaling
-	var result  []*p2p.PeerInfo
+	var result []*p2p.PeerInfo
 	err = json.Unmarshal(jsonPayload, &result)
 	require.NoError(t, err)
 	for _, peer := range result {
