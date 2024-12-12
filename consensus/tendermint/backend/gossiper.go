@@ -13,20 +13,32 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
+type router interface {
+	Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
+}
+
 type Gossiper struct {
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 	address       common.Address                         // address of the local peer
 	broadcaster   consensus.Broadcaster
 	logger        log.Logger
 	stopped       chan struct{}
+	router        router
 }
 
-func NewGossiper(knownMessages *fixsizecache.Cache[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
+func NewGossiper(
+	knownMessages *fixsizecache.Cache[common.Hash, bool],
+	address common.Address,
+	logger log.Logger,
+	stopped chan struct{},
+	router router,
+) *Gossiper {
 	return &Gossiper{
 		knownMessages: knownMessages,
 		address:       address,
 		logger:        logger,
 		stopped:       stopped,
+		router:        router,
 	}
 }
 
@@ -60,7 +72,9 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 	}
 	code := NetworkCodes[message.Code()]
 	payload := message.Payload()
-	for _, val := range committee.Members {
+
+	recipients := g.router.Route(committee, message, g.address)
+	for _, val := range recipients {
 		if val.Address == g.address {
 			continue
 		}
