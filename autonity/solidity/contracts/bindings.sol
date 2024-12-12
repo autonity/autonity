@@ -17,6 +17,7 @@ import "./asm/Stabilization.sol";
 import "./asm/SupplyControl.sol";
 import "./UpgradeManager.sol";
 import "./InflationController.sol";
+import "./Latency.sol";
 import "./vesting/NonStakeableVesting.sol";
 import "./vesting/StakeableVestingManager.sol";
 import "./test-contract/AccountabilityTest.sol";

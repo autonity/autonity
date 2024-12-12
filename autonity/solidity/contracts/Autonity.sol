@@ -20,6 +20,7 @@ import "./ReentrancyGuard.sol";
 import "./ScheduleController.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
+import "./interfaces/ILatency.sol";
 
 /** @title Proof-of-Stake Autonity Contract */
 enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
@@ -119,6 +120,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
         IOmissionAccountability omissionAccountabilityContract;
+        ILatency latencyContract;
     }
 
     struct Policy {
@@ -856,6 +858,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             config.contracts.oracleContract.setVoters(_newOracles, _newTreasuries, _newCommittee);
             config.contracts.accountabilityContract.setCommittee(_newCommittee);
             config.contracts.omissionAccountabilityContract.setCommittee(committee, _newTreasuries);
+            config.contracts.latencyContract.setCommittee(_newCommittee);
 
             // apply new epoch period.
             config.protocol.epochPeriod = newEpochPeriod;
