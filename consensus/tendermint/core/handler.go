@@ -177,17 +177,25 @@ eventLoop:
 				}
 				msg := e.Message
 
-				var hadQuorum bool
+				if c.Height().Uint64() > msg.H() {
+					// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
+					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg type", msg.Code(), "core height", c.Height().Uint64(), "msgHeight", msg.H(), "msgRound", msg.R())
+					break
+				}
+				// old height message should be rejected before checking quorum, because message map only stores round messages for current height
+				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
+				var err error
 
-				if err := c.handleMsg(ctx, msg); err != nil {
-					c.logger.Debug("MessageEvent payload failed", "err", err)
+				if err = c.handleMsg(ctx, msg); err != nil {
+					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height", c.Height().Uint64(), "msg Height", msg.H(), "msg Round", msg.R())
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
+						break
 					}
 					// we still want to gossip old round messages
 					if !errors.Is(err, constants.ErrOldRoundMessage) {
@@ -195,11 +203,15 @@ eventLoop:
 					}
 				}
 
+				// valid message, reset sync timeout
+				c.SyncState().SetLastValidMsgTime(time.Now())
+				c.SyncState().SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
+
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 						if hasQuorum {
 							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
 							recordMessageProcessingTime(msg.Code(), start)
@@ -207,24 +219,29 @@ eventLoop:
 						}
 					}
 
-					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					recordMessageProcessingTime(msg.Code(), start)
+					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
+						go func() {
+							time.Sleep(5 * time.Millisecond) // minor sleep for old round messages
+							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+						}()
+					}
 				}
+				recordMessageProcessingTime(msg.Code(), start)
 			case backlogMessageEvent:
 				// TODO: should we check for disconnection also here for future round msgs?
 				// need probably to store the errCh? verify if possible.
 
 				msg := e.msg
 
-				var hadQuorum bool
+				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
 
 				c.logger.Debug("Handling consensus backlog event")
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
@@ -233,7 +250,7 @@ eventLoop:
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 						if hasQuorum {
 							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
 							recordMessageProcessingTime(msg.Code(), start)
@@ -242,9 +259,11 @@ eventLoop:
 					}
 
 					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					recordMessageProcessingTime(msg.Code(), start)
+					//todo(fix): no gossip for future round messages, the current gossip relies on clustering, which relies on gossiper being the
+					// originator only
+					//go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 				}
+				recordMessageProcessingTime(msg.Code(), start)
 			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -259,6 +278,7 @@ eventLoop:
 					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
 					continue
 				}
+				c.updateSyncTimeout(syncTimeOut) // reset sync timeout to default
 				switch timeoutE.Step {
 				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)
@@ -286,7 +306,8 @@ func (c *Core) syncLoop(ctx context.Context) {
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
 	*/
-	timer := time.NewTimer(syncTimeOut)
+	// syncTime out should be dynamic based on the current round timer
+	// TODO: think about sending the bitmap of messages you currently have in sync request
 
 	round := c.Round()
 	height := c.Height()
@@ -297,25 +318,36 @@ func (c *Core) syncLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case <-timer.C:
+		case <-time.After(time.Second * 5): //check for sync every 5 seconds
+
+			if time.Since(c.SyncState().GetLastValidMsgTime()) < c.SyncState().GetSyncTimeOut() {
+				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.SyncState().GetLastValidMsgTime(), "sync timeout", c.SyncState().GetSyncTimeOut())
+				round = c.Round()
+				height = c.Height()
+				continue
+			}
 			currentRound := c.Round()
 			currentHeight := c.Height()
 
-			// we only ask for sync if the current view stayed the same for the past 10 seconds
+			// we only ask for sync if the current view stayed the same for the interval syncTimeOut
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
 				c.backend.AskSync(c.committee.Committee())
+				c.SyncState().SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
-			timer = time.NewTimer(syncTimeOut)
 
 		case ev, ok := <-c.syncEventSub.Chan():
 			if !ok {
 				break eventLoop
 			}
 			event := ev.Data.(events.SyncEvent)
+			if c.SyncState().IsOutOfSync() {
+				c.logger.Info("sync request received while we are out of sync, dropping", "from", event.Addr)
+				continue
+			}
 			c.logger.Debug("Processing sync message", "from", event.Addr)
 			c.backend.SyncPeer(event.Addr)
 		case <-ctx.Done():

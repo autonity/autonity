@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	ProposalWriteBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/write", nil, metrics.GetIntPointer(1000))  // time to write proposal to wire
-	PrevoteWriteBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/write", nil, metrics.GetIntPointer(5000))   // time to write prevote to wire
-	PrecommitWriteBg = metrics.NewRegisteredBufferedGauge("acn/precommit/write", nil, metrics.GetIntPointer(5000)) // time to write precommit to wire
+	ProposalWriteBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/write", nil, metrics.GetIntPointer(500))   // time to write proposal to wire
+	PrevoteWriteBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/write", nil, metrics.GetIntPointer(1000))   // time to write prevote to wire
+	PrecommitWriteBg = metrics.NewRegisteredBufferedGauge("acn/precommit/write", nil, metrics.GetIntPointer(1000)) // time to write precommit to wire
 	DefaultWriteBg   = metrics.NewRegisteredBufferedGauge("acn/any/write", nil, nil)
 )
 

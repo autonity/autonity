@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -56,17 +55,18 @@ func (fg *rawMSGFuzzer) Gossip(committee *types.Committee, msg message.Msg) {
 			panic("Failed to generate random bytes ")
 		}
 		// send fuzzed raw msg with recognisable msg code.
-		go p.SendRaw(backend.NetworkCodes[msg.Code()], randBytes) // nolint
+		go p.SendRaw(message.NetworkCodes[msg.Code()], randBytes) // nolint
 		// send fuzzed raw AskSync message to committee
-		go p.SendRaw(backend.SyncNetworkMsg, randBytes) // nolint
+		go p.SendRaw(message.SyncNetworkMsg, randBytes) // nolint
 		// send fuzzed raw accusation message to committee
-		go p.SendRaw(backend.AccountabilityNetworkMsg, randBytes) // nolint
+		go p.SendRaw(message.AccountabilityNetworkMsg, randBytes) // nolint
 		// send random msg code with fuzzed raw msg.
 		go p.SendRaw(rand.Uint64(), randBytes) // nolint
 	}
 }
 
-func (fg *rawMSGFuzzer) AskSync(_ *types.Committee) {
+func (fg *rawMSGFuzzer) AskSync(_ *types.Committee, _ uint64) {
+	// do nothing
 }
 
 func TestRawMessageFuzzer(t *testing.T) {

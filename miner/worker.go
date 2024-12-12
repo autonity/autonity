@@ -797,7 +797,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 
 		case errors.Is(err, core.ErrNonceTooLow):
 			// New head notification data race between the transaction pool and miner, shift
-			w.eth.Logger().Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
+			w.eth.Logger().Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce(), "hash", tx.Hash().Hex())
 			txs.Shift()
 
 		case errors.Is(err, core.ErrNonceTooHigh):
