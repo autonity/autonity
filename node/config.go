@@ -237,6 +237,14 @@ func (c *Config) SetTendermintServices(handler *interfaces.Services) {
 	} else {
 		c.tendermintServices.Gossiper = func(b interfaces.Backend) interfaces.Gossiper { return b.Gossiper() }
 	}
+
+	if handler.Pinger != nil {
+		c.tendermintServices.Pinger = handler.Pinger
+	}
+
+	if handler.Selector != nil {
+		c.tendermintServices.Selector = handler.Selector
+	}
 }
 
 func (c *Config) TendermintServices() *interfaces.Services {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -48,6 +49,8 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		noGossip:               noGossip,
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 	}
+	// init sync state on construction.
+	_ = c.SyncState()
 	c.SetDefaultHandlers()
 	if services != nil {
 		c.broadcaster = services.Broadcaster(c)
@@ -65,6 +68,36 @@ func (c *Core) SetDefaultHandlers() {
 	c.proposer = &Proposer{c}
 }
 
+type SyncState struct {
+	outOfSync        atomic.Bool
+	lastValidMsgTime atomic.Int64
+	timeOut          atomic.Int64
+}
+
+func (s *SyncState) SetOutOfSync(val bool) {
+	s.outOfSync.Store(val)
+}
+
+func (s *SyncState) IsOutOfSync() bool {
+	return s.outOfSync.Load()
+}
+
+func (s *SyncState) SetLastValidMsgTime(t time.Time) {
+	s.lastValidMsgTime.Store(t.UnixNano())
+}
+
+func (s *SyncState) GetLastValidMsgTime() time.Time {
+	return time.Unix(0, s.lastValidMsgTime.Load())
+}
+
+func (s *SyncState) SetSyncTimeOut(d time.Duration) {
+	s.timeOut.Store(int64(d))
+}
+
+func (s *SyncState) GetSyncTimeOut() time.Duration {
+	return time.Duration(s.timeOut.Load())
+}
+
 type Core struct {
 	blockPeriod uint64
 	address     common.Address
@@ -80,6 +113,7 @@ type Core struct {
 	syncEventSub        *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
+	syncState           *SyncState
 
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
@@ -141,6 +175,17 @@ type Core struct {
 	noGossip           bool
 
 	eventCh chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
+}
+
+// SyncState return the pointer of the syncState, a helper to init it easier in the tests.
+func (c *Core) SyncState() *SyncState {
+	if c.syncState == nil {
+		c.syncState = &SyncState{}
+		c.syncState.SetOutOfSync(false)
+		c.syncState.SetLastValidMsgTime(time.Now())
+		c.syncState.SetSyncTimeOut(syncTimeOut)
+	}
+	return c.syncState
 }
 
 func (c *Core) EventCh() <-chan events.CoreEvent {
@@ -341,7 +386,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	// Set initial FSM state
 	c.setInitialState(round)
 	c.SetStep(ctx, Propose)
-	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
+	c.logger.Info("Starting new Round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
 	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
@@ -364,10 +409,21 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	} else {
 		timeoutDuration := c.timeoutPropose(round)
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
+		c.updateSyncTimeout(timeoutDuration)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 	c.processFuture(previousRound, round)
 	c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
+}
+
+func (c *Core) updateSyncTimeout(timeout time.Duration) {
+	// if a round timer is greater than the current sync timeout, update the sync timeout
+	if timeout > c.SyncState().GetSyncTimeOut() {
+		c.SyncState().SetSyncTimeOut(timeout)
+	} else {
+		// otherwise reset to default
+		c.SyncState().SetSyncTimeOut(syncTimeOut)
+	}
 }
 
 func (c *Core) setInitialState(r int64) {

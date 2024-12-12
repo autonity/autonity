@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -15,14 +16,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
-)
-
-const (
-	ProposeNetworkMsg        uint64 = 0x11
-	PrevoteNetworkMsg        uint64 = 0x12
-	PrecommitNetworkMsg      uint64 = 0x13
-	SyncNetworkMsg           uint64 = 0x14
-	AccountabilityNetworkMsg uint64 = 0x15
 )
 
 type UnhandledMsg struct {
@@ -36,11 +29,7 @@ var (
 	// errJailed is returned when a consensus message is discarded because the signer is jailed
 	ErrJailed    = errors.New("signer is jailed")
 	ErrNotFuture = errors.New("message is not future height anymore")
-	NetworkCodes = map[uint8]uint64{
-		message.ProposalCode:  ProposeNetworkMsg,
-		message.PrevoteCode:   PrevoteNetworkMsg,
-		message.PrecommitCode: PrecommitNetworkMsg,
-	}
+
 	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, nil)                          // time between round start and proposal sent
 	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, metrics.GetIntPointer(1024))   // time between round start and proposal receiv
 	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, metrics.GetIntPointer(1024)) // time to verify proposal
@@ -86,18 +75,18 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code < ProposeNetworkMsg || msg.Code > AccountabilityNetworkMsg {
+	if msg.Code < message.ProposeNetworkMsg || msg.Code > message.AccountabilityNetworkMsg {
 		return false, nil
 	}
 
 	switch msg.Code {
-	case ProposeNetworkMsg:
+	case message.ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, sender, msg, errCh)
-	case PrevoteNetworkMsg:
+	case message.PrevoteNetworkMsg:
 		return handleConsensusMsg[message.Prevote](sb, sender, msg, errCh)
-	case PrecommitNetworkMsg:
+	case message.PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh)
-	case SyncNetworkMsg:
+	case message.SyncNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
@@ -108,7 +97,7 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 		}
 		sb.logger.Debug("Received sync message", "from", sender)
 		go sb.Post(events.SyncEvent{Addr: sender})
-	case AccountabilityNetworkMsg:
+	case message.AccountabilityNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
@@ -145,6 +134,11 @@ func handleConsensusMsg[T any, PT interface {
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
+	if rand.Intn(200) == 0 {
+		// we are probably hitting the cache limit
+		log.Debug("known message cache size", "size", sb.knownMessages.Size())
+	}
+
 	MessageProcessedBg.Mark(1)
 	bReader.Seek(0, io.SeekStart)
 	p2pMsg.Payload = bReader
@@ -175,6 +169,7 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
+
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,
@@ -199,6 +194,7 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Failed to fetch accountability params", "height", currentHeight, "err", err)
 		// handle message anyways
 	}
+
 	return sb.handleDecodedMsg(msg, errCh, sender)
 }
 
@@ -221,6 +217,10 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
 		}
+		// structured relaying happens after the pre-validation, only unknown msg is relayed.
+		if sb.router != nil && sb.core.Height().Uint64() == msg.H() && msg.R() == sb.core.Round() { // same height and round messages early forward
+			go sb.router.Forward(committee, msg, sender)
+		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
 		allJailed := true
@@ -235,6 +235,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		if allJailed {
 			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
 			return true, ErrJailed
+		}
+		if sb.router != nil && sb.core.Height().Uint64() == msg.H() && msg.R() == sb.core.Round() { // same height and round messages early forward
+			go sb.router.Forward(committee, msg, sender)
 		}
 	default:
 		sb.logger.Crit("Tendermint backend processing unknown message")

@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
@@ -148,7 +147,7 @@ func TestFaultDetector_sendOffChainInnocenceProof(t *testing.T) {
 	payload := make([]byte, 128)
 
 	mockedPeer := consensus.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(backend.AccountabilityNetworkMsg, payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(message.AccountabilityNetworkMsg, payload).MaxTimes(1)
 	peers := make(map[common.Address]consensus.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeer(remotePeer).Return(mockedPeer, true)
@@ -185,7 +184,7 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	require.NoError(t, err)
 
 	mockedPeer := consensus.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(backend.AccountabilityNetworkMsg, payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(message.AccountabilityNetworkMsg, payload).MaxTimes(1)
 	peers := make(map[common.Address]consensus.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeer(remotePeer).Return(mockedPeer, true)

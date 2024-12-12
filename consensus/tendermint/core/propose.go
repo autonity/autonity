@@ -209,7 +209,7 @@ func (c *Proposer) StopFutureProposalTimer() {
 }
 
 func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Propose) {
-	c.logger.Debug(message,
+	c.logger.Info(message,
 		"type", "Proposal",
 		"local address", log.Lazy{Fn: func() string { return c.Address().String() }},
 		"currentHeight", log.Lazy{Fn: c.Height},

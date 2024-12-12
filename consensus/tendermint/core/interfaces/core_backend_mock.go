@@ -175,6 +175,18 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
 }
 
+// SlowGossip mocks base method
+func (m *MockBackend) SlowGossip(committee *types.Committee, message message.Msg) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SlowGossip", committee, message)
+}
+
+// SlowGossip indicates an expected call of SlowGossip.
+func (mr *MockBackendMockRecorder) SlowGossip(committee, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, message)
+}
+
 // Gossip mocks base method.
 func (m *MockBackend) Gossip(committee *types.Committee, message message.Msg) {
 	m.ctrl.T.Helper()

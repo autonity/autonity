@@ -186,7 +186,7 @@ func (s *OffChainAccusationFuzzer) Broadcast(msg message.Msg) {
 		}
 		if ok {
 			// send fuzzed accusation msg.
-			go peer.Send(bk.AccountabilityNetworkMsg, proof) // nolint
+			go peer.Send(message.AccountabilityNetworkMsg, proof) // nolint
 			s.Logger().Info("Off chain Accusation garbage accusation is simulated")
 		}
 	}
@@ -239,8 +239,8 @@ func (s *OffChainDuplicatedAccusationBroadcaster) Broadcast(msg message.Msg) {
 					panic("cannot encode accusation at e2e test for off chain accusation protocol")
 				}
 				// send duplicated msg.
-				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
-				go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+				go peer.Send(message.AccountabilityNetworkMsg, rProof) // nolint
+				go peer.Send(message.AccountabilityNetworkMsg, rProof) // nolint
 				s.Logger().Info("Off chain Accusation duplicated accusation is simulated")
 			}
 		}
@@ -295,7 +295,7 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 						panic("cannot encode accusation at e2e test for off chain accusation protocol")
 					}
 					// send msg.
-					go peer.Send(bk.AccountabilityNetworkMsg, rProof) // nolint
+					go peer.Send(message.AccountabilityNetworkMsg, rProof) // nolint
 					s.Logger().Info("Off chain Accusation over rated accusation is simulated")
 				}
 			}

@@ -42,7 +42,7 @@ type Config struct {
 
 var DefaultMonitorConfig = Config{
 	cpuThreshold:         80,
-	numGoroutines:        6000,
+	numGoroutines:        10000,
 	memThreshold:         6 * 1024 * 1024 * 1024,
 	profilePerDay:        3,
 	monitoringInterval:   time.Second * 60,
@@ -119,6 +119,7 @@ func (ms *monitorService) collectCPUDump(profileDir, postfix string) {
 		return
 	}
 	defer f.Close()
+	pprof.StopCPUProfile()
 	err = pprof.StartCPUProfile(f)
 	if err != nil {
 		log.Error("Couldn't start cpu profiling", "error", err)
