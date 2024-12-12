@@ -1,6 +1,8 @@
 module github.com/autonity/autonity
 
-go 1.21
+go 1.22
+
+toolchain go1.22.10
 
 require (
 	github.com/ALTree/bigfloat v0.2.0
@@ -30,7 +32,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.4
 	github.com/google/gofuzz v1.2.1-0.20220503160820-4a35382e8fc8
-	github.com/google/uuid v1.1.5
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/hashicorp/consul/sdk v0.11.0
@@ -52,6 +54,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterh/liner v1.1.1-0.20190123174540-a2c9a5303de7
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus-community/pro-bing v0.5.0
 	github.com/prometheus/tsdb v0.7.1
 	github.com/rs/cors v1.7.0
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
@@ -65,11 +68,11 @@ require (
 	github.com/zfjagann/golang-ring v0.0.0-20210116075443-7c86fdb43134
 	go.uber.org/goleak v1.1.12
 	go.uber.org/mock v0.3.0
-	golang.org/x/crypto v0.15.0
+	golang.org/x/crypto v0.29.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.24.0
-	golang.org/x/text v0.14.0
+	golang.org/x/sync v0.9.0
+	golang.org/x/sys v0.27.0
+	golang.org/x/text v0.20.0
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
@@ -110,8 +113,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	golang.org/x/net v0.18.0 // indirect
-	golang.org/x/tools v0.15.0 // indirect
+	golang.org/x/net v0.31.0 // indirect
 	google.golang.org/protobuf v1.23.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
