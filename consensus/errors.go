@@ -50,4 +50,7 @@ var (
 
 	// ErrInvalidEpochBoundary is return if the bi-direction link of epoch header is broken.
 	ErrInvalidEpochBoundary = errors.New("invalid epoch boundary")
+
+	// ErrFutureEpochMessage is return if the relaying message is out of current epoch bound
+	ErrFutureEpochMessage = errors.New("future epoch message")
 )

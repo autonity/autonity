@@ -280,6 +280,7 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 		peer.Log().Error("Autonity peer registration failed", "err", err)
 		return err
 	}
+	peer.UpdateSetupProgress(false)
 	defer h.unregisterPeer(peer.ID())
 
 	p := h.peers.peer(peer.ID())
@@ -545,6 +546,7 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 		peers := h.peers.peersWithoutTransaction(tx.Hash())
 		// Send the tx unconditionally to a subset of our peers
 		numDirect := int(math.Sqrt(float64(len(peers))))
+		//numDirect := len(peers)
 		for _, peer := range peers[:numDirect] {
 			txset[peer] = append(txset[peer], tx.Hash())
 		}
@@ -563,9 +565,9 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 		annoCount += len(hashes)
 		peer.AsyncSendPooledTransactionHashes(hashes)
 	}
-	log.Debug("Transaction broadcast", "txs", len(txs),
-		"announce packs", annoPeers, "announced hashes", annoCount,
-		"tx packs", directPeers, "broadcast txs", directCount)
+	//log.Debug("Transaction broadcast", "txs", len(txs),
+	//	"announce packs", annoPeers, "announced hashes", annoCount,
+	//	"tx packs", directPeers, "broadcast txs", directCount)
 }
 
 // minedBroadcastLoop sends mined blocks to connected peers.

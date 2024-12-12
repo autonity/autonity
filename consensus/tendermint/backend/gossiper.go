@@ -2,6 +2,8 @@ package backend
 
 import (
 	"fmt"
+	"math"
+	"math/rand"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
@@ -12,25 +14,39 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
+type msgRouter interface {
+	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
+	SetBroadcaster(broadcaster consensus.Broadcaster)
+}
+
 type Gossiper struct {
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 	address       common.Address                         // address of the local peer
 	broadcaster   consensus.Broadcaster
 	logger        log.Logger
 	stopped       chan struct{}
+	router        msgRouter
 }
 
-func NewGossiper(knownMessages *fixsizecache.Cache[common.Hash, bool], address common.Address, logger log.Logger, stopped chan struct{}) *Gossiper {
+func NewGossiper(
+	knownMessages *fixsizecache.Cache[common.Hash, bool],
+	address common.Address,
+	logger log.Logger,
+	stopped chan struct{},
+	router msgRouter,
+) *Gossiper {
 	return &Gossiper{
 		knownMessages: knownMessages,
 		address:       address,
 		logger:        logger,
 		stopped:       stopped,
+		router:        router,
 	}
 }
 
 func (g *Gossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	g.broadcaster = broadcaster
+	g.router.SetBroadcaster(broadcaster)
 }
 
 func (g *Gossiper) Broadcaster() consensus.Broadcaster {
@@ -49,7 +65,24 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 	g.stopped = stopCh
 }
 
-func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
+	// only gossip to very small committee
+	numTargets := len(committee.Members)
+	if numTargets > 10 { // todo: minimum nodes to start slow gossip
+		numTargets = int(math.Sqrt(float64(len(committee.Members))))
+	} else if numTargets == 0 {
+		log.Error("no target to slow gossip", "num", len(committee.Members), "numTargets", numTargets, "committee", committee.Members)
+		return
+	}
+	targetIndices := rand.Perm(numTargets)
+	recipients := make([]common.Address, numTargets)
+	for i := 0; i < numTargets; i++ {
+		recipients[i] = committee.Members[targetIndices[i]].Address
+	}
+	g.gossip(msg, recipients)
+}
+
+func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
 	hash := msg.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
@@ -57,23 +90,42 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	if g.broadcaster == nil {
 		return
 	}
-
-	// forward future epoch proposal to all the committee members, as most of them are still in the committee.
-	recipients := committee.Members
 	code := message.NetworkCodes[msg.Code()]
-	for _, val := range recipients {
-		if val.Address == g.address {
+	payload := msg.Payload()
+	lostPeers := make([]common.Address, 0)
+	for _, addr := range recipients {
+		if addr == g.address {
 			continue
 		}
-		if p, ok := g.broadcaster.FindPeer(val.Address); ok {
+		if p, ok := g.broadcaster.FindPeer(addr); ok {
 			if p.Cache().Contains(hash) {
 				// This peer had this event, skip it
 				continue
 			}
 			p.Cache().Add(hash, true)
-			go p.SendRaw(code, msg.Payload()) //nolint
+			go p.SendRaw(code, payload) //nolint
+		} else {
+			lostPeers = append(lostPeers, addr)
 		}
 	}
+	if len(lostPeers) > 0 {
+		g.logger.Debug("Gossiper: peers not found", "len", len(lostPeers), "peers", lostPeers)
+	}
+}
+
+func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+	recipients, err := g.router.Route(committee, msg, g.address)
+	if err != nil {
+		log.Debug("Gossiper: No recipients for message from msgRouter, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
+		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
+		recipients := make([]common.Address, 0, committee.Len())
+		for _, val := range committee.Members {
+			if val.Address != g.address {
+				recipients = append(recipients, val.Address)
+			}
+		}
+	}
+	g.gossip(msg, recipients)
 }
 
 func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {

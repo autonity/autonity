@@ -5,6 +5,7 @@ import (
 
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 )
 
 func (acn *ACN) watchCommittee(ctx context.Context) {
@@ -65,6 +66,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 					// there is no longer the need to retain the full connections and the
 					// consensus engine enabled.
 					if wasValidating {
+						log.Info("Node is no longer part of the committee, disaconnecting from consensus network")
 						acn.server.UpdateConsensusEnodes(nil, nil)
 						wasValidating = false
 					}

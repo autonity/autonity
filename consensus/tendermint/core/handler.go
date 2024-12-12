@@ -178,18 +178,25 @@ eventLoop:
 				}
 				msg := e.Message
 
-				var hadQuorum bool
+				if c.Height().Uint64() > msg.H() {
+					// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
+					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg type", msg.Code(), "core height", c.Height().Uint64(), "msgHeight", msg.H(), "msgRound", msg.R())
+					break
+				}
+				// old height message should be rejected before checking quorum, because message map only stores round messages for current height
+				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
-
 				var err error
+
 				if err = c.handleMsg(ctx, msg); err != nil {
-					c.logger.Debug("MessageEvent payload failed", "err", err)
+					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height", c.Height().Uint64(), "msg Height", msg.H(), "msg Round", msg.R())
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
+						break
 					}
 					// we still want to gossip old round messages and redundant votes
 					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
@@ -206,7 +213,7 @@ eventLoop:
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 						if hasQuorum {
 							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
 							recordMessageProcessingTime(msg.Code(), start)
@@ -214,17 +221,21 @@ eventLoop:
 						}
 					}
 
-					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					recordMessageProcessingTime(msg.Code(), start)
+					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
+						go func() {
+							time.Sleep(5 * time.Millisecond) // minor sleep for old round messages
+							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+						}()
+					}
 				}
+				recordMessageProcessingTime(msg.Code(), start)
 			case backlogMessageEvent:
 				// TODO: should we check for disconnection also here for future round msgs?
 				// need probably to store the errCh? verify if possible.
 
 				msg := e.msg
 
-				var hadQuorum bool
+				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
@@ -249,7 +260,7 @@ eventLoop:
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 						if hasQuorum {
 							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
 							recordMessageProcessingTime(msg.Code(), start)
@@ -258,9 +269,11 @@ eventLoop:
 					}
 
 					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					recordMessageProcessingTime(msg.Code(), start)
+					//todo(fix): no gossip for future round messages, the current gossip relies on clustering, which relies on gossiper being the
+					// originator only
+					//go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 				}
+				recordMessageProcessingTime(msg.Code(), start)
 			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)
@@ -275,6 +288,7 @@ eventLoop:
 					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
 					continue
 				}
+				c.updateSyncTimeout(syncTimeOut) // reset sync timeout to default
 				switch timeoutE.Step {
 				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)

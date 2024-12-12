@@ -265,7 +265,8 @@ func (st *StateTransition) preCheck() error {
 
 // it assumes that the input msg is not a contract creation request.
 func isReimbursable(msg Message) bool {
-	if *msg.To() != params.AccountabilityContractAddress && *msg.To() != params.OracleContractAddress {
+	if *msg.To() != params.AccountabilityContractAddress &&
+		*msg.To() != params.OracleContractAddress {
 		return false
 	}
 

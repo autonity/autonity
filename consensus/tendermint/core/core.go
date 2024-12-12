@@ -50,6 +50,8 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 		syncState:              &SyncState{},
 	}
+	// init sync state on construction.
+	_ = c.SyncState()
 	c.SetDefaultHandlers()
 	if services != nil {
 		c.broadcaster = services.Broadcaster(c)
@@ -174,6 +176,17 @@ type Core struct {
 	currBlockTimeStamp time.Time
 	noGossip           bool
 	eventCh            chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
+}
+
+// SyncState return the pointer of the syncState, a helper to init it easier in the tests.
+func (c *Core) SyncState() *SyncState {
+	if c.syncState == nil {
+		c.syncState = &SyncState{}
+		c.syncState.SetOutOfSync(false)
+		c.syncState.SetLastValidMsgTime(time.Now())
+		c.syncState.SetSyncTimeOut(syncTimeOut)
+	}
+	return c.syncState
 }
 
 func (c *Core) EventCh() <-chan events.CoreEvent {
@@ -379,7 +392,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	// Set initial FSM state
 	c.setInitialState(round)
 	c.SetStep(ctx, Propose)
-	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
+	c.logger.Info("Starting new Round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
 	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
@@ -403,10 +416,21 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		timeoutDuration := c.timeoutPropose(round)
 		c.syncState.updateSyncTimeout(timeoutDuration)
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
+		c.updateSyncTimeout(timeoutDuration)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 	c.processFuture(previousRound, round)
 	c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
+}
+
+func (c *Core) updateSyncTimeout(timeout time.Duration) {
+	// if a round timer is greater than the current sync timeout, update the sync timeout
+	if timeout > c.SyncState().GetSyncTimeOut() {
+		c.SyncState().SetSyncTimeOut(timeout)
+	} else {
+		// otherwise reset to default
+		c.SyncState().SetSyncTimeOut(syncTimeOut)
+	}
 }
 
 func (c *Core) setInitialState(r int64) {

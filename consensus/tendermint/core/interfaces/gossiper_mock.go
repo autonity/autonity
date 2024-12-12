@@ -72,18 +72,16 @@ func (mr *MockGossiperMockRecorder) AskSync(committee, syncMsg any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockGossiper)(nil).AskSync), committee, syncMsg)
 }
 
-// Broadcaster mocks base method.
-func (m *MockGossiper) Broadcaster() consensus.Broadcaster {
+// SlowGossip mocks base method.
+func (m *MockGossiper) SlowGossip(committee *types.Committee, message message.Msg) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Broadcaster")
-	ret0, _ := ret[0].(consensus.Broadcaster)
-	return ret0
+	m.ctrl.Call(m, "SlowGossip", committee, message)
 }
 
-// Broadcaster indicates an expected call of Broadcaster.
-func (mr *MockGossiperMockRecorder) Broadcaster() *gomock.Call {
+// SlowGossip indicates an expected call of SlowGossip.
+func (mr *MockGossiperMockRecorder) SlowGossip(committee, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcaster", reflect.TypeOf((*MockGossiper)(nil).Broadcaster))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockGossiper)(nil).SlowGossip), committee, message)
 }
 
 // Gossip mocks base method.
@@ -96,6 +94,20 @@ func (m *MockGossiper) Gossip(committee *types.Committee, arg1 message.Msg) {
 func (mr *MockGossiperMockRecorder) Gossip(committee, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, arg1)
+}
+
+// Broadcaster mocks base method.
+func (m *MockGossiper) Broadcaster() consensus.Broadcaster {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Broadcaster")
+	ret0, _ := ret[0].(consensus.Broadcaster)
+	return ret0
+}
+
+// Broadcaster indicates an expected call of Broadcaster.
+func (mr *MockGossiperMockRecorder) Broadcaster() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcaster", reflect.TypeOf((*MockGossiper)(nil).Broadcaster))
 }
 
 // KnownMessages mocks base method.

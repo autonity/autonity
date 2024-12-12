@@ -98,7 +98,7 @@ func TestAskSync(t *testing.T) {
 	var remoteAddresses []common.Address
 	for _, val := range committee.Members[1:] {
 		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Any()).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).Times(1)
 		remoteAddresses = append(remoteAddresses, val.Address)
@@ -108,11 +108,14 @@ func TestAskSync(t *testing.T) {
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(remoteAddresses).Return(peers)
+	broadcaster.EXPECT().FindPeers(m).Return(peers)
+	rt := NewMockrouter(ctrl)
+	rt.EXPECT().SetBroadcaster(broadcaster)
+
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, localAddress, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{}), rt),
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
@@ -149,11 +152,16 @@ func BenchmarkGossip(b *testing.B) {
 		mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 	}
 
+	sender := common.Address{}
+	rt := NewMockrouter(ctrl)
+	rt.EXPECT().SetBroadcaster(broadcaster)
+	rt.EXPECT().Route(committee, gomock.Any(), sender).AnyTimes().Return(nil)
+
 	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, fixsizecache.HashKey[common.Hash])
 	bk := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, sender, log.New(), make(chan struct{}), rt),
 	}
 	bk.SetBroadcaster(broadcaster)
 
@@ -209,13 +217,17 @@ func TestGossip(t *testing.T) {
 	}
 
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
+	sender := common.Address{}
+	rt := NewMockrouter(ctrl)
+	rt.EXPECT().SetBroadcaster(broadcaster)
+	rt.EXPECT().Route(committee, gomock.Any(), sender).AnyTimes().Return(committee.Members, nil)
+
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{}), rt),
 	}
 	b.SetBroadcaster(broadcaster)
-
 	b.Gossip(committee, msg)
 	<-time.NewTimer(2 * time.Second).C
 	if c := atomic.LoadUint64(&counter); c != 4 {

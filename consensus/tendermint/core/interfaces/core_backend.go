@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/autonity/autonity/consensus"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -37,6 +39,9 @@ type Backend interface {
 
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(committee *types.Committee, message message.Msg)
+
+	// SlowGossip sends a message to a subset of validators
+	SlowGossip(committee *types.Committee, message message.Msg)
 
 	KnownMsgHash() []common.Hash
 
@@ -109,6 +114,14 @@ type Core interface {
 	VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower
 	VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower
 	EventCh() <-chan events.CoreEvent
+}
+
+type Router interface {
+	Start(ctx context.Context, chain *ethcore.BlockChain, address common.Address)
+	Stop()
+	SetBroadcaster(broadcaster consensus.Broadcaster)
+	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
+	Forward(committee *types.Committee, m message.Msg, sender common.Address)
 }
 
 type EventDispatcher interface {

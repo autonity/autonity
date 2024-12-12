@@ -11,6 +11,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
@@ -373,45 +374,38 @@ func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
 }*/
 
 func (c *Committee) TotalVotingPower() *big.Int {
-	c.lock.RLock() // Acquire read lock
-	if c.totalVotingPower != nil {
-		defer c.lock.RUnlock()                      // Release read lock
-		return new(big.Int).Set(c.totalVotingPower) // Return a copy of the cached value
+	total := new(big.Int)
+	for _, m := range c.Members {
+		total.Add(total, m.VotingPower)
 	}
-	c.lock.RUnlock() // Release read lock before acquiring write lock
-	c.lock.Lock()    // Acquire write lock
-	defer c.lock.Unlock()
-
-	// Double-check if the value was initialized while waiting for the lock
-	if c.totalVotingPower == nil {
-		total := new(big.Int)
-		for _, m := range c.Members {
-			total.Add(total, m.VotingPower)
-		}
-		c.totalVotingPower = total
-	}
-
-	// Return a copy of the cached value
+	c.totalVotingPower = total
 	return new(big.Int).Set(c.totalVotingPower)
+
+	//c.lock.RLock() // Acquire read lock
+	//if c.totalVotingPower != nil {
+	//	defer c.lock.RUnlock()                      // Release read lock
+	//	return new(big.Int).Set(c.totalVotingPower) // Return a copy of the cached value
+	//}
+	//c.lock.RUnlock() // Release read lock before acquiring write lock
+	//c.lock.Lock()    // Acquire write lock
+	//defer c.lock.Unlock()
+	//
+	//// Double-check if the value was initialized while waiting for the lock
+	//if c.totalVotingPower == nil {
+	//	total := new(big.Int)
+	//	for _, m := range c.Members {
+	//		total.Add(total, m.VotingPower)
+	//	}
+	//	c.totalVotingPower = total
+	//}
+	//
+	//// Return a copy of the cached value
+	//return new(big.Int).Set(c.totalVotingPower)
 }
 
-/*
-// TotalVotingPower returns the total voting power contained in the committee.
-func (c *Committee) TotalVotingPower() *big.Int {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	// compute power only once, then returned cached value
-	if c.totalVotingPower == nil {
-		total := new(big.Int)
-		for _, m := range c.Members {
-			total.Add(total, m.VotingPower)
-		}
-		c.totalVotingPower = total
-	}
-
-	// return a copy of the cached value to prevent un-expected modification of the cached value.
-	return new(big.Int).Set(c.totalVotingPower)
-}*/
+func (c *Committee) Quorum() *big.Int {
+	return new(big.Int).Set(bft.Quorum(c.TotalVotingPower()))
+}
 
 // Enrich adds some convenience information to the committee member structs
 func (c *Committee) Enrich() error {

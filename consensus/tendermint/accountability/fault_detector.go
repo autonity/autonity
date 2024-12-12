@@ -207,12 +207,12 @@ tendermintMsgLoop:
 				}
 				if err := fd.processMsg(e.Message); err != nil {
 					if !errors.Is(err, errDuplicatedMsg) {
-						fd.logger.Warn("Detected faulty message", "err", err)
+						fd.logger.Warn("Fault detector: Detected faulty message event", "err", err)
 					} else {
 						// duplicated messages can arrive here if we receive an aggregate from a remote peer
 						// and at the same time we computed the same aggregate locally.
 						// No need to raise a warning level log.
-						fd.logger.Debug("Detected faulty message", "err", err)
+						fd.logger.Debug("Fault detector: Detected faulty message event", "err", err)
 					}
 					continue tendermintMsgLoop
 				}
@@ -223,12 +223,12 @@ tendermintMsgLoop:
 				}
 				if err := fd.processMsg(e.Message); err != nil {
 					if !errors.Is(err, errDuplicatedMsg) {
-						fd.logger.Warn("Detected faulty message", "err", err)
+						fd.logger.Warn("Fault detector: Detected faulty old message event", "err", err)
 					} else {
 						// duplicated messages can arrive here if we receive an aggregate from a remote peer
 						// and at the same time we computed the same aggregate locally.
 						// No need to raise a warning level log.
-						fd.logger.Debug("Detected faulty message", "err", err)
+						fd.logger.Debug("Fault detector: Detected faulty old message event", "err", err)
 					}
 					continue tendermintMsgLoop
 				}

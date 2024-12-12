@@ -124,6 +124,7 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		peer.Log().Error("peer registration failed", "err", err)
 		return err
 	}
+	peer.UpdateSetupProgress(false)
 	defer acn.peers.unregister(peer)
 
 	// read consensus msgs from wire and process them
@@ -155,4 +156,8 @@ func (acn *ACN) PeerInfo(id enode.ID) interface{} {
 		return p.ConsensusPeerInfo()
 	}
 	return nil
+}
+
+func (acn *ACN) CommitteeEnodes() []*enode.Node {
+	return acn.server.Committee()
 }

@@ -650,12 +650,13 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			database:           rawdb.NewMemoryDatabase(),
-			core:               tendermintC,
-			gossiper:           g,
-			blockchain:         chain,
-			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+			database:   rawdb.NewMemoryDatabase(),
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
+			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+			logger:     log.Root(),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
@@ -692,12 +693,21 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
+<<<<<<< HEAD
 			database:           rawdb.NewMemoryDatabase(),
 			core:               tendermintC,
 			gossiper:           g,
 			blockchain:         chain,
 			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+=======
+			database:   rawdb.NewMemoryDatabase(),
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
+			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			logger:     log.Root(),
+>>>>>>> 68c5dae14 (fix dependency wiring)
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -725,12 +735,21 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
+<<<<<<< HEAD
 			database:           rawdb.NewMemoryDatabase(),
 			core:               tendermintC,
 			gossiper:           g,
 			blockchain:         chain,
 			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+=======
+			database:   rawdb.NewMemoryDatabase(),
+			core:       tendermintC,
+			gossiper:   g,
+			blockchain: chain,
+			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			logger:     log.Root(),
+>>>>>>> 68c5dae14 (fix dependency wiring)
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -787,12 +806,13 @@ func TestMultipleRestart(t *testing.T) {
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 
 	b := &Backend{
-		database:           rawdb.NewMemoryDatabase(),
-		core:               tendermintC,
-		gossiper:           g,
-		blockchain:         chain,
+		database:   rawdb.NewMemoryDatabase(),
+		core:       tendermintC,
+		gossiper:   g,
+		blockchain: chain,
 		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
-		eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+		eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+		logger:     log.Root(),
 	}
 	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 	b.coreStarting.Store(false)

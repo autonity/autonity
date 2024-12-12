@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -86,7 +87,10 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 	case message.PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh)
 	case message.SyncNetworkMsg:
+<<<<<<< HEAD
 
+=======
+>>>>>>> 68c5dae14 (fix dependency wiring)
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
@@ -95,6 +99,7 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 			sb.logger.Debug("Ignoring sync message from jailed validator", "from", sender)
 			return true, ErrJailed
 		}
+<<<<<<< HEAD
 		var data []byte
 		if err := msg.Decode(&data); err != nil {
 			// this error will freeze peer for 30 seconds by according to dev p2p protocol.
@@ -103,6 +108,10 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 		// handle the msg in an individual go routine, the rate limiter will handle DoS attack vectors.
 		go sb.syncPeer(data, sender, errCh)
 
+=======
+		sb.logger.Debug("Received sync message", "from", sender)
+		go sb.Post(events.SyncEvent{Addr: sender})
+>>>>>>> 68c5dae14 (fix dependency wiring)
 	case message.AccountabilityNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")
@@ -140,6 +149,11 @@ func handleConsensusMsg[T any, PT interface {
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
+	if rand.Intn(200) == 0 {
+		// we are probably hitting the cache limit
+		log.Debug("known message cache size", "size", sb.knownMessages.Size())
+	}
+
 	MessageProcessedBg.Mark(1)
 	bReader.Seek(0, io.SeekStart)
 	p2pMsg.Payload = bReader
@@ -170,6 +184,7 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
+
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,
@@ -194,6 +209,7 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Failed to fetch accountability params", "height", currentHeight, "err", err)
 		// handle message anyways
 	}
+
 	return sb.handleDecodedMsg(msg, errCh, sender)
 }
 
@@ -216,6 +232,10 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
 		}
+		// structured relaying happens after the pre-validation, only unknown msg is relayed.
+		if sb.router != nil && sb.core.Height().Uint64() == msg.H() && msg.R() == sb.core.Round() { // same height and round messages early forward
+			go sb.router.Forward(committee, msg, sender)
+		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
 		allJailed := true
@@ -230,6 +250,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		if allJailed {
 			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
 			return true, ErrJailed
+		}
+		if sb.router != nil && sb.core.Height().Uint64() == msg.H() && msg.R() == sb.core.Round() { // same height and round messages early forward
+			go sb.router.Forward(committee, msg, sender)
 		}
 	default:
 		sb.logger.Crit("Tendermint backend processing unknown message")

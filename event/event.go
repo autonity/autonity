@@ -20,10 +20,11 @@ package event
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/log"
 )
 
 // TypeMuxEvent is a time-tagged notification pushed to subscribers.
@@ -92,8 +93,13 @@ func (mux *TypeMux) Post(ev interface{}) error {
 	}
 	subs := mux.subm[rtyp]
 	mux.mutex.RUnlock()
-	for _, sub := range subs {
-		sub.deliver(event)
+	for _, s := range subs {
+		sub := s
+		if len(subs) > 1 {
+			go sub.deliver(event) // temporary - don't block subscribers of same event
+		} else {
+			sub.deliver(event)
+		}
 	}
 	return nil
 }
