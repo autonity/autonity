@@ -132,6 +132,7 @@ type ProtocolContracts struct {
 	*AutonityContract
 	*Cache
 	*Accountability
+	*Latency
 }
 
 func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provider EVMProvider, contractBackend bind.ContractBackend, head *types.Header, state vm.StateDB) (*ProtocolContracts, error) {
@@ -176,10 +177,17 @@ func NewProtocolContracts(config *params.ChainConfig, db ethdb.Database, provide
 		return nil, err
 	}
 
+	// bind to latency contract
+	latencyContract, err := NewLatency(params.LatencyContractAddress, contractBackend)
+	if err != nil {
+		return nil, err
+	}
+
 	contract := ProtocolContracts{
 		AutonityContract: autonityContract,
 		Cache:            cache,
 		Accountability:   accountabilityContract,
+		Latency:          latencyContract,
 	}
 
 	return &contract, nil

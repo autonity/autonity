@@ -20,6 +20,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/latency"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -87,7 +88,13 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	backend.gossiper = NewGossiper(backend.knownMessages, backend.address, backend.logger, backend.stopped)
+	backend.gossiper = NewGossiper(
+		backend.knownMessages,
+		backend.address,
+		backend.logger,
+		backend.stopped,
+		backend.router,
+	)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 	}
@@ -135,6 +142,8 @@ type Backend struct {
 	Enqueuer consensus.Enqueuer
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
+
+	router *latency.Router
 
 	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 	vmConfig        *vm.Config
