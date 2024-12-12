@@ -170,6 +170,7 @@ type ProtocolContracts struct {
 	*AutonityContract
 	*Cache
 	*Accountability
+	*Latency
 }
 
 func NewProtocolContracts(
@@ -221,10 +222,17 @@ func NewProtocolContracts(
 		return nil, err
 	}
 
+	// bind to latency contract
+	latencyContract, err := NewLatency(params.LatencyContractAddress, contractBackend)
+	if err != nil {
+		return nil, err
+	}
+
 	contract := ProtocolContracts{
 		AutonityContract: autonityContract,
 		Cache:            cache,
 		Accountability:   accountabilityContract,
+		Latency:          latencyContract,
 	}
 
 	return &contract, nil

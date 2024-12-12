@@ -265,7 +265,9 @@ func (st *StateTransition) preCheck() error {
 
 // it assumes that the input msg is not a contract creation request.
 func isReimbursable(msg Message) bool {
-	if *msg.To() != params.AccountabilityContractAddress && *msg.To() != params.OracleContractAddress {
+	if *msg.To() != params.AccountabilityContractAddress &&
+		*msg.To() != params.OracleContractAddress &&
+		*msg.To() != params.LatencyContractAddress {
 		return false
 	}
 
@@ -292,6 +294,18 @@ func isReimbursable(msg Message) bool {
 
 		if method.Name == "handleMisbehaviour" || method.Name == "handleInnocenceProof" ||
 			method.Name == "handleAccusation" {
+			return true
+		}
+	}
+
+	// resolve latency event then.
+	if *msg.To() == params.LatencyContractAddress {
+		method, err := generated.LatencyAbi.MethodById(msg.Data())
+		if err != nil {
+			return false
+		}
+
+		if method.Name == "report" {
 			return true
 		}
 	}
