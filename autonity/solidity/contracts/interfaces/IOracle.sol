@@ -71,7 +71,7 @@ interface IOracle {
      * @notice Called when the previous round is ended. Updates the voter info for new voters.
      * @dev Only accessible from the Autonity Contract.
      */
-    function updateVoters() external;
+    function updateVotersAndSymbol() external;
 
 
     /**
@@ -117,12 +117,6 @@ interface IOracle {
     */
     function getDecimals() external view returns (uint8);
 
-
-    /**
-     * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
-     */
-    event Voted(address indexed _voter, int[] _votes);
-
     /**
      * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
      * round - the round at which new symbols are effective
@@ -130,11 +124,7 @@ interface IOracle {
     event NewSymbols(string[] _symbols, uint256 _round);
 
     /**
-     * @dev Emitted when a new voting round is started.
-     * round - the new round ID
-     * height - the height of the current block being executed in the EVM context.
-     * timestamp - the TS in time's seconds since Jan 1 1970 (Unix time) that the block been mined by protocol
-     * votePeriod - the round period in blocks for the price voting and aggregation.
+     * @dev Emitted upon a symbol change triggered by the Operator.
      */
     event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint _votePeriod);
 

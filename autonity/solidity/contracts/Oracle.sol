@@ -204,12 +204,6 @@ contract Oracle is IOracle {
 
         lastRoundBlock = block.number;
         round += 1;
-        // symbol update should happen in the symbolUpdatedRound+2 since we expect
-        // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
-        // for the new symbols in symbolUpdatedRound+2
-        if (int256(round) == symbolUpdatedRound + 2) {
-            symbols = newSymbols;
-        }
         emit NewRound(round, block.number, block.timestamp, config.votePeriod);
         return true;
     }
@@ -255,7 +249,7 @@ contract Oracle is IOracle {
         rewardPeriodAggregatedScore = 0;
     }
 
-    function updateVoters() onlyAutonity external {
+    function updateVotersAndSymbol() onlyAutonity external {
         // this votingInfo is updated with the newVoter set just so that the new voters
         // are able to send their first vote, but they will not be used for aggregation
         // in this round
@@ -271,6 +265,16 @@ contract Oracle is IOracle {
             // because we still want to aggregate vote for lastVoterSet
             _updateVotingInfo();
             newVotersAccessUpdated = false;
+        }
+
+        // symbol update should happen in the symbolUpdatedRound+2 since we expect
+        // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
+        // for the new symbols in symbolUpdatedRound+2
+        if (int256(round) == symbolUpdatedRound + 2) {
+            symbols = newSymbols;
+            for (uint i = 0; i < voters.length; i++) {
+                voterInfo[voters[i]].reportAvailable = false;
+            }
         }
     }
 

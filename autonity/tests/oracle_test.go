@@ -844,17 +844,8 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 			}
 		}
 
-		nextRound := func() {
-			round := getRound(r)
-			votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
-			require.NoError(r.T, err)
-			r.WaitNBlocks(int(votePeriod.Int64()))
-			newRound := getRound(r)
-			require.Equal(r.T, new(big.Int).Add(round, common.Big1), newRound)
-		}
-
 		vote()
-		nextRound()
+		nextRound(r)
 		vote()
 		for _, v := range oracles {
 			info, _, err := r.Oracle.VoterInfo(nil, v)
@@ -862,7 +853,7 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 			require.True(r.T, info.ReportAvailable)
 			require.True(r.T, info.IsVoter)
 		}
-		nextRound()
+		nextRound(r)
 
 		for i, v := range validators {
 			valInfo, _, err := r.Autonity.GetValidator(nil, v)
@@ -1009,6 +1000,155 @@ func TestSlashingPercentage(t *testing.T) {
 	})
 }
 
+func TestSymbolUpdate(t *testing.T) {
+	setup := func() *Runner {
+		return Setup(t, nil)
+	}
+
+	vote := func(r *Runner, symbols int) {
+		// make valide votes
+		for _, v := range r.Committee.Validators {
+			reports := genReports(symbols)
+			r.NoError(
+				r.Oracle.Vote(
+					FromSender(v.OracleAddress, nil),
+					MakeOracleCommit(t, common.Big0, v.OracleAddress, reports),
+					reports,
+					common.Big0,
+					0,
+				),
+			)
+		}
+	}
+
+	voterCheck := func(r *Runner, reportAvailable bool) {
+		for _, v := range r.Committee.Validators {
+			info, _, err := r.Oracle.VoterInfo(nil, v.OracleAddress)
+			require.NoError(r.T, err)
+			require.True(r.T, info.IsVoter)
+			require.Equal(r.T, reportAvailable, info.ReportAvailable)
+		}
+	}
+
+	RunWithSetup("changing symbol makes reports unavailable", setup, func(r *Runner) {
+		symbols, _, err := r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+
+		vote(r, len(symbols))
+		nextRound(r)
+		// vote should not be counted
+		voterCheck(r, false)
+
+		vote(r, len(symbols))
+		nextRound(r)
+		voterCheck(r, true)
+
+		// no more voting
+		// change symbols
+		newSymbols := []string{"A", "B", "C"}
+		r.NoError(
+			r.Oracle.SetSymbols(
+				r.Operator,
+				newSymbols,
+			),
+		)
+		nextRound(r)
+		symbols, _, err = r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, len(symbols), len(symbols))
+		for i, s := range symbols {
+			require.Equal(r.T, newSymbols[i], s)
+		}
+		voterCheck(r, true)
+		nextRound(r)
+		voterCheck(r, false)
+		nextRound(r)
+	})
+
+	RunWithSetup("new symbols can be voted", setup, func(r *Runner) {
+		r.NoError(
+			r.Oracle.SetSlashingConfig(
+				r.Operator,
+				big.NewInt(10),
+				big.NewInt(10), // all outliers will be slashed
+				big.NewInt(10),
+			),
+		)
+		symbols, _, err := r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+
+		vote(r, len(symbols))
+		nextRound(r)
+		// vote should not be counted
+		voterCheck(r, false)
+
+		newSymbols := []string{"A", "B", "C"}
+		require.NotEqual(r.T, len(symbols), len(newSymbols))
+		r.NoError(
+			r.Oracle.SetSymbols(
+				r.Operator,
+				newSymbols,
+			),
+		)
+
+		vote(r, len(symbols))
+		nextRound(r)
+		voterCheck(r, true)
+
+		for _, v := range r.Committee.Validators {
+			r.NoError(
+				r.Oracle.Vote(
+					FromSender(v.OracleAddress, nil),
+					MakeOracleCommit(t, common.Big0, v.OracleAddress, genReports(len(newSymbols))),
+					genReports(len(symbols)),
+					common.Big0,
+					0,
+				),
+			)
+		}
+
+		symbols, _, err = r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, len(symbols), len(symbols))
+		for i, s := range symbols {
+			require.Equal(r.T, newSymbols[i], s)
+		}
+
+		stakes := make(map[common.Address]*big.Int)
+		performance := make(map[common.Address]*big.Int)
+		for _, v := range r.Committee.Validators {
+			info, _, err := r.Autonity.GetValidator(nil, v.NodeAddress)
+			require.NoError(r.T, err)
+			stakes[v.NodeAddress] = info.BondedStake
+
+			score, _, err := r.Oracle.GetRewardPeriodPerformance(nil, v.OracleAddress)
+			require.NoError(r.T, err)
+			performance[v.OracleAddress] = score
+		}
+		nextRound(r)
+
+		for _, v := range r.Committee.Validators {
+			info, _, err := r.Autonity.GetValidator(nil, v.NodeAddress)
+			require.NoError(r.T, err)
+			require.Equal(r.T, stakes[v.NodeAddress], info.BondedStake, "got penalized")
+
+			score, _, err := r.Oracle.GetRewardPeriodPerformance(nil, v.OracleAddress)
+			require.NoError(r.T, err)
+			require.True(r.T, performance[v.OracleAddress].Cmp(score) == -1, "vote not counted")
+		}
+		// TODO: check for Penalize events
+		voterCheck(r, false)
+
+		vote(r, len(symbols))
+		nextRound(r)
+		voterCheck(r, true)
+
+		vote(r, len(symbols))
+		nextRound(r)
+		voterCheck(r, true)
+	})
+}
+
 func getValidator(r *Runner, addr common.Address) AutonityValidator {
 	valInfo, _, err := r.Autonity.GetValidator(nil, addr)
 	require.NoError(r.T, err)
@@ -1036,4 +1176,15 @@ func progressRound(r *Runner, round *big.Int) {
 			break
 		}
 	}
+}
+
+func nextRound(r *Runner) {
+	round, _, err := r.Oracle.GetRound(nil)
+	require.NoError(r.T, err)
+	votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
+	require.NoError(r.T, err)
+	r.WaitNBlocks(int(votePeriod.Int64()))
+	newRound, _, err := r.Oracle.GetRound(nil)
+	require.NoError(r.T, err)
+	require.Equal(r.T, new(big.Int).Add(round, common.Big1), newRound)
 }
