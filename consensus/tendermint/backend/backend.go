@@ -88,6 +88,8 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
+	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey)
+
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,
 		backend.address,

@@ -71,6 +71,8 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployOmissionAccountabilityContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the omission accountability contract: %w", err)
 	}
+
+	// TODO (scott): deploy latency contract
 	return nil
 }
 
