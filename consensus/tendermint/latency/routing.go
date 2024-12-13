@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
-	"math/big"
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
@@ -14,6 +13,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/acn/protocol"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -26,6 +26,7 @@ var ErrInvalidPeerType = errors.New("invalid peer type")
 type Router struct {
 	self     common.Address
 	clusters Clusters
+	nodeKey  *ecdsa.PrivateKey
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -39,33 +40,16 @@ type Router struct {
 }
 
 func NewRouter(
-	chainId *big.Int,
-	contracts *autonity.ProtocolContracts,
 	broadcaster consensus.Broadcaster,
 	nodeKey *ecdsa.PrivateKey,
-) (*Router, error) {
-	reporter, err := NewReporter(chainId, nodeKey, contracts)
-	if err != nil {
-		return nil, err
-	}
-
+) *Router {
 	r := &Router{
-		self:              reporter.txOpts.From,
 		broadcaster:       broadcaster,
-		contracts:         contracts,
+		nodeKey:           nodeKey,
 		reportedEventChan: make(chan *autonity.LatencyReported),
 		epochHeadCh:       make(chan *autonity.AutonityNewEpoch),
-		reporter:          reporter,
 	}
-
-	r.reportEventSub, err = contracts.Latency.WatchReported(nil, r.reportedEventChan, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	r.epochHeadSub, err = contracts.AutonityContract.WatchNewEpoch(nil, r.epochHeadCh)
-
-	return r, nil
+	return r
 }
 
 func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
@@ -97,7 +81,26 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return recipients
 }
 
-func (r *Router) Start() {
+func (r *Router) Start(chain *core.BlockChain) error {
+	reportEventSub, err := chain.ProtocolContracts().Latency.WatchReported(nil, r.reportedEventChan, nil)
+	if err != nil {
+		return err
+	}
+
+	epochHeadSub, err := chain.ProtocolContracts().AutonityContract.WatchNewEpoch(nil, r.epochHeadCh)
+	if err != nil {
+		return err
+	}
+
+	r.reportEventSub = reportEventSub
+	r.epochHeadSub = epochHeadSub
+	r.contracts = chain.ProtocolContracts()
+	r.reporter, err = NewReporter(chain.Config().ChainID, r.nodeKey, r.contracts)
+	if err != nil {
+		return err
+	}
+	r.self = r.reporter.txOpts.From
+
 	go func() {
 		for {
 			select {
@@ -113,6 +116,7 @@ func (r *Router) Start() {
 			}
 		}
 	}()
+	return nil
 }
 
 func (r *Router) Stop() {
@@ -131,6 +135,7 @@ func (r *Router) refreshClusters() error {
 		return err
 	}
 
+	// TODO: validate and fill latency matrix with default values
 	latencyMat := make(map[common.Address][]uint8)
 	for i, validator := range committee {
 		latencyMat[validator] = latency[i]
