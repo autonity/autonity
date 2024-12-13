@@ -17,9 +17,9 @@ var (
 
 type Tracer map[string]struct{}
 
-// TracerRegistry save the tracked functions' signature in 4 bytes as the method ID.
+// TracerRegistry save the tracked functions' signature in 4 bytes as the method ID, the finalize() of Autonity.sol
+// was already implemented, thus in this tracer we just trace the sub protocol contracts.
 var TracerRegistry = map[common.Address]Tracer{
-	// params.AutonityContractAddress:               {"4bb278f3": struct{}{}}, // finalize(), duplicated with legacy metrics.
 	params.AccountabilityContractAddress:         {"6c9789b0": struct{}{}}, // finalize(bool)
 	params.OmissionAccountabilityContractAddress: {"6c9789b0": struct{}{}}, // finalize(bool)
 	params.OracleContractAddress:                 {"4bb278f3": struct{}{}}, // finalize()
