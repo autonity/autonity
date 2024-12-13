@@ -27,7 +27,7 @@ var TracerRegistry = map[common.Address]Tracer{
 	params.ACUContractAddress:                    {"a2e62045": struct{}{}}, // update()
 }
 
-func trace(contract common.Address, input []byte, initialGas, leftOverGas uint64) {
+func traceGas(contract common.Address, input []byte, initialGas, leftOverGas uint64) {
 	if len(input) < 4 {
 		return
 	}

@@ -18,6 +18,7 @@ package vm
 
 import (
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/metrics"
 	"math"
 	"math/big"
 	"sync/atomic"
@@ -174,9 +175,9 @@ func (evm *EVM) Interpreter() *EVMInterpreter {
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	// contract calls comes here.
-	if evm.Config.TraceProtocolGas {
+	if metrics.Enabled {
 		initialGas := gas
-		defer trace(addr, input, initialGas, leftOverGas)
+		defer traceGas(addr, input, initialGas, leftOverGas)
 	}
 
 	// Fail if we're trying to execute above the call depth limit
@@ -266,9 +267,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 // code with the caller as context.
 func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	// contract calls comes here.
-	if evm.Config.TraceProtocolGas {
+	if metrics.Enabled {
 		initialGas := gas
-		defer trace(addr, input, initialGas, leftOverGas)
+		defer traceGas(addr, input, initialGas, leftOverGas)
 	}
 
 	// Fail if we're trying to execute above the call depth limit
@@ -320,9 +321,9 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 // code with the caller as context and the caller is set to the caller of the caller.
 func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	// contract calls comes here.
-	if evm.Config.TraceProtocolGas {
+	if metrics.Enabled {
 		initialGas := gas
-		defer trace(addr, input, initialGas, leftOverGas)
+		defer traceGas(addr, input, initialGas, leftOverGas)
 	}
 
 	// Fail if we're trying to execute above the call depth limit
@@ -365,9 +366,9 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 // instead of performing the modifications.
 func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
 	// contract calls comes here.
-	if evm.Config.TraceProtocolGas {
+	if metrics.Enabled {
 		initialGas := gas
-		defer trace(addr, input, initialGas, leftOverGas)
+		defer traceGas(addr, input, initialGas, leftOverGas)
 	}
 
 	// Fail if we're trying to execute above the call depth limit
