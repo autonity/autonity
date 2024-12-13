@@ -125,6 +125,7 @@ type Runner struct {
 	StakeableVestingManager *StakeableVestingManager
 	NonStakeableVesting     *NonStakeableVesting
 	OmissionAccountability  *OmissionAccountability
+	Latency                 *Latency
 
 	Committee Committee   // genesis validators for easy access
 	Operator  *runOptions // operator runOptions for easy access
@@ -613,6 +614,14 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		&generated.OmissionAccountabilityAbi,
 		r,
 	}}
+
+	r.Latency = &Latency{
+		&contract{
+			params.LatencyContractAddress,
+			&generated.LatencyContractAbi,
+			r,
+		},
+	}
 
 	// TODO: replicate truffle tests default config.
 
