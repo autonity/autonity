@@ -15,6 +15,7 @@ import (
 
 type router interface {
 	Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
+	SetBroadcaster(broadcaster consensus.Broadcaster)
 }
 
 type Gossiper struct {
@@ -44,6 +45,7 @@ func NewGossiper(
 
 func (g *Gossiper) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	g.broadcaster = broadcaster
+	g.router.SetBroadcaster(broadcaster)
 }
 
 func (g *Gossiper) Broadcaster() consensus.Broadcaster {
