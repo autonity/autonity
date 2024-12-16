@@ -31,14 +31,13 @@ type (
 		NewtonBalance *big.Int
 		Bonds         []Delegation
 	}
-	genericDeployer func(abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) (common.Address, error)
+	genericDeployer func(address common.Address, abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) error
 	genericCaller   func(caller common.Address, contractAddress common.Address, abi *abi.ABI, method string, args ...interface{}) ([]byte, error)
 	genesisStep     func(chainConfig *params.ChainConfig, genesisBonds GenesisBonds, deployer genericDeployer, caller genericCaller) error
 )
 
 var (
-	genesisSequence = []genesisStep{
-		deployAutonityContract,
+	commonSequence = []genesisStep{
 		executeGenesisDelegations,
 		createAutonitySchedules,
 		finalizeAutonityInitialization,
@@ -55,24 +54,18 @@ var (
 		createDefaultNonStakableVestingContracts,
 		deployOmissionAccountabilityContract,
 	}
-	testGenesisSequence = []genesisStep{
-		deployAutonityTestContract,
-		executeGenesisDelegations,
-		createAutonitySchedules,
-		finalizeAutonityInitialization,
-		deployAccountabilityContract,
-		deployOracleContract,
-		deployACUContract,
-		deploySupplyControlContract,
-		deployStabilizationContract,
-		deployUpgradeManagerContract,
-		deployInflationControllerContract,
-		deployStakableVestingManagerContract,
-		createDefaultStakableVestingContracts,
-		deployNonStakableVestingContract,
-		createDefaultNonStakableVestingContracts,
-		deployOmissionAccountabilityContract,
-	}
+	genesisSequence = append(
+		[]genesisStep{
+			deployAutonityContract,
+		},
+		commonSequence...,
+	)
+	testGenesisSequence = append(
+		[]genesisStep{
+			deployAutonityTestContract,
+		},
+		commonSequence...,
+	)
 	errBadDeploymentAddress = errors.New("mismatch with params deployment address")
 )
 
@@ -89,10 +82,16 @@ func ExecuteTestGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds 
 }
 
 func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM, genesisSeq []genesisStep) error {
-	contractDeployer := func(abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) (common.Address, error) {
+	contractDeployer := func(
+		address common.Address,
+		abi *abi.ABI,
+		bytecode []byte,
+		value *big.Int,
+		args ...interface{},
+	) error {
 		constructorParams, err := abi.Pack("", args...)
 		if err != nil {
-			return common.Address{}, fmt.Errorf("failed to pack parameters: %w", err)
+			return fmt.Errorf("failed to pack parameters: %w", err)
 		}
 		if value.BitLen() != 0 {
 			evm.StateDB.AddBalance(params.DeployerAddress, value)
@@ -100,10 +99,22 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 		data := append(bytecode, constructorParams...)
 		gas := uint64(math.MaxUint64)
 		_, addr, _, err := evm.Create(vm.AccountRef(params.DeployerAddress), data, gas, value)
-		return addr, err
+		if err != nil {
+			return err
+		}
+		if addr != address {
+			return errBadDeploymentAddress
+		}
+		return nil
 	}
 
-	contractCaller := func(origin common.Address, contractAddress common.Address, abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+	contractCaller := func(
+		origin common.Address,
+		contractAddress common.Address,
+		abi *abi.ABI,
+		method string,
+		args ...interface{},
+	) ([]byte, error) {
 		packedArgs, err := abi.Pack(method, args...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to pack parameters for method: %s %w", method, err)
@@ -115,7 +126,9 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 
 	for i, fn := range genesisSeq {
 		if err := fn(genesisConfig, genesisBonds, contractDeployer, contractCaller); err != nil {
-			log.Error("Failed to execute genesis step", "i", i, "err", err, "fn", runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name())
+			log.Error(
+				"Failed to execute genesis step", "i", i, "err", err, "fn", runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name(),
+			)
 			return err
 		}
 	}
@@ -163,12 +176,16 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
 	}
-	addr, err := deploy(&generated.AutonityAbi, generated.AutonityBytecode, common.Big0, validators, contractConfig)
+	err := deploy(
+		params.AutonityContractAddress,
+		&generated.AutonityAbi,
+		generated.AutonityBytecode,
+		common.Big0,
+		validators,
+		contractConfig,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Autonity contract: %w", err)
-	}
-	if addr != params.AutonityContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -254,12 +271,16 @@ func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, de
 			Jail:      new(big.Int).SetUint64(config.AccountabilityConfig.JailFactor),
 		},
 	}
-	addr, err := deploy(&generated.AccountabilityAbi, generated.AccountabilityBytecode, common.Big0, params.AutonityContractAddress, accountabilityConfig)
+	err := deploy(
+		params.AccountabilityContractAddress,
+		&generated.AccountabilityAbi,
+		generated.AccountabilityBytecode,
+		common.Big0,
+		params.AutonityContractAddress,
+		accountabilityConfig,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy accountability contract: %w", err)
-	}
-	if addr != params.AccountabilityContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -281,7 +302,8 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 	for i, val := range config.AutonityContractConfig.Validators {
 		treasuries[i] = val.Treasury
 	}
-	addr, err := deploy(
+	err := deploy(
+		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
 		generated.OmissionAccountabilityBytecode,
 		common.Big0,
@@ -292,9 +314,6 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy omission accountability contract: %w", err)
-	}
-	if addr != params.OmissionAccountabilityContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -326,7 +345,8 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 		BaseSlashingRate:          new(big.Int).SetUint64(config.OracleContractConfig.BaseSlashingRate),
 	}
 
-	addr, err := deploy(
+	err := deploy(
+		params.OracleContractAddress,
 		&generated.OracleAbi,
 		generated.OracleBytecode,
 		common.Big0,
@@ -338,9 +358,6 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Oracle contract: %w", err)
-	}
-	if addr != params.OracleContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -358,7 +375,8 @@ func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy generi
 		bigQuantities[i] = new(big.Int).SetUint64(config.ASM.ACUContractConfig.Quantities[i])
 	}
 
-	addr, err := deploy(
+	err := deploy(
+		params.ACUContractAddress,
 		&generated.ACUAbi,
 		generated.ACUBytecode,
 		common.Big0,
@@ -372,9 +390,6 @@ func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy generi
 	if err != nil {
 		return fmt.Errorf("failed to deploy ACU contract: %w", err)
 	}
-	if addr != params.ACUContractAddress {
-		return errBadDeploymentAddress
-	}
 	return nil
 }
 
@@ -387,7 +402,8 @@ func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, dep
 	}
 
 	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
-	addr, err := deploy(
+	err := deploy(
+		params.SupplyControlContractAddress,
 		&generated.SupplyControlAbi,
 		generated.SupplyControlBytecode,
 		value,
@@ -398,14 +414,12 @@ func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, dep
 	if err != nil {
 		return fmt.Errorf("failed to deploy SupplyControl contract: %w", err)
 	}
-	if addr != params.SupplyControlContractAddress {
-		return errBadDeploymentAddress
-	}
 	return nil
 }
 
 func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	addr, err := deploy(
+	err := deploy(
+		params.UpgradeManagerContractAddress,
 		&generated.UpgradeManagerAbi,
 		generated.UpgradeManagerBytecode,
 		common.Big0,
@@ -414,9 +428,6 @@ func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, de
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Upgrade Manager contract: %w", err)
-	}
-	if addr != params.UpgradeManagerContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -437,7 +448,8 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 		TargetPrice:               (*big.Int)(config.ASM.StabilizationContractConfig.TargetPrice),
 	}
 
-	addr, err := deploy(
+	err := deploy(
+		params.StabilizationContractAddress,
 		&generated.StabilizationAbi,
 		generated.StabilizationBytecode,
 		common.Big0,
@@ -450,9 +462,6 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Stabilization contract: %w", err)
-	}
-	if addr != params.StabilizationContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -471,12 +480,15 @@ func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBond
 		InflationTransitionPeriod: (*big.Int)(config.InflationContractConfig.InflationTransitionPeriod),
 		InflationReserveDecayRate: (*big.Int)(config.InflationContractConfig.InflationReserveDecayRate),
 	}
-	addr, err := deploy(&generated.InflationControllerAbi, generated.InflationControllerBytecode, common.Big0, param)
+	err := deploy(
+		params.InflationControllerContractAddress,
+		&generated.InflationControllerAbi,
+		generated.InflationControllerBytecode,
+		common.Big0,
+		param,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy inflation controller contract: %w", err)
-	}
-	if addr != params.InflationControllerContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -488,7 +500,8 @@ func deployStakableVestingManagerContract(config *params.ChainConfig, _ GenesisB
 	} else {
 		config.StakeableVestingConfig.SetDefaults()
 	}
-	addr, err := deploy(
+	err := deploy(
+		params.StakeableVestingManagerContractAddress,
 		&generated.StakeableVestingManagerAbi,
 		generated.StakeableVestingManagerBytecode,
 		common.Big0,
@@ -496,9 +509,6 @@ func deployStakableVestingManagerContract(config *params.ChainConfig, _ GenesisB
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Stakable vesting contract: %w", err)
-	}
-	if addr != params.StakeableVestingManagerContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -512,7 +522,10 @@ func createDefaultStakableVestingContracts(config *params.ChainConfig, _ Genesis
 		params.StakeableVestingManagerContractAddress,
 		config.StakeableVestingConfig.TotalNominal,
 	); err != nil {
-		return fmt.Errorf("error while minting total nominal to Stakable vesting contract: %w", newErrorWithRevertReason(err, ret))
+		return fmt.Errorf(
+			"error while minting total nominal to Stakable vesting contract: %w",
+			newErrorWithRevertReason(err, ret),
+		)
 	}
 
 	callNewStakableContract := func(contract params.StakeableVestingData) error {
@@ -539,7 +552,8 @@ func createDefaultStakableVestingContracts(config *params.ChainConfig, _ Genesis
 }
 
 func deployNonStakableVestingContract(_ *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	addr, err := deploy(
+	err := deploy(
+		params.NonStakeableVestingContractAddress,
 		&generated.NonStakeableVestingAbi,
 		generated.NonStakeableVestingBytecode,
 		common.Big0,
@@ -547,9 +561,6 @@ func deployNonStakableVestingContract(_ *params.ChainConfig, _ GenesisBonds, dep
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy non-Stakable vesting contract: %w", err)
-	}
-	if addr != params.NonStakeableVestingContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
@@ -617,12 +628,16 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
 	}
-	addr, err := deploy(&generated.AutonityTestAbi, generated.AutonityTestBytecode, common.Big0, validators, contractConfig)
+	err := deploy(
+		params.AutonityContractAddress,
+		&generated.AutonityTestAbi,
+		generated.AutonityTestBytecode,
+		common.Big0,
+		validators,
+		contractConfig,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy AutonityTest contract: %w", err)
-	}
-	if addr != params.AutonityContractAddress {
-		return errBadDeploymentAddress
 	}
 	return nil
 }
