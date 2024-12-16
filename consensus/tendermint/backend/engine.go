@@ -585,6 +585,8 @@ func (sb *Backend) Start(ctx context.Context) error {
 
 	sb.wg.Add(1)
 	go sb.faultyValidatorsWatcher(ctx)
+	sb.wg.Add(1)
+	go sb.router.Start(ctx, sb.blockchain)
 
 	// Start Tendermint
 	sb.aggregator.start(ctx)
@@ -606,6 +608,7 @@ func (sb *Backend) Close() error {
 	// Stop Tendermint
 	sb.aggregator.stop()
 	sb.core.Stop()
+	sb.router.Stop()
 	sb.wg.Wait()
 	sb.coreStarting.CompareAndSwap(true, false)
 	return nil
