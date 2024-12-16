@@ -1,9 +1,12 @@
 package latency
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"math"
+	"net"
+	"sync"
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
@@ -11,7 +14,6 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/acn/protocol"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -23,10 +25,16 @@ import (
 var ClusterRedundancyParameter = 3
 var ErrInvalidPeerType = errors.New("invalid peer type")
 
+type peerLatency interface {
+	consensus.Peer
+	RemoteAddr() net.Addr
+}
+
 type Router struct {
-	self     common.Address
-	clusters Clusters
-	nodeKey  *ecdsa.PrivateKey
+	self        common.Address
+	clusterLock sync.RWMutex
+	clusters    Clusters
+	nodeKey     *ecdsa.PrivateKey
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -61,6 +69,8 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 		return committee.Members
 	}
 	// if we are sending the proposal, we should send it to every cluster
+	r.clusterLock.RLock()
+	defer r.clusterLock.RUnlock()
 	var recipients []types.CommitteeMember
 	if from == r.self {
 		for _, addr := range r.clusters.selectK(ClusterRedundancyParameter) {
@@ -81,7 +91,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return recipients
 }
 
-func (r *Router) Start(chain *core.BlockChain) error {
+func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 	reportEventSub, err := chain.ProtocolContracts().Latency.WatchReported(nil, r.reportedEventChan, nil)
 	if err != nil {
 		return err
@@ -101,27 +111,30 @@ func (r *Router) Start(chain *core.BlockChain) error {
 	}
 	r.self = r.reporter.txOpts.From
 
-	go func() {
-		for {
-			select {
-			case <-r.reportedEventChan:
-				// todo: should probably be done async
-				if err := r.refreshClusters(); err != nil {
-					log.Error("failed to refresh clusters", "err", err)
-				}
-			case <-r.epochHeadCh:
-				if err := r.report(); err != nil {
-					log.Error("failed to report latency", "err", err)
-				}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-r.reportedEventChan:
+			// todo: should probably be done async
+			if err := r.refreshClusters(); err != nil {
+				log.Error("failed to refresh clusters", "err", err)
+			}
+		case <-r.epochHeadCh:
+			if err := r.report(); err != nil {
+				log.Error("failed to report latency", "err", err)
 			}
 		}
-	}()
-	return nil
+	}
 }
 
 func (r *Router) Stop() {
 	r.reportEventSub.Unsubscribe()
 	r.epochHeadSub.Unsubscribe()
+}
+
+func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
+	r.broadcaster = broadcaster
 }
 
 func (r *Router) refreshClusters() error {
@@ -146,7 +159,9 @@ func (r *Router) refreshClusters() error {
 		return err
 	}
 
+	r.clusterLock.Lock()
 	r.clusters = clusters
+	r.clusterLock.Unlock()
 	return nil
 }
 
@@ -173,7 +188,7 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 		}
 		if peer, ok := r.broadcaster.FindPeer(member); ok {
 			// todo: this is a bit hacky, we should probably have a better way to get the p2p peer ip
-			p2pPeer, ok := peer.(*protocol.Peer)
+			p2pPeer, ok := peer.(peerLatency)
 			if !ok {
 				return nil, ErrInvalidPeerType
 			}
