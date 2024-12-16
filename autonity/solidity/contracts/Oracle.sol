@@ -196,6 +196,7 @@ contract Oracle is IOracle {
             return false;
         }
 
+        prices.push();
         for (uint i = 0; i < symbols.length; i += 1) {
             _aggregateReports(i);
         }
@@ -316,7 +317,6 @@ contract Oracle is IOracle {
             _price = prices[round - 1][_symbol].price;
         }
 
-        prices.push();
         prices[round][_symbol] = Price(
             _price,
             block.timestamp,
