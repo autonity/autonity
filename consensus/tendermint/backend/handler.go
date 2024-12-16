@@ -214,6 +214,10 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
 		}
+		// route the proposal to the correct cluster
+		if sb.router != nil {
+			sb.gossiper.Gossip(committee, m)
+		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
 		allJailed := true
