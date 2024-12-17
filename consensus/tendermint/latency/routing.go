@@ -65,7 +65,9 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	if member := committee.MemberByAddress(from); member == nil {
 		return nil
 	}
-	if msg.Code() != message.ProposalCode {
+	// currently only proposals are routed through clustering
+	// if the clusters are not yet formed, we should default to the full committee
+	if msg.Code() != message.ProposalCode || r.clusters == nil {
 		return committee.Members
 	}
 	// if we are sending the proposal, we should send it to every cluster
@@ -115,12 +117,14 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-r.reportedEventChan:
+		case ev := <-r.reportedEventChan:
+			log.Debug("Router: latency report detected, refreshing network clustering", "reporter", ev.Reporter)
 			// todo: should probably be done async
 			if err := r.refreshClusters(); err != nil {
 				log.Error("failed to refresh clusters", "err", err)
 			}
-		case <-r.epochHeadCh:
+		case e := <-r.epochHeadCh:
+			log.Debug("Router: new epoch detected, reporting latency", "epoch", e.Epoch)
 			if err := r.report(); err != nil {
 				log.Error("failed to report latency", "err", err)
 			}
