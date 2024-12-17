@@ -71,8 +71,29 @@ func DeployContracts(genesisConfig *params.ChainConfig, genesisBonds GenesisBond
 	if err := DeployOmissionAccountabilityContract(genesisConfig, evmContracts); err != nil {
 		return fmt.Errorf("error when deploying the omission accountability contract: %w", err)
 	}
+	if err := DeployLatencyContract(genesisConfig, evmContracts); err != nil {
+		return fmt.Errorf("error when deploying the latency contract: %w", err)
+	}
 
 	// TODO (scott): deploy latency contract
+	return nil
+}
+
+func DeployLatencyContract(cfg *params.ChainConfig, evmContracts *GenesisEVMContracts) error {
+	var initialCommittee []common.Address
+	for _, val := range cfg.AutonityContractConfig.Validators {
+		initialCommittee = append(initialCommittee, *val.NodeAddress)
+	}
+	err := evmContracts.DeployLatencyContract(
+		params.AutonityContractAddress,
+		initialCommittee,
+		generated.LatencyBytecode,
+	)
+	if err != nil {
+		log.Error("DeployLatencyContract failed", "err", err)
+		return fmt.Errorf("failed to deploy Latency contract: %w", err)
+	}
+	log.Info("Deployed Latency contract", "address", params.LatencyContractAddress)
 	return nil
 }
 

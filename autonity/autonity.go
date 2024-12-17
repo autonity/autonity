@@ -475,6 +475,10 @@ type OmissionAccountabilityContract struct {
 	EVMContract
 }
 
+type LatencyContract struct {
+	EVMContract
+}
+
 func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.StateDB, db ethdb.Database, chainConfig *params.ChainConfig) *GenesisEVMContracts {
 	evmProvider := func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 		if header != nil {
@@ -571,6 +575,14 @@ func NewGenesisEVMContract(genesisEvmProvider GenesisEVMProvider, statedb vm.Sta
 				chainConfig: chainConfig,
 			},
 		},
+		LatencyContract: LatencyContract{
+			EVMContract{
+				evmProvider: evmProvider,
+				contractABI: &generated.LatencyAbi,
+				db:          db,
+				chainConfig: chainConfig,
+			},
+		},
 		statedb: statedb,
 	}
 }
@@ -587,6 +599,7 @@ type GenesisEVMContracts struct {
 	StakeableVestingManagerContract
 	NonStakeableVestingContract
 	OmissionAccountabilityContract
+	LatencyContract
 	statedb vm.StateDB
 }
 
@@ -669,6 +682,10 @@ func (c *GenesisEVMContracts) DeployStabilizationContract(
 
 func (c *GenesisEVMContracts) DeployUpgradeManagerContract(autonityAddress common.Address, operatorAddress common.Address, bytecode []byte) error {
 	return c.UpgradeManagerContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, operatorAddress)
+}
+
+func (c *GenesisEVMContracts) DeployLatencyContract(autonityAddress common.Address, committee []common.Address, bytecode []byte) error {
+	return c.LatencyContract.DeployContract(nil, params.DeployerAddress, c.statedb, bytecode, autonityAddress, committee)
 }
 
 func (c *GenesisEVMContracts) DeployInflationControllerContract(bytecode []byte, param InflationControllerParams) error {
