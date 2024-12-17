@@ -214,9 +214,32 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
 		}
-		// route the proposal to the correct cluster
+		// ToDo: if the proposal is for a future message, it won't get here until the local node
+		// processes that future message. For speed, we may want to forward the proposal to the correct cluster
+		// before handleDecodedMsg is called
 		if sb.router != nil {
-			sb.gossiper.Gossip(committee, m)
+			recipients := sb.router.Route(committee, m, sender)
+			if len(recipients) == 0 {
+				sb.logger.Debug("No recipients for proposal", "proposal", m)
+				break
+			}
+			// send the proposal to the recipients
+			// ToDo: we probably want to do this in gossiper, though that requires a change
+			// of the gossiper interface to include "from" address
+			for _, recipient := range recipients {
+				if recipient.Address == sender {
+					continue
+				}
+				if p, ok := sb.Broadcaster.FindPeer(recipient.Address); ok {
+					if p.Cache().Contains(m.Hash()) {
+						// This peer had this event, skip it
+						continue
+					}
+					p.Cache().Add(m.Hash(), true)
+					go p.SendRaw(ProposeNetworkMsg, m.Payload()) //nolint
+				}
+			}
+
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
