@@ -6,15 +6,15 @@ import (
 	"errors"
 	"math"
 	"net"
+	"strconv"
 	"sync"
 	"time"
-
-	probing "github.com/prometheus-community/pro-bing"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
@@ -181,7 +181,7 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 	}
 
 	latency := make(map[common.Address]uint8)
-	peerIps := make([]string, len(committee))
+	pingTargets := make([]ping.Target, len(committee))
 	for i, member := range committee {
 		if member == r.self {
 			continue
@@ -192,12 +192,19 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 			if !ok {
 				return nil, ErrInvalidPeerType
 			}
-			peerIps[i] = p2pPeer.RemoteAddr().String()
+
+			ip, port, err := net.SplitHostPort(p2pPeer.RemoteAddr().String())
+			if err != nil {
+				//TODO
+				continue
+			}
+
+			p, _ := strconv.Atoi(port)
+			pingTargets[i] = ping.Target{IP: ip, Port: p}
 		}
 	}
 
-	results := PingPeers(peerIps)
-	latencyArray := mapStatsToUint8(results)
+	latencyArray := PingPeers(pingTargets)
 	for i, addr := range committee {
 		// set self latency to 0
 		if addr == r.self {
@@ -208,12 +215,26 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 	return latency, nil
 }
 
-func mapStatsToUint8(pingResults []probing.Statistics) []uint8 {
-	latency := make([]uint8, len(pingResults))
-	for i, result := range pingResults {
-		latency[i] = mapDurationToUint8(result.AvgRtt)
+func PingPeers(targets []ping.Target) []uint8 {
+	channelArray := make([]chan time.Duration, len(targets))
+	for i, t := range targets {
+		resultCh := make(chan time.Duration, 1)
+		if t.IP == "" {
+			// default result for non-connected peer to write
+			// this should be a reasonable default for max RTT
+			resultCh <- time.Duration(time.Second) * 5
+			channelArray[i] = resultCh
+			continue
+		}
+		// icmp pinger to compare results
+		ping.NewPinger(ping.TCP).Ping(t, resultCh)
+		channelArray[i] = resultCh
 	}
-	return latency
+	results := make([]uint8, len(targets))
+	for i, resultCh := range channelArray {
+		results[i] = mapDurationToUint8(<-resultCh)
+	}
+	return results
 }
 
 // mapDurationToUint8 maps a duration to a uint8 value
