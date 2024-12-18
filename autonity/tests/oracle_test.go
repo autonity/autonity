@@ -964,6 +964,7 @@ func TestOracleSlashing(t *testing.T) {
 	t.Logf("Checking blocks from %d to %d\n", from, to)
 
 	for blockNumber := to; blockNumber >= from; blockNumber -= 30 {
+		t.Logf("at block %d\n", blockNumber)
 		_, _, oracleTest, err := r.DeployOracleTest(nil, voters, voters, voters, symbols, config)
 		require.NoError(r.T, err)
 		round, _, err := oracleTest.GetRound(nil)
@@ -1184,12 +1185,16 @@ func TestOracleSlashing(t *testing.T) {
 				t.Logf("no outliers after this symbol\n")
 			} else {
 				t.Logf("outliers after this symbol:\n")
+				foundZeroSlashing := false
 				for j, v := range outliers {
 					penaltyInfo, _, err := oracleTest.PenaltyInfo(nil, v)
 					require.NoError(t, err)
 					t.Logf("%v (%d), slashed %v\n", v, indexes[j], penaltyInfo.SlashingAmount)
-					require.True(t, penaltyInfo.SlashingAmount.Cmp(common.Big0) > 0)
+					if penaltyInfo.SlashingAmount.Cmp(common.Big0) == 0 {
+						foundZeroSlashing = true
+					}
 				}
+				require.False(t, foundZeroSlashing)
 			}
 		}
 

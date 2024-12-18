@@ -202,7 +202,6 @@ contract Oracle is IOracle {
             return false;
         }
 
-        prices.push();
         for (uint i = 0; i < symbols.length; i += 1) {
             _aggregateReports(i);
         }
@@ -287,6 +286,7 @@ contract Oracle is IOracle {
      * @dev This function detects outliers and calculates the final price for the symbol.
      */
     function _aggregateReports(uint _sindex) internal {
+        prices.push();
         string memory _symbol = symbols[_sindex];
         Report[] memory _totalReports = new Report[](voters.length);
         uint256 _count;
@@ -673,8 +673,8 @@ contract Oracle is IOracle {
             _slashingRate = ORACLE_SLASHING_RATE_CAP;
         }
 
-        uint256 _slashingAmount = config.autonity.slash(voterValidators[_outlier], _slashingRate);
-        return _slashingAmount;
+        config.autonity.slash(voterValidators[_outlier], _slashingRate);
+        return _slashingRate;
     }
 
     /*
