@@ -29,6 +29,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/testrand"
 )
 
 const jsondata = `
