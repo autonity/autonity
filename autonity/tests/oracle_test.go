@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -10,8 +11,11 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 )
 
 func TestSimpleVote(t *testing.T) {
@@ -939,4 +943,331 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 		slashed := []bool{true, false, false}
 		testSlashing(r, len(prices), slashed, outliers, prices)
 	})
+}
+
+const rpcUri = "https://rpc-internal-1.piccadilly.autonity.org"
+
+func TestOracleSlashing(t *testing.T) {
+
+	r := Setup(t, nil)
+	config, _, err := r.Oracle.Config(nil)
+	require.NoError(r.T, err)
+	config.Autonity, _, _, err = r.DeployOracleAutonityMockTest(nil, big.NewInt(1000))
+	require.NoError(r.T, err)
+	symbols := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}
+	voters := []common.Address{common.HexToAddress("0x01")}
+	var to int64 = 505470 - 30 + 2 // this is where everyone votes
+	var from int64 = 1
+	client, err := ethclient.Dial(rpcUri)
+	require.NoError(t, err)
+
+	t.Logf("Checking blocks from %d to %d\n", from, to)
+
+	for blockNumber := to; blockNumber >= from; blockNumber -= 30 {
+		_, _, oracleTest, err := r.DeployOracleTest(nil, voters, voters, voters, symbols, config)
+		require.NoError(r.T, err)
+		round, _, err := oracleTest.GetRound(nil)
+		require.NoError(t, err)
+
+		commits := make([]*big.Int, 0)
+		salts := make([]*big.Int, 0)
+		extras := make([]uint8, 0)
+		reports := make([][]IOracleReport, 0)
+		signer := types.NewLondonSigner(params.PiccadillyChainConfig.ChainID)
+
+		addresses := make([]common.Address, 0)
+
+		symbols, _, err = oracleTest.GetSymbols(nil)
+		require.NoError(t, err)
+		r.Evm.Context.BlockNumber = big.NewInt(blockNumber)
+		block, err := client.BlockByNumber(context.Background(), big.NewInt(blockNumber))
+		require.NoError(t, err)
+
+		txs := block.Transactions()
+		votes := 0
+		for _, tx := range txs {
+			// receipt, err := client.TransactionReceipt(context.Background(), tx.Hash())
+			// require.NoError(t, err)
+			// if receipt.Status == 0 {
+			// 	continue
+			// }
+			if *tx.To() == params.OracleContractAddress {
+				method := getCalledMethod(tx.Data())
+				if method.Name != "vote" {
+					continue
+				}
+				// t.Logf("at block %d\n", blockNumber)
+				// t.Logf("vote: %v\n", tx.Data())
+				values, err := method.Inputs.Unpack(tx.Data()[4:])
+				require.NoError(t, err)
+				// t.Logf("values %v\n", values)
+
+				// t.Logf("unpack len %d\n", len(values))
+				from, err := types.Sender(signer, tx)
+				require.NoError(t, err)
+
+				// t.Logf("sender %v\n", from)
+				// commit := *abi.ConvertType(values[0], new(*big.Int)).(**big.Int)
+				report := *abi.ConvertType(values[1], new([]IOracleReport)).(*[]IOracleReport)
+				salt := *abi.ConvertType(values[2], new(*big.Int)).(**big.Int)
+				extra := *abi.ConvertType(values[3], new(uint8)).(*uint8)
+				commit := makeCommit(t, salt, from, report)
+				// t.Logf("report len %d\n", len(report))
+
+				if len(report) != 0 {
+					require.Equal(t, len(symbols), len(report))
+				} else {
+					continue
+				}
+
+				commits = append(commits, commit)
+				reports = append(reports, report)
+				salts = append(salts, salt)
+				extras = append(extras, extra)
+
+				r.NoError(
+					oracleTest.MakeVoter(nil, from),
+				)
+
+				// first vote
+				r.NoError(
+					oracleTest.Vote(
+						FromSender(from, nil),
+						commit,
+						nil,
+						salt,
+						extra,
+					),
+				)
+				votes++
+
+				addresses = append(addresses, from)
+
+			}
+		}
+
+		require.True(t, votes > 0)
+
+		// r.NoError(
+		// 	oracleTest.Finalize(
+		// 		FromSender(r.Autonity.address, nil),
+		// 	),
+		// )
+
+		// if blockNumber%config.VotePeriod.Int64() == 0 {
+		// 	newRound, _, err := oracleTest.GetRound(nil)
+		// 	require.NoError(t, err)
+		// 	require.Equal(t, new(big.Int).Add(round, common.Big1), newRound)
+		// 	round = newRound
+		// }
+
+		r.NoError(
+			oracleTest.SetVotersNow(nil, addresses),
+		)
+
+		voters, _, err = oracleTest.GetVoters(nil)
+		require.NoError(t, err)
+
+		require.Equal(t, len(addresses), len(voters))
+		for i, v := range voters {
+			require.Equal(t, addresses[i], v)
+		}
+
+		for _, v := range addresses {
+			info, _, err := oracleTest.VoterInfo(nil, v)
+			require.NoError(t, err)
+			require.True(t, info.IsVoter)
+			require.False(t, info.ReportAvailable)
+		}
+
+		// r.WaitNBlocks(int(config.VotePeriod.Int64()))
+		r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, config.VotePeriod)
+
+		// priceLen, _, err := oracleTest.PriceLen(nil)
+		// require.NoError(t, err)
+		// t.Logf("priceLen %d\n", priceLen.Int64())
+
+		r.NoError(
+			oracleTest.Finalize(
+				FromSender(config.Autonity, nil),
+			),
+		)
+
+		newRound, _, err := oracleTest.GetRound(nil)
+		require.NoError(t, err)
+		require.Equal(t, new(big.Int).Add(round, common.Big1), newRound)
+		round = newRound
+
+		// priceLen, _, err = oracleTest.PriceLen(nil)
+		// require.NoError(t, err)
+		// t.Logf("priceLen %d\n", priceLen.Int64())
+
+		for i, v := range addresses {
+			r.NoError(
+				oracleTest.Vote(
+					FromSender(v, nil),
+					commits[i],
+					reports[i],
+					salts[i],
+					extras[i],
+				),
+			)
+		}
+
+		for _, v := range addresses {
+			info, _, err := oracleTest.VoterInfo(nil, v)
+			require.NoError(t, err)
+			require.True(t, info.IsVoter)
+			require.True(t, info.ReportAvailable)
+		}
+
+		// r.WaitNBlocks(int(config.VotePeriod.Int64()))
+		r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, config.VotePeriod)
+
+		// r.NoError(
+		// 	oracleTest.Finalize(
+		// 		FromSender(config.Autonity, nil),
+		// 	),
+		// )
+
+		// newRound, _, err = oracleTest.GetRound(nil)
+		// require.NoError(t, err)
+		// require.Equal(t, new(big.Int).Add(round, common.Big1), newRound)
+
+		for i := 0; i < len(symbols); i++ {
+			// t.Logf("report for symbol %d\n", i)
+
+			// for j, v := range addresses {
+			// 	info, _, err := oracleTest.VoterInfo(nil, v)
+			// 	require.NoError(t, err)
+			// 	require.True(t, info.IsVoter)
+			// 	t.Logf("from %v(%d) : report %v\n", v, j, info.ReportAvailable)
+			// }
+
+			t.Logf("votes for symbol %d\n", i)
+
+			for j, v := range addresses {
+				info, _, err := oracleTest.VoterInfo(nil, v)
+				require.NoError(t, err)
+				t.Logf("from %v (%d) : price %v , conf %d, already outlier? %v", v, j, reports[j][i].Price, reports[j][i].Confidence, !info.ReportAvailable)
+			}
+
+			r.NoError(
+				oracleTest.AggregateReports(nil, big.NewInt(int64(i))),
+			)
+
+			t.Logf("report aggregated\n")
+			price, _, err := oracleTest.GetRoundData(nil, round, symbols[i])
+			require.NoError(t, err)
+			t.Logf("price: %v, success %v\n", price.Price, price.Success)
+
+			outliers := make([]common.Address, 0)
+			indexes := make([]int, 0)
+			for j, v := range addresses {
+				info, _, err := oracleTest.VoterInfo(nil, v)
+				require.NoError(t, err)
+				require.True(t, info.IsVoter)
+				// t.Logf("from %d : %v, report %v\n", j, v, info.ReportAvailable)
+
+				penaltyInfo, _, err := oracleTest.PenaltyInfo(nil, v)
+				require.NoError(t, err)
+				if info.ReportAvailable == false {
+					outliers = append(outliers, v)
+					indexes = append(indexes, j)
+					require.Equal(t, r.Evm.Context.BlockNumber, penaltyInfo.BlockNumber)
+				} else {
+					require.True(t, penaltyInfo.BlockNumber.Cmp(common.Big0) == 0)
+				}
+			}
+
+			if len(outliers) == 0 {
+				t.Logf("no outliers after this symbol\n")
+			} else {
+				t.Logf("outliers after this symbol:\n")
+				for j, v := range outliers {
+					penaltyInfo, _, err := oracleTest.PenaltyInfo(nil, v)
+					require.NoError(t, err)
+					t.Logf("%v (%d), slashed %v\n", v, indexes[j], penaltyInfo.SlashingAmount)
+					require.True(t, penaltyInfo.SlashingAmount.Cmp(common.Big0) > 0)
+				}
+			}
+		}
+
+		// t.Logf("aggregating report again with modification\n")
+
+		// for i := 0; i < len(symbols); i++ {
+
+		// 	for _, v := range addresses {
+		// 		r.NoError(
+		// 			oracleTest.MakeReportAvailable(nil, v),
+		// 		)
+		// 	}
+
+		// 	t.Logf("report for symbol %d\n", i)
+
+		// 	for j, v := range addresses {
+		// 		info, _, err := oracleTest.VoterInfo(nil, v)
+		// 		require.NoError(t, err)
+		// 		require.True(t, info.IsVoter)
+		// 		t.Logf("from %d : %v, report %v\n", j, v, info.ReportAvailable)
+		// 	}
+
+		// 	t.Logf("votes for symbol %d\n", i)
+
+		// 	for j, v := range addresses {
+		// 		t.Logf("from %d : %v, price %v , conf %d", j, v, reports[j][i].Price, reports[j][i].Confidence)
+		// 	}
+
+		// 	r.NoError(
+		// 		oracleTest.AggregateReports(nil, big.NewInt(int64(i))),
+		// 	)
+
+		// 	t.Logf("report aggregated\n")
+		// 	price, _, err := oracleTest.GetRoundData(nil, round, symbols[i])
+		// 	require.NoError(t, err)
+		// 	t.Logf("price: round %v, price %v, success %v\n", price.Round, price.Price, price.Success)
+
+		// 	for j, v := range addresses {
+		// 		info, _, err := oracleTest.VoterInfo(nil, v)
+		// 		require.NoError(t, err)
+		// 		require.True(t, info.IsVoter)
+		// 		t.Logf("from %d : %v, report %v\n", j, v, info.ReportAvailable)
+		// 	}
+		// }
+
+		// // for _, v := range addresses {
+		// // 	info, _, err := oracleTest.VoterInfo(nil, v)
+		// // 	require.NoError(t, err)
+		// // 	require.True(t, info.IsVoter)
+		// // 	t.Logf("from %v, report %v\n", v, info.ReportAvailable)
+		// // }
+
+		// priceLen, _, err = oracleTest.PriceLen(nil)
+		// require.NoError(t, err)
+		// t.Logf("priceLen %d\n", priceLen.Int64())
+
+		// // t.Logf("votes %d\n", len(commits))
+	}
+
+}
+
+func TestAddr(t *testing.T) {
+	fmt.Printf("%v\n", params.OracleContractAddress)
+	require.Fail(t, "fails")
+}
+
+func getCalledMethodName(calldata []byte) string {
+	method, err := generated.OracleAbi.MethodById(calldata)
+	if err != nil {
+		panic(err)
+	}
+	return method.Name
+}
+
+func getCalledMethod(calldata []byte) *abi.Method {
+	method, err := generated.OracleAbi.MethodById(calldata)
+	if err != nil {
+		panic(err)
+	}
+	return method
 }

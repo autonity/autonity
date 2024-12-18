@@ -49,10 +49,10 @@ contract Oracle is IOracle {
 
     // ==== Private state variables ====
     uint8 private constant DECIMALS = 18;
-    string[] private symbols;
-    string[] private newSymbols;
+    string[] internal symbols;
+    string[] internal newSymbols;
 
-    address[] private voters;
+    address[] internal voters;
     address[] private newVoters;
     bool private newVotersSet;
     bool private newVotersAccessUpdated;
@@ -70,6 +70,12 @@ contract Oracle is IOracle {
     mapping(address => address) public voterValidators;
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
+
+    struct PenaltyInfo {
+        uint256 slashingAmount;
+        uint256 blockNumber;
+    }
+    mapping(address => PenaltyInfo) public penaltyInfo;
 
     /**
      * @dev Constructor to initialize the Oracle contract.
@@ -196,6 +202,7 @@ contract Oracle is IOracle {
             return false;
         }
 
+        prices.push();
         for (uint i = 0; i < symbols.length; i += 1) {
             _aggregateReports(i);
         }
@@ -290,10 +297,9 @@ contract Oracle is IOracle {
                 continue;
             }
             _totalReports[_count++] = reports[_symbol][_voter];
+            require(reports[_symbol][_voter].price > 0 && reports[_symbol][_voter].confidence > 0, "invalid price reported");
         }
         // at this stage if count > 0 we must have valid strictly positive reports available.
-        uint256 _price = 0;
-        bool _success = false;
         if (_count > 0) {
             int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
             // exclude and detect outliers
@@ -302,21 +308,32 @@ contract Oracle is IOracle {
             // There is an extreme edge-case where everyone is detected outlier. This is left todo.
             // punish outliers if found
             for (uint256 i = 0; i < _totalOutliers; i++) {
-                _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
-                emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+                uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
+                penaltyInfo[_outliers[i]] = PenaltyInfo(_slashingAmount, block.number);
+                emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
             }
-            _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
-            _success = true;
+            if (_reportsCount == 0) {
+                prices[round][_symbol] = Price(
+                    prices[round - 1][_symbol].price,
+                    block.timestamp,
+                    false
+                );
+            }
+            else {
+                prices[round][_symbol] = Price(
+                    _calculateWeightedPrice(_filteredReports, _reportsCount),
+                    block.timestamp,
+                    true
+                );
+            }
         } else {
             // use past value for price if unsuccesful
-            _price = prices[round - 1][_symbol].price;
+            prices[round][_symbol] = Price(
+                prices[round - 1][_symbol].price,
+                block.timestamp,
+                false
+            );
         }
-
-        prices.push();
-        prices[round][_symbol] = Price(
-            _price,
-            block.timestamp,
-            _success);
     }
 
     /**
@@ -601,6 +618,7 @@ contract Oracle is IOracle {
             uint256 _totalReports
         )
     {
+        require(_median > 0, "median 0 in _findOutliers");
         _filteredReports = new Report[](voters.length);
         _outliers = new address[](voters.length);
         for (uint256 i = 0; i < voters.length; i++) {
@@ -629,18 +647,20 @@ contract Oracle is IOracle {
             _price += _report[i].price * _report[i].confidence;
             _totalConfidence += _report[i].confidence;
         }
+        require(_totalConfidence > 0, "_totalConfidence 0");
         return _price / _totalConfidence;
     }
 
-    function _penalize(address _outlier, int256 _median, Report memory _report) internal {
+    function _penalize(address _outlier, int256 _median, Report memory _report) internal returns (uint256) {
         // Stop considering this reporter for any future calculation.
         // This is symbol independant.
+        require(_median > 0, "median 0 in penalize");
         voterInfo[_outlier].reportAvailable = false;
         int256 _diffRatio = (int256(uint256(_report.price)) - _median) * 100 / _median;
         //price is 120 bits max so _diffratio squared is at most 240 bits
         _diffRatio = _diffRatio * _diffRatio;
         if (_diffRatio <= config.outlierSlashingThreshold) {
-            return;
+            return 0;
         }
 
         // TODO: to formal evaluate the correctness of this formula.
@@ -653,7 +673,8 @@ contract Oracle is IOracle {
             _slashingRate = ORACLE_SLASHING_RATE_CAP;
         }
 
-        config.autonity.slash(voterValidators[_outlier], _slashingRate);
+        uint256 _slashingAmount = config.autonity.slash(voterValidators[_outlier], _slashingRate);
+        return _slashingAmount;
     }
 
     /*

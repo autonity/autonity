@@ -21,5 +21,7 @@ import "./vesting/NonStakeableVesting.sol";
 import "./vesting/StakeableVestingManager.sol";
 import "./test-contract/AccountabilityTest.sol";
 import "./test-contract/AutonityUpgradeTest.sol";
+import "./test-contract/OracleAutonityMockTest.sol";
+import "./test-contract/OracleTest.sol";
 import "./test-contract/StakeableVestingLogicTest.sol";
 import "./test-contract/Tests.sol";

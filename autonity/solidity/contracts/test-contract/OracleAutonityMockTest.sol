@@ -37,8 +37,9 @@ contract OracleAutonityMockTest {
         // do nothing
     }
 
-    function slash(address _validator, uint256 _rate) public {
+    function slash(address _validator, uint256 _rate) public returns (uint256) {
         // do nothing
+        return 0;
     }
 
     function setVoters(address[] memory _newVoters, address[] memory _treasury, address[] memory _validator) public {
