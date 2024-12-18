@@ -307,8 +307,8 @@ contract Oracle is IOracle {
             // There is an extreme edge-case where everyone is detected outlier. This is left todo.
             // punish outliers if found
             for (uint256 i = 0; i < _totalOutliers; i++) {
-                _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
-                emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+                bool _slashed = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
+                emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price, _slashed);
             }
             _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
             _success = true;
@@ -636,7 +636,7 @@ contract Oracle is IOracle {
         return _price / _totalConfidence;
     }
 
-    function _penalize(address _outlier, int256 _median, Report memory _report) internal {
+    function _penalize(address _outlier, int256 _median, Report memory _report) internal returns (bool) {
         // Stop considering this reporter for any future calculation.
         // This is symbol independant.
         voterInfo[_outlier].reportAvailable = false;
@@ -644,7 +644,7 @@ contract Oracle is IOracle {
         //price is 120 bits max so _diffratio squared is at most 240 bits
         _diffRatio = _diffRatio * _diffRatio;
         if (_diffRatio <= config.outlierSlashingThreshold) {
-            return;
+            return false;
         }
 
         // `_diffRatio` is a percentage squared, so dividing it by 10_000
@@ -658,6 +658,7 @@ contract Oracle is IOracle {
         }
 
         config.autonity.slash(voterValidators[_outlier], _slashingRate);
+        return true;
     }
 
     /*
