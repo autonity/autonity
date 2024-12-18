@@ -297,8 +297,6 @@ contract Oracle is IOracle {
             _totalReports[_count++] = reports[_symbol][_voter];
         }
         // at this stage if count > 0 we must have valid strictly positive reports available.
-        uint256 _price = 0;
-        bool _success = false;
         if (_count > 0) {
             int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
             // exclude and detect outliers
@@ -310,17 +308,19 @@ contract Oracle is IOracle {
                 bool _slashed = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
                 emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price, _slashed);
             }
-            _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
-            _success = true;
+            prices[round][_symbol] = Price(
+                _calculateWeightedPrice(_filteredReports, _reportsCount),
+                block.timestamp,
+                true
+            );
         } else {
             // use past value for price if unsuccesful
-            _price = prices[round - 1][_symbol].price;
+            prices[round][_symbol] = Price(
+                prices[round - 1][_symbol].price,
+                block.timestamp,
+                false
+            );
         }
-
-        prices[round][_symbol] = Price(
-            _price,
-            block.timestamp,
-            _success);
     }
 
     /**
