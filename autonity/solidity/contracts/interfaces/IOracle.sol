@@ -134,7 +134,7 @@ interface IOracle {
      * @param _symbol Outlier symbol.
      * @param _median Median price calculate for this symbol.
      * @param _reported Reported outlier price.
-     * @param _slashed True if the outlier is slashed, false otherwise.
+     * @param _slashingAmount Slashing amount of the validator stakes.
      */
-    event Penalized(address indexed _participant, string _symbol, int256 _median, uint120 _reported, bool _slashed);
+    event Penalized(address indexed _participant, uint256 _slashingAmount, string _symbol, int256 _median, uint120 _reported);
 }
