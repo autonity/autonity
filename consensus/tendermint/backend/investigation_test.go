@@ -254,8 +254,8 @@ func TestOraclePenalized(t *testing.T) {
 	client, err := ethclient.Dial(rpcUri)
 	require.NoError(t, err)
 
-	var from int64 = 591870 - 24*3600
-	var to int64 = 591870
+	var from int64 = 505470
+	var to int64 = 505470
 
 	for blockNumber := from; blockNumber <= to; blockNumber += 30 {
 		oracleLogs, err := client.FilterLogs(context.Background(), ethereum.FilterQuery{
@@ -279,6 +279,39 @@ func TestOraclePenalized(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestBonding(t *testing.T) {
+	client, err := ethclient.Dial(rpcUri)
+	require.NoError(t, err)
+
+	var from int64 = 589857
+	var to int64 = 589857
+
+	// for blockNumber := from; blockNumber <= to; blockNumber++ {
+	logs, err := client.FilterLogs(context.Background(), ethereum.FilterQuery{
+		Addresses: []common.Address{params.AutonityContractAddress},
+		FromBlock: big.NewInt(from),
+		ToBlock:   big.NewInt(to),
+	})
+	require.NoError(t, err)
+
+	for _, log := range logs {
+		switch getEventName(generated.AutonityAbi, log) {
+		case "NewBondingRequest":
+			validator := common.BytesToAddress(log.Topics[1].Bytes())
+			delegator := common.BytesToAddress(log.Topics[2].Bytes())
+			// if validator == common.HexToAddress("0xcdEed21b471b0Dc54faF74480A0E700fCc42a7b6") {
+			t.Logf("block %d: validator %s got bonding from %s\n", log.BlockNumber, validator, delegator)
+			// }
+		// case "NewRound":
+		// 	// do nothing
+		default:
+			t.Logf("unhandled event: " + getEventName(generated.OracleAbi, log))
+			// do nothing
+		}
+	}
+	// }
 }
 
 func TestAccountabilitySlashing(t *testing.T) {

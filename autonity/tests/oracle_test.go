@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
@@ -963,6 +965,9 @@ func TestOracleSlashing(t *testing.T) {
 
 	t.Logf("Checking blocks from %d to %d\n", from, to)
 
+	maxQueries := 100
+	queries := maxQueries
+
 	for blockNumber := to; blockNumber >= from; blockNumber -= 30 {
 		t.Logf("at block %d\n", blockNumber)
 		_, _, oracleTest, err := r.DeployOracleTest(nil, voters, voters, voters, symbols, config)
@@ -1135,6 +1140,9 @@ func TestOracleSlashing(t *testing.T) {
 		// require.NoError(t, err)
 		// require.Equal(t, new(big.Int).Add(round, common.Big1), newRound)
 
+		penalizedSimulated := make(map[common.Address]struct{})
+		foundZeroSlashing := false
+
 		for i := 0; i < len(symbols); i++ {
 			// t.Logf("report for symbol %d\n", i)
 
@@ -1185,8 +1193,8 @@ func TestOracleSlashing(t *testing.T) {
 				t.Logf("no outliers after this symbol\n")
 			} else {
 				t.Logf("outliers after this symbol:\n")
-				foundZeroSlashing := false
 				for j, v := range outliers {
+					penalizedSimulated[v] = struct{}{}
 					penaltyInfo, _, err := oracleTest.PenaltyInfo(nil, v)
 					require.NoError(t, err)
 					t.Logf("%v (%d), slashed %v\n", v, indexes[j], penaltyInfo.SlashingAmount)
@@ -1194,64 +1202,43 @@ func TestOracleSlashing(t *testing.T) {
 						foundZeroSlashing = true
 					}
 				}
-				require.False(t, foundZeroSlashing)
+
 			}
 		}
 
-		// t.Logf("aggregating report again with modification\n")
+		penalizeBlock := blockNumber + 30 - 2
+		t.Logf("penalize block %d\n", penalizeBlock)
+		oracleLogs, err := client.FilterLogs(context.Background(), ethereum.FilterQuery{
+			Addresses: []common.Address{params.OracleContractAddress},
+			FromBlock: big.NewInt(penalizeBlock),
+			ToBlock:   big.NewInt(penalizeBlock),
+		})
+		require.NoError(t, err)
 
-		// for i := 0; i < len(symbols); i++ {
-
-		// 	for _, v := range addresses {
-		// 		r.NoError(
-		// 			oracleTest.MakeReportAvailable(nil, v),
-		// 		)
-		// 	}
-
-		// 	t.Logf("report for symbol %d\n", i)
-
-		// 	for j, v := range addresses {
-		// 		info, _, err := oracleTest.VoterInfo(nil, v)
-		// 		require.NoError(t, err)
-		// 		require.True(t, info.IsVoter)
-		// 		t.Logf("from %d : %v, report %v\n", j, v, info.ReportAvailable)
-		// 	}
-
-		// 	t.Logf("votes for symbol %d\n", i)
-
-		// 	for j, v := range addresses {
-		// 		t.Logf("from %d : %v, price %v , conf %d", j, v, reports[j][i].Price, reports[j][i].Confidence)
-		// 	}
-
-		// 	r.NoError(
-		// 		oracleTest.AggregateReports(nil, big.NewInt(int64(i))),
-		// 	)
-
-		// 	t.Logf("report aggregated\n")
-		// 	price, _, err := oracleTest.GetRoundData(nil, round, symbols[i])
-		// 	require.NoError(t, err)
-		// 	t.Logf("price: round %v, price %v, success %v\n", price.Round, price.Price, price.Success)
-
-		// 	for j, v := range addresses {
-		// 		info, _, err := oracleTest.VoterInfo(nil, v)
-		// 		require.NoError(t, err)
-		// 		require.True(t, info.IsVoter)
-		// 		t.Logf("from %d : %v, report %v\n", j, v, info.ReportAvailable)
-		// 	}
-		// }
-
-		// // for _, v := range addresses {
-		// // 	info, _, err := oracleTest.VoterInfo(nil, v)
-		// // 	require.NoError(t, err)
-		// // 	require.True(t, info.IsVoter)
-		// // 	t.Logf("from %v, report %v\n", v, info.ReportAvailable)
-		// // }
-
-		// priceLen, _, err = oracleTest.PriceLen(nil)
-		// require.NoError(t, err)
-		// t.Logf("priceLen %d\n", priceLen.Int64())
-
-		// // t.Logf("votes %d\n", len(commits))
+		penalized := make(map[common.Address]struct{})
+		for _, log := range oracleLogs {
+			switch getEventName(generated.OracleAbi, log) {
+			case "Penalized":
+				offender := common.BytesToAddress(log.Topics[1].Bytes())
+				penalized[offender] = struct{}{}
+			case "NewRound":
+				// do nothing
+			case "NewSymbols":
+				panic("symbol shouldn't change")
+			default:
+				panic("unhandled event: " + getEventName(generated.OracleAbi, log))
+			}
+		}
+		require.Equal(t, len(penalizedSimulated), len(penalized))
+		for v := range penalized {
+			_, ok := penalizedSimulated[v]
+			require.True(t, ok)
+		}
+		require.False(t, foundZeroSlashing)
+		queries--
+		if queries == 0 {
+			time.Sleep(time.Second * 10)
+		}
 	}
 
 }
@@ -1259,6 +1246,14 @@ func TestOracleSlashing(t *testing.T) {
 func TestAddr(t *testing.T) {
 	fmt.Printf("%v\n", params.OracleContractAddress)
 	require.Fail(t, "fails")
+}
+
+func getEventName(abi abi.ABI, log types.Log) string {
+	event, err := abi.EventByID(log.Topics[0])
+	if err != nil {
+		panic(err)
+	}
+	return event.Name
 }
 
 func getCalledMethodName(calldata []byte) string {

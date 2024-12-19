@@ -310,7 +310,7 @@ contract Oracle is IOracle {
             for (uint256 i = 0; i < _totalOutliers; i++) {
                 uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
                 penaltyInfo[_outliers[i]] = PenaltyInfo(_slashingAmount, block.number);
-                emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+                emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
             }
             if (_reportsCount == 0) {
                 prices[round][_symbol] = Price(
