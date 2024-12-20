@@ -5,6 +5,7 @@ package tests
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -545,7 +546,7 @@ func (_ACU *ACU) DecodeError(data []byte, err error) error {
 
 	default:
 		reason, _ := abi.UnpackRevert(data)
-		return errors.New("execution reverted: " + reason)
+		return fmt.Errorf("%w: %s", err, reason)
 	}
 
 }
@@ -592,7 +593,7 @@ func (_AccessAutonity *AccessAutonity) DecodeError(data []byte, err error) error
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -1073,7 +1074,7 @@ func (_Accountability *Accountability) DecodeError(data []byte, err error) error
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -1708,7 +1709,7 @@ func (_AccountabilityTest *AccountabilityTest) DecodeError(data []byte, err erro
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -3841,7 +3842,7 @@ func (_Autonity *Autonity) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -5974,7 +5975,7 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) DecodeError(data []byte, err er
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6044,7 +6045,7 @@ func (_BeneficiaryHandler *BeneficiaryHandler) DecodeError(data []byte, err erro
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6090,7 +6091,7 @@ func (_BytesLib *BytesLib) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6114,7 +6115,7 @@ func (_ContractBase *ContractBase) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6160,7 +6161,7 @@ func (_DelegateCaller *DelegateCaller) DecodeError(data []byte, err error) error
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6206,7 +6207,7 @@ func (_EnumerableSet *EnumerableSet) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6252,7 +6253,7 @@ func (_Helpers *Helpers) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6358,7 +6359,7 @@ func (_IACU *IACU) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6454,7 +6455,7 @@ func (_IAccountability *IAccountability) DecodeError(data []byte, err error) err
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6524,7 +6525,7 @@ func (_IAutonity *IAutonity) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6710,7 +6711,7 @@ func (_IERC20 *IERC20) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -6760,7 +6761,7 @@ func (_IInflationController *IInflationController) DecodeError(data []byte, err 
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -7332,7 +7333,7 @@ func (_ILiquid *ILiquid) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -7582,7 +7583,7 @@ func (_IOmissionAccountability *IOmissionAccountability) DecodeError(data []byte
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -7936,7 +7937,7 @@ func (_IOracle *IOracle) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -8097,7 +8098,7 @@ func (_ISlasher *ISlasher) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -8171,7 +8172,7 @@ func (_IStabilization *IStabilization) DecodeError(data []byte, err error) error
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -8779,7 +8780,7 @@ func (_IStakeableVesting *IStakeableVesting) DecodeError(data []byte, err error)
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -8829,7 +8830,7 @@ func (_IStakeableVestingManager *IStakeableVestingManager) DecodeError(data []by
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -9007,7 +9008,7 @@ func (_ISupplyControl *ISupplyControl) DecodeError(data []byte, err error) error
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -9296,7 +9297,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	default:
 		reason, _ := abi.UnpackRevert(data)
-		return errors.New("execution reverted: " + reason)
+		return fmt.Errorf("%w: %s", err, reason)
 	}
 
 }
@@ -9987,7 +9988,7 @@ func (_LiquidLogic *LiquidLogic) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -10049,7 +10050,7 @@ func (_LiquidState *LiquidState) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -10137,7 +10138,7 @@ func (_LiquidStateTest *LiquidStateTest) DecodeError(data []byte, err error) err
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -10183,7 +10184,7 @@ func (_LiquidStorage *LiquidStorage) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -10527,7 +10528,7 @@ func (_NonStakeableVesting *NonStakeableVesting) DecodeError(data []byte, err er
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -11256,7 +11257,7 @@ func (_OmissionAccountability *OmissionAccountability) DecodeError(data []byte, 
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -11897,7 +11898,7 @@ func (_Oracle *Oracle) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -12129,7 +12130,7 @@ func (_Precompiled *Precompiled) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -12175,7 +12176,7 @@ func (_QueueLib *QueueLib) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -12199,7 +12200,7 @@ func (_ReentrancyGuard *ReentrancyGuard) DecodeError(data []byte, err error) err
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -12269,7 +12270,7 @@ func (_ScheduleController *ScheduleController) DecodeError(data []byte, err erro
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -12472,7 +12473,7 @@ func (_Slasher *Slasher) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -13423,7 +13424,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	default:
 		reason, _ := abi.UnpackRevert(data)
-		return errors.New("execution reverted: " + reason)
+		return fmt.Errorf("%w: %s", err, reason)
 	}
 
 }
@@ -14070,7 +14071,7 @@ func (_StakeableVestingLogic *StakeableVestingLogic) DecodeError(data []byte, er
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -14738,7 +14739,7 @@ func (_StakeableVestingLogicTest *StakeableVestingLogicTest) DecodeError(data []
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15024,7 +15025,7 @@ func (_StakeableVestingManager *StakeableVestingManager) DecodeError(data []byte
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15086,7 +15087,7 @@ func (_StakeableVestingState *StakeableVestingState) DecodeError(data []byte, er
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15110,7 +15111,7 @@ func (_StakeableVestingStorage *StakeableVestingStorage) DecodeError(data []byte
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15381,7 +15382,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	default:
 		reason, _ := abi.UnpackRevert(data)
-		return errors.New("execution reverted: " + reason)
+		return fmt.Errorf("%w: %s", err, reason)
 	}
 
 }
@@ -15454,7 +15455,7 @@ func (_TestBase *TestBase) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15568,7 +15569,7 @@ func (_TestUpgraded *TestUpgraded) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15704,7 +15705,7 @@ func (_UpgradeManager *UpgradeManager) DecodeError(data []byte, err error) error
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15821,7 +15822,7 @@ func (_Upgradeable *Upgradeable) DecodeError(data []byte, err error) error {
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15845,7 +15846,7 @@ func (_ValidatorManager *ValidatorManager) DecodeError(data []byte, err error) e
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }
 
@@ -15869,6 +15870,6 @@ func (_ValidatorManagerStorage *ValidatorManagerStorage) DecodeError(data []byte
 	}
 
 	reason, _ := abi.UnpackRevert(data)
-	return errors.New("execution reverted: " + reason)
+	return fmt.Errorf("%w: %s", err, reason)
 
 }

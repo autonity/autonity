@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"errors"
+	"fmt"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi"
@@ -216,7 +217,7 @@ var (
         }
         {{if not .Errors}}
         reason, _ := abi.UnpackRevert(data)
-        return errors.New("execution reverted: " + reason)
+        return fmt.Errorf("%w: %s", err, reason)
         {{else}}
         if len(data) < 4 {
             return err
@@ -234,7 +235,7 @@ var (
         {{end}}
         default:
             reason, _ := abi.UnpackRevert(data)
-            return errors.New("execution reverted: " + reason)
+            return fmt.Errorf("%w: %s", err, reason)
         }
         {{end}}
     }
