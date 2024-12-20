@@ -1105,7 +1105,7 @@ func TestABI_ErrorByID(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, m := range abi.Errors {
-		a := fmt.Sprintf("%v", &m)
+		a := fmt.Sprintf("%v", &m) //nolint
 		var id [4]byte
 		copy(id[:], m.ID[:4])
 		m2, err := abi.ErrorByID(id)

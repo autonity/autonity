@@ -37,8 +37,6 @@ var (
 	User         = common.HexToAddress("0x99")
 )
 
-type rawReturn []byte
-
 type runOptions struct {
 	origin common.Address
 	value  *big.Int

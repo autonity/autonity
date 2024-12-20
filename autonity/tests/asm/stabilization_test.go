@@ -447,6 +447,8 @@ func TestStabilizationBorrow(t *testing.T) {
 		require.NoError(t, err)
 
 		cdp, _, err := r.Stabilization.Cdps(nil, userAccount)
+		require.NoError(t, err)
+
 		borrowLimit, _, err := r.Stabilization.BorrowLimit(nil, cdp.Collateral, newtonPrice, cfg.TargetPrice, cfg.MinCollateralizationRatio)
 		require.NoError(t, err)
 
@@ -755,6 +757,7 @@ func TestStabilizationOnlyAutonityFunctions(t *testing.T) {
 
 func deposit(r *tests.Runner, userAccount common.Address, amount *big.Int) {
 	stabilizationBalanceBefore, _, err := r.Autonity.BalanceOf(nil, r.Stabilization.Address())
+	require.NoError(r.T, err)
 
 	balanceBefore, _, err := r.Autonity.BalanceOf(nil, userAccount)
 	require.NoError(r.T, err)
@@ -765,6 +768,7 @@ func deposit(r *tests.Runner, userAccount common.Address, amount *big.Int) {
 	require.Equal(r.T, new(big.Int).Sub(balanceBefore, amount), balanceAfter)
 
 	stabilizationBalanceAfter, _, err := r.Autonity.BalanceOf(nil, r.Stabilization.Address())
+	require.NoError(r.T, err)
 
 	require.Equal(r.T, new(big.Int).Add(stabilizationBalanceBefore, amount), stabilizationBalanceAfter)
 }

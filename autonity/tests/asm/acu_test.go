@@ -243,6 +243,7 @@ func TestACUValue(t *testing.T) {
 	tests.RunWithSetup("Test update missing price", setup, func(r *tests.Runner) {
 		symbols := params.DefaultAcuContractGenesis.Symbols
 		oracleConfig, _, err := r.Oracle.Config(nil)
+		require.NoError(t, err)
 		r.WaitNBlocks(int(oracleConfig.VotePeriod.Int64()))
 		// don't submit any votes to the oracle
 		_, err = r.Acu.Update(tests.FromAutonity)
@@ -324,12 +325,12 @@ func primeOracle(r *tests.Runner, symbols []string, prices []*big.Int) {
 	_, err = r.Oracle.SetSymbols(r.Operator, symbols)
 	require.NoError(r.T, err)
 	r.WaitNBlocks(2 * int(config.VotePeriod.Int64()))
-	var reports []tests.IOracleReport
-	for _, price := range prices {
-		reports = append(reports, tests.IOracleReport{
+	reports := make([]tests.IOracleReport, len(prices))
+	for i, price := range prices {
+		reports[i] = tests.IOracleReport{
 			Price:      price,
 			Confidence: 100,
-		})
+		}
 	}
 	salt := big.NewInt(0)
 	commit := tests.MakeOracleCommit(r.T, salt, voter, reports)

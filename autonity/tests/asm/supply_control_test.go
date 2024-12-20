@@ -200,6 +200,7 @@ func TestSupplyControlMintAndBurn(t *testing.T) {
 
 		balanceAfter := r.GetBalanceOf(user)
 		availableSupplyAfter, _, err := r.SupplyControl.AvailableSupply(nil)
+		require.NoError(t, err)
 
 		require.Equal(t, toMint, new(big.Int).Sub(balanceAfter, balanceBefore))
 		require.Equal(t, toMint, new(big.Int).Sub(availableSupplyBefore, availableSupplyAfter))
