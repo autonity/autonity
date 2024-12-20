@@ -31,6 +31,7 @@ import (
 	"unicode"
 
 	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/log"
 )
 
@@ -74,19 +75,21 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 
 		// Extract the call and transact methods; events, struct definitions; and sort them alphabetically
 		var (
-			calls     = make(map[string]*tmplMethod)
-			transacts = make(map[string]*tmplMethod)
-			events    = make(map[string]*tmplEvent)
-			fallback  *tmplMethod
-			receive   *tmplMethod
+			calls          = make(map[string]*tmplMethod)
+			transacts      = make(map[string]*tmplMethod)
+			events         = make(map[string]*tmplEvent)
+			contractErrors = make(map[string]*tmplError)
+			fallback       *tmplMethod
+			receive        *tmplMethod
 
 			// identifiers are used to detect duplicated identifiers of functions
 			// and events. For all calls, transacts and events, abigen will generate
 			// corresponding bindings. However we have to ensure there is no
 			// identifier collisions in the bindings of these categories.
-			callIdentifiers     = make(map[string]bool)
-			transactIdentifiers = make(map[string]bool)
-			eventIdentifiers    = make(map[string]bool)
+			callIdentifiers          = make(map[string]bool)
+			transactIdentifiers      = make(map[string]bool)
+			eventIdentifiers         = make(map[string]bool)
+			contractErrorIdentifiers = make(map[string]bool)
 		)
 
 		for _, input := range evmABI.Constructor.Inputs {
@@ -165,6 +168,28 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			// Append the event to the accumulator list
 			events[original.Name] = &tmplEvent{Original: original, Normalized: normalized}
 		}
+		for _, original := range evmABI.Errors {
+			normalized := original
+			// ensure there is no duplicated identifier
+			normalizedName := methodNormalizer[lang](alias(aliases, original.Name))
+			if contractErrorIdentifiers[normalizedName] {
+				return "", fmt.Errorf("duplicated identifier \"%s\"(normalized \"%s\"), use --alias for renaming", original.Name, normalizedName)
+			}
+			contractErrorIdentifiers[normalizedName] = true
+			normalized.Name = normalizedName
+
+			normalized.Inputs = make([]abi.Argument, len(original.Inputs))
+			copy(normalized.Inputs, original.Inputs)
+			for j, input := range normalized.Inputs {
+				if input.Name == "" {
+					normalized.Inputs[j].Name = fmt.Sprintf("arg%d", j)
+				}
+				if hasStruct(input.Type) {
+					bindStructType[lang](input.Type, structs)
+				}
+			}
+			contractErrors[original.Name] = &tmplError{Original: original, Normalized: normalized, Selector: common.Bytes2Hex(original.ID[:4])}
+		}
 		// Add two special fallback functions if they exist
 		if evmABI.HasFallback() {
 			fallback = &tmplMethod{Original: evmABI.Fallback}
@@ -187,6 +212,7 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			Fallback:    fallback,
 			Receive:     receive,
 			Events:      events,
+			Errors:      contractErrors,
 			Libraries:   make(map[string]string),
 		}
 		// Function 4-byte signatures are stored in the same sequence

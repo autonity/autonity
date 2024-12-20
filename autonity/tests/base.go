@@ -37,6 +37,8 @@ var (
 	User         = common.HexToAddress("0x99")
 )
 
+type rawReturn []byte
+
 type runOptions struct {
 	origin common.Address
 	value  *big.Int
@@ -52,7 +54,7 @@ func (c *contract) Address() common.Address {
 	return c.address
 }
 
-func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
 		tracer, _ = tracers.New("callTracer", new(tracers.Context))
@@ -68,12 +70,9 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, 
 		fmt.Println(string(pretty))
 	}
 	if err != nil {
-		reason, _ := abi.UnpackRevert(out)
-		return nil, 0, fmt.Errorf("%w: %s", err, reason)
+		return out, 0, err
 	}
-	res, err := c.abi.Unpack(method, out)
-	require.NoError(c.r.T, err)
-	return res, consumed, nil
+	return out, consumed, nil
 }
 
 // call a method that does not belong to the contract, `c`.
@@ -206,7 +205,6 @@ func RunWithSetup(name string, setup func() *Runner, run func(r *Runner)) {
 		run(r)
 	})
 }
-
 func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) {
 	r.Evm.StateDB.AddBalance(account, amount)
 }
@@ -221,7 +219,12 @@ func (r *Runner) GetNewtonBalanceOf(account common.Address) *big.Int {
 	return balance
 }
 
-func (r *Runner) deployContract(opts *runOptions, contractAbi *abi.ABI, bytecode []byte, params ...any) (common.Address, uint64, *contract, error) {
+func (r *Runner) deployContract(
+	opts *runOptions,
+	contractAbi *abi.ABI,
+	bytecode []byte,
+	params ...any,
+) (common.Address, uint64, *contract, []byte, error) {
 	args, err := contractAbi.Pack("", params...)
 	require.NoError(r.T, err)
 	data := append(bytecode, args...)
@@ -235,11 +238,7 @@ func (r *Runner) deployContract(opts *runOptions, contractAbi *abi.ABI, bytecode
 		}
 	}
 	out, contractAddress, leftOverGas, err := r.Evm.Create(vm.AccountRef(r.Evm.Origin), data, gas, value)
-	if err != nil {
-		reason, _ := abi.UnpackRevert(out)
-		return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, fmt.Errorf("%w: %s", err, reason)
-	}
-	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, err
+	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, out, err
 }
 
 // generates an activity proof signed by all committee members, `absentees` excluded
@@ -874,4 +873,21 @@ func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, blst.Secret
 	}
 	pop, err := crypto.AutonityPOPProof(privateKey, privateKey, address.Hex(), secretKey)
 	return validator, pop, privateKey, secretKey, err
+}
+
+// abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.
+var ReportABIEncodeSchema = []byte("[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"struct Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}]")
+
+func MakeOracleCommit(t *testing.T, salt *big.Int, sender common.Address, reports []IOracleReport) *big.Int {
+	var args abi.Arguments
+	err := json.Unmarshal(ReportABIEncodeSchema, &args)
+	require.NoError(t, err)
+
+	var hash common.Hash
+	bytes, err := args.Pack(reports, salt, sender)
+	require.NoError(t, err)
+
+	hash = crypto.Keccak256Hash(bytes)
+	return new(big.Int).SetBytes(hash[:])
+
 }
