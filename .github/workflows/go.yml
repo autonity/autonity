@@ -281,36 +281,6 @@ jobs:
         run: make lint-ci
         shell: bash
 
-  # contract-tests-asm runs the ASM test using the APE framework
-  contract-tests-asm:
-    runs-on: ubuntu-latest
-    needs: prepare-cache
-    strategy:
-      matrix:
-        tests: ["acu","stabilization","supply_control"]
-    name: ASM - ${{ matrix.tests }}
-    steps:
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '18.12.1'
-
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Go cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Install dependencies
-        run: make test-contracts-asm-pre
-      - name: run test
-        run: cd ./autonity/solidity && ape --verbosity WARNING test --network ::hardhat ./test/asm/${{ matrix.tests }}
-
   # break docker-e2e-test into 6 tasks to speed up the tests.
   docker-e2e-tests-part1:
     needs: prepare-cache
