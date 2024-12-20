@@ -159,7 +159,7 @@ func TestACUSetters(t *testing.T) {
 		users := []common.Address{params.DeployerAddress, params.TestAutonityContractConfig.Operator, testrand.Address()}
 		for _, user := range users {
 			_, err := r.Acu.SetOperator(tests.FromSender(user, nil), testrand.Address())
-			require.ErrorAs(r.T, err, tests.ACUUnauthorizedError{})
+			require.ErrorAs(r.T, err, &tests.ACUUnauthorizedError{})
 		}
 	})
 
@@ -173,7 +173,7 @@ func TestACUSetters(t *testing.T) {
 		users := []common.Address{params.DeployerAddress, params.TestAutonityContractConfig.Operator, testrand.Address()}
 		for _, user := range users {
 			_, err := r.Acu.SetOracle(tests.FromSender(user, nil), testrand.Address())
-			require.ErrorAs(r.T, err, tests.ACUUnauthorizedError{})
+			require.ErrorAs(r.T, err, &tests.ACUUnauthorizedError{})
 		}
 	})
 
