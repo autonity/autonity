@@ -1166,7 +1166,7 @@ func TestEveryoneIsOutlier(t *testing.T) {
 		stakes := make([]*big.Int, 2)
 		treasuryBalances := make([]*big.Int, 2)
 		prices := []int{1, 100}
-		symboles, _, err := r.Oracle.GetSymbols(nil)
+		symbols, _, err := r.Oracle.GetSymbols(nil)
 		require.NoError(r.T, err)
 
 		for i := range voters {
@@ -1181,7 +1181,7 @@ func TestEveryoneIsOutlier(t *testing.T) {
 
 		vote := func() {
 			for i, v := range voters {
-				reports := genReports(len(symboles), prices[i])
+				reports := genReports(len(symbols), prices[i])
 				r.NoError(
 					r.Oracle.Vote(
 						FromSender(v, nil),
@@ -1201,7 +1201,7 @@ func TestEveryoneIsOutlier(t *testing.T) {
 		vote()
 		nextRound(r)
 		// price should be 0 and unsuccesfull
-		for _, s := range symboles {
+		for _, s := range symbols {
 			roundData, _, err := r.Oracle.LatestRoundData(nil, s)
 			require.NoError(r.T, err)
 			require.False(r.T, roundData.Success)
