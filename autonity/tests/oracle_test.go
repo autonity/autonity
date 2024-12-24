@@ -1149,6 +1149,85 @@ func TestSymbolUpdate(t *testing.T) {
 	})
 }
 
+func TestEveryoneIsOutlier(t *testing.T) {
+	setup := func() *Runner {
+		return Setup(t, func(genesis *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+			genesis.ProposerRewardRate = 0
+			// set oracle reward rate to 100% to simplify the test
+			genesis.OracleRewardRate = 10_000
+			genesis.TreasuryFee = 0
+			return genesis
+		})
+	}
+
+	RunWithSetup("everyone is outlier", setup, func(r *Runner) {
+		voters := make([]common.Address, 2)
+		validators := make([]common.Address, 2)
+		stakes := make([]*big.Int, 2)
+		treasuryBalances := make([]*big.Int, 2)
+		prices := []int{1, 100}
+		symboles, _, err := r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+
+		for i := range voters {
+			voters[i] = r.Committee.Validators[i].OracleAddress
+			validators[i] = r.Committee.Validators[i].NodeAddress
+
+			validatorInfo, _, err := r.Autonity.GetValidator(nil, validators[i])
+			require.NoError(r.T, err)
+			stakes[i] = validatorInfo.BondedStake
+			treasuryBalances[i] = r.GetBalanceOf(validatorInfo.Treasury)
+		}
+
+		vote := func() {
+			for i, v := range voters {
+				reports := genReports(len(symboles), prices[i])
+				r.NoError(
+					r.Oracle.Vote(
+						FromSender(v, nil),
+						MakeOracleCommit(r.T, common.Big0, v, reports),
+						reports,
+						common.Big0,
+						0,
+					),
+				)
+			}
+		}
+
+		// reward
+		r.GiveMeSomeMoney(r.Autonity.address, big.NewInt(1000))
+		vote()
+		nextRound(r)
+		vote()
+		nextRound(r)
+		// price should be 0 and unsuccesfull
+		for _, s := range symboles {
+			roundData, _, err := r.Oracle.LatestRoundData(nil, s)
+			require.NoError(r.T, err)
+			require.False(r.T, roundData.Success)
+			require.True(r.T, roundData.Price.Cmp(common.Big0) == 0)
+		}
+		// all should be outliers, but no one gets penalized
+		for _, v := range voters {
+			voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+			require.NoError(r.T, err)
+			require.True(r.T, voterInfo.ReportAvailable)
+		}
+
+		checkRewards := func() {
+			r.WaitNextEpoch()
+			for i, v := range validators {
+				validatorInfo, _, err := r.Autonity.GetValidator(nil, v)
+				require.NoError(r.T, err)
+				require.Equal(r.T, stakes[i], validatorInfo.BondedStake)
+				require.Equal(r.T, treasuryBalances[i], r.GetBalanceOf(validatorInfo.Treasury))
+			}
+		}
+		checkRewards()
+		checkRewards()
+	})
+}
+
 func getValidator(r *Runner, addr common.Address) AutonityValidator {
 	valInfo, _, err := r.Autonity.GetValidator(nil, addr)
 	require.NoError(r.T, err)

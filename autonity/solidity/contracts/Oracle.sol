@@ -279,7 +279,7 @@ contract Oracle is IOracle {
         }
     }
 
-   /**
+    /**
      * @notice Aggregates reports for a specific symbol.
      * @param _sindex The index of the symbol to aggregate.
      * @dev This function detects outliers and calculates the final price for the symbol.
@@ -296,23 +296,33 @@ contract Oracle is IOracle {
             }
             _totalReports[_count++] = reports[_symbol][_voter];
         }
+
         // at this stage if count > 0 we must have valid strictly positive reports available.
         if (_count > 0) {
             int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
             // exclude and detect outliers
             (address[] memory _outliers, uint256 _totalOutliers, Report[] memory _filteredReports, uint256 _reportsCount)
             = _findOutliers(_priceMedian, _symbol);
-            // There is an extreme edge-case where everyone is detected outlier. This is left todo.
-            // punish outliers if found
-            for (uint256 i = 0; i < _totalOutliers; i++) {
-                uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
-                emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+
+            if (_reportsCount > 0) {
+                // punish outliers if found
+                for (uint256 i = 0; i < _totalOutliers; i++) {
+                    uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
+                    emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+                }
+                prices[round][_symbol] = Price(
+                    _calculateWeightedPrice(_filteredReports, _reportsCount),
+                    block.timestamp,
+                    true
+                );
+            } else {
+                // use past value for price if unsuccesful
+                prices[round][_symbol] = Price(
+                    prices[round - 1][_symbol].price,
+                    block.timestamp,
+                    false
+                );
             }
-            prices[round][_symbol] = Price(
-                _calculateWeightedPrice(_filteredReports, _reportsCount),
-                block.timestamp,
-                true
-            );
         } else {
             // use past value for price if unsuccesful
             prices[round][_symbol] = Price(
