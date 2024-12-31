@@ -51,6 +51,7 @@ contract Oracle is IOracle {
     uint8 private constant DECIMALS = 18;
     string[] private symbols;
     string[] private newSymbols;
+    uint private newVotePeriod;
 
     address[] private voters;
     address[] private newVoters;
@@ -97,6 +98,7 @@ contract Oracle is IOracle {
         _votersSort(_voters, int(0), int(_voters.length - 1));
         voters = _voters;
         newVoters = _voters;
+        newVotePeriod = config.votePeriod;
         round = 1;
         // create the space for first index in prices array
         prices.push();
@@ -210,6 +212,12 @@ contract Oracle is IOracle {
         if (int256(round) == symbolUpdatedRound + 2) {
             symbols = newSymbols;
         }
+
+        // apply the new vote period at the end of the round to get the oracle network synced with it.
+        if (config.votePeriod != newVotePeriod) {
+            config.votePeriod = newVotePeriod;
+        }
+
         emit NewRound(round, block.number, block.timestamp, config.votePeriod);
         return true;
     }
@@ -451,12 +459,12 @@ contract Oracle is IOracle {
     }
 
     /**
-    * @notice Setter for the vote period.
+    * @notice Setter for the vote period, new vote period will be applied at the end of the round.
     * @dev IOracle interface method implementation..
     */
     function setVotePeriod(uint _votePeriod) external onlyOperator {
         _checkVotePeriod(_votePeriod);
-        config.votePeriod = _votePeriod;
+        newVotePeriod = _votePeriod;
     }
 
     /**
