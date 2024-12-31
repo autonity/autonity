@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
 )
 
@@ -90,7 +88,7 @@ func TestSimpleVote(t *testing.T) {
 				}
 				_, err := r.Oracle.Vote(
 					&runOptions{origin: validator.OracleAddress},
-					makeCommit(r.T, common.Big1, validator.OracleAddress, currentVotes[i]),
+					MakeOracleCommit(r.T, common.Big1, validator.OracleAddress, currentVotes[i]),
 					committedVotes[i],
 					common.Big1,
 					87,
@@ -112,9 +110,6 @@ func TestSimpleVote(t *testing.T) {
 	}
 }
 
-// abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.
-var ReportABIEncodeSchema = []byte("[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"struct Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}]")
-
 func genReports(n int, price ...int) []IOracleReport {
 	defaultPrice := 1000
 	if len(price) > 0 {
@@ -128,20 +123,6 @@ func genReports(n int, price ...int) []IOracleReport {
 		})
 	}
 	return reports
-}
-
-func makeCommit(t *testing.T, salt *big.Int, sender common.Address, reports []IOracleReport) *big.Int {
-	var args abi.Arguments
-	err := json.Unmarshal(ReportABIEncodeSchema, &args)
-	require.NoError(t, err)
-
-	var hash common.Hash
-	bytes, err := args.Pack(reports, salt, sender)
-	require.NoError(t, err)
-
-	hash = crypto.Keccak256Hash(bytes)
-	return new(big.Int).SetBytes(hash[:])
-
 }
 
 func TestRewardsDistribution(t *testing.T) {
@@ -195,7 +176,7 @@ func TestRewardsDistribution(t *testing.T) {
 		for _, voter := range voters {
 			_, err := oracle.Vote(
 				&runOptions{origin: voter},
-				makeCommit(r.T, big.NewInt(0), voter, genReports(len(symbols))),
+				MakeOracleCommit(r.T, big.NewInt(0), voter, genReports(len(symbols))),
 				nil,
 				big.NewInt(1),
 				0,
@@ -210,7 +191,7 @@ func TestRewardsDistribution(t *testing.T) {
 			for _, voter := range voters {
 				_, err := oracle.Vote(
 					&runOptions{origin: voter},
-					makeCommit(r.T, big.NewInt(int64(i+1)), voter, genReports(len(symbols))),
+					MakeOracleCommit(r.T, big.NewInt(int64(i+1)), voter, genReports(len(symbols))),
 					genReports(len(symbols)),
 					big.NewInt(int64(i)),
 					0,
@@ -292,7 +273,7 @@ func TestRewardsDistribution(t *testing.T) {
 		r.NoError(
 			r.Oracle.Vote(
 				FromSender(oldVoter.OracleAddress, nil),
-				makeCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
+				MakeOracleCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
 				nil,
 				common.Big0,
 				0,
@@ -316,7 +297,7 @@ func TestRewardsDistribution(t *testing.T) {
 		r.NoError(
 			r.Oracle.Vote(
 				FromSender(oldVoter.OracleAddress, nil),
-				makeCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
+				MakeOracleCommit(r.T, common.Big0, oldVoter.OracleAddress, genReports(len(symbols))),
 				genReports(len(symbols)),
 				common.Big0,
 				0,
@@ -873,7 +854,7 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 				r.NoError(
 					r.Oracle.Vote(
 						FromSender(v, nil),
-						makeCommit(r.T, common.Big0, v, genReports(len(symbols), prices[i])),
+						MakeOracleCommit(r.T, common.Big0, v, genReports(len(symbols), prices[i])),
 						genReports(len(symbols), prices[i]),
 						common.Big0,
 						0,

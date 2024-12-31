@@ -29,6 +29,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/testrand"
 )
 
 const jsondata = `
@@ -311,6 +312,38 @@ func TestCustomErrors(t *testing.T) {
 		}
 	}
 	check("MyError", "MyError(uint256)")
+}
+
+func TestCustomErrorUnpackIntoInterface(t *testing.T) {
+	t.Parallel()
+	errorName := "MyError"
+	json := fmt.Sprintf(`[{"inputs":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"uint256","name":"balance","type":"uint256"}],"name":"%s","type":"error"}]`, errorName)
+	abi, err := JSON(strings.NewReader(json))
+	if err != nil {
+		t.Fatal(err)
+	}
+	type MyError struct {
+		Sender  common.Address
+		Balance *big.Int
+	}
+
+	sender := testrand.Address()
+	balance := new(big.Int).SetBytes(testrand.Bytes(8))
+	encoded, err := abi.Errors[errorName].Inputs.Pack(sender, balance)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := MyError{}
+	err = abi.UnpackIntoInterface(&result, errorName, encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Sender != sender {
+		t.Errorf("expected %x got %x", sender, result.Sender)
+	}
+	if result.Balance.Cmp(balance) != 0 {
+		t.Errorf("expected %v got %v", balance, result.Balance)
+	}
 }
 
 func TestMultiPack(t *testing.T) {
@@ -1059,6 +1092,34 @@ func TestABI_EventById(t *testing.T) {
 		if unknownEvent != nil {
 			t.Errorf("We should not find any event for topic %s, test #%d", unknowntopicID.Hex(), testnum)
 		}
+	}
+}
+
+func TestABI_ErrorByID(t *testing.T) {
+	abi, err := JSON(strings.NewReader(`[
+		{"inputs":[{"internalType":"uint256","name":"x","type":"uint256"}],"name":"MyError1","type":"error"},
+		{"inputs":[{"components":[{"internalType":"uint256","name":"a","type":"uint256"},{"internalType":"string","name":"b","type":"string"},{"internalType":"address","name":"c","type":"address"}],"internalType":"struct MyError.MyStruct","name":"x","type":"tuple"},{"internalType":"address","name":"y","type":"address"},{"components":[{"internalType":"uint256","name":"a","type":"uint256"},{"internalType":"string","name":"b","type":"string"},{"internalType":"address","name":"c","type":"address"}],"internalType":"struct MyError.MyStruct","name":"z","type":"tuple"}],"name":"MyError2","type":"error"},
+		{"inputs":[{"internalType":"uint256[]","name":"x","type":"uint256[]"}],"name":"MyError3","type":"error"}
+	]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, m := range abi.Errors {
+		a := fmt.Sprintf("%v", &m) //nolint
+		var id [4]byte
+		copy(id[:], m.ID[:4])
+		m2, err := abi.ErrorByID(id)
+		if err != nil {
+			t.Fatalf("Failed to look up ABI error: %v", err)
+		}
+		b := fmt.Sprintf("%v", m2)
+		if a != b {
+			t.Errorf("Error %v (id %x) not 'findable' by id in ABI", name, id)
+		}
+	}
+	// test unsuccessful lookups
+	if _, err = abi.ErrorByID([4]byte{}); err == nil {
+		t.Error("Expected error: no error with this id")
 	}
 }
 
