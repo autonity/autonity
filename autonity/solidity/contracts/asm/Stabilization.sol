@@ -18,6 +18,9 @@ import {IOracle} from "../interfaces/IOracle.sol";
 import {IStabilization} from "./IStabilization.sol";
 import {ISupplyControl} from "./ISupplyControl.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
+import {StabilizationState} from "./StabilizationState.sol";
+import {StabilizationMath} from "./lib/StabilizationMath.sol";
+import "./lib/StabilizationErrors.sol";
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
@@ -25,59 +28,7 @@ import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
 /// rates, ratios, prices, and amounts are represented as fixed-point integers
 /// with `SCALE` decimal places.
 /* solhint-disable not-rely-on-time */
-contract Stabilization is IStabilization {
-    /// Stabilization Configuration.
-    struct Config {
-        /// The annual continuously-compounded interest rate for borrowing.
-        uint256 borrowInterestRate;
-        /// The minimum ACU value of collateral required to maintain 1 ACU
-        /// value of debt.
-        uint256 liquidationRatio;
-        /// The minimum ACU value of collateral required to borrow 1 ACU value
-        /// of debt.
-        uint256 minCollateralizationRatio;
-        /// The minimum amount of debt required to maintain a CDP.
-        uint256 minDebtRequirement;
-        /// The ACU value of 1 unit of debt.
-        uint256 targetPrice;
-    }
-
-    /// Represents a Collateralized Debt Position (CDP)
-    struct CDP {
-        /// The timestamp of the last borrow or repayment.
-        uint timestamp;
-        /// The collateral deposited with the Stabilization Contract.
-        uint256 collateral;
-        /// The principal debt outstanding as of `timestamp`.
-        uint256 principal;
-        /// The interest debt that is due at the `timestamp`.
-        uint256 interest;
-    }
-
-    /// The decimal places in fixed-point integer representation.
-    uint256 public constant SCALE = 18; // Match UD60x18
-    /// The multiplier for scaling numbers to the required scale.
-    uint256 public constant SCALE_FACTOR = 10 ** SCALE;
-    /// A year is assumed to have 365 days for interest rate calculations.
-    uint256 public constant SECONDS_IN_YEAR = 365 days;
-    /// The Config object that stores Stabilization Contract parameters.
-    Config public config;
-    /// A mapping to retrieve the CDP for an account address.
-    mapping(address => CDP) public cdps;
-
-    string private constant NTN_SYMBOL = "NTN-ATN";
-    address[] private _accounts;
-    address private _autonity;
-    address private _operator;
-    IERC20 private _collateralToken;
-    IOracle private _oracle;
-    ISupplyControl private _supplyControl;
-
-    // Parameters for initial CDP restrictions
-    bool private _restricted;
-    address private _atnSupplyOperator;
-    uint256 private _defaultGenesisBorrowInterestRate;
-
+contract Stabilization is IStabilization, StabilizationState {
     /// Collateral Token was deposited into a CDP
     /// @param account The CDP account address
     /// @param amount Collateral Token deposited
@@ -99,20 +50,6 @@ contract Stabilization is IStabilization {
     /// @param liquidator The liquidator address
     event Liquidate(address indexed account, address liquidator);
 
-    error InsufficientAllowance();
-    error InsufficientPayment();
-    error InsufficientCollateral();
-    error InvalidDebtPosition();
-    error InvalidAmount();
-    error InvalidParameter();
-    error InvalidPrice();
-    error Liquidatable();
-    error NotLiquidatable();
-    error NoDebtPosition();
-    error PriceUnavailable();
-    error TransferFailed();
-    error Unauthorized();
-    error ZeroValue();
 
     modifier goodTime(address account, uint timestamp) {
         CDP storage cdp = cdps[account];
@@ -127,6 +64,11 @@ contract Stabilization is IStabilization {
 
     modifier onlyAutonity() {
         if (msg.sender != _autonity) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyAuctioneer() {
+        if (msg.sender != _auctioneer) revert Unauthorized();
         _;
     }
 
@@ -179,6 +121,7 @@ contract Stabilization is IStabilization {
         address operator,
         address oracle,
         address supplyControl,
+        address auctioneer,
         IERC20 collateralToken
     )
         positiveMCR(config_.minCollateralizationRatio)
@@ -190,6 +133,7 @@ contract Stabilization is IStabilization {
         _oracle = IOracle(oracle);
         _supplyControl = ISupplyControl(supplyControl);
         _collateralToken = collateralToken;
+        _auctioneer = auctioneer;
 
         _restricted = true;
         _defaultGenesisBorrowInterestRate = config_.borrowInterestRate;
@@ -233,7 +177,7 @@ contract Stabilization is IStabilization {
         (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
         uint256 price = collateralPrice();
         if (
-            underCollateralized(
+            StabilizationMath.underCollateralized(
                 cdp.collateral,
                 price,
                 debt,
@@ -242,7 +186,7 @@ contract Stabilization is IStabilization {
         ) revert Liquidatable();
         if (
             cdp.collateral - amount <
-            minimumCollateral(
+            StabilizationMath.minimumCollateral(
                 cdp.principal,
                 price,
                 config.minCollateralizationRatio
@@ -269,14 +213,14 @@ contract Stabilization is IStabilization {
         if (debt < config.minDebtRequirement) revert InvalidDebtPosition();
         uint256 price = collateralPrice();
         if (
-            underCollateralized(
+            StabilizationMath.underCollateralized(
                 cdp.collateral,
                 price,
                 debt,
                 config.liquidationRatio
             )
         ) revert Liquidatable();
-        uint256 limit = borrowLimit(
+        uint256 limit = StabilizationMath.borrowLimit(
             cdp.collateral,
             price,
             config.targetPrice,
@@ -334,34 +278,39 @@ contract Stabilization is IStabilization {
     /// transaction value is the payment amount. After covering the CDP's debt,
     /// any surplus is refunded to the liquidator.
     /// @param account The CDP account address to liquidate
-    function liquidate(address account) external payable restricted {
+    /// @param collateralSold The amount of collateral sold by the auctioneer
+    /// @param bidder The address of the bidder
+    function liquidate(address account, uint256 collateralSold, address bidder) external payable restricted onlyAuctioneer {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
-        (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
+        if (cdp.collateral < collateralSold) revert InvalidAmount();
+        (uint256 debt, uint256 accrued) = _debtAmount(cdp, block.timestamp);
         if (
-            !underCollateralized(
+            !StabilizationMath.underCollateralized(
                 cdp.collateral,
                 collateralPrice(),
                 debt,
                 config.liquidationRatio
             )
         ) revert NotLiquidatable();
-        
+
         if (msg.value < debt) revert InsufficientPayment();
         _supplyControl.burn{value: cdp.principal}();
-        
+
         uint surplus = msg.value - debt;
+
         uint256 collateral = cdp.collateral;
         cdp.timestamp = block.timestamp;
-        cdp.collateral = 0;
+        cdp.collateral = collateral - collateralSold;
         cdp.principal = 0;
         cdp.interest = 0;
 
-        if (!_collateralToken.transfer(msg.sender, collateral))
+        if (!_collateralToken.transfer(bidder, collateralSold))
             revert TransferFailed();
-        if (surplus > 0) payable(msg.sender).transfer(surplus);
-        emit Liquidate(account, msg.sender);
+        _supplyControl.burn{value: debt - accrued}();
+        if (surplus > 0) payable(bidder).transfer(surplus);
+        emit Liquidate(account, bidder);
     }
 
     /*
@@ -490,7 +439,7 @@ contract Stabilization is IStabilization {
         CDP storage cdp = cdps[account];
         (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
         return
-            underCollateralized(
+            StabilizationMath.underCollateralized(
                 cdp.collateral,
                 collateralPrice(),
                 debt,
@@ -505,87 +454,12 @@ contract Stabilization is IStabilization {
     /// @return price Price of Collateral Token
     /// @dev The function reverts in case the price is invalid or unavailable.
     function collateralPrice() public view returns (uint256 price) {
-        IOracle.RoundData memory data = _oracle.latestRoundData(NTN_SYMBOL);
+        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
         if (!data.success) revert PriceUnavailable();
         if (data.price <= 0) revert InvalidPrice();
         price = data.price;
     }
 
-    /*
-    ┌──────────────┐
-    │ Calculations │
-    └──────────────┘
-    */
-
-    /// Calculate the maximum amount of Amount that can be borrowed for the
-    /// given amount of Collateral Token.
-    /// @param collateral Amount of Collateral Token backing the debt
-    /// @param price The price of Collateral Token in Auton
-    /// @param targetPrice The ACU value of 1 unit of debt
-    /// @param mcr The minimum collateralization ratio
-    /// @return The maximum Auton that can be borrowed
-    function borrowLimit(
-        uint256 collateral,
-        uint256 price,
-        uint256 targetPrice,
-        uint256 mcr
-    ) public pure returns (uint256) {
-        if (price == 0 || mcr == 0) revert InvalidParameter();
-        return (collateral * price * targetPrice) / (mcr * SCALE_FACTOR);
-    }
-
-    /// Calculate the minimum amount of Collateral Token that must be deposited
-    /// in the CDP in order to borrow the given amount of Autons.
-    /// @param principal Auton amount to borrow
-    /// @param price The price of Collateral Token in Auton
-    /// @param mcr The minimum collateralization ratio
-    /// @return The minimum Collateral Token amount required
-    function minimumCollateral(
-        uint256 principal,
-        uint256 price,
-        uint256 mcr
-    ) public pure validPrice(price) returns (uint256) {
-        if (price == 0 || mcr == 0) revert InvalidParameter();
-        return (principal * mcr) / price;
-    }
-
-    /// Calculate the interest due for a given amount of debt.
-    /// @param debt The debt amount
-    /// @param rate The borrow interest rate
-    /// @param timeBorrow The borrow time
-    /// @param timeDue The time the interest is due
-    /// @return
-    /// @dev Makes use of the prb-math library for natural exponentiation.
-    function interestDue(
-        uint256 debt,
-        uint256 rate,
-        uint timeBorrow,
-        uint timeDue
-    ) public pure returns (uint256) {
-        if (timeBorrow > timeDue) revert InvalidParameter();
-        UD60x18 d = ud(debt);
-        UD60x18 r = ud(rate);
-        UD60x18 t = ud(timeDue - timeBorrow).div(ud(SECONDS_IN_YEAR));
-        UD60x18 exp = r.mul(t).exp();
-        UD60x18 interest = d.mul(exp.sub(ud(SCALE_FACTOR)));
-        return interest.intoUint256();
-    }
-
-    /// Determine if a debt position is undercollateralized.
-    /// @param collateral The collateral amount
-    /// @param price The price of Collateral Token in Auton
-    /// @param debt The debt amount
-    /// @param liquidationRatio The liquidation ratio
-    /// @return Whether the position is liquidatable
-    function underCollateralized(
-        uint256 collateral,
-        uint256 price,
-        uint256 debt,
-        uint256 liquidationRatio
-    ) public pure validPrice(price) returns (bool) {
-        if (debt == 0) return false;
-        return (collateral * price) / debt < liquidationRatio;
-    }
 
     /*
     ┌────────────────────┐
@@ -601,7 +475,7 @@ contract Stabilization is IStabilization {
         uint256 debt = cdp.principal + cdp.interest;
         if (timestamp == cdp.timestamp) accrued = 0;
         else {
-            accrued = interestDue(
+            accrued = StabilizationMath.interestDue(
                 debt,
                 config.borrowInterestRate,
                 cdp.timestamp,
