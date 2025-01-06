@@ -73,7 +73,7 @@ define gen-contract
 	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@cat  $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@head -n 1 $(GENERATED_CONTRACT_DIR)/$(2).bin | tr -d '\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@printf '")\n\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo Generating Abi for $(2)

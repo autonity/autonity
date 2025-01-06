@@ -4,7 +4,7 @@ pragma solidity >=0.8.2 < 0.9.0;
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import "./Autonity.sol";
-import {EnumerableSet} from "./utils/AddressSet.sol";
+import {EnumerableSet} from "./utils/Set.sol";
 import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
 
 /**
