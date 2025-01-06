@@ -783,6 +783,7 @@ type AsmConfig struct {
 	ACUContractConfig           *AcuContractGenesis           `json:"acu,omitempty"`
 	StabilizationContractConfig *StabilizationContractGenesis `json:"stabilization,omitempty"`
 	SupplyControlConfig         *SupplyControlGenesis         `json:"supplyControl,omitempty"`
+	AuctioneerContractConfig    *AuctioneerContractGenesis    `json:"auctioneer,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
