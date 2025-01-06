@@ -6,13 +6,13 @@ import {UD60x18, ud} from "../../lib/prb-math-4.0.1/UD60x18.sol";
 
 library StabilizationMath {
 
-    string public constant NTN_SYMBOL = "NTN-ATN";
+    string internal constant NTN_SYMBOL = "NTN-ATN";
     /// The decimal places in fixed-point integer representation.
-    uint256 public constant SCALE = 18; // Match UD60x18
+    uint256 internal constant SCALE = 18; // Match UD60x18
     /// The multiplier for scaling numbers to the required scale.
-    uint256 public constant SCALE_FACTOR = 10 ** SCALE;
+    uint256 internal constant SCALE_FACTOR = 10 ** SCALE;
     /// A year is assumed to have 365 days for interest rate calculations.
-    uint256 public constant SECONDS_IN_YEAR = 365 days;
+    uint256 internal constant SECONDS_IN_YEAR = 365 days;
 
     /*
     ┌──────────────────────┐
@@ -25,7 +25,7 @@ library StabilizationMath {
         uint256 maximumOffer,
         uint256 initialOffer,
         uint256 duration
-    ) external pure returns (uint256){
+    ) internal pure returns (uint256){
         if (currentTimestamp <= startTimestamp) {
             return 0;
         }
@@ -47,7 +47,7 @@ library StabilizationMath {
         uint256 minimumOffer,
         uint256 initialOffer,
         uint256 duration
-    ) external pure returns (uint256){
+    ) internal pure returns (uint256){
         if (currentTimestamp <= startTimestamp) {
             return 0;
         }
@@ -81,7 +81,7 @@ library StabilizationMath {
         uint256 price,
         uint256 targetPrice,
         uint256 mcr
-    ) public pure returns (uint256) {
+    ) internal pure returns (uint256) {
         if (price == 0 || mcr == 0) revert InvalidParameter();
         return (collateral * price * targetPrice) / (mcr * SCALE_FACTOR);
     }
@@ -96,7 +96,7 @@ library StabilizationMath {
         uint256 principal,
         uint256 price,
         uint256 mcr
-    ) public pure returns (uint256) {
+    ) internal pure returns (uint256) {
         if (price == 0 || mcr == 0) revert InvalidParameter();
         return (principal * mcr) / price;
     }
@@ -113,7 +113,7 @@ library StabilizationMath {
         uint256 rate,
         uint timeBorrow,
         uint timeDue
-    ) public pure returns (uint256) {
+    ) internal pure returns (uint256) {
         if (timeBorrow > timeDue) revert InvalidParameter();
         UD60x18 d = ud(debt);
         UD60x18 r = ud(rate);
@@ -134,7 +134,7 @@ library StabilizationMath {
         uint256 price,
         uint256 debt,
         uint256 liquidationRatio
-    ) public pure returns (bool) {
+    ) internal pure returns (bool) {
         if (debt == 0) return false;
         return (collateral * price) / debt < liquidationRatio;
     }
