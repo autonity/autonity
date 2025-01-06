@@ -9,14 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/params/generated"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -118,6 +117,7 @@ type Runner struct {
 	Accountability          *Accountability
 	Oracle                  *Oracle
 	Acu                     *ACU
+	Auctioneer              *Auctioneer
 	SupplyControl           *SupplyControl
 	Stabilization           *Stabilization
 	UpgradeManager          *UpgradeManager

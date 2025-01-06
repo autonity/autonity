@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {Stabilization} from "./Stabilization.sol";
+import {IStabilization} from "./IStabilization.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
 import "./lib/StabilizationErrors.sol";
 import {AuctionLib} from "./lib/AuctionLib.sol";
@@ -29,7 +29,7 @@ contract Auctioneer {
     IERC20 public collateralToken;
 
     // Internal state
-    Stabilization internal _stabilization;
+    IStabilization internal _stabilization;
     IOracle internal _oracle;
     AuctionLib.AuctionSet internal auctions;
     uint256 internal _pendingAllocatedInterest;
@@ -43,14 +43,15 @@ contract Auctioneer {
         _;
     }
 
-    constructor(address stabilization_, address oracle_, address collateralToken_) {
-        _stabilization = Stabilization(stabilization_);
+    constructor(Config memory config_, address stabilization_, address oracle_, address collateralToken_) {
+        config = config_;
+        _stabilization = IStabilization(stabilization_);
         _oracle = IOracle(oracle_);
         collateralToken = IERC20(collateralToken_);
     }
 
     function bidDebt(address debtor, uint256 liquidatableRound) external payable {
-        Stabilization.CDP memory cdp = _stabilization.cdps(debtor);
+        IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
         if (msg.value < cdp.principal + cdp.interest) {
             revert InvalidAmount();
         }
@@ -64,7 +65,7 @@ contract Auctioneer {
             cdp.collateral,
             round.price,
             cdp.principal + cdp.interest,
-            _stabilization.config.liquidationRatio)
+            _stabilization.config().liquidationRatio)
         ) {
             revert NotLiquidatable();
         }
@@ -95,17 +96,20 @@ contract Auctioneer {
         if (collateralToken.allowance(msg.sender, address(this)) < ntnToPay) {
             revert InsufficientAllowance();
         }
-        bool ok = collateralToken.transferFrom(msg.sender, address(this), ntnToPay);
-        if (!ok) {
+        bool success = collateralToken.transferFrom(msg.sender, address(this), ntnToPay);
+        if (!success) {
             revert TransferFailed();
         }
 
         auctions.remove(auction);
 
         // transfer ATN
-        msg.sender.call{value: interestAuction.amount, gas: 2300}("");
+        (bool ok, ) = msg.sender.call{value: interestAuction.amount, gas: 2300}("");
+        if (!ok) {
+            revert TransferFailed();
+        }
 
-        emit AuctionedInterest(msg.sender, interestAuction.amount, msg.value);
+        emit AuctionedInterest(msg.sender, interestAuction.amount, ntnToPay);
     }
 
     /*
@@ -116,7 +120,7 @@ contract Auctioneer {
 
     function paidInterest() external payable onlyStabilization {
         _pendingAllocatedInterest += msg.value;
-        if(_pendingAllocatedInterest >= config.interestAuctionThreshold) {
+        if (_pendingAllocatedInterest >= config.interestAuctionThreshold) {
             uint256 auction = auctions.push(_pendingAllocatedInterest, _oracle.getRound());
             emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
             _pendingAllocatedInterest = 0;
@@ -147,12 +151,15 @@ contract Auctioneer {
         uint256 debtAmount,
         uint256 collateralPrice
     ) internal view returns (uint256) {
+        // TODO(scott): double check this calculation
         uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();
         return oracleScaleFactor * debtAmount * StabilizationMath.SCALE_FACTOR / (collateralPrice * config.liquidationAuctionDiscount);
     }
 
     function _calculateInitialCost(uint256 interestAmount, uint256 collateralPrice) internal view returns (uint256) {
-        return 0;
+        // TODO(scott): double check this calculation
+        uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();
+        return (interestAmount * StabilizationMath.SCALE_FACTOR * oracleScaleFactor) / (collateralPrice * config.interestAuctionDiscount);
     }
 }
 
