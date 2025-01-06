@@ -21,6 +21,7 @@ import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
 import {StabilizationState} from "./StabilizationState.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
 import "./lib/StabilizationErrors.sol";
+import {IAuctioneer} from "../interfaces/IAuctioneer.sol";
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
@@ -260,6 +261,7 @@ contract Stabilization is IStabilization, StabilizationState {
         cdp.principal -= principalRecv;
         cdp.interest -= interestRecv;
 
+        if (interestRecv > 0) IAuctioneer(_auctioneer).paidInterest{value: interestRecv}();
         if (principalRecv > 0) _supplyControl.burn{value: principalRecv}();
         if (surplusRecv > 0) payable(msg.sender).transfer(surplusRecv);
         emit Repay(msg.sender, msg.value);

@@ -34,7 +34,6 @@ contract StabilizationState {
         uint256 targetPrice;
     }
 
-    string internal constant NTN_SYMBOL = "NTN-ATN";
     address[] internal _accounts;
     address internal _autonity;
     address internal _operator;
