@@ -52,6 +52,16 @@ var (
 		TargetPrice:               (*math.HexOrDecimal256)(math.MustParseBig256("1_618_034_000_000_000_000")),
 	}
 
+	// ToDo: Add the real default values for the Auctioneer contract
+	DefaultAuctioneerGenesis = &AuctioneerContractGenesis{
+		LiquidationAuctionDuration: big.NewInt(60),                      // 60 blocks
+		LiquidationAuctionDiscount: big.NewInt(500_000_000_000_000_000), // 0.5
+
+		InterestAuctionDuration:  big.NewInt(60),                                        // 60 blocks
+		InterestAuctionDiscount:  big.NewInt(500_000_000_000_000_000),                   // 0.5
+		InterestAuctionThreshold: new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil), // 1 ATN
+	}
+
 	DefaultSupplyControlGenesis = &SupplyControlGenesis{
 		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), common.Big1)),
 	}
@@ -128,6 +138,7 @@ var (
 	StakeableVestingManagerContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	NonStakeableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
 	OmissionAccountabilityContractAddress  = crypto.CreateAddress(DeployerAddress, 10)
+	AuctioneerContractAddress              = crypto.CreateAddress(DeployerAddress, 11)
 )
 
 type AutonityContractGenesis struct {
@@ -453,6 +464,33 @@ func (s *StabilizationContractGenesis) SetDefaults() {
 	}
 	if s.TargetPrice == nil {
 		s.TargetPrice = DefaultStabilizationGenesis.TargetPrice
+	}
+}
+
+type AuctioneerContractGenesis struct {
+	LiquidationAuctionDuration *big.Int
+	LiquidationAuctionDiscount *big.Int // value between [0,1) with SCALE_FACTOR precision
+
+	InterestAuctionDuration  *big.Int
+	InterestAuctionDiscount  *big.Int // value between [0,1) with SCALE_FACTOR precision
+	InterestAuctionThreshold *big.Int // in ATN
+}
+
+func (a *AuctioneerContractGenesis) SetDefaults() {
+	if a.LiquidationAuctionDuration == nil {
+		a.LiquidationAuctionDuration = DefaultAuctioneerGenesis.LiquidationAuctionDuration
+	}
+	if a.LiquidationAuctionDiscount == nil {
+		a.LiquidationAuctionDiscount = DefaultAuctioneerGenesis.LiquidationAuctionDiscount
+	}
+	if a.InterestAuctionDuration == nil {
+		a.InterestAuctionDuration = DefaultAuctioneerGenesis.InterestAuctionDuration
+	}
+	if a.InterestAuctionDiscount == nil {
+		a.InterestAuctionDiscount = DefaultAuctioneerGenesis.InterestAuctionDiscount
+	}
+	if a.InterestAuctionThreshold == nil {
+		a.InterestAuctionThreshold = DefaultAuctioneerGenesis.InterestAuctionThreshold
 	}
 }
 

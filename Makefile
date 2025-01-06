@@ -94,6 +94,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
+	@$(call gen-contract,asm/,Auctioneer)
 	@$(call gen-contract,test-contract/,AccountabilityTest)
 	@$(call gen-contract,test-contract/,AutonityTest)
 	@$(call gen-contract,test-contract/,AutonityUpgradeTest)

@@ -1,4 +1,4 @@
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
 import {EnumerableSet} from "../../utils/Set.sol";
 
@@ -28,7 +28,7 @@ library AuctionLib {
         return set.keys.length();
     }
 
-    function get(AuctionSet storage set, uint256 id) internal view returns (Auction memory) {
+    function get(AuctionSet storage set, uint256 id) internal view returns (Auction storage) {
         return set.auctions[id];
     }
 
