@@ -20,13 +20,9 @@ contract Auctioneer {
         uint256 interestAuctionThreshold; // in ATN
     }
 
-    struct InterestAuction {
-        uint256 amount;
-        uint256 startRound;
-    }
-
     event AuctionedDebt(address indexed debtor, address indexed biddor, uint256 collateralAmount, uint256 debtAmount);
     event AuctionedInterest(address indexed biddor, uint256 interestAmount, uint256 paymentAmount);
+    event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
 
     // Public state
     Config public config;
@@ -36,6 +32,16 @@ contract Auctioneer {
     Stabilization internal _stabilization;
     IOracle internal _oracle;
     AuctionLib.AuctionSet internal auctions;
+    uint256 internal _pendingAllocatedInterest;
+
+    // Modifiers
+
+    modifier onlyStabilization() {
+        if (msg.sender != address(_stabilization)) {
+            revert Unauthorized();
+        }
+        _;
+    }
 
     constructor(address stabilization_, address oracle_, address collateralToken_) {
         _stabilization = Stabilization(stabilization_);
@@ -76,7 +82,7 @@ contract Auctioneer {
     }
 
     function bidInterest(uint256 auction) external {
-        InterestAuction storage interestAuction = auctions.at(auction);
+        AuctionLib.Auction storage interestAuction = auctions.get(auction);
         IOracle.RoundData memory round = _oracle.getRoundData(interestAuction.startRound, StabilizationMath.NTN_SYMBOL);
         uint256 ntnToPay = StabilizationMath.linearDecreaseAuctionAmount(
             round.timestamp,
@@ -94,10 +100,27 @@ contract Auctioneer {
             revert TransferFailed();
         }
 
+        auctions.remove(auction);
+
         // transfer ATN
         msg.sender.call{value: interestAuction.amount, gas: 2300}("");
 
         emit AuctionedInterest(msg.sender, interestAuction.amount, msg.value);
+    }
+
+    /*
+    ┌────────────────────────┐
+    │ Permissioned Functions │
+    └────────────────────────┘
+    */
+
+    function paidInterest() external payable onlyStabilization {
+        _pendingAllocatedInterest += msg.value;
+        if(_pendingAllocatedInterest >= config.interestAuctionThreshold) {
+            uint256 auction = auctions.push(_pendingAllocatedInterest, _oracle.getRound());
+            emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
+            _pendingAllocatedInterest = 0;
+        }
     }
 
     /*
@@ -106,13 +129,14 @@ contract Auctioneer {
     └────────────────┘
     */
 
-    function openAuctions() external view returns (uint256[] memory) {
-        uint256[] memory keys = new uint256[](auctions.length());
-        for (uint256 i = 0; i < auctions.length(); i++) {
-            keys[i] = auctions.at(i);
-        }
-        return keys;
+    function openAuctions() external view returns (AuctionLib.Auction[] memory) {
+        return auctions.values();
     }
+
+    function getAuction(uint256 auction) external view returns (AuctionLib.Auction memory) {
+        return auctions.get(auction);
+    }
+
     /*
     ┌────────────────────┐
     │ Internal Functions │
