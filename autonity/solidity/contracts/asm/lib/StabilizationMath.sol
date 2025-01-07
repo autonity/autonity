@@ -138,5 +138,4 @@ library StabilizationMath {
         if (debt == 0) return false;
         return (collateral * price) / debt < liquidationRatio;
     }
-
 }
