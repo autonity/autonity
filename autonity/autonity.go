@@ -38,10 +38,6 @@ var (
 // EVMProvider provides a new evm. This allows us to decouple the contract from *core.blockchain which is required to build a new evm.
 type EVMProvider func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM
 
-// GenesisEVMProvider returns new, preconfigured EVM. Useful for genesis EVMs which depends on fixed set of parameters
-// which can be closed in this function
-type GenesisEVMProvider func(statedb vm.StateDB) *vm.EVM
-
 type evmContract struct {
 	evmProvider EVMProvider
 	contractABI *abi.ABI

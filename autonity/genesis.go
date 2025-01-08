@@ -223,6 +223,12 @@ func executeGenesisDelegations(config *params.ChainConfig, genesisBonds GenesisB
 
 func createAutonitySchedules(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller) error {
 	createSchedule := func(schedule params.Schedule) error {
+		if schedule.VaultAddress != params.NonStakeableVestingContractAddress {
+			return fmt.Errorf(
+				"invalid Schedule configuration, should match non stakable vesting contract address: %s",
+				schedule.VaultAddress,
+			)
+		}
 		ret, err := caller(
 			config.AutonityContractConfig.Operator,
 			params.AutonityContractAddress,
