@@ -104,7 +104,7 @@ func TestGenesisSteps(t *testing.T) {
 				Start:         big.NewInt(time.Now().Unix() + 10),
 				TotalDuration: big.NewInt(100),
 				Amount:        big.NewInt(100),
-				VaultAddress:  common.Address{99},
+				VaultAddress:  params.NonStakeableVestingContractAddress,
 			},
 		}
 		err := executeGenesisSequence(
