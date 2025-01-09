@@ -17,7 +17,7 @@ var e12 = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
 
 // newtonPrice = 1234567 * 10^12 = 1.234567 * 10^18
 var newtonPrice = new(big.Int).Mul(big.NewInt(1234567), e12)
-var basicConfig = tests.StabilizationConfig{
+var basicConfig = tests.IStabilizationConfig{
 	BorrowInterestRate:        new(big.Int).Div(e18, big.NewInt(2)),
 	LiquidationRatio:          new(big.Int).Mul(big.NewInt(15), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil)),
 	MinCollateralizationRatio: new(big.Int).Mul(big.NewInt(25), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil)),
@@ -33,7 +33,7 @@ func TestStabilizationConstructor(t *testing.T) {
 	tests.RunWithSetup("Test constructor zero mcr", setup, func(r *tests.Runner) {
 		_, _, _, err := r.DeployStabilization(
 			nil,
-			tests.StabilizationConfig{
+			tests.IStabilizationConfig{
 				BorrowInterestRate:        basicConfig.BorrowInterestRate,
 				LiquidationRatio:          basicConfig.LiquidationRatio,
 				MinCollateralizationRatio: big.NewInt(0),
@@ -44,6 +44,7 @@ func TestStabilizationConstructor(t *testing.T) {
 			params.TestAutonityContractConfig.Operator,
 			r.Oracle.Address(),
 			r.SupplyControl.Address(),
+			r.Auctioneer.Address(),
 			r.Autonity.Address(),
 		)
 		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
@@ -53,7 +54,7 @@ func TestStabilizationConstructor(t *testing.T) {
 		// liquidation ratio == min collateralization ratio
 		_, _, _, err := r.DeployStabilization(
 			nil,
-			tests.StabilizationConfig{
+			tests.IStabilizationConfig{
 				BorrowInterestRate:        basicConfig.BorrowInterestRate,
 				LiquidationRatio:          e18,
 				MinCollateralizationRatio: e18,
@@ -64,6 +65,7 @@ func TestStabilizationConstructor(t *testing.T) {
 			params.TestAutonityContractConfig.Operator,
 			r.Oracle.Address(),
 			r.SupplyControl.Address(),
+			r.Auctioneer.Address(),
 			r.Autonity.Address(),
 		)
 		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
@@ -71,7 +73,7 @@ func TestStabilizationConstructor(t *testing.T) {
 		// liquidation ratio > min collateralization ratio
 		_, _, _, err = r.DeployStabilization(
 			nil,
-			tests.StabilizationConfig{
+			tests.IStabilizationConfig{
 				BorrowInterestRate:        basicConfig.BorrowInterestRate,
 				LiquidationRatio:          new(big.Int).Add(basicConfig.MinCollateralizationRatio, big.NewInt(1)),
 				MinCollateralizationRatio: basicConfig.MinCollateralizationRatio,
@@ -82,6 +84,7 @@ func TestStabilizationConstructor(t *testing.T) {
 			params.TestAutonityContractConfig.Operator,
 			r.Oracle.Address(),
 			r.SupplyControl.Address(),
+			r.Auctioneer.Address(),
 			r.Autonity.Address(),
 		)
 		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
