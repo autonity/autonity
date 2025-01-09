@@ -491,6 +491,48 @@ contract Stabilization is IStabilization {
         price = data.price;
     }
 
+    /*
+    ┌────────────────┐
+    │ Pure Functions │
+    └────────────────┘
+    */
+
+    // ToDo(scott): figure out the best way to avoid this redundancy
+    function borrowLimit(
+        uint256 collateral,
+        uint256 price,
+        uint256 targetPrice,
+        uint256 mcr
+    ) external pure returns (uint256) {
+        return StabilizationMath.borrowLimit(collateral, price, targetPrice, mcr);
+    }
+
+    function minimumCollateral(
+        uint256 principal,
+        uint256 price,
+        uint256 mcr
+    ) external pure returns (uint256) {
+        return StabilizationMath.minimumCollateral(principal, price, mcr);
+    }
+
+    function interestDue(
+        uint256 debt,
+        uint256 rate,
+        uint timeBorrow,
+        uint timeDue
+    ) external pure returns (uint256) {
+        return StabilizationMath.interestDue(debt, rate, timeBorrow, timeDue);
+    }
+
+    function underCollateralized(
+        uint256 collateral,
+        uint256 price,
+        uint256 debt,
+        uint256 liquidationRatio
+    ) external pure returns (bool) {
+        return StabilizationMath.underCollateralized(collateral, price, debt, liquidationRatio);
+    }
+
 
     /*
     ┌────────────────────┐
