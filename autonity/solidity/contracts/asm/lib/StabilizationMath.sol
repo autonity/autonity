@@ -64,9 +64,9 @@ library StabilizationMath {
     }
 
     /*
-    ┌──────────────┐
-    │ Calculations │
-    └──────────────┘
+    ┌──────────────────┐
+    │ CDP Calculations │
+    └──────────────────┘
     */
 
     /// Calculate the maximum amount of Amount that can be borrowed for the
