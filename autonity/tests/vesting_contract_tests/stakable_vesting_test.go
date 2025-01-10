@@ -46,7 +46,7 @@ func TestSeparateAccountForStakeableVestingContract(t *testing.T) {
 		r.RunAndRevert(func(r *tests.Runner) {
 			createContract(r, user, contractAmount, start, cliff, end)
 			var err error
-			stakeableContractAddress, _, err = r.StakeableVestingManager.GetContractAccount0(nil, user, contractID)
+			stakeableContractAddress, _, err = r.StakeableVestingManager.GetContractAccount(nil, user, contractID)
 			require.NoError(r.T, err)
 		})
 		contractBalance, _, err := r.Autonity.BalanceOf(nil, stakeableContractAddress)
@@ -687,22 +687,22 @@ func TestRewardTracking(t *testing.T) {
 
 		// checking all the variations of claim rewards function
 		r.RunAndRevert(func(r *tests.Runner) {
-			checkClaimRewardsFunction(
+			checkClaimAllRewardsFunction(
 				r, beneficiary, rewardOfUser,
 				func() {
 					r.NoError(
-						stakeableContract.ClaimRewards(tests.FromSender(beneficiary, nil)),
+						stakeableContract.ClaimAllRewards(tests.FromSender(beneficiary, nil)),
 					)
 				},
 			)
 		})
 
 		r.RunAndRevert(func(r *tests.Runner) {
-			checkClaimRewardsFunction(
+			checkClaimAllRewardsFunction(
 				r, beneficiary, rewardOfUser,
 				func() {
 					r.NoError(
-						stakeableContract.ClaimRewards0(tests.FromSender(beneficiary, nil), validator),
+						stakeableContract.ClaimRewards(tests.FromSender(beneficiary, nil), validator),
 					)
 				},
 			)
@@ -1086,7 +1086,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		beneficiary, _, err := stakeableContract.GetBeneficiary(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, user, beneficiary)
-		_, _, err = r.StakeableVestingManager.GetContractAccount0(nil, newUser, contractID)
+		_, _, err = r.StakeableVestingManager.GetContractAccount(nil, newUser, contractID)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid contract id", err.Error())
 		r.NoError(
@@ -1095,7 +1095,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		beneficiary, _, err = stakeableContract.GetBeneficiary(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, newUser, beneficiary)
-		_, _, err = r.StakeableVestingManager.GetContractAccount0(nil, user, contractID)
+		_, _, err = r.StakeableVestingManager.GetContractAccount(nil, user, contractID)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid contract id", err.Error())
 	})
@@ -1622,7 +1622,7 @@ func TestFunctions(t *testing.T) {
 			),
 		)
 		r.NoError(
-			testContract.ClaimRewards(
+			testContract.ClaimAllRewards(
 				tests.FromSender(user, nil),
 			),
 		)
@@ -1682,7 +1682,7 @@ func TestFunctions(t *testing.T) {
 		)
 		r.WaitNextEpoch()
 		r.NoError(
-			testContract.ClaimRewards(
+			testContract.ClaimAllRewards(
 				tests.FromSender(user, nil),
 			),
 		)
@@ -1784,7 +1784,7 @@ func unclaimedRewards(
 	return oldUserRewards
 }
 
-func checkClaimRewardsFunction(
+func checkClaimAllRewardsFunction(
 	r *tests.Runner,
 	account common.Address,
 	unclaimedAtnRewards *big.Int,
@@ -1843,11 +1843,11 @@ func checkRewards(
 
 				// so that following code snippet reverts
 				r.RunAndRevert(func(r *tests.Runner) {
-					checkClaimRewardsFunction(
+					checkClaimAllRewardsFunction(
 						r, user, unclaimedReward,
 						func() {
 							r.NoError(
-								stakeableContract.ClaimRewards0(tests.FromSender(user, nil), validator),
+								stakeableContract.ClaimRewards(tests.FromSender(user, nil), validator),
 							)
 						},
 					)
@@ -1862,11 +1862,11 @@ func checkRewards(
 
 			// so that following code snippet reverts
 			r.RunAndRevert(func(r *tests.Runner) {
-				checkClaimRewardsFunction(
+				checkClaimAllRewardsFunction(
 					r, user, unclaimedReward,
 					func() {
 						r.NoError(
-							stakeableContract.ClaimRewards(tests.FromSender(user, nil)),
+							stakeableContract.ClaimAllRewards(tests.FromSender(user, nil)),
 						)
 					},
 				)
