@@ -465,7 +465,7 @@ contract Stabilization is IStabilization {
     /// @param account The CDP account address
     /// @return debt The debt amount
     function debtAmount(address account) external view returns (uint256 debt) {
-        return this.debtAmount(account, block.timestamp);
+        return this.debtAmountAtTime(account, block.timestamp);
     }
 
     /// Calculate the debt amount outstanding for a CDP at the given timestamp.
@@ -475,7 +475,7 @@ contract Stabilization is IStabilization {
     /// @param account The CDP account address
     /// @param timestamp The timestamp to value the debt
     /// @return debt The debt amount
-    function debtAmount(
+    function debtAmountAtTime(
         address account,
         uint timestamp
     ) external view goodTime(account, timestamp) returns (uint256 debt) {
