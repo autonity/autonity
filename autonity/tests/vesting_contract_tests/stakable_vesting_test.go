@@ -1124,6 +1124,59 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		newAtnBalance := r.GetBalanceOf(user)
 		require.Equal(r.T, new(big.Int).Add(rewards, atnBalance), newAtnBalance)
 	})
+
+	tests.RunWithSetup("beneficiary change allows reward sending failure", setup, func(r *tests.Runner) {
+		stakeableContract := initiate(r)
+		// change beneficiary, new user will be a dummy contract with no way to receive gas fee
+		dummyContract, _, _, err := r.DeployDummyContract(nil)
+		require.NoError(r.T, err)
+		r.NoError(
+			r.StakeableVestingManager.ChangeContractBeneficiary(
+				r.Operator, user, contractID, dummyContract,
+			),
+		)
+
+		// bond to get some reward
+		bondingAmount := big.NewInt(contractTotalAmount)
+		validator := r.Committee.Validators[0].NodeAddress
+		r.WaitForBlocksUntil(start + 1)
+		r.NoError(
+			stakeableContract.Bond(
+				tests.FromSender(dummyContract, nil), validator, bondingAmount,
+			),
+		)
+		r.WaitNextEpoch()
+		r.GiveMeSomeMoney(r.Autonity.Address(), reward)
+		r.WaitNextEpoch()
+		rewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+		require.NoError(r.T, err)
+		oldUserAtnBalance := r.GetBalanceOf(dummyContract)
+
+		// rewards cannot be claimed
+		_, err = stakeableContract.ClaimRewards(
+			tests.FromSender(dummyContract, nil),
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: failed to send ATN", err.Error())
+
+		// change the beneficiary again
+		treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
+		require.NoError(r.T, err)
+		treasuryBalance := r.GetBalanceOf(treasury)
+		r.NoError(
+			r.StakeableVestingManager.ChangeContractBeneficiary(
+				r.Operator, dummyContract, contractID, user,
+			),
+		)
+		// the rewards are accumulated in the treasury balance
+		require.Equal(r.T, new(big.Int).Add(treasuryBalance, rewards), r.GetBalanceOf(treasury))
+		// dummyContract did not receive reward because it doesn't have payable fallback or receive method
+		require.Equal(r.T, oldUserAtnBalance.Uint64(), r.GetBalanceOf(dummyContract).Uint64())
+		currentRewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, uint64(0), currentRewards.Uint64())
+
+	})
 }
 
 func TestSlashingAffect(t *testing.T) {
