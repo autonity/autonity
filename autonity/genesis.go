@@ -93,7 +93,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 		if err != nil {
 			return fmt.Errorf("failed to pack parameters: %w", err)
 		}
-		if value.BitLen() != 0 {
+		if value.BitLen() != 0 && evm.StateDB.GetBalance(params.DeployerAddress).Cmp(value) < 0 {
 			evm.StateDB.AddBalance(params.DeployerAddress, value)
 		}
 		data := append(bytecode, constructorParams...)

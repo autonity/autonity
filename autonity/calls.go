@@ -63,8 +63,8 @@ func newErrorWithRevertReason(err error, ret []byte) error {
 // It returns the gas used for the call
 //
 //revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
-func AutonityContractCall(evm *vm.EVM, function string, result any, args ...any) (uint64, error) {
-	packedArgs, err := generated.AutonityAbi.Pack(function, args...)
+func AutonityContractCall(autonityAbi *abi.ABI, evm *vm.EVM, function string, result any, args ...any) (uint64, error) {
+	packedArgs, err := autonityAbi.Pack(function, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -84,7 +84,7 @@ func AutonityContractCall(evm *vm.EVM, function string, result any, args ...any)
 		*rawPtr = ret
 		return usedGas, nil
 	}
-	if err := generated.AutonityAbi.UnpackIntoInterface(result, function, ret); err != nil {
+	if err := autonityAbi.UnpackIntoInterface(result, function, ret); err != nil {
 		log.Error("Could not unpack returned value", "function", function)
 		return usedGas, err
 	}
@@ -94,7 +94,7 @@ func AutonityContractCall(evm *vm.EVM, function string, result any, args ...any)
 
 func CallGetCommittee(evm *vm.EVM) (*types.Committee, error) {
 	var committeeMembers []types.CommitteeMember
-	if _, err := AutonityContractCall(evm, "getCommittee", &committeeMembers); err != nil {
+	if _, err := AutonityContractCall(&generated.AutonityAbi, evm, "getCommittee", &committeeMembers); err != nil {
 		return nil, err
 	}
 	committee := &types.Committee{}
@@ -107,7 +107,7 @@ func CallGetCommittee(evm *vm.EVM) (*types.Committee, error) {
 
 func (c *AutonityContract) CallGetCommitteeEnodes(state vm.StateDB, header *types.Header, asACN bool) (*types.Nodes, error) {
 	var returnedEnodes []string
-	_, err := AutonityContractCall(c.evmProvider(header, params.DeployerAddress, state), "getCommitteeEnodes", &returnedEnodes)
+	_, err := AutonityContractCall(c.contractABI, c.evmProvider(header, params.DeployerAddress, state), "getCommitteeEnodes", &returnedEnodes)
 	if err != nil {
 		return nil, err
 	}
@@ -116,13 +116,23 @@ func (c *AutonityContract) CallGetCommitteeEnodes(state vm.StateDB, header *type
 
 func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
 	var config AutonityConfig
-	_, err := AutonityContractCall(c.evmProvider(header, params.DeployerAddress, state), "config", &config)
+	_, err := AutonityContractCall(
+		c.contractABI,
+		c.evmProvider(header, params.DeployerAddress, state),
+		"config",
+		&config,
+	)
 	return &config, err
 }
 
 func (c *AutonityContract) CallEpochID(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	epochID := new(big.Int)
-	_, err := AutonityContractCall(c.evmProvider(header, params.DeployerAddress, state), "epochID", &epochID)
+	_, err := AutonityContractCall(
+		c.contractABI,
+		c.evmProvider(header, params.DeployerAddress, state),
+		"epochID",
+		&epochID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +142,13 @@ func (c *AutonityContract) CallEpochID(state vm.StateDB, header *types.Header) (
 // CallEpochByHeight get the epoch by height.
 func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Header, height *big.Int) (*types.EpochInfo, error) {
 	var output raw
-	if _, err := AutonityContractCall(c.evmProvider(header, params.DeployerAddress, state), "getEpochByHeight", &output, height); err != nil {
+	if _, err := AutonityContractCall(
+		c.contractABI,
+		c.evmProvider(header, params.DeployerAddress, state),
+		"getEpochByHeight",
+		&output,
+		height,
+	); err != nil {
 		return nil, err
 	}
 
@@ -174,7 +190,12 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 
 func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	minBaseFee := new(big.Int)
-	_, err := AutonityContractCall(c.evmProvider(header, params.DeployerAddress, state), "getMinimumBaseFee", &minBaseFee)
+	_, err := AutonityContractCall(
+		c.contractABI,
+		c.evmProvider(header, params.DeployerAddress, state),
+		"getMinimumBaseFee",
+		&minBaseFee,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +204,7 @@ func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types
 
 func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	epochPeriod := new(big.Int)
-	_, err := AutonityContractCall(c.evmProvider(header, params.DeployerAddress, state), "getEpochPeriod", &epochPeriod)
+	_, err := AutonityContractCall(c.contractABI, c.evmProvider(header, params.DeployerAddress, state), "getEpochPeriod", &epochPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -198,6 +219,7 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	nextEpochBlock := new(big.Int)
 	delta := new(big.Int)
 	usedGas, err := AutonityContractCall(
+		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
 		"finalize",
 		&[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock, &delta},
@@ -230,11 +252,16 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 
 func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.Header) ([]byte, string, error) {
 	var bytecode []byte
-	var abi string
-	if _, err := AutonityContractCall(c.evmProvider(header, params.DeployerAddress, state), "getNewContract", &[]any{&bytecode, &abi}); err != nil {
+	var updateAbi string
+	if _, err := AutonityContractCall(
+		c.contractABI,
+		c.evmProvider(header, params.DeployerAddress, state),
+		"getNewContract",
+		&[]any{&bytecode, &updateAbi},
+	); err != nil {
 		return nil, "", err
 	}
-	return bytecode, abi, nil
+	return bytecode, updateAbi, nil
 }
 
 func recordFinalizeGasUsage(isEpochHeader bool, number uint64, usedGas int64) {
