@@ -73,10 +73,9 @@ func (c *evmContract) ABI() *abi.ABI {
 }
 
 // callContractFunc creates an evm object, uses it to call the
-// specified function of the autonity contract with packedArgs and returns the
+// specified function of the contract at contractAddress with packedArgs and returns the
 // packed result. If there is an error making the evm call it will be returned.
-// Callers should use the autonity contract ABI to pack and unpack the args and
-// result.
+// Callers should use the contract ABI to pack and unpack the args and result.
 // It returns the amount of gas used for the call
 func (c *evmContract) callContractFunc(statedb vm.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, uint64, error) {
 	gas := uint64(math.MaxUint64)
