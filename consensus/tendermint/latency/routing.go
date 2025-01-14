@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
+	"math/big"
 	"net"
 	"strconv"
 	"sync"
@@ -43,8 +44,15 @@ type Router struct {
 	reportedEventChan chan *autonity.LatencyReported
 	reportEventSub    event.Subscription
 
-	epochHeadCh  chan *autonity.AutonityNewEpoch
-	epochHeadSub event.Subscription
+	epochEventChan chan core.EpochHeadEvent
+	epochEventSub  event.Subscription
+
+	chainEventChan chan core.ChainEvent
+	chainEventSub  event.Subscription
+
+	curEpochInfo *types.EpochInfo
+	reportWindow uint64
+	reported     bool
 }
 
 func NewRouter(
@@ -55,7 +63,8 @@ func NewRouter(
 		broadcaster:       broadcaster,
 		nodeKey:           nodeKey,
 		reportedEventChan: make(chan *autonity.LatencyReported),
-		epochHeadCh:       make(chan *autonity.AutonityNewEpoch),
+		epochEventChan:    make(chan core.EpochHeadEvent),
+		chainEventChan:    make(chan core.ChainEvent),
 	}
 	return r
 }
@@ -99,13 +108,17 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 		return err
 	}
 
-	epochHeadSub, err := chain.ProtocolContracts().AutonityContract.WatchNewEpoch(nil, r.epochHeadCh)
+	curEpoch, err := chain.LatestEpoch()
 	if err != nil {
 		return err
 	}
+	r.curEpochInfo = curEpoch
+	epochPeriod := new(big.Int).Sub(curEpoch.NextEpochBlock, curEpoch.EpochBlock)
+	r.reportWindow = epochPeriod.Uint64() / uint64(curEpoch.Committee.Len())
 
+	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
+	r.chainEventSub = chain.SubscribeChainEvent(r.chainEventChan)
 	r.reportEventSub = reportEventSub
-	r.epochHeadSub = epochHeadSub
 	r.contracts = chain.ProtocolContracts()
 	r.reporter, err = NewReporter(chain.Config().ChainID, r.nodeKey, r.contracts)
 	if err != nil {
@@ -117,16 +130,39 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case epochEv := <-r.epochEventChan:
+			r.curEpochInfo = &types.EpochInfo{
+				Epoch:      *epochEv.Header.Epoch.Copy(),
+				EpochBlock: epochEv.Header.Number,
+			}
+			epochPeriod = new(big.Int).Sub(epochEv.Header.Epoch.NextEpochBlock, epochEv.Header.Number)
+			r.reportWindow = epochPeriod.Uint64() / uint64(r.curEpochInfo.Committee.Len())
+			r.reported = false
+
+		case ev := <-r.chainEventChan:
+			if r.reportWindow == 0 {
+				log.Error("invalid report window")
+				continue
+			}
+
+			height := ev.Block.NumberU64()
+			committee := r.curEpochInfo.Committee
+			reporterIndex := (height / r.reportWindow) % uint64(committee.Len())
+			// every validator is assigned with an independent measurement and reporting window.
+			if !r.reported && committee.Members[reporterIndex].Address == r.self {
+				log.Debug("Router: in reporter slot, reporting latency", "height", height, "epoch period", epochPeriod.Uint64(), "reporter", r.self)
+				if err := r.report(); err != nil {
+					log.Error("failed to report latency", "err", err)
+				} else {
+					r.reported = true
+				}
+			}
+
 		case ev := <-r.reportedEventChan:
 			log.Debug("Router: latency report detected, refreshing network clustering", "reporter", ev.Reporter)
 			// todo: should probably be done async
 			if err := r.refreshClusters(); err != nil {
 				log.Error("failed to refresh clusters", "err", err)
-			}
-		case e := <-r.epochHeadCh:
-			log.Debug("Router: new epoch detected, reporting latency", "epoch", e.Epoch)
-			if err := r.report(); err != nil {
-				log.Error("failed to report latency", "err", err)
 			}
 		}
 	}
@@ -134,7 +170,8 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 
 func (r *Router) Stop() {
 	r.reportEventSub.Unsubscribe()
-	r.epochHeadSub.Unsubscribe()
+	r.chainEventSub.Unsubscribe()
+	r.epochEventSub.Unsubscribe()
 }
 
 func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
