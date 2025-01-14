@@ -50,9 +50,9 @@ type Router struct {
 	chainEventChan chan core.ChainEvent
 	chainEventSub  event.Subscription
 
-	curEpochInfo *types.EpochInfo
-	reportWindow uint64
-	reported     bool
+	curEpochInfo      *types.EpochInfo
+	measurementWindow uint64
+	measured          bool
 }
 
 func NewRouter(
@@ -114,7 +114,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 	}
 	r.curEpochInfo = curEpoch
 	epochPeriod := new(big.Int).Sub(curEpoch.NextEpochBlock, curEpoch.EpochBlock)
-	r.reportWindow = epochPeriod.Uint64() / uint64(curEpoch.Committee.Len())
+	r.measurementWindow = epochPeriod.Uint64() / uint64(curEpoch.Committee.Len())
 
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
 	r.chainEventSub = chain.SubscribeChainEvent(r.chainEventChan)
@@ -136,31 +136,32 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 				EpochBlock: epochEv.Header.Number,
 			}
 			epochPeriod = new(big.Int).Sub(epochEv.Header.Epoch.NextEpochBlock, epochEv.Header.Number)
-			r.reportWindow = epochPeriod.Uint64() / uint64(r.curEpochInfo.Committee.Len())
-			r.reported = false
+			r.measurementWindow = epochPeriod.Uint64() / uint64(r.curEpochInfo.Committee.Len())
+			r.measured = false
 
 		case ev := <-r.chainEventChan:
-			if r.reportWindow == 0 {
-				log.Error("invalid report window")
+			if r.measurementWindow == 0 {
+				log.Error("invalid report window, too short epoch period?")
 				continue
 			}
 
 			height := ev.Block.NumberU64()
 			committee := r.curEpochInfo.Committee
-			reporterIndex := (height / r.reportWindow) % uint64(committee.Len())
+			reporterIndex := (height / r.measurementWindow) % uint64(committee.Len())
 			// every validator is assigned with an independent measurement and reporting window.
-			if !r.reported && committee.Members[reporterIndex].Address == r.self {
-				log.Debug("Router: in reporter slot, reporting latency", "height", height, "epoch period", epochPeriod.Uint64(), "reporter idx", reporterIndex, "reporter", r.self)
+			if !r.measured && committee.Members[reporterIndex].Address == r.self {
+				log.Debug("Router: in reporter slot, reporting latency", "height", height, "epoch period",
+					epochPeriod.Uint64(), "reporter idx", reporterIndex, "reporter", r.self)
 				if err := r.report(); err != nil {
 					log.Error("failed to report latency", "err", err)
 				} else {
-					r.reported = true
+					r.measured = true
 				}
 			}
 
 		case ev := <-r.reportedEventChan:
+			// For every measurementWindow, there will be a unique validator assigned to measure and send the latencies.
 			log.Debug("Router: latency report detected, refreshing network clustering", "reporter", ev.Reporter)
-			// todo: should probably be done async
 			if err := r.refreshClusters(); err != nil {
 				log.Error("failed to refresh clusters", "err", err)
 			}
