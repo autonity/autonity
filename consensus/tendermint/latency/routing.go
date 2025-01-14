@@ -150,7 +150,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 			reporterIndex := (height / r.reportWindow) % uint64(committee.Len())
 			// every validator is assigned with an independent measurement and reporting window.
 			if !r.reported && committee.Members[reporterIndex].Address == r.self {
-				log.Debug("Router: in reporter slot, reporting latency", "height", height, "epoch period", epochPeriod.Uint64(), "reporter", r.self)
+				log.Debug("Router: in reporter slot, reporting latency", "height", height, "epoch period", epochPeriod.Uint64(), "reporter idx", reporterIndex, "reporter", r.self)
 				if err := r.report(); err != nil {
 					log.Error("failed to report latency", "err", err)
 				} else {
