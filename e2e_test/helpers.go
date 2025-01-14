@@ -3,13 +3,15 @@ package e2e
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/params"
-	fuzz "github.com/google/gofuzz"
 	"math/big"
 	"reflect"
 	"sync/atomic"
 	"testing"
+
+	fuzz "github.com/google/gofuzz"
+
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
 
 	"github.com/stretchr/testify/require"
 
@@ -84,7 +86,7 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 		header := n.Eth.BlockChain().CurrentHeader()
 		db, err := n.Eth.BlockChain().StateAt(header.Root)
 		require.NoError(t, err)
-		epochID, err := n.Eth.BlockChain().ProtocolContracts().AutonityContract.EpochID(header, db)
+		epochID, err := n.Eth.BlockChain().ProtocolContracts().AutonityContract.CallEpochID(db, header)
 		require.NoError(t, err)
 		if !epochID.IsInt64() {
 			require.Fail(t, "fatal error: epoch id does not fit in int64")

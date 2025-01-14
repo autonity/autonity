@@ -191,7 +191,7 @@ func TestGetters(t *testing.T) {
 	require.NoError(t, err)
 
 	autonity := &AutonityContract{
-		EVMContract: EVMContract{
+		evmContract: evmContract{
 			evmProvider: contract.evmProvider,
 			contractABI: contractAbi,
 			db:          contract.db,
@@ -199,19 +199,8 @@ func TestGetters(t *testing.T) {
 		},
 	}
 
-	t.Run("Test getEpochInfo properly unmarshalls", func(t *testing.T) {
-		info, err := autonity.callGetEpochInfo(db, header)
-		require.NoError(t, err)
-		require.NotNil(t, info)
-
-		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
-		require.Equal(t, uint64(50), info.NextEpochBlock.Uint64())
-		require.Equal(t, uint64(5), info.Delta.Uint64())
-		require.Len(t, info.Committee.Members, 10)
-	})
-
 	t.Run("Test getEpochByHeight properly unmarshalls", func(t *testing.T) {
-		info, err := autonity.callEpochByHeight(db, header, big.NewInt(0))
+		info, err := autonity.CallEpochByHeight(db, header, big.NewInt(0))
 		require.NoError(t, err)
 		require.NotNil(t, info)
 
@@ -225,7 +214,7 @@ func TestGetters(t *testing.T) {
 
 func deployAutonity(
 	committeeSize int, validators []params.Validator, deployer common.Address,
-) (*state.StateDB, *EVMContract, common.Address, error) {
+) (*state.StateDB, *evmContract, common.Address, error) {
 	abi := &generated.AutonityAbi
 	stateDB, evm, evmContract, err := initializeEvm(abi)
 	if err != nil {
@@ -244,7 +233,7 @@ func deployAutonity(
 
 func deployAutonityTest(
 	committeeSize int, validators []params.Validator, deployer common.Address,
-) (*state.StateDB, *EVMContract, common.Address, error) {
+) (*state.StateDB, *evmContract, common.Address, error) {
 	abi := &generated.AutonityTestAbi
 	stateDB, evm, evmContract, err := initializeEvm(abi)
 	if err != nil {
@@ -261,12 +250,12 @@ func deployAutonityTest(
 	return stateDB, evmContract, contractAddress, err
 }
 
-func initializeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *EVMContract, error) {
+func initializeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *evmContract, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
 	stateDB, err := state.New(common.Hash{}, db, nil)
 	if err != nil {
-		return new(state.StateDB), new(vm.EVM), new(EVMContract), err
+		return new(state.StateDB), new(vm.EVM), new(evmContract), err
 	}
 	evm := createTestVM(stateDB)
 	evmContract := NewEVMContract(testEVMProvider(), abi, ethDb, params.TestChainConfig)
@@ -283,27 +272,27 @@ func deployContract(byteCode []byte, args []byte, deployer common.Address, evm *
 
 // Packs the args and then calls the function and returns result
 func callContractFunction(
-	evmContract *EVMContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
+	evmContract *evmContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
 	methodName string, args ...interface{},
 ) ([]byte, error) {
 	argsPacked, err := abi.Pack(methodName, args...)
 	if err != nil {
 		return make([]byte, 0), err
 	}
-	res, _, err := evmContract.CallContractFunc(stateDB, header, contractAddress, argsPacked)
+	res, _, err := evmContract.callContractFunc(stateDB, header, contractAddress, argsPacked)
 	return res, err
 }
 
 // Packs the args and then calls the function and returns result
 func callContractFunctionAs(
-	evmContract *EVMContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
+	evmContract *evmContract, contractAddress common.Address, stateDB *state.StateDB, header *types.Header, abi *abi.ABI,
 	origin common.Address, methodName string, args ...interface{}, //nolint:unparam
 ) ([]byte, error) {
 	argsPacked, err := abi.Pack(methodName, args...)
 	if err != nil {
 		return make([]byte, 0), err
 	}
-	return evmContract.CallContractFuncAs(stateDB, header, contractAddress, origin, argsPacked)
+	return evmContract.callContractFuncAs(stateDB, header, contractAddress, origin, argsPacked)
 }
 
 func randomValidators(count int, randomPercentage int) ([]params.Validator, error) {
@@ -458,14 +447,14 @@ func testEVMProvider() func(header *types.Header, origin common.Address, stateDB
 
 // to properly benchmark a contract call, it is expected that the state is same everytime the contract function is run
 func benchmarkWithGas(
-	b *testing.B, evmContract *EVMContract, stateDB vm.StateDB, header *types.Header,
+	b *testing.B, evmContract *evmContract, stateDB vm.StateDB, header *types.Header,
 	contractAddress common.Address, packedArgs []byte,
 ) {
 	var totalGasUsed uint64
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, usedGas, err := evmContract.CallContractFunc(stateDB, header, contractAddress, packedArgs)
+		_, usedGas, err := evmContract.callContractFunc(stateDB, header, contractAddress, packedArgs)
 		require.NoError(b, err)
 		totalGasUsed += usedGas
 	}

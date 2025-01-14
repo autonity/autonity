@@ -333,15 +333,12 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 
 	genesisBonds := g.Alloc.ToGenesisBonds()
-	evmProvider := func(statedb vm.StateDB) *vm.EVM {
-		return genesisEVM(g, statedb)
+	evm := genesisEVM(g, statedb)
+	if err := autonity.ExecuteGenesisSequence(g.Config, genesisBonds, evm); err != nil {
+		return nil, fmt.Errorf("cannot execute genesis sequence: %w", err)
 	}
 
-	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
-	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
-		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
-	}
-	committee, err := evmContracts.AutonityContract.Committee(nil, statedb)
+	committee, err := autonity.CallGetCommittee(evm)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}
