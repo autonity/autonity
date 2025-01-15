@@ -30,6 +30,7 @@ require (
 	github.com/fjl/memsize v0.0.2
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
 	github.com/go-stack/stack v1.8.0
+	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.4
 	github.com/google/gofuzz v1.2.1-0.20220503160820-4a35382e8fc8
