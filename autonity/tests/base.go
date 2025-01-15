@@ -16,6 +16,7 @@ import (
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -611,6 +612,12 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	r.OmissionAccountability = &OmissionAccountability{&contract{
 		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
+		r,
+	}}
+
+	r.Auctioneer = &Auctioneer{&contract{
+		params.AuctioneerContractAddress,
+		&generated.AuctioneerAbi,
 		r,
 	}}
 
