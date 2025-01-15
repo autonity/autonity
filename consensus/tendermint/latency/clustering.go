@@ -70,6 +70,7 @@ func fromLatencyMat(latencyMat map[common.Address][]uint8) []kmeans.Observation 
 			address:     address,
 			latencyView: floatRow,
 		}
+		i++
 	}
 	return nodes
 }
