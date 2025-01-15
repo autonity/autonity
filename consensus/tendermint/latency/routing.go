@@ -22,7 +22,7 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-// ScaleThresholdForClustering is the number of nodes to split the network into multiple clusters.
+// ScaleThresholdForClustering is the minimum number of validators required to do network clustering
 var ScaleThresholdForClustering = 32 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
@@ -77,7 +77,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 		return nil
 	}
 	// currently only proposals are routed through clustering
-	// if the clusters are not yet formed, we should default to the full committee
+	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
 	if msg.Code() != message.ProposalCode || r.clusters == nil {
 		return committee.Members
 	}
