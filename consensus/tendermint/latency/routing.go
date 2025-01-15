@@ -145,6 +145,12 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 				continue
 			}
 
+			// todo: shall we skip clustering in a small scale network?
+			if r.curEpochInfo.Committee.Len() == 1 {
+				log.Debug("not going to measure latency within a small network")
+				continue
+			}
+
 			height := ev.Block.NumberU64()
 			committee := r.curEpochInfo.Committee
 			reporterIndex := (height / r.measurementWindow) % uint64(committee.Len())
