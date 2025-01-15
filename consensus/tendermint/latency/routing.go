@@ -22,6 +22,8 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
+// ScaleThresholdForClustering is the number of nodes to split the network into multiple clusters.
+var ScaleThresholdForClustering = 32 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
 var ErrInvalidPeerType = errors.New("invalid peer type")
@@ -139,14 +141,18 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 			r.measurementWindow = epochPeriod.Uint64() / uint64(r.curEpochInfo.Committee.Len())
 			r.measured = false
 
+			// on new epoch, we have a small scale of network, clustering does not benefit anymore.
+			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
+				r.resetClusters()
+			}
+
 		case ev := <-r.chainEventChan:
 			if r.measurementWindow == 0 {
 				log.Error("invalid report window, too short epoch period?")
 				continue
 			}
 
-			// todo: shall we skip clustering in a small scale network?
-			if r.curEpochInfo.Committee.Len() == 1 {
+			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
 				log.Debug("not going to measure latency within a small network")
 				continue
 			}
@@ -166,6 +172,10 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 			}
 
 		case ev := <-r.reportedEventChan:
+			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
+				log.Debug("not going to cluster a small scale network")
+				continue
+			}
 			// For every measurementWindow, there will be a unique validator assigned to measure and send the latencies.
 			log.Debug("Router: latency report detected, refreshing network clustering", "reporter", ev.Reporter)
 			if err := r.refreshClusters(); err != nil {
@@ -211,6 +221,13 @@ func (r *Router) refreshClusters() error {
 	r.clusters = clusters
 	r.clusterLock.Unlock()
 	return nil
+}
+
+// reset clusters, it is used to merge the cluster when we have a small scale of network.
+func (r *Router) resetClusters() {
+	r.clusterLock.Lock()
+	defer r.clusterLock.Unlock()
+	r.clusters = nil
 }
 
 func (r *Router) report() error {
