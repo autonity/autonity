@@ -45,8 +45,12 @@ interface IStabilization {
     }
 
     // Public state retrieval functions
-    function  config() external view returns (Config memory);
-    function  cdps(address owner) external view returns (CDP memory);
+    function config() external view returns (Config memory);
+
+    function cdps(address owner) external view returns (CDP memory);
+
+    // view functions
+    function debtAmount(address account, uint timestamp) external view returns (uint256);
 
     /// Liquidate an undercollateralized CDP.
     /// @param account The address of the CDP owner.

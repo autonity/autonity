@@ -74,7 +74,10 @@ contract Auctioneer {
             round.timestamp,
             block.timestamp,
             cdp.collateral,
-            _calculateInitialAmount(cdp.principal + cdp.interest, round.price),
+            _calculateInitialAmount(
+                _stabilization.debtAmount(debtor, block.timestamp),
+                round.price
+            ),
             config.liquidationAuctionDuration
         );
 
@@ -104,7 +107,7 @@ contract Auctioneer {
         auctions.remove(auction);
 
         // transfer ATN
-        (bool ok, ) = msg.sender.call{value: interestAuction.amount, gas: 2300}("");
+        (bool ok,) = msg.sender.call{value: interestAuction.amount, gas: 2300}("");
         if (!ok) {
             revert TransferFailed();
         }
@@ -139,6 +142,33 @@ contract Auctioneer {
 
     function getAuction(uint256 auction) external view returns (AuctionLib.Auction memory) {
         return auctions.get(auction);
+    }
+
+    function maxLiquidationReturn(address debtor, uint256 liquidatableRound) external view returns (uint256) {
+        IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
+        IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
+        return StabilizationMath.linearIncreaseAuctionAmount(
+            round.timestamp,
+            block.timestamp,
+            cdp.collateral,
+            _calculateInitialAmount(
+                _stabilization.debtAmount(debtor, block.timestamp),
+                round.price
+            ),
+            config.liquidationAuctionDuration
+        );
+    }
+
+    function minInterestPayment(uint256 auction) external view returns (uint256) {
+        AuctionLib.Auction storage interestAuction = auctions.get(auction);
+        IOracle.RoundData memory round = _oracle.getRoundData(interestAuction.startRound, StabilizationMath.NTN_SYMBOL);
+        return StabilizationMath.linearDecreaseAuctionAmount(
+            round.timestamp,
+            block.timestamp,
+            0, // TODO: what is a logical minimum ?
+            _calculateInitialCost(interestAuction.amount, round.price),
+            config.interestAuctionDuration
+        );
     }
 
     /*
