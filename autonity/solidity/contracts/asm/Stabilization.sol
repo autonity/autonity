@@ -239,16 +239,18 @@ contract Stabilization is IStabilization {
                 _config.liquidationRatio
             )
         ) revert Liquidatable();
-        uint256 limit = StabilizationMath.borrowLimit(
-            cdp.collateral,
-            price,
-            _config.targetPrice,
-            _config.minCollateralizationRatio
-        );
-        if (debt > limit) revert InsufficientCollateral();
+
+        cdp.principal += amount;
+        if (
+            cdp.principal > StabilizationMath.borrowLimit(
+                cdp.collateral,
+                price,
+                _config.targetPrice,
+                _config.minCollateralizationRatio
+            )
+        ) revert InsufficientCollateral();
 
         cdp.timestamp = block.timestamp;
-        cdp.principal += amount;
         cdp.interest += accrued;
 
         _supplyControl.mint(msg.sender, amount);
@@ -305,7 +307,7 @@ contract Stabilization is IStabilization {
         CDP storage cdp = _cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
         if (cdp.collateral < collateralSold) revert InvalidAmount();
-        (uint256 debt, uint256 accrued) = _debtAmount(cdp, block.timestamp);
+        (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
         if (
             !StabilizationMath.underCollateralized(
                 cdp.collateral,
@@ -316,6 +318,8 @@ contract Stabilization is IStabilization {
         ) revert NotLiquidatable();
 
         if (msg.value < debt) revert InsufficientPayment();
+        _supplyControl.burn{value: cdp.principal}();
+
         uint surplus = msg.value - debt;
 
         uint256 collateral = cdp.collateral;
@@ -326,7 +330,6 @@ contract Stabilization is IStabilization {
 
         if (!_collateralToken.transfer(bidder, collateralSold))
             revert TransferFailed();
-        _supplyControl.burn{value: debt - accrued}();
         if (surplus > 0) payable(bidder).transfer(surplus);
         emit Liquidate(account, bidder);
     }
