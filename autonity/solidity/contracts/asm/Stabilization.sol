@@ -149,8 +149,8 @@ contract Stabilization is IStabilization {
         address acu,
         IERC20 collateralToken
     )
-    positiveMCR(config_.minCollateralizationRatio)
-    validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
+        positiveMCR(config_.minCollateralizationRatio)
+        validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
         _config = config_;
         _autonity = autonity;
@@ -204,11 +204,11 @@ contract Stabilization is IStabilization {
         uint256 price = collateralPrice();
         if (
             StabilizationMath.underCollateralized(
-            cdp.collateral,
-            price,
-            debt,
-            _config.liquidationRatio
-        )
+                cdp.collateral,
+                price,
+                debt,
+                _config.liquidationRatio
+            )
         ) revert Liquidatable();
         if (
             cdp.collateral - amount <
@@ -240,10 +240,11 @@ contract Stabilization is IStabilization {
         uint256 price = collateralPrice();
         if (
             StabilizationMath.underCollateralized(
-            cdp.collateral,
-            price,
-            debt,
-            _config.liquidationRatio)
+                cdp.collateral,
+                price,
+                debt,
+                _config.liquidationRatio
+            )
         ) revert Liquidatable();
 
         uint256 limit = maxBorrow(cdp.collateral);
@@ -310,11 +311,11 @@ contract Stabilization is IStabilization {
         (uint256 debt, uint256 accrued) = _debtAmount(cdp, block.timestamp);
         if (
             !StabilizationMath.underCollateralized(
-            cdp.collateral,
-            collateralPrice(),
-            debt,
-            _config.liquidationRatio
-        )
+                cdp.collateral,
+                collateralPrice(),
+                debt,
+                _config.liquidationRatio
+            )
         ) revert NotLiquidatable();
 
         if (msg.value < debt) revert InsufficientPayment();
@@ -330,7 +331,6 @@ contract Stabilization is IStabilization {
 
         if (!_collateralToken.transfer(bidder, collateralSold))
             revert TransferFailed();
-        _supplyControl.burn{value: debt - accrued}();
         if (surplus > 0) payable(bidder).transfer(surplus);
         emit Liquidate(account, bidder);
     }
@@ -349,9 +349,9 @@ contract Stabilization is IStabilization {
     function setLiquidationRatio(
         uint256 ratio
     )
-    external
-    validRatios(ratio, _config.minCollateralizationRatio)
-    onlyOperator
+        external
+        validRatios(ratio, _config.minCollateralizationRatio)
+        onlyOperator
     {
         _config.liquidationRatio = ratio;
         emit IConfigEvents.ConfigUpdateUint("liquidationRatio", config.liquidationRatio, ratio);
@@ -625,9 +625,9 @@ contract Stabilization is IStabilization {
         CDP storage cdp,
         uint256 amount
     )
-    internal
-    view
-    returns (uint256 interest, uint256 principal, uint256 surplus)
+        internal
+        view
+        returns (uint256 interest, uint256 principal, uint256 surplus)
     {
         uint256 debt = cdp.principal + cdp.interest;
         interest = amount < cdp.interest ? amount : cdp.interest;
