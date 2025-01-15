@@ -14,6 +14,8 @@ contract Latency is AccessAutonity {
         committee = initialCommittee;
     }
 
+    // todo: a reported validator should not report again in an epoch to prevent the abusing of report which triggers
+    //  unnecessary heavy cluster reorg.
     function report(uint8[] memory _latency) external {
         require(_latency.length == committee.length, "Latency: invalid length");
         for (uint256 i = 0; i < _latency.length; i++) {
