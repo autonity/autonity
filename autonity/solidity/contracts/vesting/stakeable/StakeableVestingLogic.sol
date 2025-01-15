@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../interfaces/IStakeableVesting.sol";
-import {PendingStakingRequest, QueueLib} from "./QueueLib.sol";
+import {PendingStakingRequest, StakingQueueLib} from "./StakingQueueLib.sol";
 import "./StakeableVestingStorage.sol";
 import "./ValidatorManager.sol";
 
@@ -13,7 +13,7 @@ import "./ValidatorManager.sol";
  */
 contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting {
 
-    using QueueLib for StakingRequestQueue;
+    using StakingQueueLib for StakingRequestQueue;
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
         managerContract = IStakeableVestingManager(payable(msg.sender));

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/IStakeableVestingManager.sol";
 import "../ContractBase.sol";
-import {StakingRequestQueue} from "./QueueLib.sol";
+import {StakingRequestQueue} from "./StakingQueueLib.sol";
 import "./ValidatorManagerStorage.sol";
 
 /** @title Storage of the Stakeable Vesting Smart Contract for vesting and staking funds */
