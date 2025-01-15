@@ -53,6 +53,7 @@ var (
 		deployNonStakableVestingContract,
 		createDefaultNonStakableVestingContracts,
 		deployOmissionAccountabilityContract,
+		deployAuctioneerContract,
 	}
 	genesisSequence = append(
 		[]genesisStep{
@@ -446,7 +447,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 		config.ASM.StabilizationContractConfig.SetDefaults()
 	}
 
-	stabilizationConfig := StabilizationConfig{
+	stabilizationConfig := IStabilizationConfig{
 		BorrowInterestRate:        (*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
 		LiquidationRatio:          (*big.Int)(config.ASM.StabilizationContractConfig.LiquidationRatio),
 		MinCollateralizationRatio: (*big.Int)(config.ASM.StabilizationContractConfig.MinCollateralizationRatio),
@@ -464,6 +465,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 		config.AutonityContractConfig.Operator,
 		params.OracleContractAddress,
 		params.SupplyControlContractAddress,
+		params.AuctioneerContractAddress,
 		params.AutonityContractAddress,
 	)
 	if err != nil {
@@ -590,6 +592,37 @@ func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ Gene
 			return fmt.Errorf("error while creating new non-stakable schedule: %w", err)
 		}
 	}
+	return nil
+}
+
+func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
+	if config.ASM.AuctioneerContractConfig == nil {
+		log.Info("Config missing, using default parameters for the Auctioneer contract")
+		config.ASM.AuctioneerContractConfig = params.DefaultAuctioneerGenesis
+	} else {
+		config.ASM.AuctioneerContractConfig.SetDefaults()
+	}
+	auctioneerConfig := AuctioneerConfig{
+		LiquidationAuctionDuration: config.ASM.AuctioneerContractConfig.LiquidationAuctionDuration,
+		LiquidationAuctionDiscount: config.ASM.AuctioneerContractConfig.LiquidationAuctionDiscount,
+		InterestAuctionDuration:    config.ASM.AuctioneerContractConfig.InterestAuctionDuration,
+		InterestAuctionDiscount:    config.ASM.AuctioneerContractConfig.InterestAuctionDiscount,
+		InterestAuctionThreshold:   config.ASM.AuctioneerContractConfig.InterestAuctionThreshold,
+	}
+	err := deploy(
+		params.AuctioneerContractAddress,
+		&generated.AuctioneerAbi,
+		generated.AuctioneerBytecode,
+		common.Big0,
+		auctioneerConfig,
+		params.StabilizationContractAddress,
+		params.OracleContractAddress,
+		params.AutonityContractAddress,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to deploy Auctioneer contract: %w", err)
+	}
+
 	return nil
 }
 
