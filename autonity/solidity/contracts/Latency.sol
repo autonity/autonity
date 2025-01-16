@@ -6,7 +6,7 @@ import {AccessAutonity} from "./AccessAutonity.sol";
 
 contract Latency is AccessAutonity {
     event Reported(address indexed reporter, uint256 length);
-
+    uint256 public constant SCALE_THRESHOLD_FOR_CLUSTERING = 32;
     mapping(address => mapping(address => uint8)) public latency;
     address[] public committee;
 
@@ -22,6 +22,7 @@ contract Latency is AccessAutonity {
     function report(uint8[] memory _latency) external {
         require(_latency.length == committee.length, "Latency: invalid length");
         require(reportedRound[msg.sender] != roundID, "Already reported at current epoch");
+        require(committee.length > SCALE_THRESHOLD_FOR_CLUSTERING, "Don't do clustering for small scale network");
         for (uint256 i = 0; i < _latency.length; i++) {
             latency[msg.sender][committee[i]] = _latency[i];
         }
