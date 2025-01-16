@@ -180,7 +180,7 @@ contract Stabilization is IStabilization {
     positiveMCR(config_.minCollateralizationRatio)
     validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
-        require(config_.rateUpdateAnnouncementWindow > 0, "announcement window cannot be zero");
+        require(config_.announcementWindow > 0, "announcement window cannot be zero");
         _config = config_;
         _autonity = autonity;
         _operator = operator;
@@ -449,7 +449,7 @@ contract Stabilization is IStabilization {
     }
 
     /**
-     * @notice Updates the borrow interest rate. The new `newInterestRate` will take affect after the `config.rateUpdateAnnouncementWindow` (in seconds).
+     * @notice Updates the borrow interest rate. The new `newInterestRate` will take affect after the `config.announcementWindow` (in seconds).
      * @param newInterestRate The new interst rate multiplied by 10**18. If it is 5% then it should be `(5/100)*(10**18) = 50_000_000_000_000_000`
      */
     function updateBorrowInterestRate(uint256 newInterestRate) external restricted onlyOperator {
@@ -466,7 +466,7 @@ contract Stabilization is IStabilization {
             }
         }
         _pendingBorrowInterestRate = newInterestRate;
-        _pendingRateUpdateTimestamp = block.timestamp + _config.rateUpdateAnnouncementWindow;
+        _pendingRateUpdateTimestamp = block.timestamp + _config.announcementWindow;
 
         emit InterestRateUpdateAnnounced(newInterestRate, _pendingRateUpdateTimestamp, pendingRateExist);
     }
@@ -476,7 +476,7 @@ contract Stabilization is IStabilization {
         _updateAnnouncementWindow();
         require(_pendingAnnouncementWindow == 0, "announcement window update already in pending");
         _pendingAnnouncementWindow = window;
-        _pendingAnnouncementUpdateTimestamp = block.timestamp + _config.rateUpdateAnnouncementWindow;
+        _pendingAnnouncementUpdateTimestamp = block.timestamp + _config.announcementWindow;
         emit AnnouncementWindowUpdateAnnounced(window, _pendingAnnouncementUpdateTimestamp);
     }
 
@@ -805,7 +805,7 @@ contract Stabilization is IStabilization {
 
     function _updateAnnouncementWindow() internal {
         if (_pendingAnnouncementUpdateTimestamp > 0 && _pendingAnnouncementUpdateTimestamp <= block.timestamp) {
-            _config.rateUpdateAnnouncementWindow = _pendingAnnouncementWindow;
+            _config.announcementWindow = _pendingAnnouncementWindow;
             _pendingAnnouncementWindow = 0;
             _pendingAnnouncementUpdateTimestamp = 0;
         }

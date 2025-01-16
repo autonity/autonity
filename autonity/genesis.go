@@ -450,6 +450,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 
 	stabilizationConfig := IStabilizationConfig{
 		BorrowInterestRate:        (*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
+		AnnouncementWindow:        (*big.Int)(config.ASM.StabilizationContractConfig.AnnouncementWindow),
 		LiquidationRatio:          (*big.Int)(config.ASM.StabilizationContractConfig.LiquidationRatio),
 		MinCollateralizationRatio: (*big.Int)(config.ASM.StabilizationContractConfig.MinCollateralizationRatio),
 		MinDebtRequirement:        (*big.Int)(config.ASM.StabilizationContractConfig.MinDebtRequirement),

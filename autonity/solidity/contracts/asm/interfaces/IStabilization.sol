@@ -21,7 +21,7 @@ interface IStabilization {
         /// The annual continuously-compounded interest rate for borrowing.
         uint256 borrowInterestRate;
         /// Announcement window (in seconds) for borrow interest rate update.
-        uint256 rateUpdateAnnouncementWindow;
+        uint256 announcementWindow;
         /// The minimum ACU value of collateral required to maintain 1 ACU
         /// value of debt.
         uint256 liquidationRatio;

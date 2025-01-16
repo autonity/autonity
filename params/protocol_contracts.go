@@ -46,6 +46,7 @@ var (
 	// DefaultStabilizationGenesis contains the default values for the ASM Stabilization contract
 	DefaultStabilizationGenesis = &StabilizationContractGenesis{
 		BorrowInterestRate:        (*math.HexOrDecimal256)(math.MustParseBig256("50_000_000_000_000_000")),
+		AnnouncementWindow:        (*math.HexOrDecimal256)(math.MustParseBig256("3600")), // 1 hour
 		LiquidationRatio:          (*math.HexOrDecimal256)(math.MustParseBig256("1_800_000_000_000_000_000")),
 		MinCollateralizationRatio: (*math.HexOrDecimal256)(math.MustParseBig256("2_000_000_000_000_000_000")),
 		MinDebtRequirement:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000")),
@@ -442,6 +443,7 @@ func (acu *AcuContractGenesis) SetDefaults() {
 
 type StabilizationContractGenesis struct {
 	BorrowInterestRate        *math.HexOrDecimal256
+	AnnouncementWindow        *math.HexOrDecimal256
 	LiquidationRatio          *math.HexOrDecimal256
 	MinCollateralizationRatio *math.HexOrDecimal256
 	MinDebtRequirement        *math.HexOrDecimal256
@@ -451,6 +453,9 @@ type StabilizationContractGenesis struct {
 func (s *StabilizationContractGenesis) SetDefaults() {
 	if s.BorrowInterestRate == nil {
 		s.BorrowInterestRate = DefaultStabilizationGenesis.BorrowInterestRate
+	}
+	if s.AnnouncementWindow == nil {
+		s.AnnouncementWindow = DefaultStabilizationGenesis.AnnouncementWindow
 	}
 	if s.LiquidationRatio == nil {
 		s.LiquidationRatio = DefaultStabilizationGenesis.LiquidationRatio
