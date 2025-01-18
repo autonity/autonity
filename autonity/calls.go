@@ -314,6 +314,7 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			LatencyContract:                params.LatencyContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     genesisConfig.Operator,
