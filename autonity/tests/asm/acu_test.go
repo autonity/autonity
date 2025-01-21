@@ -19,6 +19,9 @@ const BigFloatPrecision = 256 // will allow full representation of the solidity 
 func newFloat(value *big.Int) *big.Float {
 	return new(big.Float).SetPrec(BigFloatPrecision).SetInt(value)
 }
+func newFloat0() *big.Float {
+	return new(big.Float).SetPrec(BigFloatPrecision).SetInt(big.NewInt(0))
+}
 
 func TestACUConstructor(t *testing.T) {
 	setup := func() *tests.Runner {

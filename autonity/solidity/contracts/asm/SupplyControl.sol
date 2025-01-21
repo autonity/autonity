@@ -13,7 +13,7 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
-import {ISupplyControl} from "./ISupplyControl.sol";
+import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
 import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM Supply Control Contract Implementation
