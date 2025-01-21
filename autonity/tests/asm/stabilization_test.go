@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ALTree/bigfloat"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/autonity/tests"
@@ -12,13 +13,17 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-var e18 = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-var e12 = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
+var (
+	e18              = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	e12              = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
+	GoFloatPrecision = uint(100)
+)
 
 // newtonPrice = 1234567 * 10^12 = 1.234567 * 10^18
 var newtonPrice = new(big.Int).Mul(big.NewInt(1234567), e12)
 var basicConfig = tests.IStabilizationConfig{
 	BorrowInterestRate:        new(big.Int).Div(e18, big.NewInt(2)),
+	AnnouncementWindow:        big.NewInt(30),
 	LiquidationRatio:          new(big.Int).Mul(big.NewInt(15), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil)),
 	MinCollateralizationRatio: new(big.Int).Mul(big.NewInt(25), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil)),
 	MinDebtRequirement:        new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil),
@@ -35,6 +40,7 @@ func TestStabilizationConstructor(t *testing.T) {
 			nil,
 			tests.IStabilizationConfig{
 				BorrowInterestRate:        basicConfig.BorrowInterestRate,
+				AnnouncementWindow:        basicConfig.AnnouncementWindow,
 				LiquidationRatio:          basicConfig.LiquidationRatio,
 				MinCollateralizationRatio: big.NewInt(0),
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
@@ -57,6 +63,7 @@ func TestStabilizationConstructor(t *testing.T) {
 			nil,
 			tests.IStabilizationConfig{
 				BorrowInterestRate:        basicConfig.BorrowInterestRate,
+				AnnouncementWindow:        basicConfig.AnnouncementWindow,
 				LiquidationRatio:          e18,
 				MinCollateralizationRatio: e18,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
@@ -77,6 +84,7 @@ func TestStabilizationConstructor(t *testing.T) {
 			nil,
 			tests.IStabilizationConfig{
 				BorrowInterestRate:        basicConfig.BorrowInterestRate,
+				AnnouncementWindow:        basicConfig.AnnouncementWindow,
 				LiquidationRatio:          new(big.Int).Add(basicConfig.MinCollateralizationRatio, big.NewInt(1)),
 				MinCollateralizationRatio: basicConfig.MinCollateralizationRatio,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
@@ -91,6 +99,28 @@ func TestStabilizationConstructor(t *testing.T) {
 			r.Autonity.Address(),
 		)
 		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
+	})
+
+	tests.RunWithSetup("Test constructor zero announcement window", setup, func(r *tests.Runner) {
+		_, _, _, err := r.DeployStabilization(
+			nil,
+			tests.IStabilizationConfig{
+				BorrowInterestRate:        basicConfig.BorrowInterestRate,
+				AnnouncementWindow:        common.Big0,
+				LiquidationRatio:          basicConfig.LiquidationRatio,
+				MinCollateralizationRatio: basicConfig.MinCollateralizationRatio,
+				MinDebtRequirement:        basicConfig.MinDebtRequirement,
+				TargetPrice:               basicConfig.TargetPrice,
+			},
+			common.Address{},
+			common.Address{},
+			common.Address{},
+			common.Address{},
+			common.Address{},
+			common.Address{},
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: announcement window cannot be zero", err.Error())
 	})
 }
 
@@ -879,7 +909,9 @@ func TestStabilizationCalculations(t *testing.T) {
 			tEnd := tc[3]
 			expected := tc[4]
 
-			actual, _, err := r.Stabilization.InterestDue(nil, principal, rate, tStart, tEnd)
+			rateExponent, _, err := r.Stabilization.InterestExponent(nil, rate, tStart, tEnd)
+			require.NoError(t, err)
+			actual, _, err := r.Stabilization.InterestDue(nil, principal, rateExponent)
 			require.NoError(t, err)
 			require.Equal(t, expected.String(), actual.String())
 
@@ -928,7 +960,445 @@ func TestStabilizationOnlyAutonityFunctions(t *testing.T) {
 	})
 }
 
+func TestInterestCalculation(t *testing.T) {
+	user := tests.User
+	depositAmmount := new(big.Int).Mul(
+		big.NewInt(1000_000),
+		e18,
+	)
+
+	borrowAmount := new(big.Int).Div(
+		e18,
+		big.NewInt(100),
+	)
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		r.NoError(
+			r.Stabilization.SetAtnSupplyOperator(
+				r.Operator,
+				user,
+			),
+		)
+		setBasicConfig(r)
+		r.NoError(
+			r.Stabilization.SetMinDebtRequirement(
+				r.Operator,
+				common.Big0,
+			),
+		)
+		primeOracle(r, []string{"NTN-ATN"}, []*big.Int{newtonPrice})
+		r.GiveMeSomeMoney(user, new(big.Int).Mul(e18, big.NewInt(100)))
+		_, err := r.Autonity.Mint(r.Operator, user, depositAmmount)
+		require.NoError(t, err)
+
+		// approve stabilization
+		_, err = r.Autonity.Approve(tests.FromSender(user, nil), r.Stabilization.Address(), depositAmmount)
+		require.NoError(t, err)
+
+		deposit(r, user, depositAmmount)
+		borrow(r, user, borrowAmount)
+		return r
+	}
+
+	year := params.SecondsInYear
+
+	tests.RunWithSetup("0 rate", setup, func(r *tests.Runner) {
+		progressTime(r, year)
+		require.Equal(r.T, borrowAmount, getDebt(r, user))
+	})
+
+	tests.RunWithSetup("single positive rate", setup, func(r *tests.Runner) {
+		rateActive := r.Evm.Context.Time
+		r.NoError(
+			r.Stabilization.RemoveCDPRestrictions(r.Operator),
+		)
+		currentRate := getCurrentRate(r)
+		require.True(r.T, currentRate.Cmp(common.Big0) > 0)
+		progressTime(r, year)
+		debt := calculateDebt(r, borrowAmount, common.Big0, []interestRateParam{
+			{
+				rate:      currentRate,
+				startTime: rateActive,
+				endTime:   r.Evm.Context.Time,
+			},
+		})
+		require.Equal(r.T, debt, getDebt(r, user))
+	})
+
+	tests.RunWithSetup("multiple rate", setup, func(r *tests.Runner) {
+		rateActive := r.Evm.Context.Time
+		r.NoError(
+			r.Stabilization.RemoveCDPRestrictions(r.Operator),
+		)
+		firstRate := getCurrentRate(r)
+		progressTime(r, year)
+
+		rates := []interestRateParam{
+			{
+				rate:    common.Big0,
+				endTime: big.NewInt(2 * year),
+			},
+			{
+				rate: new(big.Int).Div(
+					new(big.Int).Mul(e18, big.NewInt(5)),
+					big.NewInt(100),
+				), // 5%
+				endTime: big.NewInt(year / 2),
+			},
+			{
+				rate: new(big.Int).Div(
+					new(big.Int).Mul(e18, big.NewInt(5)),
+					big.NewInt(1000),
+				), // 0.5%
+				endTime: big.NewInt(5 * year),
+			},
+			{
+				rate: new(big.Int).Div(
+					new(big.Int).Mul(e18, big.NewInt(1)),
+					big.NewInt(100),
+				), // 1%
+				endTime: big.NewInt(3 * year),
+			},
+		}
+
+		// apply the rates
+		window := getAnnouncementWindow(r)
+		for i, rate := range rates {
+			rates[i].startTime = new(big.Int).Add(window, r.Evm.Context.Time)
+			if i > 0 {
+				rates[i-1].endTime = rates[i].startTime
+			}
+			r.NoError(
+				r.Stabilization.UpdateBorrowInterestRate(
+					r.Operator,
+					rate.rate,
+				),
+			)
+			progressTime(r, window.Int64())
+			progressTime(r, rate.endTime.Int64())
+		}
+		rates[len(rates)-1].endTime = r.Evm.Context.Time
+		// include the first one
+		rates = append(
+			[]interestRateParam{
+				{
+					rate:      firstRate,
+					startTime: rateActive,
+					endTime:   rates[0].startTime,
+				},
+			},
+			rates...,
+		)
+
+		debt := calculateDebt(r, borrowAmount, common.Big0, rates)
+		require.Equal(r.T, debt, getDebt(r, user))
+	})
+
+	tests.RunWithSetup("single rate with fractional window", setup, func(r *tests.Runner) {
+		rateActive := r.Evm.Context.Time
+		r.NoError(
+			r.Stabilization.RemoveCDPRestrictions(r.Operator),
+		)
+		progressTime(r, 2*year)
+		rate := getCurrentRate(r)
+		debt := calculateDebt(r, borrowAmount, common.Big0, []interestRateParam{{
+			rate:      rate,
+			startTime: rateActive,
+			endTime:   r.Evm.Context.Time,
+		}})
+
+		rateActive = r.Evm.Context.Time
+		borrow(r, user, borrowAmount)
+		debt = new(big.Int).Add(debt, borrowAmount)
+		cdp := getCdp(r, user)
+		require.Equal(r.T, debt, new(big.Int).Add(cdp.Interest, cdp.Principal))
+
+		progressTime(r, 3*year)
+		debt = calculateDebt(r, debt, common.Big0, []interestRateParam{{
+			rate:      rate,
+			startTime: rateActive,
+			endTime:   r.Evm.Context.Time,
+		}})
+		require.Equal(r.T, debt, getDebt(r, user))
+	})
+
+	tests.RunWithSetup("multiple rates with fractional window", setup, func(r *tests.Runner) {
+		rateActive := r.Evm.Context.Time
+		r.NoError(
+			r.Stabilization.RemoveCDPRestrictions(r.Operator),
+		)
+		rates := []interestRateParam{
+			{
+				rate:      getCurrentRate(r),
+				startTime: rateActive,
+				endTime:   big.NewInt(year), // duration for now
+			},
+			{
+				rate:    common.Big0,
+				endTime: big.NewInt(2 * year),
+			},
+			{
+				rate: new(big.Int).Div(
+					new(big.Int).Mul(e18, big.NewInt(5)),
+					big.NewInt(100),
+				), // 5%
+				endTime: big.NewInt(year / 2),
+			},
+			{
+				rate: new(big.Int).Div(
+					new(big.Int).Mul(e18, big.NewInt(5)),
+					big.NewInt(1000),
+				), // 0.5%
+				endTime: big.NewInt(5 * year),
+			},
+			{
+				rate: new(big.Int).Div(
+					new(big.Int).Mul(e18, big.NewInt(1)),
+					big.NewInt(100),
+				), // 1%
+				endTime: big.NewInt(3 * year),
+			},
+		}
+
+		window := getAnnouncementWindow(r)
+		debt := borrowAmount
+		debtUpdateTime := common.Big0
+		for i, rate := range rates {
+			rateDuration := rate.endTime
+			if i > 0 {
+				rates[i].startTime = new(big.Int).Add(r.Evm.Context.Time, window)
+				rates[i-1].endTime = rates[i].startTime
+				r.NoError(
+					r.Stabilization.UpdateBorrowInterestRate(
+						r.Operator,
+						rate.rate,
+					),
+				)
+				// let it be active
+				progressTime(r, window.Int64())
+			}
+
+			progressTime(r, rateDuration.Int64())
+			rates[i].endTime = r.Evm.Context.Time
+			debt = calculateDebt(r, debt, debtUpdateTime, rates[:i+1])
+
+			debtUpdateTime = r.Evm.Context.Time
+			borrow(r, user, borrowAmount)
+			debt = new(big.Int).Add(debt, borrowAmount)
+			cdp := getCdp(r, user)
+			require.Equal(r.T, debt, new(big.Int).Add(cdp.Principal, cdp.Interest))
+			progressTime(r, rateDuration.Int64()-window.Int64())
+		}
+
+		rates[len(rates)-1].endTime = r.Evm.Context.Time
+		require.Equal(
+			r.T,
+			calculateDebt(r, debt, debtUpdateTime, rates),
+			getDebt(r, user),
+		)
+	})
+}
+
+func TestUpdateBorrowInterestRate(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("cannot update borrow interest rate until cdp restriction removed", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateBorrowInterestRate(
+			r.Operator,
+			common.Big2,
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+	})
+
+	newSetup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		r.NoError(
+			r.Stabilization.RemoveCDPRestrictions(r.Operator),
+		)
+		return r
+	}
+
+	tests.RunWithSetup("onply operator can update borrow interest rate", newSetup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateBorrowInterestRate(
+			nil,
+			common.Big1,
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+
+		_, err = r.Stabilization.UpdateBorrowInterestRate(
+			tests.FromSender(tests.User, nil),
+			common.Big1,
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+	})
+
+	tests.RunWithSetup("updated interest rate activates after window time", newSetup, func(r *tests.Runner) {
+		window := getAnnouncementWindow(r)
+		activeSince := new(big.Int).Add(
+			window,
+			r.Evm.Context.Time,
+		)
+		currentRate := getCurrentRate(r)
+		newRate := common.Big2
+		require.NotEqual(r.T, newRate, currentRate, "cannot test")
+		r.NoError(
+			r.Stabilization.UpdateBorrowInterestRate(
+				r.Operator,
+				newRate,
+			),
+		)
+		require.Equal(r.T, currentRate, getCurrentRate(r))
+		pendingRateInfo, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, newRate, pendingRateInfo.PendingRate)
+		require.Equal(r.T, activeSince, pendingRateInfo.ActiveSince)
+		progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64())
+		require.Equal(r.T, newRate, getCurrentRate(r))
+	})
+
+	tests.RunWithSetup("pending rate is overridden by new rate", newSetup, func(r *tests.Runner) {
+		window := getAnnouncementWindow(r)
+		currentRate := getCurrentRate(r)
+		newRate := common.Big2
+		require.NotEqual(r.T, newRate, currentRate, "cannot test")
+		r.NoError(
+			r.Stabilization.UpdateBorrowInterestRate(
+				r.Operator,
+				newRate,
+			),
+		)
+
+		pendingRateInfo, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
+		require.NoError(r.T, err)
+		progressTime(r, new(big.Int).Sub(pendingRateInfo.ActiveSince, r.Evm.Context.Time).Int64()-1)
+		// not updated yet
+		require.Equal(r.T, currentRate, getCurrentRate(r))
+		newRate2 := common.Big1
+		require.NotEqual(r.T, newRate2, currentRate, "cannot test")
+		activeSince := new(big.Int).Add(window, r.Evm.Context.Time)
+		r.NoError(
+			r.Stabilization.UpdateBorrowInterestRate(
+				r.Operator,
+				newRate2,
+			),
+		)
+		pendingRateInfo, _, err = r.Stabilization.GetPendingInterestRateInfo(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, newRate2, pendingRateInfo.PendingRate)
+		require.Equal(r.T, activeSince, pendingRateInfo.ActiveSince)
+	})
+}
+
+func TestUpdateAnnouncementWindow(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("only operator can update announcement window", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateAnnouncementWindow(nil, common.Big1)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+
+		_, err = r.Stabilization.UpdateAnnouncementWindow(
+			tests.FromSender(tests.User, nil),
+			common.Big1,
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+	})
+
+	tests.RunWithSetup("window cannot be zero", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateAnnouncementWindow(r.Operator, common.Big0)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: announcement window cannot be zero", err.Error())
+	})
+
+	tests.RunWithSetup("pending window takes affect after current window", setup, func(r *tests.Runner) {
+		testWindowUpdate := func(newWindow *big.Int) {
+			currentWindow := getAnnouncementWindow(r)
+			activeSince := new(big.Int).Add(r.Evm.Context.Time, currentWindow)
+			r.NoError(
+				r.Stabilization.UpdateAnnouncementWindow(
+					r.Operator,
+					newWindow,
+				),
+			)
+			pendingWindowInfo, _, err := r.Stabilization.GetPendingAnnouncementWindowInfo(nil)
+			require.NoError(r.T, err)
+			require.Equal(r.T, newWindow, pendingWindowInfo.PendingAnnouncementWindow)
+			require.Equal(r.T, activeSince, pendingWindowInfo.ActiveSince)
+			progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64()-1)
+			require.Equal(r.T, currentWindow, getAnnouncementWindow(r))
+			progressTime(r, 1)
+			require.Equal(r.T, newWindow, getAnnouncementWindow(r))
+		}
+
+		testWindowUpdate(new(big.Int).Add(getAnnouncementWindow(r), common.Big1))
+		testWindowUpdate(new(big.Int).Sub(getAnnouncementWindow(r), common.Big1))
+	})
+
+	tests.RunWithSetup("cannot update window while there is a pending one", setup, func(r *tests.Runner) {
+		currentWindow := getAnnouncementWindow(r)
+		activeSince := new(big.Int).Add(r.Evm.Context.Time, currentWindow)
+		r.NoError(
+			r.Stabilization.UpdateAnnouncementWindow(
+				r.Operator,
+				currentWindow,
+			),
+		)
+		// no update is allowed
+		_, err := r.Stabilization.UpdateAnnouncementWindow(
+			r.Operator,
+			currentWindow,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: announcement window update already in pending", err.Error())
+		progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64()-1)
+		_, err = r.Stabilization.UpdateAnnouncementWindow(
+			r.Operator,
+			currentWindow,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: announcement window update already in pending", err.Error())
+
+		progressTime(r, 1)
+		// update is allowed
+		r.NoError(
+			r.Stabilization.UpdateAnnouncementWindow(
+				r.Operator,
+				currentWindow,
+			),
+		)
+	})
+}
+
 // test helpers functions
+
+func progressTime(r *tests.Runner, timeToAdd int64) {
+	require.True(r.T, timeToAdd >= 0)
+	r.Evm.Context.Time = new(big.Int).Add(
+		r.Evm.Context.Time,
+		big.NewInt(timeToAdd),
+	)
+}
+
+func getCdp(r *tests.Runner, user common.Address) tests.IStabilizationCDP {
+	cdp, _, err := r.Stabilization.Cdps(nil, user)
+	require.NoError(r.T, err)
+	return cdp
+}
+
+func getAnnouncementWindow(r *tests.Runner) *big.Int {
+	window, _, err := r.Stabilization.GetAnnouncementWindow(nil)
+	require.NoError(r.T, err)
+	return window
+}
+
+func getCurrentRate(r *tests.Runner) *big.Int {
+	currentRate, _, err := r.Stabilization.GetCurrentRate(nil)
+	require.NoError(r.T, err)
+	return currentRate
+}
 
 func deposit(r *tests.Runner, userAccount common.Address, amount *big.Int) {
 	stabilizationBalanceBefore, _, err := r.Autonity.BalanceOf(nil, r.Stabilization.Address())
@@ -948,6 +1418,33 @@ func deposit(r *tests.Runner, userAccount common.Address, amount *big.Int) {
 	require.Equal(r.T, new(big.Int).Add(stabilizationBalanceBefore, amount), stabilizationBalanceAfter)
 }
 
+func borrow(r *tests.Runner, user common.Address, amount *big.Int) {
+	stabilizationBalance := r.GetBalanceOf(r.Stabilization.Address())
+	supplyCOntrollerBalance := r.GetBalanceOf(r.SupplyControl.Address())
+	userBalance := r.GetBalanceOf(user)
+
+	r.NoError(
+		r.Stabilization.Borrow(
+			tests.FromSender(user, common.Big0),
+			amount,
+		),
+	)
+	require.Equal(
+		r.T,
+		new(big.Int).Add(userBalance, amount),
+		r.GetBalanceOf(user),
+	)
+	require.Equal(
+		r.T,
+		amount,
+		new(big.Int).Sub(supplyCOntrollerBalance, r.GetBalanceOf(r.SupplyControl.Address())),
+	)
+	require.True(
+		r.T,
+		r.GetBalanceOf(r.Stabilization.Address()).Cmp(stabilizationBalance) == 0,
+	)
+}
+
 func calcBorrowLimit(r *tests.Runner, userAccount common.Address) *big.Int {
 	cdp, _, err := r.Stabilization.Cdps(nil, userAccount)
 	require.NoError(r.T, err)
@@ -955,6 +1452,12 @@ func calcBorrowLimit(r *tests.Runner, userAccount common.Address) *big.Int {
 	limit, _, err := r.Stabilization.MaxBorrow(nil, cdp.Collateral)
 	require.NoError(r.T, err)
 	return limit
+}
+
+func getDebt(r *tests.Runner, user common.Address) *big.Int {
+	debt, _, err := r.Stabilization.DebtAmount0(nil, user)
+	require.NoError(r.T, err)
+	return debt
 }
 
 func setBasicConfig(r *tests.Runner) {
@@ -1008,4 +1511,93 @@ func primePrices(r *tests.Runner, ntnAtnPrice *big.Int, atnUsdPrice *big.Int) {
 	primeOracle(r, append(symbols, "NTN-ATN", "ATN-USD"), append(prices, ntnAtnPrice, atnUsdPrice))
 	_, err = r.Acu.Update(tests.FromAutonity)
 	require.NoError(r.T, err)
+}
+
+type interestRateParam struct {
+	rate, startTime, endTime *big.Int
+}
+
+func rateExponent(rateParam interestRateParam) *big.Float {
+	return new(big.Float).Quo(
+		new(big.Float).SetPrec(GoFloatPrecision).SetInt(
+			new(big.Int).Mul(
+				rateParam.rate,
+				new(big.Int).Sub(rateParam.endTime, rateParam.startTime),
+			),
+		),
+		new(big.Float).SetPrec(GoFloatPrecision).SetInt64(params.SecondsInYear),
+	)
+}
+
+func calculateDebt(r *tests.Runner, debtInt *big.Int, debtStartTime *big.Int, rates []interestRateParam) *big.Int {
+	// assuming rates are sorted according to their `startTime` in ascending order and we have `endTime[i] = startTime[i+1]`
+	// verify the above assumption
+	for i, rateParam := range rates {
+		require.True(r.T, rateParam.startTime.Cmp(rateParam.endTime) <= 0, "fails", i, rateParam.startTime, rateParam.endTime)
+		if i > 0 {
+			require.True(r.T, rateParam.startTime.Cmp(rates[i-1].endTime) == 0)
+		}
+	}
+
+	e18Float := toBigFloat(e18)
+	debt := toBigFloat(debtInt)
+	// debt = new(big.Float).Quo(
+	// 	debt,
+	// 	e18Float,
+	// )
+	for i, rateParam := range rates {
+		// exclude rates that are not applicable
+		if rateParam.endTime.Cmp(debtStartTime) <= 0 {
+			continue
+		}
+		if rateParam.startTime.Cmp(debtStartTime) < 0 {
+			// the current rate will not be applied fully
+			rt := new(big.Float).Quo(
+				rateExponent(
+					interestRateParam{
+						rate:      rateParam.rate,
+						startTime: debtStartTime,
+						endTime:   rateParam.endTime,
+					},
+				),
+				e18Float,
+			)
+			ert := bigfloat.Exp(
+				rt,
+			)
+			debt = new(big.Float).Mul(
+				debt,
+				ert,
+			)
+			rates = rates[i+1:]
+		} else {
+			rates = rates[i:]
+		}
+		break
+	}
+
+	// apply the rest
+	for _, rateParam := range rates {
+		rt := new(big.Float).Quo(
+			rateExponent(rateParam),
+			e18Float,
+		)
+		ert := bigfloat.Exp(
+			rt,
+		)
+		debt = new(big.Float).Mul(
+			debt,
+			ert,
+		)
+	}
+	// debt = new(big.Float).Mul(
+	// 	debt,
+	// 	e18Float,
+	// )
+	debtInt, _ = debt.Int(nil)
+	return debtInt
+}
+
+func toBigFloat(bInt *big.Int) *big.Float {
+	return new(big.Float).SetPrec(GoFloatPrecision).SetInt(bInt)
 }
