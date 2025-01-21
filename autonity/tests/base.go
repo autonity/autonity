@@ -755,9 +755,9 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	//
 	// Step 12: Latency Contract Deployment
 	//
-	var committee []common.Address
-	for _, v := range autonityGenesis.Validators {
-		committee = append(committee, *v.NodeAddress)
+	committee := make([]common.Address, len(autonityGenesis.Validators))
+	for i, v := range autonityGenesis.Validators {
+		committee[i] = *v.NodeAddress
 	}
 	_, _, r.Latency, err = r.DeployLatency(nil, r.Autonity.address, committee)
 	require.NoError(t, err)
