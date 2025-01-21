@@ -19,14 +19,22 @@ library StabilizationMath {
     │ Auction Calculations │
     └──────────────────────┘
     */
-    function linearIncreaseAuctionAmount(
+
+    // Calculate the amount of collateral that can be received in a debt auction given the auction parameters.
+    // @param startTimestamp The timestamp when the auction started
+    // @param currentTimestamp The current timestamp
+    // @param maximumOffer The maximum amount of collateral that can be received (end of the auction)
+    // @param minimumOffer The minimum amount of collateral that can be received (start of the auction)
+    // @param duration The duration of the auction
+    // @return The amount of collateral to be received
+    function sqrtIncreaseAuctionAmount(
         uint256 startTimestamp,
         uint256 currentTimestamp,
         uint256 maximumOffer,
-        uint256 initialOffer,
+        uint256 minimumOffer,
         uint256 duration
-    ) internal pure returns (uint256){
-        if (currentTimestamp <= startTimestamp) {
+    ) internal pure returns (uint256) {
+        if (currentTimestamp < startTimestamp) {
             return 0;
         }
         uint256 timeDelta = currentTimestamp - startTimestamp;
@@ -35,20 +43,27 @@ library StabilizationMath {
         if (timeDelta >= duration) {
             return maximumOffer;
         }
-
-        // if the auction has been running for less than the auction duration
-        // the collateral receiva
-        return initialOffer + ((maximumOffer - initialOffer) * timeDelta) / duration;
+        UD60x18 t = ud(timeDelta);
+        UD60x18 T = ud(duration);
+        uint256 sqrtTau = t.div(T).sqrt().intoUint256();
+        return maximumOffer - (maximumOffer - minimumOffer) * (SCALE_FACTOR - sqrtTau) / SCALE_FACTOR;
     }
 
+    // Calculates the amount of collateral to be paid in an interest auction given the auction parameters.
+    // @param startTimestamp The timestamp when the auction started
+    // @param currentTimestamp The current timestamp
+    // @param minimumOffer The minimum amount of collateral that can be paid (end of the auction)
+    // @param maximumOffer The initial amount of collateral that can be paid (start of the auction)
+    // @param duration The duration of the auction
+    // @return The amount of collateral to be paid
     function linearDecreaseAuctionAmount(
         uint256 startTimestamp,
         uint256 currentTimestamp,
         uint256 minimumOffer,
-        uint256 initialOffer,
+        uint256 maximumOffer,
         uint256 duration
     ) internal pure returns (uint256){
-        if (currentTimestamp <= startTimestamp) {
+        if (currentTimestamp < startTimestamp) {
             return 0;
         }
         uint256 timeDelta = currentTimestamp - startTimestamp;
@@ -59,8 +74,8 @@ library StabilizationMath {
         }
 
         // if the auction has been running for less than the auction duration
-        // the collateral receiva
-        return initialOffer - ((initialOffer - minimumOffer) * timeDelta) / duration;
+        // the collateral received is a linear function of time
+        return maximumOffer - ((maximumOffer - minimumOffer) * timeDelta) / duration;
     }
 
     /*

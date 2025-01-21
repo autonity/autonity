@@ -16,3 +16,5 @@ error TransferFailed();
 error Unauthorized();
 error ZeroValue();
 error InvalidRound(uint256 round);
+error BidTooLow(uint256 minimumBid, uint256 bid);
+error InvalidAuctionId();
