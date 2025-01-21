@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {IStabilization} from "./IStabilization.sol";
+import {IStabilization} from "./interfaces/IStabilization.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
 import "./lib/StabilizationErrors.sol";
 import {AuctionLib} from "./lib/AuctionLib.sol";
@@ -50,9 +50,22 @@ contract Auctioneer {
         collateralToken = IERC20(collateralToken_);
     }
 
-    function bidDebt(address debtor, uint256 liquidatableRound) external payable {
+    /*
+    ┌────────────────────────┐
+    │ External Functions     │
+    └────────────────────────┘
+    */
+
+    // @notice Place a bid to liquidate a CDP that is undercollateralized
+    // @param debtor The address of the CDP owner
+    // @param liquidatableRound The earliest round in which the CDP was liquidatable
+    // @param ntnAmount The amount of NTN to receive in exchange for paying off the debt
+    // @dev The caller must send the debt amount in ATN (via msg.value), and ntnAmount must be less than or equal to
+    // maxLiquidationReturn for the caller to successfully execute a liquidation.
+    function bidDebt(address debtor, uint256 liquidatableRound, uint256 ntnAmount) external payable {
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
-        if (msg.value < cdp.principal + cdp.interest) {
+        uint256 debtAmount = _stabilization.debtAmount(debtor, block.timestamp);
+        if (msg.value < debtAmount) {
             revert InvalidAmount();
         }
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
@@ -60,46 +73,44 @@ contract Auctioneer {
             revert InvalidRound(liquidatableRound);
         }
 
+        // check if the CDP was liquidatable during the oracle round liquidatableRound
         if (
             !StabilizationMath.underCollateralized(
             cdp.collateral,
             round.price,
-            cdp.principal + cdp.interest,
+            debtAmount,
             _stabilization.config().liquidationRatio)
         ) {
             revert NotLiquidatable();
         }
 
-        uint256 collateralToReceive = StabilizationMath.linearIncreaseAuctionAmount(
-            round.timestamp,
-            block.timestamp,
-            cdp.collateral,
-            _calculateInitialAmount(
-                _stabilization.debtAmount(debtor, block.timestamp),
-                round.price
-            ),
-            config.liquidationAuctionDuration
-        );
+        uint256 maxNtnAmount = maxLiquidationReturn(debtor, liquidatableRound);
 
-        _stabilization.liquidate{value: msg.value}(debtor, collateralToReceive, msg.sender);
-        emit AuctionedDebt(debtor, msg.sender, collateralToReceive, cdp.principal + cdp.interest);
+        if (ntnAmount > maxNtnAmount) {
+            revert BidTooLow(maxNtnAmount, ntnAmount);
+        }
+
+        _stabilization.liquidate{value: msg.value}(debtor, ntnAmount, msg.sender);
+        emit AuctionedDebt(debtor, msg.sender, ntnAmount, debtAmount);
     }
 
-    function bidInterest(uint256 auction) external {
+    // @notice Place a bid on an interest auction
+    // @param auction The ID of the auction
+    // @param ntnAmount The amount of NTN to pay for the interest (must be greater than or equal to minInterestPayment)
+    function bidInterest(uint256 auction, uint256 ntnAmount) external {
         AuctionLib.Auction storage interestAuction = auctions.get(auction);
-        IOracle.RoundData memory round = _oracle.getRoundData(interestAuction.startRound, StabilizationMath.NTN_SYMBOL);
-        uint256 ntnToPay = StabilizationMath.linearDecreaseAuctionAmount(
-            round.timestamp,
-            block.timestamp,
-            0, // TODO: what is a logical minimum ?
-            _calculateInitialCost(interestAuction.amount, round.price),
-            config.interestAuctionDuration
-        );
+        uint256 ntnToPay = minInterestPayment(auction);
+        uint256 atnToReceive = interestAuction.amount;
 
-        if (collateralToken.allowance(msg.sender, address(this)) < ntnToPay) {
+        if (ntnAmount < ntnToPay) {
+            revert BidTooLow(ntnToPay, ntnAmount);
+        }
+
+        if (collateralToken.allowance(msg.sender, address(this)) < ntnAmount) {
             revert InsufficientAllowance();
         }
-        bool success = collateralToken.transferFrom(msg.sender, address(this), ntnToPay);
+
+        bool success = collateralToken.transferFrom(msg.sender, address(this), ntnAmount);
         if (!success) {
             revert TransferFailed();
         }
@@ -107,12 +118,13 @@ contract Auctioneer {
         auctions.remove(auction);
 
         // transfer ATN
-        (bool ok,) = msg.sender.call{value: interestAuction.amount, gas: 2300}("");
+        (bool ok,) = msg.sender.call{value: atnToReceive, gas: 2300}("");
         if (!ok) {
             revert TransferFailed();
         }
 
-        emit AuctionedInterest(msg.sender, interestAuction.amount, ntnToPay);
+        emit AuctionedInterest(msg.sender, atnToReceive, ntnToPay);
+        // ToDo: send the NTN somewhere
     }
 
     /*
@@ -124,7 +136,8 @@ contract Auctioneer {
     function paidInterest() external payable onlyStabilization {
         _pendingAllocatedInterest += msg.value;
         if (_pendingAllocatedInterest >= config.interestAuctionThreshold) {
-            uint256 auction = auctions.push(_pendingAllocatedInterest, _oracle.getRound());
+            uint256 startRound = _oracle.getRound() - 1;
+            uint256 auction = auctions.push(_pendingAllocatedInterest, startRound, block.timestamp);
             emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
             _pendingAllocatedInterest = 0;
         }
@@ -144,26 +157,28 @@ contract Auctioneer {
         return auctions.get(auction);
     }
 
-    function maxLiquidationReturn(address debtor, uint256 liquidatableRound) external view returns (uint256) {
+    function maxLiquidationReturn(address debtor, uint256 liquidatableRound) public view returns (uint256) {
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
-        return StabilizationMath.linearIncreaseAuctionAmount(
+        return StabilizationMath.sqrtIncreaseAuctionAmount(
             round.timestamp,
             block.timestamp,
             cdp.collateral,
-            _calculateInitialAmount(
-                _stabilization.debtAmount(debtor, block.timestamp),
-                round.price
+            _calculateInitialReturn(
+                cdp.collateral
             ),
             config.liquidationAuctionDuration
         );
     }
 
-    function minInterestPayment(uint256 auction) external view returns (uint256) {
+    function minInterestPayment(uint256 auction) public view returns (uint256) {
         AuctionLib.Auction storage interestAuction = auctions.get(auction);
+        if (interestAuction.startTimestamp == 0) {
+            revert InvalidAuctionId();
+        }
         IOracle.RoundData memory round = _oracle.getRoundData(interestAuction.startRound, StabilizationMath.NTN_SYMBOL);
         return StabilizationMath.linearDecreaseAuctionAmount(
-            round.timestamp,
+            interestAuction.startTimestamp,
             block.timestamp,
             0, // TODO: what is a logical minimum ?
             _calculateInitialCost(interestAuction.amount, round.price),
@@ -177,19 +192,18 @@ contract Auctioneer {
     └────────────────────┘
     */
 
-    function _calculateInitialAmount(
-        uint256 debtAmount,
-        uint256 collateralPrice
+    function _calculateInitialReturn(
+        uint256 collateral
     ) internal view returns (uint256) {
-        // TODO(scott): double check this calculation
-        uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();
-        return oracleScaleFactor * debtAmount * StabilizationMath.SCALE_FACTOR / (collateralPrice * config.liquidationAuctionDiscount);
+        uint256 L = _stabilization.config().liquidationRatio;
+        return collateral * StabilizationMath.SCALE_FACTOR / L;
     }
 
     function _calculateInitialCost(uint256 interestAmount, uint256 collateralPrice) internal view returns (uint256) {
         // TODO(scott): double check this calculation
         uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();
-        return (interestAmount * StabilizationMath.SCALE_FACTOR * oracleScaleFactor) / (collateralPrice * config.interestAuctionDiscount);
+        uint256 priceDiscounted = collateralPrice - (collateralPrice * config.interestAuctionDiscount) / StabilizationMath.SCALE_FACTOR;
+        return (interestAmount * oracleScaleFactor) / priceDiscounted;
     }
 }
 

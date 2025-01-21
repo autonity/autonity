@@ -13,7 +13,7 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
-import {IACU} from "./IACU.sol";
+import {IACU} from "./interfaces/IACU.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 
 /// @title ASM ACU Contract

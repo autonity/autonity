@@ -54,11 +54,11 @@ var (
 
 	// ToDo: Add the real default values for the Auctioneer contract
 	DefaultAuctioneerGenesis = &AuctioneerContractGenesis{
-		LiquidationAuctionDuration: big.NewInt(60),                      // 60 blocks
-		LiquidationAuctionDiscount: big.NewInt(500_000_000_000_000_000), // 0.5
+		LiquidationAuctionDuration: big.NewInt(60),                                        // 60 blocks
+		LiquidationAuctionDiscount: new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil), // 0.1
 
 		InterestAuctionDuration:  big.NewInt(60),                                        // 60 blocks
-		InterestAuctionDiscount:  big.NewInt(500_000_000_000_000_000),                   // 0.5
+		InterestAuctionDiscount:  new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil), // 0.1
 		InterestAuctionThreshold: new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil), // 1 ATN
 	}
 

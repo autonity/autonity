@@ -15,12 +15,12 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
-import {IStabilization} from "./IStabilization.sol";
-import {ISupplyControl} from "./ISupplyControl.sol";
+import {IStabilization} from "./interfaces/IStabilization.sol";
+import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
 import "./lib/StabilizationErrors.sol";
-import {IAuctioneer} from "./IAuctioneer.sol";
+import {IAuctioneer} from "./interfaces/IAuctioneer.sol";
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
