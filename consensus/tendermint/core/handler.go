@@ -92,6 +92,8 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveBlock):
 		fallthrough
+	case errors.Is(err, consensus.ErrFutureTimestampBlock):
+		fallthrough
 	case errors.Is(err, consensus.ErrPrunedAncestor):
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
