@@ -126,6 +126,7 @@ type Runner struct {
 	StakeableVestingManager *StakeableVestingManager
 	NonStakeableVesting     *NonStakeableVesting
 	OmissionAccountability  *OmissionAccountability
+	Latency                 *Latency
 
 	Committee Committee   // genesis validators for easy access
 	Operator  *runOptions // operator runOptions for easy access
@@ -565,6 +566,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			LatencyContract:                params.LatencyContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     autonityGenesis.Operator,
@@ -750,6 +752,17 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	require.NoError(t, err)
 	require.Equal(t, r.OmissionAccountability.address, params.OmissionAccountabilityContractAddress)
 
+	//
+	// Step 12: Latency Contract Deployment
+	//
+	var committee []common.Address
+	for _, v := range autonityGenesis.Validators {
+		committee = append(committee, *v.NodeAddress)
+	}
+	_, _, r.Latency, err = r.DeployLatency(nil, r.Autonity.address, committee)
+	require.NoError(t, err)
+	require.Equal(t, r.Latency.address, params.LatencyContractAddress)
+
 	// set protocol contracts
 	r.NoError(
 		r.Autonity.SetAccountabilityContract(r.Operator, r.Accountability.address),
@@ -774,6 +787,9 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	)
 	r.NoError(
 		r.Autonity.SetOmissionAccountabilityContract(r.Operator, r.OmissionAccountability.address),
+	)
+	r.NoError(
+		r.Autonity.SetLatencyContract(r.Operator, r.Latency.address),
 	)
 
 	r.Evm.Context.BlockNumber = common.Big1
