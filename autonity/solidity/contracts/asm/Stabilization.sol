@@ -229,13 +229,9 @@ contract Stabilization is IStabilization {
     function withdraw(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
         CDP storage cdp = _cdps[msg.sender];
         if (amount > cdp.collateral) revert InvalidAmount();
-        _applyInterestRateUpdate();
-        (uint256 debt, ) = _calculateDebtAmount(
+        (uint256 debt, , ) = _calculateDebtAmount(
             cdp,
-            block.timestamp,
-            _aggregatedInterestExponent,
-            _config.borrowInterestRate,
-            _borrowInterestActiveTimestamp
+            block.timestamp
         );
         uint256 price = collateralPrice();
         if (
@@ -270,13 +266,9 @@ contract Stabilization is IStabilization {
     /// @param amount Auton to borrow
     function borrow(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
         CDP storage cdp = _cdps[msg.sender];
-        _applyInterestRateUpdate();
         uint256 debt = _updateDebt(
             cdp,
-            block.timestamp,
-            _aggregatedInterestExponent,
-            _config.borrowInterestRate,
-            _borrowInterestActiveTimestamp
+            block.timestamp
         );
         debt += amount;
         if (debt < _config.minDebtRequirement) revert InvalidDebtPosition();
@@ -306,13 +298,9 @@ contract Stabilization is IStabilization {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = _cdps[msg.sender];
         if (cdp.principal == 0) revert NoDebtPosition();
-        _applyInterestRateUpdate();
         uint256 debt = _updateDebt(
             cdp,
-            block.timestamp,
-            _aggregatedInterestExponent,
-            _config.borrowInterestRate,
-            _borrowInterestActiveTimestamp
+            block.timestamp
         );
         if (
             (msg.value < debt) && (debt - msg.value < _config.minDebtRequirement)
@@ -352,13 +340,9 @@ contract Stabilization is IStabilization {
         CDP storage cdp = _cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
         if (cdp.collateral < collateralSold) revert InvalidAmount();
-        _applyInterestRateUpdate();
-        (uint256 debt, uint256 accrued) = _calculateDebtAmount(
+        (uint256 debt, uint256 accrued, ) = _calculateDebtAmount(
             cdp,
-            block.timestamp,
-            _aggregatedInterestExponent,
-            _config.borrowInterestRate,
-            _borrowInterestActiveTimestamp
+            block.timestamp
         );
         if (
             !StabilizationMath.underCollateralized(
@@ -449,7 +433,7 @@ contract Stabilization is IStabilization {
     }
 
     /**
-     * @notice Updates the borrow interest rate. The new `newInterestRate` will take affect after the `config.announcementWindow` (in seconds).
+     * @notice Updates the borrow interest rate. The new rate `newInterestRate` will take affect after the `config.announcementWindow` (in seconds).
      * @param newInterestRate The new interst rate multiplied by 10**18. If it is 5% then it should be `(5/100)*(10**18) = 50_000_000_000_000_000`
      */
     function updateBorrowInterestRate(uint256 newInterestRate) external restricted onlyOperator {
@@ -471,7 +455,11 @@ contract Stabilization is IStabilization {
         emit InterestRateUpdateAnnounced(newInterestRate, _pendingRateUpdateTimestamp, pendingRateExist);
     }
 
-    function updateRateAnnouncementWindow(uint256 window) external onlyOperator {
+    /**
+     * @notice Updates the announcement window. The new window `window` will take affect after the `config.announcementWindow` (in seconds).
+     * It requires that there is no announcement window in pending.
+     */
+    function updateAnnouncementWindow(uint256 window) external onlyOperator {
         require(window > 0, "announcement window cannot be zero");
         _updateAnnouncementWindow();
         require(_pendingAnnouncementWindow == 0, "announcement window update already in pending");
@@ -543,18 +531,10 @@ contract Stabilization is IStabilization {
         address account,
         uint timestamp
     ) external view goodTime(account, timestamp) returns (uint256 debt) {
-        (
-            uint256 aggregatedInterestExponent,
-            uint256 currentRate,
-            uint256 currentRateActiveTimestamp
-        ) = _calculateAggregatedInterestExponent(timestamp);
         CDP storage cdp = _cdps[account];
-        (debt, ) = _calculateDebtAmount(
+        (debt, , ) = _calculateDebtAmount(
             cdp,
-            timestamp,
-            aggregatedInterestExponent,
-            currentRate,
-            currentRateActiveTimestamp
+            timestamp
         );
     }
 
@@ -562,19 +542,10 @@ contract Stabilization is IStabilization {
     /// @param account The CDP account address
     /// @return Whether the CDP is liquidatable
     function isLiquidatable(address account) external view returns (bool) {
-        uint256 timestamp = block.timestamp;
-        (
-            uint256 aggregatedInterestExponent,
-            uint256 currentRate,
-            uint256 currentRateActiveTimestamp
-        ) = _calculateAggregatedInterestExponent(timestamp);
         CDP storage cdp = _cdps[account];
-        (uint256 debt, ) = _calculateDebtAmount(
+        (uint256 debt, , ) = _calculateDebtAmount(
             cdp,
-            timestamp,
-            aggregatedInterestExponent,
-            currentRate,
-            currentRateActiveTimestamp
+            block.timestamp
         );
         return
             StabilizationMath.underCollateralized(
@@ -666,14 +637,44 @@ contract Stabilization is IStabilization {
      * @notice Get aggregated interest exponent which is the summation of all interest rate multiplied by their respective time window (in years).
      */
     function getAggregatedInterestExponent() public view returns (uint256) {
-        return _aggregatedInterestExponent;
+        return _calculateAggregatedInterestExponent(block.timestamp);
     }
 
     /**
-     * @notice Get the timestamp since when the current rate = `_config.borrowInterestRate` is active.
+     * @notice Get the timestamp since when the current rate is active.
      */
     function getCurrentRateActiveTimestamp() public view returns (uint256) {
+        if (_pendingRateUpdateTimestamp > 0 && _pendingRateUpdateTimestamp <= block.timestamp) {
+            return _pendingRateUpdateTimestamp;
+        }
         return _borrowInterestActiveTimestamp;
+    }
+
+    /**
+     * @notice Get the active current rate.
+     */
+    function getCurrentRate() public view returns (uint256) {
+        if (_pendingRateUpdateTimestamp > 0 && _pendingRateUpdateTimestamp <= block.timestamp) {
+            return _pendingBorrowInterestRate;
+        }
+        return _config.borrowInterestRate;
+    }
+
+    /**
+     * @notice Get the pending announcement window and since when it will be active.
+     */
+    function getPendingAnnouncementWindowInfo() public view returns (uint256 pendingAnnouncementWindow, uint256 activeSince) {
+        return (_pendingAnnouncementWindow, _pendingAnnouncementUpdateTimestamp);
+    }
+
+    /**
+     * @notice Get the announcement window in seconds.
+     */
+    function getAnnouncementWindow() public view returns (uint256) {
+        if (_pendingAnnouncementUpdateTimestamp > 0 && _pendingAnnouncementUpdateTimestamp <= block.timestamp) {
+            return _pendingAnnouncementWindow;
+        }
+        return _config.announcementWindow;
     }
 
     /*
@@ -740,30 +741,19 @@ contract Stabilization is IStabilization {
 
     function _calculateDebtAmount(
         CDP storage cdp,
-        uint timestamp,
-        uint aggregatedInterestExponent,
-        uint currentRate,
-        uint currentRateActiveTimestamp
-    ) internal view returns (uint256 total, uint256 accrued) {
+        uint timestamp
+    ) internal view returns (uint256 total, uint256 accrued, uint256 totalExponent) {
         if (timestamp == 0) revert InvalidParameter();
         uint256 debt = cdp.principal + cdp.interest;
+        totalExponent = _calculateAggregatedInterestExponent(timestamp);
         if (debt == 0) {
-            return (0,0);
+            return (0, 0, totalExponent);
         }
         if (timestamp == cdp.timestamp) accrued = 0;
         else {
-            if (currentRateActiveTimestamp < cdp.timestamp) {
-                currentRateActiveTimestamp = cdp.timestamp;
-            }
-
-            // The `currentRate` is not included in `aggregatedInterestExponent` as its timewindow is not finished yet.
             accrued = StabilizationMath.interestDue(
                 debt,
-                aggregatedInterestExponent - cdp.lastAggregatedInterestExponent + StabilizationMath.interestExponent(
-                    currentRate,
-                    currentRateActiveTimestamp,
-                    timestamp
-                )
+                totalExponent - cdp.lastAggregatedInterestExponent
             );
         }
         total = debt + accrued;
@@ -771,20 +761,13 @@ contract Stabilization is IStabilization {
 
     function _updateDebt(
         CDP storage cdp,
-        uint timestamp,
-        uint aggregatedInterestExponent,
-        uint currentRate,
-        uint currentRateActiveTimestamp
+        uint timestamp
     ) internal returns (uint256 total) {
         uint256 accrued;
-        (total, accrued) = _calculateDebtAmount(
+        (total, accrued, cdp.lastAggregatedInterestExponent) = _calculateDebtAmount(
             cdp,
-            timestamp,
-            aggregatedInterestExponent,
-            currentRate,
-            currentRateActiveTimestamp
+            timestamp
         );
-        cdp.lastAggregatedInterestExponent = aggregatedInterestExponent;
         cdp.interest += accrued;
         cdp.timestamp = timestamp;
     }
@@ -812,52 +795,59 @@ contract Stabilization is IStabilization {
     }
 
     function _applyInterestRateUpdate() internal {
-        (
-            _aggregatedInterestExponent,
-            _config.borrowInterestRate,
-            _borrowInterestActiveTimestamp
-        ) = _calculateAggregatedInterestExponent(block.timestamp);
-        if (_pendingRateUpdateTimestamp == _borrowInterestActiveTimestamp) {
+        uint256 timestamp = block.timestamp;
+        uint256 totalExponent = _calculateAggregatedInterestExponent(timestamp);
+        if (_pendingRateUpdateTimestamp > 0 && _pendingRateUpdateTimestamp <= timestamp) {
+            _config.borrowInterestRate = _pendingBorrowInterestRate;
+            _borrowInterestActiveTimestamp = _pendingRateUpdateTimestamp;
             // pending rate is moved to `config.borrowInterestRate`
             // clear some storage
             _pendingRateUpdateTimestamp = 0;
             _pendingBorrowInterestRate = 0;
         }
+        // `_aggregatedInterestExponent` stores aggregated interest exponent until `_borrowInterestActiveTimestamp`.
+        // But `totalExponent` stores total exponent until `timestamp` which needs to be subtracted.
+        _aggregatedInterestExponent = totalExponent - StabilizationMath.interestExponent(
+            _config.borrowInterestRate,
+            _borrowInterestActiveTimestamp,
+            timestamp
+        );
     }
 
     /**
-     * @dev Calculates the aggregated interest exponent which is the summation of all interest rates multiplied
-     * by their respective time window until `timestamp`. The last active interest rate before `timestamp` is not
-     * included in the aggregation since the last rate is still active and its time window is not finished yet.
+     * @dev Calculates total aggregated interest exponent which is the summation of all interest rates multiplied
+     * by their respective time window until `timestamp`.
      * @return aggregatedInterestExponent aggregated interest exponent
-     * @return currentRate current active interest rate
-     * @return currentRateActiveTimestamp timestamp since current interest rate is active
      */
-    function _calculateAggregatedInterestExponent(uint256 timestamp) internal view returns (
-        uint256 aggregatedInterestExponent,
-        uint256 currentRate,
-        uint256 currentRateActiveTimestamp
-    ) {
-        aggregatedInterestExponent = _aggregatedInterestExponent;
-        currentRate = _config.borrowInterestRate;
-        currentRateActiveTimestamp = _borrowInterestActiveTimestamp;
+    function _calculateAggregatedInterestExponent(uint256 timestamp) internal view returns (uint256) {
+        uint256 aggregatedInterestExponent = _aggregatedInterestExponent;
+        uint256 currentRate = _config.borrowInterestRate;
+        uint256 currentRateActiveTimestamp = _borrowInterestActiveTimestamp;
+        // the following condition is enforces because `_aggregatedInterestExponent` state
+        // variable stores the aggregated interest until `_borrowInterestActiveTimestamp`
         require(
             timestamp >= currentRateActiveTimestamp,
             "cannot calculate aggregation before current interest rate active time"
         );
 
-        uint256 lastRateActiveTimestamp = _pendingRateUpdateTimestamp;
-        if (lastRateActiveTimestamp > 0 && lastRateActiveTimestamp <= timestamp) {
+        uint256 pendingRateActiveTimestamp = _pendingRateUpdateTimestamp;
+        if (pendingRateActiveTimestamp > 0 && pendingRateActiveTimestamp <= timestamp) {
             // add the `currentRate` multiplied by its time window to the aggregation
             aggregatedInterestExponent += StabilizationMath.interestExponent(
                 currentRate,
                 currentRateActiveTimestamp,
-                lastRateActiveTimestamp
+                pendingRateActiveTimestamp
             );
             // update the `currentRate`
             currentRate = _pendingBorrowInterestRate;
-            currentRateActiveTimestamp = lastRateActiveTimestamp;
+            currentRateActiveTimestamp = pendingRateActiveTimestamp;
         }
+
+        return aggregatedInterestExponent + StabilizationMath.interestExponent(
+            currentRate,
+            currentRateActiveTimestamp,
+            timestamp
+        );
     }
 }
 /* solhint-enable not-rely-on-time */
