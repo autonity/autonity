@@ -292,14 +292,6 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
-func TestEmptyWorkTendermint(t *testing.T) {
-	evMux := new(event.TypeMux)
-	memDB := rawdb.NewMemoryDatabase()
-	msgStore := tendermintcore.NewMsgStore()
-	testEmptyWork(t, tendermintChainConfig,
-		tendermintBackend.New(memDB, testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, log.Root(), false, accountability.IsHeightExpired),
-		true)
-}
 
 // We're no longer doing empty work with tendermint.
 // It was a functionality made to keep the CPU busy at all time even during the computation of
