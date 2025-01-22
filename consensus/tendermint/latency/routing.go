@@ -74,19 +74,23 @@ func NewRouter(
 	return r
 }
 
+// Route just select recipients from the clusters, it does not do the message sending.
 func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
 	// if not part of the committee return
 	if member := committee.MemberByAddress(from); member == nil {
 		return nil
 	}
+
+	r.clusterLock.RLock()
+	defer r.clusterLock.RUnlock()
+
 	// currently only proposals are routed through clustering
 	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
 	if msg.Code() != message.ProposalCode || r.clusters == nil {
 		return committee.Members
 	}
+
 	// if we are sending the proposal, we should send it to every cluster
-	r.clusterLock.RLock()
-	defer r.clusterLock.RUnlock()
 	var recipients []types.CommitteeMember
 	if from == r.self {
 		for _, addr := range r.clusters.selectK(ClusterRedundancyParameter) {
