@@ -644,9 +644,10 @@ contract Oracle is IOracle {
         }
 
         // TODO: to formal evaluate the correctness of this formula.
-        uint256 _slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
+        // `_diffRatio` is a percentage squared, so dividing it by 10_000
+        uint256 _slashingRate = (uint256(_diffRatio - config.outlierSlashingThreshold) *
                                uint256(_report.confidence) *
-                               config.baseSlashingRate; // some scaling is prob needed here.
+                               config.baseSlashingRate) / 10_000;
 
         // Capped the oracle slashing rate
         if (_slashingRate > ORACLE_SLASHING_RATE_CAP) {
