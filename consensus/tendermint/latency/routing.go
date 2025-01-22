@@ -55,6 +55,9 @@ type Router struct {
 	curEpochInfo      *types.EpochInfo
 	measurementWindow uint64
 	measured          bool
+
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func NewRouter(
@@ -104,15 +107,17 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return recipients
 }
 
-func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
+func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	reportEventSub, err := chain.ProtocolContracts().Latency.WatchReported(nil, r.reportedEventChan, nil)
 	if err != nil {
-		return err
+		log.Error("Error starting reported event subscription", "err", err)
+		return
 	}
 
 	curEpoch, err := chain.LatestEpoch()
 	if err != nil {
-		return err
+		log.Error("Error fetching latest epoch", "err", err)
+		return
 	}
 	r.curEpochInfo = curEpoch
 	epochPeriod := new(big.Int).Sub(curEpoch.NextEpochBlock, curEpoch.EpochBlock)
@@ -124,20 +129,28 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 	r.contracts = chain.ProtocolContracts()
 	r.reporter, err = NewReporter(chain.Config().ChainID, r.nodeKey, r.contracts)
 	if err != nil {
-		return err
+		log.Error("failed to create reporter", "err", err)
+		return
 	}
 	r.self = r.reporter.txOpts.From
 
+	ctx, r.cancel = context.WithCancel(ctx)
+	r.wg.Add(1)
+	go r.loop(ctx)
+}
+
+func (r *Router) loop(ctx context.Context) {
+	defer r.wg.Done()
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case epochEv := <-r.epochEventChan:
 			r.curEpochInfo = &types.EpochInfo{
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
 			}
-			epochPeriod = new(big.Int).Sub(epochEv.Header.Epoch.NextEpochBlock, epochEv.Header.Number)
+			epochPeriod := new(big.Int).Sub(epochEv.Header.Epoch.NextEpochBlock, epochEv.Header.Number)
 			r.measurementWindow = epochPeriod.Uint64() / uint64(r.curEpochInfo.Committee.Len())
 			r.measured = false
 
@@ -162,8 +175,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 			reporterIndex := (height / r.measurementWindow) % uint64(committee.Len())
 			// every validator is assigned with an independent measurement and reporting window.
 			if !r.measured && committee.Members[reporterIndex].Address == r.self {
-				log.Debug("Router: in reporter slot, reporting latency", "height", height, "epoch period",
-					epochPeriod.Uint64(), "reporter idx", reporterIndex, "reporter", r.self)
+				log.Debug("Router: in reporter slot, reporting latency", "height", height, "reporter idx", reporterIndex, "reporter", r.self)
 				if err := r.report(); err != nil {
 					log.Error("failed to report latency", "err", err)
 				} else {
@@ -186,9 +198,11 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) error {
 }
 
 func (r *Router) Stop() {
+	r.cancel()
 	r.reportEventSub.Unsubscribe()
 	r.chainEventSub.Unsubscribe()
 	r.epochEventSub.Unsubscribe()
+	r.wg.Wait()
 }
 
 func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {

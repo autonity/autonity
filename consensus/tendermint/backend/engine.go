@@ -580,10 +580,8 @@ func (sb *Backend) Start(ctx context.Context) error {
 
 	sb.wg.Add(1)
 	go sb.faultyValidatorsWatcher(ctx)
-	sb.wg.Add(1)
-
 	if sb.router != nil {
-		go sb.router.Start(ctx, sb.blockchain)
+		sb.router.Start(ctx, sb.blockchain)
 	}
 
 	// Start Tendermint
