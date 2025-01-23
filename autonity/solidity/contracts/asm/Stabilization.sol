@@ -316,7 +316,8 @@ contract Stabilization is IStabilization {
         ) revert NotLiquidatable();
 
         if (msg.value < debt) revert InsufficientPayment();
-        _supplyControl.burn{value: cdp.principal}();
+        _supplyControl.burn{value: debt - accrued}();
+        IAuctioneer(_auctioneer).paidInterest{value: accrued}();
 
         uint surplus = msg.value - debt;
 
@@ -495,7 +496,6 @@ contract Stabilization is IStabilization {
             _config.liquidationRatio
         );
         return borrowLimit > debtLimit ? debtLimit : borrowLimit;
-
     }
 
     /// Price the Collateral Token in Auton.
