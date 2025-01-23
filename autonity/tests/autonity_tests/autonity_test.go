@@ -1,6 +1,7 @@
 package autonitytests
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -146,4 +147,47 @@ func TestDuplicateOracleAddress(t *testing.T) {
 			),
 		)
 	})
+}
+
+func TestFinalize(t *testing.T) {
+	r := tests.Setup(t, nil)
+	delegatorCount := 5000
+	fmt.Printf("delegating from %v separate delegators to a single validator in each epoch\n", delegatorCount)
+	steps := 10
+	bond := big.NewInt(10)
+	totalBond := new(big.Int).Mul(
+		bond,
+		big.NewInt(int64(steps)),
+	)
+	rewards := big.NewInt(int64(10 * delegatorCount))
+	delegators := make([]common.Address, delegatorCount)
+	for i := 1; i <= delegatorCount; i++ {
+		delegators[i-1] = common.BytesToAddress([]byte{byte(i)})
+	}
+
+	for _, delegator := range delegators {
+		r.NoError(
+			r.Autonity.Mint(
+				r.Operator,
+				delegator,
+				totalBond,
+			),
+		)
+	}
+
+	validator := r.Committee.Validators[0].NodeAddress
+	for e := 0; e < steps; e++ {
+		for _, delegator := range delegators {
+			r.NoError(
+				r.Autonity.Bond(
+					tests.FromSender(delegator, nil),
+					validator,
+					bond,
+				),
+			)
+		}
+		fmt.Printf("at epoch %v :\n", e)
+		r.GiveMeSomeMoney(r.Autonity.Address(), rewards)
+		r.WaitNextEpoch()
+	}
 }

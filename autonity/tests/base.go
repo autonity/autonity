@@ -333,7 +333,9 @@ func (r *Runner) FinalizeBlock() {
 	// other stuff. Left as todo.
 	epochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
-	_, err = r.Autonity.Finalize(&runOptions{origin: common.Address{}})
+	currentTime := time.Now()
+	gas, err := r.Autonity.Finalize(&runOptions{origin: common.Address{}})
+	timeTaken := time.Since(currentTime)
 	// consider monitoring gas cost here and fail if it's too much
 	require.NoError(r.T, err, "finalize function error in block", r.Evm.Context.BlockNumber)
 	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
@@ -345,6 +347,8 @@ func (r *Runner) FinalizeBlock() {
 	newEpochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(r.T, err)
 	if newEpochID.Cmp(epochID) != 0 {
+		fmt.Printf("\tgas used in finalize at block %v : %v\n", r.Evm.Context.BlockNumber, gas)
+		fmt.Printf("\ttime taken %v\n", timeTaken)
 		r.generateNewCommittee()
 	}
 }
