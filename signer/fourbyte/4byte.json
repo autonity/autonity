@@ -193,5 +193,7 @@
   "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)",
   "840c7e24": "cdps(address)",
   "4914c008": "liquidate(address,uint256,address)",
-  "50bf06bf": "debtAmount(address,uint256)"
+  "50bf06bf": "debtAmount(address,uint256)",
+  "3fa4f245": "value()",
+  "683dd191": "scaleFactor()"
 }

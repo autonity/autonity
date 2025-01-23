@@ -20,6 +20,7 @@ contract Auctioneer {
         uint256 interestAuctionThreshold; // in ATN
     }
 
+    // Events
     event AuctionedDebt(address indexed debtor, address indexed biddor, uint256 collateralAmount, uint256 debtAmount);
     event AuctionedInterest(address indexed biddor, uint256 interestAmount, uint256 paymentAmount);
     event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
@@ -35,7 +36,6 @@ contract Auctioneer {
     uint256 internal _pendingAllocatedInterest;
 
     // Modifiers
-
     modifier onlyStabilization() {
         if (msg.sender != address(_stabilization)) {
             revert Unauthorized();
@@ -64,13 +64,14 @@ contract Auctioneer {
     // maxLiquidationReturn for the caller to successfully execute a liquidation.
     function bidDebt(address debtor, uint256 liquidatableRound, uint256 ntnAmount) external payable {
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
-        uint256 debtAmount = _stabilization.debtAmount(debtor, block.timestamp);
-        if (msg.value < debtAmount) {
-            revert InvalidAmount();
-        }
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
         if (round.timestamp < cdp.timestamp) {
             revert InvalidRound(liquidatableRound);
+        }
+
+        uint256 debtAmount = _stabilization.debtAmount(debtor, block.timestamp);
+        if (msg.value < debtAmount) {
+            revert InvalidAmount();
         }
 
         // check if the CDP was liquidatable during the oracle round liquidatableRound
@@ -78,10 +79,10 @@ contract Auctioneer {
             !StabilizationMath.underCollateralized(
             cdp.collateral,
             round.price,
-            debtAmount,
+            _stabilization.debtAmount(debtor, round.timestamp),
             _stabilization.config().liquidationRatio)
         ) {
-            revert NotLiquidatable();
+            revert InvalidRound(liquidatableRound);
         }
 
         uint256 maxNtnAmount = maxLiquidationReturn(debtor, liquidatableRound);
@@ -90,8 +91,11 @@ contract Auctioneer {
             revert BidTooLow(maxNtnAmount, ntnAmount);
         }
 
-        _stabilization.liquidate{value: msg.value}(debtor, ntnAmount, msg.sender);
-        emit AuctionedDebt(debtor, msg.sender, ntnAmount, debtAmount);
+        try _stabilization.liquidate{value: msg.value}(debtor, ntnAmount, msg.sender) {
+            emit AuctionedDebt(debtor, msg.sender, msg.value, debtAmount);
+        } catch {
+            revert NotLiquidatable();
+        }
     }
 
     // @notice Place a bid on an interest auction
@@ -164,9 +168,7 @@ contract Auctioneer {
             round.timestamp,
             block.timestamp,
             cdp.collateral,
-            _calculateInitialReturn(
-                cdp.collateral
-            ),
+            _stabilization.config().liquidationRatio,
             config.liquidationAuctionDuration
         );
     }
@@ -191,14 +193,6 @@ contract Auctioneer {
     │ Internal Functions │
     └────────────────────┘
     */
-
-    function _calculateInitialReturn(
-        uint256 collateral
-    ) internal view returns (uint256) {
-        uint256 L = _stabilization.config().liquidationRatio;
-        return collateral * StabilizationMath.SCALE_FACTOR / L;
-    }
-
     function _calculateInitialCost(uint256 interestAmount, uint256 collateralPrice) internal view returns (uint256) {
         // TODO(scott): double check this calculation
         uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();

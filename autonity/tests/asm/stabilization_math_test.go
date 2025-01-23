@@ -2,6 +2,7 @@ package asm
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,22 +22,22 @@ func TestAuctionAmounts(t *testing.T) {
 		return r
 	}
 
-	tests.RunWithSetup("Sqrt increase auction amount performs correctly", setup, func(r *tests.Runner) {
+	tests.RunWithSetup("sqrt increase auction amount performs correctly", setup, func(r *tests.Runner) {
 		duration := big.NewInt(1000)
-		maxAmount := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-		minAmount := new(big.Int).Div(maxAmount, big.NewInt(2))
+		collateral := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+		liquidationRatio := toBase("1.5", 18)
 
-		// function is max - (max-min)*(1 - sqrt(currentTime - startTime)/sqrt(duration))
+		// function is C/(1 - (L-1)*(1 - sqrt((currentTime - startTime)/duration)))
 		expected := map[string]*big.Int{
-			"0":    minAmount, // 0.5
-			"50":   toBase("0.611803398874989485", 18),
-			"100":  toBase("0.658113883008418967", 18),
-			"200":  toBase("0.723606797749978970", 18),
-			"500":  toBase("0.853553390593273762", 18),
-			"800":  toBase("0.947213595499957939", 18),
-			"900":  toBase("0.974341649025256900", 18),
-			"1000": maxAmount, // 1.0
-			"1500": maxAmount, // 1.0 stays at max amount
+			"0":    toBase("0.666666666666666666", 18), // C/L
+			"50":   toBase("0.720359060949715970", 18),
+			"100":  toBase("0.745219722700413018", 18),
+			"200":  toBase("0.783457635340899531", 18),
+			"500":  toBase("0.872260419102717064", 18),
+			"800":  toBase("0.949860290487784360", 18),
+			"900":  toBase("0.974983530382842913", 18),
+			"1000": collateral, // 1.0
+			"1500": collateral, // 1.0 stays at max amount
 		}
 
 		for at, expectedAmount := range expected {
@@ -45,22 +46,60 @@ func TestAuctionAmounts(t *testing.T) {
 				nil,
 				common.Big0, // start time
 				currentTime, // current time
-				maxAmount,
-				minAmount,
+				collateral,
+				liquidationRatio,
 				duration,
 			)
 			require.NoError(t, err)
 			require.Equal(t, expectedAmount, result)
 		}
+	})
 
+	tests.RunWithSetup("linear decrease auction amount performs correctly", setup, func(r *tests.Runner) {
+		duration := big.NewInt(1000)
+		maximumOffer := toBase("2.0", 18)
+		minimumOffer := big.NewInt(0)
+
+		// function is max - (max - min) * (currentTime - startTime) / duration
+		expected := map[string]*big.Int{
+			"0":    maximumOffer,
+			"50":   toBase("1.900000000000000000", 18),
+			"100":  toBase("1.800000000000000000", 18),
+			"200":  toBase("1.600000000000000000", 18),
+			"533":  toBase("0.934000000000000000", 18),
+			"800":  toBase("0.400000000000000000", 18),
+			"900":  toBase("0.200000000000000000", 18),
+			"1000": minimumOffer, // 1.0
+			"1500": minimumOffer, // 1.0 stays at max amount
+		}
+
+		for at, expectedAmount := range expected {
+			currentTime, _ := new(big.Int).SetString(at, 10)
+			result, _, err := stabilizationMath.LinearDecreaseAuctionAmount(
+				nil,
+				common.Big0, // start time
+				currentTime, // current time
+				minimumOffer,
+				maximumOffer,
+				duration,
+			)
+			require.NoError(t, err)
+			require.Equal(t, expectedAmount.String(), result.String())
+		}
 	})
 }
 
 func toBase(s string, decimals int64) *big.Int {
-	f, _, _ := new(big.Float).Parse(s, 10)
-	result, _ := new(big.Float).Mul(
-		f,
-		new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals), nil)),
-	).Int(nil)
+	parts := strings.Split(s, ".")
+	before := parts[0]
+	after := ""
+	if len(parts) > 1 {
+		after = parts[1]
+	}
+	combined := before + after
+	result := new(big.Int)
+	result.SetString(combined, 10)
+	exp := new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals-int64(len(after))), nil)
+	result.Mul(result, exp)
 	return result
 }
