@@ -54,8 +54,7 @@ var (
 
 	// ToDo: Add the real default values for the Auctioneer contract
 	DefaultAuctioneerGenesis = &AuctioneerContractGenesis{
-		LiquidationAuctionDuration: big.NewInt(60),                                        // 60 blocks
-		LiquidationAuctionDiscount: new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil), // 0.1
+		LiquidationAuctionDuration: big.NewInt(60), // 60 blocks
 
 		InterestAuctionDuration:  big.NewInt(60),                                        // 60 blocks
 		InterestAuctionDiscount:  new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil), // 0.1
@@ -469,19 +468,14 @@ func (s *StabilizationContractGenesis) SetDefaults() {
 
 type AuctioneerContractGenesis struct {
 	LiquidationAuctionDuration *big.Int
-	LiquidationAuctionDiscount *big.Int // value between [0,1) with SCALE_FACTOR precision
-
-	InterestAuctionDuration  *big.Int
-	InterestAuctionDiscount  *big.Int // value between [0,1) with SCALE_FACTOR precision
-	InterestAuctionThreshold *big.Int // in ATN
+	InterestAuctionDuration    *big.Int
+	InterestAuctionDiscount    *big.Int // value between [0,1) with SCALE_FACTOR precision
+	InterestAuctionThreshold   *big.Int // in ATN
 }
 
 func (a *AuctioneerContractGenesis) SetDefaults() {
 	if a.LiquidationAuctionDuration == nil {
 		a.LiquidationAuctionDuration = DefaultAuctioneerGenesis.LiquidationAuctionDuration
-	}
-	if a.LiquidationAuctionDiscount == nil {
-		a.LiquidationAuctionDiscount = DefaultAuctioneerGenesis.LiquidationAuctionDiscount
 	}
 	if a.InterestAuctionDuration == nil {
 		a.InterestAuctionDuration = DefaultAuctioneerGenesis.InterestAuctionDuration

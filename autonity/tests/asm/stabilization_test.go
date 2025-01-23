@@ -482,10 +482,13 @@ func TestStabilizationRepay(t *testing.T) {
 		require.NoError(t, err)
 		deposit(r, userAccount, totalDeposit)
 
+		borrowLimit, _, err := r.Stabilization.MaxBorrow(nil, totalDeposit)
+		require.NoError(t, err)
+
 		// borrow
 		r.NoError(r.Stabilization.Borrow(
 			tests.FromSender(userAccount, nil),
-			new(big.Int).Div(calcBorrowLimit(r, userAccount), big.NewInt(2)),
+			new(big.Int).Div(borrowLimit, big.NewInt(2)),
 		))
 
 		r.WaitNBlocks(1) // add block after borrow
@@ -497,7 +500,7 @@ func TestStabilizationRepay(t *testing.T) {
 		require.ErrorAs(r.T, err, &tests.StabilizationZeroValueError{})
 	})
 
-	tests.RunWithSetup("Test repay invalid position", setup, func(r *tests.Runner) {
+	tests.RunWithSetup("Test repay to below minimum debt requirement", setup, func(r *tests.Runner) {
 		timestamp := new(big.Int).Set(r.Evm.Context.Time)
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
@@ -578,6 +581,149 @@ func TestStabilizationRepay(t *testing.T) {
 		require.Equal(t, debtAmount, new(big.Int).Sub(balanceBefore, balanceAfter))
 
 		// ToDo(scott): verify repay events
+	})
+
+	tests.RunWithSetup("Test repay interest forwarded to auctioneer", setup, func(r *tests.Runner) {
+		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		require.NoError(t, err)
+
+		cdp, _, err := r.Stabilization.Cdps(nil, userAccount)
+		require.NoError(t, err)
+
+		interest := new(big.Int).Sub(debtAmount, cdp.Principal)
+		require.True(t, interest.Cmp(common.Big0) > 0)
+
+		auctioneerBalanceBefore := r.GetBalanceOf(r.Auctioneer.Address())
+
+		r.NoError(r.Stabilization.Repay(tests.FromSender(userAccount, interest)))
+
+		auctioneerBalanceAfter := r.GetBalanceOf(r.Auctioneer.Address())
+
+		require.Equal(t, interest, new(big.Int).Sub(auctioneerBalanceAfter, auctioneerBalanceBefore))
+	})
+
+}
+
+func TestStabilizationLiquidate(t *testing.T) {
+	userAccount := testrand.Address()
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		setBasicConfig(r)
+		primePrices(r, newtonPrice, toBase("0.97", 18))
+
+		fundedAmount := new(big.Int).Mul(e18, big.NewInt(100))
+		totalDeposit := new(big.Int).Div(fundedAmount, big.NewInt(10))
+
+		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
+		_, err := r.Autonity.Mint(r.Operator, userAccount, fundedAmount)
+		require.NoError(t, err)
+
+		// approve stabilization
+		_, err = r.Autonity.Approve(tests.FromSender(userAccount, nil), r.Stabilization.Address(), fundedAmount)
+		require.NoError(t, err)
+
+		// remove cdp restrictions for this teat
+		_, err = r.Stabilization.RemoveCDPRestrictions(r.Operator)
+		require.NoError(t, err)
+		deposit(r, userAccount, totalDeposit)
+
+		borrowLimit := calcBorrowLimit(r, userAccount)
+		r.NoError(r.Stabilization.Borrow(tests.FromSender(userAccount, nil), borrowLimit))
+
+		return r
+	}
+
+	tests.RunWithSetup("Test liquidate can only be called by auctioneer", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.Liquidate(
+			tests.FromSender(testrand.Address(), nil),
+			testrand.Address(),
+			common.Big1,
+			testrand.Address(),
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+	})
+
+	tests.RunWithSetup("Test liquidate returns overpayment to bidder", setup, func(r *tests.Runner) {
+		r.WaitNBlocks(10) // interest accrual should make the cdp liquidatable
+
+		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, userAccount)
+		require.NoError(t, err)
+		require.True(t, liquidatable)
+		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		require.NoError(t, err)
+
+		liquidator := testrand.Address()
+		overpay := new(big.Int).Mul(debtAmount, big.NewInt(2))
+
+		r.GiveMeSomeMoney(r.Auctioneer.Address(), overpay)
+
+		liquidatorBalanceBefore := r.GetBalanceOf(liquidator)
+
+		_, err = r.Stabilization.Liquidate(
+			tests.FromSender(r.Auctioneer.Address(), overpay),
+			userAccount,
+			big.NewInt(1000),
+			liquidator,
+		)
+		require.NoError(t, err)
+
+		liquidatorBalanceAfter := r.GetBalanceOf(liquidator)
+
+		require.Equal(t, new(big.Int).Sub(overpay, debtAmount), new(big.Int).Sub(liquidatorBalanceAfter, liquidatorBalanceBefore))
+	})
+
+	tests.RunWithSetup("Test liquidate reduces debt by full amount", setup, func(r *tests.Runner) {
+		r.WaitNBlocks(10) // interest accrual should make the cdp liquidatable
+
+		cdpBefore, _, err := r.Stabilization.Cdps(nil, userAccount)
+		require.NoError(t, err)
+		collateralBefore := cdpBefore.Collateral
+
+		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, userAccount)
+		require.NoError(t, err)
+		require.True(t, liquidatable)
+
+		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		require.NoError(t, err)
+
+		liquidator := testrand.Address()
+		r.GiveMeSomeMoney(r.Auctioneer.Address(), debtAmount)
+
+		// not liquidating full collateral
+		collateralAmount := big.NewInt(1000)
+
+		r.NoError(r.Stabilization.Liquidate(
+			tests.FromSender(r.Auctioneer.Address(), debtAmount),
+			userAccount,
+			collateralAmount,
+			liquidator,
+		))
+
+		cdp, _, err := r.Stabilization.Cdps(nil, userAccount)
+		collateralAfter := cdp.Collateral
+
+		require.NoError(t, err)
+		require.Equal(t, int64(0), cdp.Principal.Int64())
+		require.Equal(t, uint64(0), cdp.Interest.Uint64())
+		require.Equal(t, new(big.Int).Sub(collateralBefore, collateralAmount), collateralAfter)
+	})
+
+	tests.RunWithSetup("Test liquidate cannot be called on a non-liquidatable cdp", setup, func(r *tests.Runner) {
+		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, userAccount)
+		require.NoError(t, err)
+		require.False(t, liquidatable)
+
+		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		require.NoError(t, err)
+		r.GiveMeSomeMoney(r.Auctioneer.Address(), debtAmount)
+
+		_, err = r.Stabilization.Liquidate(
+			tests.FromSender(r.Auctioneer.Address(), debtAmount),
+			userAccount,
+			common.Big1,
+			testrand.Address(),
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationNotLiquidatableError{})
 	})
 }
 
