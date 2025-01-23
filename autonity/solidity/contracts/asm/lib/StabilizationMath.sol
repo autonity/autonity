@@ -181,6 +181,10 @@ library StabilizationMath {
     │ Utilities │
     └───────────┘
     */
+
+    /// Scale a value to SCALE_FACTOR.
+    /// @param value The value to scale
+    /// @param valueScaleFactor The scale factor of the value
     function toScaleFactor(uint256 value, uint256 valueScaleFactor) internal pure returns (uint256) {
         return (value * SCALE_FACTOR) / valueScaleFactor;
     }

@@ -2,22 +2,23 @@
 
 pragma solidity ^0.8.19;
 
-import "./liquid/LiquidState.sol";
-import "./Upgradeable.sol";
-import "./lib/Precompiled.sol";
 import "./Helpers.sol";
-import "./UpgradeManager.sol";
-import "./lib/BytesLib.sol";
-import "./asm/interfaces/IACU.sol";
-import "./asm/interfaces/ISupplyControl.sol";
-import "./asm/interfaces/IStabilization.sol";
-import "./interfaces/IAccountability.sol";
-import "./interfaces/IOmissionAccountability.sol";
-import "./interfaces/IOracle.sol";
-import "./interfaces/IAutonity.sol";
-import "./interfaces/IInflationController.sol";
 import "./ReentrancyGuard.sol";
 import "./ScheduleController.sol";
+import "./UpgradeManager.sol";
+import "./Upgradeable.sol";
+import "./asm/interfaces/IACU.sol";
+import "./asm/interfaces/IAuctioneer.sol";
+import "./asm/interfaces/IStabilization.sol";
+import "./asm/interfaces/ISupplyControl.sol";
+import "./interfaces/IAccountability.sol";
+import "./interfaces/IAutonity.sol";
+import "./interfaces/IInflationController.sol";
+import "./interfaces/IOmissionAccountability.sol";
+import "./interfaces/IOracle.sol";
+import "./lib/BytesLib.sol";
+import "./lib/Precompiled.sol";
+import "./liquid/LiquidState.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
 
@@ -119,6 +120,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
         IOmissionAccountability omissionAccountabilityContract;
+        IAuctioneer auctioneerContract;
     }
 
     struct Policy {
@@ -616,6 +618,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.stabilizationContract.setOperator(_account);
         config.contracts.upgradeManagerContract.setOperator(_account);
         config.contracts.omissionAccountabilityContract.setOperator(_account);
+        config.contracts.auctioneerContract.setOperator(_account);
     }
 
     /*

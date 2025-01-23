@@ -195,5 +195,6 @@
   "4914c008": "liquidate(address,uint256,address)",
   "50bf06bf": "debtAmount(address,uint256)",
   "3fa4f245": "value()",
-  "683dd191": "scaleFactor()"
+  "683dd191": "scaleFactor()",
+  "96e4547c": "paidInterest()"
 }
