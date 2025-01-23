@@ -306,9 +306,9 @@ jobs:
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
-      - name: Install dependencies
-        run: make test-contracts-asm-pre
       # todo: fix this APE framework, tests are failed due to incompatible dependencies.
+      #- name: Install dependencies
+      #  run: make test-contracts-asm-pre
       #- name: run test
         #run: cd ./autonity/solidity && ape --verbosity WARNING test --network ::hardhat ./test/asm/${{ matrix.tests }}
 
