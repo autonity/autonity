@@ -304,7 +304,7 @@ contract Stabilization is IStabilization {
         CDP storage cdp = _cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
         if (cdp.collateral < collateralSold) revert InvalidAmount();
-        (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
+        (uint256 debt, uint256 accrued) = _debtAmount(cdp, block.timestamp);
         if (
             !StabilizationMath.underCollateralized(
                 cdp.collateral,
@@ -315,7 +315,8 @@ contract Stabilization is IStabilization {
         ) revert NotLiquidatable();
 
         if (msg.value < debt) revert InsufficientPayment();
-        _supplyControl.burn{value: cdp.principal}();
+        _supplyControl.burn{value: debt - accrued}();
+        IAuctioneer(_auctioneer).paidInterest{value: accrued}();
 
         uint surplus = msg.value - debt;
 
@@ -494,7 +495,6 @@ contract Stabilization is IStabilization {
             _config.liquidationRatio
         );
         return borrowLimit > debtLimit ? debtLimit : borrowLimit;
-
     }
 
     /// Price the Collateral Token in Auton.
