@@ -163,6 +163,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			AuctioneerContract:             params.AuctioneerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,
@@ -600,7 +601,6 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 	}
 	auctioneerConfig := AuctioneerConfig{
 		LiquidationAuctionDuration: config.ASM.AuctioneerContractConfig.LiquidationAuctionDuration,
-		LiquidationAuctionDiscount: config.ASM.AuctioneerContractConfig.LiquidationAuctionDiscount,
 		InterestAuctionDuration:    config.ASM.AuctioneerContractConfig.InterestAuctionDuration,
 		InterestAuctionDiscount:    config.ASM.AuctioneerContractConfig.InterestAuctionDiscount,
 		InterestAuctionThreshold:   config.ASM.AuctioneerContractConfig.InterestAuctionThreshold,
@@ -614,6 +614,8 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 		params.StabilizationContractAddress,
 		params.OracleContractAddress,
 		params.AutonityContractAddress,
+		params.AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Auctioneer contract: %w", err)
@@ -649,6 +651,7 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			AuctioneerContract:             params.AuctioneerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,

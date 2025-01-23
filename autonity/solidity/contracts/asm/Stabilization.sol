@@ -138,6 +138,8 @@ contract Stabilization is IStabilization {
     /// @param operator Address of the Governance Operator
     /// @param oracle Address of the Oracle Contract
     /// @param supplyControl Address of the SupplyControl Contract
+    /// @param auctioneer Address of the Auctioneer Contract
+    /// @param acu Address of the ACU Contract
     /// @param collateralToken Address of the Collateral Token contract
     constructor(
         Config memory config_,
@@ -486,6 +488,11 @@ contract Stabilization is IStabilization {
         );
     }
 
+    /// Calculate the maximum amount that can be borrowed against the collateral.
+    /// Note that this takes into account the minimum collateralization ratio or
+    /// the max borrow limit, whichever is lower will determine the max borrow
+    /// @param collateral The amount of Collateral Token
+    /// @return The maximum borrow amount
     function maxBorrow(
         uint256 collateral
     ) public view returns (uint256) {
@@ -524,8 +531,7 @@ contract Stabilization is IStabilization {
 
     /// Price Auton in USD
     ///
-    /// Retrieves the Auton price from the Oracle Contract and
-    /// converts it to Auton.
+    /// Retrieves the Auton price from the Oracle Contract
     /// @return price Price of Auton in USD
     /// @dev The function reverts in case the price is invalid or unavailable.
     function debtPrice() public view returns (uint256 price) {
@@ -535,6 +541,12 @@ contract Stabilization is IStabilization {
         price = data.price;
     }
 
+    /// Price the ACU value in USD.
+    ///
+    /// Retrieves the ACU value from the ACU Contract and converts it to have
+    /// StabilizationMath.SCALE_FACTOR precision.
+    /// @return price Price of ACU value
+    /// @dev The function reverts in case the price is invalid or unavailable.
     function acuPrice() public view returns (uint256 price) {
         try IACU(_acu).value() returns (int256 acuValue) {
             return StabilizationMath.toScaleFactor(

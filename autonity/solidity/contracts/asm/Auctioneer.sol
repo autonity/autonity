@@ -12,7 +12,6 @@ contract Auctioneer {
     using AuctionLib for AuctionLib.AuctionSet;
     struct Config {
         uint256 liquidationAuctionDuration;
-        uint256 liquidationAuctionDiscount; // value between [0,1) with SCALE_FACTOR precision
 
         uint256 interestAuctionDuration;
         uint256 interestAuctionDiscount; // value between [0,1) with SCALE_FACTOR precision
@@ -28,9 +27,12 @@ contract Auctioneer {
     // Public state
     Config public config;
     IERC20 public collateralToken;
+    address public proceedAddress;
 
     // Internal state
     IStabilization internal _stabilization;
+    address internal _operator;
+    address internal _autonity;
     IOracle internal _oracle;
     AuctionLib.AuctionSet internal auctions;
     uint256 internal _pendingAllocatedInterest;
@@ -43,11 +45,27 @@ contract Auctioneer {
         _;
     }
 
-    constructor(Config memory config_, address stabilization_, address oracle_, address collateralToken_) {
+    modifier onlyOperator() {
+        if (msg.sender != _operator) {
+            revert Unauthorized();
+        }
+        _;
+    }
+
+    constructor(
+        Config memory config_,
+        address stabilization_,
+        address oracle_,
+        address collateralToken_,
+        address autonity_,
+        address operator_
+    ) {
         config = config_;
         _stabilization = IStabilization(stabilization_);
         _oracle = IOracle(oracle_);
         collateralToken = IERC20(collateralToken_);
+        _autonity = autonity_;
+        _operator = operator_;
     }
 
     /*
@@ -127,8 +145,14 @@ contract Auctioneer {
             revert TransferFailed();
         }
 
+        // if the proceeds address has not been set, the collateral will accumulate in this contract until
+        // the next auction
+        if (proceedAddress != address(0)) {
+            if(!collateralToken.transfer(proceedAddress, collateralToken.balanceOf(address(this)))) {
+                revert TransferFailed();
+            }
+        }
         emit AuctionedInterest(msg.sender, atnToReceive, ntnToPay);
-        // ToDo: send the NTN somewhere
     }
 
     /*
@@ -137,6 +161,8 @@ contract Auctioneer {
     └────────────────────────┘
     */
 
+    // @notice Deposit interest payments into the contract
+    // @dev This function is called by the stabilization mechanism contract
     function paidInterest() external payable onlyStabilization {
         _pendingAllocatedInterest += msg.value;
         if (_pendingAllocatedInterest >= config.interestAuctionThreshold) {
@@ -147,20 +173,94 @@ contract Auctioneer {
         }
     }
 
+    // @notice Set the operator address
+    // @param operator_ The address of the operator
+    function setOperator(address operator_) external {
+        if (msg.sender != _autonity) {
+            revert Unauthorized();
+        }
+        _operator = operator_;
+    }
+
+    // Operator functions
+
+    // @notice Set the oracle address
+    // @param oracle_ The address of the oracle
+    function setOracle(address oracle_) external onlyOperator {
+        _oracle = IOracle(oracle_);
+    }
+
+    // @notice Set the stabilization address
+    // @param stabilization_ The address of the stabilization contract
+    function setStabilization(address stabilization_) external onlyOperator {
+        _stabilization = IStabilization(stabilization_);
+    }
+
+    // @notice Set the liquidation auction duration
+    // @param duration The duration of the liquidation auction
+    function setLiquidationAuctionDuration(uint256 duration) external onlyOperator {
+        if (duration == 0) {
+            revert InvalidParameter();
+        }
+        config.liquidationAuctionDuration = duration;
+    }
+
+    // @notice Set the interest auction duration
+    // @param duration The duration of the interest auction
+    function setInterestAuctionDuration(uint256 duration) external onlyOperator {
+        if (duration == 0) {
+            revert InvalidParameter();
+        }
+        config.interestAuctionDuration = duration;
+    }
+
+    // @notice Set the interest auction discount
+    // @param discount The discount applied to the interest auction
+    // @dev The discount is a value between [0,1) with SCALE_FACTOR precision
+    function setInterestAuctionDiscount(uint256 discount) external onlyOperator {
+        if (discount >= StabilizationMath.SCALE_FACTOR) {
+            revert InvalidParameter();
+        }
+        config.interestAuctionDiscount = discount;
+    }
+
+    // @notice Set the interest auction threshold
+    // @param threshold The threshold for starting an interest auction
+    function setInterestAuctionThreshold(uint256 threshold) external onlyOperator {
+        if (threshold == 0) {
+            revert InvalidParameter();
+        }
+        config.interestAuctionThreshold = threshold;
+    }
+
+    // @notice Set the proceeds address
+    // @param proceedAddress_ The address to send proceeds to
+    function setProceedAddress(address proceedAddress_) external onlyOperator {
+        proceedAddress = proceedAddress_;
+    }
+
+
     /*
     ┌────────────────┐
     │ View Functions │
     └────────────────┘
     */
 
+    // @notice Get all open interest auctions
+    // @return An array of all open interest auctions
     function openAuctions() external view returns (AuctionLib.Auction[] memory) {
         return auctions.values();
     }
 
+    // @notice Get an auction by ID
+    // @param auction The ID of the auction
     function getAuction(uint256 auction) external view returns (AuctionLib.Auction memory) {
         return auctions.get(auction);
     }
 
+    // @notice Get the maximum amount of NTN that can be returned to a liquidator for a given CDP
+    // @param debtor The address of the CDP owner
+    // @param liquidatableRound The earliest round in which the CDP was liquidatable
     function maxLiquidationReturn(address debtor, uint256 liquidatableRound) public view returns (uint256) {
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
@@ -173,6 +273,8 @@ contract Auctioneer {
         );
     }
 
+    // @notice Get the minimum amount of NTN that can be paid for an interest auction
+    // @param auction The ID of the auction
     function minInterestPayment(uint256 auction) public view returns (uint256) {
         AuctionLib.Auction storage interestAuction = auctions.get(auction);
         if (interestAuction.startTimestamp == 0) {
@@ -194,7 +296,6 @@ contract Auctioneer {
     └────────────────────┘
     */
     function _calculateInitialCost(uint256 interestAmount, uint256 collateralPrice) internal view returns (uint256) {
-        // TODO(scott): double check this calculation
         uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();
         uint256 priceDiscounted = collateralPrice - (collateralPrice * config.interestAuctionDiscount) / StabilizationMath.SCALE_FACTOR;
         return (interestAmount * oracleScaleFactor) / priceDiscounted;
