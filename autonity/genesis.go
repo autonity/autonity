@@ -461,6 +461,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 		params.OracleContractAddress,
 		params.SupplyControlContractAddress,
 		params.AuctioneerContractAddress,
+		params.ACUContractAddress,
 		params.AutonityContractAddress,
 	)
 	if err != nil {

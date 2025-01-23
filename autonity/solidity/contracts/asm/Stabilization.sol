@@ -17,6 +17,7 @@ import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IStabilization} from "./interfaces/IStabilization.sol";
 import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
+import {IACU} from "./interfaces/IACU.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
 import "./lib/StabilizationErrors.sol";
@@ -40,6 +41,7 @@ contract Stabilization is IStabilization {
     address private _autonity;
     address private _operator;
     address private _auctioneer;
+    address private _acu;
     IERC20 private _collateralToken;
     IOracle private _oracle;
     ISupplyControl private _supplyControl;
@@ -144,10 +146,11 @@ contract Stabilization is IStabilization {
         address oracle,
         address supplyControl,
         address auctioneer,
+        address acu,
         IERC20 collateralToken
     )
-        positiveMCR(config_.minCollateralizationRatio)
-        validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
+    positiveMCR(config_.minCollateralizationRatio)
+    validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
         _config = config_;
         _autonity = autonity;
@@ -156,6 +159,7 @@ contract Stabilization is IStabilization {
         _supplyControl = ISupplyControl(supplyControl);
         _collateralToken = collateralToken;
         _auctioneer = auctioneer;
+        _acu = acu;
 
         _restricted = true;
         _defaultGenesisBorrowInterestRate = config_.borrowInterestRate;
@@ -196,15 +200,15 @@ contract Stabilization is IStabilization {
     function withdraw(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
         CDP storage cdp = _cdps[msg.sender];
         if (amount > cdp.collateral) revert InvalidAmount();
-        (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
+        (uint256 debt,) = _debtAmount(cdp, block.timestamp);
         uint256 price = collateralPrice();
         if (
             StabilizationMath.underCollateralized(
-                cdp.collateral,
-                price,
-                debt,
-                _config.liquidationRatio
-            )
+            cdp.collateral,
+            price,
+            debt,
+            _config.liquidationRatio
+        )
         ) revert Liquidatable();
         if (
             cdp.collateral - amount <
@@ -236,18 +240,13 @@ contract Stabilization is IStabilization {
         uint256 price = collateralPrice();
         if (
             StabilizationMath.underCollateralized(
-                cdp.collateral,
-                price,
-                debt,
-                _config.liquidationRatio
-            )
-        ) revert Liquidatable();
-        uint256 limit = StabilizationMath.borrowLimit(
             cdp.collateral,
             price,
-            _config.targetPrice,
-            _config.minCollateralizationRatio
-        );
+            debt,
+            _config.liquidationRatio)
+        ) revert Liquidatable();
+
+        uint256 limit = maxBorrow(cdp.collateral);
         if (debt > limit) revert InsufficientCollateral();
 
         cdp.timestamp = block.timestamp;
@@ -311,11 +310,11 @@ contract Stabilization is IStabilization {
         (uint256 debt, uint256 accrued) = _debtAmount(cdp, block.timestamp);
         if (
             !StabilizationMath.underCollateralized(
-                cdp.collateral,
-                collateralPrice(),
-                debt,
-                _config.liquidationRatio
-            )
+            cdp.collateral,
+            collateralPrice(),
+            debt,
+            _config.liquidationRatio
+        )
         ) revert NotLiquidatable();
 
         if (msg.value < debt) revert InsufficientPayment();
@@ -350,9 +349,9 @@ contract Stabilization is IStabilization {
     function setLiquidationRatio(
         uint256 ratio
     )
-        external
-        validRatios(ratio, _config.minCollateralizationRatio)
-        onlyOperator
+    external
+    validRatios(ratio, _config.minCollateralizationRatio)
+    onlyOperator
     {
         _config.liquidationRatio = ratio;
         emit IConfigEvents.ConfigUpdateUint("liquidationRatio", config.liquidationRatio, ratio);
@@ -365,12 +364,7 @@ contract Stabilization is IStabilization {
     /// @dev Restricted to the operator.
     function setMinCollateralizationRatio(
         uint256 ratio
-    )
-        external
-        positiveMCR(ratio)
-        validRatios(_config.liquidationRatio, ratio)
-        onlyOperator
-    {
+    ) external positiveMCR(ratio) validRatios(_config.liquidationRatio, ratio) onlyOperator {
         _config.minCollateralizationRatio = ratio;
         emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", config.minCollateralizationRatio, ratio);
     }
@@ -473,7 +467,7 @@ contract Stabilization is IStabilization {
         uint timestamp
     ) external view goodTime(account, timestamp) returns (uint256 debt) {
         CDP storage cdp = _cdps[account];
-        (debt, ) = _debtAmount(cdp, timestamp);
+        (debt,) = _debtAmount(cdp, timestamp);
     }
 
     /// Determine if the CDP is currently liquidatable.
@@ -481,14 +475,38 @@ contract Stabilization is IStabilization {
     /// @return Whether the CDP is liquidatable
     function isLiquidatable(address account) external view returns (bool) {
         CDP storage cdp = _cdps[account];
-        (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
+        (uint256 debt,) = _debtAmount(cdp, block.timestamp);
         return
             StabilizationMath.underCollateralized(
-                cdp.collateral,
-                collateralPrice(),
-                debt,
-                _config.liquidationRatio
-            );
+            cdp.collateral,
+            collateralPrice(),
+            debt,
+            _config.liquidationRatio
+        );
+    }
+
+    function maxBorrow(
+        uint256 collateral
+    ) public view returns (uint256) {
+        // oracle prices are all 18 decimals, but the acu value is scaled
+        // independently
+
+        uint256 borrowLimit = StabilizationMath.borrowLimit(
+            collateral,
+            collateralPrice(),
+            debtPrice(),
+            _config.targetPrice,
+            acuPrice(),
+            _config.minCollateralizationRatio
+        );
+
+        uint256 debtLimit = StabilizationMath.debtLimit(
+            collateral,
+            collateralPrice(),
+            _config.liquidationRatio
+        );
+        return borrowLimit > debtLimit ? debtLimit : borrowLimit;
+
     }
 
     /// Price the Collateral Token in Auton.
@@ -499,9 +517,33 @@ contract Stabilization is IStabilization {
     /// @dev The function reverts in case the price is invalid or unavailable.
     function collateralPrice() public view returns (uint256 price) {
         IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
-        if (!data.success) revert PriceUnavailable();
+        if (!data.success) revert PriceUnavailable(StabilizationMath.NTN_SYMBOL);
         if (data.price <= 0) revert InvalidPrice();
         price = data.price;
+    }
+
+    /// Price Auton in USD
+    ///
+    /// Retrieves the Auton price from the Oracle Contract and
+    /// converts it to Auton.
+    /// @return price Price of Auton in USD
+    /// @dev The function reverts in case the price is invalid or unavailable.
+    function debtPrice() public view returns (uint256 price) {
+        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.ATN_SYMBOL);
+        if (!data.success) revert PriceUnavailable(StabilizationMath.NTN_SYMBOL);
+        if (data.price <= 0) revert InvalidPrice();
+        price = data.price;
+    }
+
+    function acuPrice() public view returns (uint256 price) {
+        try IACU(_acu).value() returns (int256 acuValue) {
+            return StabilizationMath.toScaleFactor(
+                uint256(acuValue),
+                IACU(_acu).scaleFactor()
+            );
+        } catch {
+            revert PriceUnavailable("ACU");
+        }
     }
 
     /*
@@ -513,11 +555,20 @@ contract Stabilization is IStabilization {
     // ToDo(scott): figure out the best way to avoid this redundancy
     function borrowLimit(
         uint256 collateral,
-        uint256 price,
-        uint256 targetPrice,
+        uint256 collateralPrice,
+        uint256 debtPrice,
+        uint256 targetDebtPrice,
+        uint256 acuPrice,
         uint256 mcr
     ) external pure returns (uint256) {
-        return StabilizationMath.borrowLimit(collateral, price, targetPrice, mcr);
+        return StabilizationMath.borrowLimit(
+            collateral,
+            collateralPrice,
+            debtPrice,
+            targetDebtPrice,
+            acuPrice,
+            mcr
+        );
     }
 
     function minimumCollateral(
@@ -545,7 +596,6 @@ contract Stabilization is IStabilization {
     ) external pure returns (bool) {
         return StabilizationMath.underCollateralized(collateral, price, debt, liquidationRatio);
     }
-
 
     /*
     ┌────────────────────┐
@@ -575,9 +625,9 @@ contract Stabilization is IStabilization {
         CDP storage cdp,
         uint256 amount
     )
-        internal
-        view
-        returns (uint256 interest, uint256 principal, uint256 surplus)
+    internal
+    view
+    returns (uint256 interest, uint256 principal, uint256 surplus)
     {
         uint256 debt = cdp.principal + cdp.interest;
         interest = amount < cdp.interest ? amount : cdp.interest;
