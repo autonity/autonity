@@ -22,7 +22,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 			acn.log.Error("Could not retrieve state at head block", "err", err)
 			return
 		}
-		enodesList, err := acn.chain.ProtocolContracts().CommitteeEnodes(header, state, true)
+		enodesList, err := acn.chain.ProtocolContracts().CallGetCommitteeEnodes(state, header, true)
 		if err != nil {
 			acn.log.Error("Could not retrieve consensus whitelist at head block", "err", err)
 			return
@@ -38,7 +38,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 	if err != nil {
 		panic(err)
 	}
-	epoch, err := acn.chain.ProtocolContracts().EpochByHeight(currentHead, currentState, currentHead.Number)
+	epoch, err := acn.chain.ProtocolContracts().CallEpochByHeight(currentState, currentHead, currentHead.Number)
 	if err != nil {
 		panic(err)
 	}
