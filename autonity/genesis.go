@@ -163,6 +163,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			LatencyContract:                params.LatencyContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,
