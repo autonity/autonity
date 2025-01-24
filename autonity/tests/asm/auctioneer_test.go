@@ -252,7 +252,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 	})
 }
 
-func TestDebtAuction(t *testing.T) {
+func TestAuctioneerDebtAuction(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		_, err := r.Stabilization.RemoveCDPRestrictions(r.Operator)
@@ -618,6 +618,65 @@ func TestDebtAuction(t *testing.T) {
 		require.Equal(t, new(big.Int).Add(balanceBefore, lowBid), balanceAfter)
 		require.Equal(t, new(big.Int).Sub(atnBalanceBefore, debtAmount), atnBalanceAfter)
 	})
+}
+
+func TestAuctioneerSetters(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("Only operator functions", setup, func(r *tests.Runner) {
+		// test setInterestAuctionThreshold
+		_, err := r.Auctioneer.SetInterestAuctionThreshold(r.Operator, big.NewInt(1000))
+		require.NoError(t, err)
+
+		_, err = r.Auctioneer.SetInterestAuctionThreshold(
+			tests.FromSender(testrand.Address(), common.Big0),
+			big.NewInt(1000),
+		)
+		require.ErrorAs(t, err, &tests.AuctioneerUnauthorizedError{})
+
+		// test setInterestAuctionDiscount
+		_, err = r.Auctioneer.SetInterestAuctionDiscount(r.Operator, big.NewInt(1000))
+		require.NoError(t, err)
+
+		_, err = r.Auctioneer.SetInterestAuctionDiscount(
+			tests.FromSender(testrand.Address(), common.Big0),
+			big.NewInt(1000),
+		)
+		require.ErrorAs(t, err, &tests.AuctioneerUnauthorizedError{})
+
+		// test setLiquidationAuctionDuration
+		_, err = r.Auctioneer.SetLiquidationAuctionDuration(r.Operator, big.NewInt(1000))
+		require.NoError(t, err)
+
+		_, err = r.Auctioneer.SetLiquidationAuctionDuration(
+			tests.FromSender(testrand.Address(), common.Big0),
+			big.NewInt(1000),
+		)
+		require.ErrorAs(t, err, &tests.AuctioneerUnauthorizedError{})
+
+		// test setInterestAuctionDuration
+		_, err = r.Auctioneer.SetInterestAuctionDuration(r.Operator, big.NewInt(1000))
+		require.NoError(t, err)
+
+		_, err = r.Auctioneer.SetInterestAuctionDuration(
+			tests.FromSender(testrand.Address(), common.Big0),
+			big.NewInt(1000),
+		)
+		require.ErrorAs(t, err, &tests.AuctioneerUnauthorizedError{})
+
+		// test set proceeds address
+		_, err = r.Auctioneer.SetProceedAddress(r.Operator, testrand.Address())
+		require.NoError(t, err)
+
+		_, err = r.Auctioneer.SetProceedAddress(
+			tests.FromSender(testrand.Address(), common.Big0),
+			testrand.Address(),
+		)
+		require.ErrorAs(t, err, &tests.AuctioneerUnauthorizedError{})
+	})
+
 }
 
 func setupInterestAuction(r *tests.Runner, atnAboveMininum *big.Int) (auctionAmount *big.Int) {
