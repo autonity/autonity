@@ -170,15 +170,16 @@ func TestFinalize(t *testing.T) {
 			r.Autonity.Mint(
 				r.Operator,
 				delegator,
-				totalBond,
+				new(big.Int).Add(common.Big1, totalBond),
 			),
 		)
 	}
 
 	validator := r.Committee.Validators[0].NodeAddress
 	for e := 0; e < steps; e++ {
+		var gasConsumed uint64 = 0
 		for _, delegator := range delegators {
-			r.NoError(
+			gasConsumed += r.NoError(
 				r.Autonity.Bond(
 					tests.FromSender(delegator, nil),
 					validator,
@@ -186,6 +187,7 @@ func TestFinalize(t *testing.T) {
 				),
 			)
 		}
+		fmt.Printf("total gas consumed for %v bonding requests : %v\n", delegatorCount, gasConsumed)
 		fmt.Printf("at epoch %v :\n", e)
 		r.GiveMeSomeMoney(r.Autonity.Address(), rewards)
 		r.WaitNextEpoch()
