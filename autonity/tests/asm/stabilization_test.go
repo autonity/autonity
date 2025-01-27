@@ -14,9 +14,8 @@ import (
 )
 
 var (
-	e18              = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	e12              = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
-	GoFloatPrecision = uint(100)
+	e18 = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+	e12 = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
 )
 
 // newtonPrice = 1234567 * 10^12 = 1.234567 * 10^18
@@ -112,6 +111,7 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
 			},
+			common.Address{},
 			common.Address{},
 			common.Address{},
 			common.Address{},
@@ -1519,13 +1519,13 @@ type interestRateParam struct {
 
 func rateExponent(rateParam interestRateParam) *big.Float {
 	return new(big.Float).Quo(
-		new(big.Float).SetPrec(GoFloatPrecision).SetInt(
+		newFloat(
 			new(big.Int).Mul(
 				rateParam.rate,
 				new(big.Int).Sub(rateParam.endTime, rateParam.startTime),
 			),
 		),
-		new(big.Float).SetPrec(GoFloatPrecision).SetInt64(params.SecondsInYear),
+		new(big.Float).SetPrec(BigFloatPrecision).SetInt64(params.SecondsInYear),
 	)
 }
 
@@ -1539,8 +1539,8 @@ func calculateDebt(r *tests.Runner, debtInt *big.Int, debtStartTime *big.Int, ra
 		}
 	}
 
-	e18Float := toBigFloat(e18)
-	debt := toBigFloat(debtInt)
+	e18Float := newFloat(e18)
+	debt := newFloat(debtInt)
 	// debt = new(big.Float).Quo(
 	// 	debt,
 	// 	e18Float,
@@ -1596,8 +1596,4 @@ func calculateDebt(r *tests.Runner, debtInt *big.Int, debtStartTime *big.Int, ra
 	// )
 	debtInt, _ = debt.Int(nil)
 	return debtInt
-}
-
-func toBigFloat(bInt *big.Int) *big.Float {
-	return new(big.Float).SetPrec(GoFloatPrecision).SetInt(bInt)
 }
