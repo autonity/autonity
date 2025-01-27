@@ -247,7 +247,7 @@ contract Stabilization is IStabilization {
         ) revert Liquidatable();
 
         uint256 limit = maxBorrow(cdp.collateral);
-        if (debt > limit) revert InsufficientCollateral();
+        if (cdp.principal + amount > limit) revert InsufficientCollateral();
 
         cdp.timestamp = block.timestamp;
         cdp.principal += amount;
@@ -318,8 +318,8 @@ contract Stabilization is IStabilization {
         ) revert NotLiquidatable();
 
         if (msg.value < debt) revert InsufficientPayment();
-        _supplyControl.burn{value: debt - accrued}();
-        IAuctioneer(_auctioneer).paidInterest{value: accrued}();
+        _supplyControl.burn{value: cdp.principal}();
+        IAuctioneer(_auctioneer).paidInterest{value: accrued + cdp.interest}();
 
         uint surplus = msg.value - debt;
 
@@ -485,9 +485,6 @@ contract Stabilization is IStabilization {
     function maxBorrow(
         uint256 collateral
     ) public view returns (uint256) {
-        // oracle prices are all 18 decimals, but the acu value is scaled
-        // independently
-
         uint256 borrowLimit = StabilizationMath.borrowLimit(
             collateral,
             collateralPrice(),
