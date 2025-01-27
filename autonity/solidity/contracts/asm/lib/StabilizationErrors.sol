@@ -11,7 +11,7 @@ error InvalidPrice();
 error Liquidatable();
 error NotLiquidatable();
 error NoDebtPosition();
-error PriceUnavailable();
+error PriceUnavailable(string symbol);
 error TransferFailed();
 error Unauthorized();
 error ZeroValue();
