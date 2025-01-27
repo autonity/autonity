@@ -510,7 +510,7 @@ contract Stabilization is IStabilization {
     /// @dev The function reverts in case the price is invalid or unavailable.
     function collateralPrice() public view returns (uint256 price) {
         IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
-        if (!data.success) revert PriceUnavailable();
+        if (!data.success) revert PriceUnavailable(StabilizationMath.NTN_SYMBOL);
         if (data.price <= 0) revert InvalidPrice();
         price = data.price;
     }
@@ -522,7 +522,7 @@ contract Stabilization is IStabilization {
     /// @dev The function reverts in case the price is invalid or unavailable.
     function debtPrice() public view returns (uint256 price) {
         IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.ATN_SYMBOL);
-        if (!data.success) revert PriceUnavailable();
+        if (!data.success) revert PriceUnavailable(StabilizationMath.ATN_SYMBOL);
         if (data.price <= 0) revert InvalidPrice();
         price = data.price;
     }
@@ -540,7 +540,7 @@ contract Stabilization is IStabilization {
                 IACU(_acu).scaleFactor()
             );
         } catch {
-            revert PriceUnavailable();
+            revert PriceUnavailable("ACU-USD");
         }
     }
 
