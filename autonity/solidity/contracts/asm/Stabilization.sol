@@ -180,7 +180,7 @@ contract Stabilization is IStabilization {
     positiveMCR(config_.minCollateralizationRatio)
     validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
-        require(config_.announcementWindow > 0, "announcement window cannot be zero");
+        if (config_.announcementWindow == 0) revert ZeroValue();
         _config = config_;
         _autonity = autonity;
         _operator = operator;
@@ -427,6 +427,7 @@ contract Stabilization is IStabilization {
     /// Transition out of the restricted state.
     /// @dev Restricted to the operator.
     function removeCDPRestrictions() external onlyOperator {
+        if (_restricted == false) revert NotRestricted();
         _restricted = false;
         _config.borrowInterestRate = _defaultGenesisBorrowInterestRate;
         _borrowInterestActiveTimestamp = block.timestamp;
@@ -438,16 +439,11 @@ contract Stabilization is IStabilization {
      */
     function updateBorrowInterestRate(uint256 newInterestRate) external restricted onlyOperator {
         _updateAnnouncementWindow();
+        _applyInterestRateUpdate();
         bool pendingRateExist = false;
         if (_pendingRateUpdateTimestamp > 0) {
-            if (_pendingRateUpdateTimestamp <= block.timestamp) {
-                // apply the pending one
-                _applyInterestRateUpdate();
-            }
-            else {
-                // it exists, cannot be applied and going to be overridden the new one
-                pendingRateExist = true;
-            }
+            // it exists, cannot be applied and going to be overridden the new one
+            pendingRateExist = true;
         }
         _pendingBorrowInterestRate = newInterestRate;
         _pendingRateUpdateTimestamp = block.timestamp + _config.announcementWindow;
@@ -460,9 +456,9 @@ contract Stabilization is IStabilization {
      * It requires that there is no announcement window in pending.
      */
     function updateAnnouncementWindow(uint256 window) external onlyOperator {
-        require(window > 0, "announcement window cannot be zero");
+        if (window == 0) revert ZeroValue();
         _updateAnnouncementWindow();
-        require(_pendingAnnouncementWindow == 0, "announcement window update already in pending");
+        if (_pendingAnnouncementWindow > 0) revert AnnouncementWindowPending();
         _pendingAnnouncementWindow = window;
         _pendingAnnouncementUpdateTimestamp = block.timestamp + _config.announcementWindow;
         emit AnnouncementWindowUpdateAnnounced(window, _pendingAnnouncementUpdateTimestamp);
@@ -626,8 +622,8 @@ contract Stabilization is IStabilization {
 
     /**
      * @notice Get the pending borrow interest rate and since when it will be active.
-     * @param pendingRate The pending rate
-     * @param activeSince The timestamp since it will be active
+     * @return pendingRate The pending rate
+     * @return activeSince The timestamp since it will be active
      */
     function getPendingInterestRateInfo() public view returns (uint256 pendingRate, uint256 activeSince) {
         return (_pendingBorrowInterestRate, _pendingRateUpdateTimestamp);
@@ -662,6 +658,8 @@ contract Stabilization is IStabilization {
 
     /**
      * @notice Get the pending announcement window and since when it will be active.
+     * @return pendingAnnouncementWindow The pending announcement window
+     * @return activeSince The timestamp since the pending announcement window will be active
      */
     function getPendingAnnouncementWindowInfo() public view returns (uint256 pendingAnnouncementWindow, uint256 activeSince) {
         return (_pendingAnnouncementWindow, _pendingAnnouncementUpdateTimestamp);
@@ -795,23 +793,20 @@ contract Stabilization is IStabilization {
     }
 
     function _applyInterestRateUpdate() internal {
-        uint256 timestamp = block.timestamp;
-        uint256 totalExponent = _calculateAggregatedInterestExponent(timestamp);
-        if (_pendingRateUpdateTimestamp > 0 && _pendingRateUpdateTimestamp <= timestamp) {
-            _config.borrowInterestRate = _pendingBorrowInterestRate;
-            _borrowInterestActiveTimestamp = _pendingRateUpdateTimestamp;
-            // pending rate is moved to `config.borrowInterestRate`
-            // clear some storage
-            _pendingRateUpdateTimestamp = 0;
-            _pendingBorrowInterestRate = 0;
+        uint256 pendingRateActiveTimestamp = _pendingRateUpdateTimestamp;
+        if (pendingRateActiveTimestamp == 0 || pendingRateActiveTimestamp > block.timestamp) {
+            return;
         }
-        // `_aggregatedInterestExponent` stores aggregated interest exponent until `_borrowInterestActiveTimestamp`.
-        // But `totalExponent` stores total exponent until `timestamp` which needs to be subtracted.
-        _aggregatedInterestExponent = totalExponent - StabilizationMath.interestExponent(
+        _aggregatedInterestExponent += StabilizationMath.interestExponent(
             _config.borrowInterestRate,
             _borrowInterestActiveTimestamp,
-            timestamp
+            pendingRateActiveTimestamp
         );
+        _config.borrowInterestRate = _pendingBorrowInterestRate;
+        _borrowInterestActiveTimestamp = pendingRateActiveTimestamp;
+        // clear some storage
+        _pendingRateUpdateTimestamp = 0;
+        _pendingBorrowInterestRate = 0;
     }
 
     /**
@@ -825,10 +820,7 @@ contract Stabilization is IStabilization {
         uint256 currentRateActiveTimestamp = _borrowInterestActiveTimestamp;
         // the following condition is enforces because `_aggregatedInterestExponent` state
         // variable stores the aggregated interest until `_borrowInterestActiveTimestamp`
-        require(
-            timestamp >= currentRateActiveTimestamp,
-            "cannot calculate aggregation before current interest rate active time"
-        );
+        if (timestamp < currentRateActiveTimestamp) revert InvalidParameter();
 
         uint256 pendingRateActiveTimestamp = _pendingRateUpdateTimestamp;
         if (pendingRateActiveTimestamp > 0 && pendingRateActiveTimestamp <= timestamp) {

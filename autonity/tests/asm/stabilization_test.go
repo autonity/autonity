@@ -119,8 +119,7 @@ func TestStabilizationConstructor(t *testing.T) {
 			common.Address{},
 			common.Address{},
 		)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: announcement window cannot be zero", err.Error())
+		require.ErrorAs(r.T, err, &tests.StabilizationZeroValueError{})
 	})
 }
 
@@ -986,7 +985,7 @@ func TestInterestCalculation(t *testing.T) {
 				common.Big0,
 			),
 		)
-		primeOracle(r, []string{"NTN-ATN"}, []*big.Int{newtonPrice})
+		primePrices(r, newtonPrice, toBase("0.97", 18))
 		r.GiveMeSomeMoney(user, new(big.Int).Mul(e18, big.NewInt(100)))
 		_, err := r.Autonity.Mint(r.Operator, user, depositAmmount)
 		require.NoError(t, err)
@@ -1309,8 +1308,7 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 
 	tests.RunWithSetup("window cannot be zero", setup, func(r *tests.Runner) {
 		_, err := r.Stabilization.UpdateAnnouncementWindow(r.Operator, common.Big0)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: announcement window cannot be zero", err.Error())
+		require.ErrorAs(r.T, err, &tests.StabilizationZeroValueError{})
 	})
 
 	tests.RunWithSetup("pending window takes affect after current window", setup, func(r *tests.Runner) {
@@ -1351,15 +1349,13 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 			r.Operator,
 			currentWindow,
 		)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: announcement window update already in pending", err.Error())
+		require.ErrorAs(r.T, err, &tests.StabilizationAnnouncementWindowPendingError{})
 		progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64()-1)
 		_, err = r.Stabilization.UpdateAnnouncementWindow(
 			r.Operator,
 			currentWindow,
 		)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: announcement window update already in pending", err.Error())
+		require.ErrorAs(r.T, err, &tests.StabilizationAnnouncementWindowPendingError{})
 
 		progressTime(r, 1)
 		// update is allowed
@@ -1425,7 +1421,7 @@ func borrow(r *tests.Runner, user common.Address, amount *big.Int) {
 
 	r.NoError(
 		r.Stabilization.Borrow(
-			tests.FromSender(user, common.Big0),
+			tests.FromSender(user, nil),
 			amount,
 		),
 	)
