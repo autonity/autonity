@@ -733,54 +733,50 @@ func TestStabilizationCalculations(t *testing.T) {
 	}
 
 	tests.RunWithSetup("Test borrow limit", setup, func(r *tests.Runner) {
-		// borrow limit = (collateral * price / mcr) * (target atn-acu * acu-usd / atn-usd)
+		// borrow limit = (collateral * price / mcr) * (target atn-acu / atn-acu)
 		testCases := [][]*big.Int{
 			{
 				toBase("100", 18),                    // collateral
-				toBase("1.2", 18),                    // price
+				toBase("1.2", 18),                    // price ntn-atn
 				toBase("1.5", 18),                    // mcr
 				toBase("1.23", 18),                   // target price atn-acu
-				toBase("1.7", 18),                    // acu-usd
-				toBase("0.6", 18),                    // atn-usd
-				toBase("278.800000000000000000", 18), // expected
+				toBase("0.9", 18),                    // atn-acu
+				toBase("109.333333333333333333", 18), // expected
 			},
 			{
 				toBase("100", 18),
 				toBase("0.8", 18),
 				toBase("1.5", 18),
 				toBase("1.23", 18),
-				toBase("1.7", 18),
-				toBase("0.6", 18),
-				toBase("185.866666666666666666", 18),
+				toBase("0.9", 18),
+				toBase("72.888888888888888888", 18),
 			},
 			{
 				toBase("100", 18),
 				toBase("1.2", 18),
 				toBase("1.2", 18),
 				toBase("1.23", 18),
-				toBase("1.7", 18),
-				toBase("0.6", 18),
-				toBase("348.5", 18),
+				toBase("0.9", 18),
+				toBase("136.666666666666666666", 18),
 			},
 			{
 				toBase("100", 18),
 				toBase("0.8", 18),
-				toBase("1.2", 18),
+				toBase("1.5", 18),
 				toBase("1.23", 18),
-				toBase("1.7", 18),
-				toBase("0.6", 18),
-				toBase("232.333333333333333333", 18),
+				toBase("1.6", 18),
+				toBase("41.000000000000000000", 18),
 			},
 		}
 
-		calculated := func(collateral, price, mcr, targetAtnACU, acuUSD, atnUSD *big.Int) *big.Int {
+		calculated := func(collateral, price, mcr, targetAtnACU, atnAcu *big.Int) *big.Int {
 			num := newFloat0().Mul(
 				newFloat0().Mul(newFloat(collateral), newFloat(price)),
-				newFloat0().Mul(newFloat(targetAtnACU), newFloat(acuUSD)),
+				newFloat(targetAtnACU),
 			)
 			den := newFloat0().Mul(
-				newFloat0().Mul(newFloat(mcr), newFloat(scaleFactor)),
-				newFloat(atnUSD),
+				newFloat(mcr),
+				newFloat(atnAcu),
 			)
 			result, _ := newFloat0().Quo(num, den).Int(nil)
 			return result
@@ -791,25 +787,23 @@ func TestStabilizationCalculations(t *testing.T) {
 			price := tc[1]
 			mcr := tc[2]
 			targetAtnACU := tc[3]
-			acuUSD := tc[4]
-			atnUSD := tc[5]
+			atnACU := tc[4]
 
-			expected := tc[6]
+			expected := tc[5]
 
 			actual, _, err := r.Stabilization.BorrowLimit(
 				nil,
 				collateral,   // collateral
 				price,        // collateralPrice
-				atnUSD,       // debtPrice
+				atnACU,       // debtPrice
 				targetAtnACU, // targetDebtPrice
-				acuUSD,       // acuPrice
 				mcr,          // mcr
 			)
 			require.NoError(t, err)
 			require.Equal(t, expected, actual)
 
 			// check that the calculated value is the same
-			require.Equal(t, expected, calculated(collateral, price, mcr, targetAtnACU, acuUSD, atnUSD))
+			require.Equal(t, expected, calculated(collateral, price, mcr, targetAtnACU, atnACU))
 		}
 	})
 
