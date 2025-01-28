@@ -45,6 +45,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 
 	committee := epoch.Committee
 	if committee.MemberByAddress(acn.address) != nil { //nolint
+		acn.log.Warn("Validator detected as committee member at startup, connecting to other members")
 		updateConsensusEnodes(currentHead)
 		wasValidating = true
 	}
@@ -65,11 +66,13 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 					// there is no longer the need to retain the full connections and the
 					// consensus engine enabled.
 					if wasValidating {
+						acn.log.Warn("Validator exited committee, disconnecting from committee members")
 						acn.server.UpdateConsensusEnodes(nil, nil)
 						wasValidating = false
 					}
 					continue
 				}
+				acn.log.Warn("Validator detected as committee member, refreshing ACN connections", "wasValidating", wasValidating)
 				updateConsensusEnodes(ev.Header)
 				wasValidating = true
 			// Err() channel will be closed when unsubscribing.
