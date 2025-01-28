@@ -622,10 +622,10 @@ contract Stabilization is IStabilization {
 
     /**
      * @notice Get the pending borrow interest rate and since when it will be active.
-     * @return pendingRate The pending rate
-     * @return activeSince The timestamp since it will be active
+     * @return uint256 The pending rate
+     * @return uint256 The timestamp since it will be active
      */
-    function getPendingInterestRateInfo() public view returns (uint256 pendingRate, uint256 activeSince) {
+    function getPendingInterestRateInfo() public view returns (uint256, uint256) {
         return (_pendingBorrowInterestRate, _pendingRateUpdateTimestamp);
     }
 
@@ -658,10 +658,10 @@ contract Stabilization is IStabilization {
 
     /**
      * @notice Get the pending announcement window and since when it will be active.
-     * @return pendingAnnouncementWindow The pending announcement window
-     * @return activeSince The timestamp since the pending announcement window will be active
+     * @return uint256 The pending announcement window
+     * @return uint256 The timestamp since the pending announcement window will be active
      */
-    function getPendingAnnouncementWindowInfo() public view returns (uint256 pendingAnnouncementWindow, uint256 activeSince) {
+    function getPendingAnnouncementWindowInfo() public view returns (uint256, uint256) {
         return (_pendingAnnouncementWindow, _pendingAnnouncementUpdateTimestamp);
     }
 

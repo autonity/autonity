@@ -1259,7 +1259,7 @@ func TestUpdateBorrowInterestRate(t *testing.T) {
 
 	tests.RunWithSetup("updated interest rate activates after window time", newSetup, func(r *tests.Runner) {
 		window := getAnnouncementWindow(r)
-		activeSince := new(big.Int).Add(
+		realTime := new(big.Int).Add(
 			window,
 			r.Evm.Context.Time,
 		)
@@ -1273,11 +1273,11 @@ func TestUpdateBorrowInterestRate(t *testing.T) {
 			),
 		)
 		require.Equal(r.T, currentRate, getCurrentRate(r))
-		pendingRateInfo, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
+		pendingRate, activeSince, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
 		require.NoError(r.T, err)
-		require.Equal(r.T, newRate, pendingRateInfo.PendingRate)
-		require.Equal(r.T, activeSince, pendingRateInfo.ActiveSince)
-		progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64())
+		require.Equal(r.T, newRate, pendingRate)
+		require.Equal(r.T, realTime, activeSince)
+		progressTime(r, new(big.Int).Sub(realTime, r.Evm.Context.Time).Int64())
 		require.Equal(r.T, newRate, getCurrentRate(r))
 	})
 
@@ -1293,24 +1293,24 @@ func TestUpdateBorrowInterestRate(t *testing.T) {
 			),
 		)
 
-		pendingRateInfo, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
+		_, activeSince, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
 		require.NoError(r.T, err)
-		progressTime(r, new(big.Int).Sub(pendingRateInfo.ActiveSince, r.Evm.Context.Time).Int64()-1)
+		progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64()-1)
 		// not updated yet
 		require.Equal(r.T, currentRate, getCurrentRate(r))
 		newRate2 := common.Big1
 		require.NotEqual(r.T, newRate2, currentRate, "cannot test")
-		activeSince := new(big.Int).Add(window, r.Evm.Context.Time)
+		realTime := new(big.Int).Add(window, r.Evm.Context.Time)
 		r.NoError(
 			r.Stabilization.UpdateBorrowInterestRate(
 				r.Operator,
 				newRate2,
 			),
 		)
-		pendingRateInfo, _, err = r.Stabilization.GetPendingInterestRateInfo(nil)
+		pendingRate, activeSince, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
 		require.NoError(r.T, err)
-		require.Equal(r.T, newRate2, pendingRateInfo.PendingRate)
-		require.Equal(r.T, activeSince, pendingRateInfo.ActiveSince)
+		require.Equal(r.T, newRate2, pendingRate)
+		require.Equal(r.T, realTime, activeSince)
 	})
 }
 
@@ -1338,18 +1338,18 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 	tests.RunWithSetup("pending window takes affect after current window", setup, func(r *tests.Runner) {
 		testWindowUpdate := func(newWindow *big.Int) {
 			currentWindow := getAnnouncementWindow(r)
-			activeSince := new(big.Int).Add(r.Evm.Context.Time, currentWindow)
+			realTime := new(big.Int).Add(r.Evm.Context.Time, currentWindow)
 			r.NoError(
 				r.Stabilization.UpdateAnnouncementWindow(
 					r.Operator,
 					newWindow,
 				),
 			)
-			pendingWindowInfo, _, err := r.Stabilization.GetPendingAnnouncementWindowInfo(nil)
+			pendingAnnouncementWindow, activeSince, _, err := r.Stabilization.GetPendingAnnouncementWindowInfo(nil)
 			require.NoError(r.T, err)
-			require.Equal(r.T, newWindow, pendingWindowInfo.PendingAnnouncementWindow)
-			require.Equal(r.T, activeSince, pendingWindowInfo.ActiveSince)
-			progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64()-1)
+			require.Equal(r.T, newWindow, pendingAnnouncementWindow)
+			require.Equal(r.T, realTime, activeSince)
+			progressTime(r, new(big.Int).Sub(realTime, r.Evm.Context.Time).Int64()-1)
 			require.Equal(r.T, currentWindow, getAnnouncementWindow(r))
 			progressTime(r, 1)
 			require.Equal(r.T, newWindow, getAnnouncementWindow(r))
