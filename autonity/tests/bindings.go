@@ -523,7 +523,7 @@ func (_ACU *ACU) DecodeError(data []byte, err error) error {
 
 	case "4ff799c5":
 		var e ACUInvalidBasketError
-		err := _ACU.abi.UnpackIntoInterface(&e, "InvalidBasket", data)
+		err := _ACU.abi.UnpackIntoInterface(&e, "InvalidBasket", data[4:])
 		if err != nil {
 			return err
 		}
@@ -531,7 +531,7 @@ func (_ACU *ACU) DecodeError(data []byte, err error) error {
 
 	case "3a7c0176":
 		var e ACUNoACUValueError
-		err := _ACU.abi.UnpackIntoInterface(&e, "NoACUValue", data)
+		err := _ACU.abi.UnpackIntoInterface(&e, "NoACUValue", data[4:])
 		if err != nil {
 			return err
 		}
@@ -539,7 +539,7 @@ func (_ACU *ACU) DecodeError(data []byte, err error) error {
 
 	case "82b42900":
 		var e ACUUnauthorizedError
-		err := _ACU.abi.UnpackIntoInterface(&e, "Unauthorized", data)
+		err := _ACU.abi.UnpackIntoInterface(&e, "Unauthorized", data[4:])
 		if err != nil {
 			return err
 		}
@@ -6793,8 +6793,12 @@ type ILatency struct {
 //
 // Solidity: function read() view returns(uint8[][])
 func (_ILatency *ILatency) Read(opts *runOptions) ([][]uint8, uint64, error) {
-	out, consumed, err := _ILatency.call(opts, "read")
+	data, consumed, err := _ILatency.call(opts, "read")
 
+	if err != nil {
+		return *new([][]uint8), consumed, _ILatency.DecodeError(data, err)
+	}
+	out, err := _ILatency.abi.Unpack("read", data)
 	if err != nil {
 		return *new([][]uint8), consumed, err
 	}
@@ -6811,9 +6815,9 @@ func (_ILatency *ILatency) Read(opts *runOptions) ([][]uint8, uint64, error) {
 func (_ILatency *ILatency) CallReport(r *Runner, opts *runOptions, _latency []uint8) (uint64, error) {
 	snap := r.snapshot()
 
-	_, consumed, err := _ILatency.call(opts, "report", _latency)
+	data, consumed, err := _ILatency.call(opts, "report", _latency)
 	r.revertSnapshot(snap)
-	return consumed, err
+	return consumed, _ILatency.DecodeError(data, err)
 
 }
 
@@ -6824,9 +6828,9 @@ func (_ILatency *ILatency) CallReport(r *Runner, opts *runOptions, _latency []ui
 func (_ILatency *ILatency) CallSetCommittee(r *Runner, opts *runOptions, _committee []common.Address) (uint64, error) {
 	snap := r.snapshot()
 
-	_, consumed, err := _ILatency.call(opts, "setCommittee", _committee)
+	data, consumed, err := _ILatency.call(opts, "setCommittee", _committee)
 	r.revertSnapshot(snap)
-	return consumed, err
+	return consumed, _ILatency.DecodeError(data, err)
 
 }
 
@@ -6834,21 +6838,27 @@ func (_ILatency *ILatency) CallSetCommittee(r *Runner, opts *runOptions, _commit
 //
 // Solidity: function report(uint8[] _latency) returns()
 func (_ILatency *ILatency) Report(opts *runOptions, _latency []uint8) (uint64, error) {
-	_, consumed, err := _ILatency.call(opts, "report", _latency)
-	return consumed, err
+	data, consumed, err := _ILatency.call(opts, "report", _latency)
+	return consumed, _ILatency.DecodeError(data, err)
 }
 
 // SetCommittee is a paid mutator transaction binding the contract method 0xe08b14ed.
 //
 // Solidity: function setCommittee(address[] _committee) returns()
 func (_ILatency *ILatency) SetCommittee(opts *runOptions, _committee []common.Address) (uint64, error) {
-	_, consumed, err := _ILatency.call(opts, "setCommittee", _committee)
-	return consumed, err
+	data, consumed, err := _ILatency.call(opts, "setCommittee", _committee)
+	return consumed, _ILatency.DecodeError(data, err)
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+func (_ILatency *ILatency) DecodeError(data []byte, err error) error {
+	if err == nil {
+		return nil
+	}
 
- */
+	reason, _ := abi.UnpackRevert(data)
+	return fmt.Errorf("%w: %s", err, reason)
+
+}
 
 // ILiquidMetaData contains all meta data concerning the ILiquid contract.
 var ILiquidMetaData = &bind.MetaData{
@@ -9302,7 +9312,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "5173648d":
 		var e InflationControllerPRBMathMulDiv18OverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9310,7 +9320,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "63a05778":
 		var e InflationControllerPRBMathMulDivOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9318,7 +9328,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "9d581091":
 		var e InflationControllerPRBMathSD59x18ConvertOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9326,7 +9336,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "99474eeb":
 		var e InflationControllerPRBMathSD59x18ConvertUnderflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Underflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Underflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9334,7 +9344,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "9fe2b450":
 		var e InflationControllerPRBMathSD59x18DivInputTooSmallError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_InputTooSmall", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_InputTooSmall", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9342,7 +9352,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "d49c26b3":
 		var e InflationControllerPRBMathSD59x18DivOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9350,7 +9360,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "0360d028":
 		var e InflationControllerPRBMathSD59x18Exp2InputTooBigError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp2_InputTooBig", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp2_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9358,7 +9368,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "ca7ec0c5":
 		var e InflationControllerPRBMathSD59x18ExpInputTooBigError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp_InputTooBig", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9366,7 +9376,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "a6070c25":
 		var e InflationControllerPRBMathSD59x18MulInputTooSmallError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_InputTooSmall", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_InputTooSmall", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9374,7 +9384,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "120b5b43":
 		var e InflationControllerPRBMathSD59x18MulOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9424,9 +9434,9 @@ func (r *Runner) DeployLatency(opts *runOptions, _autonity common.Address, initi
 		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
 	}
 
-	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(LatencyBin), _autonity, initialCommittee)
+	address, gasConsumed, c, data, err := r.deployContract(opts, parsed, common.FromHex(LatencyBin), _autonity, initialCommittee)
 	if err != nil {
-		return common.Address{}, 0, nil, err
+		return common.Address{}, 0, nil, (&Latency{contract: c}).DecodeError(data, err)
 	}
 	return address, gasConsumed, &Latency{contract: c}, nil
 }
@@ -9440,8 +9450,12 @@ type Latency struct {
 //
 // Solidity: function SCALE_THRESHOLD_FOR_CLUSTERING() view returns(uint256)
 func (_Latency *Latency) SCALETHRESHOLDFORCLUSTERING(opts *runOptions) (*big.Int, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "SCALE_THRESHOLD_FOR_CLUSTERING")
+	data, consumed, err := _Latency.call(opts, "SCALE_THRESHOLD_FOR_CLUSTERING")
 
+	if err != nil {
+		return *new(*big.Int), consumed, _Latency.DecodeError(data, err)
+	}
+	out, err := _Latency.abi.Unpack("SCALE_THRESHOLD_FOR_CLUSTERING", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -9455,8 +9469,12 @@ func (_Latency *Latency) SCALETHRESHOLDFORCLUSTERING(opts *runOptions) (*big.Int
 //
 // Solidity: function committee(uint256 ) view returns(address)
 func (_Latency *Latency) Committee(opts *runOptions, arg0 *big.Int) (common.Address, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "committee", arg0)
+	data, consumed, err := _Latency.call(opts, "committee", arg0)
 
+	if err != nil {
+		return *new(common.Address), consumed, _Latency.DecodeError(data, err)
+	}
+	out, err := _Latency.abi.Unpack("committee", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -9470,8 +9488,12 @@ func (_Latency *Latency) Committee(opts *runOptions, arg0 *big.Int) (common.Addr
 //
 // Solidity: function getCommittee() view returns(address[])
 func (_Latency *Latency) GetCommittee(opts *runOptions) ([]common.Address, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "getCommittee")
+	data, consumed, err := _Latency.call(opts, "getCommittee")
 
+	if err != nil {
+		return *new([]common.Address), consumed, _Latency.DecodeError(data, err)
+	}
+	out, err := _Latency.abi.Unpack("getCommittee", data)
 	if err != nil {
 		return *new([]common.Address), consumed, err
 	}
@@ -9485,8 +9507,12 @@ func (_Latency *Latency) GetCommittee(opts *runOptions) ([]common.Address, uint6
 //
 // Solidity: function latency(address , address ) view returns(uint8)
 func (_Latency *Latency) Latency(opts *runOptions, arg0 common.Address, arg1 common.Address) (uint8, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "latency", arg0, arg1)
+	data, consumed, err := _Latency.call(opts, "latency", arg0, arg1)
 
+	if err != nil {
+		return *new(uint8), consumed, _Latency.DecodeError(data, err)
+	}
+	out, err := _Latency.abi.Unpack("latency", data)
 	if err != nil {
 		return *new(uint8), consumed, err
 	}
@@ -9500,8 +9526,12 @@ func (_Latency *Latency) Latency(opts *runOptions, arg0 common.Address, arg1 com
 //
 // Solidity: function read() view returns(uint8[][])
 func (_Latency *Latency) Read(opts *runOptions) ([][]uint8, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "read")
+	data, consumed, err := _Latency.call(opts, "read")
 
+	if err != nil {
+		return *new([][]uint8), consumed, _Latency.DecodeError(data, err)
+	}
+	out, err := _Latency.abi.Unpack("read", data)
 	if err != nil {
 		return *new([][]uint8), consumed, err
 	}
@@ -9518,9 +9548,9 @@ func (_Latency *Latency) Read(opts *runOptions) ([][]uint8, uint64, error) {
 func (_Latency *Latency) CallReport(r *Runner, opts *runOptions, _latency []uint8) (uint64, error) {
 	snap := r.snapshot()
 
-	_, consumed, err := _Latency.call(opts, "report", _latency)
+	data, consumed, err := _Latency.call(opts, "report", _latency)
 	r.revertSnapshot(snap)
-	return consumed, err
+	return consumed, _Latency.DecodeError(data, err)
 
 }
 
@@ -9531,9 +9561,9 @@ func (_Latency *Latency) CallReport(r *Runner, opts *runOptions, _latency []uint
 func (_Latency *Latency) CallSetCommittee(r *Runner, opts *runOptions, _committee []common.Address) (uint64, error) {
 	snap := r.snapshot()
 
-	_, consumed, err := _Latency.call(opts, "setCommittee", _committee)
+	data, consumed, err := _Latency.call(opts, "setCommittee", _committee)
 	r.revertSnapshot(snap)
-	return consumed, err
+	return consumed, _Latency.DecodeError(data, err)
 
 }
 
@@ -9541,166 +9571,27 @@ func (_Latency *Latency) CallSetCommittee(r *Runner, opts *runOptions, _committe
 //
 // Solidity: function report(uint8[] _latency) returns()
 func (_Latency *Latency) Report(opts *runOptions, _latency []uint8) (uint64, error) {
-	_, consumed, err := _Latency.call(opts, "report", _latency)
-	return consumed, err
+	data, consumed, err := _Latency.call(opts, "report", _latency)
+	return consumed, _Latency.DecodeError(data, err)
 }
 
 // SetCommittee is a paid mutator transaction binding the contract method 0xe08b14ed.
 //
 // Solidity: function setCommittee(address[] _committee) returns()
 func (_Latency *Latency) SetCommittee(opts *runOptions, _committee []common.Address) (uint64, error) {
-	_, consumed, err := _Latency.call(opts, "setCommittee", _committee)
-	return consumed, err
+	data, consumed, err := _Latency.call(opts, "setCommittee", _committee)
+	return consumed, _Latency.DecodeError(data, err)
 }
 
-/* EVENTS ARE NOT YET SUPPORTED
+func (_Latency *Latency) DecodeError(data []byte, err error) error {
+	if err == nil {
+		return nil
+	}
 
-		// LatencyReportedIterator is returned from FilterReported and is used to iterate over the raw logs and unpacked data for Reported events raised by the Latency contract.
-		type LatencyReportedIterator struct {
-			Event *LatencyReported // Event containing the contract specifics and raw log
+	reason, _ := abi.UnpackRevert(data)
+	return fmt.Errorf("%w: %s", err, reason)
 
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *LatencyReportedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
-				return false
-			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(LatencyReported)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
-
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(LatencyReported)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
-
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *LatencyReportedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *LatencyReportedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
-
-		// LatencyReported represents a Reported event raised by the Latency contract.
-		type LatencyReported struct {
-			Reporter common.Address;
-			Length *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
-
-		// FilterReported is a free log retrieval operation binding the contract event 0x13ae4ea8eb28cf5104b119acecdbc7bfcab76402a5caca38c9a5810629876aac.
-		//
-		// Solidity: event Reported(address indexed reporter, uint256 length)
- 		func (_Latency *Latency) FilterReported(opts *bind.FilterOpts, reporter []common.Address) (*LatencyReportedIterator, error) {
-
-			var reporterRule []interface{}
-			for _, reporterItem := range reporter {
-				reporterRule = append(reporterRule, reporterItem)
-			}
-
-
-			logs, sub, err := _Latency.contract.FilterLogs(opts, "Reported", reporterRule)
-			if err != nil {
-				return nil, err
-			}
-			return &LatencyReportedIterator{contract: _Latency.contract, event: "Reported", logs: logs, sub: sub}, nil
- 		}
-
-		// WatchReported is a free log subscription operation binding the contract event 0x13ae4ea8eb28cf5104b119acecdbc7bfcab76402a5caca38c9a5810629876aac.
-		//
-		// Solidity: event Reported(address indexed reporter, uint256 length)
-		func (_Latency *Latency) WatchReported(opts *bind.WatchOpts, sink chan<- *LatencyReported, reporter []common.Address) (event.Subscription, error) {
-
-			var reporterRule []interface{}
-			for _, reporterItem := range reporter {
-				reporterRule = append(reporterRule, reporterItem)
-			}
-
-
-			logs, sub, err := _Latency.contract.WatchLogs(opts, "Reported", reporterRule)
-			if err != nil {
-				return nil, err
-			}
-			return event.NewSubscription(func(quit <-chan struct{}) error {
-				defer sub.Unsubscribe()
-				for {
-					select {
-					case log := <-logs:
-						// New log arrived, parse the event and forward to the user
-						event := new(LatencyReported)
-						if err := _Latency.contract.UnpackLog(event, "Reported", log); err != nil {
-							return err
-						}
-						event.Raw = log
-
-						select {
-						case sink <- event:
-						case err := <-sub.Err():
-							return err
-						case <-quit:
-							return nil
-						}
-					case err := <-sub.Err():
-						return err
-					case <-quit:
-						return nil
-					}
-				}
-			}), nil
-		}
-
-		// ParseReported is a log parse operation binding the contract event 0x13ae4ea8eb28cf5104b119acecdbc7bfcab76402a5caca38c9a5810629876aac.
-		//
-		// Solidity: event Reported(address indexed reporter, uint256 length)
-		func (_Latency *Latency) ParseReported(log types.Log) (*LatencyReported, error) {
-			event := new(LatencyReported)
-			if err := _Latency.contract.UnpackLog(event, "Reported", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
-*/
+}
 
 // LiquidLogicMetaData contains all meta data concerning the LiquidLogic contract.
 var LiquidLogicMetaData = &bind.MetaData{
@@ -13680,7 +13571,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "13be252b":
 		var e StabilizationInsufficientAllowanceError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientAllowance", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientAllowance", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13688,7 +13579,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "3a23d825":
 		var e StabilizationInsufficientCollateralError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientCollateral", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientCollateral", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13696,7 +13587,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "cd1c8867":
 		var e StabilizationInsufficientPaymentError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientPayment", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientPayment", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13704,7 +13595,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "2c5211c6":
 		var e StabilizationInvalidAmountError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidAmount", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidAmount", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13712,7 +13603,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "e6bd4479":
 		var e StabilizationInvalidDebtPositionError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidDebtPosition", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidDebtPosition", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13720,7 +13611,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "613970e0":
 		var e StabilizationInvalidParameterError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidParameter", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidParameter", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13728,7 +13619,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "00bfc921":
 		var e StabilizationInvalidPriceError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidPrice", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidPrice", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13736,7 +13627,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "62294153":
 		var e StabilizationLiquidatableError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "Liquidatable", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "Liquidatable", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13744,7 +13635,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "8aa5baf3":
 		var e StabilizationNoDebtPositionError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "NoDebtPosition", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "NoDebtPosition", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13752,7 +13643,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "ddeb79ba":
 		var e StabilizationNotLiquidatableError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "NotLiquidatable", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "NotLiquidatable", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13760,7 +13651,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "5173648d":
 		var e StabilizationPRBMathMulDiv18OverflowError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13768,7 +13659,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "63a05778":
 		var e StabilizationPRBMathMulDivOverflowError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13776,7 +13667,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "b3b6ba1f":
 		var e StabilizationPRBMathUD60x18Exp2InputTooBigError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp2_InputTooBig", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp2_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13784,7 +13675,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "1af63aca":
 		var e StabilizationPRBMathUD60x18ExpInputTooBigError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp_InputTooBig", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13792,7 +13683,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "cb08be81":
 		var e StabilizationPriceUnavailableError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PriceUnavailable", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PriceUnavailable", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13800,7 +13691,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "90b8ec18":
 		var e StabilizationTransferFailedError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "TransferFailed", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "TransferFailed", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13808,7 +13699,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "82b42900":
 		var e StabilizationUnauthorizedError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "Unauthorized", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "Unauthorized", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13816,7 +13707,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "7c946ed7":
 		var e StabilizationZeroValueError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "ZeroValue", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "ZeroValue", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15750,7 +15641,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "2c5211c6":
 		var e SupplyControlInvalidAmountError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidAmount", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidAmount", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15758,7 +15649,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "9c8d2cd2":
 		var e SupplyControlInvalidRecipientError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidRecipient", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidRecipient", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15766,7 +15657,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "82b42900":
 		var e SupplyControlUnauthorizedError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "Unauthorized", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "Unauthorized", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15774,7 +15665,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "7c946ed7":
 		var e SupplyControlZeroValueError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "ZeroValue", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "ZeroValue", data[4:])
 		if err != nil {
 			return err
 		}
