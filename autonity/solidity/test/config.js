@@ -97,6 +97,7 @@ const INFLATION_CONTROLLER_CONFIG = {
 
 const STABILIZATION_CONFIG = {
     "borrowInterestRate" : 0,
+    "announcementWindow" : 30,
     "liquidationRatio" : 1,
     "minCollateralizationRatio" : 2,
     "minDebtRequirement" : 0,

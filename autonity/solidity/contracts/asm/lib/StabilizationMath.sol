@@ -128,22 +128,16 @@ library StabilizationMath {
 
     /// Calculate the interest due for a given amount of debt.
     /// @param debt The debt amount
-    /// @param rate The borrow interest rate
-    /// @param timeBorrow The borrow time
-    /// @param timeDue The time the interest is due
+    /// @param rateExponent The summation of the rates multiplied by their respective time window
     /// @return
     /// @dev Makes use of the prb-math library for natural exponentiation.
     function interestDue(
         uint256 debt,
-        uint256 rate,
-        uint timeBorrow,
-        uint timeDue
+        uint256 rateExponent
     ) internal pure returns (uint256) {
-        if (timeBorrow > timeDue) revert InvalidParameter();
         UD60x18 d = ud(debt);
-        UD60x18 r = ud(rate);
-        UD60x18 t = ud(timeDue - timeBorrow).div(ud(SECONDS_IN_YEAR));
-        UD60x18 exp = r.mul(t).exp();
+        UD60x18 rt = ud(rateExponent);
+        UD60x18 exp = rt.exp();
         UD60x18 interest = d.mul(exp.sub(ud(SCALE_FACTOR)));
         return interest.intoUint256();
     }
@@ -186,5 +180,20 @@ library StabilizationMath {
     /// @param valueScaleFactor The scale factor of the value
     function toScaleFactor(uint256 value, uint256 valueScaleFactor) internal pure returns (uint256) {
         return (value * SCALE_FACTOR) / valueScaleFactor;
+    }
+    
+    /**
+     * @dev Calculates the interest exponent for given rate in the given time window
+     * @param interestRate interest rate
+     * @param startTimestamp start timestamp of the window in seconds
+     * @param endTimestamp end timestamp of the window in seconds
+     */
+    function interestExponent(
+        uint256 interestRate,
+        uint256 startTimestamp,
+        uint256 endTimestamp
+    ) internal pure returns (uint256) {
+        if (endTimestamp < startTimestamp) revert InvalidParameter();
+        return interestRate * (endTimestamp - startTimestamp) / SECONDS_IN_YEAR;
     }
 }
