@@ -166,7 +166,7 @@ library StabilizationMath {
         uint256 liquidationRatio
     ) internal pure returns (uint256) {
         if (price == 0 || liquidationRatio == 0) revert InvalidParameter();
-        return (collateral * price) / liquidationRatio - 1;
+        return (collateral * price) / liquidationRatio;
     }
 
     /*

@@ -335,7 +335,7 @@ func TestStabilizationBorrow(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		setBasicConfig(r)
-		primePrices(r, newtonPrice, toBase("0.97", 18))
+		primePrices(r, newtonPrice, toBase("1.64935913824", 18))
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
 		_, err := r.Autonity.Mint(r.Operator, userAccount, fundedAmount)
 		require.NoError(t, err)
@@ -484,7 +484,10 @@ func TestStabilizationBorrow(t *testing.T) {
 		borrowLimit, _, err := r.Stabilization.MaxBorrow(nil, cdp.Collateral)
 		require.NoError(t, err)
 
-		_, err = r.Stabilization.Borrow(tests.FromSender(userAccount, nil), new(big.Int).Add(borrowLimit, common.Big1))
+		_, err = r.Stabilization.Borrow(
+			tests.FromSender(userAccount, nil),
+			new(big.Int).Add(borrowLimit, common.Big1),
+		)
 		require.ErrorAs(r.T, err, &tests.StabilizationInsufficientCollateralError{})
 	})
 }
