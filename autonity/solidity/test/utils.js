@@ -236,7 +236,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
 
   // stabilization contract, random temporary config and zeroAddress as collateral token
 
-  const stabilization = await Stabilization.new(config.STABILIZATION_CONFIG,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000",{from:deployer})
+  const stabilization = await Stabilization.new(config.STABILIZATION_CONFIG,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000",{from:deployer})
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
 
   await supplyControl.setStabilizer(stabilization.address,{from:operator});

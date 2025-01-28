@@ -20,6 +20,8 @@ interface IStabilization {
     struct Config {
         /// The annual continuously-compounded interest rate for borrowing.
         uint256 borrowInterestRate;
+        /// Announcement window (in seconds) for borrow interest rate update.
+        uint256 announcementWindow;
         /// The minimum ACU value of collateral required to maintain 1 ACU
         /// value of debt.
         uint256 liquidationRatio;
@@ -42,6 +44,8 @@ interface IStabilization {
         uint256 principal;
         /// The interest debt that is due at the `timestamp`.
         uint256 interest;
+        /// aggregated interest exponent till last update.
+        uint256 lastAggregatedInterestExponent;
     }
 
     // Public state retrieval functions
