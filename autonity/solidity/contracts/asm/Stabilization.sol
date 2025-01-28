@@ -386,9 +386,9 @@ contract Stabilization is IStabilization {
     function setLiquidationRatio(
         uint256 ratio
     )
-    external
-    validRatios(ratio, _config.minCollateralizationRatio)
-    onlyOperator
+        external
+        validRatios(ratio, _config.minCollateralizationRatio)
+        onlyOperator
     {
         _config.liquidationRatio = ratio;
     }
