@@ -96,7 +96,7 @@ library StabilizationMath {
     /// given amount of Collateral Token.
     /// @param collateral Amount of Collateral Token backing the debt
     /// @param collateralPrice The price of Collateral Token in Auton
-    /// @param debtPrice The price of Auton in USD
+    /// @param debtPrice The price of ATN in ACU
     /// @param targetDebtPrice The ACU value of 1 unit of debt
     /// @param mcr The minimum collateralization ratio
     /// @return The maximum Auton that can be borrowed
@@ -105,11 +105,10 @@ library StabilizationMath {
         uint256 collateralPrice,
         uint256 debtPrice,
         uint256 targetDebtPrice,
-        uint256 acuPrice,
         uint256 mcr
     ) internal pure returns (uint256) {
         if (collateralPrice == 0 || mcr == 0 || debtPrice == 0) revert InvalidParameter();
-        return (collateral * collateralPrice * targetDebtPrice * acuPrice) / (mcr * debtPrice * SCALE_FACTOR);
+        return (collateral * collateralPrice * targetDebtPrice) / (mcr * debtPrice);
     }
 
     /// Calculate the minimum amount of Collateral Token that must be deposited
