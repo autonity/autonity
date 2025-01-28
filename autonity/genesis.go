@@ -53,6 +53,7 @@ var (
 		deployNonStakableVestingContract,
 		createDefaultNonStakableVestingContracts,
 		deployOmissionAccountabilityContract,
+		deployLatencyContract,
 	}
 	genesisSequence = append(
 		[]genesisStep{
@@ -589,6 +590,25 @@ func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ Gene
 		if err := createNonStakableVestingContract(schedule); err != nil {
 			return fmt.Errorf("error while creating new non-stakable schedule: %w", err)
 		}
+	}
+	return nil
+}
+
+func deployLatencyContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
+	validators := make([]common.Address, len(config.AutonityContractConfig.Validators))
+	for i, val := range config.AutonityContractConfig.Validators {
+		validators[i] = *val.NodeAddress
+	}
+	err := deploy(
+		params.LatencyContractAddress,
+		&generated.LatencyAbi,
+		generated.LatencyBytecode,
+		common.Big0,
+		params.AutonityContractAddress,
+		validators,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to deploy latency contract: %w", err)
 	}
 	return nil
 }
