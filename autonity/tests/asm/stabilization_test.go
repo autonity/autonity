@@ -836,6 +836,30 @@ func TestStabilizationCalculations(t *testing.T) {
 		}
 	})
 
+	tests.RunWithSetup("Test borrow limit overflow", setup, func(r *tests.Runner) {
+		ntnMaxSupply := new(big.Int).Mul(
+			big.NewInt(100_000_000),
+			e18,
+		) // 100 million
+		atnUsd := toBase("0.0001", 18)
+		acuUsd := toBase("0.78", 18)
+		_, _, err := r.Stabilization.BorrowLimit(
+			nil,
+			ntnMaxSupply,
+			toBase("1000000000000.2", 18), // price
+			new(big.Int).Div(
+				new(big.Int).Mul(
+					atnUsd,
+					e18,
+				),
+				acuUsd,
+			), // atn-acu
+			toBase("1.23", 18), // target price atn-acu
+			toBase("1.5", 18),  // mcr
+		)
+		require.NoError(r.T, err)
+	})
+
 	tests.RunWithSetup("Test minimum collateral", setup, func(r *tests.Runner) {
 		testCases := [][]*big.Int{
 			{
