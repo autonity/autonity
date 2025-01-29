@@ -144,7 +144,8 @@ contract Stabilization is IStabilization {
         uint256 liquidationRatio,
         uint256 minCollateralizationRatio
     ) {
-        if (liquidationRatio >= minCollateralizationRatio)
+        // Liquidation ration must be < minCollateralizationRatio and >= 1
+        if (liquidationRatio >= minCollateralizationRatio || liquidationRatio < StabilizationMath.SCALE_FACTOR)
             revert InvalidParameter();
         _;
     }
@@ -180,8 +181,8 @@ contract Stabilization is IStabilization {
         address acu,
         IERC20 collateralToken
     )
-    positiveMCR(config_.minCollateralizationRatio)
-    validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
+        positiveMCR(config_.minCollateralizationRatio)
+        validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
         if (config_.announcementWindow == 0) revert ZeroValue();
         _config = config_;
@@ -232,7 +233,7 @@ contract Stabilization is IStabilization {
     function withdraw(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
         CDP storage cdp = _cdps[msg.sender];
         if (amount > cdp.collateral) revert InvalidAmount();
-        (uint256 debt, , ) = _calculateDebtAmount(
+        (uint256 debt, ,) = _calculateDebtAmount(
             cdp,
             block.timestamp
         );
@@ -339,12 +340,16 @@ contract Stabilization is IStabilization {
     /// @param account The CDP account address to liquidate
     /// @param collateralSold The amount of collateral sold by the auctioneer
     /// @param bidder The address of the bidder
-    function liquidate(address account, uint256 collateralSold, address bidder) external payable restricted onlyAuctioneer {
+    function liquidate(
+        address account,
+        uint256 collateralSold,
+        address bidder
+    ) external payable restricted onlyAuctioneer {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = _cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
         if (cdp.collateral < collateralSold) revert InvalidAmount();
-        (uint256 debt, uint256 accrued, ) = _calculateDebtAmount(
+        (uint256 debt, uint256 accrued,) = _calculateDebtAmount(
             cdp,
             block.timestamp
         );
@@ -540,7 +545,7 @@ contract Stabilization is IStabilization {
         uint timestamp
     ) external view goodTime(account, timestamp) returns (uint256 debt) {
         CDP storage cdp = _cdps[account];
-        (debt, , ) = _calculateDebtAmount(
+        (debt,,) = _calculateDebtAmount(
             cdp,
             timestamp
         );
@@ -551,7 +556,7 @@ contract Stabilization is IStabilization {
     /// @return Whether the CDP is liquidatable
     function isLiquidatable(address account) external view returns (bool) {
         CDP storage cdp = _cdps[account];
-        (uint256 debt, , ) = _calculateDebtAmount(
+        (uint256 debt, ,) = _calculateDebtAmount(
             cdp,
             block.timestamp
         );
@@ -742,7 +747,6 @@ contract Stabilization is IStabilization {
         return StabilizationMath.interestExponent(interestRate, startTimestamp, endTimestamp);
     }
 
-
     /*
     ┌────────────────────┐
     │ Internal Functions │
@@ -786,9 +790,9 @@ contract Stabilization is IStabilization {
         CDP storage cdp,
         uint256 amount
     )
-    internal
-    view
-    returns (uint256 interest, uint256 principal, uint256 surplus)
+        internal
+        view
+        returns (uint256 interest, uint256 principal, uint256 surplus)
     {
         uint256 debt = cdp.principal + cdp.interest;
         interest = amount < cdp.interest ? amount : cdp.interest;
