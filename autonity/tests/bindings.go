@@ -3101,9 +3101,9 @@ func (_Autonity *Autonity) CallSetInflationControllerContract(r *Runner, opts *r
 func (_Autonity *Autonity) CallSetLatencyContract(r *Runner, opts *runOptions, _address common.Address) (uint64, error) {
 	snap := r.snapshot()
 
-	_, consumed, err := _Autonity.call(opts, "setLatencyContract", _address)
+	data, consumed, err := _Autonity.call(opts, "setLatencyContract", _address)
 	r.revertSnapshot(snap)
-	return consumed, err
+	return consumed, _Autonity.DecodeError(data, err)
 
 }
 
@@ -3655,8 +3655,8 @@ func (_Autonity *Autonity) SetInflationControllerContract(opts *runOptions, _add
 //
 // Solidity: function setLatencyContract(address _address) returns()
 func (_Autonity *Autonity) SetLatencyContract(opts *runOptions, _address common.Address) (uint64, error) {
-	_, consumed, err := _Autonity.call(opts, "setLatencyContract", _address)
-	return consumed, err
+	data, consumed, err := _Autonity.call(opts, "setLatencyContract", _address)
+	return consumed, _Autonity.DecodeError(data, err)
 }
 
 // SetMaxScheduleDuration is a paid mutator transaction binding the contract method 0x8bb2e477.
@@ -5256,9 +5256,9 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetInflationControllerContr
 func (_AutonityUpgradeTest *AutonityUpgradeTest) CallSetLatencyContract(r *Runner, opts *runOptions, _address common.Address) (uint64, error) {
 	snap := r.snapshot()
 
-	_, consumed, err := _AutonityUpgradeTest.call(opts, "setLatencyContract", _address)
+	data, consumed, err := _AutonityUpgradeTest.call(opts, "setLatencyContract", _address)
 	r.revertSnapshot(snap)
-	return consumed, err
+	return consumed, _AutonityUpgradeTest.DecodeError(data, err)
 
 }
 
@@ -5810,8 +5810,8 @@ func (_AutonityUpgradeTest *AutonityUpgradeTest) SetInflationControllerContract(
 //
 // Solidity: function setLatencyContract(address _address) returns()
 func (_AutonityUpgradeTest *AutonityUpgradeTest) SetLatencyContract(opts *runOptions, _address common.Address) (uint64, error) {
-	_, consumed, err := _AutonityUpgradeTest.call(opts, "setLatencyContract", _address)
-	return consumed, err
+	data, consumed, err := _AutonityUpgradeTest.call(opts, "setLatencyContract", _address)
+	return consumed, _AutonityUpgradeTest.DecodeError(data, err)
 }
 
 // SetMaxScheduleDuration is a paid mutator transaction binding the contract method 0x8bb2e477.
@@ -6903,90 +6903,6 @@ func (_ILatency *ILatency) DecodeError(data []byte, err error) error {
 	return fmt.Errorf("%w: %s", err, reason)
 
 }
-
-// ILatencyMetaData contains all meta data concerning the ILatency contract.
-var ILatencyMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"read\",\"outputs\":[{\"internalType\":\"uint8[][]\",\"name\":\"\",\"type\":\"uint8[][]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8[]\",\"name\":\"_latency\",\"type\":\"uint8[]\"}],\"name\":\"report\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_committee\",\"type\":\"address[]\"}],\"name\":\"setCommittee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Sigs: map[string]string{
-		"57de26a4": "read()",
-		"d118daf2": "report(uint8[])",
-		"e08b14ed": "setCommittee(address[])",
-	},
-}
-
-// ILatencyABI is the input ABI used to generate the binding from.
-// Deprecated: Use ILatencyMetaData.ABI instead.
-var ILatencyABI = ILatencyMetaData.ABI
-
-// Deprecated: Use ILatencyMetaData.Sigs instead.
-// ILatencyFuncSigs maps the 4-byte function signature to its string representation.
-var ILatencyFuncSigs = ILatencyMetaData.Sigs
-
-// ILatency is an auto generated Go binding around an Ethereum contract.
-type ILatency struct {
-	*contract
-}
-
-// Read is a free data retrieval call binding the contract method 0x57de26a4.
-//
-// Solidity: function read() view returns(uint8[][])
-func (_ILatency *ILatency) Read(opts *runOptions) ([][]uint8, uint64, error) {
-	out, consumed, err := _ILatency.call(opts, "read")
-
-	if err != nil {
-		return *new([][]uint8), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([][]uint8)).(*[][]uint8)
-	return out0, consumed, err
-
-}
-
-// Report is a free data retrieval call for a paid mutator transaction binding the contract method 0xd118daf2.
-// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
-// the same way as done above for view only functions.
-// Solidity: function report(uint8[] _latency) returns()
-func (_ILatency *ILatency) CallReport(r *Runner, opts *runOptions, _latency []uint8) (uint64, error) {
-	snap := r.snapshot()
-
-	_, consumed, err := _ILatency.call(opts, "report", _latency)
-	r.revertSnapshot(snap)
-	return consumed, err
-
-}
-
-// SetCommittee is a free data retrieval call for a paid mutator transaction binding the contract method 0xe08b14ed.
-// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
-// the same way as done above for view only functions.
-// Solidity: function setCommittee(address[] _committee) returns()
-func (_ILatency *ILatency) CallSetCommittee(r *Runner, opts *runOptions, _committee []common.Address) (uint64, error) {
-	snap := r.snapshot()
-
-	_, consumed, err := _ILatency.call(opts, "setCommittee", _committee)
-	r.revertSnapshot(snap)
-	return consumed, err
-
-}
-
-// Report is a paid mutator transaction binding the contract method 0xd118daf2.
-//
-// Solidity: function report(uint8[] _latency) returns()
-func (_ILatency *ILatency) Report(opts *runOptions, _latency []uint8) (uint64, error) {
-	_, consumed, err := _ILatency.call(opts, "report", _latency)
-	return consumed, err
-}
-
-// SetCommittee is a paid mutator transaction binding the contract method 0xe08b14ed.
-//
-// Solidity: function setCommittee(address[] _committee) returns()
-func (_ILatency *ILatency) SetCommittee(opts *runOptions, _committee []common.Address) (uint64, error) {
-	_, consumed, err := _ILatency.call(opts, "setCommittee", _committee)
-	return consumed, err
-}
-
-/* EVENTS ARE NOT YET SUPPORTED
-
- */
 
 // ILiquidMetaData contains all meta data concerning the ILiquid contract.
 var ILiquidMetaData = &bind.MetaData{
@@ -9720,305 +9636,6 @@ func (_Latency *Latency) DecodeError(data []byte, err error) error {
 	return fmt.Errorf("%w: %s", err, reason)
 
 }
-
-// LatencyMetaData contains all meta data concerning the Latency contract.
-var LatencyMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"addresspayable\",\"name\":\"_autonity\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"initialCommittee\",\"type\":\"address[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"reporter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"length\",\"type\":\"uint256\"}],\"name\":\"Reported\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"committee\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCommittee\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"latency\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"read\",\"outputs\":[{\"internalType\":\"uint8[][]\",\"name\":\"\",\"type\":\"uint8[][]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8[]\",\"name\":\"_latency\",\"type\":\"uint8[]\"}],\"name\":\"report\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_committee\",\"type\":\"address[]\"}],\"name\":\"setCommittee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Sigs: map[string]string{
-		"afe7fcf4": "committee(uint256)",
-		"ab8f6ffe": "getCommittee()",
-		"a9419174": "latency(address,address)",
-		"57de26a4": "read()",
-		"d118daf2": "report(uint8[])",
-		"e08b14ed": "setCommittee(address[])",
-	},
-	Bin: "0x60806040523480156200001157600080fd5b5060405162000b2738038062000b2783398101604081905262000034916200012f565b600080546001600160a01b0319166001600160a01b0384161790558051620000649060029060208401906200006d565b5050506200021a565b828054828255906000526020600020908101928215620000c5579160200282015b82811115620000c557825182546001600160a01b0319166001600160a01b039091161782556020909201916001909101906200008e565b50620000d3929150620000d7565b5090565b5b80821115620000d35760008155600101620000d8565b6001600160a01b03811681146200010457600080fd5b50565b634e487b7160e01b600052604160045260246000fd5b80516200012a81620000ee565b919050565b600080604083850312156200014357600080fd5b82516200015081620000ee565b602084810151919350906001600160401b03808211156200017057600080fd5b818601915086601f8301126200018557600080fd5b8151818111156200019a576200019a62000107565b8060051b604051601f19603f83011681018181108582111715620001c257620001c262000107565b604052918252848201925083810185019189831115620001e157600080fd5b938501935b828510156200020a57620001fa856200011d565b84529385019392850192620001e6565b8096505050505050509250929050565b6108fd806200022a6000396000f3fe608060405234801561001057600080fd5b50600436106100625760003560e01c806357de26a414610067578063a941917414610085578063ab8f6ffe146100c5578063afe7fcf4146100da578063d118daf214610105578063e08b14ed1461011a575b600080fd5b61006f61012d565b60405161007c91906105aa565b60405180910390f35b6100b3610093366004610653565b600160209081526000928352604080842090915290825290205460ff1681565b60405160ff909116815260200161007c565b6100cd6102e7565b60405161007c9190610686565b6100ed6100e83660046106d3565b610349565b6040516001600160a01b03909116815260200161007c565b610118610113366004610757565b610373565b005b6101186101283660046107fd565b6104ae565b60025460609060009067ffffffffffffffff81111561014e5761014e6106ec565b60405190808252806020026020018201604052801561018157816020015b606081526020019060019003908161016c5790505b50905060005b6002548110156102e15760025467ffffffffffffffff8111156101ac576101ac6106ec565b6040519080825280602002602001820160405280156101d5578160200160208202803683370190505b508282815181106101e8576101e861088a565b602002602001018190525060005b6002548110156102ce5760016000600284815481106102175761021761088a565b60009182526020808320909101546001600160a01b03168352820192909252604001812060028054919291849081106102525761025261088a565b60009182526020808320909101546001600160a01b03168352820192909252604001902054835160ff909116908490849081106102915761029161088a565b602002602001015182815181106102aa576102aa61088a565b60ff90921660209283029190910190910152806102c6816108a0565b9150506101f6565b50806102d9816108a0565b915050610187565b50919050565b6060600280548060200260200160405190810160405280929190818152602001828054801561033f57602002820191906000526020600020905b81546001600160a01b03168152600190910190602001808311610321575b5050505050905090565b6002818154811061035957600080fd5b6000918252602090912001546001600160a01b0316905081565b6002548151146103ca5760405162461bcd60e51b815260206004820152601760248201527f4c6174656e63793a20696e76616c6964206c656e67746800000000000000000060448201526064015b60405180910390fd5b60005b8151811015610473578181815181106103e8576103e861088a565b602002602001015160016000336001600160a01b03166001600160a01b0316815260200190815260200160002060006002848154811061042a5761042a61088a565b6000918252602080832091909101546001600160a01b031683528201929092526040019020805460ff191660ff929092169190911790558061046b816108a0565b9150506103cd565b50805160405190815233907f13ae4ea8eb28cf5104b119acecdbc7bfcab76402a5caca38c9a5810629876aac9060200160405180910390a250565b6000546001600160a01b031633146105195760405162461bcd60e51b815260206004820152602860248201527f66756e6374696f6e207265737472696374656420746f204175746f6e6974792060448201526718dbdb9d1c9858dd60c21b60648201526084016103c1565b805161052c906002906020840190610530565b5050565b828054828255906000526020600020908101928215610585579160200282015b8281111561058557825182546001600160a01b0319166001600160a01b03909116178255602090920191600190910190610550565b50610591929150610595565b5090565b5b808211156105915760008155600101610596565b6000602080830181845280855180835260408601915060408160051b87010192508387016000805b8381101561062957888603603f19018552825180518088529088019088880190845b8181101561061357835160ff168352928a0192918a01916001016105f4565b50909750505093860193918601916001016105d2565b509398975050505050505050565b80356001600160a01b038116811461064e57600080fd5b919050565b6000806040838503121561066657600080fd5b61066f83610637565b915061067d60208401610637565b90509250929050565b6020808252825182820181905260009190848201906040850190845b818110156106c75783516001600160a01b0316835292840192918401916001016106a2565b50909695505050505050565b6000602082840312156106e557600080fd5b5035919050565b634e487b7160e01b600052604160045260246000fd5b604051601f8201601f1916810167ffffffffffffffff8111828210171561072b5761072b6106ec565b604052919050565b600067ffffffffffffffff82111561074d5761074d6106ec565b5060051b60200190565b6000602080838503121561076a57600080fd5b823567ffffffffffffffff81111561078157600080fd5b8301601f8101851361079257600080fd5b80356107a56107a082610733565b610702565b81815260059190911b820183019083810190878311156107c457600080fd5b928401925b828410156107f257833560ff811681146107e35760008081fd5b825292840192908401906107c9565b979650505050505050565b6000602080838503121561081057600080fd5b823567ffffffffffffffff81111561082757600080fd5b8301601f8101851361083857600080fd5b80356108466107a082610733565b81815260059190911b8201830190838101908783111561086557600080fd5b928401925b828410156107f25761087b84610637565b8252928401929084019061086a565b634e487b7160e01b600052603260045260246000fd5b6000600182016108c057634e487b7160e01b600052601160045260246000fd5b506001019056fea264697066735822122086f346f2115d7c9f1ba5ac84c2b66552e8e36f2a1c04149d1f81d8494fb40ce664736f6c63430008150033",
-}
-
-// LatencyABI is the input ABI used to generate the binding from.
-// Deprecated: Use LatencyMetaData.ABI instead.
-var LatencyABI = LatencyMetaData.ABI
-
-// Deprecated: Use LatencyMetaData.Sigs instead.
-// LatencyFuncSigs maps the 4-byte function signature to its string representation.
-var LatencyFuncSigs = LatencyMetaData.Sigs
-
-// LatencyBin is the compiled bytecode used for deploying new contracts.
-// Deprecated: Use LatencyMetaData.Bin instead.
-var LatencyBin = LatencyMetaData.Bin
-
-// DeployLatency deploys a new Ethereum contract, binding an instance of Latency to it.
-func (r *Runner) DeployLatency(opts *runOptions, _autonity common.Address, initialCommittee []common.Address) (common.Address, uint64, *Latency, error) {
-	parsed, err := LatencyMetaData.GetAbi()
-	if err != nil {
-		return common.Address{}, 0, nil, err
-	}
-	if parsed == nil {
-		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
-	}
-
-	address, gasConsumed, c, err := r.deployContract(opts, parsed, common.FromHex(LatencyBin), _autonity, initialCommittee)
-	if err != nil {
-		return common.Address{}, 0, nil, err
-	}
-	return address, gasConsumed, &Latency{contract: c}, nil
-}
-
-// Latency is an auto generated Go binding around an Ethereum contract.
-type Latency struct {
-	*contract
-}
-
-// Committee is a free data retrieval call binding the contract method 0xafe7fcf4.
-//
-// Solidity: function committee(uint256 ) view returns(address)
-func (_Latency *Latency) Committee(opts *runOptions, arg0 *big.Int) (common.Address, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "committee", arg0)
-
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// GetCommittee is a free data retrieval call binding the contract method 0xab8f6ffe.
-//
-// Solidity: function getCommittee() view returns(address[])
-func (_Latency *Latency) GetCommittee(opts *runOptions) ([]common.Address, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "getCommittee")
-
-	if err != nil {
-		return *new([]common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
-	return out0, consumed, err
-
-}
-
-// Latency is a free data retrieval call binding the contract method 0xa9419174.
-//
-// Solidity: function latency(address , address ) view returns(uint8)
-func (_Latency *Latency) Latency(opts *runOptions, arg0 common.Address, arg1 common.Address) (uint8, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "latency", arg0, arg1)
-
-	if err != nil {
-		return *new(uint8), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
-	return out0, consumed, err
-
-}
-
-// Read is a free data retrieval call binding the contract method 0x57de26a4.
-//
-// Solidity: function read() view returns(uint8[][])
-func (_Latency *Latency) Read(opts *runOptions) ([][]uint8, uint64, error) {
-	out, consumed, err := _Latency.call(opts, "read")
-
-	if err != nil {
-		return *new([][]uint8), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([][]uint8)).(*[][]uint8)
-	return out0, consumed, err
-
-}
-
-// Report is a free data retrieval call for a paid mutator transaction binding the contract method 0xd118daf2.
-// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
-// the same way as done above for view only functions.
-// Solidity: function report(uint8[] _latency) returns()
-func (_Latency *Latency) CallReport(r *Runner, opts *runOptions, _latency []uint8) (uint64, error) {
-	snap := r.snapshot()
-
-	_, consumed, err := _Latency.call(opts, "report", _latency)
-	r.revertSnapshot(snap)
-	return consumed, err
-
-}
-
-// SetCommittee is a free data retrieval call for a paid mutator transaction binding the contract method 0xe08b14ed.
-// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
-// the same way as done above for view only functions.
-// Solidity: function setCommittee(address[] _committee) returns()
-func (_Latency *Latency) CallSetCommittee(r *Runner, opts *runOptions, _committee []common.Address) (uint64, error) {
-	snap := r.snapshot()
-
-	_, consumed, err := _Latency.call(opts, "setCommittee", _committee)
-	r.revertSnapshot(snap)
-	return consumed, err
-
-}
-
-// Report is a paid mutator transaction binding the contract method 0xd118daf2.
-//
-// Solidity: function report(uint8[] _latency) returns()
-func (_Latency *Latency) Report(opts *runOptions, _latency []uint8) (uint64, error) {
-	_, consumed, err := _Latency.call(opts, "report", _latency)
-	return consumed, err
-}
-
-// SetCommittee is a paid mutator transaction binding the contract method 0xe08b14ed.
-//
-// Solidity: function setCommittee(address[] _committee) returns()
-func (_Latency *Latency) SetCommittee(opts *runOptions, _committee []common.Address) (uint64, error) {
-	_, consumed, err := _Latency.call(opts, "setCommittee", _committee)
-	return consumed, err
-}
-
-/* EVENTS ARE NOT YET SUPPORTED
-
-		// LatencyReportedIterator is returned from FilterReported and is used to iterate over the raw logs and unpacked data for Reported events raised by the Latency contract.
-		type LatencyReportedIterator struct {
-			Event *LatencyReported // Event containing the contract specifics and raw log
-
-			contract *bind.BoundContract // Generic contract to use for unpacking event data
-			event    string              // Event name to use for unpacking event data
-
-			logs chan types.Log        // Log channel receiving the found contract events
-			sub  ethereum.Subscription // Subscription for errors, completion and termination
-			done bool                  // Whether the subscription completed delivering logs
-			fail error                 // Occurred error to stop iteration
-		}
-		// Next advances the iterator to the subsequent event, returning whether there
-		// are any more events found. In case of a retrieval or parsing error, false is
-		// returned and Error() can be queried for the exact failure.
-		func (it *LatencyReportedIterator) Next() bool {
-			// If the iterator failed, stop iterating
-			if (it.fail != nil) {
-				return false
-			}
-			// If the iterator completed, deliver directly whatever's available
-			if (it.done) {
-				select {
-				case log := <-it.logs:
-					it.Event = new(LatencyReported)
-					if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-						it.fail = err
-						return false
-					}
-					it.Event.Raw = log
-					return true
-
-				default:
-					return false
-				}
-			}
-			// Iterator still in progress, wait for either a data or an error event
-			select {
-			case log := <-it.logs:
-				it.Event = new(LatencyReported)
-				if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-					it.fail = err
-					return false
-				}
-				it.Event.Raw = log
-				return true
-
-			case err := <-it.sub.Err():
-				it.done = true
-				it.fail = err
-				return it.Next()
-			}
-		}
-		// Error returns any retrieval or parsing error occurred during filtering.
-		func (it *LatencyReportedIterator) Error() error {
-			return it.fail
-		}
-		// Close terminates the iteration process, releasing any pending underlying
-		// resources.
-		func (it *LatencyReportedIterator) Close() error {
-			it.sub.Unsubscribe()
-			return nil
-		}
-
-		// LatencyReported represents a Reported event raised by the Latency contract.
-		type LatencyReported struct {
-			Reporter common.Address;
-			Length *big.Int;
-			Raw types.Log // Blockchain specific contextual infos
-		}
-
-		// FilterReported is a free log retrieval operation binding the contract event 0x13ae4ea8eb28cf5104b119acecdbc7bfcab76402a5caca38c9a5810629876aac.
-		//
-		// Solidity: event Reported(address indexed reporter, uint256 length)
- 		func (_Latency *Latency) FilterReported(opts *bind.FilterOpts, reporter []common.Address) (*LatencyReportedIterator, error) {
-
-			var reporterRule []interface{}
-			for _, reporterItem := range reporter {
-				reporterRule = append(reporterRule, reporterItem)
-			}
-
-
-			logs, sub, err := _Latency.contract.FilterLogs(opts, "Reported", reporterRule)
-			if err != nil {
-				return nil, err
-			}
-			return &LatencyReportedIterator{contract: _Latency.contract, event: "Reported", logs: logs, sub: sub}, nil
- 		}
-
-		// WatchReported is a free log subscription operation binding the contract event 0x13ae4ea8eb28cf5104b119acecdbc7bfcab76402a5caca38c9a5810629876aac.
-		//
-		// Solidity: event Reported(address indexed reporter, uint256 length)
-		func (_Latency *Latency) WatchReported(opts *bind.WatchOpts, sink chan<- *LatencyReported, reporter []common.Address) (event.Subscription, error) {
-
-			var reporterRule []interface{}
-			for _, reporterItem := range reporter {
-				reporterRule = append(reporterRule, reporterItem)
-			}
-
-
-			logs, sub, err := _Latency.contract.WatchLogs(opts, "Reported", reporterRule)
-			if err != nil {
-				return nil, err
-			}
-			return event.NewSubscription(func(quit <-chan struct{}) error {
-				defer sub.Unsubscribe()
-				for {
-					select {
-					case log := <-logs:
-						// New log arrived, parse the event and forward to the user
-						event := new(LatencyReported)
-						if err := _Latency.contract.UnpackLog(event, "Reported", log); err != nil {
-							return err
-						}
-						event.Raw = log
-
-						select {
-						case sink <- event:
-						case err := <-sub.Err():
-							return err
-						case <-quit:
-							return nil
-						}
-					case err := <-sub.Err():
-						return err
-					case <-quit:
-						return nil
-					}
-				}
-			}), nil
-		}
-
-		// ParseReported is a log parse operation binding the contract event 0x13ae4ea8eb28cf5104b119acecdbc7bfcab76402a5caca38c9a5810629876aac.
-		//
-		// Solidity: event Reported(address indexed reporter, uint256 length)
-		func (_Latency *Latency) ParseReported(log types.Log) (*LatencyReported, error) {
-			event := new(LatencyReported)
-			if err := _Latency.contract.UnpackLog(event, "Reported", log); err != nil {
-				return nil, err
-			}
-			event.Raw = log
-			return event, nil
-		}
-
-
-*/
 
 // LiquidLogicMetaData contains all meta data concerning the LiquidLogic contract.
 var LiquidLogicMetaData = &bind.MetaData{

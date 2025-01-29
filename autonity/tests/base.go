@@ -615,18 +615,13 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		r,
 	}}
 
-	r.Latency = &Latency{
-		&contract{
-			params.LatencyContractAddress,
-			&generated.LatencyContractAbi,
-			r,
-		},
-	}
-
-	// TODO: replicate truffle tests default config.
+	r.Latency = &Latency{&contract{
+		address: params.LatencyContractAddress,
+		abi:     &generated.LatencyAbi,
+		r:       r,
+	}}
 
 	r.Operator = &runOptions{origin: genesisConfig.Config.AutonityContractConfig.Operator}
-
 	r.Committee.Validators = make([]AutonityValidator, 0, len(autonityGenesis.Validators))
 	for _, v := range autonityGenesis.Validators {
 		validator := genesisToAutonityVal(v)

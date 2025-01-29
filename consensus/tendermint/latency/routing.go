@@ -61,33 +61,17 @@ type Router struct {
 }
 
 func NewRouter(
-	chainId *big.Int,
-	contracts *autonity.ProtocolContracts,
 	broadcaster consensus.Broadcaster,
 	nodeKey *ecdsa.PrivateKey,
-) (*Router, error) {
-	reporter, err := NewReporter(chainId, nodeKey, contracts)
-	if err != nil {
-		return nil, err
-	}
-
+) *Router {
 	r := &Router{
-		self:              reporter.txOpts.From,
 		broadcaster:       broadcaster,
-		contracts:         contracts,
+		nodeKey:           nodeKey,
 		reportedEventChan: make(chan *autonity.LatencyReported),
 		epochEventChan:    make(chan core.EpochHeadEvent),
 		chainEventChan:    make(chan core.ChainEvent),
 	}
-
-	r.reportEventSub, err = contracts.Latency.WatchReported(nil, r.reportedEventChan, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	r.epochHeadSub, err = contracts.AutonityContract.WatchNewEpoch(nil, r.epochHeadCh)
-
-	return r, nil
+	return r
 }
 
 // Route just select recipients from the clusters, it does not do the message sending.
