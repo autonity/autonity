@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.1.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.1.1
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.1.1
-	github.com/btcsuite/btcd v0.20.1-beta
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/cespare/cp v0.1.0
 	github.com/cloudflare/cloudflare-go v0.14.0
 	github.com/consensys/gnark-crypto v0.4.1-0.20210426202927-39ac3d4b3f1f
@@ -31,7 +31,7 @@ require (
 	github.com/golang/snappy v0.0.4
 	github.com/google/gofuzz v1.2.1-0.20220503160820-4a35382e8fc8
 	github.com/google/uuid v1.1.5
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.0
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/hashicorp/consul/sdk v0.11.0
 	github.com/hashicorp/go-bexpr v0.1.10
@@ -87,6 +87,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.1.1 // indirect
 	github.com/aws/smithy-go v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.8.2 // indirect
 	github.com/dlclark/regexp2 v1.4.1-0.20201116162257-a2a8dda75c91 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
