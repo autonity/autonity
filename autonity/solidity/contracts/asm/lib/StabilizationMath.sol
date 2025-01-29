@@ -47,8 +47,8 @@ library StabilizationMath {
         }
         UD60x18 L = ud(liquidationRatio);
         UD60x18 C = ud(totalCollateral);
-        UD60x18 t = ud(timeDelta);
-        UD60x18 T = ud(duration);
+        UD60x18 t = ud(timeDelta*SCALE_FACTOR);
+        UD60x18 T = ud(duration*SCALE_FACTOR);
         UD60x18 sqrtTau = t.div(T).sqrt();
         UD60x18 one = ud(SCALE_FACTOR);
 
