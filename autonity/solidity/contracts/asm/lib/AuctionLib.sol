@@ -42,6 +42,7 @@ library AuctionLib {
     ) internal returns (uint256) {
         uint256 id = 0;
         if (set.keys.length() > 0) id = set.keys.at(set.keys.length() -1) +1;
+        while(set.keys.contains(id)) id++;
         set.auctions[id] = Auction(id, amount, startRound, startTimestamp);
         set.keys.add(id);
         return id;
