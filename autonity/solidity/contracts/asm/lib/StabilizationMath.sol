@@ -25,8 +25,8 @@ library StabilizationMath {
     // Calculate the amount of collateral that can be received in a debt auction given the auction parameters.
     // @param startTimestamp The timestamp when the auction started
     // @param currentTimestamp The current timestamp
-    // @param maximumOffer The maximum amount of collateral that can be received (end of the auction)
-    // @param minimumOffer The minimum amount of collateral that can be received (start of the auction)
+    // @param totalCollateral The maximum amount of collateral that can be received
+    // @param liquidationRatio The liquidation ratio (must be > 1)
     // @param duration The duration of the auction
     // @return The amount of collateral to be received
     function sqrtIncreaseAuctionAmount(
@@ -92,14 +92,14 @@ library StabilizationMath {
     └──────────────────┘
     */
 
-    /// Calculate the maximum amount of Amount that can be borrowed for the
+    /// Calculate the maximum amount of ATN that can be borrowed for the
     /// given amount of Collateral Token.
     /// @param collateral Amount of Collateral Token backing the debt
     /// @param collateralPrice The price of Collateral Token in Auton
     /// @param debtPrice The price of ATN in ACU
     /// @param targetDebtPrice The ACU value of 1 unit of debt
     /// @param mcr The minimum collateralization ratio
-    /// @return The maximum Auton that can be borrowed
+    /// @return The maximum ATN that can be borrowed
     function borrowLimit(
         uint256 collateral,
         uint256 collateralPrice,
@@ -129,7 +129,7 @@ library StabilizationMath {
     /// Calculate the interest due for a given amount of debt.
     /// @param debt The debt amount
     /// @param rateExponent The summation of the rates multiplied by their respective time window
-    /// @return
+    /// @return The interest due
     /// @dev Makes use of the prb-math library for natural exponentiation.
     function interestDue(
         uint256 debt,
@@ -160,6 +160,10 @@ library StabilizationMath {
 
     /// Determine the maximum amount of Auton that a user can borrow before their position becomes
     /// liquidatable
+    /// @param collateral The collateral amount
+    /// @param price The price of Collateral Token in ATN
+    /// @param liquidationRatio The liquidation ratio, must be > 1
+    /// @return The maximum amount of Auton that can be borrowed
     function debtLimit(
         uint256 collateral,
         uint256 price,
