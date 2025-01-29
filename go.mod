@@ -1,6 +1,6 @@
 module github.com/autonity/autonity
 
-go 1.21
+go 1.23.5
 
 require (
 	github.com/ALTree/bigfloat v0.2.0
