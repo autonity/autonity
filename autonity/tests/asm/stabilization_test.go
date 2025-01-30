@@ -266,18 +266,21 @@ func TestStabilizationWithdraw(t *testing.T) {
 		_, err = r.Stabilization.Borrow(tests.FromSender(userAccount, nil), borrowLimit)
 		require.NoError(t, err)
 
-		liqidatable, _, err := r.Stabilization.IsLiquidatable(nil, userAccount)
+		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, userAccount)
 		require.NoError(t, err)
-		require.False(t, liqidatable)
+		require.False(t, liquidatable)
 
-		_, err = r.Stabilization.SetMinCollateralizationRatio(r.Operator, new(big.Int).Add(cfg.MinCollateralizationRatio, e18))
+		_, err = r.Stabilization.UpdateMinCollateralizationRatio(r.Operator, new(big.Int).Add(cfg.MinCollateralizationRatio, e18))
 		require.NoError(t, err)
-		_, err = r.Stabilization.SetLiquidationRatio(r.Operator, cfg.MinCollateralizationRatio)
-		require.NoError(t, err)
+		progressTime(r, cfg.AnnouncementWindow.Int64())
 
-		liqidatable, _, err = r.Stabilization.IsLiquidatable(nil, userAccount)
+		_, err = r.Stabilization.UpdateLiquidationRatio(r.Operator, cfg.MinCollateralizationRatio)
 		require.NoError(t, err)
-		require.True(t, liqidatable)
+		progressTime(r, cfg.AnnouncementWindow.Int64())
+
+		liquidatable, _, err = r.Stabilization.IsLiquidatable(nil, userAccount)
+		require.NoError(t, err)
+		require.True(t, liquidatable)
 
 		_, err = r.Stabilization.Withdraw(tests.FromSender(userAccount, nil), big.NewInt(1))
 		require.ErrorAs(r.T, err, &tests.StabilizationLiquidatableError{})
@@ -293,7 +296,8 @@ func TestStabilizationWithdraw(t *testing.T) {
 		r.NoError(r.Stabilization.Borrow(tests.FromSender(userAccount, nil), borrowLimit))
 
 		// increase collateralization ratio
-		r.NoError(r.Stabilization.SetMinCollateralizationRatio(r.Operator, new(big.Int).Add(cfg.MinCollateralizationRatio, e18)))
+		r.NoError(r.Stabilization.UpdateMinCollateralizationRatio(r.Operator, new(big.Int).Add(cfg.MinCollateralizationRatio, e18)))
+		progressTime(r, cfg.AnnouncementWindow.Int64())
 
 		// withdraw
 		_, err = r.Stabilization.Withdraw(tests.FromSender(userAccount, nil), big.NewInt(1))
@@ -451,7 +455,7 @@ func TestStabilizationBorrow(t *testing.T) {
 		r.NoError(
 			r.Stabilization.Borrow(
 				tests.FromSender(userAccount, nil),
-				new(big.Int).Sub(borrowLimit, common.Big1),
+				borrowLimit,
 			),
 		)
 		isLiquidatable, _, err := r.Stabilization.IsLiquidatable(nil, userAccount)
@@ -459,11 +463,17 @@ func TestStabilizationBorrow(t *testing.T) {
 		require.False(t, isLiquidatable)
 
 		mcr := cfg.MinCollateralizationRatio
-		_, err = r.Stabilization.SetMinCollateralizationRatio(r.Operator, new(big.Int).Add(mcr, e18))
+		_, err = r.Stabilization.UpdateMinCollateralizationRatio(r.Operator, new(big.Int).Add(mcr, e18))
 		require.NoError(t, err)
+		progressTime(r, cfg.AnnouncementWindow.Int64())
 
-		_, err = r.Stabilization.SetLiquidationRatio(r.Operator, mcr)
+		_, err = r.Stabilization.UpdateLiquidationRatio(r.Operator, mcr)
 		require.NoError(t, err)
+		progressTime(r, cfg.AnnouncementWindow.Int64())
+
+		cfg, _, err = r.Stabilization.Config(nil)
+		require.NoError(t, err)
+		require.Equal(t, mcr, cfg.LiquidationRatio)
 
 		isLiquidatable, _, err = r.Stabilization.IsLiquidatable(nil, userAccount)
 		require.NoError(t, err)
@@ -474,9 +484,13 @@ func TestStabilizationBorrow(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test cannot borrow over limit", setup, func(r *tests.Runner) {
+		announceWindow, _, err := r.Stabilization.GetAnnouncementWindow(nil)
+		require.NoError(t, err)
+
 		// set correct parameters to avoid liquidation error
-		r.NoError(r.Stabilization.SetMinCollateralizationRatio(r.Operator, basicConfig.MinCollateralizationRatio))
-		r.NoError(r.Stabilization.SetLiquidationRatio(r.Operator, basicConfig.LiquidationRatio))
+		r.NoError(r.Stabilization.UpdateMinCollateralizationRatio(r.Operator, basicConfig.MinCollateralizationRatio))
+		r.NoError(r.Stabilization.UpdateLiquidationRatio(r.Operator, basicConfig.LiquidationRatio))
+		progressTime(r, announceWindow.Int64())
 
 		cdp, _, err := r.Stabilization.Cdps(nil, userAccount)
 		require.NoError(t, err)
@@ -1395,6 +1409,96 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 	})
 }
 
+func TestUpdateLiquidationRatio(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("only operator can update liquidation ratio", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateLiquidationRatio(nil, toBase("1.5", 18))
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+
+		_, err = r.Stabilization.UpdateLiquidationRatio(
+			tests.FromSender(tests.User, nil),
+			toBase("1.5", 18),
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+	})
+
+	tests.RunWithSetup("liquidation ratio cannot be less than SCALE_FACTOR", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateLiquidationRatio(r.Operator, toBase("0.99", 18))
+		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
+	})
+
+	tests.RunWithSetup("liquidation ratio can be updated", setup, func(r *tests.Runner) {
+		newRatio := toBase("1.75", 18)
+		cfg, _, err := r.Stabilization.Config(nil)
+		require.NoError(r.T, err)
+		require.NotEqual(r.T, newRatio, cfg.LiquidationRatio)
+
+		r.NoError(
+			r.Stabilization.UpdateLiquidationRatio(
+				r.Operator,
+				newRatio,
+			),
+		)
+
+		progressTime(r, cfg.AnnouncementWindow.Int64())
+
+		readRatio, _, err := r.Stabilization.LiquidationRatio(nil)
+		require.NoError(t, err)
+		cfg, _, err = r.Stabilization.Config(nil)
+		require.NoError(r.T, err)
+		require.Equal(t, cfg.LiquidationRatio, readRatio)
+		require.Equal(t, newRatio, readRatio)
+	})
+}
+
+func TestUpdateMinCollateralizationRatio(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("only operator can update min collateralization ratio", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateMinCollateralizationRatio(nil, toBase("1.5", 18))
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+
+		_, err = r.Stabilization.UpdateMinCollateralizationRatio(
+			tests.FromSender(tests.User, nil),
+			toBase("1.5", 18),
+		)
+		require.ErrorAs(r.T, err, &tests.StabilizationUnauthorizedError{})
+	})
+
+	tests.RunWithSetup("min collateralization ratio cannot be less than SCALE_FACTOR", setup, func(r *tests.Runner) {
+		_, err := r.Stabilization.UpdateMinCollateralizationRatio(r.Operator, toBase("0.99", 18))
+		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
+	})
+
+	tests.RunWithSetup("min collateralization ratio can be updated", setup, func(r *tests.Runner) {
+		newRatio := toBase("3.0", 18)
+		cfg, _, err := r.Stabilization.Config(nil)
+		require.NoError(r.T, err)
+		require.NotEqual(r.T, newRatio, cfg.MinCollateralizationRatio)
+
+		r.NoError(
+			r.Stabilization.UpdateMinCollateralizationRatio(
+				r.Operator,
+				newRatio,
+			),
+		)
+
+		progressTime(r, cfg.AnnouncementWindow.Int64())
+
+		readRatio, _, err := r.Stabilization.MinCollateralizationRatio(nil)
+		require.NoError(t, err)
+		cfg, _, err = r.Stabilization.Config(nil)
+		require.NoError(r.T, err)
+		require.Equal(t, cfg.MinCollateralizationRatio, readRatio)
+		require.Equal(t, newRatio, readRatio)
+	})
+}
+
 // test helpers functions
 
 func progressTime(r *tests.Runner, timeToAdd int64) {
@@ -1484,8 +1588,10 @@ func getDebt(r *tests.Runner, user common.Address) *big.Int {
 }
 
 func setBasicConfig(r *tests.Runner) {
-	r.NoError(r.Stabilization.SetLiquidationRatio(r.Operator, basicConfig.LiquidationRatio))
-	r.NoError(r.Stabilization.SetMinCollateralizationRatio(r.Operator, basicConfig.MinCollateralizationRatio))
+	r.NoError(r.Stabilization.UpdateLiquidationRatio(r.Operator, basicConfig.LiquidationRatio))
+	progressTime(r, basicConfig.AnnouncementWindow.Int64())
+	r.NoError(r.Stabilization.UpdateMinCollateralizationRatio(r.Operator, basicConfig.MinCollateralizationRatio))
+	progressTime(r, basicConfig.AnnouncementWindow.Int64())
 	r.NoError(r.Stabilization.SetMinDebtRequirement(r.Operator, basicConfig.MinDebtRequirement))
 }
 
