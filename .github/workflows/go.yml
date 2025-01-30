@@ -70,6 +70,7 @@ jobs:
         if: steps.gocache.outputs.cache-hit != 'true'
         run: |
           go mod download -x
+          go install github.com/influxdata/pkg-config@latest
           make autonity
           go build ./...
           go test -c ./eth
@@ -302,7 +303,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: make all
+        run: go install github.com/influxdata/pkg-config@latest && make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=0 END=4
@@ -327,7 +328,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: make all
+        run: go install github.com/influxdata/pkg-config@latest && make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=4 END=8
@@ -352,7 +353,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: make all
+        run: go install github.com/influxdata/pkg-config@latest && make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=8 END=13
@@ -377,7 +378,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: make all
+        run: go install github.com/influxdata/pkg-config@latest && make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=13 END=17
@@ -402,7 +403,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: make all
+        run: go install github.com/influxdata/pkg-config@latest && make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=17 END=22
@@ -427,7 +428,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: make all
+        run: go install github.com/influxdata/pkg-config@latest && make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=22 END=26
