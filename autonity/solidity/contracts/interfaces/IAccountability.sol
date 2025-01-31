@@ -22,24 +22,29 @@ interface IAccountability {
     function setCommittee(address[] memory _committee) external;
 
     /**
-    * @dev Event emitted when a fault proof has been submitted. The reported validator
-    * will be silencied and slashed at the end of the current epoch.
+    * @notice Event emitted when a fault proof has been submitted. The reported validator
+    * will be silenced and slashed at the end of the current epoch.
     */
     event NewFaultProof(address indexed _offender, uint256 _severity, uint256 _id, uint256 _epoch);
 
     /**
-    * @dev Event emitted after receiving an accusation, the reported validator has
+    * @notice Event emitted when a reporter is rewarded for submitting a valid proof
+    */
+    event ReporterRewarded(address reporter, address indexed offender, uint256 value);
+
+    /**
+    * @notice Event emitted after receiving an accusation, the reported validator has
     * a certain amount of time to submit a proof-of-innocence, otherwise, he gets slashed.
     */
     event NewAccusation(address indexed _offender, uint256 _severity, uint256 _id);
 
     /**
-    * @dev Event emitted after receiving a proof-of-innocence cancelling an accusation.
+    * @notice Event emitted after receiving a proof-of-innocence cancelling an accusation.
     */
     event InnocenceProven(address indexed _offender, uint256 _id);
 
     /**
-    * @dev Event emitted after a successful slashing.
+    * @notice Event emitted after a successful slashing.
     */
     event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId);
 }

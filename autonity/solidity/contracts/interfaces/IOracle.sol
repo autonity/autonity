@@ -118,12 +118,57 @@ interface IOracle {
     function getDecimals() external view returns (uint8);
 
     /**
-     * @dev Emitted upon a symbol change triggered by the Operator.
-     * @param _round The round at which new symbols are effective
+     * @dev Emitted when the oracle symbol list is updated
+     * _symbols - new symbol list
+     * _round - the round at which new symbols are effective
      */
     event NewSymbols(string[] _symbols, uint256 _round);
 
-    event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint _votePeriod);
+    /**
+     * @dev Emitted when a new voting round is started.
+     * round - the new round ID
+     * height - the height of the current block being executed in the EVM context.
+     * timestamp - the TS in time's seconds since Jan 1 1970 (Unix time) that the block been mined by protocol
+     * votePeriod - the round period in blocks for the price voting and aggregation.
+     */
+    event NewRound(uint256 _round,  uint256 _timestamp, uint _votePeriod);
+
+    /**
+     * @dev Emitted when oracle rewards are distributed
+     * ntnReward - total ntn rewards
+     * atnReward - total atn rewards
+     */
+    event TotalOracleRewards(uint256 ntnReward, uint256 atnReward);
+
+    /**
+     * @dev Emitted when an invalid report is submitted
+     * reason - cause of invalidation
+     * reporter - report submitter
+     * expValue - expected value in report
+     * actualValue - actual value in report
+     */
+    event InvalidVote(string cause, address indexed reporter, uint256 expValue, uint256 actualValue);
+
+    /**
+     * @dev Emitted when a valid report is accepted
+     * reporter - report submitter
+     */
+    event SuccessfulVote(address indexed reporter);
+
+    /**
+     * @dev Emitted when a new reporter submits a report
+     * reporter - report submitter
+     */
+    event NewVoter(address reporter);
+
+    /**
+     * @dev Emitted when a new price is calculated for a symbol
+     * price - new price
+     * symbol - symbol
+     * status - status of price calculation
+     * timestamp - timestamp of price
+     */
+    event PriceUpdated(uint256 price, string indexed symbol, uint256 status, uint256 timestamp);
 
     /**
      * @dev Emitted when a participant gets penalized as an outlier

@@ -208,58 +208,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     ISlasher public slasher;
 
-    /* Events */
-    event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue);
-    event ConfigUpdateAddress(string name, address oldValue, address newValue);
-    event EnodeUpdate(address validator, string oldEnode, string newEnode);
-
-    event MintedStake(address indexed addr, uint256 amount);
-    event BurnedStake(address indexed addr, uint256 amount);
-    event CommissionRateChange(address indexed validator, uint256 rate);
-
-    /** @notice This event is emitted when a bonding request to a validator node has been registered.
-    * This request will only be effective at the end of the current epoch however the stake will be
-    * put in custody immediately from the delegator's account.
-    * @param validator The validator node account.
-    * @param delegator The caller.
-    * @param selfBonded True if the validator treasury initiated the request. No LNEW will be issued.
-    * @param amount The amount of NEWTON to be delegated.
-    */
-    event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount, uint256 headBondingID);
-    event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, ValidatorState state);
-
-    /** @notice This event is emitted when an unbonding request to a validator node has been registered.
-    * This request will only be effective after the unbonding period, rounded to the next epoch.
-    * Please note that because of potential slashing events during this delay period, the released amount
-    * may or may not be correspond to the amount requested.
-    * @param validator The validator node account.
-    * @param delegator The caller.
-    * @param selfBonded True if the validator treasury initiated the request.
-    * @param amount If self-bonded this is the requested amount of NEWTON to be unbonded.
-    * If not self-bonded, this is the amount of Liquid Newton to be unbonded.
-    */
-    event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount, uint256 headUnbondingID);
-
-    event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract);
-    event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
-    event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
-    event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
-    event EpochPeriodUpdated(uint256 period, uint256 appliedAtBlock);
-    event NewEpoch(uint256 epoch, uint256 inflationReserve, uint256 stakeCirculating);
-
-    /**
-     * @notice This event is emitted when a call to an address fails in a protocol function (like finalize()).
-     * @param to address
-     * @param methodSignature method signature of the call, empty in case of plain transaction
-     * @param returnData low level return data
-     */
-    event CallFailed(address to, string methodSignature, bytes returnData);
-
-    /**
-     * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
-     * Note that `gasPrice` may be zero.
-     */
-    event MinimumBaseFeeUpdated(uint256 gasPrice);
 
     constructor(Validator[] memory _validators,
         Config memory _config) {
@@ -1648,11 +1596,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         accounts[_recipient] -= _amount;
         BondingRequest memory _bonding = BondingRequest(_recipient, _validator, _amount, block.number);
         bondingMap[headBondingID] = _bonding;
-        headBondingID++;
 
         bool _selfBonded = validators[_validator].treasury == _recipient;
         //Todo: add headBodingID
         emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount, headBondingID);
+        headBondingID++;
         return headBondingID - 1;
     }
 
@@ -1712,13 +1660,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             );
             _validator.selfUnbondingStakeLocked += _amount;
         }
+        //Todo: add headUnBodingID
+        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount, headUnbondingID);
         unbondingMap[headUnbondingID] = UnbondingRequest(
             _recipient, _validatorAddress, _amount, 0, block.number, false, false, selfDelegation
         );
         headUnbondingID++;
 
-        //Todo: add headUnBodingID
-        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount, headUnbondingID);
         return headUnbondingID - 1;
     }
 

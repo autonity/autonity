@@ -158,18 +158,34 @@ contract Oracle is IOracle {
         voterInfo[msg.sender].round = round;
         // new voter/first round
         if (_lastVotedRound == 0) {
+            // todo: emit NewVoter() - type, reporter, lastVoted
+            emit NewVoter(msg.sender);
             return;
         }
 
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
         if (_reports.length != symbols.length) {
+            // todo: emit invalidVote() - type, reporter, reportLength, symbolLength
+            emit InvalidVote("ReportLengthMismatch", msg.sender, _reports.length, symbols.length);
             return;
         }
 
-        if (_lastVotedRound != round - 1 ||
-            _pastCommit != uint256(keccak256(abi.encode(_reports, _salt, msg.sender)))
-        ) {
+        //todo: pull all vote txs, check for errors in receipts too
+        // for every voting round
+//            - table, every row for every voter, including the ones who didn't vote, vote absent
+        // error if any. check against the receipt
+        // if no error - for every symbol the value being sent on chain, how for is it from the final aggregated in terms of percentage
+        // do it after every voting round
+        if (_lastVotedRound != round - 1) {
+            emit InvalidVote("LastVotedRoundMismatch", msg.sender, round-1,  _lastVotedRound);
+            return;
+        }
+
+        _commit = uint256(keccak256(abi.encode(_reports, _salt, msg.sender)));
+        if (_pastCommit != _commit) {
+            emit InvalidVote("CommitMismatch", msg.sender, _pastCommit, _commit);
+            // todo: emit invalidVote() - type, reporter, failure reason
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
             return;
@@ -185,6 +201,8 @@ contract Oracle is IOracle {
             reports[symbols[i]][msg.sender] = _reports[i];
         }
         voterInfo[msg.sender].reportAvailable = true;
+        //todo: emit successVote - no params
+        emit SuccessfulVote(msg.sender);
     }
     /**
      * @notice Finalizes the current round and aggregates the votes. Called by the Autonity contract.
@@ -205,7 +223,14 @@ contract Oracle is IOracle {
 
         lastRoundBlock = block.number;
         round += 1;
-        emit NewRound(round, block.number, block.timestamp, config.votePeriod);
+        // symbol update should happen in the symbolUpdatedRound+2 since we expect
+        // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
+        // for the new symbols in symbolUpdatedRound+2
+        if (int256(round) == symbolUpdatedRound + 2) {
+            symbols = newSymbols;
+        }
+        //todo: check with jason, remove number/timestamp
+        emit NewRound(round,  block.timestamp, config.votePeriod);
         return true;
     }
 
@@ -247,6 +272,8 @@ contract Oracle is IOracle {
             rewardPeriodPerformance[_voter] = 0;
             rewardReceivers.remove(_voter);
         }
+        emit TotalOracleRewards(_totalNTN, _totalATN);
+        //todo: emit TotalOracleRewards - totalATN, totalNTN
         rewardPeriodAggregatedScore = 0;
     }
 
@@ -332,6 +359,8 @@ contract Oracle is IOracle {
                 false
             );
         }
+        emit PriceUpdated(_price, _symbol, _success, block.timestamp);
+        //todo: emit Price - round, symbol, success_status, tiemstamp(maybe)
     }
 
     /**
@@ -469,14 +498,17 @@ contract Oracle is IOracle {
     * @notice Setter for the vote period.
     * @dev IOracle interface method implementation..
     */
+    //todo: config change event
     function setVotePeriod(uint _votePeriod) external onlyOperator {
         _checkVotePeriod(_votePeriod);
+        emit config.autonity.ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
         config.votePeriod = _votePeriod;
     }
 
     /**
     * @notice Setter for the internal slashing and outlier detection configuration.
     */
+    //todo: config change event
     function setSlashingConfig(
         int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,
@@ -484,8 +516,11 @@ contract Oracle is IOracle {
     external
     onlyOperator
     {
+        emit config.autonity.ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
+        emit config.autonity.ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
         config.outlierDetectionThreshold = _outlierDetectionThreshold;
+        emit config.autonity.ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate);
         config.baseSlashingRate = _baseSlashingRate;
     }
 

@@ -60,6 +60,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
     event InactivitySlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound);
     event InactivityJailingEvent(address validator, uint256 releaseBlock);
+    event TotalProposerRewards(uint256 ntnReward, uint256 atnReward);
 
     constructor(
         address payable _autonity,
@@ -330,6 +331,8 @@ contract OmissionAccountability is IOmissionAccountability {
                 proposerEffort[_nodeAddress] = 0;
             }
         }
+        //todo: TotalProposerReward event -  atnReward, ntnReward, in the tool fetch proposer Effort and compute individual rewards
+        emit TotalProposerRewards(_ntnReward, _atnReward);
 
         totalEffort = 0;
     }
@@ -422,9 +425,11 @@ contract OmissionAccountability is IOmissionAccountability {
     * @dev restricted to the operator
     * @param _inactivityThreshold, the new value for inactivity threshold
     */
+    // todo: config update event
     function setInactivityThreshold(uint256 _inactivityThreshold) external virtual onlyOperator {
         require(_inactivityThreshold <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_inactivityThreshold >= config.pastPerformanceWeight, "inactivityThreshold needs to be greater or equal to pastPerformanceWeight");
+        emit autonity.ConfigUpdateUint("inactivityThreshold", config.inactivityThreshold, _inactivityThreshold);
         config.inactivityThreshold = _inactivityThreshold;
     }
 
@@ -432,9 +437,11 @@ contract OmissionAccountability is IOmissionAccountability {
     * @dev restricted to the operator
     * @param _pastPerformanceWeight, the new value for the past performance weight
     */
+    // todo: config update event
     function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator {
         require(_pastPerformanceWeight <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_pastPerformanceWeight <= config.inactivityThreshold, "pastPerformanceWeight cannot be greater than inactivityThreshold");
+        emit autonity.ConfigUpdateUint("pastPerformanceWeight", config.pastPerformanceWeight, _pastPerformanceWeight);
         config.pastPerformanceWeight = _pastPerformanceWeight;
     }
 
@@ -442,7 +449,9 @@ contract OmissionAccountability is IOmissionAccountability {
     * @dev restricted to the operator
     * @param _initialJailingPeriod, the new value for the initial jailing period
     */
+    // todo: config update event
     function setInitialJailingPeriod(uint256 _initialJailingPeriod) external virtual onlyOperator {
+        emit autonity.ConfigUpdateUint("initialJailingPeriod", config.initialJailingPeriod, _initialJailingPeriod);
         config.initialJailingPeriod = _initialJailingPeriod;
     }
 
@@ -450,7 +459,9 @@ contract OmissionAccountability is IOmissionAccountability {
     * @dev restricted to the operator
     * @param _initialProbationPeriod, the new value for the initial probation period
     */
+    // todo: config update event
     function setInitialProbationPeriod(uint256 _initialProbationPeriod) external virtual onlyOperator {
+        emit autonity.ConfigUpdateUint("initialProbationPeriod", config.initialProbationPeriod, _initialProbationPeriod);
         config.initialProbationPeriod = _initialProbationPeriod;
     }
 
@@ -458,8 +469,10 @@ contract OmissionAccountability is IOmissionAccountability {
     * @dev restricted to the operator
     * @param _initialSlashingRate, the new value for the initial slashing rate
     */
+    // todo: config update event
     function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
         require(_initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "cannot exceed slashing rate scale factor");
+        emit autonity.ConfigUpdateUint("initialSlashingRate", config.initialSlashingRate, _initialSlashingRate);
         config.initialSlashingRate = _initialSlashingRate;
     }
 
@@ -467,12 +480,14 @@ contract OmissionAccountability is IOmissionAccountability {
     * @dev restricted to the operator
     * @param _lookbackWindow, the new value for the lookbackWindow
     */
+    // todo: config update event
     function setLookbackWindow(uint256 _lookbackWindow) external virtual onlyOperator {
         require(_lookbackWindow >= 1, "lookbackWindow cannot be 0");
         uint256 _epochPeriod = autonity.getEpochPeriod();
 
         // utilize newDelta for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > newDelta + _lookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
+        emit autonity.ConfigUpdateUint("newLookbackWindow", newLookbackWindow, _lookbackWindow);
         newLookbackWindow = _lookbackWindow;
     }
 
@@ -480,12 +495,14 @@ contract OmissionAccountability is IOmissionAccountability {
     * @dev restricted to the operator
     * @param _delta, the new value for delta
     */
+    // todo: config update event
     function setDelta(uint256 _delta) external virtual onlyOperator {
         require(_delta >= 2, "delta needs to be at least 2"); // cannot be 1 due to optimistic block building
         uint256 _epochPeriod = autonity.getEpochPeriod();
 
         // utilize newLookbackWindow for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > _delta + newLookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
+        emit autonity.ConfigUpdateUint("newOmissionDelta", newDelta, _delta);
         newDelta = _delta;
     }
 
