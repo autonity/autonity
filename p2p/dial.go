@@ -555,7 +555,7 @@ func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
 	if err != nil {
 		var customLogFn func(msg string, ctx ...interface{})
 		// raise verbosity to warn if a dial fails in the ACN network
-		if d.net.String() == "consensus" {
+		if d.net == Consensus {
 			customLogFn = d.log.Warn
 		} else {
 			customLogFn = d.log.Trace
