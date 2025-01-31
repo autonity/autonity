@@ -515,6 +515,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		r.GiveMeSomeMoney(liquidator, debtAmount)
 
 		maxReturn, _, err := r.Auctioneer.MaxLiquidationReturn(nil, user, liquidatableRound)
+		require.NoError(t, err)
 
 		balanceBefore, _, err := r.Autonity.BalanceOf(nil, liquidator)
 		require.NoError(t, err)
@@ -802,26 +803,21 @@ func (o *testOracleRounds) increment(r *tests.Runner) {
 	require.NoError(r.T, err)
 	voter := r.Committee.Validators[0].OracleAddress
 
-	var nextReports []tests.IOracleReport
-	var currentReports []tests.IOracleReport
+	nextReports := make([]tests.IOracleReport, len(o.symbolPrices))
+	currentReports := make([]tests.IOracleReport, len(o.symbolPrices))
 
-	for _, prices := range o.symbolPrices {
+	for i, prices := range o.symbolPrices {
 		if o.currentRound > 0 {
-			currentReports = append(
-				currentReports,
-				tests.IOracleReport{
-					Price:      prices[o.currentRound%len(prices)],
-					Confidence: 100,
-				},
-			)
-		}
-		nextReports = append(
-			nextReports,
-			tests.IOracleReport{
-				Price:      prices[(o.currentRound+1)%len(prices)],
+			currentReports[i] = tests.IOracleReport{
+				Price:      prices[o.currentRound%len(prices)],
 				Confidence: 100,
-			},
-		)
+			}
+
+		}
+		nextReports[i] = tests.IOracleReport{
+			Price:      prices[(o.currentRound+1)%len(prices)],
+			Confidence: 100,
+		}
 	}
 
 	salt := big.NewInt(1234)

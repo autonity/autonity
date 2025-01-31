@@ -127,6 +127,7 @@ function autonityConfig(operator, treasuryAccount) {
             "upgradeManagerContract" :ZERO_ADDRESS,
             "inflationControllerContract" :ZERO_ADDRESS,
             "omissionAccountabilityContract": ZERO_ADDRESS,
+            "auctioneerContract": ZERO_ADDRESS,
         },
         "protocol": {
             "operatorAccount": operator,

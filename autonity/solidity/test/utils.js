@@ -9,9 +9,9 @@ const UpgradeManager = artifacts.require("UpgradeManager");
 const Oracle = artifacts.require("Oracle")
 const Acu = artifacts.require("ACU")
 const SupplyControl = artifacts.require("SupplyControl")
-const Stabilization = artifacts.require("Stabilization")
+const Stabilization = artifacts.require("StabilizationMock")
 const InflationController = artifacts.require("InflationController")
-const NonStakeableVesting = artifacts.require("NonStakeableVesting")
+const AuctioneerMock = artifacts.require("AuctioneerMock")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
 const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
@@ -233,10 +233,8 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
 
   // supply control contract. we will set the stabilizer address later
   const supplyControl = await SupplyControl.new(autonity.address,operator,"0x0000000000000000000000000000000000000000",{from:deployer,value:1})
-
-  // stabilization contract, random temporary config and zeroAddress as collateral token
-
-  const stabilization = await Stabilization.new(config.STABILIZATION_CONFIG,autonity.address,operator,oracle.address,supplyControl.address,"0x0000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000",{from:deployer})
+  const auctioneer = await AuctioneerMock.new({from:deployer});
+  const stabilization = await Stabilization.new({from:deployer});
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
 
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
@@ -250,7 +248,8 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
-  await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator})
+  await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator});
+  await autonity.setAuctioneerContract(auctioneer.address, {from: operator});
 }
 
 // deploys protocol contracts
