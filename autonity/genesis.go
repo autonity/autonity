@@ -37,6 +37,18 @@ type (
 )
 
 var (
+	defaultContracts = AutonityContracts{
+		AccountabilityContract:         params.AccountabilityContractAddress,
+		OracleContract:                 params.OracleContractAddress,
+		AcuContract:                    params.ACUContractAddress,
+		SupplyControlContract:          params.SupplyControlContractAddress,
+		StabilizationContract:          params.StabilizationContractAddress,
+		UpgradeManagerContract:         params.UpgradeManagerContractAddress,
+		InflationControllerContract:    params.InflationControllerContractAddress,
+		OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+		LatencyContract:                params.LatencyContractAddress,
+	}
+
 	commonSequence = []genesisStep{
 		executeGenesisDelegations,
 		createAutonitySchedules,
@@ -154,16 +166,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			WithheldRewardsPool:     config.AutonityContractConfig.WithheldRewardsPool,
 			TreasuryAccount:         config.AutonityContractConfig.Treasury,
 		},
-		Contracts: AutonityContracts{
-			AccountabilityContract:         params.AccountabilityContractAddress,
-			OracleContract:                 params.OracleContractAddress,
-			AcuContract:                    params.ACUContractAddress,
-			SupplyControlContract:          params.SupplyControlContractAddress,
-			StabilizationContract:          params.StabilizationContractAddress,
-			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
-			InflationControllerContract:    params.InflationControllerContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
-		},
+		Contracts: defaultContracts,
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,
 			EpochPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.EpochPeriod),
@@ -631,16 +634,7 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 			WithheldRewardsPool:     config.AutonityContractConfig.WithheldRewardsPool,
 			TreasuryAccount:         config.AutonityContractConfig.Treasury,
 		},
-		Contracts: AutonityContracts{
-			AccountabilityContract:         params.AccountabilityContractAddress,
-			OracleContract:                 params.OracleContractAddress,
-			AcuContract:                    params.ACUContractAddress,
-			SupplyControlContract:          params.SupplyControlContractAddress,
-			StabilizationContract:          params.StabilizationContractAddress,
-			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
-			InflationControllerContract:    params.InflationControllerContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
-		},
+		Contracts: defaultContracts,
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,
 			EpochPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.EpochPeriod),
