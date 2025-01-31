@@ -15,6 +15,7 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
 import {IACU} from "./interfaces/IACU.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import "./lib/ASMErrors.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
@@ -28,6 +29,8 @@ contract ACU is IACU {
     uint256 public scale;
     /// The multiplier for scaling numbers to the ACU scaled representation.
     uint256 public scaleFactor;
+    /// The quantity multiplier for the ACU basket.
+    uint256 public quantityMultiplier;
 
     string[] private _symbols;
     uint256[] private _quantities;
@@ -36,16 +39,14 @@ contract ACU is IACU {
     address private _operator;
     IOracle private _oracle;
     bytes32 private constant SYMBOL_USD =
-        keccak256(abi.encodePacked("USD-USD"));
+    keccak256(abi.encodePacked("USD-USD"));
 
     /// The ACU value was updated.
     event Updated(uint height, uint timestamp, uint256 round, int256 value);
     /// The ACU symbols, quantites, or scale were modified.
     event BasketModified(string[] symbols, uint256[] quantities, uint256 scale);
-
-    error InvalidBasket();
-    error NoACUValue();
-    error Unauthorized();
+    /// The ACU quantity multiplier has been updated
+    event Rescaled(uint256 newQuantityMultiplier, uint256 oldQuantityMultiplier);
 
     modifier onlyAutonity() {
         if (msg.sender != _autonity) revert Unauthorized();
@@ -88,6 +89,7 @@ contract ACU is IACU {
         _quantities = quantities_;
         scale = scale_;
         scaleFactor = 10 ** scale_;
+        quantityMultiplier = scaleFactor;
         _autonity = autonity;
         _operator = operator;
         _oracle = IOracle(oracle);
@@ -118,7 +120,7 @@ contract ACU is IACU {
         for (uint i = 0; i < _symbols.length; i++) {
             int256 price;
             if (keccak256(abi.encodePacked(_symbols[i])) == SYMBOL_USD) {
-                price = int256(10**oracleDecimals);
+                price = int256(10 ** oracleDecimals);
             } else {
                 IOracle.RoundData memory roundData = _oracle.getRoundData(
                     latestRound,
@@ -130,7 +132,7 @@ contract ACU is IACU {
             sumProduct += (price * int256(_quantities[i]));
         }
 
-        _value = sumProduct / int256(10**oracleDecimals);
+        _value = sumProduct / int256(10 ** oracleDecimals);
         round = latestRound;
 
         // solhint-disable-next-line not-rely-on-time
@@ -173,8 +175,16 @@ contract ACU is IACU {
         _symbols = symbols_;
         _quantities = quantities_;
         scale = scale_;
+        // Rescale the quantity multiplier to the new scaleFactor
+        quantityMultiplier = quantityMultiplier * (10 ** scale_) / scaleFactor;
         scaleFactor = 10 ** scale;
         emit BasketModified(symbols_, quantities_, scale_);
+    }
+
+    function rescale(uint256 newQuantityMultiplier) external onlyOperator {
+        if (newQuantityMultiplier == 0) revert ZeroValue();
+        quantityMultiplier = newQuantityMultiplier;
+        emit Rescaled(newQuantityMultiplier, quantityMultiplier);
     }
 
     /*
@@ -187,7 +197,7 @@ contract ACU is IACU {
     /// @return ACU value in fixed-point integer representation
     function value() external view returns (int256) {
         if (round == 0) revert NoACUValue();
-        return _value;
+        return int256(quantityMultiplier) * _value / int256(scaleFactor);
     }
 
     /// The symbols that are used to compute the ACU.
@@ -200,5 +210,22 @@ contract ACU is IACU {
     /// @return Array of quantities
     function quantities() external view returns (uint256[] memory) {
         return _quantities;
+    }
+
+    /// The quantity multiplier that is used to compute the ACU.
+    /// @return Quantity multiplier
+    /// @dev The quantity multiplier has precision of scaleFactor
+    function multiplier() external view returns (uint256) {
+        return quantityMultiplier;
+    }
+
+    // The scaled quantities used to compute the ACU.
+    // @return Array of scaled quantities
+    function scaledQuantities() external view returns (uint256[] memory) {
+        uint256[] memory scaled = new uint256[](_quantities.length);
+        for (uint i = 0; i < _quantities.length; i++) {
+            scaled[i] = _quantities[i] * quantityMultiplier / scaleFactor;
+        }
+        return scaled;
     }
 }

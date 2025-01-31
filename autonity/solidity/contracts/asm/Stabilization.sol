@@ -20,7 +20,7 @@ import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
 import {IACU} from "./interfaces/IACU.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
-import "./lib/StabilizationErrors.sol";
+import "./lib/ASMErrors.sol";
 import {IAuctioneer} from "./interfaces/IAuctioneer.sol";
 import {UpdatableConfig} from "./lib/UpdatableConfig.sol";
 

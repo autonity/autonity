@@ -263,6 +263,42 @@ func TestACUValue(t *testing.T) {
 	})
 }
 
+func TestACURescale(t *testing.T) {
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		primeACU(r)
+		return r
+	}
+
+	tests.RunWithSetup("Test rescale cannot be called by non-operator", setup, func(r *tests.Runner) {
+		unauthorized := []common.Address{params.DeployerAddress, params.AutonityContractAddress, testrand.Address()}
+		for _, user := range unauthorized {
+			_, err := r.Acu.Rescale(tests.FromSender(user, nil), big.NewInt(1))
+			require.ErrorAs(t, err, &tests.ACUUnauthorizedError{})
+		}
+		_, err := r.Acu.Rescale(r.Operator, big.NewInt(1))
+		require.NoError(t, err)
+	})
+
+	tests.RunWithSetup("Test rescale properly modifies the ACU value", setup, func(r *tests.Runner) {
+		valueBefore, _, err := r.Acu.Value(nil)
+		require.NoError(t, err)
+		require.True(t, valueBefore.Cmp(common.Big0) > 0)
+
+		multiplierBefore, _, err := r.Acu.Multiplier(nil)
+		require.NoError(t, err)
+
+		_, err = r.Acu.Rescale(r.Operator, new(big.Int).Mul(multiplierBefore, big.NewInt(2)))
+		require.NoError(t, err)
+
+		valueAfter, _, err := r.Acu.Value(nil)
+		require.NoError(t, err)
+		require.True(t, valueAfter.Cmp(common.Big0) > 0)
+
+		require.Equal(t, new(big.Int).Mul(valueBefore, big.NewInt(2)), valueAfter)
+	})
+}
+
 func TestViewFunctions(t *testing.T) {
 	r := tests.Setup(t, nil)
 	r.Run("Test view functions", func(r *tests.Runner) {
