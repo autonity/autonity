@@ -812,7 +812,6 @@ func (o *testOracleRounds) increment(r *tests.Runner) {
 				Price:      prices[o.currentRound%len(prices)],
 				Confidence: 100,
 			}
-
 		}
 		nextReports[i] = tests.IOracleReport{
 			Price:      prices[(o.currentRound+1)%len(prices)],
@@ -823,7 +822,12 @@ func (o *testOracleRounds) increment(r *tests.Runner) {
 	salt := big.NewInt(1234)
 	commit := tests.MakeOracleCommit(r.T, salt, voter, nextReports)
 
-	_, err = r.Oracle.Vote(tests.FromSender(voter, common.Big0), commit, currentReports, salt, 0)
+	if o.currentRound > 0 {
+		_, err = r.Oracle.Vote(tests.FromSender(voter, common.Big0), commit, currentReports, salt, 0)
+	} else {
+		_, err = r.Oracle.Vote(tests.FromSender(voter, common.Big0), commit, nil, salt, 0)
+	}
+
 	require.NoError(r.T, err)
 	r.WaitNBlocks(int(config.VotePeriod.Int64()))
 
