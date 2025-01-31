@@ -700,6 +700,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /*
+    * @notice Set the Auctioneer contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setAuctioneerContract(IAuctioneer _address) public virtual onlyOperator {
+        config.contracts.auctioneerContract = _address;
+    }
+
+    /*
     * @notice Set the Inflation Controller contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
