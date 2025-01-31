@@ -19,10 +19,11 @@ package leveldb
 import (
 	"testing"
 
-	"github.com/autonity/autonity/ethdb"
-	"github.com/autonity/autonity/ethdb/dbtest"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
+
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/ethdb/dbtest"
 )
 
 func TestLevelDB(t *testing.T) {
@@ -36,5 +37,17 @@ func TestLevelDB(t *testing.T) {
 				db: db,
 			}
 		})
+	})
+}
+
+func BenchmarkLevelDB(b *testing.B) {
+	dbtest.BenchDatabaseSuite(b, func() ethdb.KeyValueStore {
+		db, err := leveldb.Open(storage.NewMemStorage(), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		return &Database{
+			db: db,
+		}
 	})
 }

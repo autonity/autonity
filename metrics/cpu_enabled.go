@@ -14,14 +14,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-//go:build !ios && !js
-// +build !ios,!js
+//go:build !ios && !js && !wasip1
+// +build !ios,!js,!wasip1
 
 package metrics
 
 import (
-	"github.com/autonity/autonity/log"
 	"github.com/shirou/gopsutil/cpu"
+
+	"github.com/autonity/autonity/log"
 )
 
 // ReadCPUStats retrieves the current CPU stats.
@@ -38,7 +39,7 @@ func ReadCPUStats(stats *CPUStats) {
 	}
 	// requesting all cpu times will always return an array with only one time stats entry
 	timeStat := timeStats[0]
-	stats.GlobalTime = int64((timeStat.User + timeStat.Nice + timeStat.System) * cpu.ClocksPerSec)
-	stats.GlobalWait = int64((timeStat.Iowait) * cpu.ClocksPerSec)
+	stats.GlobalTime = timeStat.User + timeStat.Nice + timeStat.System
+	stats.GlobalWait = timeStat.Iowait
 	stats.LocalTime = getProcessCPUTime()
 }

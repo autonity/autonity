@@ -18,11 +18,11 @@ package rawdb
 
 import (
 	"fmt"
-	"sync/atomic"
+	"math"
 
-	"github.com/autonity/autonity/common/math"
-	"github.com/autonity/autonity/rlp"
 	"github.com/golang/snappy"
+
+	"github.com/autonity/autonity/rlp"
 )
 
 // This is the maximum amount of data that will be buffered in memory
@@ -34,7 +34,7 @@ type freezerBatch struct {
 	tables map[string]*freezerTableBatch
 }
 
-func newFreezerBatch(f *freezer) *freezerBatch {
+func newFreezerBatch(f *Freezer) *freezerBatch {
 	batch := &freezerBatch{tables: make(map[string]*freezerTableBatch, len(f.tables))}
 	for kind, table := range f.tables {
 		batch.tables[kind] = table.newBatch()
@@ -107,7 +107,7 @@ func (t *freezerTable) newBatch() *freezerTableBatch {
 func (batch *freezerTableBatch) reset() {
 	batch.dataBuffer = batch.dataBuffer[:0]
 	batch.indexBuffer = batch.indexBuffer[:0]
-	batch.curItem = atomic.LoadUint64(&batch.t.items)
+	batch.curItem = batch.t.items.Load()
 	batch.totalBytes = 0
 }
 
@@ -181,17 +181,20 @@ func (batch *freezerTableBatch) maybeCommit() error {
 	return nil
 }
 
-// commit writes the batched items to the backing freezerTable.
+// commit writes the batched items to the backing freezerTable. Note index
+// file isn't fsync'd after the file write, the recent write can be lost
+// after the power failure.
 func (batch *freezerTableBatch) commit() error {
-	// Write data.
 	_, err := batch.t.head.Write(batch.dataBuffer)
 	if err != nil {
+		return err
+	}
+	if err := batch.t.head.Sync(); err != nil {
 		return err
 	}
 	dataSize := int64(len(batch.dataBuffer))
 	batch.dataBuffer = batch.dataBuffer[:0]
 
-	// Write index.
 	_, err = batch.t.index.Write(batch.indexBuffer)
 	if err != nil {
 		return err
@@ -201,7 +204,7 @@ func (batch *freezerTableBatch) commit() error {
 
 	// Update headBytes of table.
 	batch.t.headBytes += dataSize
-	atomic.StoreUint64(&batch.t.items, batch.curItem)
+	batch.t.items.Store(batch.curItem)
 
 	// Update metrics.
 	batch.t.sizeGauge.Inc(dataSize + indexSize)

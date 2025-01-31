@@ -376,7 +376,7 @@ func (p *Peer) handle(msg Msg) error {
 		if err != nil {
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			data, packet := getP2PMetricIngress(msg.Code-proto.offset, proto)
 			data.Mark(int64(msg.meterSize))
 			packet.Mark(1)
@@ -391,7 +391,7 @@ func (p *Peer) handle(msg Msg) error {
 	return nil
 }
 
-func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Meter) {
+func getP2PMetricIngress(code uint64, proto *protoRW) (*metrics.Meter, *metrics.Meter) {
 	switch code {
 	case 0x02:
 		return TransactionPayloadIn, TransactionPacketsIn
@@ -409,7 +409,7 @@ func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Me
 	}
 }
 
-func getP2PMetricEgress(code uint64, name string, version uint) (metrics.Meter, metrics.Meter) {
+func getP2PMetricEgress(code uint64, name string, version uint) (*metrics.Meter, *metrics.Meter) {
 	switch code {
 	case 0x02:
 		return TransactionPayloadEg, TransactionPacketsEg

@@ -21,13 +21,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/crypto"
 	"io"
 	"math/big"
 	"reflect"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -36,8 +37,6 @@ import (
 )
 
 var (
-	EmptyRootHash                = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	EmptyUncleHash               = rlpHash([]*Header(nil))
 	errInvalidSignature          = errors.New("aggregate signature is invalid")
 	ErrNonAggregatablePublicKeys = errors.New("provided public keys cannot be aggregated")
 	errNoQuorum                  = errors.New("aggregate signature does not contain quorum voting power")

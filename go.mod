@@ -1,6 +1,8 @@
 module github.com/autonity/autonity
 
-go 1.21
+go 1.21.0
+
+toolchain go1.21.4
 
 require (
 	github.com/ALTree/bigfloat v0.2.0
@@ -68,7 +70,7 @@ require (
 	golang.org/x/crypto v0.15.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.24.0
+	golang.org/x/sys v0.29.0
 	golang.org/x/text v0.14.0
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -91,9 +93,11 @@ require (
 	github.com/dlclark/regexp2 v1.4.1-0.20201116162257-a2a8dda75c91 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c // indirect
 	github.com/influxdata/line-protocol v0.0.0-20210311194329-9aa0e372d097 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect

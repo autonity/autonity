@@ -1,4 +1,4 @@
-// Copyright 2019 The go-ethereum Authors
+// Copyright 2020 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -50,7 +50,7 @@ func InitDatabaseFromFreezer(db ethdb.Database) {
 		if i+count > frozen {
 			count = frozen - i
 		}
-		data, err := db.AncientRange(freezerHashTable, i, count, 32*count)
+		data, err := db.AncientRange(ChainFreezerHashTable, i, count, 32*count)
 		if err != nil {
 			log.Crit("Failed to init database from freezer", "err", err)
 		}
@@ -77,6 +77,7 @@ func InitDatabaseFromFreezer(db ethdb.Database) {
 		log.Crit("Failed to write data to db", "err", err)
 	}
 	batch.Reset()
+
 	WriteHeadHeaderHash(db, hash)
 	WriteHeadFastBlockHash(db, hash)
 	log.Info("Initialized database from freezer", "blocks", frozen, "elapsed", common.PrettyDuration(time.Since(start)))
@@ -131,11 +132,12 @@ func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool
 		}
 	}
 	// process runs in parallel
-	nThreadsAlive := int32(threads)
+	var nThreadsAlive atomic.Int32
+	nThreadsAlive.Store(int32(threads))
 	process := func() {
 		defer func() {
 			// Last processor closes the result channel
-			if atomic.AddInt32(&nThreadsAlive, -1) == 0 {
+			if nThreadsAlive.Add(-1) == 0 {
 				close(hashesCh)
 			}
 		}()
@@ -176,7 +178,7 @@ func iterateTransactions(db ethdb.Database, from uint64, to uint64, reverse bool
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
+func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool, report bool) {
 	// short circuit for invalid range
 	if from >= to {
 		return
@@ -186,13 +188,13 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 		batch    = db.NewBatch()
 		start    = time.Now()
 		logged   = start.Add(-7 * time.Second)
+
 		// Since we iterate in reverse, we expect the first number to come
 		// in to be [to-1]. Therefore, setting lastNum to means that the
-		// prqueue gap-evaluation will work correctly
-		lastNum = to
-		queue   = prque.New(nil)
-		// for stats reporting
-		blocks, txs = 0, 0
+		// queue gap-evaluation will work correctly
+		lastNum     = to
+		queue       = prque.New[int64, *blockTxHashes](nil)
+		blocks, txs = 0, 0 // for stats reporting
 	)
 	for chanDelivery := range hashesCh {
 		// Push the delivery into the queue and process contiguous ranges.
@@ -209,7 +211,7 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 				break
 			}
 			// Next block available, pop it off and index it
-			delivery := queue.PopItem().(*blockTxHashes)
+			delivery := queue.PopItem()
 			lastNum = delivery.number
 			WriteTxLookupEntries(batch, delivery.number, delivery.hashes)
 			blocks++
@@ -238,11 +240,15 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 		log.Crit("Failed writing batch to db", "error", err)
 		return
 	}
+	logger := log.Debug
+	if report {
+		logger = log.Info
+	}
 	select {
 	case <-interrupt:
-		log.Debug("Transaction indexing interrupted", "blocks", blocks, "txs", txs, "tail", lastNum, "elapsed", common.PrettyDuration(time.Since(start)))
+		logger("Transaction indexing interrupted", "blocks", blocks, "txs", txs, "tail", lastNum, "elapsed", common.PrettyDuration(time.Since(start)))
 	default:
-		log.Info("Indexed transactions", "blocks", blocks, "txs", txs, "tail", lastNum, "elapsed", common.PrettyDuration(time.Since(start)))
+		logger("Indexed transactions", "blocks", blocks, "txs", txs, "tail", lastNum, "elapsed", common.PrettyDuration(time.Since(start)))
 	}
 }
 
@@ -255,20 +261,20 @@ func indexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func IndexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}) {
-	indexTransactions(db, from, to, interrupt, nil)
+func IndexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, report bool) {
+	indexTransactions(db, from, to, interrupt, nil, report)
 }
 
 // indexTransactionsForTesting is the internal debug version with an additional hook.
 func indexTransactionsForTesting(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
-	indexTransactions(db, from, to, interrupt, hook)
+	indexTransactions(db, from, to, interrupt, hook, false)
 }
 
 // unindexTransactions removes txlookup indices of the specified block range.
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
+func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool, report bool) {
 	// short circuit for invalid range
 	if from >= to {
 		return
@@ -278,12 +284,12 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 		batch    = db.NewBatch()
 		start    = time.Now()
 		logged   = start.Add(-7 * time.Second)
+
 		// we expect the first number to come in to be [from]. Therefore, setting
-		// nextNum to from means that the prqueue gap-evaluation will work correctly
-		nextNum = from
-		queue   = prque.New(nil)
-		// for stats reporting
-		blocks, txs = 0, 0
+		// nextNum to from means that the queue gap-evaluation will work correctly
+		nextNum     = from
+		queue       = prque.New[int64, *blockTxHashes](nil)
+		blocks, txs = 0, 0 // for stats reporting
 	)
 	// Otherwise spin up the concurrent iterator and unindexer
 	for delivery := range hashesCh {
@@ -298,7 +304,7 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 			if hook != nil && !hook(nextNum) {
 				break
 			}
-			delivery := queue.PopItem().(*blockTxHashes)
+			delivery := queue.PopItem()
 			nextNum = delivery.number + 1
 			DeleteTxLookupEntries(batch, delivery.hashes)
 			txs += len(delivery.hashes)
@@ -330,11 +336,15 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 		log.Crit("Failed writing batch to db", "error", err)
 		return
 	}
+	logger := log.Debug
+	if report {
+		logger = log.Info
+	}
 	select {
 	case <-interrupt:
-		log.Debug("Transaction unindexing interrupted", "blocks", blocks, "txs", txs, "tail", to, "elapsed", common.PrettyDuration(time.Since(start)))
+		logger("Transaction unindexing interrupted", "blocks", blocks, "txs", txs, "tail", to, "elapsed", common.PrettyDuration(time.Since(start)))
 	default:
-		log.Info("Unindexed transactions", "blocks", blocks, "txs", txs, "tail", to, "elapsed", common.PrettyDuration(time.Since(start)))
+		logger("Unindexed transactions", "blocks", blocks, "txs", txs, "tail", to, "elapsed", common.PrettyDuration(time.Since(start)))
 	}
 }
 
@@ -343,11 +353,11 @@ func unindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt ch
 //
 // There is a passed channel, the whole procedure will be interrupted if any
 // signal received.
-func UnindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}) {
-	unindexTransactions(db, from, to, interrupt, nil)
+func UnindexTransactions(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, report bool) {
+	unindexTransactions(db, from, to, interrupt, nil, report)
 }
 
 // unindexTransactionsForTesting is the internal debug version with an additional hook.
 func unindexTransactionsForTesting(db ethdb.Database, from uint64, to uint64, interrupt chan struct{}, hook func(uint64) bool) {
-	unindexTransactions(db, from, to, interrupt, hook)
+	unindexTransactions(db, from, to, interrupt, hook, false)
 }

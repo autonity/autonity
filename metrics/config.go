@@ -19,7 +19,7 @@ package metrics
 // Config contains the configuration for the metric collection.
 type Config struct {
 	Enabled          bool   `toml:",omitempty"`
-	EnabledExpensive bool   `toml:",omitempty"`
+	EnabledExpensive bool   `toml:"-"`
 	HTTP             string `toml:",omitempty"`
 	Port             int    `toml:",omitempty"`
 	EnableInfluxDB   bool   `toml:",omitempty"`
@@ -43,7 +43,7 @@ var DefaultConfig = Config{
 	Port:             6060,
 	EnableInfluxDB:   false,
 	InfluxDBEndpoint: "http://localhost:8086",
-	InfluxDBDatabase: "autonity",
+	InfluxDBDatabase: "geth",
 	InfluxDBUsername: "test",
 	InfluxDBPassword: "test",
 	InfluxDBTags:     "host=localhost",
@@ -51,6 +51,6 @@ var DefaultConfig = Config{
 	// influxdbv2-specific flags
 	EnableInfluxDBV2:     false,
 	InfluxDBToken:        "test",
-	InfluxDBBucket:       "autonity",
-	InfluxDBOrganization: "autonity",
+	InfluxDBBucket:       "geth",
+	InfluxDBOrganization: "geth",
 }

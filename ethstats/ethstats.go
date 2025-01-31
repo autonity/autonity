@@ -40,7 +40,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	ethproto "github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/event"
-	"github.com/autonity/autonity/les"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/node"

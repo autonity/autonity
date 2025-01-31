@@ -38,7 +38,7 @@ func GetOrRegisterBufferedGauge(name string, r Registry) BufferedGauge {
 
 // NewBufferedGauge constructs a new BufferedGauge.
 func NewBufferedGauge(capacity *int) BufferedGauge {
-	if !Enabled {
+	if !metricsEnabled {
 		return NilBufferedGauge{}
 	}
 	var c int

@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"sync"
 	"testing"
 )
 
@@ -13,6 +14,30 @@ func BenchmarkRegistry(b *testing.B) {
 	}
 }
 
+func BenchmarkRegistryGetOrRegisterParallel_8(b *testing.B) {
+	benchmarkRegistryGetOrRegisterParallel(b, 8)
+}
+
+func BenchmarkRegistryGetOrRegisterParallel_32(b *testing.B) {
+	benchmarkRegistryGetOrRegisterParallel(b, 32)
+}
+
+func benchmarkRegistryGetOrRegisterParallel(b *testing.B, amount int) {
+	r := NewRegistry()
+	b.ResetTimer()
+	var wg sync.WaitGroup
+	for i := 0; i < amount; i++ {
+		wg.Add(1)
+		go func() {
+			for i := 0; i < b.N; i++ {
+				r.GetOrRegister("foo", NewMeter)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
 func TestRegistry(t *testing.T) {
 	r := NewRegistry()
 	r.Register("foo", NewCounter())
@@ -22,7 +47,7 @@ func TestRegistry(t *testing.T) {
 		if name != "foo" {
 			t.Fatal(name)
 		}
-		if _, ok := iface.(Counter); !ok {
+		if _, ok := iface.(*Counter); !ok {
 			t.Fatal(iface)
 		}
 	})
@@ -48,7 +73,7 @@ func TestRegistryDuplicate(t *testing.T) {
 	i := 0
 	r.Each(func(name string, iface interface{}) {
 		i++
-		if _, ok := iface.(Counter); !ok {
+		if _, ok := iface.(*Counter); !ok {
 			t.Fatal(iface)
 		}
 	})
@@ -60,11 +85,11 @@ func TestRegistryDuplicate(t *testing.T) {
 func TestRegistryGet(t *testing.T) {
 	r := NewRegistry()
 	r.Register("foo", NewCounter())
-	if count := r.Get("foo").(Counter).Count(); count != 0 {
+	if count := r.Get("foo").(*Counter).Snapshot().Count(); count != 0 {
 		t.Fatal(count)
 	}
-	r.Get("foo").(Counter).Inc(1)
-	if count := r.Get("foo").(Counter).Count(); count != 1 {
+	r.Get("foo").(*Counter).Inc(1)
+	if count := r.Get("foo").(*Counter).Snapshot().Count(); count != 1 {
 		t.Fatal(count)
 	}
 }
@@ -75,7 +100,7 @@ func TestRegistryGetOrRegister(t *testing.T) {
 	// First metric wins with GetOrRegister
 	_ = r.GetOrRegister("foo", NewCounter())
 	m := r.GetOrRegister("foo", NewGauge())
-	if _, ok := m.(Counter); !ok {
+	if _, ok := m.(*Counter); !ok {
 		t.Fatal(m)
 	}
 
@@ -85,7 +110,7 @@ func TestRegistryGetOrRegister(t *testing.T) {
 		if name != "foo" {
 			t.Fatal(name)
 		}
-		if _, ok := iface.(Counter); !ok {
+		if _, ok := iface.(*Counter); !ok {
 			t.Fatal(iface)
 		}
 	})
@@ -100,7 +125,7 @@ func TestRegistryGetOrRegisterWithLazyInstantiation(t *testing.T) {
 	// First metric wins with GetOrRegister
 	_ = r.GetOrRegister("foo", NewCounter)
 	m := r.GetOrRegister("foo", NewGauge)
-	if _, ok := m.(Counter); !ok {
+	if _, ok := m.(*Counter); !ok {
 		t.Fatal(m)
 	}
 
@@ -110,7 +135,7 @@ func TestRegistryGetOrRegisterWithLazyInstantiation(t *testing.T) {
 		if name != "foo" {
 			t.Fatal(name)
 		}
-		if _, ok := iface.(Counter); !ok {
+		if _, ok := iface.(*Counter); !ok {
 			t.Fatal(iface)
 		}
 	})
@@ -307,5 +332,4 @@ func TestWalkRegistries(t *testing.T) {
 	if prefix != "prefix.prefix2." {
 		t.Fatal(prefix)
 	}
-
 }

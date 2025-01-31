@@ -62,7 +62,6 @@ import (
 	"github.com/autonity/autonity/graphql"
 	"github.com/autonity/autonity/internal/ethapi"
 	"github.com/autonity/autonity/internal/flags"
-	"github.com/autonity/autonity/les"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/metrics/exp"
