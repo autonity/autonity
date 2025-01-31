@@ -716,6 +716,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.upgradeManagerContract = _address;
     }
 
+    /*
+    * @notice Set the Latency contract address. Restricted to the Operator account.
+    * @param _address the contract address
+    */
+    function setLatencyContract(ILatency _address) public virtual onlyOperator {
+        config.contracts.latencyContract = _address;
+    }
+
     /**
      * @notice Set address of the liquid logic contact.
      * @custom:restricted-to operator account
