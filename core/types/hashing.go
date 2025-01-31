@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"sync"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // hasherPool holds LegacyKeccak256 hashers for rlpHash.
@@ -62,7 +63,7 @@ func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
 // This is internal, do not use.
 type TrieHasher interface {
 	Reset()
-	Update([]byte, []byte)
+	Update([]byte, []byte) error
 	Hash() common.Hash
 }
 

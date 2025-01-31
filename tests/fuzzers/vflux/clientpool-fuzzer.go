@@ -26,8 +26,6 @@ import (
 
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/ethdb/memorydb"
-	"github.com/autonity/autonity/les/vflux"
-	vfs "github.com/autonity/autonity/les/vflux/server"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/enr"

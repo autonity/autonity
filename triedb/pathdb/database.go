@@ -31,6 +31,8 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie/trienode"
+
+	"github.com/ethereum/go-verkle"
 )
 
 const (

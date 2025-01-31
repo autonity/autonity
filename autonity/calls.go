@@ -267,12 +267,12 @@ func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.
 func recordFinalizeGasUsage(isEpochHeader bool, number uint64, usedGas int64) {
 	if isEpochHeader {
 		log.Debug("gas used to finalize epoch block", "number", number, "usedGas", usedGas)
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			epochFinalizeGas.Add(usedGas)
 		}
 	} else {
 		log.Debug("gas used to finalize block", "number", number, "usedGas", usedGas)
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			finalizeGas.Add(usedGas)
 		}
 	}

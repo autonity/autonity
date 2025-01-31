@@ -1,4 +1,4 @@
-// Copyright 2020 The go-ethereum Authors
+// Copyright 2023 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,28 +14,23 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package params
 
-import (
-	"fmt"
-	"io/ioutil"
-	"os"
-
-	"github.com/autonity/autonity/tests/fuzzers/les"
+// Verkle tree EIP: costs associated to witness accesses
+var (
+	WitnessBranchReadCost  uint64 = 1900
+	WitnessChunkReadCost   uint64 = 200
+	WitnessBranchWriteCost uint64 = 3000
+	WitnessChunkWriteCost  uint64 = 500
+	WitnessChunkFillCost   uint64 = 6200
 )
 
-func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: debug <file>\n")
-		fmt.Fprintf(os.Stderr, "Example\n")
-		fmt.Fprintf(os.Stderr, "	$ debug ../crashers/4bbef6857c733a87ecf6fd8b9e7238f65eb9862a\n")
-		os.Exit(1)
-	}
-	crasher := os.Args[1]
-	data, err := ioutil.ReadFile(crasher)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading crasher %v: %v", crasher, err)
-		os.Exit(1)
-	}
-	les.Fuzz(data)
+// ClearVerkleWitnessCosts sets all witness costs to 0, which is necessary
+// for historical block replay simulations.
+func ClearVerkleWitnessCosts() {
+	WitnessBranchReadCost = 0
+	WitnessChunkReadCost = 0
+	WitnessBranchWriteCost = 0
+	WitnessChunkWriteCost = 0
+	WitnessChunkFillCost = 0
 }
