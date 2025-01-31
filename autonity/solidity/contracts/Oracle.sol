@@ -49,6 +49,9 @@ contract Oracle is IOracle, IConfigEvents {
     mapping(string => mapping(address => Report)) public reports;
 
     // ==== Private state variables ====
+    // @dev Note that the oracle DECIMALS cannot be changed without having an effect on the
+    // Stabilization computations
+    uint8 private constant DECIMALS = 18;
     string[] private symbols;
     string[] private newSymbols;
 

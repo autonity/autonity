@@ -20,3 +20,7 @@ error ZeroValue();
 error InvalidRound(uint256 round);
 error BidTooLow(uint256 minimumBid, uint256 bid);
 error InvalidAuctionId();
+
+// ACU errors
+error InvalidBasket();
+error NoACUValue();

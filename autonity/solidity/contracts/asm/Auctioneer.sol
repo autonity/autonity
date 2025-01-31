@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IStabilization} from "./interfaces/IStabilization.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
-import "./lib/StabilizationErrors.sol";
+import "./lib/ASMErrors.sol";
 import {AuctionLib} from "./lib/AuctionLib.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
