@@ -3,8 +3,9 @@
 pragma solidity ^0.8.19;
 
 import {AccessAutonity} from "./AccessAutonity.sol";
+import {ILatency} from "./interfaces/ILatency.sol";
 
-contract Latency is AccessAutonity {
+contract Latency is ILatency, AccessAutonity {
     event Reported(address indexed reporter, uint256 length);
     uint256 public constant SCALE_THRESHOLD_FOR_CLUSTERING = 32;
     mapping(address => mapping(address => uint8)) public latency;

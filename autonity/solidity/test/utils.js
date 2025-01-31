@@ -5,6 +5,7 @@ const exec = util.promisify(require('child_process').exec);
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
 const OmissionAccountability = artifacts.require("OmissionAccountability");
+const Latency = artifacts.require("Latency");
 const UpgradeManager = artifacts.require("UpgradeManager");
 const Oracle = artifacts.require("Oracle")
 const Acu = artifacts.require("ACU")
@@ -244,13 +245,17 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   // omission accountability contract
   const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, treasuries, omissionAccountabilityConfig, {from:deployer})
 
+  // latency contract
+  const latencyContract = await Latency.new(autonity.address, nodes, {from: deployer});
+
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});
   await autonity.setSupplyControlContract(acu.address, {from: operator});
   await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
-  await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator})
+  await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator});
+  await autonity.setLatencyContract(latencyContract.address, {from: operator});
 }
 
 // deploys protocol contracts

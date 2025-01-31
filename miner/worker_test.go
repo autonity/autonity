@@ -292,6 +292,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker(), false)
 }
+
 func TestEmptyWorkTendermint(t *testing.T) {
 	evMux := new(event.TypeMux)
 	memDB := rawdb.NewMemoryDatabase()
