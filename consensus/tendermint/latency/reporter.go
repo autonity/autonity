@@ -15,11 +15,11 @@ type Reporter struct {
 }
 
 func NewReporter(
-	chainId *big.Int,
+	chainID *big.Int,
 	nodeKey *ecdsa.PrivateKey,
 	contracts *autonity.ProtocolContracts,
 ) (*Reporter, error) {
-	txOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chainId)
+	txOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chainID)
 	if err != nil {
 		return nil, err
 	}
