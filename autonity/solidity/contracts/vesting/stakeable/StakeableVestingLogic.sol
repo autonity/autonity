@@ -15,6 +15,8 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
 
     using QueueLib for StakingRequestQueue;
 
+    event BeneficiaryChanged(address indexed newBeneficiary, address indexed oldBeneficiary, address indexed contractAddress); 
+
     constructor(address payable _autonity) AccessAutonity(_autonity) {
         managerContract = IStakeableVestingManager(payable(msg.sender));
     }
@@ -151,6 +153,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     function changeContractBeneficiary(address _recipient) virtual external onlyManager {
         _claimAndSendRewards(true);
         _clearValidators();
+        emit BeneficiaryChanged(_recipient, beneficiary, address(this));
         beneficiary = _recipient;
     }
 
