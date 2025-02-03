@@ -99,10 +99,11 @@ func (m *Kmeans) Partition(dataset Observations, k int, seed int64) (Clusters, e
 		if changes > 0 {
 			cc.Recenter()
 		}
+		thresholdChanges := int(float64(len(dataset)) * m.deltaThreshold)
 		if i == m.iterationThreshold ||
-			changes < int(float64(len(dataset))*m.deltaThreshold) {
+			changes < thresholdChanges {
 			// return Clusters{}, fmt.Errorf("iteration threshold '%d' reached", m.iterationThreshold)
-			println("k partition", "iterations", i, "changes", changes)
+			println("k-means optimizations", "actual iterations", i, "actual changes", changes, "threshold changes", thresholdChanges)
 			break
 		}
 	}
