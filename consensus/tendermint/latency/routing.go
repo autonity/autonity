@@ -305,7 +305,7 @@ func PingPeers(targets []ping.Target) []uint8 {
 		if t.IP == "" {
 			// default result for non-connected peer to write
 			// this should be a reasonable default for max RTT
-			resultCh <- time.Duration(time.Second) * 5
+			resultCh <- time.Second * 5
 			channelArray[i] = resultCh
 			continue
 		}

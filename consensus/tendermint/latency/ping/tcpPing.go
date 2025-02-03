@@ -3,7 +3,7 @@ package ping
 import (
 	"time"
 
-	//TODO: library needs a version update(not officialy released), but for POC this will suffice
+	//TODO: library needs a version update(not officially released), but for POC this will suffice
 	tcping "github.com/cloverstd/tcping/ping"
 )
 
