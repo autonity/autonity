@@ -20,7 +20,7 @@ type Observations []Observation
 // Coordinates implements the Observation interface for a plain set of float64
 // coordinates
 func (c Coordinates) Coordinates() Coordinates {
-	return Coordinates(c)
+	return c
 }
 
 // Distance returns the euclidean distance between two coordinates
@@ -46,9 +46,9 @@ func (c Observations) Center() (Coordinates, error) {
 		}
 	}
 
-	var mean Coordinates
-	for _, v := range cc {
-		mean = append(mean, v/float64(l))
+	mean := make(Coordinates, len(cc))
+	for i, v := range cc {
+		mean[i] = v / float64(l)
 	}
 	return mean, nil
 }
