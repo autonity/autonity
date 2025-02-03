@@ -343,7 +343,7 @@ func newMockLog(topics []common.Hash, txHash common.Hash) types.Log {
 }
 
 // TestCrashers contains some strings which previously caused the abi codec to crash.
-func TestCrashers(t *testing.T) {
+func TestCrashers(_ *testing.T) {
 	abi.JSON(strings.NewReader(`[{"inputs":[{"type":"tuple[]","components":[{"type":"bool","name":"_1"}]}]}]`))
 	abi.JSON(strings.NewReader(`[{"inputs":[{"type":"tuple[]","components":[{"type":"bool","name":"&"}]}]}]`))
 	abi.JSON(strings.NewReader(`[{"inputs":[{"type":"tuple[]","components":[{"type":"bool","name":"----"}]}]}]`))
