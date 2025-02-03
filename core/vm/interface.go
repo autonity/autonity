@@ -19,24 +19,34 @@ package vm
 import (
 	"math/big"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/stateless"
+	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/trie/utils"
 )
 
 // StateDB is an EVM database for full state querying.
 type StateDB interface {
 	CreateAccount(common.Address)
+	CreateContract(common.Address)
 
-	SubBalance(common.Address, *big.Int)
-	AddBalance(common.Address, *big.Int)
-	GetBalance(common.Address) *big.Int
+	SubBalance(common.Address, *uint256.Int, tracing.BalanceChangeReason) uint256.Int
+	AddBalance(common.Address, *uint256.Int, tracing.BalanceChangeReason) uint256.Int
+	GetBalance(common.Address) *uint256.Int
 
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
 
 	GetCodeHash(common.Address) common.Hash
 	GetCode(common.Address) []byte
-	SetCode(common.Address, []byte)
+
+	// SetCode sets the new code for the address, and returns the previous code, if any.
+	SetCode(common.Address, []byte) []byte
 	GetCodeSize(common.Address) int
 
 	AddRefund(uint64)
@@ -45,19 +55,29 @@ type StateDB interface {
 
 	GetCommittedState(common.Address, common.Hash) common.Hash
 	GetState(common.Address, common.Hash) common.Hash
-	SetState(common.Address, common.Hash, common.Hash)
+	SetState(common.Address, common.Hash, common.Hash) common.Hash
+	GetStorageRoot(addr common.Address) common.Hash
 
-	Suicide(common.Address) bool
-	HasSuicided(common.Address) bool
+	GetTransientState(addr common.Address, key common.Hash) common.Hash
+	SetTransientState(addr common.Address, key, value common.Hash)
+
+	SelfDestruct(common.Address) uint256.Int
+	HasSelfDestructed(common.Address) bool
+
+	// SelfDestruct6780 is post-EIP6780 selfdestruct, which means that it's a
+	// send-all-to-beneficiary, unless the contract was created in this same
+	// transaction, in which case it will be destructed.
+	// This method returns the prior balance, along with a boolean which is
+	// true iff the object was indeed destructed.
+	SelfDestruct6780(common.Address) (uint256.Int, bool)
 
 	// Exist reports whether the given account exists in state.
-	// Notably this should also return true for suicided accounts.
+	// Notably this should also return true for self-destructed accounts.
 	Exist(common.Address) bool
 	// Empty returns whether the given account is empty. Empty
 	// is defined according to EIP161 (balance = nonce = code = 0).
 	Empty(common.Address) bool
 
-	PrepareAccessList(sender common.Address, dest *common.Address, precompiles []common.Address, txAccesses types.AccessList)
 	AddressInAccessList(addr common.Address) bool
 	SlotInAccessList(addr common.Address, slot common.Hash) (addressOk bool, slotOk bool)
 	// AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
@@ -67,13 +87,23 @@ type StateDB interface {
 	// even if the feature/fork is not active yet
 	AddSlotToAccessList(addr common.Address, slot common.Hash)
 
+	// PointCache returns the point cache used in computations
+	PointCache() *utils.PointCache
+
+	Prepare(rules params.Rules, sender, coinbase common.Address, dest *common.Address, precompiles []common.Address, txAccesses types.AccessList)
+
 	RevertToSnapshot(int)
 	Snapshot() int
 
 	AddLog(*types.Log)
 	AddPreimage(common.Hash, []byte)
 
-	ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) error
+	Witness() *stateless.Witness
+
+	AccessEvents() *state.AccessEvents
+
+	// Finalise must be invoked at the end of a transaction
+	Finalise(bool)
 
 	TxIndex() int
 	GetLogs(hash common.Hash, blockHash common.Hash) []*types.Log
