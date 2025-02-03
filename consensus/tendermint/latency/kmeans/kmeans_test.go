@@ -2,7 +2,9 @@ package kmeans
 
 import (
 	"math"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 // Define a concrete type for testing that implements the Observation interface
@@ -59,6 +61,50 @@ func TestPartition(t *testing.T) {
 	}
 
 	// Additional checks can be added here to verify cluster contents
+}
+
+// Benchmark partition function with different scale of nodes
+func BenchmarkPartition(t *testing.B) {
+	tests := []struct {
+		name     string
+		numNodes int
+	}{
+		{"100 nodes", 100},
+		{"200 nodes", 200},
+		{"400 nodes", 400},
+		{"800 nodes", 800},
+		{"1000 nodes", 1000},
+		{"1200 nodes", 1200},
+		{"1400 nodes", 1400},
+		{"1600 nodes", 1600},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.B) {
+			km := New()
+			dataset := make(Observations, tt.numNodes)
+			// Populate dataset with random observations
+			for i := 0; i < tt.numNodes; i++ {
+				dataset[i] = TestObservation{float64(rand.Intn(100)), float64(rand.Intn(100))}
+			}
+			k := int(math.Sqrt(float64(tt.numNodes))) // Set k to the square root of the size of the observations
+			seed := int64(42)
+
+			// Measure the time taken for the benchmark
+			start := time.Now() // Start the timer
+			for i := 0; i < t.N; i++ {
+				_, err := km.Partition(dataset, k, seed)
+				if err != nil {
+					t.Fatalf("Partition failed: %v", err)
+				}
+			}
+			duration := time.Since(start) // Calculate duration
+
+			// Print the average time per operation in milliseconds
+			avgTime := duration.Milliseconds() / int64(t.N)
+			t.Logf("Average time for %s: %d ms", tt.name, avgTime)
+		})
+	}
 }
 
 // Test Partition with invalid k
