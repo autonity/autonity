@@ -338,7 +338,7 @@ contract Stabilization is IStabilization {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
-        (uint256 debt, uint256 accrued) = _debtAmount(cdp, block.timestamp);
+        (uint256 debt, ) = _debtAmount(cdp, block.timestamp);
         if (
             !underCollateralized(
                 cdp.collateral,
@@ -349,8 +349,9 @@ contract Stabilization is IStabilization {
         ) revert NotLiquidatable();
         
         if (msg.value < debt) revert InsufficientPayment();
+        _supplyControl.burn{value: cdp.principal}();
+        
         uint surplus = msg.value - debt;
-
         uint256 collateral = cdp.collateral;
         cdp.timestamp = block.timestamp;
         cdp.collateral = 0;
@@ -359,7 +360,6 @@ contract Stabilization is IStabilization {
 
         if (!_collateralToken.transfer(msg.sender, collateral))
             revert TransferFailed();
-        _supplyControl.burn{value: debt - accrued}();
         if (surplus > 0) payable(msg.sender).transfer(surplus);
         emit Liquidate(account, msg.sender);
     }
