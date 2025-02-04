@@ -1,4 +1,4 @@
-// Copyright 2014 The go-ethereum Authors
+// Copyright 2021 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -18,6 +18,8 @@ package types
 
 import (
 	"bytes"
+	"fmt"
+	"math"
 	"sync"
 
 	"golang.org/x/crypto/sha3"
@@ -32,9 +34,25 @@ var hasherPool = sync.Pool{
 	New: func() interface{} { return sha3.NewLegacyKeccak256() },
 }
 
-// deriveBufferPool holds temporary encoder buffers for DeriveSha and TX encoding.
+// encodeBufferPool holds temporary encoder buffers for DeriveSha and TX encoding.
 var encodeBufferPool = sync.Pool{
 	New: func() interface{} { return new(bytes.Buffer) },
+}
+
+// getPooledBuffer retrieves a buffer from the pool and creates a byte slice of the
+// requested size from it.
+//
+// The caller should return the *bytes.Buffer object back into encodeBufferPool after use!
+// The returned byte slice must not be used after returning the buffer.
+func getPooledBuffer(size uint64) ([]byte, *bytes.Buffer, error) {
+	if size > math.MaxInt {
+		return nil, nil, fmt.Errorf("can't get buffer of size %d", size)
+	}
+	buf := encodeBufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	buf.Grow(int(size))
+	b := buf.Bytes()[:int(size)]
+	return b, buf, nil
 }
 
 // rlpHash encodes x and hashes the encoded bytes.
@@ -78,13 +96,13 @@ type DerivableList interface {
 func encodeForDerive(list DerivableList, i int, buf *bytes.Buffer) []byte {
 	buf.Reset()
 	list.EncodeIndex(i, buf)
-	// It's really unfortunate that we need to do perform this copy.
+	// It's really unfortunate that we need to perform this copy.
 	// StackTrie holds onto the values until Hash is called, so the values
 	// written to it must not alias.
 	return common.CopyBytes(buf.Bytes())
 }
 
-// DeriveSha creates the tree hashes of transactions and receipts in a block header.
+// DeriveSha creates the tree hashes of transactions, receipts, and withdrawals in a block header.
 func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 	hasher.Reset()
 
@@ -94,6 +112,9 @@ func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 	// StackTrie requires values to be inserted in increasing hash order, which is not the
 	// order that `list` provides hashes in. This insertion sequence ensures that the
 	// order is correct.
+	//
+	// The error returned by hasher is omitted because hasher will produce an incorrect
+	// hash in case any error occurs.
 	var indexBuf []byte
 	for i := 1; i < list.Len() && i <= 0x7f; i++ {
 		indexBuf = rlp.AppendUint64(indexBuf[:0], uint64(i))
