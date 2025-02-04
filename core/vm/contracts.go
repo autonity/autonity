@@ -26,6 +26,7 @@ import (
 
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/tracing"
 
 	"github.com/autonity/autonity/crypto/kzg4844"
 
@@ -201,6 +202,8 @@ var PrecompiledContractsBLS = PrecompiledContractsPrague
 var PrecompiledContractsVerkle = PrecompiledContractsPrague
 
 var (
+	PrecompiledAddressesPrague    []common.Address
+	PrecompiledAddressesCancun    []common.Address
 	PrecompiledAddressesBerlin    []common.Address
 	PrecompiledAddressesIstanbul  []common.Address
 	PrecompiledAddressesByzantium []common.Address
@@ -220,11 +223,40 @@ func init() {
 	for k := range PrecompiledContractsBerlin {
 		PrecompiledAddressesBerlin = append(PrecompiledAddressesBerlin, k)
 	}
+	for k := range PrecompiledContractsCancun {
+		PrecompiledAddressesCancun = append(PrecompiledAddressesCancun, k)
+	}
+	for k := range PrecompiledContractsPrague {
+		PrecompiledAddressesPrague = append(PrecompiledAddressesPrague, k)
+	}
 }
 
-// ActivePrecompiles returns the precompiles enabled with the current configuration.
+func activePrecompiledContracts(rules params.Rules) PrecompiledContracts {
+	switch {
+	case rules.IsVerkle:
+		return PrecompiledContractsVerkle
+	case rules.IsPrague:
+		return PrecompiledContractsPrague
+	case rules.IsCancun:
+		return PrecompiledContractsCancun
+	case rules.IsBerlin:
+		return PrecompiledContractsBerlin
+	case rules.IsIstanbul:
+		return PrecompiledContractsIstanbul
+	case rules.IsByzantium:
+		return PrecompiledContractsByzantium
+	default:
+		return PrecompiledContractsHomestead
+	}
+}
+
+// ActivePrecompiles returns the precompile addresses enabled with the current configuration.
 func ActivePrecompiles(rules params.Rules) []common.Address {
 	switch {
+	case rules.IsPrague:
+		return PrecompiledAddressesPrague
+	case rules.IsCancun:
+		return PrecompiledAddressesCancun
 	case rules.IsBerlin:
 		return PrecompiledAddressesBerlin
 	case rules.IsIstanbul:
@@ -242,11 +274,14 @@ func ActivePrecompiles(rules params.Rules) []common.Address {
 // - the _remaining_ gas,
 // - any error that occurred
 func RunPrecompiledContract(
-	p PrecompiledContract, input []byte, suppliedGas uint64, blockNumber uint64, evm *EVM, caller common.Address,
+	p PrecompiledContract, input []byte, suppliedGas uint64, blockNumber uint64, evm *EVM, caller common.Address, logger *tracing.Hooks,
 ) (ret []byte, remainingGas uint64, err error) {
 	gasCost := p.RequiredGas(input)
 	if suppliedGas < gasCost {
 		return nil, 0, ErrOutOfGas
+	}
+	if logger != nil && logger.OnGasChange != nil {
+		logger.OnGasChange(suppliedGas, suppliedGas-gasCost, tracing.GasChangeCallPrecompiledContract)
 	}
 	suppliedGas -= gasCost
 	output, err := p.Run(input, blockNumber, evm, caller)
