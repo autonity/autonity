@@ -1409,6 +1409,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
                     }
                 }
                 uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
+                accounts[address(this)] -= _ntnSelfReward;
                 _autobond(_val.nodeAddress, _ntnSelfReward, 0);
 
                 uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
