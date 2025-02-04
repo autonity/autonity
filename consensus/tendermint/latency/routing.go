@@ -112,6 +112,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 }
 
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
+	log.Info("Starting latency router")
 	reportEventSub, err := chain.ProtocolContracts().Latency.WatchReported(nil, r.reportedEventChan, nil)
 	if err != nil {
 		log.Error("Error starting reported event subscription", "err", err)

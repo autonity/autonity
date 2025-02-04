@@ -587,6 +587,8 @@ func (sb *Backend) Start(ctx context.Context) error {
 	go sb.faultyValidatorsWatcher(ctx)
 	if sb.router != nil {
 		sb.router.Start(ctx, sb.blockchain)
+	} else {
+		sb.logger.Warn("Latency router is not set, cannot start")
 	}
 
 	// Start Tendermint
