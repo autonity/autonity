@@ -31,7 +31,7 @@ func TestLatency(t *testing.T) {
 	RunWithSetup("Test only autonity can call setCommittee", setup, func(r *Runner) {
 		users := []common.Address{r.Operator.origin, r.Committee.Validators[0].NodeAddress, testrand.Address()}
 		expectedCommittee := make([]common.Address, len(r.Committee.Validators))
-		for i, _ := range r.Committee.Validators {
+		for i := 0; i < len(r.Committee.Validators); i++ {
 			expectedCommittee[i] = testrand.Address()
 		}
 		for _, user := range users {
