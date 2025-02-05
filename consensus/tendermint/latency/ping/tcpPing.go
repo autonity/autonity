@@ -14,7 +14,14 @@ func NewTCPPinger() Pinger {
 }
 
 func (*tcpPinger) Ping(t Target, resultCh chan<- time.Duration) {
-	target := &tcping.Target{Protocol: tcping.TCP, Host: t.IP, Port: t.Port, Counter: 5, Timeout: 3, Interval: 1}
+	target := &tcping.Target{
+		Protocol: tcping.TCP,
+		Host:     t.IP,
+		Port:     t.Port,
+		Counter:  5,
+		Timeout:  3 * time.Second,
+		Interval: 1 * time.Second,
+	}
 	pinger := tcping.NewTCPing()
 	pinger.SetTarget(target)
 	go func() {
