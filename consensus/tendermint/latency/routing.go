@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
-	"math/big"
 	"net"
 	"strconv"
 	"sync"
@@ -112,7 +111,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 }
 
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
-	log.Info("Starting latency router")
+	log.Info("Router: starting latency router")
 	reportEventSub, err := chain.ProtocolContracts().Latency.WatchReported(nil, r.reportedEventChan, nil)
 	if err != nil {
 		log.Error("Error starting reported event subscription", "err", err)
@@ -125,8 +124,8 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 		return
 	}
 	r.curEpochInfo = curEpoch
-	epochPeriod := new(big.Int).Sub(curEpoch.NextEpochBlock, curEpoch.EpochBlock)
-	r.measurementWindow = epochPeriod.Uint64() / uint64(curEpoch.Committee.Len())
+	r.measurementWindow = 1 // one report each block
+	r.measured = false      // measure on startup
 
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
 	r.chainEventSub = chain.SubscribeChainEvent(r.chainEventChan)
@@ -155,8 +154,6 @@ func (r *Router) loop(ctx context.Context) {
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
 			}
-			epochPeriod := new(big.Int).Sub(epochEv.Header.Epoch.NextEpochBlock, epochEv.Header.Number)
-			r.measurementWindow = epochPeriod.Uint64() / uint64(r.curEpochInfo.Committee.Len())
 			r.measured = false
 
 			// on new epoch, we have a small scale of network, clustering does not benefit anymore.
@@ -171,7 +168,7 @@ func (r *Router) loop(ctx context.Context) {
 			}
 
 			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
-				log.Debug("not going to measure latency within a small network")
+				log.Info("not going to measure latency within a small network")
 				continue
 			}
 
@@ -180,21 +177,39 @@ func (r *Router) loop(ctx context.Context) {
 			reporterIndex := (height / r.measurementWindow) % uint64(committee.Len())
 			// every validator is assigned with an independent measurement and reporting window.
 			if !r.measured && committee.Members[reporterIndex].Address == r.self {
-				log.Debug("Router: in reporter slot, reporting latency", "height", height, "reporter idx", reporterIndex, "reporter", r.self)
+				log.Info(
+					"Router: in reporter slot, reporting latency",
+					"height",
+					height,
+					"reporter idx",
+					reporterIndex,
+					"reporter",
+					r.self,
+				)
 				if err := r.report(); err != nil {
 					log.Error("failed to report latency", "err", err)
 				} else {
 					r.measured = true
 				}
+			} else {
+				log.Info(
+					"Router: not in reporter slot, skipping",
+					"height",
+					height,
+					"reporter idx",
+					reporterIndex,
+					"reporter",
+					committee.Members[reporterIndex].Address,
+				)
 			}
 
 		case ev := <-r.reportedEventChan:
 			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
-				log.Debug("not going to cluster a small scale network")
+				log.Info("Router: not going to cluster a small scale network")
 				continue
 			}
 			// For every measurementWindow, there will be a unique validator assigned to measure and send the latencies.
-			log.Debug("Router: latency report detected, refreshing network clustering", "reporter", ev.Reporter)
+			log.Info("Router: latency report detected, refreshing network clustering", "reporter", ev.Reporter)
 			if err := r.refreshClusters(); err != nil {
 				log.Error("failed to refresh clusters", "err", err)
 			}
