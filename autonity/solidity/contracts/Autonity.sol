@@ -872,7 +872,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
 
         if (newRound) {
-            config.contracts.oracleContract.updateVoters();
+            config.contracts.oracleContract.updateVotersAndSymbol();
             try config.contracts.acuContract.update() {}
             catch {}
         }

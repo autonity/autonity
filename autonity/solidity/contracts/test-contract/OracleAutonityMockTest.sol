@@ -21,7 +21,7 @@ contract OracleAutonityMockTest {
         bool newRound = oracle.finalize();
 
         if (newRound) {
-            oracle.updateVoters();
+            oracle.updateVotersAndSymbol();
         }
     }
 
