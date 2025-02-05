@@ -22,5 +22,6 @@ import "./vesting/StakeableVestingManager.sol";
 import "./test-contract/AccountabilityTest.sol";
 import "./test-contract/AutonityUpgradeTest.sol";
 import "./test-contract/DummyContract.sol";
+import "./test-contract/DummyMaliciousContract.sol";
 import "./test-contract/StakeableVestingLogicTest.sol";
 import "./test-contract/Tests.sol";
