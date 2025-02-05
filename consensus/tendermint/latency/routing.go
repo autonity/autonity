@@ -280,6 +280,8 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 		return nil, err
 	}
 
+	committeeEnodes := r.broadcaster.CommitteeEnodes()
+
 	latency := make(map[common.Address]uint8)
 	pingTargets := make([]ping.Target, len(committee))
 
@@ -287,15 +289,17 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 		if member == r.self {
 			continue
 		}
+
 		if peer, ok := r.broadcaster.FindPeer(member); ok {
 			// todo: this is a bit hacky, we should probably have a better way to get the p2p peer ip
 			p2pPeer, ok := peer.(peerLatency)
 			if !ok {
 				return nil, ErrInvalidPeerType
 			}
-
-			ip := p2pPeer.Node().IP()
-			port := p2pPeer.Node().TCP()
+			id := p2pPeer.Node().ID()
+			memberNode := findMember(committeeEnodes, id)
+			ip := memberNode.IP()
+			port := memberNode.TCP()
 			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
 			log.Info("Router: fetching latency", "targetIP", ip, "targetPort", port)
 		}
@@ -345,4 +349,13 @@ func mapDurationToUint8(duration time.Duration) uint8 {
 		durationMs = 400
 	}
 	return uint8((float64(durationMs) / 400.0) * 255.0)
+}
+
+func findMember(committeeEnodes []*enode.Node, id enode.ID) *enode.Node {
+	for _, memberNode := range committeeEnodes {
+		if memberNode.ID() == id {
+			return memberNode
+		}
+	}
+	return nil
 }
