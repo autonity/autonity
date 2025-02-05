@@ -22,7 +22,7 @@ import (
 )
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
-var ScaleThresholdForClustering = 32 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
+var ScaleThresholdForClustering = 1 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
 var ErrInvalidPeerType = errors.New("invalid peer type")
@@ -295,6 +295,7 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 			ip, port, err := net.SplitHostPort(p2pPeer.RemoteAddr().String())
 			if err != nil {
 				//TODO
+				log.Error("failed to split host port", "err", err)
 				continue
 			}
 
