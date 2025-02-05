@@ -16,6 +16,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
@@ -289,19 +290,15 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 		if member == r.self {
 			continue
 		}
-
-		if peer, ok := r.broadcaster.FindPeer(member); ok {
-			// todo: this is a bit hacky, we should probably have a better way to get the p2p peer ip
-			p2pPeer, ok := peer.(peerLatency)
-			if !ok {
-				return nil, ErrInvalidPeerType
-			}
-			id := p2pPeer.Node().ID()
-			memberNode := findMember(committeeEnodes, id)
+		if memberNode, ok := findByAddress(committeeEnodes, member); ok {
+			// todo: this is a less hacky, but we should probably have a better way to get the peer ip
 			ip := memberNode.IP()
 			port := memberNode.TCP()
 			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
 			log.Info("Router: fetching latency", "targetIP", ip, "targetPort", port)
+		} else {
+			log.Error("Router: peer not found in broadcaster", "peer", member)
+			pingTargets[i] = ping.Target{}
 		}
 	}
 
@@ -358,4 +355,14 @@ func findMember(committeeEnodes []*enode.Node, id enode.ID) *enode.Node {
 		}
 	}
 	return nil
+}
+
+func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.Node, bool) {
+	for _, memberNode := range committeeEnodes {
+		pubKey := memberNode.Pubkey()
+		if crypto.PubkeyToAddress(*pubKey) == addr {
+			return memberNode, true
+		}
+	}
+	return nil, false
 }
