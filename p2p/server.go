@@ -471,6 +471,12 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 	return false
 }
 
+func (srv *Server) Committee() []*enode.Node {
+	srv.enodeMu.RLock()
+	defer srv.enodeMu.RUnlock()
+	return srv.committee
+}
+
 func (srv *Server) isConsensusEndpointReachable(id enode.ID) bool {
 	var (
 		ip   net.IP

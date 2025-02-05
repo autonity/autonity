@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/common/fixsizecache"
+	"github.com/autonity/autonity/p2p/enode"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/state"
@@ -187,6 +188,8 @@ type Broadcaster interface {
 	FindPeers([]common.Address) map[common.Address]Peer
 
 	FindPeer(common.Address) (Peer, bool)
+
+	CommitteeEnodes() []*enode.Node
 }
 
 // Peer defines the interface to communicate with peer
