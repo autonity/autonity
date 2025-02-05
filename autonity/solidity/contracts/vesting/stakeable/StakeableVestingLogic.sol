@@ -15,6 +15,8 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
 
     using QueueLib for StakingRequestQueue;
 
+    event BeneficiaryChanged(address indexed newBeneficiary, address indexed oldBeneficiary, address indexed contractAddress); 
+
     constructor(address payable _autonity) AccessAutonity(_autonity) {
         managerContract = IStakeableVestingManager(payable(msg.sender));
     }
@@ -149,8 +151,9 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @custom:restricted-to operator account
      */
     function changeContractBeneficiary(address _recipient) virtual external onlyManager {
-        _claimAndSendRewards();
+        _claimAndSendRewards(true);
         _clearValidators();
+        emit BeneficiaryChanged(_recipient, beneficiary, address(this));
         beneficiary = _recipient;
     }
 
@@ -212,7 +215,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Used by beneficiary to claim all rewards from bonding to all the validators.
      */
     function claimRewards() virtual external onlyBeneficiary {
-        _claimAndSendRewards();
+        _claimAndSendRewards(false);
         _clearValidators();
     }
 
@@ -363,10 +366,13 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         require(_sent, "LNTN transfer failed");
     }
 
-    function _sendRewards(uint256 _atnReward) internal {
+    function _sendRewards(uint256 _atnReward, bool _allowFailure) internal {
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
-        (bool _sent, ) = beneficiary.call{value: _atnReward}("");
+        (bool _sent, ) = beneficiary.call{value: _atnReward, gas: 2300}("");
+        if (_allowFailure && !_sent) {
+            (_sent, ) = autonity.getTreasuryAccount().call{value: _atnReward}("");
+        }
         require(_sent, "failed to send ATN");
     }
 
@@ -486,20 +492,20 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         address _myAddress = address(this);
         uint256 _atnBalance = _myAddress.balance;
         _liquidStateContract(_validator).claimRewards();
-        _sendRewards(_myAddress.balance - _atnBalance);
+        _sendRewards(_myAddress.balance - _atnBalance, false);
     }
 
     /**
      * @dev Claims all rewards from the liquid contract from all bonded validators.
      */
-    function _claimAndSendRewards() internal {
+    function _claimAndSendRewards(bool _allowFailure) internal {
         address _myAddress = address(this);
         uint256 _atnBalance = _myAddress.balance;
         uint256 _length = linkedValidators.length;
         for (uint256 i = 0; i < _length; i++) {
             _liquidStateContract(linkedValidators[i]).claimRewards();
         }
-        _sendRewards(_myAddress.balance - _atnBalance);
+        _sendRewards(_myAddress.balance - _atnBalance, _allowFailure);
     }
 
     /*

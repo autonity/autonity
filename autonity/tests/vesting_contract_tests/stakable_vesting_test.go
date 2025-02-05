@@ -1124,6 +1124,70 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		newAtnBalance := r.GetBalanceOf(user)
 		require.Equal(r.T, new(big.Int).Add(rewards, atnBalance), newAtnBalance)
 	})
+
+	testFunc := func(r *tests.Runner, dummyContract common.Address) {
+		stakeableContract := initiate(r)
+		r.NoError(
+			r.StakeableVestingManager.ChangeContractBeneficiary(
+				r.Operator, user, contractID, dummyContract,
+			),
+		)
+
+		// bond to get some reward
+		bondingAmount := big.NewInt(contractTotalAmount)
+		validator := r.Committee.Validators[0].NodeAddress
+		r.WaitForBlocksUntil(start + 1)
+		r.NoError(
+			stakeableContract.Bond(
+				tests.FromSender(dummyContract, nil), validator, bondingAmount,
+			),
+		)
+		r.WaitNextEpoch()
+		r.GiveMeSomeMoney(r.Autonity.Address(), reward)
+		r.WaitNextEpoch()
+		rewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+		require.NoError(r.T, err)
+		oldUserAtnBalance := r.GetBalanceOf(dummyContract)
+
+		// rewards cannot be claimed
+		_, err = stakeableContract.ClaimRewards(
+			tests.FromSender(dummyContract, nil),
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: failed to send ATN", err.Error())
+
+		// change the beneficiary again
+		treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
+		require.NoError(r.T, err)
+		treasuryBalance := r.GetBalanceOf(treasury)
+		gasUsed := r.NoError(
+			r.StakeableVestingManager.ChangeContractBeneficiary(
+				r.Operator, dummyContract, contractID, user,
+			),
+		)
+		r.T.Logf("gas used %v\n", gasUsed)
+		// the rewards are accumulated in the treasury balance
+		require.Equal(r.T, new(big.Int).Add(treasuryBalance, rewards), r.GetBalanceOf(treasury))
+		// dummyContract did not receive reward because it doesn't have payable fallback or receive method
+		require.Equal(r.T, oldUserAtnBalance.Uint64(), r.GetBalanceOf(dummyContract).Uint64())
+		currentRewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+		require.NoError(r.T, err)
+		require.Equal(r.T, uint64(0), currentRewards.Uint64())
+	}
+
+	tests.RunWithSetup("beneficiary change allows reward sending failure (beneficiary cannot receive atn)", setup, func(r *tests.Runner) {
+		// change beneficiary, new user will be a dummy contract with no way to receive rewards
+		dummyContract, _, _, err := r.DeployDummyContract(nil)
+		require.NoError(r.T, err)
+		testFunc(r, dummyContract)
+	})
+
+	tests.RunWithSetup("beneficiary change allows reward sending failure (beneficiary spends unlimited gas)", setup, func(r *tests.Runner) {
+		// change beneficiary, new user will be a dummy contract which spends unlimited gas to receive rewards
+		dummyContract, _, _, err := r.DeployDummyMaliciousContract(nil)
+		require.NoError(r.T, err)
+		testFunc(r, dummyContract)
+	})
 }
 
 func TestSlashingAffect(t *testing.T) {
