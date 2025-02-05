@@ -395,24 +395,9 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 		return m.R() == int64(targetRound) && m.Value() == targetHeader.Hash()
 	})
 
-	// right now if a validator is not in the committee, Core will not be running.
-	// however the node will still prepare blocks as if he could propose them.
-	// whether this is useful it is debatable (could be useful to access the pending state).
-	// however we do not want to print warnings related to the activity proof, as participant
-	// nodes will not be able to receive consensus messages and therefore will always fail to
-	// assemble the activity proof
-	var logFunc func(msg string, ctx ...interface{})
-	if sb.coreRunning.Load() {
-		// warn level if the node is a committee member
-		logFunc = sb.logger.Warn
-	} else {
-		// debug level if only a participant
-		logFunc = sb.logger.Debug
-	}
-
 	// we should have provided an activity proof, but we do not have past messages
 	if len(precommits) == 0 {
-		logFunc("Failed to provide activity valid activity proof as proposer", "height", h, "targetHeight", targetHeight, "targetRound", targetRound)
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer", "height", h, "targetHeight", targetHeight, "targetRound", targetRound)
 		return nil, 0, nil
 	}
 
