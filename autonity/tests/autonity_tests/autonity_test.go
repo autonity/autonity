@@ -147,3 +147,42 @@ func TestDuplicateOracleAddress(t *testing.T) {
 		)
 	})
 }
+
+func TestAutonityBalance(t *testing.T) {
+	r := tests.Setup(t, nil)
+	user := tests.User
+	delegation := new(big.Int).Mul(
+		big.NewInt(100_000_000),
+		params.DecimalFactor,
+	)
+
+	isBalanceZero := func() {
+		autonityBalance := r.GetNewtonBalanceOf(r.Autonity.Address())
+		t.Logf("newton balance in autonity %v", autonityBalance)
+		threshold := big.NewInt(int64(len(r.Committee.Validators))) // due to integer division in rewards distribution
+		require.True(r.T, autonityBalance.Cmp(threshold) <= 0)
+	}
+	isBalanceZero()
+
+	for _, v := range r.Committee.Validators {
+		r.NoError(
+			r.Autonity.Mint(
+				r.Operator,
+				user,
+				delegation,
+			),
+		)
+
+		r.NoError(
+			r.Autonity.Bond(
+				tests.FromSender(user, nil),
+				v.NodeAddress,
+				delegation,
+			),
+		)
+	}
+	isBalanceZero()
+
+	r.WaitNextEpoch()
+	isBalanceZero()
+}
