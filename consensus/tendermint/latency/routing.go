@@ -245,7 +245,16 @@ func (r *Router) refreshClusters() error {
 	// TODO: validate and fill latency matrix with default values
 	latencyMat := make(map[common.Address][]uint8)
 	for i, validator := range committee {
-		latencyMat[validator] = latency[i]
+		latencyVec := latency[i]
+		for j, peer := range committee {
+			// 0 is reserved for self, ^uint8(0) is reserved for non-connected peers
+			if validator == peer {
+				latencyVec[j] = 0
+			} else if latencyVec[j] == 0 {
+				latencyVec[j] = ^uint8(0)
+			}
+		}
+		latencyMat[validator] = latencyVec
 	}
 
 	clusters, err := AssignClusters(latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
@@ -288,6 +297,7 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 
 	for i, member := range committee {
 		if member == r.self {
+			pingTargets[i] = ping.Target{}
 			continue
 		}
 		if memberNode, ok := findByAddress(committeeEnodes, member); ok {
@@ -346,15 +356,6 @@ func mapDurationToUint8(duration time.Duration) uint8 {
 		durationMs = 400
 	}
 	return uint8((float64(durationMs) / 400.0) * 255.0)
-}
-
-func findMember(committeeEnodes []*enode.Node, id enode.ID) *enode.Node {
-	for _, memberNode := range committeeEnodes {
-		if memberNode.ID() == id {
-			return memberNode
-		}
-	}
-	return nil
 }
 
 func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.Node, bool) {
