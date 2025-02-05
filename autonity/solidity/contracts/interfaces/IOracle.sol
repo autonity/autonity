@@ -118,14 +118,11 @@ interface IOracle {
     function getDecimals() external view returns (uint8);
 
     /**
-     * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
-     * round - the round at which new symbols are effective
+     * @dev Emitted upon a symbol change triggered by the Operator.
+     * @param _round The round at which new symbols are effective
      */
     event NewSymbols(string[] _symbols, uint256 _round);
 
-    /**
-     * @dev Emitted upon a symbol change triggered by the Operator.
-     */
     event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint _votePeriod);
 
     /**
@@ -134,7 +131,7 @@ interface IOracle {
      * @param _symbol Outlier symbol.
      * @param _median Median price calculate for this symbol.
      * @param _reported Reported outlier price.
-     * @param _slashingAmount Slashing amount of the validator stakes.
+     * @param _slashingAmount Slashing amount of the validator stakes. It can be zero if the penalty does not rise above the threshold.
      */
     event Penalized(address indexed _participant, uint256 _slashingAmount, string _symbol, int256 _median, uint120 _reported);
 }

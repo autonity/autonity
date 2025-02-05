@@ -316,6 +316,7 @@ contract Oracle is IOracle {
                     true
                 );
             } else {
+                // all voters are detected as outliers, so no valid report found
                 // use past value for price if unsuccesful
                 prices[round][_symbol] = Price(
                     prices[round - 1][_symbol].price,
