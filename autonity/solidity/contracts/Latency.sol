@@ -8,7 +8,7 @@ import {ILatency} from "./interfaces/ILatency.sol";
 contract Latency is ILatency, AccessAutonity {
     // Below this threshold, the committee is too small for clustering
     // to be efficient, so we limit the latency calculations
-    uint256 public constant SCALE_THRESHOLD_FOR_CLUSTERING = 32;
+    uint256 public constant SCALE_THRESHOLD_FOR_CLUSTERING = 1;
 
     /*
     ┌────────┐
