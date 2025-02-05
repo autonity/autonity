@@ -6,7 +6,6 @@ import (
 	"errors"
 	"math"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p/enode"
 )
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
@@ -30,6 +30,7 @@ var ErrInvalidPeerType = errors.New("invalid peer type")
 type peerLatency interface {
 	consensus.Peer
 	RemoteAddr() net.Addr
+	Node() *enode.Node
 }
 
 type Router struct {
@@ -281,6 +282,7 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 
 	latency := make(map[common.Address]uint8)
 	pingTargets := make([]ping.Target, len(committee))
+
 	for i, member := range committee {
 		if member == r.self {
 			continue
@@ -292,15 +294,10 @@ func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
 				return nil, ErrInvalidPeerType
 			}
 
-			ip, port, err := net.SplitHostPort(p2pPeer.RemoteAddr().String())
-			if err != nil {
-				//TODO
-				log.Error("failed to split host port", "err", err)
-				continue
-			}
-
-			p, _ := strconv.Atoi(port)
-			pingTargets[i] = ping.Target{IP: ip, Port: p}
+			ip := p2pPeer.Node().IP()
+			port := p2pPeer.Node().TCP()
+			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
+			log.Info("Router: fetching latency", "targetIP", ip, "targetPort", port)
 		}
 	}
 
