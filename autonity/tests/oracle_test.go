@@ -999,7 +999,6 @@ func TestSlashingPercentage(t *testing.T) {
 		currentPercentage = slashedPercentage(stake, newStake)
 		require.True(r.T, currentPercentage < maxSlashedPercentage)
 		require.True(r.T, currentPercentage > previousPercentage)
-		previousPercentage = currentPercentage
 		stake = newStake
 
 		// last round of vote
@@ -1007,7 +1006,6 @@ func TestSlashingPercentage(t *testing.T) {
 		progressRound(r, getRound(r))
 		newStake = getValidator(r, validator).BondedStake
 		require.True(r.T, slashedPercentage(stake, newStake) == maxSlashedPercentage)
-		stake = newStake
 	})
 }
 
