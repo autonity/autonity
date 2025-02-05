@@ -1150,7 +1150,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		oldUserAtnBalance := r.GetBalanceOf(dummyContract)
 
 		// rewards cannot be claimed
-		_, err = stakeableContract.ClaimRewards(
+		_, err = stakeableContract.ClaimAllRewards(
 			tests.FromSender(dummyContract, nil),
 		)
 		require.Error(r.T, err)
