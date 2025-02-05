@@ -643,7 +643,6 @@ contract Oracle is IOracle {
             return;
         }
 
-        // TODO: to formal evaluate the correctness of this formula.
         // `_diffRatio` is a percentage squared, so dividing it by 10_000
         uint256 _slashingRate = (uint256(_diffRatio - config.outlierSlashingThreshold) *
                                uint256(_report.confidence) *
