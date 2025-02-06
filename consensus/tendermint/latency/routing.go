@@ -285,6 +285,10 @@ func (r *Router) report() error {
 }
 
 func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
+	if r.broadcaster == nil {
+		return nil, errors.New("broadcaster not set, can't fetch latency")
+	}
+
 	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
 		return nil, err
