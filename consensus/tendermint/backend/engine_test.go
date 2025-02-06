@@ -622,6 +622,7 @@ func TestStart(t *testing.T) {
 			gossiper:   g,
 			blockchain: chain,
 			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			logger:     log.Root(),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
@@ -661,6 +662,7 @@ func TestStart(t *testing.T) {
 			gossiper:   g,
 			blockchain: chain,
 			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			logger:     log.Root(),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -693,6 +695,7 @@ func TestStart(t *testing.T) {
 			gossiper:   g,
 			blockchain: chain,
 			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			logger:     log.Root(),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -754,6 +757,7 @@ func TestMultipleRestart(t *testing.T) {
 		gossiper:   g,
 		blockchain: chain,
 		eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+		logger:     log.Root(),
 	}
 	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 	b.coreStarting.Store(false)
