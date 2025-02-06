@@ -95,15 +95,6 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
 
     /**
      * @notice Returns the smart contract account that holds the corresponding stake-able vesting contract.
-     * @param _uniqueContractID unique id of the contract
-     */
-    function getContractAccount(uint256 _uniqueContractID) external virtual view returns (IStakeableVesting) {
-        require(_uniqueContractID < contracts.length, "invalid contract id");
-        return contracts[_uniqueContractID];
-    }
-
-    /**
-     * @notice Returns the smart contract account that holds the corresponding stake-able vesting contract.
      * @param _beneficiary address of the beneficiary of the contract
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
      */

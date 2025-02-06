@@ -214,7 +214,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Used by beneficiary to claim all rewards from bonding to all the validators.
      */
-    function claimRewards() virtual external onlyBeneficiary {
+    function claimAllRewards() virtual external onlyBeneficiary {
         _claimAndSendRewards(false);
         _clearValidators();
     }

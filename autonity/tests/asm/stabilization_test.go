@@ -366,7 +366,7 @@ func TestStabilizationBorrow(t *testing.T) {
 		cdpsBefore, _, err := r.Stabilization.Cdps(nil, userAccount)
 		require.NoError(t, err)
 		pendingTimestamp := new(big.Int).Set(r.Evm.Context.Time)
-		debt, _, err := r.Stabilization.DebtAmount(nil, userAccount, pendingTimestamp)
+		debt, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, pendingTimestamp)
 		require.NoError(t, err)
 		interest := new(big.Int).Sub(debt, borrowAmount)
 		amount := new(big.Int).Div(new(big.Int).Sub(borrowLimit, debt), big.NewInt(2))
@@ -498,7 +498,7 @@ func TestStabilizationRepay(t *testing.T) {
 		timestamp := new(big.Int).Set(r.Evm.Context.Time)
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
-		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
+		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		tooMuch := new(big.Int).Sub(new(big.Int).Add(debtAmount, common.Big1), cfg.MinDebtRequirement)
 		_, err = r.Stabilization.Repay(tests.FromSender(userAccount, tooMuch))
@@ -509,7 +509,7 @@ func TestStabilizationRepay(t *testing.T) {
 		timestamp := new(big.Int).Set(r.Evm.Context.Time)
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
-		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
+		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		payment := new(big.Int).Sub(debtAmount, cfg.MinDebtRequirement)
 
@@ -527,7 +527,7 @@ func TestStabilizationRepay(t *testing.T) {
 	tests.RunWithSetup("Test repay interest", setup, func(r *tests.Runner) {
 		borrowAmount := new(big.Int).Div(calcBorrowLimit(r, userAccount), big.NewInt(2))
 		timestamp := new(big.Int).Set(r.Evm.Context.Time)
-		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
+		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		interest := new(big.Int).Sub(debtAmount, borrowAmount)
 
@@ -543,7 +543,7 @@ func TestStabilizationRepay(t *testing.T) {
 
 	tests.RunWithSetup("Test repay full debt", setup, func(r *tests.Runner) {
 		timestamp := new(big.Int).Set(r.Evm.Context.Time)
-		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
+		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 
 		r.NoError(r.Stabilization.Repay(tests.FromSender(userAccount, debtAmount)))
@@ -558,7 +558,7 @@ func TestStabilizationRepay(t *testing.T) {
 
 	tests.RunWithSetup("Test repay surplus is returned", setup, func(r *tests.Runner) {
 		timestamp := new(big.Int).Set(r.Evm.Context.Time)
-		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
+		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		surplus := new(big.Int).Set(common.Big256)
 

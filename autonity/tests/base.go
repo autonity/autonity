@@ -372,7 +372,7 @@ func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address)
 }
 
 func (r *Runner) StakeableVestingContractObject(user common.Address, contractID *big.Int) *IStakeableVesting {
-	address, _, err := r.StakeableVestingManager.GetContractAccount0(nil, user, contractID)
+	address, _, err := r.StakeableVestingManager.GetContractAccount(nil, user, contractID)
 	require.NoError(r.T, err)
 	return &IStakeableVesting{
 		r.contractObject(IStakeableVestingMetaData, address),
