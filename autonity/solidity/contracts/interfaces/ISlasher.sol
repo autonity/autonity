@@ -2,20 +2,21 @@
 pragma solidity ^0.8.19;
 
 import "../Autonity.sol";
+import "./IAutonity.sol";
 
 interface ISlasher {
 
     function jail(
         Autonity.Validator memory _val,
         uint256 _jailtime,
-        ValidatorState _newJailedState
+        IAutonity.ValidatorState _newJailedState
     ) external returns (
         Autonity.Validator memory
     );
 
     function jailbound(
         Autonity.Validator memory _val,
-        ValidatorState _newJailboundState
+        IAutonity.ValidatorState _newJailboundState
     ) external returns (
         Autonity.Validator memory
     );
@@ -32,8 +33,8 @@ interface ISlasher {
         Autonity.Validator memory _val,
         uint256 _slashingRate,
         uint256 _jailtime,
-        ValidatorState _newJailedState,
-        ValidatorState _newJailboundState
+        IAutonity.ValidatorState _newJailedState,
+        IAutonity.ValidatorState _newJailboundState
     ) external returns (
         Autonity.Validator memory,  // slashedVal
         uint256,                    // slashingAmount

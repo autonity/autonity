@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {Autonity, ValidatorState} from "./Autonity.sol";
+import {Autonity} from "./Autonity.sol";
+import "./interfaces/IAutonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 
 contract Slasher {
@@ -21,7 +22,7 @@ contract Slasher {
     function jail(
         Autonity.Validator memory _val,
         uint256 _jailtime,
-        ValidatorState _newJailedState
+        IAutonity.ValidatorState _newJailedState
     ) external virtual onlyAutonity returns (
         Autonity.Validator memory
     ){
@@ -32,7 +33,7 @@ contract Slasher {
     function _jail(
         Autonity.Validator memory _val,
         uint256 _jailtime,
-        ValidatorState _newJailedState
+        IAutonity.ValidatorState _newJailedState
     ) internal virtual {
         _val.jailReleaseBlock = block.number + _jailtime;
         _val.state = _newJailedState;
@@ -46,7 +47,7 @@ contract Slasher {
     */
     function jailbound(
         Autonity.Validator memory _val,
-        ValidatorState _newJailboundState
+        IAutonity.ValidatorState _newJailboundState
     ) external virtual onlyAutonity returns (
         Autonity.Validator memory
     ){
@@ -56,7 +57,7 @@ contract Slasher {
 
     function _jailbound(
         Autonity.Validator memory _val,
-        ValidatorState _newJailboundState
+        IAutonity.ValidatorState _newJailboundState
     ) internal virtual {
         _val.jailReleaseBlock = 0;
         _val.state = _newJailboundState;
@@ -159,8 +160,8 @@ contract Slasher {
         Autonity.Validator memory _val,
         uint256 _slashingRate,
         uint256 _jailtime,
-        ValidatorState _newJailedState,
-        ValidatorState _newJailboundState
+        IAutonity.ValidatorState _newJailedState,
+        IAutonity.ValidatorState _newJailboundState
     ) external virtual onlyAutonity returns (
         Autonity.Validator memory,  // slashedVal
         uint256,                    // slashingAmount

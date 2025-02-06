@@ -2,6 +2,7 @@
 pragma solidity >=0.8.2 < 0.9.0;
 
 import "./interfaces/IOracle.sol";
+import "./interfaces/IAutonity.sol";
 import "./Autonity.sol";
 import {EnumerableSet} from "./utils/AddressSet.sol";
 import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
@@ -315,6 +316,8 @@ contract Oracle is IOracle {
         string memory _symbol = symbols[_sindex];
         Report[] memory _totalReports = new Report[](voters.length);
         uint256 _count;
+        uint256 _price;
+        bool _status;
         for (uint i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             // if there is no available report from this validator we must account for it.
@@ -337,31 +340,35 @@ contract Oracle is IOracle {
                     uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
                     emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
                 }
+                _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
+                _status = true;
                 prices[round][_symbol] = Price(
-                    _calculateWeightedPrice(_filteredReports, _reportsCount),
+                    _price,
                     block.timestamp,
-                    true
+                    _status
                 );
             } else {
+                _price = prices[round - 1][_symbol].price;
+                _status = false;
                 // all voters are detected as outliers, so no valid report found
                 // use past value for price if unsuccesful
                 prices[round][_symbol] = Price(
-                    prices[round - 1][_symbol].price,
+                    _price,
                     block.timestamp,
-                    false
+                    _status
                 );
             }
         } else {
+            _price = prices[round - 1][_symbol].price;
+            _status = false;
             // use past value for price if unsuccesful
             prices[round][_symbol] = Price(
-                prices[round - 1][_symbol].price,
+                _price,
                 block.timestamp,
-                false
+                _status
             );
         }
-
-        emit PriceUpdated(_price, round, _symbol, _success, block.timestamp);
-        //todo: emit Price - round, symbol, success_status, tiemstamp(maybe)
+        emit PriceUpdated(_price, round, _symbol, _status, block.timestamp);
     }
 
     /**
@@ -502,7 +509,7 @@ contract Oracle is IOracle {
     //todo: config change event
     function setVotePeriod(uint _votePeriod) external onlyOperator {
         _checkVotePeriod(_votePeriod);
-        emit config.autonity.ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
+        emit IAutonity.ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
         config.votePeriod = _votePeriod;
     }
 
@@ -517,11 +524,11 @@ contract Oracle is IOracle {
     external
     onlyOperator
     {
-        emit config.autonity.ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
+        emit IAutonity.ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
-        emit config.autonity.ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
+        emit IAutonity.ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
         config.outlierDetectionThreshold = _outlierDetectionThreshold;
-        emit config.autonity.ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate);
+        emit IAutonity.ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate);
         config.baseSlashingRate = _baseSlashingRate;
     }
 

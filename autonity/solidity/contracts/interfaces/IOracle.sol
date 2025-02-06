@@ -168,7 +168,7 @@ interface IOracle {
      * status - status of price calculation
      * timestamp - timestamp of price
      */
-    event PriceUpdated(uint256 price, uint256 round, string indexed symbol, uint256 status, uint256 timestamp);
+    event PriceUpdated(uint256 price, uint256 round, string indexed symbol, bool status, uint256 timestamp);
 
     /**
      * @dev Emitted when a participant gets penalized as an outlier

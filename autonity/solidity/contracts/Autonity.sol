@@ -21,10 +21,9 @@ import "./ScheduleController.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
 
-/** @title Proof-of-Stake Autonity Contract */
-enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
 uint8 constant DECIMALS = 18;
 
+/** @title Proof-of-Stake Autonity Contract */
 contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable {
     uint256 internal constant CONSENSUS_KEY_LEN = 48;
     uint256 internal constant BLS_PROOF_LEN = 96;
@@ -186,6 +185,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
     mapping(address => uint256) internal oraclesExist; // 0 for false, true otherwise uint256 internal stakeSupply;
+    uint256 internal stakeSupply;
     uint256 internal stakeCirculating;
     uint256 public inflationReserve;
 
@@ -612,7 +612,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _treasuryFee Treasury fee. Precision TBD.
     */
     function setTreasuryFee(uint256 _treasuryFee) public virtual onlyOperator {
-        emit ConfigUpdateAddress("treasuryFee", config.policy.treasuryFee, _treasuryFee);
+        emit ConfigUpdateUint("treasuryFee", config.policy.treasuryFee, _treasuryFee);
         config.policy.treasuryFee = _treasuryFee;
     }
 
@@ -621,7 +621,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _address the contract address
      */
     function setAccountabilityContract(IAccountability _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("accountabilityContract", config.contracts.accountabilityContract, _address);
+        emit ConfigUpdateAddress("accountabilityContract", address(config.contracts.accountabilityContract), address(_address));
         config.contracts.accountabilityContract = _address;
     }
 
@@ -630,7 +630,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _address the contract address
      */
     function setOmissionAccountabilityContract(IOmissionAccountability _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("omissionAccountabilityContract", config.contracts.omissionAccountabilityContract, _address);
+        emit ConfigUpdateAddress("omissionAccountabilityContract", address(config.contracts.omissionAccountabilityContract), address(_address));
         config.contracts.omissionAccountabilityContract = _address;
     }
 
@@ -639,7 +639,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setOracleContract(address payable _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("oracleContract", config.contracts.oracleContract, _address);
+        emit ConfigUpdateAddress("oracleContract", address(config.contracts.oracleContract), _address);
         config.contracts.oracleContract = IOracle(_address);
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
@@ -650,7 +650,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setAcuContract(IACU _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("acuContract", config.contracts.acuContract, _address);
+        emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address));
         config.contracts.acuContract = _address;
     }
 
@@ -659,7 +659,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setSupplyControlContract(ISupplyControl _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("supplyControlContract", config.contracts.supplyControlContract, _address);
+        emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address));
         config.contracts.supplyControlContract = _address;
     }
 
@@ -668,7 +668,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setStabilizationContract(IStabilization _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("stabilizationContract", config.contracts.stabilizationContract, _address);
+        emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
         config.contracts.stabilizationContract = _address;
     }
 
@@ -677,7 +677,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setInflationControllerContract(IInflationController _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("inflationControllerContract", config.contracts.inflationControllerContract, _address);
+        emit ConfigUpdateAddress("inflationControllerContract", address(config.contracts.inflationControllerContract), address(_address));
         config.contracts.inflationControllerContract = _address;
     }
 
@@ -688,7 +688,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setUpgradeManagerContract(UpgradeManager _address) public virtual onlyOperator {
-        emit ConfigUpdateAddress("upgradeManagerContract", config.contracts.upgradeManagerContract, _address);
+        emit ConfigUpdateAddress("upgradeManagerContract", address(config.contracts.upgradeManagerContract), address(_address));
         config.contracts.upgradeManagerContract = _address;
     }
 
@@ -1019,7 +1019,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     function setSlasher(address _slasher) public virtual onlyOperator {
         require(_slasher != address(0), "slasher contract cannot be the zero address");
-        emit ConfigUpdateAddress("slasher", slasher, _slasher);
+        emit ConfigUpdateAddress("slasher", address(slasher), _slasher);
         slasher = ISlasher(_slasher);
     }
 
@@ -1034,14 +1034,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /**
     * @notice Returns the bonding request corresponding to bonding ID.
     */
-    function getBondingRequest(uint256 _id) external view virtual returns (BondingRequest) {
+    function getBondingRequest(uint256 _id) external view virtual returns (BondingRequest memory) {
         return bondingMap[_id];
     }
 
     /**
     * @notice Returns the unbonding request corresponding to unbonding ID.
     */
-    function getUnbondingRequest(uint256 _id) external view virtual returns (UnbondingRequest) {
+    function getUnbondingRequest(uint256 _id) external view virtual returns (UnbondingRequest memory) {
         return unbondingMap[_id];
     }
 
