@@ -16,6 +16,7 @@ import "./interfaces/IOmissionAccountability.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import "./interfaces/IInflationController.sol";
+import "./interfaces/IStakingPool.sol";
 import "./ReentrancyGuard.sol";
 import "./ScheduleController.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
@@ -68,36 +69,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         bytes consensusKey;
     }
 
-    /**************************************************/
-    // Todo: Create a FIFO structure library, integrate with Staking{}
-    /* Used for epoched staking */
-    struct BondingRequest {
-        address payable delegator;
-        address delegatee;
-        uint256 amount;
-        uint256 requestBlock;
-    }
-
-    mapping(uint256 => BondingRequest) internal bondingMap;
-    uint256 internal tailBondingID;
-    uint256 internal headBondingID;
-
-    struct UnbondingRequest {
-        address payable delegator;
-        address delegatee;
-        uint256 amount; // NTN for self-delegation, LNTN otherwise
-        uint256 unbondingShare;
-        uint256 requestBlock;
-        bool unlocked;
-        bool released;
-        bool selfDelegation;
-    }
-
-    mapping(uint256 => UnbondingRequest) internal unbondingMap;
-    uint256 internal tailUnbondingID;
-    uint256 internal headUnbondingID;
-    uint256 internal lastUnlockedUnbonding;
-
     /* Used to track commission rate change*/
     struct CommissionRateChangeRequest {
         address validator;
@@ -105,9 +76,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 rate;
     }
 
-    mapping(uint256 => CommissionRateChangeRequest) internal commissionRateChangeQueue;
-    uint256 internal commissionRateChangeQueueFirst = 0;
-    uint256 internal commissionRateChangeQueueLast = 0;
+    // commission update request
+    mapping(address => uint256) internal commissionUpdateBlock;
+    mapping(address => uint256) internal pendingCommission;
 
     /**************************************************/
     struct Contracts {
@@ -119,6 +90,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
         IOmissionAccountability omissionAccountabilityContract;
+        IStakingPool stakingPool;
     }
 
     struct Policy {
@@ -209,7 +181,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /* Events */
     event MintedStake(address indexed addr, uint256 amount);
     event BurnedStake(address indexed addr, uint256 amount);
-    event CommissionRateChange(address indexed validator, uint256 rate);
+    event CommissionRateChange(address indexed validator, uint256 rate, uint256 activeBlock, bool overridePendingRate);
 
     /** @notice This event is emitted when a bonding request to a validator node has been registered.
     * This request will only be effective at the end of the current epoch however the stake will be
@@ -220,7 +192,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param amount The amount of NEWTON to be delegated.
     */
     event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
-    event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, ValidatorState state);
 
     /** @notice This event is emitted when an unbonding request to a validator node has been registered.
     * This request will only be effective after the unbonding period, rounded to the next epoch.
@@ -267,6 +238,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         Validator[] memory _validators,
         Config memory _config
     ) internal {
+        require(_config.policy.unbondingPeriod > 0, "unbonding period must be positive");
         config = _config;
         newEpochPeriod = _config.protocol.epochPeriod;
         inflationReserve = config.policy.initialInflationReserve;
@@ -301,9 +273,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _registerOracle(_validators[i].oracleAddress);
             _deployLiquidStateContract(_validators[i]);
 
-            accounts[_validators[i].treasury] += _bondedStake;
-            stakeSupply += _bondedStake;
-            stakeCirculating += _bondedStake;
+            _mint(_validators[i].treasury, _bondedStake);
             _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
         }
     }
@@ -497,10 +467,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         require(validators[_validator].nodeAddress == _validator, "validator must be registered");
         require(validators[_validator].treasury == msg.sender, "require caller to be validator admin account");
         require(_rate <= STANDARD_SCALE_FACTOR, "require correct commission rate");
-        CommissionRateChangeRequest memory _newRequest = CommissionRateChangeRequest(_validator, block.number, _rate);
-        commissionRateChangeQueue[commissionRateChangeQueueLast] = _newRequest;
-        commissionRateChangeQueueLast += 1;
-        emit CommissionRateChange(_validator, _rate);
+        _applyNewCommissionRate(_validator);
+        bool _pendingCommissionRateExist = false;
+        if (commissionUpdateBlock[_validator] > 0) {
+            _pendingCommissionRateExist = true;
+        }
+        commissionUpdateBlock[_validator] = epochInfos[epochID].nextEpochBlock + config.policy.unbondingPeriod;
+        pendingCommission[_validator] = _rate;
+        emit CommissionRateChange(_validator, _rate, commissionUpdateBlock[_validator], _pendingCommissionRateExist);
     }
 
     /**
@@ -536,6 +510,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _period The new unbonding period, in blocks.
      */
     function setUnbondingPeriod(uint256 _period) public virtual onlyOperator {
+        require(_period > 0, "unbonding period must be positive");
         config.policy.unbondingPeriod = _period;
     }
 
@@ -616,6 +591,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.stabilizationContract.setOperator(_account);
         config.contracts.upgradeManagerContract.setOperator(_account);
         config.contracts.omissionAccountabilityContract.setOperator(_account);
+        config.contracts.stakingPool.setOperator(_account);
     }
 
     /*
@@ -847,7 +823,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _performRedistribution(address(this).balance, accounts[address(this)]);
             // end of epoch here
             _stakingOperations();
-            _applyNewCommissionRates();
 
             // compute the committee for new epoch
             (address[] memory _newOracles, address[] memory _newCommittee, address[] memory _newTreasuries) = computeCommittee();
@@ -915,11 +890,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     function autobond(address _validator, uint256 _selfBond, uint256 _delegated) external virtual onlyAtEpochEnd onlyRewardDistributor(_validator) {
-        require(accounts[msg.sender] >= _selfBond + _delegated, "not enough balance");
         require(_validator != address(0), "validator address cannot be zero");
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
 
-        accounts[msg.sender] -= _selfBond + _delegated;
+        _transfer(msg.sender, address(config.contracts.stakingPool), _selfBond + _delegated);
         _autobond(_validator, _selfBond, _delegated);
     }
 
@@ -991,7 +965,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _slashingRate
         );
         // update the validator struct and send the slashed funds to the autonity treasury
-        accounts[config.policy.treasuryAccount] += slashingAmount;
+        _transfer(address(config.contracts.stakingPool), config.policy.treasuryAccount, slashingAmount);
         validators[_nodeAddress] = _slashedVal;
     }
 
@@ -1027,13 +1001,82 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         );
         jailReleaseBlock = _slashedVal.jailReleaseBlock;
         // update the validator struct and send the slashed funds to the autonity treasury
-        accounts[config.policy.treasuryAccount] += slashingAmount;
+        _transfer(address(config.contracts.stakingPool), config.policy.treasuryAccount, slashingAmount);
         validators[_nodeAddress] = _slashedVal;
     }
 
     function setSlasher(address _slasher) public virtual onlyOperator {
         require(_slasher != address(0), "slasher contract cannot be the zero address");
         slasher = ISlasher(_slasher);
+    }
+
+    function applyBonding(
+        address _address,
+        uint256 _selfBondedStake,
+        uint256 _delegation,
+        uint256 _liquidMinted
+    ) external virtual onlyStakingPool {
+        Validator storage _validator = validators[_address];
+
+        _validator.selfBondedStake += _selfBondedStake;
+        _validator.bondedStake += _selfBondedStake + _delegation;
+
+        if (_liquidMinted > 0) {
+            _validator.liquidSupply += _liquidMinted;
+            _validator.liquidStateContract.mint(_liquidMinted);
+        }
+    }
+
+    function applyUnbonding(
+        address _address,
+        uint256 _liquidBurning,
+        uint256 _selfUnbondingRequested,
+        uint256 _selfUnbondingStake,
+        uint256 _unbondingStake,
+        uint256 _selfUnbondingShare,
+        uint256 _unbondingShare
+    ) external virtual onlyStakingPool {
+        Validator storage _validator = validators[_address];
+
+        if (_liquidBurning > 0) {
+            _validator.liquidSupply -= _liquidBurning;
+            _validator.liquidStateContract.burn(_liquidBurning);
+        }
+
+        _validator.selfUnbondingStakeLocked += _selfUnbondingRequested;
+
+        _validator.selfBondedStake -= _selfUnbondingStake;
+        _validator.selfUnbondingStake += _selfUnbondingStake;
+
+        _validator.bondedStake -= _selfUnbondingStake + _unbondingStake;
+        _validator.unbondingStake += _unbondingStake;
+
+        _validator.selfUnbondingShares += _selfUnbondingShare;
+
+        _validator.unbondingShares += _unbondingShare;
+    }
+
+    function releaseUnbondingStake(
+        address _address,
+        uint256 _selfUnbondingShares,
+        uint256 _unbondingShares,
+        uint256 _releasedSelfStakes,
+        uint256 _releasedStake
+    ) external virtual onlyStakingPool {
+        Validator storage _validator = validators[_address];
+
+        _validator.selfUnbondingShares -= _selfUnbondingShares;
+        _validator.unbondingShares -= _unbondingShares;
+        _validator.selfUnbondingStake -= _releasedSelfStakes;
+        _validator.unbondingStake -= _releasedStake;
+    }
+
+    function updateWithRejectedBondingAmount(address _delegator, uint256 _amount) external virtual onlyStakingPool {
+        _transfer(msg.sender, _delegator, _amount);
+    }
+
+    function updateWithReleasedStake(address _delegator, uint256 _amount) external virtual onlyStakingPool {
+        _transfer(msg.sender, _delegator, _amount);
     }
 
     /*
@@ -1150,6 +1193,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return stakeCirculating;
     }
 
+    function getValidatorCommissionRate(address _validator) external view virtual returns (uint256) {
+        uint256 pendingRateActiveBlock = commissionUpdateBlock[_validator];
+        if (pendingRateActiveBlock > 0 && pendingRateActiveBlock <= epochInfos[epochID].epochBlock) {
+            return pendingCommission[_validator];
+        }
+        return validators[_validator].commissionRate;
+    }
+
     /**
     * @return Returns the validator object associated with `_addr`.
     */
@@ -1207,6 +1258,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return address(config.contracts.oracleContract);
     }
 
+    function getStakingPool() external view virtual returns (address) {
+        return address(config.contracts.stakingPool);
+    }
+
     /**
     * @notice Returns the epoch info of the height.
     */
@@ -1236,25 +1291,18 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return epochID;
     }
 
-    /**
-     * @notice Returns `true` if unbonding is released and `false` otherwise.
-     */
-    function isUnbondingReleased(uint256 _unbondingID) external virtual view returns (bool) {
-        return unbondingMap[_unbondingID].released;
-    }
-
-    function getUnbondingShare(uint256 _unbondingID) external virtual view returns (uint256) {
-        require(unbondingMap[_unbondingID].unlocked, "unbonding not applied yet");
-        return unbondingMap[_unbondingID].unbondingShare;
-    }
-
     /*
     ============================================================
 
         Modifiers
 
     ============================================================
-    */
+     */
+
+    modifier onlyStakingPool {
+        require(address(config.contracts.stakingPool) == msg.sender, "restricted to staking pool contract");
+        _;
+    }
 
     /**
     * @dev Modifier that checks if the caller is the governance operator account.
@@ -1314,6 +1362,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         require(_addr != address(0), "cannot request empty validator");
         require(validators[_addr].nodeAddress == _addr, "validator not registered");
         return validators[_addr];
+    }
+
+    /**
+     * @dev Commission rate is effectively active at epoch end, not in between epochs.
+     */
+    function _applyNewCommissionRate(address _validator) internal {
+        uint256 pendingRateActiveBlock = commissionUpdateBlock[_validator];
+        if (pendingRateActiveBlock == 0 || pendingRateActiveBlock > epochInfos[epochID].epochBlock) {
+            return;
+        }
+        validators[_validator].commissionRate = pendingCommission[_validator];
+        pendingCommission[_validator] = 0;
+        commissionUpdateBlock[_validator] = 0;
     }
 
     /**
@@ -1409,14 +1470,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
                     }
                 }
                 uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
-                accounts[address(this)] -= _ntnSelfReward;
+                _transfer(address(this), address(config.contracts.stakingPool), _ntnSelfReward);
                 _autobond(_val.nodeAddress, _ntnSelfReward, 0);
 
                 uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
                 uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
                     _transfer(address(this), address(_val.liquidStateContract), _ntnDelegationReward);
-                    _val.liquidStateContract.redistribute{value: _atnDelegationReward}(accounts[address(_val.liquidStateContract)]);
+                    _applyNewCommissionRate(committee[i].addr);
+                    _val.liquidStateContract.redistribute{value: _atnDelegationReward}(
+                        accounts[address(_val.liquidStateContract)],
+                        _val.commissionRate,
+                        _val.liquidSupply
+                    );
                 }
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
@@ -1590,47 +1656,17 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function _bond(address _validator, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
         require(_amount > 0, "amount need to be strictly positive");
-        require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
-        accounts[_recipient] -= _amount;
-        BondingRequest memory _bonding = BondingRequest(_recipient, _validator, _amount, block.number);
-        bondingMap[headBondingID] = _bonding;
-        headBondingID++;
-
-        bool _selfBonded = validators[_validator].treasury == _recipient;
-        emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount);
-        return headBondingID - 1;
-    }
-
-    function _applyBonding(uint256 id) internal virtual {
-        BondingRequest storage _bonding = bondingMap[id];
-        Validator storage _validator = validators[_bonding.delegatee];
-
-        // no new bonding can be applied for jailbound or jailed or paused validator
-        if (_validator.state != ValidatorState.active) {
-            accounts[_bonding.delegator] += _bonding.amount;
-            emit BondingRejected(_bonding.delegatee, _bonding.delegator, _bonding.amount, _validator.state);
-            return;
-        }
-
-        if (_bonding.delegator != _validator.treasury) {
-            /* The LNTN: NTN conversion rate is equal to the ratio of issued liquid tokens
-             over the total amount of non self-delegated stake tokens. */
-            uint256 _liquidAmount;
-            uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
-            if (_delegatedStake == 0) {
-                _liquidAmount = _bonding.amount;
-            } else {
-                _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
-            }
-            _validator.liquidStateContract.mint(_bonding.delegator, _liquidAmount);
-            _validator.liquidSupply += _liquidAmount;
-            _validator.bondedStake += _bonding.amount;
-        } else {
-            // Penalty Absorbing Stake : No LNTN issued if delegator is treasury
-            _validator.selfBondedStake += _bonding.amount;
-            _validator.bondedStake += _bonding.amount;
-        }
+        _transfer(_recipient, address(config.contracts.stakingPool), _amount);
+        bool _selfBond = validators[_validator].treasury == _recipient;
+        emit NewBondingRequest(_validator, _recipient, _selfBond, _amount);
+        return config.contracts.stakingPool.bond(
+            _validator,
+            _amount,
+            _recipient,
+            epochID,
+            _selfBond
+        );
     }
 
     function _autobond(address _validator, uint256 _selfBond, uint256 _delegated) internal virtual {
@@ -1651,139 +1687,59 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             uint256 liqBalance = _validator.liquidStateContract.unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
             _validator.liquidStateContract.lock(_recipient, _amount);
-        } else {
+        }
+        else {
             require(
                 _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
                 "insufficient self bonded newton balance"
             );
             _validator.selfUnbondingStakeLocked += _amount;
         }
-        unbondingMap[headUnbondingID] = UnbondingRequest(
-            _recipient, _validatorAddress, _amount, 0, block.number, false, false, selfDelegation
-        );
-        headUnbondingID++;
 
         emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
-        return headUnbondingID - 1;
-    }
-
-    function _releaseUnbondingStake(uint256 _id) internal virtual {
-        UnbondingRequest storage _unbonding = unbondingMap[_id];
-        _unbonding.released = true;
-        if (_unbonding.unbondingShare == 0) {
-            return;
-        }
-        Validator storage _validator = validators[_unbonding.delegatee];
-        uint256 _returnedStake;
-        if (!_unbonding.selfDelegation) {
-            _returnedStake = (_unbonding.unbondingShare * _validator.unbondingStake) / _validator.unbondingShares;
-            _validator.unbondingStake -= _returnedStake;
-            _validator.unbondingShares -= _unbonding.unbondingShare;
-        } else {
-            _returnedStake = (_unbonding.unbondingShare * _validator.selfUnbondingStake) / _validator.selfUnbondingShares;
-            _validator.selfUnbondingStake -= _returnedStake;
-            _validator.selfUnbondingShares -= _unbonding.unbondingShare;
-        }
-        accounts[_unbonding.delegator] += _returnedStake;
-    }
-
-    function _applyUnbonding(uint256 _id) internal virtual {
-        UnbondingRequest storage _unbonding = unbondingMap[_id];
-        Validator storage _validator = validators[_unbonding.delegatee];
-
-        uint256 _newtonAmount;
-        if (!_unbonding.selfDelegation) {
-            // Step 1: Unlock and burn requested liquid newtons
-            uint256 _liquidAmount = _unbonding.amount;
-            _validator.liquidStateContract.unlock(_unbonding.delegator, _liquidAmount);
-            _validator.liquidStateContract.burn(_unbonding.delegator, _liquidAmount);
-
-            // Step 2: Calculate the amount of stake to reduce from the delegation pool.
-            // Note: validator.liquidSupply cannot be equal to zero here
-            uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
-            _newtonAmount = (_liquidAmount * _delegatedStake) / _validator.liquidSupply;
-            _validator.liquidSupply -= _liquidAmount;
-
-            // Step 3: Calculate the amount of shares the staker will get in the unbonding pool.
-            // Note : This accounting extra-complication is due to the possibility of slashing unbonding funds.
-            if (_validator.unbondingStake == 0) {
-                _unbonding.unbondingShare = _newtonAmount;
-            } else {
-                _unbonding.unbondingShare = (_newtonAmount * _validator.unbondingShares) / _validator.unbondingStake;
-            }
-            _validator.unbondingStake += _newtonAmount;
-            _validator.unbondingShares += _unbonding.unbondingShare;
-        } else {
-            // self-delegated stake path, no LNTN<>NTN conversion
-            _newtonAmount = _unbonding.amount;
-            if (_newtonAmount > _validator.selfBondedStake) {
-                _newtonAmount = _validator.selfBondedStake;
-            }
-            if (_validator.selfUnbondingStake == 0) {
-                _unbonding.unbondingShare = _newtonAmount;
-            } else {
-                _unbonding.unbondingShare = (_newtonAmount * _validator.selfUnbondingShares) / _validator.selfUnbondingStake;
-            }
-            _validator.selfUnbondingStake += _newtonAmount;
-            _validator.selfUnbondingShares += _unbonding.unbondingShare;
-            // decrease _validator.selfBondedStake for self-delegation
-            _validator.selfBondedStake -= _newtonAmount;
-            _validator.selfUnbondingStakeLocked -= _unbonding.amount;
-        }
-
-        _unbonding.unlocked = true;
-        // Final step: Reduce amount of newton bonded
-        _validator.bondedStake -= _newtonAmount;
-    }
-
-    function _applyNewCommissionRates() internal virtual {
-        while (commissionRateChangeQueueFirst < commissionRateChangeQueueLast) {
-            // check unbonding period
-            CommissionRateChangeRequest storage _curRequest = commissionRateChangeQueue[commissionRateChangeQueueFirst];
-            if (_curRequest.startBlock + config.policy.unbondingPeriod > block.number) {
-                break;
-            }
-
-            Validator storage _validator = validators[_curRequest.validator];
-            _validator.commissionRate = _curRequest.rate;
-            _validator.liquidStateContract.setCommissionRate(_curRequest.rate);
-
-            delete commissionRateChangeQueue[commissionRateChangeQueueFirst];
-
-            commissionRateChangeQueueFirst += 1;
-        }
+        return config.contracts.stakingPool.unbond(
+            _validatorAddress,
+            _amount,
+            _recipient,
+            epochID,
+            selfDelegation
+        );
     }
 
     /* Should be called at every epoch */
     function _stakingOperations() internal virtual {
-        // bonding operations are executed first
-        for (uint256 i = tailBondingID;
-            i < headBondingID;
-            _applyBonding(i++)) {}
+        config.contracts.stakingPool.applyBonding(epochID);
+        config.contracts.stakingPool.applyUnbonding(epochID);
 
-        tailBondingID = headBondingID;
-
-        if (tailUnbondingID == headUnbondingID) {
-            // everything else already processed, return early
+        if (config.policy.unbondingPeriod > block.number) {
             return;
         }
-        // Process the fresh unbonding requests, unbond NTN and burn LNTN
-        for (uint256 i = lastUnlockedUnbonding;
-            i < headUnbondingID;
-            _applyUnbonding(i++)) {}
-        lastUnlockedUnbonding = headUnbondingID;
-
-        // Finally we release the locked NTN tokens
-        uint256 _processedId = tailUnbondingID;
-        for (uint256 i = tailUnbondingID; i < headUnbondingID; i++) {
-            if (unbondingMap[i].requestBlock + config.policy.unbondingPeriod <= block.number) {
-                _releaseUnbondingStake(i);
-                _processedId += 1;
-            } else {
-                break;
-            }
+        
+        int256 _lastEpoch = _calculateLastUnbondingEpoch();
+        if (_lastEpoch >= 0) {
+            config.contracts.stakingPool.releaseUnbondingStake(uint256(_lastEpoch));
         }
-        tailUnbondingID = _processedId;
+    }
+
+    function _calculateLastUnbondingEpoch() internal view returns (int256) {
+        // we don't want to release unbonding request received in epoch `_epochID`
+        // if `nextEpochBlock + unbondingPeriod > block.number`
+        // where `nextEpochBlock = epochInfos[_epochID].nextEpochBlock` because
+        // `nextEpochBlock` is the block when the unbonding request is effective (applied)
+        
+        // block `_blockOutOfRange` is the beginning of the forbidden range of blocks
+        // where the received unbonding requests should not be released
+        uint256 _blockOutOfRange = block.number - config.policy.unbondingPeriod + 1;
+        uint256 _epochID = epochID;
+        if (_blockOutOfRange < block.number) {
+            _epochID = blockEpochMap[_blockOutOfRange];
+        }
+
+        // for `_epochID` we have `epochInfos[_epochID].nextEpochBlock >= _blockOutOfRange`
+        // so we don't want the unbonding requests received at epoch `_epochID` to be released
+        // for `_epochID - 1` we have `epochInfos[_epochID-1].nextEpochBlock = epochInfos[_epochID].epochBlock < _blockOutOfRange`
+        // so we can release unbonding requests from epoch `_epochID - 1` as it is out of the forbidden range
+        return int256(_epochID) - 1;
     }
 
     function _inCommittee(address _validator) internal virtual view returns (bool) {

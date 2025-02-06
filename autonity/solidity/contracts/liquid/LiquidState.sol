@@ -21,7 +21,6 @@ contract LiquidState is LiquidStorage {
 
         validator = _validator;
         treasury = _treasury;
-        commissionRate = _commissionRate;
         liquidName = string.concat("LNTN-", _index);
         liquidSymbol = string.concat("LNTN-", _index);
         autonityContract = Autonity(payable(msg.sender));
