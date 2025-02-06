@@ -19,6 +19,7 @@ import (
 	state "github.com/autonity/autonity/core/state"
 	types "github.com/autonity/autonity/core/types"
 	p2p "github.com/autonity/autonity/p2p"
+	enode "github.com/autonity/autonity/p2p/enode"
 	params "github.com/autonity/autonity/params"
 	rpc "github.com/autonity/autonity/rpc"
 	gomock "go.uber.org/mock/gomock"
@@ -28,6 +29,7 @@ import (
 type MockChainHeaderReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockChainHeaderReaderMockRecorder
+	isgomock struct{}
 }
 
 // MockChainHeaderReaderMockRecorder is the mock recorder for MockChainHeaderReader.
@@ -150,6 +152,7 @@ func (mr *MockChainHeaderReaderMockRecorder) GetTd(hash, number any) *gomock.Cal
 type MockChainReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockChainReaderMockRecorder
+	isgomock struct{}
 }
 
 // MockChainReaderMockRecorder is the mock recorder for MockChainReader.
@@ -314,6 +317,7 @@ func (mr *MockChainReaderMockRecorder) MinBaseFee() *gomock.Call {
 type MockEngine struct {
 	ctrl     *gomock.Controller
 	recorder *MockEngineMockRecorder
+	isgomock struct{}
 }
 
 // MockEngineMockRecorder is the mock recorder for MockEngine.
@@ -534,6 +538,7 @@ func (mr *MockEngineMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockHandler struct {
 	ctrl     *gomock.Controller
 	recorder *MockHandlerMockRecorder
+	isgomock struct{}
 }
 
 // MockHandlerMockRecorder is the mock recorder for MockHandler.
@@ -610,6 +615,7 @@ func (mr *MockHandlerMockRecorder) SetEnqueuer(arg0 any) *gomock.Call {
 type MockPoW struct {
 	ctrl     *gomock.Controller
 	recorder *MockPoWMockRecorder
+	isgomock struct{}
 }
 
 // MockPoWMockRecorder is the mock recorder for MockPoW.
@@ -844,6 +850,7 @@ func (mr *MockPoWMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockBFT struct {
 	ctrl     *gomock.Controller
 	recorder *MockBFTMockRecorder
+	isgomock struct{}
 }
 
 // MockBFTMockRecorder is the mock recorder for MockBFT.
@@ -1078,6 +1085,7 @@ func (mr *MockBFTMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockSyncer struct {
 	ctrl     *gomock.Controller
 	recorder *MockSyncerMockRecorder
+	isgomock struct{}
 }
 
 // MockSyncerMockRecorder is the mock recorder for MockSyncer.
@@ -1113,6 +1121,7 @@ func (mr *MockSyncerMockRecorder) SyncPeer(address any) *gomock.Call {
 type MockEnqueuer struct {
 	ctrl     *gomock.Controller
 	recorder *MockEnqueuerMockRecorder
+	isgomock struct{}
 }
 
 // MockEnqueuerMockRecorder is the mock recorder for MockEnqueuer.
@@ -1148,6 +1157,7 @@ func (mr *MockEnqueuerMockRecorder) Enqueue(id, block any) *gomock.Call {
 type MockBroadcaster struct {
 	ctrl     *gomock.Controller
 	recorder *MockBroadcasterMockRecorder
+	isgomock struct{}
 }
 
 // MockBroadcasterMockRecorder is the mock recorder for MockBroadcaster.
@@ -1165,6 +1175,20 @@ func NewMockBroadcaster(ctrl *gomock.Controller) *MockBroadcaster {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBroadcaster) EXPECT() *MockBroadcasterMockRecorder {
 	return m.recorder
+}
+
+// CommitteeEnodes mocks base method.
+func (m *MockBroadcaster) CommitteeEnodes() []*enode.Node {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeEnodes")
+	ret0, _ := ret[0].([]*enode.Node)
+	return ret0
+}
+
+// CommitteeEnodes indicates an expected call of CommitteeEnodes.
+func (mr *MockBroadcasterMockRecorder) CommitteeEnodes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeEnodes", reflect.TypeOf((*MockBroadcaster)(nil).CommitteeEnodes))
 }
 
 // FindPeer mocks base method.
@@ -1200,6 +1224,7 @@ func (mr *MockBroadcasterMockRecorder) FindPeers(arg0 any) *gomock.Call {
 type MockPeer struct {
 	ctrl     *gomock.Controller
 	recorder *MockPeerMockRecorder
+	isgomock struct{}
 }
 
 // MockPeerMockRecorder is the mock recorder for MockPeer.
