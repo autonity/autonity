@@ -359,7 +359,8 @@ contract Oracle is IOracle {
                 false
             );
         }
-        emit PriceUpdated(_price, _symbol, _success, block.timestamp);
+
+        emit PriceUpdated(_price, round, _symbol, _success, block.timestamp);
         //todo: emit Price - round, symbol, success_status, tiemstamp(maybe)
     }
 
