@@ -861,7 +861,6 @@ func (bc *BlockChain) Stop() {
 		return
 	}
 
-	bc.protocolContracts.Stop()
 	// Unsubscribe all subscriptions registered from blockchain.
 	bc.scope.Close()
 
@@ -2418,8 +2417,18 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	return 0, err
 }
 
+// TODO: should we bind the call to a specific block
 func (bc *BlockChain) MinBaseFee() *big.Int {
-	return bc.protocolContracts.Cache.MinimumBaseFee()
+	currentHeadNumber := bc.CurrentBlock().NumberU64()
+	config := rawdb.ReadAutonityConfig(bc.db, currentHeadNumber)
+	return config.Policy.MinBaseFee
+}
+
+// TODO: should we bind the call to a specific block
+func (bc *BlockChain) EpochPeriod() *big.Int {
+	currentHeadNumber := bc.CurrentBlock().NumberU64()
+	config := rawdb.ReadAutonityConfig(bc.db, currentHeadNumber)
+	return config.Protocol.EpochPeriod
 }
 
 // HasBadBlock returns whether the block with the hash is a bad block

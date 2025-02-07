@@ -27,7 +27,7 @@ func newACNError(backend Backend, err error) *p2p.ProtocolError {
 		var suspension = uint64(acnErrorSuspensionSpan)
 		if errors.Is(err, message.ErrBadSignature) {
 			// TODO: implement more harsh exponential approach disconnection?
-			suspension = backend.Chain().ProtocolContracts().Cache.EpochPeriod().Uint64()
+			suspension = backend.Chain().EpochPeriod().Uint64()
 		}
 		if errors.Is(err, backendPkg.ErrJailed) {
 			// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
