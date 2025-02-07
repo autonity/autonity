@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"math/rand"
 	"net"
@@ -86,7 +87,7 @@ func TestUpdateEnode(t *testing.T) {
 		require.NoError(t, err)
 		av, err := contractAbi.Unpack("getValidator", res)
 		require.NoError(t, err)
-		out := abi.ConvertType(av[0], new(AutonityValidator)).(*AutonityValidator)
+		out := abi.ConvertType(av[0], new(bindings.AutonityValidator)).(*bindings.AutonityValidator)
 		require.Equal(t, tempNode.String(), out.Enode)
 	})
 
@@ -173,7 +174,7 @@ func TestUpdateEnode(t *testing.T) {
 		require.NoError(t, err)
 		av, err := contractAbi.Unpack("getValidator", res)
 		require.NoError(t, err)
-		out := abi.ConvertType(av[0], new(AutonityValidator)).(*AutonityValidator)
+		out := abi.ConvertType(av[0], new(bindings.AutonityValidator)).(*bindings.AutonityValidator)
 		require.Equal(t, node.String(), out.Enode)
 	})
 }
@@ -375,9 +376,9 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, erro
 	return validatorList, nil
 }
 
-func autonityTestConfig() AutonityConfig {
-	config := AutonityConfig{
-		Policy: AutonityPolicy{
+func autonityTestConfig() bindings.AutonityConfig {
+	config := bindings.AutonityConfig{
+		Policy: bindings.AutonityPolicy{
 			TreasuryFee:             new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
 			MinBaseFee:              new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
 			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
@@ -389,7 +390,7 @@ func autonityTestConfig() AutonityConfig {
 			WithheldRewardsPool:     params.TestAutonityContractConfig.Operator,
 			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
 		},
-		Contracts: AutonityContracts{
+		Contracts: bindings.AutonityContracts{
 			AccountabilityContract:         params.AccountabilityContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 			OracleContract:                 params.OracleContractAddress,
@@ -399,7 +400,7 @@ func autonityTestConfig() AutonityConfig {
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 		},
-		Protocol: AutonityProtocol{
+		Protocol: bindings.AutonityProtocol{
 			OperatorAccount:     params.TestAutonityContractConfig.Operator,
 			EpochPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
 			BlockPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
