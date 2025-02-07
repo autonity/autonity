@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
@@ -21,7 +22,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -55,7 +55,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// Autonity Contract
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	autonityConfig, err := autonityContract.Config(nil)
 	require.NoError(t, err)
 
@@ -81,7 +81,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.OracleContractAddress, autonityConfig.Contracts.OracleContract)
 	require.Equal(t, params.SupplyControlContractAddress, autonityConfig.Contracts.SupplyControlContract)
 	// Accountability Contract
-	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
+	accountabilityContract, _ := bindings.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
 	accountabilityConfig, err := accountabilityContract.Config(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.TestAccountabilityConfig.HistoryFactor, accountabilityConfig.Factors.History.Uint64())
@@ -97,7 +97,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	// Stabilization Contract -- todo
 	// Omission Contract -- todo
 	// Upgrade Manager Contract
-	upgradeManagerContract, _ := autonity.NewUpgradeManager(params.UpgradeManagerContractAddress, network[0].WsClient)
+	upgradeManagerContract, _ := bindings.NewUpgradeManager(params.UpgradeManagerContractAddress, network[0].WsClient)
 	upgradeManagerAutonityAddress, err := upgradeManagerContract.Autonity(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
@@ -119,7 +119,7 @@ func TestProtocolContractCache(t *testing.T) {
 
 		// update min base fee
 		updatedMinBaseFee, _ := new(big.Int).SetString("30000000000", 10)
-		autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 		tx, err := autonityContract.SetMinimumBaseFee(transactOpts, updatedMinBaseFee)
 		require.NoError(t, err)
@@ -143,9 +143,9 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
-	omissionContract, err := autonity.NewOmissionAccountability(params.OmissionAccountabilityContractAddress, network[0].WsClient)
+	omissionContract, err := bindings.NewOmissionAccountability(params.OmissionAccountabilityContractAddress, network[0].WsClient)
 	require.NoError(t, err)
-	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityContract, err := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	require.NoError(t, err)
 
 	sendAndWait := func(tx *types.Transaction) {
@@ -291,13 +291,13 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// redeem fees
 
 	// Setup Bindings
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidStateContracts := make([]*autonity.ILiquid, len(valAddrs))
-	validators := make([]autonity.AutonityValidator, len(valAddrs))
+	liquidStateContracts := make([]*bindings.ILiquid, len(valAddrs))
+	validators := make([]bindings.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidStateContracts[i], _ = autonity.NewILiquid(validators[i].LiquidStateContract, n.WsClient)
+		liquidStateContracts[i], _ = bindings.NewILiquid(validators[i].LiquidStateContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
 	tx, err := liquidStateContracts[0].Transfer(
@@ -813,7 +813,7 @@ func TestValidatorMigration(t *testing.T) {
 	// ensure all validators are connected in full mesh with new ip
 
 	// Setup Bindings
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[1].WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[1].WsClient)
 
 	transactor, err := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, params.TestChainConfig.ChainID)
 	require.NoError(t, err)
@@ -962,7 +962,7 @@ func TestLargeNetwork(t *testing.T) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityContract, err := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	require.NoError(t, err)
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 	require.NoError(t, err)

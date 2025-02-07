@@ -71,7 +71,7 @@ func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 
-		epochPeriod := network[0].Eth.BlockChain().ProtocolContracts().Cache.EpochPeriod().Uint64()
+		epochPeriod := network[0].Eth.BlockChain().EpochPeriod().Uint64()
 
 		// mine some blocks, but do not terminate the epoch
 		err = network.WaitToMineNBlocks(epochPeriod-10, int(epochPeriod*2), false)

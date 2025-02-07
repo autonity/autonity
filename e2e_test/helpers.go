@@ -3,6 +3,7 @@ package e2e
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"reflect"
 	"sync/atomic"
@@ -99,8 +100,8 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 	}
 
 	n := network[1]
-	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
-	var events []autonity.AccountabilityEvent
+	accountabilityContract, _ := bindings.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
+	var events []bindings.AccountabilityEvent
 	if eventType == autonity.Misbehaviour {
 		faults, err := accountabilityContract.GetValidatorFaults(nil, faultyValidator)
 		require.NoError(t, err)
