@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"reflect"
 
@@ -114,8 +115,8 @@ func (c *AutonityContract) CallGetCommitteeEnodes(state vm.StateDB, header *type
 	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
-func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
-	var config AutonityConfig
+func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*bindings.AutonityConfig, error) {
+	var config bindings.AutonityConfig
 	_, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
@@ -157,7 +158,7 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 		return nil, err
 	}
 
-	info := *abi.ConvertType(data[0], new(AutonityEpochInfo)).(*AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(bindings.AutonityEpochInfo)).(*bindings.AutonityEpochInfo)
 
 	committee := &types.Committee{}
 	for _, member := range info.Committee {

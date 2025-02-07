@@ -805,6 +805,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @return previousEpochBlock The previous epoch block number.
     * @return nextEpochBlock The next epoch block number.
     * @return delta, the current value for delta (omission failure)
+    * @return config, the current contract config
     */
     function finalize() external virtual onlyProtocol nonReentrant returns (
         bool,                       // contractUpgradeReady
@@ -812,7 +813,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         CommitteeMember[] memory,   // committee
         uint256,                    // epochInfos[epochID].previousEpochBlock
         uint256,                    // epochInfos[epochID].nextEpochBlock
-        uint256                     // delta
+        uint256,                    // delta
+        Config memory               // config
     ) {
         lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
@@ -877,7 +879,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             catch {}
         }
 
-        return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _delta);
+        return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _delta, config);
     }
 
     /**

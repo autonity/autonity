@@ -3,6 +3,7 @@ package autonity
 import (
 	"bytes"
 	"errors"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"strings"
 	"sync"
@@ -95,12 +96,12 @@ func (c *evmContract) callContractFuncAs(statedb vm.StateDB, header *types.Heade
 type Cache struct {
 	// minimum base fee
 	minBaseFee    atomic.Pointer[big.Int]
-	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
+	minBaseFeeCh  chan *bindings.AutonityMinimumBaseFeeUpdated
 	subMinBaseFee event.Subscription
 
 	// epoch period
 	epochPeriod    atomic.Pointer[big.Int]
-	epochPeriodCh  chan *AutonityEpochPeriodUpdated
+	epochPeriodCh  chan *bindings.AutonityEpochPeriodUpdated
 	subEpochPeriod event.Subscription
 
 	subscriptions *event.SubscriptionScope
@@ -121,7 +122,7 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 		}
 	}
 
-	minBaseFeeCh := make(chan *AutonityMinimumBaseFeeUpdated)
+	minBaseFeeCh := make(chan *bindings.AutonityMinimumBaseFeeUpdated)
 	subMinBaseFee, err := ac.WatchMinimumBaseFeeUpdated(nil, minBaseFeeCh)
 	if err != nil {
 		return nil, err
@@ -132,7 +133,7 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 	if err != nil {
 		return nil, err
 	}
-	epochPeriodCh := make(chan *AutonityEpochPeriodUpdated)
+	epochPeriodCh := make(chan *bindings.AutonityEpochPeriodUpdated)
 	subEpochPeriod, err := ac.WatchEpochPeriodUpdated(nil, epochPeriodCh)
 	if err != nil {
 		return nil, err
@@ -162,14 +163,14 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 //revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
 type AutonityContract struct {
 	evmContract
-	*AutonityFilterer                                     // allows to watch for Autonity Contract events
-	proposers         map[uint64]map[int64]common.Address // map[height][round] --> proposer
+	*bindings.AutonityFilterer                                     // allows to watch for Autonity Contract events
+	proposers                  map[uint64]map[int64]common.Address // map[height][round] --> proposer
 }
 
 type ProtocolContracts struct {
 	*AutonityContract
 	*Cache
-	*Accountability
+	*bindings.Accountability
 }
 
 func NewProtocolContracts(
@@ -194,7 +195,7 @@ func NewProtocolContracts(
 	}
 
 	// create autonity EVM contract
-	autonityFilterer, err := NewAutonityFilterer(params.AutonityContractAddress, contractBackend.(bind.ContractFilterer))
+	autonityFilterer, err := bindings.NewAutonityFilterer(params.AutonityContractAddress, contractBackend.(bind.ContractFilterer))
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +217,7 @@ func NewProtocolContracts(
 	}
 
 	// bind to accountability contract
-	accountabilityContract, err := NewAccountability(params.AccountabilityContractAddress, contractBackend)
+	accountabilityContract, err := bindings.NewAccountability(params.AccountabilityContractAddress, contractBackend)
 	if err != nil {
 		return nil, err
 	}

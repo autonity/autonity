@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"time"
 
@@ -624,8 +625,8 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	// subscribe to relevant events
 	var subscriptions event.SubscriptionScope
-	newEpochEventCh := make(chan *autonity.AutonityNewEpoch)
-	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
+	newEpochEventCh := make(chan *bindings.AutonityNewEpoch)
+	newFaultProofCh := make(chan *bindings.AccountabilityNewFaultProof)
 	subNewEpochEvent, _ := sb.blockchain.ProtocolContracts().WatchNewEpoch(nil, newEpochEventCh)
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
 	subscriptions.Track(subNewEpochEvent)

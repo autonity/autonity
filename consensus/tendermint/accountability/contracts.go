@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"errors"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math"
 	"math/big"
 	"strconv"
@@ -1007,7 +1008,7 @@ func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*type
 		return nil, err
 	}
 
-	info := *abi.ConvertType(data[0], new(autonity.AutonityEpochInfo)).(*autonity.AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(bindings.AutonityEpochInfo)).(*bindings.AutonityEpochInfo)
 
 	if len(info.Committee) == 0 {
 		panic("get empty committee set for height: " + strconv.FormatUint(height, 10))

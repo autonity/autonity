@@ -3,6 +3,7 @@ package accountability
 import (
 	"errors"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 )
@@ -16,8 +17,8 @@ var (
 	errPendingReport = errors.New("pending report")
 )
 
-func (fd *FaultDetector) reportEvents(events []*autonity.AccountabilityEvent) []*autonity.AccountabilityEvent {
-	var filtered []*autonity.AccountabilityEvent
+func (fd *FaultDetector) reportEvents(events []*bindings.AccountabilityEvent) []*bindings.AccountabilityEvent {
+	var filtered []*bindings.AccountabilityEvent
 	for i, ev := range events {
 		err := fd.tryReport(ev)
 		switch {
@@ -32,7 +33,7 @@ func (fd *FaultDetector) reportEvents(events []*autonity.AccountabilityEvent) []
 	return filtered
 }
 
-func (fd *FaultDetector) tryReport(ev *autonity.AccountabilityEvent) error {
+func (fd *FaultDetector) tryReport(ev *bindings.AccountabilityEvent) error {
 	// youssef: some of this logic could belong to canReport
 	if ev.EventType == uint8(autonity.Misbehaviour) {
 		if res, err := fd.protocolContracts.CanSlash(nil, ev.Offender, ev.Rule, ev.Block); err != nil {
@@ -77,7 +78,7 @@ func (fd *FaultDetector) eventReporter() {
 			fd.logger.Warn("Ignoring too large proof reporting", "size", size)
 			continue
 		}
-		event := autonity.AccountabilityEvent{
+		event := bindings.AccountabilityEvent{
 			EventType:      ev.EventType,
 			Rule:           ev.Rule,
 			Reporter:       ev.Reporter,
