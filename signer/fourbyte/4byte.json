@@ -192,5 +192,6 @@
   "b6a702b3": "updateVoters()",
   "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)",
   "0f65875c": "updateVotersAndSymbol()",
-  "b99a00e3": "configuredCommitteeSize()"
+  "8ebb48b7": "getBondingRequestByID(uint256)",
+  "4bfe23f1": "getUnbondingRequestByID(uint256)"
 }

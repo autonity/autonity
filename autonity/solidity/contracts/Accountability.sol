@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./interfaces/IAccountability.sol";
+import "./interfaces/IAutonity.sol";
 import "./Autonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 import {AccessAutonity} from "./AccessAutonity.sol";
@@ -68,8 +69,17 @@ contract Accountability is IAccountability, AccessAutonity {
         uint256 messageHash;    // hash of the main evidence. Will be populated internally.
     }
 
-    //Todo(youssef): consider another structure purely for internal events
+    /**
+    * @notice Event emitted after accountability factors namely collusion, history and jail.
+    */
+    event AccountabilityFactorsUpdated(Factors oldFactors, Factors newFactors);
 
+    /**
+    * @notice Event emitted after base slashing rates are updated
+    */
+    event BaseSlashingRateUpdated(BaseSlashingRates oldRates, BaseSlashingRates newRates);
+
+    //Todo(youssef): consider another structure purely for internal events
     Event[] public events;
     Config public config;
 
@@ -143,8 +153,7 @@ contract Accountability is IAccountability, AccessAutonity {
         if(!ok) {
             autonity.getTreasuryAccount().call{value:msg.value}("");
         }
-        //TODO: add event ReporterRewarded - (validator, offender,  value)
-        emit ReporterRewarded(_reporter, _offender, _ntnReward);
+        emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward);
         delete beneficiaries[_offender];
     }
 
@@ -206,14 +215,12 @@ contract Accountability is IAccountability, AccessAutonity {
         }
     }
 
-    // todo: fetch validator accusation on a fault
-    function getValidatorAccusation(address _val) public virtual view returns (Event memory){
+    function getValidatorAccusation(address _val) public virtual view returns (Event memory) {
         require(validatorAccusation[_val] > 0 , "no accusation");
         return events[validatorAccusation[_val] - 1];
     }
 
-    // todo: fetch validator faults on a fault
-    function getValidatorFaults(address _val) public virtual view returns (Event[] memory){
+    function getValidatorFaults(address _val) public virtual view returns (Event[] memory) {
         Event[] memory _events = new Event[](validatorFaults[_val].length);
         for(uint256 i = 0; i < validatorFaults[_val].length; i++) {
             _events[i] = events[validatorFaults[_val][i]];
@@ -336,7 +343,7 @@ contract Accountability is IAccountability, AccessAutonity {
         beneficiaries[_offender] = _event.reporter;
 
         // if already jailbound, validator has 0 stake
-        if (autonity.getValidatorState(_offender) == ValidatorState.jailbound) {
+        if (autonity.getValidatorState(_offender) == IAutonity.ValidatorState.jailbound) {
             return;
         }
 
@@ -353,11 +360,9 @@ contract Accountability is IAccountability, AccessAutonity {
             _offender,
             _slashingRate,
             _jailtime,
-            ValidatorState.jailed,
-            ValidatorState.jailbound
+            IAutonity.ValidatorState.jailed,
+            IAutonity.ValidatorState.jailbound
         );
-        //todo: pull event data on accountabilty events, whereeve applicable
-
         emit SlashingEvent(_offender, _slashingAmount, _jailReleaseBlock, _isJailbound, _event.id);
     }
 
@@ -530,9 +535,8 @@ contract Accountability is IAccountability, AccessAutonity {
     * @dev restricted to the operator
     * @param _window, the new value for the window (in blocks)
     */
-    // todo: config change event
     function setInnocenceProofSubmissionWindow(uint256 _window) external virtual onlyOperator {
-        emit autonity.ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window);
+        emit IAutonity.ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window);
         config.innocenceProofSubmissionWindow = _window;
     }
 
@@ -541,22 +545,20 @@ contract Accountability is IAccountability, AccessAutonity {
     * @dev restricted to the operator
     * @param _rates, the new rates
     */
-    // todo: config change event
     function setBaseSlashingRates(BaseSlashingRates memory _rates) external virtual onlyOperator {
         _ratesSanityCheck(_rates);
-        emit autonity.ConfigUpdateUint("baseSlashingRates", config.baseSlashingRates, _rates);
+        emit BaseSlashingRateUpdated(config.baseSlashingRates, _rates);
         config.baseSlashingRates = _rates;
     }
 
     /*
     * @notice sets the new punishment factors
     * @dev restricted to the operator
-    * @param _factor, the new factor
+    * @param _factors, the new factor
     */
-    // todo: config change event
     function setFactors(Factors memory _factors) external virtual onlyOperator {
         _factorsSanityCheck(_factors);
-        emit autonity.ConfigUpdateUint("factors", config.factors, _factors);
+        emit AccountabilityFactorsUpdated(config.factors, _factors);
         config.factors = _factors;
     }
 

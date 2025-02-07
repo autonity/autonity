@@ -159,7 +159,6 @@ contract Oracle is IOracle {
         voterInfo[msg.sender].round = round;
         // new voter/first round
         if (_lastVotedRound == 0) {
-            // todo: emit NewVoter() - type, reporter, lastVoted
             emit NewVoter(msg.sender);
             return;
         }
@@ -167,17 +166,10 @@ contract Oracle is IOracle {
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
         if (_reports.length != symbols.length) {
-            // todo: emit invalidVote() - type, reporter, reportLength, symbolLength
             emit InvalidVote("ReportLengthMismatch", msg.sender, _reports.length, symbols.length);
             return;
         }
 
-        //todo: pull all vote txs, check for errors in receipts too
-        // for every voting round
-//            - table, every row for every voter, including the ones who didn't vote, vote absent
-        // error if any. check against the receipt
-        // if no error - for every symbol the value being sent on chain, how for is it from the final aggregated in terms of percentage
-        // do it after every voting round
         if (_lastVotedRound != round - 1) {
             emit InvalidVote("LastVotedRoundMismatch", msg.sender, round-1,  _lastVotedRound);
             return;
@@ -186,7 +178,6 @@ contract Oracle is IOracle {
         _commit = uint256(keccak256(abi.encode(_reports, _salt, msg.sender)));
         if (_pastCommit != _commit) {
             emit InvalidVote("CommitMismatch", msg.sender, _pastCommit, _commit);
-            // todo: emit invalidVote() - type, reporter, failure reason
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
             return;
@@ -202,7 +193,6 @@ contract Oracle is IOracle {
             reports[symbols[i]][msg.sender] = _reports[i];
         }
         voterInfo[msg.sender].reportAvailable = true;
-        //todo: emit successVote - no params
         emit SuccessfulVote(msg.sender);
     }
     /**
@@ -230,7 +220,6 @@ contract Oracle is IOracle {
         if (int256(round) == symbolUpdatedRound + 2) {
             symbols = newSymbols;
         }
-        //todo: check with jason, remove number/timestamp
         emit NewRound(round,  block.timestamp, config.votePeriod);
         return true;
     }
@@ -274,7 +263,6 @@ contract Oracle is IOracle {
             rewardReceivers.remove(_voter);
         }
         emit TotalOracleRewards(_totalNTN, _totalATN);
-        //todo: emit TotalOracleRewards - totalATN, totalNTN
         rewardPeriodAggregatedScore = 0;
     }
 
@@ -316,8 +304,6 @@ contract Oracle is IOracle {
         string memory _symbol = symbols[_sindex];
         Report[] memory _totalReports = new Report[](voters.length);
         uint256 _count;
-        uint256 _price;
-        bool _status;
         for (uint i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             // if there is no available report from this validator we must account for it.
@@ -340,35 +326,34 @@ contract Oracle is IOracle {
                     uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
                     emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
                 }
-                _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
-                _status = true;
+                uint256 _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
                 prices[round][_symbol] = Price(
                     _price,
                     block.timestamp,
-                    _status
+                    true
                 );
+                emit PriceUpdated(_price, round, _symbol, true, block.timestamp);
             } else {
-                _price = prices[round - 1][_symbol].price;
-                _status = false;
+                uint256 _price = prices[round - 1][_symbol].price;
                 // all voters are detected as outliers, so no valid report found
                 // use past value for price if unsuccesful
                 prices[round][_symbol] = Price(
                     _price,
                     block.timestamp,
-                    _status
+                    false
                 );
+                emit PriceUpdated(_price, round, _symbol, false, block.timestamp);
             }
         } else {
-            _price = prices[round - 1][_symbol].price;
-            _status = false;
+            uint256 _price = prices[round - 1][_symbol].price;
             // use past value for price if unsuccesful
             prices[round][_symbol] = Price(
                 _price,
                 block.timestamp,
-                _status
+                false
             );
+            emit PriceUpdated(_price, round, _symbol, false, block.timestamp);
         }
-        emit PriceUpdated(_price, round, _symbol, _status, block.timestamp);
     }
 
     /**
@@ -506,7 +491,6 @@ contract Oracle is IOracle {
     * @notice Setter for the vote period.
     * @dev IOracle interface method implementation..
     */
-    //todo: config change event
     function setVotePeriod(uint _votePeriod) external onlyOperator {
         _checkVotePeriod(_votePeriod);
         emit IAutonity.ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
@@ -516,7 +500,6 @@ contract Oracle is IOracle {
     /**
     * @notice Setter for the internal slashing and outlier detection configuration.
     */
-    //todo: config change event
     function setSlashingConfig(
         int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,

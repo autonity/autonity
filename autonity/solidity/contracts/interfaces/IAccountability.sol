@@ -12,12 +12,13 @@ interface IAccountability {
     /**
     * @notice distribute slashing rewards to reporters.
     * @param _validator the address of the validator node being slashed.
+    * @param _ntnReward ntn rewards to be distributed
     */
     function distributeRewards(address _validator, uint256 _ntnReward) external payable;
 
     /**
     * @notice called by the Autonity Contract when the committee is updated.
-    * @param _committee the new committee member addresses;
+    * @param _committee the new committee member addresses
     */
     function setCommittee(address[] memory _committee) external;
 
@@ -47,4 +48,5 @@ interface IAccountability {
     * @notice Event emitted after a successful slashing.
     */
     event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId);
+
 }

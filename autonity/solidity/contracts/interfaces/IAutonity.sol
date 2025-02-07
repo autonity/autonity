@@ -18,7 +18,6 @@ interface IAutonity {
     */
     function getOracle() external view returns (address);
 
-    /* Events */
     /**
     * @notice Emitted after updating config parameter of type uint
     * @param name configuration name
@@ -72,7 +71,8 @@ interface IAutonity {
     * @param amount The amount of NEWTON to be delegated.
     * @param headBondingID  id of the request in bonding map
     */
-    event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount, uint256 headBondingID);
+    event NewBondingRequest(address indexed validator, address indexed delegator,
+        bool selfBonded, uint256 amount, uint256 headBondingID);
 
     /**
     * @notice This event is emitted when a registered bonding request to a validator is rejected

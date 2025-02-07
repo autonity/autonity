@@ -184,7 +184,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
-    mapping(address => uint256) internal oraclesExist; // 0 for false, true otherwise uint256 internal stakeSupply;
+    mapping(address => uint256) internal oraclesExist; // 0 for false, true otherwise
     uint256 internal stakeSupply;
     uint256 internal stakeCirculating;
     uint256 public inflationReserve;
@@ -1034,14 +1034,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /**
     * @notice Returns the bonding request corresponding to bonding ID.
     */
-    function getBondingRequest(uint256 _id) external view virtual returns (BondingRequest memory) {
+    function getBondingRequestByID(uint256 _id) external view virtual returns (BondingRequest memory) {
         return bondingMap[_id];
     }
 
     /**
     * @notice Returns the unbonding request corresponding to unbonding ID.
     */
-    function getUnbondingRequest(uint256 _id) external view virtual returns (UnbondingRequest memory) {
+    function getUnbondingRequestByID(uint256 _id) external view virtual returns (UnbondingRequest memory) {
         return unbondingMap[_id];
     }
 
