@@ -90,18 +90,21 @@ type environment struct {
 	txs          []*types.Transaction
 	receipts     []*types.Receipt
 	parentHeader *types.Header
+
+	contractsConfig *types.ContractsConfig
 }
 
 // copy creates a deep copy of environment.
 func (env *environment) copy() *environment {
 	cpy := &environment{
-		signer:       env.signer,
-		state:        env.state.Copy(),
-		tcount:       env.tcount,
-		coinbase:     env.coinbase,
-		header:       types.CopyHeader(env.header),
-		receipts:     copyReceipts(env.receipts),
-		parentHeader: types.CopyHeader(env.parentHeader),
+		signer:          env.signer,
+		state:           env.state.Copy(),
+		tcount:          env.tcount,
+		coinbase:        env.coinbase,
+		header:          types.CopyHeader(env.header),
+		receipts:        copyReceipts(env.receipts),
+		parentHeader:    types.CopyHeader(env.parentHeader),
+		contractsConfig: env.contractsConfig.Copy(),
 	}
 	if env.gasPool != nil {
 		gasPool := *env.gasPool
@@ -274,12 +277,6 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		worker.startCh <- struct{}{}
 	}
 	return worker
-}
-
-func (w *worker) setGasCeil(ceil uint64) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.config.GasCeil = ceil
 }
 
 // setExtra sets the content used to initialize the block extra field.
@@ -525,7 +522,7 @@ func (w *worker) mainLoop() {
 			w.commitWork(req)
 
 		case req := <-w.getWorkCh:
-			block, err := w.generateWork(req.params)
+			block, _, err := w.generateWork(req.params)
 			if err != nil {
 				req.err = err
 				req.result <- nil
@@ -658,7 +655,7 @@ func (w *worker) resultLoop() {
 			persistStart := time.Now()
 
 			// As the environment is no longer used anymore, we won't copy the receipts to announce the new block.
-			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, logs, task.env.state, true)
+			_, err := w.chain.WriteBlockAndSetHead(block, task.env.receipts, logs, task.env.state, true, task.env.contractsConfig)
 			if err != nil {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
 				continue
@@ -681,52 +678,35 @@ func (w *worker) resultLoop() {
 	}
 }
 
-// makeEnv creates a new environment for the sealing block.
-func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase common.Address, optimisticCandidate bool) (*environment, error) {
-	// Retrieve the parent state to execute on top and start a prefetcher for
-	// the miner to speed block sealing up a bit.
-	var (
-		state *state.StateDB
-		err   error
-		hash  common.Hash
-	)
-	if optimisticCandidate {
-		// Making environment by coping cached optimistic parent block's state also copies the receipt logs.
-		if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
-			sealHash := w.engine.SealHash(parent.Header())
-			w.pendingMu.Lock()
-			task, exist := w.pendingTasks[sealHash]
-			if exist {
-				state = task.env.state.Copy()
-			} else {
-				w.pendingMu.Unlock()
-				return nil, fmt.Errorf("no state cache available for optimistic block")
-			}
-			w.pendingMu.Unlock()
+func (w *worker) optimisticStateAndConfig(parent *types.Block) (*state.StateDB, *types.ContractsConfig, error) {
+	var state *state.StateDB
+	var contractsConfig *types.ContractsConfig
+	var hash common.Hash
+	// Making environment by coping cached optimistic parent block's state also copies the receipt logs.
+	if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
+		sealHash := w.engine.SealHash(parent.Header())
+		w.pendingMu.Lock()
+		task, exist := w.pendingTasks[sealHash]
+		if exist {
+			state = task.env.state.Copy()
+			contractsConfig = task.env.contractsConfig.Copy()
 		} else {
-			state, hash = w.chain.LoadProposalState()
-			if parent.Hash() != hash {
-				return nil, fmt.Errorf("no state cache available for optimistic block")
-			}
+			w.pendingMu.Unlock()
+			return nil, nil, fmt.Errorf("no state cache available for optimistic block")
 		}
+		w.pendingMu.Unlock()
 	} else {
-		state, err = w.chain.StateAt(parent.Root())
-		if err != nil {
-			// Note since the sealing block can be created upon the arbitrary parent
-			// block, but the state of parent block may already be pruned, so the necessary
-			// state recovery is needed here in the future.
-			//
-			// The maximum acceptable reorg depth can be limited by the finalised block
-			// somehow. TODO(rjl493456442) fix the hard-coded number here later.
-			state, err = w.eth.StateAtBlock(parent, 1024, nil, false, false)
-			w.eth.Logger().Warn("Recovered mining state", "root", parent.Root(), "err", err)
+		state, contractsConfig, hash = w.chain.LoadProposalState()
+		if parent.Hash() != hash {
+			return nil, nil, fmt.Errorf("no state cache available for optimistic block")
 		}
-		if err != nil {
-			return nil, err
-		}
-		state.StartPrefetcher("miner")
 	}
+	return state, contractsConfig, nil
 
+}
+
+// makeEnv creates a new environment for the sealing block.
+func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase common.Address, state *state.StateDB) *environment {
 	// Note the passed coinbase may be different with header.Coinbase.
 	env := &environment{
 		signer:       types.MakeSigner(w.chainConfig, header.Number),
@@ -737,7 +717,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 	}
 	// Keep track of transactions which return errors so they can be removed
 	env.tcount = 0
-	return env, nil
+	return env
 }
 
 func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*types.Log, error) {
@@ -885,9 +865,7 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	var (
-		optimisticCandidate bool
-	)
+	optimisticCandidate := false
 
 	// Find the parent block for sealing task
 	if parent == nil {
@@ -916,12 +894,54 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 		}
 		timestamp = parent.Time() + 1
 	}
+
+	// compute current block number
+	num := new(big.Int).Add(parent.Number(), common.Big1)
+
+	// based on whether the block we are building is optimistic or not:
+	// 1. fetch the correct state
+	// 2. fetch the correct gas limit
+	// 3. fetch the correct eip1559 parameters
+	var (
+		state            *state.StateDB
+		protocolGasLimit uint64
+		eip1559Params    *types.Eip1559Params
+	)
+	if !optimisticCandidate {
+		var err error
+		state, err = w.chain.StateAt(parent.Root())
+		if err != nil {
+			w.eth.Logger().Error("Failed to get parent state", "root", parent.Root(), "err", err)
+			return nil, err
+		}
+		protocolGasLimitBig, err := w.chain.GasLimitByHeight(num.Uint64())
+		if err != nil {
+			w.eth.Logger().Error("Failed to get gas limit", "num", num.Uint64(), "err", err)
+			return nil, fmt.Errorf("failed to get gas limit: %w", err)
+		}
+		protocolGasLimit = protocolGasLimitBig.Uint64()
+		eip1559Params, err = w.chain.Eip1559ParamsByHeight(num.Uint64())
+		if err != nil {
+			w.eth.Logger().Error("Failed to get gas limit bound divisor", "num", num.Uint64(), "err", err)
+			return nil, fmt.Errorf("failed to get gas limit bound divisor: %w", err)
+		}
+	} else {
+		var err error
+		var contractsConfig *types.ContractsConfig
+		state, contractsConfig, err = w.optimisticStateAndConfig(parent)
+		if err != nil {
+			w.eth.Logger().Error("Failed to get optimistic state", "err", err)
+			return nil, fmt.Errorf("error while fetching optimistic state: %w", err)
+		}
+		protocolGasLimit = contractsConfig.GasLimit.Uint64()
+		eip1559Params = &(contractsConfig.Eip1559)
+	}
+
 	// Construct the sealing block header, set the extra field if it's allowed
-	num := parent.Number()
 	header := &types.Header{
 		ParentHash: parent.Hash(),
-		Number:     num.Add(num, common.Big1),
-		GasLimit:   core.CalcGasLimit(parent.GasLimit(), w.config.GasCeil),
+		Number:     num,
+		GasLimit:   core.CalcGasLimit(parent.GasLimit(), protocolGasLimit, eip1559Params.GasLimitBoundDivisor.Uint64()),
 		Time:       timestamp,
 		Coinbase:   genParams.coinbase,
 	}
@@ -934,26 +954,29 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 	}
 	// Set baseFee and GasLimit if we are on an EIP-1559 chain
 	if w.chainConfig.IsLondon(header.Number) {
-		header.BaseFee = misc.CalcBaseFee(w.chainConfig, parent.Header(), w.chain)
+		header.BaseFee = misc.CalcBaseFee(w.chainConfig, parent.Header(), eip1559Params)
 		if !w.chainConfig.IsLondon(parent.Number()) {
-			parentGasLimit := parent.GasLimit() * params.ElasticityMultiplier
-			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)
+			// take the genesis elasticity multiplier, however this
+			// should never happen on Autonity, since EIP1559 is activated from genesis
+			parentGasLimit := parent.GasLimit() * params.DefaultElasticityMultiplier
+			header.GasLimit = core.CalcGasLimit(parentGasLimit, protocolGasLimit, eip1559Params.GasLimitBoundDivisor.Uint64())
 		}
 	}
 
 	// Could potentially happen if starting to mine in an odd state.
 	// Note genParams.coinbase can be different with header.Coinbase
 	// since clique algorithm can modify the coinbase field in header.
-	env, err := w.makeEnv(parent, header, genParams.coinbase, optimisticCandidate)
-	if err != nil {
-		w.eth.Logger().Error("Failed to create sealing context", "err", err)
-		return nil, err
-	}
+	env := w.makeEnv(parent, header, genParams.coinbase, state)
 
 	// Run the consensus preparation with the default or customized consensus engine.
 	if err := w.engine.Prepare(w.chain, env.parentHeader, env.header, env.state); err != nil {
-		log.Error("Failed to prepare header for sealing", "err", err)
+		w.eth.Logger().Error("Failed to prepare header for sealing", "err", err)
 		return nil, err
+	}
+
+	// start prefetcher here to avoid go routine leak
+	if !optimisticCandidate {
+		env.state.StartPrefetcher("miner")
 	}
 
 	return env, nil
@@ -988,10 +1011,10 @@ func (w *worker) fillTransactions(interrupt *int32, env *environment) {
 }
 
 // generateWork generates a sealing block based on the given parameters.
-func (w *worker) generateWork(params *generateParams) (*types.Block, error) {
+func (w *worker) generateWork(params *generateParams) (*types.Block, *types.ContractsConfig, error) {
 	work, err := w.prepareWork(params, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer work.discard()
 
@@ -1070,7 +1093,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		}
 
 		finalizeStart := time.Now()
-		block, err := w.engine.FinalizeAndAssemble(w.chain, env.header, env.state, env.txs, env.unclelist(), &env.receipts)
+		block, contractsConfig, err := w.engine.FinalizeAndAssemble(w.chain, env.header, env.state, env.txs, env.unclelist(), &env.receipts)
 		if err != nil {
 			return err
 		}
@@ -1079,6 +1102,10 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 			FinalizeWorkTimer.Update(now.Sub(finalizeStart))
 			FinalizeWorkBg.Add(now.Sub(finalizeStart).Nanoseconds())
 		}
+
+		// store contracts config in the mining environment
+		env.contractsConfig = contractsConfig
+
 		select {
 		case w.taskCh <- &task{env: env, block: block, createdAt: time.Now()}:
 			if metrics.Enabled {

@@ -95,7 +95,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents, ReentrancyGuard {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator, block.number);
         _operator = operator;
     }
 
@@ -103,7 +103,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents, ReentrancyGuard {
     /// @param stabilizer_ The new stabilizer account
     /// @dev Only the autonity contract can update the stabilizer address.
     function setStabilizer(address stabilizer_) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_);
+        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_, block.number);
         stabilizer = stabilizer_;
     }
 

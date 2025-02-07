@@ -591,14 +591,16 @@ func TestOmissionPunishments(t *testing.T) {
 	})
 
 	// deploy and set the AccountabilityTest contract. We will need write access to the beneficiaries map later
-	_, _, accountabilityTest, err := r.DeployAccountabilityTest(nil, r.Autonity.address, AccountabilityConfig{
+	_, _, accountabilityTest, err := r.DeployAccountabilityTest(nil, r.Autonity.address, IAccountabilityConfig{
 		InnocenceProofSubmissionWindow: big.NewInt(int64(params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow)),
-		BaseSlashingRates: AccountabilityBaseSlashingRates{
+		Delta:                          big.NewInt(int64(params.DefaultAccountabilityConfig.Delta)),
+		Range:                          big.NewInt(int64(params.DefaultAccountabilityConfig.Range)),
+		BaseSlashingRates: IAccountabilityBaseSlashingRates{
 			Low:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
 			Mid:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
 			High: big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateHigh)),
 		},
-		Factors: AccountabilityFactors{
+		Factors: IAccountabilityFactors{
 			Collusion: big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
 			History:   big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
 			Jail:      big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),
@@ -728,14 +730,16 @@ func TestProposerRewardDistribution(t *testing.T) {
 		})
 
 		// deploy and set the AccountabilityTest contract. We will need write access to the beneficiaries map later
-		_, _, accountabilityTest, err := r.DeployAccountabilityTest(nil, r.Autonity.address, AccountabilityConfig{
+		_, _, accountabilityTest, err := r.DeployAccountabilityTest(nil, r.Autonity.address, IAccountabilityConfig{
 			InnocenceProofSubmissionWindow: big.NewInt(int64(params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow)),
-			BaseSlashingRates: AccountabilityBaseSlashingRates{
+			Delta:                          big.NewInt(int64(params.DefaultAccountabilityConfig.Delta)),
+			Range:                          big.NewInt(int64(params.DefaultAccountabilityConfig.Range)),
+			BaseSlashingRates: IAccountabilityBaseSlashingRates{
 				Low:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
 				Mid:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
 				High: big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateHigh)),
 			},
-			Factors: AccountabilityFactors{
+			Factors: IAccountabilityFactors{
 				Collusion: big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
 				History:   big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
 				Jail:      big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),

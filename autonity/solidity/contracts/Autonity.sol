@@ -123,6 +123,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         IAuctioneer auctioneerContract;
     }
 
+    // parameters that affect the economic of the system.
     struct Policy {
         uint256 treasuryFee;
         uint256 minBaseFee;
@@ -134,14 +135,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 oracleRewardRate;
         address payable withheldRewardsPool; // set to the autonity global treasury at genesis, but can be changed
         address payable treasuryAccount;
+        uint256 baseFeeChangeDenominator; // EIP-1559
+        uint256 elasticityMultiplier; // EIP-1559
     }
 
+    // protocol parameters unrelated to the economic of the system. Expected to rarely change.
     struct Protocol {
         address operatorAccount;
         uint256 epochPeriod;
         uint256 blockPeriod;
         uint256 committeeSize;
         uint256 maxScheduleDuration;
+        uint256 gasLimit;
+        uint256 gasLimitBoundDivisor;
     }
 
     struct Config {
@@ -156,7 +162,37 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 previousEpochBlock;
         uint256 epochBlock;
         uint256 nextEpochBlock;
+        uint256 omissionDelta;
+        Eip1559 eip1559;
+    }
+
+    struct Accountability {
+        uint256 range;
         uint256 delta;
+        uint256 gracePeriod;
+    }
+
+    struct Eip1559 {
+        uint256 minBaseFee;
+        uint256 baseFeeChangeDenominator;
+        uint256 elasticityMultiplier;
+        uint256 gasLimitBoundDivisor;
+    }
+
+    // part of the config which the golang client is keeping track of
+    struct ClientAwareConfig {
+        uint256 epochPeriod;
+        uint256 blockPeriod;
+        uint256 gasLimit;
+        Accountability accountability;
+        Eip1559 eip1559;
+    }
+
+    struct FinalizeResult {
+        bool contractUpgradeReady;
+        bool epochEnded;
+        EpochInfo epoch;
+        ClientAwareConfig config;
     }
 
     Config internal config;
@@ -173,6 +209,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 internal lastFinalizedBlock;
     uint256 internal lastEpochTime;
     uint256 internal epochTotalBondedStake;
+
+    uint256 internal newBaseFeeChangeDenominator;
+    uint256 internal newElasticityMultiplier;
+    uint256 internal newMinBaseFee;
+    uint256 internal newGasLimitBoundDivisor;
+
+    // updated at finalize to ensure client aware config consistency
+    uint256 internal newGasLimit;
 
     uint256 internal configuredCommitteeSize;
 
@@ -224,7 +268,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         Config memory _config
     ) internal {
         config = _config;
-        newEpochPeriod = _config.protocol.epochPeriod;
+        newEpochPeriod = config.protocol.epochPeriod;
+        newBaseFeeChangeDenominator = config.policy.baseFeeChangeDenominator;
+        newElasticityMultiplier = config.policy.elasticityMultiplier;
+        newMinBaseFee = config.policy.minBaseFee;
+        newGasLimitBoundDivisor = config.protocol.gasLimitBoundDivisor;
+        newGasLimit = config.protocol.gasLimit;
         inflationReserve = config.policy.initialInflationReserve;
 
         // deploy liquid logic and slasher
@@ -260,21 +309,33 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             accounts[_validators[i].treasury] += _bondedStake;
             stakeSupply += _bondedStake;
             stakeCirculating += _bondedStake;
-            //TODO: registered validator event
             emit RegisteredValidator(_validators[i].treasury, _validators[i].nodeAddress, _validators[i].oracleAddress,
                 _validators[i].enode, address(_validators[i].liquidStateContract));
             _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
         }
     }
 
-    function finalizeInitialization(uint256 delta) onlyProtocol external {
+    function finalizeInitialization(uint256 _omissionDelta) onlyProtocol external {
         _stakingOperations();
         _computeCommittee();
         lastEpochTime = block.timestamp;
         lastFinalizedBlock = block.number;
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
-        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, delta));
+        _addEpochInfo(epochID, EpochInfo(
+                committee,
+                0,
+                block.number,
+                config.protocol.epochPeriod,
+                _omissionDelta,
+                Eip1559 (
+                    config.policy.minBaseFee,
+                    config.policy.baseFeeChangeDenominator,
+                    config.policy.elasticityMultiplier,
+                    config.protocol.gasLimitBoundDivisor
+                )
+            )
+        );
     }
 
     /**
@@ -468,8 +529,47 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _price Positive integer.
     */
     function setMinimumBaseFee(uint256 _price) external virtual onlyOperator {
-        emit ConfigUpdateUint("minBaseFee", config.policy.minBaseFee, _price);
-        config.policy.minBaseFee = _price;
+        emit ConfigUpdateUint("minBaseFee", config.policy.minBaseFee, _price, epochInfos[epochID].nextEpochBlock);
+        newMinBaseFee = _price;
+    }
+
+    /**
+    * @notice Sets the gas limit. Restricted to the operator account.
+    * @param _gasLimit Positive integer.
+    */
+    function setGasLimit(uint256 _gasLimit) public virtual onlyOperator {
+        require(_gasLimit > 0, "gas limit needs to be greater than 0");
+        newGasLimit = _gasLimit;
+    }
+
+    /**
+    * @notice Sets the gas limit bound divisor. Restricted to the operator account.
+    * @param _divisor Positive integer.
+    */
+    function setGasLimitBoundDivisor(uint256 _divisor) public virtual onlyOperator {
+        require(_divisor > 0, "gas limit bound divisor needs to be greater than 0");
+        emit ConfigUpdateUint("gasLimitBoundDivisor", config.protocol.gasLimitBoundDivisor, _divisor, epochInfos[epochID].nextEpochBlock);
+        newGasLimitBoundDivisor = _divisor;
+    }
+
+    /**
+    * @notice Sets the EIP-1559 base fee change denominator. Restricted to the operator account.
+    * @param _baseFeeChangeDenominator Positive integer.
+    */
+    function setBaseFeeChangeDenominator(uint256 _baseFeeChangeDenominator) public virtual onlyOperator {
+        require(_baseFeeChangeDenominator > 0, "base fee change denominator needs to be greater than 0");
+        emit ConfigUpdateUint("baseFeeChangeDenominator", config.policy.baseFeeChangeDenominator, _baseFeeChangeDenominator, epochInfos[epochID].nextEpochBlock);
+        newBaseFeeChangeDenominator = _baseFeeChangeDenominator;
+    }
+
+    /**
+    * @notice Sets the EIP-1559 elasticity multiplier. Restricted to the operator account.
+    * @param _elasticityMultiplier Positive integer.
+    */
+    function setElasticityMultiplier(uint256 _elasticityMultiplier) public virtual onlyOperator {
+        require(_elasticityMultiplier > 0, "elasticity multiplier needs to be greater than 0");
+        emit ConfigUpdateUint("elasticityMultiplier", config.policy.elasticityMultiplier, _elasticityMultiplier, epochInfos[epochID].nextEpochBlock);
+        newElasticityMultiplier = _elasticityMultiplier;
     }
 
     /**
@@ -477,7 +577,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @custom:restricted-to operator account
      */
     function setMaxScheduleDuration(uint256 _newMaxDuration) virtual external onlyOperator {
-        emit ConfigUpdateUint("maxScheduleDuration", config.protocol.maxScheduleDuration, _newMaxDuration);
+        emit ConfigUpdateUint("maxScheduleDuration", config.protocol.maxScheduleDuration, _newMaxDuration, block.number);
         config.protocol.maxScheduleDuration = _newMaxDuration;
     }
 
@@ -487,7 +587,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
     function setCommitteeSize(uint256 _size) external virtual onlyOperator {
         require(_size > 0, "committee size can't be 0");
-        emit ConfigUpdateUint("committeeSize", config.protocol.committeeSize, _size);
+        emit ConfigUpdateUint("committeeSize", config.protocol.committeeSize, _size, block.number);
         config.protocol.committeeSize = _size;
     }
 
@@ -497,7 +597,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _period The new unbonding period, in blocks.
      */
     function setUnbondingPeriod(uint256 _period) external virtual onlyOperator {
-        emit ConfigUpdateUint("unbondingPeriod", config.policy.unbondingPeriod, _period);
+        emit ConfigUpdateUint("unbondingPeriod", config.policy.unbondingPeriod, _period, block.number);
         config.policy.unbondingPeriod = _period;
     }
 
@@ -510,7 +610,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setProposerRewardRate(uint256 _proposerRewardRate) external virtual onlyOperator {
         require(_proposerRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
-        emit ConfigUpdateUint("proposerRewardRate", config.policy.proposerRewardRate, _proposerRewardRate);
+        emit ConfigUpdateUint("proposerRewardRate", config.policy.proposerRewardRate, _proposerRewardRate, block.number);
         config.policy.proposerRewardRate = _proposerRewardRate;
     }
 
@@ -523,7 +623,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setOracleRewardRate(uint256 _oracleRewardRate) external virtual onlyOperator {
         require(_oracleRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
-        emit ConfigUpdateUint("oracleRewardRate", config.policy.oracleRewardRate, _oracleRewardRate);
+        emit ConfigUpdateUint("oracleRewardRate", config.policy.oracleRewardRate, _oracleRewardRate, block.number);
         config.policy.oracleRewardRate = _oracleRewardRate;
     }
 
@@ -535,7 +635,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setWithholdingThreshold(uint256 _withholdingThreshold) external virtual onlyOperator {
         require(_withholdingThreshold <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
-        emit ConfigUpdateUint("withholdingThreshold", config.policy.withholdingThreshold, _withholdingThreshold);
+        emit ConfigUpdateUint("withholdingThreshold", config.policy.withholdingThreshold, _withholdingThreshold, block.number);
         config.policy.withholdingThreshold = _withholdingThreshold;
     }
 
@@ -547,19 +647,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setWithheldRewardsPool(address payable _pool) external virtual onlyOperator {
         require(_pool != address(0), "pool cannot be zero address");
-        emit ConfigUpdateAddress("withheldRewardsPool", config.policy.withheldRewardsPool, _pool);
+        emit ConfigUpdateAddress("withheldRewardsPool", config.policy.withheldRewardsPool, _pool, block.number);
         config.policy.withheldRewardsPool = _pool;
     }
 
     /*
     * @notice Set the epoch period. It will be applied at epoch end. Restricted to the Operator account.
-    * @param _period Positive integer. Needs to respect the equation epochPeriod > delta+lookback-1
+    * @param _period Positive integer. Needs to respect the equation epochPeriod > omissionDelta+lookback-1
     */
     function setEpochPeriod(uint256 _period) external virtual onlyOperator {
         uint256 _lookbackWindow = config.contracts.omissionAccountabilityContract.getLookbackWindow();
-        uint256 _delta = config.contracts.omissionAccountabilityContract.getDelta();
+        uint256 _omissionDelta = config.contracts.omissionAccountabilityContract.getDelta();
         require(_period > 0, "epoch period cannot be 0");
-        require(_period > _delta + _lookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
+        require(_period > _omissionDelta + _lookbackWindow - 1, "epoch period needs to be greater than omissionDelta+lookbackWindow-1");
 
         // we need this check to update new voters at the end of voting round
         uint256 _votePeriod = config.contracts.oracleContract.getVotePeriod();
@@ -577,7 +677,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _account the new operator account.
     */
     function setOperatorAccount(address _account) external virtual onlyOperator {
-        emit ConfigUpdateAddress("operatorAccount", config.protocol.operatorAccount, _account);
+        emit ConfigUpdateAddress("operatorAccount", config.protocol.operatorAccount, _account, block.number);
         config.protocol.operatorAccount = _account;
         config.contracts.oracleContract.setOperator(_account);
         config.contracts.acuContract.setOperator(_account);
@@ -603,7 +703,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _account New treasury account.
     */
     function setTreasuryAccount(address payable _account) external virtual onlyOperator {
-        emit ConfigUpdateAddress("treasuryAccount", config.policy.treasuryAccount, _account);
+        emit ConfigUpdateAddress("treasuryAccount", config.policy.treasuryAccount, _account, block.number);
         config.policy.treasuryAccount = _account;
     }
 
@@ -612,7 +712,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _treasuryFee Treasury fee. Precision TBD.
     */
     function setTreasuryFee(uint256 _treasuryFee) external virtual onlyOperator {
-        emit ConfigUpdateUint("treasuryFee", config.policy.treasuryFee, _treasuryFee);
+        emit ConfigUpdateUint("treasuryFee", config.policy.treasuryFee, _treasuryFee, block.number);
         config.policy.treasuryFee = _treasuryFee;
     }
 
@@ -621,7 +721,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _address the contract address
      */
     function setAccountabilityContract(IAccountability _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("accountabilityContract", address(config.contracts.accountabilityContract), address(_address));
+        emit ConfigUpdateAddress("accountabilityContract", address(config.contracts.accountabilityContract), address(_address), block.number);
         config.contracts.accountabilityContract = _address;
     }
 
@@ -630,7 +730,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _address the contract address
      */
     function setOmissionAccountabilityContract(IOmissionAccountability _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("omissionAccountabilityContract", address(config.contracts.omissionAccountabilityContract), address(_address));
+        emit ConfigUpdateAddress("omissionAccountabilityContract", address(config.contracts.omissionAccountabilityContract), address(_address), block.number);
         config.contracts.omissionAccountabilityContract = _address;
     }
 
@@ -639,7 +739,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setOracleContract(address payable _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("oracleContract", address(config.contracts.oracleContract), _address);
+        emit ConfigUpdateAddress("oracleContract", address(config.contracts.oracleContract), _address, block.number);
         config.contracts.oracleContract = IOracle(_address);
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
@@ -651,7 +751,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setAcuContract(address _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address));
+        emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address), block.number);
         config.contracts.acuContract = IACU(_address);
         if (address(config.contracts.stabilizationContract) != address(0)) {
             config.contracts.stabilizationContract.setACU(_address);
@@ -659,7 +759,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     function setAuctioneerContract(address _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("auctioneerContract", address(config.contracts.auctioneerContract), address(_address));
+        emit ConfigUpdateAddress("auctioneerContract", address(config.contracts.auctioneerContract), address(_address), block.number);
         config.contracts.auctioneerContract = IAuctioneer(_address);
         if (address(config.contracts.stabilizationContract) != address(0)) {
             config.contracts.stabilizationContract.setAuctioneer(_address);
@@ -671,7 +771,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setSupplyControlContract(address _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address));
+        emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address), block.number);
         config.contracts.supplyControlContract = ISupplyControl(_address);
         if (address(config.contracts.stabilizationContract) != address(0)) {
             config.contracts.stabilizationContract.setSupplyControl(_address);
@@ -683,7 +783,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setStabilizationContract(address _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
+        emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address), block.number);
         config.contracts.stabilizationContract = IStabilization(_address);
         if (address(config.contracts.auctioneerContract) != address(0)) {
             config.contracts.auctioneerContract.setStabilization(_address);
@@ -698,7 +798,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setInflationControllerContract(IInflationController _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("inflationControllerContract", address(config.contracts.inflationControllerContract), address(_address));
+        emit ConfigUpdateAddress("inflationControllerContract", address(config.contracts.inflationControllerContract), address(_address), block.number);
         config.contracts.inflationControllerContract = _address;
     }
 
@@ -709,7 +809,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setUpgradeManagerContract(UpgradeManager _address) external virtual onlyOperator {
-        emit ConfigUpdateAddress("upgradeManagerContract", address(config.contracts.upgradeManagerContract), address(_address));
+        emit ConfigUpdateAddress("upgradeManagerContract", address(config.contracts.upgradeManagerContract), address(_address), block.number);
         config.contracts.upgradeManagerContract = _address;
     }
 
@@ -719,7 +819,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setLiquidLogicContract(address _contract) external virtual onlyOperator {
         require(_contract != address(0), "invalid contract address for liquid logic");
-        emit ConfigUpdateAddress("liquidLogicContract", liquidLogicContract, _contract);
+        emit ConfigUpdateAddress("liquidLogicContract", liquidLogicContract, _contract, block.number);
         liquidLogicContract = _contract;
     }
 
@@ -801,31 +901,25 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
-    * @return upgrade Set to true if an autonity contract upgrade is available.
-    * @return epochEnded Set to true if an epoch is ended.
-    * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
-    * @return previousEpochBlock The previous epoch block number.
-    * @return nextEpochBlock The next epoch block number.
-    * @return delta, the current value for delta (omission failure)
+    * @return FinalizeResult, containing all the information needed to coordinate with the golang client
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (
-        bool,                       // contractUpgradeReady
-        bool,                       // epochEnded
-        CommitteeMember[] memory,   // committee
-        uint256,                    // epochInfos[epochID].previousEpochBlock
-        uint256,                    // epochInfos[epochID].nextEpochBlock
-        uint256                     // delta
-    ) {
+    function finalize() external virtual onlyProtocol nonReentrant returns (FinalizeResult memory) {
         lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
 
         // use >= instead of == to facilitate tests on truffle
         bool _epochEnded = block.number >= epochInfos[epochID].nextEpochBlock;
 
+        // update gas limit
+        config.protocol.gasLimit = newGasLimit;
+
         // finalize all auxiliary contracts
-        config.contracts.accountabilityContract.finalize(_epochEnded);
-        //toDO: renaming omissionDelta
-        uint256 _delta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
+        (
+            uint256 accountabilityRange,
+            uint256 accountabilityDelta,
+            uint256 accountabilityGracePeriod
+        ) = config.contracts.accountabilityContract.finalize(_epochEnded);
+        uint256 _omissionDelta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
         bool newRound = config.contracts.oracleContract.finalize();
 
         if (_epochEnded) {
@@ -861,6 +955,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             // apply new epoch period.
             config.protocol.epochPeriod = newEpochPeriod;
 
+            // apply new EIP-1559 parameters
+            config.policy.baseFeeChangeDenominator = newBaseFeeChangeDenominator;
+            config.policy.elasticityMultiplier = newElasticityMultiplier;
+            config.policy.minBaseFee = newMinBaseFee;
+
+            // update gas limit bound divisor
+            config.protocol.gasLimitBoundDivisor = newGasLimitBoundDivisor;
+
             // update epoch information
             config.contracts.omissionAccountabilityContract.setEpochBlock(block.number);
             uint256 _previousEpochBlock = epochInfos[epochID].epochBlock;
@@ -870,7 +972,20 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             // NOTE: Rewards distribution depends on the current value of epochID,
             // so we should always keep this epoch increment at the end of this block.
             epochID += 1;
-            _addEpochInfo(epochID, EpochInfo(committee, _previousEpochBlock, block.number, _nextEpochBlock, _delta));
+            _addEpochInfo(epochID, EpochInfo(
+                    committee,
+                    _previousEpochBlock,
+                    block.number,
+                    _nextEpochBlock,
+                    _omissionDelta,
+                    Eip1559 (
+                        config.policy.minBaseFee,
+                        config.policy.baseFeeChangeDenominator,
+                        config.policy.elasticityMultiplier,
+                        config.protocol.gasLimitBoundDivisor
+                    )
+                )
+            );
             emit NewEpoch(epochID, inflationReserve, stakeCirculating);
         }
 
@@ -880,7 +995,29 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             catch {}
         }
 
-        return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _delta);
+        ClientAwareConfig memory clientConfig = ClientAwareConfig(
+            config.protocol.epochPeriod,
+            config.protocol.blockPeriod,
+            config.protocol.gasLimit,
+            Accountability (
+                accountabilityRange,
+                accountabilityDelta,
+                accountabilityGracePeriod
+            ),
+            Eip1559 (
+                config.policy.minBaseFee,
+                config.policy.baseFeeChangeDenominator,
+                config.policy.elasticityMultiplier,
+                config.protocol.gasLimitBoundDivisor
+            )
+        );
+
+        return FinalizeResult(
+            contractUpgradeReady,
+            _epochEnded,
+            epochInfos[epochID],
+            clientConfig
+        );
     }
 
     // Note: reentrancy from reward distributors is expected and allowed
@@ -1007,7 +1144,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     function setSlasher(address _slasher) external virtual onlyOperator {
         require(_slasher != address(0), "slasher contract cannot be the zero address");
-        emit ConfigUpdateAddress("slasher", address(slasher), _slasher);
+        emit ConfigUpdateAddress("slasher", address(slasher), _slasher, block.number);
         slasher = ISlasher(_slasher);
     }
 
@@ -1029,6 +1166,30 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
     function getLiquidLogicContract() external view virtual returns (address) {
         return liquidLogicContract;
+    }
+
+    /**
+    * @notice Returns the current client aware config
+    */
+    function getClientConfig() external virtual view returns (ClientAwareConfig memory) {
+        IAccountability.Config memory accountabilityConfig = config.contracts.accountabilityContract.getConfig();
+
+        return ClientAwareConfig(
+            config.protocol.epochPeriod,
+            config.protocol.blockPeriod,
+            config.protocol.gasLimit,
+            Accountability (
+                accountabilityConfig.range,
+                accountabilityConfig.delta,
+                config.contracts.accountabilityContract.getGracePeriod()
+            ),
+            Eip1559 (
+                config.policy.minBaseFee,
+                config.policy.baseFeeChangeDenominator,
+                config.policy.elasticityMultiplier,
+                config.protocol.gasLimitBoundDivisor
+            )
+        );
     }
 
     /**
@@ -1751,7 +1912,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         bondingMap[headBondingID] = _bonding;
 
         bool _selfBonded = validators[_validator].treasury == _recipient;
-        //Todo: add headBodingID
         emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount, headBondingID);
         headBondingID++;
         return headBondingID - 1;
@@ -1955,7 +2115,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         epoch.previousEpochBlock = _epoch.previousEpochBlock;
         epoch.epochBlock = _epoch.epochBlock;
         epoch.nextEpochBlock = _epoch.nextEpochBlock;
-        epoch.delta = _epoch.delta;
+        epoch.omissionDelta = _epoch.omissionDelta;
+        epoch.eip1559 = _epoch.eip1559;
         for (uint256 i = 0; i < _epoch.committee.length; i++) {
             epoch.committee.push(_epoch.committee[i]);
         }

@@ -54,6 +54,13 @@ func config() *params.ChainConfig {
 	return config
 }
 
+var fakeEip1559Params = &types.Eip1559Params{
+	MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+	BaseFeeChangeDenominator: new(big.Int).SetUint64(params.DefaultBaseFeeChangeDenominator),
+	ElasticityMultiplier:     new(big.Int).SetUint64(params.DefaultElasticityMultiplier),
+	GasLimitBoundDivisor:     new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor),
+}
+
 // TestBlockGasLimits tests the gasLimit checks for blocks both across
 // the EIP-1559 boundary and post-1559 blocks
 func TestBlockGasLimits(t *testing.T) {
@@ -94,7 +101,7 @@ func TestBlockGasLimits(t *testing.T) {
 			BaseFee:  initial,
 			Number:   big.NewInt(tc.pNum + 1),
 		}
-		err := VerifyEip1559Header(config(), nil, parent, header)
+		err := VerifyEip1559Header(config(), fakeEip1559Params, parent, header)
 		if tc.ok && err != nil {
 			t.Errorf("test %d: Expected valid header: %s", i, err)
 		}
@@ -112,9 +119,9 @@ func TestCalcBaseFee(t *testing.T) {
 		parentGasUsed   uint64
 		expectedBaseFee int64
 	}{
-		{params.InitialBaseFee, 20000000, 10000000, params.InitialBaseFee}, // usage == target
-		{params.InitialBaseFee, 20000000, 9000000, 987500000},              // usage below target
-		{params.InitialBaseFee, 20000000, 11000000, 1012500000},            // usage above target
+		{params.InitialBaseFee * 2, 20000000, 10000000, params.InitialBaseFee * 2}, // usage == target
+		{params.InitialBaseFee * 2, 20000000, 9000000, 987500000 * 2},              // usage below target
+		{params.InitialBaseFee * 2, 20000000, 11000000, 1012500000 * 2},            // usage above target
 	}
 	for i, test := range tests {
 		parent := &types.Header{
@@ -123,7 +130,8 @@ func TestCalcBaseFee(t *testing.T) {
 			GasUsed:  test.parentGasUsed,
 			BaseFee:  big.NewInt(test.parentBaseFee),
 		}
-		if have, want := CalcBaseFee(config(), parent, nil), big.NewInt(test.expectedBaseFee); have.Cmp(want) != 0 {
+		computedBaseFee := CalcBaseFee(config(), parent, fakeEip1559Params)
+		if have, want := computedBaseFee, big.NewInt(test.expectedBaseFee); have.Cmp(want) != 0 {
 			t.Errorf("test %d: have %d  want %d, ", i, have, want)
 		}
 	}

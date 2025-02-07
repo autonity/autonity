@@ -1811,13 +1811,13 @@ var bindTests = []struct {
 			"github.com/autonity/autonity/accounts/abi/bind/backends"
 			"github.com/autonity/autonity/core"
 			"github.com/autonity/autonity/crypto"
-			"github.com/autonity/autonity/eth/ethconfig"
+			"github.com/autonity/autonity/params"
 	   `,
 		`
 			var (
 				key, _  = crypto.GenerateKey()
 				user, _ = bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-				sim     = backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, ethconfig.Defaults.Miner.GasCeil)
+				sim     = backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, params.DefaultGenesisGasLimit)
 			)
 			defer sim.Close()
 
@@ -1881,13 +1881,13 @@ var bindTests = []struct {
 			"github.com/autonity/autonity/accounts/abi/bind/backends"
 			"github.com/autonity/autonity/core"
 			"github.com/autonity/autonity/crypto"
-			"github.com/autonity/autonity/eth/ethconfig"
+			"github.com/autonity/autonity/params"
 	   `,
 		`
 			var (
 				key, _  = crypto.GenerateKey()
 				user, _ = bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-				sim     = backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, ethconfig.Defaults.Miner.GasCeil)
+				sim     = backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, params.DefaultGenesisGasLimit)
 			)
 			defer sim.Close()
 	
@@ -1933,13 +1933,13 @@ var bindTests = []struct {
 			"github.com/autonity/autonity/accounts/abi/bind/backends"
 			"github.com/autonity/autonity/core"
 			"github.com/autonity/autonity/crypto"
-			"github.com/autonity/autonity/eth/ethconfig"
+			"github.com/autonity/autonity/params"
 		`,
 		tester: `
 			var (
 				key, _  = crypto.GenerateKey()
 				user, _ = bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-				sim     = backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, ethconfig.Defaults.Miner.GasCeil)
+				sim     = backends.NewSimulatedBackend(core.GenesisAlloc{user.From: {Balance: big.NewInt(1000000000000000000)}}, params.DefaultGenesisGasLimit)
 			)
 			defer sim.Close()
 

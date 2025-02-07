@@ -72,6 +72,7 @@ contract("Oracle", accounts => {
         baseSlashingRate: 10,
         nonRevealThreshold: 3,
         revealResetInterval: 10,
+        slashingRateCap: 1000,
       },
     );
 

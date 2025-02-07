@@ -14,6 +14,7 @@ abstract contract Upgradeable {
     /**
     * @notice Append to the contract storage buffer the new contract bytecode and abi.
     * Should be called as many times as required.
+    * IMPORTANT: Should not modify config, in order to avoid invalidating the client-side cache.
     */
     function _upgradeContract(bytes memory _bytecode, string memory _abi) internal virtual {
         BytesLib.concatStorage(newContractBytecode, _bytecode);

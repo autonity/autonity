@@ -29,7 +29,6 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
-
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/autonity/autonity/common"
@@ -156,10 +155,11 @@ var defaultCacheConfig = &CacheConfig{
 }
 
 type blockStateCache struct {
-	hash     common.Hash
-	receipts types.Receipts
-	usedGas  uint64
-	stateDb  *state.StateDB
+	hash            common.Hash
+	receipts        types.Receipts
+	usedGas         uint64
+	stateDb         *state.StateDB
+	contractsConfig *types.ContractsConfig
 }
 
 // BlockChain represents the canonical chain given a database with a genesis
@@ -419,13 +419,8 @@ func NewBlockChain(db ethdb.Database,
 		bc.snaps, _ = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, head.Root(), !bc.cacheConfig.SnapshotWait, true, recover)
 	}
 
-	// here our blockchain and current state should be fully initialized
-	currentState, err := bc.State()
-	if err != nil {
-		return nil, err
-	}
 	contractBackend := contractBackendCreator(bc, db)
-	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend, bc.CurrentHeader(), currentState); err != nil {
+	if bc.protocolContracts, err = autonity.NewProtocolContracts(chainConfig, db, GetDefaultEVM(bc), contractBackend); err != nil {
 		return nil, err
 	}
 
@@ -457,16 +452,16 @@ func NewBlockChain(db ethdb.Database,
 	return bc, nil
 }
 
-func (bc *BlockChain) CacheProposalState(hash common.Hash, receipts types.Receipts, usedGas uint64, db *state.StateDB) {
-	bc.cachedState.Store(&blockStateCache{hash: hash, receipts: receipts, usedGas: usedGas, stateDb: db})
+func (bc *BlockChain) CacheProposalState(hash common.Hash, receipts types.Receipts, usedGas uint64, db *state.StateDB, contractsConfig *types.ContractsConfig) {
+	bc.cachedState.Store(&blockStateCache{hash: hash, receipts: receipts, usedGas: usedGas, stateDb: db, contractsConfig: contractsConfig})
 }
 
-func (bc *BlockChain) LoadProposalState() (*state.StateDB, common.Hash) {
+func (bc *BlockChain) LoadProposalState() (*state.StateDB, *types.ContractsConfig, common.Hash) {
 	st := bc.cachedState.Load()
 	if st == nil {
-		return nil, common.Hash{}
+		return nil, nil, common.Hash{}
 	}
-	return st.stateDb.Copy(), st.hash
+	return st.stateDb.Copy(), st.contractsConfig.Copy(), st.hash
 }
 
 func (bc *BlockChain) IsProposalStateCached(hash common.Hash) bool {
@@ -719,20 +714,39 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 		return errChainStopped
 	}
 
-	// update chain head markers as this pivot block is resolved for the completion of snap sync.
+	// fetch contracts config from state, as they are not part of the state snapshot
+	state, err := state.New(block.Root(), bc.stateCache, bc.snaps)
+	if err != nil {
+		panic("cannot open state for snap sync head: " + err.Error())
+	}
+	contractsConfig, err := bc.ProtocolContracts().CallGetClientConfig(state, block.Header())
+	if err != nil {
+		panic("cannot get contracts config for snap sync head: " + err.Error())
+	}
+
+	// update the disk db before updating the in-memory markers
+	batch := bc.db.NewBatchWithReader()
+	rawdb.WriteContractsConfig(batch, block.NumberU64(), contractsConfig)
+
+	// update epoch header hash if needed
+	if block.IsEpochHead() {
+		rawdb.WriteEpochHeaderHash(batch, block.Hash())
+	}
+
+	if err = batch.Write(); err != nil {
+		panic("Failed to commit snap sync head: " + err.Error())
+	}
+
+	// update in-memory chain head markers as this pivot block is resolved for the completion of snap sync.
 	// from now on, it will start full sync.
 	bc.currentBlock.Store(block)
 	headBlockGauge.Update(int64(block.NumberU64()))
 	// update epoch header markers as well if the pivot block is an epoch head.
 	if block.IsEpochHead() {
-		batch := bc.db.NewBatch()
-		rawdb.WriteEpochHeaderHash(batch, block.Hash())
-		if err := batch.Write(); err != nil {
-			bc.log.Crit("Failed to update epoch header markers", "err", err)
-		}
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
 		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}
+
 	bc.chainmu.Unlock()
 
 	// Destroy any existing state snapshot and regenerate it in the background,
@@ -861,7 +875,6 @@ func (bc *BlockChain) Stop() {
 		return
 	}
 
-	bc.protocolContracts.Stop()
 	// Unsubscribe all subscriptions registered from blockchain.
 	bc.scope.Close()
 
@@ -1265,7 +1278,7 @@ func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 
 // writeBlockWithState writes block, metadata and corresponding state data to the
 // database.
-func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB) error {
+func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, contractsConfig *types.ContractsConfig) error {
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -1278,11 +1291,12 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	//
 	// Note all the components of block(td, hash->number map, header, body, receipts)
 	// should be written atomically. BlockBatch is used for containing all components.
-	blockBatch := bc.db.NewBatch()
+	blockBatch := bc.db.NewBatchWithReader()
 	rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 	rawdb.WriteBlock(blockBatch, block)
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
 	rawdb.WritePreimages(blockBatch, state.Preimages())
+	rawdb.WriteContractsConfig(blockBatch, block.NumberU64(), contractsConfig)
 	if err := blockBatch.Write(); err != nil {
 		bc.log.Crit("Failed to write block into disk", "err", err)
 	}
@@ -1347,20 +1361,20 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool, contractsConfig *types.ContractsConfig) (status WriteStatus, err error) {
 	if !bc.chainmu.TryLock() {
 		return NonStatTy, errChainStopped
 	}
 	defer bc.chainmu.Unlock()
 
-	return bc.writeBlockAndSetHead(block, receipts, logs, state, emitHeadEvent)
+	return bc.writeBlockAndSetHead(block, receipts, logs, state, emitHeadEvent, contractsConfig)
 }
 
 // writeBlockAndSetHead writes the block and all associated state to the database,
 // and also it applies the given block as the new chain head. This function expects
 // the chain mutex to be held.
-func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
-	if err := bc.writeBlockWithState(block, receipts, logs, state); err != nil {
+func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool, contractsConfig *types.ContractsConfig) (status WriteStatus, err error) {
+	if err := bc.writeBlockWithState(block, receipts, logs, state, contractsConfig); err != nil {
 		return NonStatTy, err
 	}
 	currentBlock := bc.CurrentBlock()
@@ -1686,7 +1700,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 
 		// Process block using the parent state as reference point
 		substart := time.Now()
-		receipts, logs, statedb, usedGas, err := bc.processor.ProcessFromCache(block, statedb, bc.vmConfig)
+		receipts, logs, statedb, usedGas, contractsConfig, err := bc.processor.ProcessFromCache(block, statedb, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			atomic.StoreUint32(&followupInterrupt, 1)
@@ -1736,9 +1750,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		var status WriteStatus
 		if !setHead {
 			// Don't set the head, only insert the block
-			err = bc.writeBlockWithState(block, receipts, logs, statedb)
+			err = bc.writeBlockWithState(block, receipts, logs, statedb, contractsConfig)
 		} else {
-			status, err = bc.writeBlockAndSetHead(block, receipts, logs, statedb, false)
+			status, err = bc.writeBlockAndSetHead(block, receipts, logs, statedb, false, contractsConfig)
 		}
 		atomic.StoreUint32(&followupInterrupt, 1)
 		if err != nil {
@@ -2414,10 +2428,6 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	defer bc.chainmu.Unlock()
 	_, err := bc.hc.InsertHeaderChain(chain, start, bc.forker)
 	return 0, err
-}
-
-func (bc *BlockChain) MinBaseFee() *big.Int {
-	return bc.protocolContracts.Cache.MinimumBaseFee()
 }
 
 // HasBadBlock returns whether the block with the hash is a bad block

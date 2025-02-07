@@ -35,12 +35,16 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 		return
 	}
 
-	// simulate accusation over height 13 (will be scanned at height 23)
-	height := currentHeight - accountability.DeltaBlocks + 8
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
 		panic("cannot simulate off chain accusation PVN")
 	}
+	accountabilityParams, err := backEnd.BlockChain().AccountabilityParamsByHeight(currentHeight)
+	if err != nil {
+		panic("cannot fetch accountability delta " + err.Error())
+	}
+	// simulate accusation over height 13 (will be scanned at height 23)
+	height := currentHeight - accountabilityParams.Delta.Uint64() + 8
 
 	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
 		return true
@@ -85,13 +89,18 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 		return
 	}
 
-	// simulate accusation over height 13 (will be scanned at height 23)
-	height := currentHeight - accountability.DeltaBlocks + 8
-
 	backEnd, ok := s.Core.Backend().(*bk.Backend)
 	if !ok {
 		panic("cannot simulate off chain accusation C1")
 	}
+
+	accountabilityParams, err := backEnd.BlockChain().AccountabilityParamsByHeight(currentHeight)
+	if err != nil {
+		panic("cannot fetch accountability delta " + err.Error())
+	}
+
+	// simulate accusation over height 13 (will be scanned at height 23)
+	height := currentHeight - accountabilityParams.Delta.Uint64() + 8
 
 	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
 		return true

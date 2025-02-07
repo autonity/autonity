@@ -6,17 +6,16 @@ import (
 	"math/big"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/ethdb"
-	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
@@ -92,84 +91,16 @@ func (c *evmContract) callContractFuncAs(statedb vm.StateDB, header *types.Heade
 	return packedResult, err
 }
 
-type Cache struct {
-	// minimum base fee
-	minBaseFee    atomic.Pointer[big.Int]
-	minBaseFeeCh  chan *AutonityConfigUpdateUint
-	subMinBaseFee event.Subscription
-
-	// epoch period
-	epochPeriod    atomic.Pointer[big.Int]
-	epochPeriodCh  chan *AutonityEpochPeriodUpdated
-	subEpochPeriod event.Subscription
-
-	subscriptions *event.SubscriptionScope
-	quit          chan struct{}
-	done          chan struct{}
-}
-
-func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cache, error) {
-	// initialize minimum base fee through contract call and subscribe to updated event
-	var minBaseFee *big.Int
-	if head.Number.Uint64() <= 1 {
-		minBaseFee = new(big.Int).SetUint64(ac.chainConfig.AutonityContractConfig.MinBaseFee)
-	} else {
-		var err error
-		minBaseFee, err = ac.callGetMinimumBaseFee(state, head)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	minBaseFeeCh := make(chan *AutonityConfigUpdateUint)
-	subMinBaseFee, err := ac.WatchConfigUpdateUint(nil, minBaseFeeCh)
-	if err != nil {
-		return nil, err
-	}
-
-	// initialize epoch period and subscribe to updated event
-	epochPeriod, err := ac.callGetEpochPeriod(state, head)
-	if err != nil {
-		return nil, err
-	}
-	epochPeriodCh := make(chan *AutonityEpochPeriodUpdated)
-	subEpochPeriod, err := ac.WatchEpochPeriodUpdated(nil, epochPeriodCh)
-	if err != nil {
-		return nil, err
-	}
-
-	scope := new(event.SubscriptionScope)
-	subMinBaseFeeWrapped := scope.Track(subMinBaseFee)
-	subEpochPeriodWrapped := scope.Track(subEpochPeriod)
-	cache := &Cache{
-		minBaseFeeCh:   minBaseFeeCh,
-		subMinBaseFee:  subMinBaseFeeWrapped,
-		epochPeriodCh:  epochPeriodCh,
-		subEpochPeriod: subEpochPeriodWrapped,
-		subscriptions:  scope,
-		quit:           make(chan struct{}),
-		done:           make(chan struct{}),
-	}
-
-	// store initial values
-	cache.minBaseFee.Store(minBaseFee)
-	cache.epochPeriod.Store(epochPeriod)
-
-	go cache.Listen()
-	return cache, nil
-}
-
 //revive:disable:exported - Autonity is one of the contracts, so repetitive naming here is justified
 type AutonityContract struct {
 	evmContract
-	*AutonityFilterer                                     // allows to watch for Autonity Contract events
-	proposers         map[uint64]map[int64]common.Address // map[height][round] --> proposer
+	*bindings.AutonityFilterer                                     // allows to watch for Autonity Contract events
+	proposers                  map[uint64]map[int64]common.Address // map[height][round] --> proposer
 }
 
 type ProtocolContracts struct {
 	*AutonityContract
-	*Cache
-	*Accountability
+	*bindings.Accountability
 }
 
 func NewProtocolContracts(
@@ -177,8 +108,6 @@ func NewProtocolContracts(
 	db ethdb.Database,
 	provider EVMProvider,
 	contractBackend bind.ContractBackend,
-	head *types.Header,
-	state vm.StateDB,
 ) (*ProtocolContracts, error) {
 	if config.AutonityContractConfig == nil {
 		return nil, ErrNoAutonityConfig
@@ -194,7 +123,7 @@ func NewProtocolContracts(
 	}
 
 	// create autonity EVM contract
-	autonityFilterer, err := NewAutonityFilterer(params.AutonityContractAddress, contractBackend.(bind.ContractFilterer))
+	autonityFilterer, err := bindings.NewAutonityFilterer(params.AutonityContractAddress, contractBackend.(bind.ContractFilterer))
 	if err != nil {
 		return nil, err
 	}
@@ -209,69 +138,18 @@ func NewProtocolContracts(
 		proposers:        make(map[uint64]map[int64]common.Address),
 	}
 
-	// initialize protocol contract cache
-	cache, err := newCache(autonityContract, head, state)
-	if err != nil {
-		return nil, err
-	}
-
 	// bind to accountability contract
-	accountabilityContract, err := NewAccountability(params.AccountabilityContractAddress, contractBackend)
+	accountabilityContract, err := bindings.NewAccountability(params.AccountabilityContractAddress, contractBackend)
 	if err != nil {
 		return nil, err
 	}
 
 	contract := ProtocolContracts{
 		AutonityContract: autonityContract,
-		Cache:            cache,
 		Accountability:   accountabilityContract,
 	}
 
 	return &contract, nil
-}
-
-func (c *Cache) Listen() {
-	defer func() {
-		c.subscriptions.Close()
-		close(c.done)
-	}()
-
-	for {
-		select {
-		case ev := <-c.minBaseFeeCh:
-			if ev.Name == "minBaseFee" {
-				c.minBaseFee.Store(ev.NewValue)
-			}
-		case ev := <-c.epochPeriodCh:
-			c.epochPeriod.Store(ev.Period)
-		// These should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.
-		// In that case network errors can occur. Since everything is local here, no error should ever occur.
-		// we crash the client to avoid using a out-of-date value in case something goes very wrong.
-		case <-c.subEpochPeriod.Err():
-			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
-		case <-c.subMinBaseFee.Err():
-			log.Crit("protocol contract cache out-of-sync. Please contact the Autonity team.")
-		case <-c.quit:
-			return
-		}
-	}
-}
-
-func (c *Cache) Stop() {
-	close(c.quit)
-	<-c.done
-}
-
-func (c *Cache) MinimumBaseFee() *big.Int {
-	return new(big.Int).Set(c.minBaseFee.Load())
-}
-
-// TODO: currently this value gets updated when the operator requests a change in the epoch period,
-// however the new epoch period gets actually applied at epoch's end.
-// for now it is not a big deal because the cached epoch period is only used to disconnect malicious signers
-// but it needs to be fixed
-func (c *Cache) EpochPeriod() *big.Int {
-	return new(big.Int).Set(c.epochPeriod.Load())
 }
 
 // Proposer election is now computed by committee structure, it is on longer depends on AC contract.
@@ -325,7 +203,7 @@ func (c *AutonityContract) trimProposerCache(height uint64) {
 	}
 }
 
-func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (*types.Receipt, *types.Epoch, error) {
+func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb vm.StateDB) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	log.Debug(
 		"Finalizing block",
 		"balance",
@@ -333,9 +211,9 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 		"block",
 		header.Number.Uint64(),
 	)
-	upgradeContract, epochInfo, err := c.callFinalize(statedb, header)
+	upgradeContract, epochInfo, contractsConfig, err := c.callFinalize(statedb, header)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Create a new receipt for the finalize call
@@ -355,7 +233,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 			log.Warn("Autonity Contracts Upgrade Failed", "err", err)
 		}
 	}
-	return receipt, epochInfo, nil
+	return receipt, epochInfo, contractsConfig, nil
 }
 
 func (c *AutonityContract) upgradeAutonityContract(statedb vm.StateDB, header *types.Header) error {

@@ -442,7 +442,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
     function setMinDebtRequirement(uint256 amount) external onlyOperator {
-        emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", _config.minDebtRequirement, amount);
+        emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", _config.minDebtRequirement, amount, block.number);
         _config.minDebtRequirement = amount;
     }
 
@@ -450,7 +450,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// @param atnSupplyOperator The _atnSupplyOperator address
     /// @dev Restricted to the operator.
     function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
-        emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator);
+        emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator, block.number);
         _atnSupplyOperator = atnSupplyOperator;
     }
 
@@ -461,7 +461,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         _restricted = false;
         _borrowInterestRate.currentValue = _defaultGenesisBorrowInterestRate;
         _borrowInterestRate.currentActiveFrom = block.timestamp;
-        emit IConfigEvents.ConfigUpdateUint("borrowInterestRate", 0, _defaultGenesisBorrowInterestRate);
+        emit IConfigEvents.ConfigUpdateUint("borrowInterestRate", 0, _defaultGenesisBorrowInterestRate, block.number);
         emit CDPRestrictionsRemoved();
     }
 
@@ -476,7 +476,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
             block.timestamp + _announcementWindow.value()
         );
         emit InterestRateUpdateAnnounced(newInterestRate, _borrowInterestRate.nextActiveFrom, overridden);
-        emit IConfigEvents.ConfigUpdateUint("borrowInterestRate", _borrowInterestRate.value(), newInterestRate);
+        emit IConfigEvents.ConfigUpdateUint("borrowInterestRate", _borrowInterestRate.value(), newInterestRate, block.number);
     }
 
     /**
@@ -491,7 +491,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         );
         if (overridden) revert AnnouncementWindowPending();
         emit AnnouncementWindowUpdateAnnounced(window, _announcementWindow.nextActiveFrom, overridden);
-        emit IConfigEvents.ConfigUpdateUint("announcementWindow", _announcementWindow.value(), window);
+        emit IConfigEvents.ConfigUpdateUint("announcementWindow", _announcementWindow.value(), window, block.number);
     }
 
     /**
@@ -515,8 +515,8 @@ contract Stabilization is IStabilization, ReentrancyGuard {
 
         emit LiquidationRatioUpdateAnnounced(newLiquidationRatio, _liquidationRatio.nextActiveFrom, lrOverridden);
         emit MinCollateralizationRatioUpdateAnnounced(newMinCollateralizationRatio, _minCollateralizationRatio.nextActiveFrom, mcrOverridden);
-        emit IConfigEvents.ConfigUpdateUint("liquidationRatio", _liquidationRatio.value(), newLiquidationRatio);
-        emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newMinCollateralizationRatio);
+        emit IConfigEvents.ConfigUpdateUint("liquidationRatio", _liquidationRatio.value(), newLiquidationRatio, block.number);
+        emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newMinCollateralizationRatio, block.number);
     }
 
     /*
@@ -529,7 +529,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// @param operator Address of the new Governance Operator
     /// @dev Restricted to the Autonity Contract.
     function setOperator(address operator) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator, block.number);
         _operator = operator;
     }
 
@@ -537,7 +537,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// @param oracle Address of the new Oracle Contract
     /// @dev Restricted to the Autonity Contract.
     function setOracle(address oracle) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle, block.number);
         _oracle = IOracle(oracle);
     }
 
@@ -545,7 +545,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// @param auctioneer Address of the new Auctioneer Contract
     /// @dev Restricted to the Autonity Contract.
     function setAuctioneer(address auctioneer) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("auctioneer", _auctioneer, auctioneer);
+        emit IConfigEvents.ConfigUpdateAddress("auctioneer", _auctioneer, auctioneer, block.number);
         _auctioneer = auctioneer;
     }
 
@@ -553,7 +553,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// @param acu Address of the new ACU Contract
     /// @dev Restricted to the Autonity Contract.
     function setACU(address acu) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("acu", _acu, acu);
+        emit IConfigEvents.ConfigUpdateAddress("acu", _acu, acu, block.number);
         _acu = acu;
     }
 
@@ -561,7 +561,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// @param supplyControl Address of the new SupplyControl Contract
     /// @dev Restricted to the Autonity Contract.
     function setSupplyControl(address supplyControl) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
+        emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl, block.number);
         _supplyControl = ISupplyControl(supplyControl);
     }
 

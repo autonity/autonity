@@ -364,7 +364,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Committee:          committee,
 		PreviousEpochBlock: common.Big0,
 		NextEpochBlock:     new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
-		Delta:              new(big.Int).SetUint64(g.Config.OmissionAccountabilityConfig.Delta),
+		OmissionDelta:      new(big.Int).SetUint64(g.Config.OmissionAccountabilityConfig.Delta),
+		Eip1559: &types.Eip1559Params{
+			MinBaseFee:               new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BaseFeeChangeDenominator),
+			ElasticityMultiplier:     new(big.Int).SetUint64(g.Config.AutonityContractConfig.ElasticityMultiplier),
+			GasLimitBoundDivisor:     new(big.Int).SetUint64(g.Config.AutonityContractConfig.GasLimitBoundDivisor),
+		},
 	}
 	head.Epoch = epoch
 
@@ -437,6 +443,22 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 	rawdb.WriteEpochHeaderHash(db, block.Hash())
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
+	rawdb.WriteContractsConfig(db, block.NumberU64(), &types.ContractsConfig{
+		EpochPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
+		BlockPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
+		GasLimit:    new(big.Int).SetUint64(g.Config.AutonityContractConfig.GasLimit),
+		Accountability: types.AccountabilityParams{
+			Range:       new(big.Int).SetUint64(g.Config.AccountabilityConfig.Range),
+			Delta:       new(big.Int).SetUint64(g.Config.AccountabilityConfig.Delta),
+			GracePeriod: new(big.Int),
+		},
+		Eip1559: types.Eip1559Params{
+			MinBaseFee:               new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BaseFeeChangeDenominator),
+			ElasticityMultiplier:     new(big.Int).SetUint64(g.Config.AutonityContractConfig.ElasticityMultiplier),
+			GasLimitBoundDivisor:     new(big.Int).SetUint64(g.Config.AutonityContractConfig.GasLimitBoundDivisor),
+		},
+	})
 	return block, nil
 }
 
@@ -650,20 +672,24 @@ func DefaultGoerliGenesisBlock() *Genesis {
 func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	testAutonityContractConfig := params.AutonityContractGenesis{
-		MaxCommitteeSize:        1,
-		BlockPeriod:             1,
-		UnbondingPeriod:         120,
-		EpochPeriod:             60,               //seconds
-		DelegationRate:          1200,             // 12%
-		WithholdingThreshold:    0,                // 0%, no tolerance
-		ProposerRewardRate:      1000,             // 10%
-		OracleRewardRate:        1000,             // 10%
-		TreasuryFee:             1500000000000000, // 0.15%,
-		MinBaseFee:              10000000000,
-		Operator:                faucet.Address,
-		Treasury:                faucet.Address,
-		WithheldRewardsPool:     faucet.Address,
-		InitialInflationReserve: params.TestAutonityContractConfig.InitialInflationReserve,
+		MaxCommitteeSize:         1,
+		BlockPeriod:              1,
+		UnbondingPeriod:          120,
+		EpochPeriod:              60, //seconds
+		GasLimit:                 params.DefaultGenesisGasLimit,
+		GasLimitBoundDivisor:     params.DefaultGasLimitBoundDivisor,
+		BaseFeeChangeDenominator: params.DefaultBaseFeeChangeDenominator,
+		ElasticityMultiplier:     params.DefaultElasticityMultiplier,
+		DelegationRate:           1200,             // 12%
+		WithholdingThreshold:     0,                // 0%, no tolerance
+		ProposerRewardRate:       1000,             // 10%
+		OracleRewardRate:         1000,             // 10%
+		TreasuryFee:              1500000000000000, // 0.15%,
+		MinBaseFee:               10000000000,
+		Operator:                 faucet.Address,
+		Treasury:                 faucet.Address,
+		WithheldRewardsPool:      faucet.Address,
+		InitialInflationReserve:  params.TestAutonityContractConfig.InitialInflationReserve,
 		Validators: []*params.Validator{
 			{
 				Treasury:      faucet.Address,

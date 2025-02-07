@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"runtime"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
@@ -140,21 +142,23 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 // Main protocol steps
 // *
 
-func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	contractConfig := AutonityConfig{
-		Policy: AutonityPolicy{
-			TreasuryFee:             new(big.Int).SetUint64(config.AutonityContractConfig.TreasuryFee),
-			MinBaseFee:              new(big.Int).SetUint64(config.AutonityContractConfig.MinBaseFee),
-			DelegationRate:          new(big.Int).SetUint64(config.AutonityContractConfig.DelegationRate),
-			UnbondingPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.UnbondingPeriod),
-			InitialInflationReserve: (*big.Int)(config.AutonityContractConfig.InitialInflationReserve),
-			WithholdingThreshold:    new(big.Int).SetUint64(config.AutonityContractConfig.WithholdingThreshold),
-			ProposerRewardRate:      new(big.Int).SetUint64(config.AutonityContractConfig.ProposerRewardRate),
-			OracleRewardRate:        new(big.Int).SetUint64(config.AutonityContractConfig.OracleRewardRate),
-			WithheldRewardsPool:     config.AutonityContractConfig.WithheldRewardsPool,
-			TreasuryAccount:         config.AutonityContractConfig.Treasury,
+func toContractConfig(acg *params.AutonityContractGenesis) bindings.AutonityConfig {
+	return bindings.AutonityConfig{
+		Policy: bindings.AutonityPolicy{
+			TreasuryFee:              new(big.Int).SetUint64(acg.TreasuryFee),
+			MinBaseFee:               new(big.Int).SetUint64(acg.MinBaseFee),
+			DelegationRate:           new(big.Int).SetUint64(acg.DelegationRate),
+			UnbondingPeriod:          new(big.Int).SetUint64(acg.UnbondingPeriod),
+			InitialInflationReserve:  (*big.Int)(acg.InitialInflationReserve),
+			WithholdingThreshold:     new(big.Int).SetUint64(acg.WithholdingThreshold),
+			ProposerRewardRate:       new(big.Int).SetUint64(acg.ProposerRewardRate),
+			OracleRewardRate:         new(big.Int).SetUint64(acg.OracleRewardRate),
+			WithheldRewardsPool:      acg.WithheldRewardsPool,
+			TreasuryAccount:          acg.Treasury,
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(acg.BaseFeeChangeDenominator),
+			ElasticityMultiplier:     new(big.Int).SetUint64(acg.ElasticityMultiplier),
 		},
-		Contracts: AutonityContracts{
+		Contracts: bindings.AutonityContracts{
 			AccountabilityContract:         params.AccountabilityContractAddress,
 			OracleContract:                 params.OracleContractAddress,
 			AcuContract:                    params.ACUContractAddress,
@@ -165,15 +169,20 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 			AuctioneerContract:             params.AuctioneerContractAddress,
 		},
-		Protocol: AutonityProtocol{
-			OperatorAccount:     config.AutonityContractConfig.Operator,
-			EpochPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.EpochPeriod),
-			BlockPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.BlockPeriod),
-			CommitteeSize:       new(big.Int).SetUint64(config.AutonityContractConfig.MaxCommitteeSize),
-			MaxScheduleDuration: new(big.Int).SetUint64(config.AutonityContractConfig.MaxScheduleDuration),
+		Protocol: bindings.AutonityProtocol{
+			OperatorAccount:      acg.Operator,
+			EpochPeriod:          new(big.Int).SetUint64(acg.EpochPeriod),
+			BlockPeriod:          new(big.Int).SetUint64(acg.BlockPeriod),
+			CommitteeSize:        new(big.Int).SetUint64(acg.MaxCommitteeSize),
+			MaxScheduleDuration:  new(big.Int).SetUint64(acg.MaxScheduleDuration),
+			GasLimit:             new(big.Int).SetUint64(acg.GasLimit),
+			GasLimitBoundDivisor: new(big.Int).SetUint64(acg.GasLimitBoundDivisor),
 		},
 		ContractVersion: big.NewInt(1),
 	}
+}
+
+func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
 	validators := make([]params.Validator, 0, len(config.AutonityContractConfig.Validators))
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
@@ -184,7 +193,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 		generated.AutonityBytecode,
 		common.Big0,
 		validators,
-		contractConfig,
+		toContractConfig(config.AutonityContractConfig),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Autonity contract: %w", err)
@@ -263,14 +272,16 @@ func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, 
 }
 
 func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	accountabilityConfig := AccountabilityConfig{
+	accountabilityConfig := bindings.IAccountabilityConfig{
 		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(config.AccountabilityConfig.InnocenceProofSubmissionWindow),
-		BaseSlashingRates: AccountabilityBaseSlashingRates{
+		Delta:                          new(big.Int).SetUint64(config.AccountabilityConfig.Delta),
+		Range:                          new(big.Int).SetUint64(config.AccountabilityConfig.Range),
+		BaseSlashingRates: bindings.IAccountabilityBaseSlashingRates{
 			Low:  new(big.Int).SetUint64(config.AccountabilityConfig.BaseSlashingRateLow),
 			Mid:  new(big.Int).SetUint64(config.AccountabilityConfig.BaseSlashingRateMid),
 			High: new(big.Int).SetUint64(config.AccountabilityConfig.BaseSlashingRateHigh),
 		},
-		Factors: AccountabilityFactors{
+		Factors: bindings.IAccountabilityFactors{
 			Collusion: new(big.Int).SetUint64(config.AccountabilityConfig.CollusionFactor),
 			History:   new(big.Int).SetUint64(config.AccountabilityConfig.HistoryFactor),
 			Jail:      new(big.Int).SetUint64(config.AccountabilityConfig.JailFactor),
@@ -293,7 +304,7 @@ func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, de
 func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
 	omissionConfig := config.OmissionAccountabilityConfig
 
-	conf := OmissionAccountabilityConfig{
+	conf := bindings.OmissionAccountabilityConfig{
 		InactivityThreshold:    new(big.Int).SetUint64(omissionConfig.InactivityThreshold),
 		LookbackWindow:         new(big.Int).SetUint64(omissionConfig.LookbackWindow),
 		PastPerformanceWeight:  new(big.Int).SetUint64(omissionConfig.PastPerformanceWeight),
@@ -328,7 +339,7 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 		validators[i] = *val.NodeAddress
 	}
 
-	oracleConfig := OracleConfig{
+	oracleConfig := bindings.OracleConfig{
 		Autonity:                  params.AutonityContractAddress,
 		Operator:                  config.AutonityContractConfig.Operator,
 		VotePeriod:                new(big.Int).SetUint64(config.OracleContractConfig.VotePeriod),
@@ -337,6 +348,7 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 		BaseSlashingRate:          new(big.Int).SetUint64(config.OracleContractConfig.BaseSlashingRate),
 		NonRevealThreshold:        new(big.Int).SetUint64(config.OracleContractConfig.NonRevealThreshold),
 		RevealResetInterval:       new(big.Int).SetUint64(config.OracleContractConfig.RevealResetInterval),
+		SlashingRateCap:           new(big.Int).SetUint64(config.OracleContractConfig.SlashingRateCap),
 	}
 
 	err := deploy(
@@ -413,7 +425,7 @@ func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, de
 }
 
 func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	stabilizationConfig := IStabilizationConfig{
+	stabilizationConfig := bindings.IStabilizationConfig{
 		BorrowInterestRate:        (*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
 		AnnouncementWindow:        (*big.Int)(config.ASM.StabilizationContractConfig.AnnouncementWindow),
 		LiquidationRatio:          (*big.Int)(config.ASM.StabilizationContractConfig.LiquidationRatio),
@@ -443,7 +455,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 }
 
 func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	param := InflationControllerParams{
+	param := bindings.InflationControllerParams{
 		InflationRateInitial:      (*big.Int)(config.InflationContractConfig.InflationRateInitial),
 		InflationRateTransition:   (*big.Int)(config.InflationContractConfig.InflationRateTransition),
 		InflationCurveConvexity:   (*big.Int)(config.InflationContractConfig.InflationCurveConvexity),
@@ -552,7 +564,7 @@ func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ Gene
 }
 
 func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	auctioneerConfig := AuctioneerConfig{
+	auctioneerConfig := bindings.AuctioneerConfig{
 		LiquidationAuctionDuration: config.ASM.AuctioneerContractConfig.LiquidationAuctionDuration,
 		InterestAuctionDuration:    config.ASM.AuctioneerContractConfig.InterestAuctionDuration,
 		InterestAuctionDiscount:    config.ASM.AuctioneerContractConfig.InterestAuctionDiscount,
@@ -582,39 +594,6 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 // *
 
 func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	contractConfig := AutonityConfig{
-		Policy: AutonityPolicy{
-			TreasuryFee:             new(big.Int).SetUint64(config.AutonityContractConfig.TreasuryFee),
-			MinBaseFee:              new(big.Int).SetUint64(config.AutonityContractConfig.MinBaseFee),
-			DelegationRate:          new(big.Int).SetUint64(config.AutonityContractConfig.DelegationRate),
-			UnbondingPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.UnbondingPeriod),
-			InitialInflationReserve: (*big.Int)(config.AutonityContractConfig.InitialInflationReserve),
-			WithholdingThreshold:    new(big.Int).SetUint64(config.AutonityContractConfig.WithholdingThreshold),
-			ProposerRewardRate:      new(big.Int).SetUint64(config.AutonityContractConfig.ProposerRewardRate),
-			OracleRewardRate:        new(big.Int).SetUint64(config.AutonityContractConfig.OracleRewardRate),
-			WithheldRewardsPool:     config.AutonityContractConfig.WithheldRewardsPool,
-			TreasuryAccount:         config.AutonityContractConfig.Treasury,
-		},
-		Contracts: AutonityContracts{
-			AccountabilityContract:         params.AccountabilityContractAddress,
-			OracleContract:                 params.OracleContractAddress,
-			AcuContract:                    params.ACUContractAddress,
-			SupplyControlContract:          params.SupplyControlContractAddress,
-			StabilizationContract:          params.StabilizationContractAddress,
-			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
-			InflationControllerContract:    params.InflationControllerContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
-			AuctioneerContract:             params.AuctioneerContractAddress,
-		},
-		Protocol: AutonityProtocol{
-			OperatorAccount:     config.AutonityContractConfig.Operator,
-			EpochPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.EpochPeriod),
-			BlockPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.BlockPeriod),
-			CommitteeSize:       new(big.Int).SetUint64(config.AutonityContractConfig.MaxCommitteeSize),
-			MaxScheduleDuration: new(big.Int).SetUint64(config.AutonityContractConfig.MaxScheduleDuration),
-		},
-		ContractVersion: big.NewInt(1),
-	}
 	validators := make([]params.Validator, 0, len(config.AutonityContractConfig.Validators))
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
@@ -625,7 +604,7 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 		generated.AutonityTestBytecode,
 		common.Big0,
 		validators,
-		contractConfig,
+		toContractConfig(config.AutonityContractConfig),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy AutonityTest contract: %w", err)

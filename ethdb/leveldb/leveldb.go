@@ -204,6 +204,33 @@ func (db *Database) Delete(key []byte) error {
 	return db.db.Delete(key, nil)
 }
 
+type batchWithReader struct {
+	batch
+}
+
+func (b *batchWithReader) Has(key []byte) (bool, error) {
+	return b.db.Has(key, nil)
+}
+
+func (b *batchWithReader) Get(key []byte) ([]byte, error) {
+	dat, err := b.db.Get(key, nil)
+	if err != nil {
+		return nil, err
+	}
+	return dat, nil
+}
+
+// NewBatch creates a write-only key-value store that buffers changes to its host
+// database until a final write is called.
+func (db *Database) NewBatchWithReader() ethdb.BatchWithReader {
+	return &batchWithReader{
+		batch{
+			db: db.db,
+			b:  new(leveldb.Batch),
+		},
+	}
+}
+
 // NewBatch creates a write-only key-value store that buffers changes to its host
 // database until a final write is called.
 func (db *Database) NewBatch() ethdb.Batch {
@@ -245,13 +272,14 @@ func (db *Database) Path() string {
 // the metrics subsystem.
 //
 // This is how a LevelDB stats table looks like (currently):
-//   Compactions
-//    Level |   Tables   |    Size(MB)   |    Time(sec)  |    Read(MB)   |   Write(MB)
-//   -------+------------+---------------+---------------+---------------+---------------
-//      0   |          0 |       0.00000 |       1.27969 |       0.00000 |      12.31098
-//      1   |         85 |     109.27913 |      28.09293 |     213.92493 |     214.26294
-//      2   |        523 |    1000.37159 |       7.26059 |      66.86342 |      66.77884
-//      3   |        570 |    1113.18458 |       0.00000 |       0.00000 |       0.00000
+//
+//	Compactions
+//	 Level |   Tables   |    Size(MB)   |    Time(sec)  |    Read(MB)   |   Write(MB)
+//	-------+------------+---------------+---------------+---------------+---------------
+//	   0   |          0 |       0.00000 |       1.27969 |       0.00000 |      12.31098
+//	   1   |         85 |     109.27913 |      28.09293 |     213.92493 |     214.26294
+//	   2   |        523 |    1000.37159 |       7.26059 |      66.86342 |      66.77884
+//	   3   |        570 |    1113.18458 |       0.00000 |       0.00000 |       0.00000
 //
 // This is how the write delay look like (currently):
 // DelayN:5 Delay:406.604657ms Paused: false

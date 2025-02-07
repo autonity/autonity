@@ -95,7 +95,7 @@ type Backend interface {
 	ChainConfig() *params.ChainConfig
 	Engine() consensus.Engine
 
-	MinBaseFee() *big.Int
+	Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

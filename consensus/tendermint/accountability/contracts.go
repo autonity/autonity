@@ -2,6 +2,7 @@ package accountability
 
 import (
 	"errors"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math"
 	"math/big"
 	"strconv"
@@ -72,17 +73,17 @@ func (a *AccusationVerifier) RequiredGas(input []byte) uint64 {
 }
 
 // executes checks that can be done before even verifying signatures
-func preVerifyAccusation(m message.Msg, currentHeight uint64) error {
+func preVerifyAccusation(m message.Msg, currentHeight uint64, heightRange uint64, delta uint64, gracePeriod uint64) error {
 	accusationHeight := m.H()
 
 	// has to be at least DeltaBlocks old
-	if currentHeight <= (DeltaBlocks+1) || accusationHeight >= currentHeight-DeltaBlocks {
+	if currentHeight <= (delta+1) || accusationHeight >= currentHeight-delta {
 		return errTooRecentAccusation
 	}
 	// cannot be too old. Otherwise this could be exploited by a malicious peer to raise an undefendable accusation.
 	// additionally we allocate accountabilityHeightRange/4 more blocks as buffer time to avoid race conditions
 	// between msgStore garbage collection and innocence proof generation
-	if (currentHeight - accusationHeight) > (HeightRange - (HeightRange / 4)) {
+	if (currentHeight - accusationHeight) > (heightRange - (heightRange / 4) - gracePeriod) {
 		return errTooOldAccusation
 	}
 
@@ -92,19 +93,21 @@ func preVerifyAccusation(m message.Msg, currentHeight uint64) error {
 // Run take the rlp encoded Proof of accusation in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg signer is returned.
 func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
-	if len(input) <= 32 {
+	// there should be at least 3 uint256 + some proof bytes
+	if len(input) <= 32+32+32 {
 		return failureReturn, nil
 	}
-	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
-	p, err := decodeRawProof(input[32:])
+	heightRange := new(big.Int).SetBytes(input[0:32])
+	delta := new(big.Int).SetBytes(input[32:64])
+	gracePeriod := new(big.Int).SetBytes(input[64:96])
+
+	p, err := decodeRawProof(input[96:])
 	if err != nil {
 		return failureReturn, nil
 	}
 
 	// Do preliminary checks that do not rely on signature correctness
-	// NOTE: We do not have guarantees that: a.chain.CurrentBlock().NumberU64() == blockNumber - 1
-	// This is because the chain head can change while we are executing this tx, therefore the blockNumber might become obsolete.
-	if err = preVerifyAccusation(p.Message, blockNumber); err != nil {
+	if err = preVerifyAccusation(p.Message, blockNumber, heightRange.Uint64(), delta.Uint64(), gracePeriod.Uint64()); err != nil {
 		return failureReturn, nil
 	}
 
@@ -228,11 +231,11 @@ func (c *MisbehaviourVerifier) RequiredGas(input []byte) uint64 {
 // Run take the rlp encoded Proof of challenge in byte array, decode it and validate it, if the Proof is valid, then
 // the rlp hash of the msg payload and the msg signer is returned as the valid identity for Proof management.
 func (c *MisbehaviourVerifier) Run(input []byte, _ uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
-	if len(input) <= 32 {
+	if len(input) == 0 {
 		return failureReturn, nil
 	}
-	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
-	p, err := decodeRawProof(input[32:])
+
+	p, err := decodeRawProof(input)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -639,11 +642,11 @@ func (c *InnocenceVerifier) RequiredGas(input []byte) uint64 {
 // return the rlp hash of msg and the rlp hash of msg signer as the valid identity for on-chain management of proofs,
 // AC need the check the value returned to match the ID which is on challenge, to remove the challenge from chain.
 func (c *InnocenceVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ common.Address) ([]byte, error) {
-	if len(input) <= 32 || blockNumber == 0 {
+	if len(input) == 0 || blockNumber == 0 {
 		return failureReturn, nil
 	}
-	// the 1st 32 bytes are length of bytes array in solidity, take RLP bytes after it.
-	p, err := decodeRawProof(input[32:])
+
+	p, err := decodeRawProof(input)
 	if err != nil {
 		return failureReturn, nil
 	}
@@ -1007,7 +1010,7 @@ func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*type
 		return nil, err
 	}
 
-	info := *abi.ConvertType(data[0], new(autonity.AutonityEpochInfo)).(*autonity.AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(bindings.AutonityEpochInfo)).(*bindings.AutonityEpochInfo)
 
 	if len(info.Committee) == 0 {
 		panic("get empty committee set for height: " + strconv.FormatUint(height, 10))

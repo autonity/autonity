@@ -109,7 +109,6 @@ var (
 		utils.MinerNotifyFlag,
 		utils.LegacyMinerGasTargetFlag,
 		utils.LightKDFFlag,
-		utils.MinerGasLimitFlag,
 		utils.MinerGasPriceFlag,
 		utils.MinerExtraDataFlag,
 		utils.MinerRecommitIntervalFlag,

@@ -109,7 +109,7 @@ type NumberHash struct {
 // This method considers both limits to be _inclusive_.
 func ReadAllHashesInRange(db ethdb.Iteratee, first, last uint64) []*NumberHash {
 	var (
-		start     = encodeBlockNumber(first)
+		start     = encodeNumber(first)
 		keyLength = len(headerPrefix) + 8 + 32
 		hashes    = make([]*NumberHash, 0, 1+last-first)
 		it        = db.NewIterator(headerPrefix, start)
@@ -176,7 +176,7 @@ func ReadHeaderNumber(db ethdb.KeyValueReader, hash common.Hash) *uint64 {
 // WriteHeaderNumber stores the hash->number mapping.
 func WriteHeaderNumber(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
 	key := headerNumberKey(hash)
-	enc := encodeBlockNumber(number)
+	enc := encodeNumber(number)
 	if err := db.Put(key, enc); err != nil {
 		log.Crit("Failed to store hash to number mapping", "err", err)
 	}
@@ -294,7 +294,7 @@ func ReadTxIndexTail(db ethdb.KeyValueReader) *uint64 {
 // WriteTxIndexTail stores the number of oldest indexed block
 // into database.
 func WriteTxIndexTail(db ethdb.KeyValueWriter, number uint64) {
-	if err := db.Put(txIndexTailKey, encodeBlockNumber(number)); err != nil {
+	if err := db.Put(txIndexTailKey, encodeNumber(number)); err != nil {
 		log.Crit("Failed to store the transaction index tail", "err", err)
 	}
 }
@@ -311,7 +311,7 @@ func ReadFastTxLookupLimit(db ethdb.KeyValueReader) *uint64 {
 
 // WriteFastTxLookupLimit stores the txlookup limit used in fast sync into database.
 func WriteFastTxLookupLimit(db ethdb.KeyValueWriter, number uint64) {
-	if err := db.Put(fastTxLookupLimitKey, encodeBlockNumber(number)); err != nil {
+	if err := db.Put(fastTxLookupLimitKey, encodeNumber(number)); err != nil {
 		log.Crit("Failed to store transaction lookup limit for fast sync", "err", err)
 	}
 }

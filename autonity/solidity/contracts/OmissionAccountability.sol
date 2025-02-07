@@ -79,7 +79,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
         Autonity.EpochInfo memory epochInfo = autonity.getEpochInfo();
-        require(epochInfo.delta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
+        require(epochInfo.omissionDelta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
 
         operator = _operator;
         config = _config;
@@ -478,7 +478,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     function setInactivityThreshold(uint256 _inactivityThreshold) external virtual onlyOperator {
         require(_inactivityThreshold <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_inactivityThreshold >= config.pastPerformanceWeight, "inactivityThreshold needs to be greater or equal to pastPerformanceWeight");
-        emit ConfigUpdateUint("inactivityThreshold", config.inactivityThreshold, _inactivityThreshold);
+        emit ConfigUpdateUint("inactivityThreshold", config.inactivityThreshold, _inactivityThreshold, block.number);
         config.inactivityThreshold = _inactivityThreshold;
     }
 
@@ -489,7 +489,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator {
         require(_pastPerformanceWeight <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_pastPerformanceWeight <= config.inactivityThreshold, "pastPerformanceWeight cannot be greater than inactivityThreshold");
-        emit ConfigUpdateUint("pastPerformanceWeight", config.pastPerformanceWeight, _pastPerformanceWeight);
+        emit ConfigUpdateUint("pastPerformanceWeight", config.pastPerformanceWeight, _pastPerformanceWeight, block.number);
         config.pastPerformanceWeight = _pastPerformanceWeight;
     }
 
@@ -498,7 +498,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @param _initialJailingPeriod, the new value for the initial jailing period
     */
     function setInitialJailingPeriod(uint256 _initialJailingPeriod) external virtual onlyOperator {
-        emit ConfigUpdateUint("initialJailingPeriod", config.initialJailingPeriod, _initialJailingPeriod);
+        emit ConfigUpdateUint("initialJailingPeriod", config.initialJailingPeriod, _initialJailingPeriod, block.number);
         config.initialJailingPeriod = _initialJailingPeriod;
     }
 
@@ -507,7 +507,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @param _initialProbationPeriod, the new value for the initial probation period
     */
     function setInitialProbationPeriod(uint256 _initialProbationPeriod) external virtual onlyOperator {
-        emit ConfigUpdateUint("initialProbationPeriod", config.initialProbationPeriod, _initialProbationPeriod);
+        emit ConfigUpdateUint("initialProbationPeriod", config.initialProbationPeriod, _initialProbationPeriod, block.number);
         config.initialProbationPeriod = _initialProbationPeriod;
     }
 
@@ -517,7 +517,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     */
     function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
         require(_initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "cannot exceed slashing rate scale factor");
-        emit ConfigUpdateUint("initialSlashingRate", config.initialSlashingRate, _initialSlashingRate);
+        emit ConfigUpdateUint("initialSlashingRate", config.initialSlashingRate, _initialSlashingRate, block.number);
         config.initialSlashingRate = _initialSlashingRate;
     }
 
@@ -531,7 +531,8 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
 
         // utilize newDelta for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > newDelta + _lookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
-        emit ConfigUpdateUint("newLookbackWindow", newLookbackWindow, _lookbackWindow);
+        uint256 _currentEpochPeriod = autonity.getCurrentEpochPeriod(); // for logging purposes
+        emit ConfigUpdateUint("lookbackWindow", config.lookbackWindow, _lookbackWindow, epochBlock + _currentEpochPeriod);
         newLookbackWindow = _lookbackWindow;
     }
 
@@ -545,7 +546,8 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
 
         // utilize newLookbackWindow for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > _delta + newLookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
-        emit ConfigUpdateUint("newOmissionDelta", newDelta, _delta);
+        uint256 _currentEpochPeriod = autonity.getCurrentEpochPeriod(); // for logging purposes
+        emit ConfigUpdateUint("delta", config.delta, _delta, epochBlock + _currentEpochPeriod);
         newDelta = _delta;
     }
 

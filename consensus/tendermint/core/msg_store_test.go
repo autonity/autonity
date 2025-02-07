@@ -128,7 +128,7 @@ func TestMsgStore(t *testing.T) {
 		ms.Save(preVoteNil)
 		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cSize)
 		ms.Save(preVoteNoneNil)
-		ms.DeleteOlds(height)
+		ms.DeleteOlds(height + 1)
 		prevotes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
 			return true
 		})

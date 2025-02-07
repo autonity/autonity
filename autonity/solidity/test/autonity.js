@@ -359,8 +359,9 @@ contract('Autonity', function (accounts) {
 
     it('test set min base fee by operator', async function () {
       await autonity.setMinimumBaseFee(50000, {from: operator});
+      await utils.endEpoch(autonity,operator,deployer)
       let mGP = await autonity.getMinimumBaseFee({from: operator});
-      assert(50000 == mGP, "min gas price is not expected");
+      assert(50000 == mGP, "min base fee is not expected");
     });
 
     it('test regular validator cannot set min base fee', async function () {

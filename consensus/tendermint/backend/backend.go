@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/misc"
 	tendermintCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -60,7 +59,7 @@ func New(
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
 	log log.Logger, noGossip bool,
-	isHeightExpired func(headHeight uint64, height uint64) bool) *Backend {
+	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -140,7 +139,7 @@ type Backend struct {
 	vmConfig        *vm.Config
 	MsgStore        *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 	aggregator      *aggregator
-	isHeightExpired func(headHeight uint64, height uint64) bool // pass a function to avoid import loops
+	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops
 
 	jailed jailed // metadata for p2p jailed validators
 	future future // buffer for future height events and related metadata
@@ -288,11 +287,6 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 			parent         = sb.blockchain.GetBlock(proposalBlock.ParentHash(), proposalBlock.NumberU64()-1)
 		)
 
-		// Verify London hard fork attributes including min base fee
-		if err := misc.VerifyEip1559Header(sb.blockchain.Config(), sb.blockchain, parent.Header(), header); err != nil {
-			// Verify the header's EIP-1559 attributes.
-			return 0, err
-		}
 		// We need to process all the transaction to get the latest state to get the latest committee
 		state, stateErr := sb.blockchain.StateAt(parent.Root())
 		if stateErr != nil {
@@ -304,7 +298,7 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 			return 0, err
 		}
 
-		receipts, _, usedGas, epochInfo, err := sb.blockchain.Processor().Process(proposalBlock, state, *sb.vmConfig)
+		receipts, _, usedGas, epochInfo, contractsConfig, err := sb.blockchain.Processor().Process(proposalBlock, state, *sb.vmConfig)
 		if err != nil {
 			sb.logger.Error("state processing failed", "error", err, "height", proposalNumber)
 			return 0, err
@@ -330,7 +324,7 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 		}
 
 		// cache verified proposal state
-		sb.blockchain.CacheProposalState(proposalBlock.Hash(), receipts, usedGas, state)
+		sb.blockchain.CacheProposalState(proposalBlock.Hash(), receipts, usedGas, state, contractsConfig)
 
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {

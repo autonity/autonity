@@ -69,10 +69,15 @@ var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
 }
 
 var (
-	NtnPrecision = big.NewInt(1_000_000_000_000_000_000)
-	Ntn1         = new(big.Int).Mul(big.NewInt(1), NtnPrecision)
-	Ntn10000     = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
-	Ntn40000     = new(big.Int).Mul(big.NewInt(40_000), NtnPrecision)
+	DefaultGenesisGasLimit          = uint64(20_000_000)
+	DefaultBaseFeeChangeDenominator = uint64(8)
+	DefaultElasticityMultiplier     = uint64(2)
+	DefaultGasLimitBoundDivisor     = uint64(1024)
+	NtnPrecision                    = big.NewInt(1_000_000_000_000_000_000)
+	Ntn1                            = new(big.Int).Mul(big.NewInt(1), NtnPrecision)
+	Ntn10000                        = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
+	Ntn40000                        = new(big.Int).Mul(big.NewInt(40_000), NtnPrecision)
+	DefaultEpochPeriod              = uint64(30 * 60) // 30 mins
 
 	PiccadillyGenesisTime, _       = time.Parse(time.RFC3339, "2024-12-11T13:00:00Z")
 	PiccadillyGenesisUnixTimestamp = PiccadillyGenesisTime.Unix()
@@ -99,21 +104,25 @@ var (
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		AutonityContractConfig: &AutonityContractGenesis{
-			MinBaseFee:              500_000_000,
-			EpochPeriod:             30 * 60,
-			UnbondingPeriod:         6 * 60 * 60,
-			BlockPeriod:             1,
-			MaxCommitteeSize:        30,
-			MaxScheduleDuration:     uint64(4*SecondsInYear + SecondsInDay), // 126230400 seconds
-			Operator:                common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
-			Treasury:                common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
-			WithheldRewardsPool:     common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"), // TODO: set to another account if we do not want to send withheld rewards to the AC treasury
-			TreasuryFee:             10_000_000_000_000_000,
-			DelegationRate:          1000,                                                                            // 10%
-			WithholdingThreshold:    0,                                                                               // 0%, no tolerance
-			ProposerRewardRate:      1000,                                                                            // 10% TODO: is this enough?
-			OracleRewardRate:        1000,                                                                            // 10%
-			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)), // 40M NTN
+			MinBaseFee:               500_000_000,
+			EpochPeriod:              DefaultEpochPeriod,
+			UnbondingPeriod:          6 * 60 * 60,
+			BlockPeriod:              1,
+			MaxCommitteeSize:         30,
+			MaxScheduleDuration:      uint64(4*SecondsInYear + SecondsInDay), // 126230400 seconds
+			GasLimit:                 DefaultGenesisGasLimit,
+			GasLimitBoundDivisor:     DefaultGasLimitBoundDivisor,
+			BaseFeeChangeDenominator: DefaultBaseFeeChangeDenominator,
+			ElasticityMultiplier:     DefaultElasticityMultiplier,
+			Operator:                 common.HexToAddress("0xd32C0812Fa1296F082671D5Be4CbB6bEeedC2397"),
+			Treasury:                 common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"),
+			WithheldRewardsPool:      common.HexToAddress("0xF74c34Fed10cD9518293634C6f7C12638a808Ad5"), // TODO: set to another account if we do not want to send withheld rewards to the AC treasury
+			TreasuryFee:              10_000_000_000_000_000,
+			DelegationRate:           1000,                                                                            // 10%
+			WithholdingThreshold:     0,                                                                               // 0%, no tolerance
+			ProposerRewardRate:       1000,                                                                            // 10% TODO: is this enough?
+			OracleRewardRate:         1000,                                                                            // 10%
+			InitialInflationReserve:  (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)), // 40M NTN
 			Schedules: []Schedule{
 				{
 					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp),
@@ -170,20 +179,24 @@ var (
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		AutonityContractConfig: &AutonityContractGenesis{
-			MinBaseFee:              500_000_000,
-			EpochPeriod:             30 * 60,
-			UnbondingPeriod:         6 * 60 * 60,
-			BlockPeriod:             1,
-			MaxCommitteeSize:        50,
-			Operator:                common.HexToAddress("0x293039dDC627B1dF9562380c0E5377848F94325A"),
-			Treasury:                common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"),
-			WithheldRewardsPool:     common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"), // TODO: set to another account if we do not want to send withheld rewards to the AC treasury
-			TreasuryFee:             10_000_000_000_000_000,
-			InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
-			DelegationRate:          1000,
-			WithholdingThreshold:    0,    // 0%, no tolerance
-			ProposerRewardRate:      1000, // 10% TODO: is this enough?
-			OracleRewardRate:        1000, // 10%
+			MinBaseFee:               500_000_000,
+			EpochPeriod:              DefaultEpochPeriod,
+			GasLimit:                 DefaultGenesisGasLimit,
+			GasLimitBoundDivisor:     DefaultGasLimitBoundDivisor,
+			BaseFeeChangeDenominator: DefaultBaseFeeChangeDenominator,
+			ElasticityMultiplier:     DefaultElasticityMultiplier,
+			UnbondingPeriod:          6 * 60 * 60,
+			BlockPeriod:              1,
+			MaxCommitteeSize:         50,
+			Operator:                 common.HexToAddress("0x293039dDC627B1dF9562380c0E5377848F94325A"),
+			Treasury:                 common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"),
+			WithheldRewardsPool:      common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"), // TODO: set to another account if we do not want to send withheld rewards to the AC treasury
+			TreasuryFee:              10_000_000_000_000_000,
+			InitialInflationReserve:  (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
+			DelegationRate:           1000,
+			WithholdingThreshold:     0,    // 0%, no tolerance
+			ProposerRewardRate:       1000, // 10% TODO: is this enough?
+			OracleRewardRate:         1000, // 10%
 			Validators: []*Validator{{
 				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
 				OracleAddress: common.HexToAddress("0x4D8387E38F42084aa24CE7DA137222786fF23A3E"),
@@ -455,27 +468,34 @@ var (
 	}
 	TestValidatorConsensusKey, _ = blst.SecretKeyFromHex("0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb")
 
+	TestMinBaseFee             = uint64(1000000000) // used for testing
 	TestAutonityContractConfig = &AutonityContractGenesis{
-		MaxCommitteeSize:        21,
-		BlockPeriod:             1,
-		UnbondingPeriod:         120,
-		EpochPeriod:             50,   // needs to be > DELTA+lookback-1
-		DelegationRate:          1200, // 12%
-		WithholdingThreshold:    0,    // 0%, no tolerance
-		ProposerRewardRate:      1000, // 10%
-		OracleRewardRate:        1000, // 10%
-		Treasury:                common.Address{120},
-		WithheldRewardsPool:     common.Address{120}, // TODO: change if decide to decouple treasury and withheld rewards pool
-		TreasuryFee:             1500000000000000,    // 0.15%,
-		MinBaseFee:              InitialBaseFee,
-		InitialInflationReserve: (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
-		Operator:                common.HexToAddress("0x12321"),
-		MaxScheduleDuration:     uint64(3 * SecondsInYear),
+		MaxCommitteeSize:         21,
+		BlockPeriod:              1,
+		UnbondingPeriod:          120,
+		EpochPeriod:              50,   // needs to be > DELTA+lookback-1
+		DelegationRate:           1200, // 12%
+		WithholdingThreshold:     0,    // 0%, no tolerance
+		ProposerRewardRate:       1000, // 10%
+		OracleRewardRate:         1000, // 10%
+		Treasury:                 common.Address{120},
+		WithheldRewardsPool:      common.Address{120}, // TODO: change if decide to decouple treasury and withheld rewards pool
+		TreasuryFee:              1500000000000000,    // 0.15%,
+		MinBaseFee:               TestMinBaseFee,
+		InitialInflationReserve:  (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
+		Operator:                 common.HexToAddress("0x12321"),
+		MaxScheduleDuration:      uint64(3 * SecondsInYear),
+		GasLimit:                 DefaultGenesisGasLimit,
+		GasLimitBoundDivisor:     DefaultGasLimitBoundDivisor,
+		BaseFeeChangeDenominator: DefaultBaseFeeChangeDenominator,
+		ElasticityMultiplier:     DefaultElasticityMultiplier,
 	}
 
 	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
 	TestAccountabilityConfig = &AccountabilityGenesis{
 		InnocenceProofSubmissionWindow: 30,  // 30 blocks, to shorten the tests
+		Delta:                          10,  // 10 blocks
+		Range:                          256, // 256 blocks
 		BaseSlashingRateLow:            400, // 4%
 		BaseSlashingRateMid:            600, // 6%
 		BaseSlashingRateHigh:           800, // 8%
@@ -492,6 +512,7 @@ var (
 		BaseSlashingRate:          10,
 		NonRevealThreshold:        DefaultGenesisOracleConfig.NonRevealThreshold,
 		RevealResetInterval:       DefaultGenesisOracleConfig.RevealResetInterval,
+		SlashingRateCap:           1000,
 	}
 
 	TestChainConfig = &ChainConfig{
@@ -544,7 +565,7 @@ func init() {
 		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)
 	}
-	TestGenesisConfig := &ChainConfig{AutonityContractConfig: TestAutonityContractConfig, OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig}
+	TestGenesisConfig := &ChainConfig{AutonityContractConfig: TestAutonityContractConfig, OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig, AccountabilityConfig: TestAccountabilityConfig}
 	TestGenesisConfig.Prepare()
 	// Setup the validator section of the Picadilly configuration
 	for _, v := range PiccadillyGenesisValidators {
@@ -787,6 +808,16 @@ func (c *ChainConfig) Prepare() error {
 	if c.AutonityContractConfig.EpochPeriod <= delta+lookbackWindow-1 {
 		return fmt.Errorf("epoch period cannot be lower or equal than delta+lookbackWindow-1. epoch period: %d, delta: %d, lookback: %d", c.AutonityContractConfig.EpochPeriod, delta, lookbackWindow)
 	}
+
+	// provable fault accountability check
+	if c.AccountabilityConfig.Range <= c.AccountabilityConfig.Delta {
+		return fmt.Errorf("accountability height range cannot be lower or equal than delta")
+	}
+
+	if c.AccountabilityConfig.Range%4 != 0 {
+		return fmt.Errorf("accountability height range must be a multiple of 4")
+	}
+
 	return nil
 }
 

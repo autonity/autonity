@@ -54,7 +54,7 @@ var (
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
 
-func fakeExpiryChecker(_ uint64, _ uint64) bool {
+func fakeExpiryChecker(_ uint64, _ uint64, _ uint64) bool {
 	return false
 }
 
@@ -577,20 +577,19 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey, consensus
 	}
 }
 
-func makeHeader(parent *types.Block, feeGetter misc.BaseFeeGetter) *types.Header {
-	header := &types.Header{
+func makeHeader(parent *types.Block, eip1559Params *types.Eip1559Params) *types.Header {
+	return &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parent.Number().Add(parent.Number(), common.Big1),
-		GasLimit:   core.CalcGasLimit(parent.GasLimit(), 8000000),
+		GasLimit:   core.CalcGasLimit(parent.GasLimit(), 8000000, 1024),
 		GasUsed:    0,
-		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent.Header(), feeGetter),
+		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent.Header(), eip1559Params),
 		Extra:      parent.Extra(),
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(1)).Uint64(),
 		Difficulty: defaultDifficulty,
 		MixDigest:  types.BFTDigest,
 		Round:      0,
 	}
-	return header
 }
 
 func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
@@ -620,7 +619,11 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		return nil, err
 	}
 
-	header := makeHeader(parent, chain)
+	eip1559Params, err := chain.Eip1559ParamsByHeight(parent.Number().Uint64() + 1)
+	if err != nil {
+		return nil, err
+	}
+	header := makeHeader(parent, eip1559Params)
 	err = engine.Prepare(chain, parent.Header(), header, state)
 	if err != nil {
 		return nil, err
@@ -648,7 +651,7 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		receipts = append(receipts, receipt)
 	}
 
-	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
+	block, _, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
 	if err != nil {
 		return nil, err
 	}

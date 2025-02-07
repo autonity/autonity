@@ -26,23 +26,35 @@ type EpochInfo struct {
 	EpochBlock *big.Int
 }
 
+type Eip1559Params struct {
+	MinBaseFee               *big.Int `rlp:"nil" json:"minBaseFee" gencodec:"required"`
+	BaseFeeChangeDenominator *big.Int `rlp:"nil" json:"baseFeeChangeDenominator" gencodec:"required"`
+	ElasticityMultiplier     *big.Int `rlp:"nil" json:"elasticityMultiplier" gencodec:"required"`
+	GasLimitBoundDivisor     *big.Int `rlp:"nil" json:"gasLimitBoundDivisor" gencodec:"required"`
+}
+
 // Epoch contains the previous epoch block, next epoch block and its committee of the current epoch.
 // It is saved in the block header if current block is an epoch block. The epoch block number is not saved
 // here since it is duplicated than the block number in the block header.
 type Epoch struct {
-	PreviousEpochBlock *big.Int   `rlp:"nil" json:"previousEpochBlock" gencodec:"required"`
-	NextEpochBlock     *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`
-	Committee          *Committee `rlp:"nil" json:"committee" gencodec:"required"`
-	Delta              *big.Int   `rlp:"nil" json:"delta" gencodec:"required"` // delta for omission failure
+	PreviousEpochBlock *big.Int       `rlp:"nil" json:"previousEpochBlock" gencodec:"required"`
+	NextEpochBlock     *big.Int       `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`
+	Committee          *Committee     `rlp:"nil" json:"committee" gencodec:"required"`
+	OmissionDelta      *big.Int       `rlp:"nil" json:"omissionDelta" gencodec:"required"` // delta for omission failure
+	Eip1559            *Eip1559Params `rlp:"nil" json:"eip1559" gencodec:"required"`
 }
 
 // MarshalJSON marshals as JSON.
 func (e Epoch) MarshalJSON() ([]byte, error) {
 	type epoch struct {
-		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
-		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
-		Committee          Committee    `json:"committee" gencodec:"required"`
-		Delta              *hexutil.Big `json:"delta" gencodec:"required"`
+		PreviousEpochBlock       *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
+		NextEpochBlock           *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
+		Committee                Committee    `json:"committee" gencodec:"required"`
+		OmissionDelta            *hexutil.Big `json:"omissionDelta" gencodec:"required"`
+		MinBaseFee               *hexutil.Big `json:"minBaseFee" gencodec:"required"`
+		BaseFeeChangeDenominator *hexutil.Big `json:"baseFeeChangeDenominator" gencodec:"required"`
+		ElasticityMultiplier     *hexutil.Big `json:"elasticityMultiplier" gencodec:"required"`
+		GasLimitBoundDivisor     *hexutil.Big `json:"gasLimitBoundDivisor" gencodec:"required"`
 	}
 	var enc epoch
 	enc.PreviousEpochBlock = (*hexutil.Big)(e.PreviousEpochBlock)
@@ -51,17 +63,25 @@ func (e Epoch) MarshalJSON() ([]byte, error) {
 	if e.Committee != nil {
 		enc.Committee = *e.Committee // nolint
 	}
-	enc.Delta = (*hexutil.Big)(e.Delta)
+	enc.OmissionDelta = (*hexutil.Big)(e.OmissionDelta)
+	enc.MinBaseFee = (*hexutil.Big)(e.Eip1559.MinBaseFee)
+	enc.BaseFeeChangeDenominator = (*hexutil.Big)(e.Eip1559.BaseFeeChangeDenominator)
+	enc.ElasticityMultiplier = (*hexutil.Big)(e.Eip1559.ElasticityMultiplier)
+	enc.GasLimitBoundDivisor = (*hexutil.Big)(e.Eip1559.GasLimitBoundDivisor)
 	return json.Marshal(&enc)
 }
 
 // UnmarshalJSON unmarshals from JSON.
 func (e *Epoch) UnmarshalJSON(input []byte) error {
 	type epoch struct {
-		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
-		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
-		Committee          *Committee   `json:"committee" gencodec:"required"`
-		Delta              *hexutil.Big `json:"delta" gencodec:"required"`
+		PreviousEpochBlock       *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
+		NextEpochBlock           *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
+		Committee                *Committee   `json:"committee" gencodec:"required"`
+		OmissionDelta            *hexutil.Big `json:"omissionDelta" gencodec:"required"`
+		MinBaseFee               *hexutil.Big `json:"minBaseFee" gencodec:"required"`
+		BaseFeeChangeDenominator *hexutil.Big `json:"baseFeeChangeDenominator" gencodec:"required"`
+		ElasticityMultiplier     *hexutil.Big `json:"elasticityMultiplier" gencodec:"required"`
+		GasLimitBoundDivisor     *hexutil.Big `json:"gasLimitBoundDivisor" gencodec:"required"`
 	}
 
 	var dec epoch
@@ -84,10 +104,32 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 	}
 	e.Committee = dec.Committee
 
-	if dec.Delta == nil {
-		return errors.New("missing required field 'delta' for epoch")
+	if dec.OmissionDelta == nil {
+		return errors.New("missing required field 'omissionDelta' for epoch")
 	}
-	e.Delta = dec.Delta.ToInt()
+	e.OmissionDelta = dec.OmissionDelta.ToInt()
+
+	e.Eip1559 = &Eip1559Params{}
+
+	if dec.MinBaseFee == nil {
+		return errors.New("missing required field 'minBaseFee' for epoch")
+	}
+	e.Eip1559.MinBaseFee = dec.MinBaseFee.ToInt()
+
+	if dec.BaseFeeChangeDenominator == nil {
+		return errors.New("missing required field 'baseFeeChangeDenominator' for epoch")
+	}
+	e.Eip1559.BaseFeeChangeDenominator = dec.BaseFeeChangeDenominator.ToInt()
+
+	if dec.ElasticityMultiplier == nil {
+		return errors.New("missing required field 'elasticityMultiplier' for epoch")
+	}
+	e.Eip1559.ElasticityMultiplier = dec.ElasticityMultiplier.ToInt()
+
+	if dec.GasLimitBoundDivisor == nil {
+		return errors.New("missing required field 'gasLimitBoundDivisor' for epoch")
+	}
+	e.Eip1559.GasLimitBoundDivisor = dec.GasLimitBoundDivisor.ToInt()
 	return nil
 }
 
@@ -106,9 +148,29 @@ func (e *Epoch) Copy() *Epoch {
 		cpy.Committee = e.Committee.Copy()
 	}
 
-	if e.Delta != nil {
-		cpy.Delta = new(big.Int).Set(e.Delta)
+	if e.OmissionDelta != nil {
+		cpy.OmissionDelta = new(big.Int).Set(e.OmissionDelta)
 	}
+
+	if e.Eip1559 != nil {
+		cpy.Eip1559 = &Eip1559Params{}
+		if e.Eip1559.MinBaseFee != nil {
+			cpy.Eip1559.MinBaseFee = new(big.Int).Set(e.Eip1559.MinBaseFee)
+		}
+
+		if e.Eip1559.BaseFeeChangeDenominator != nil {
+			cpy.Eip1559.BaseFeeChangeDenominator = new(big.Int).Set(e.Eip1559.BaseFeeChangeDenominator)
+		}
+
+		if e.Eip1559.ElasticityMultiplier != nil {
+			cpy.Eip1559.ElasticityMultiplier = new(big.Int).Set(e.Eip1559.ElasticityMultiplier)
+		}
+
+		if e.Eip1559.GasLimitBoundDivisor != nil {
+			cpy.Eip1559.GasLimitBoundDivisor = new(big.Int).Set(e.Eip1559.GasLimitBoundDivisor)
+		}
+	}
+
 	return cpy
 }
 
@@ -135,7 +197,23 @@ func (e *Epoch) Equal(other *Epoch) bool {
 		return false
 	}
 
-	if e.Delta.Cmp(other.Delta) != 0 {
+	if e.OmissionDelta.Cmp(other.OmissionDelta) != 0 {
+		return false
+	}
+
+	if e.Eip1559.MinBaseFee.Cmp(other.Eip1559.MinBaseFee) != 0 {
+		return false
+	}
+
+	if e.Eip1559.BaseFeeChangeDenominator.Cmp(other.Eip1559.BaseFeeChangeDenominator) != 0 {
+		return false
+	}
+
+	if e.Eip1559.ElasticityMultiplier.Cmp(other.Eip1559.ElasticityMultiplier) != 0 {
+		return false
+	}
+
+	if e.Eip1559.GasLimitBoundDivisor.Cmp(other.Eip1559.GasLimitBoundDivisor) != 0 {
 		return false
 	}
 

@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	fuzz "github.com/google/gofuzz"
 
 	"github.com/autonity/autonity/core/types"
@@ -99,8 +101,8 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 	}
 
 	n := network[1]
-	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
-	var events []autonity.AccountabilityEvent
+	accountabilityContract, _ := bindings.NewAccountability(params.AccountabilityContractAddress, n.WsClient)
+	var events []bindings.IAccountabilityEvent
 	if eventType == autonity.Misbehaviour {
 		faults, err := accountabilityContract.GetValidatorFaults(nil, faultyValidator)
 		require.NoError(t, err)
