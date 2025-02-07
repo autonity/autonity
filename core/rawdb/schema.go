@@ -107,6 +107,8 @@ var (
 
 	jailedValidatorCount   = []byte("JailedCount")
 	jailedValidatorAddress = []byte("JailedAddress")
+
+	autonityConfigPrefix = []byte("ac-")
 )
 
 const (
@@ -251,4 +253,8 @@ func IsCodeKey(key []byte) (bool, []byte) {
 // configKey = configPrefix + hash
 func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
+}
+
+func autonityConfigKey(number uint64) []byte {
+	return append(autonityConfigPrefix, encodeBlockNumber(number)...)
 }

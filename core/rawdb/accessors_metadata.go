@@ -17,7 +17,9 @@
 package rawdb
 
 import (
+	"encoding/binary"
 	"encoding/json"
+	"github.com/autonity/autonity/autonity/bindings"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -78,6 +80,48 @@ func WriteChainConfig(db ethdb.KeyValueWriter, hash common.Hash, cfg *params.Cha
 	}
 	log.Warn("Storing chain config", "hash", hash.String(), "genesis", cfg)
 	if err := db.Put(configKey(hash), data); err != nil {
+		log.Crit("Failed to store chain config", "err", err)
+	}
+}
+
+func ReadAutonityConfig(db ethdb.KeyValueReader, number uint64) *bindings.AutonityConfig {
+	data, _ := db.Get(autonityConfigKey(number))
+	if len(data) == 0 {
+		return nil
+	}
+
+	// result is a block number, find the config in the respective block
+	if len(data) == 8 {
+		number = binary.BigEndian.Uint64(data)
+		data, _ = db.Get(autonityConfigKey(number))
+	}
+
+	if len(data) == 0 {
+		panic("cannot fetch autonity config")
+	}
+
+	config := &bindings.AutonityConfig{}
+	err := rlp.DecodeBytes(data, config)
+	if err != nil {
+		// TODO: panic? show also "previous" number?
+		log.Error("Invalid chain config RLP", "number", number, "err", err)
+		return nil
+	}
+	return config
+}
+
+func WriteAutonityConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.AutonityConfig) {
+	if cfg == nil {
+		return
+	}
+	// TODO: implement logic to check if something changed wrt previous config
+
+	data, err := rlp.EncodeToBytes(cfg)
+	if err != nil {
+		log.Crit("Failed to RLP encode chain config", "err", err)
+	}
+	//log.Warn("Storing chain config", "hash", number, "config", cfg)
+	if err := db.Put(autonityConfigKey(number), data); err != nil {
 		log.Crit("Failed to store chain config", "err", err)
 	}
 }

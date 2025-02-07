@@ -20,6 +20,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"sort"
 	"time"
@@ -67,6 +68,8 @@ type StateDB struct {
 	originalRoot common.Hash // The pre-state root, before any changes were made
 	trie         Trie
 	hasher       crypto.KeccakState
+
+	config *bindings.AutonityConfig // config at current block finalization
 
 	snaps         *snapshot.Tree
 	snap          snapshot.Snapshot
@@ -195,6 +198,14 @@ func (s *StateDB) AddLog(log *types.Log) {
 	log.Index = s.logSize
 	s.logs[s.thash] = append(s.logs[s.thash], log)
 	s.logSize++
+}
+
+func (s *StateDB) SetConfig(config *bindings.AutonityConfig) {
+	s.config = config
+}
+
+func (s *StateDB) Config() *bindings.AutonityConfig {
+	return s.config
 }
 
 func (s *StateDB) GetLogs(hash common.Hash, blockHash common.Hash) []*types.Log {

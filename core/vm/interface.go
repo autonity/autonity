@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
@@ -77,6 +78,8 @@ type StateDB interface {
 
 	TxIndex() int
 	GetLogs(hash common.Hash, blockHash common.Hash) []*types.Log
+
+	SetConfig(config *bindings.AutonityConfig)
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

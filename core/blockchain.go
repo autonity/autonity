@@ -1283,6 +1283,8 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	rawdb.WriteBlock(blockBatch, block)
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
 	rawdb.WritePreimages(blockBatch, state.Preimages())
+	// TODO: consider passing it along like receipts instead of storing in state object
+	rawdb.WriteAutonityConfig(blockBatch, block.NumberU64(), state.Config())
 	if err := blockBatch.Write(); err != nil {
 		bc.log.Crit("Failed to write block into disk", "err", err)
 	}

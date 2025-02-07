@@ -219,16 +219,20 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	previousEpochBlock := new(big.Int)
 	nextEpochBlock := new(big.Int)
 	delta := new(big.Int)
+	config := bindings.AutonityConfig{}
 	usedGas, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
 		"finalize",
-		&[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock, &delta},
+		&[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock, &delta, &config},
 	)
 	recordFinalizeGasUsage(epochEnded, header.Number.Uint64(), int64(usedGas))
 	if err != nil {
 		return false, nil, err
 	}
+
+	// set current config in the statedb object
+	state.SetConfig(&config)
 
 	if !epochEnded {
 		return updateReady, nil, nil
