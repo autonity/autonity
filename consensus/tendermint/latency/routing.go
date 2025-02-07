@@ -53,9 +53,11 @@ type Router struct {
 	chainEventChan chan core.ChainEvent
 	chainEventSub  event.Subscription
 
-	curEpochInfo      *types.EpochInfo
-	measurementWindow uint64
-	measured          bool
+	curEpochInfo *types.EpochInfo
+	// measurementWindow uint64
+	lastReportedHeight  uint64
+	lastRefreshedHeight uint64
+	measured            bool
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -126,8 +128,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 		return
 	}
 	r.curEpochInfo = curEpoch
-	r.measurementWindow = 1 // one report each block
-	r.measured = false      // measure on startup
+	r.measured = false // measure on startup
 
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
 	r.chainEventSub = chain.SubscribeChainEvent(r.chainEventChan)
@@ -164,45 +165,40 @@ func (r *Router) loop(ctx context.Context) {
 			}
 
 		case ev := <-r.chainEventChan:
-			if r.measurementWindow == 0 {
-				log.Error("invalid report window, too short epoch period?")
-				continue
-			}
-
 			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
 				log.Info("not going to measure latency within a small network")
 				continue
 			}
 
 			height := ev.Block.NumberU64()
-			committee := r.curEpochInfo.Committee
-			reporterIndex := (height / r.measurementWindow) % uint64(committee.Len())
-			// every validator is assigned with an independent measurement and reporting window.
-			if !r.measured && committee.Members[reporterIndex].Address == r.self {
+
+			if !r.measured {
 				log.Info(
-					"Router: in reporter slot, reporting latency",
+					"Router: new block reporting latency",
 					"height",
 					height,
-					"reporter idx",
-					reporterIndex,
 					"reporter",
 					r.self,
 				)
 				if err := r.report(); err != nil {
-					log.Error("failed to report latency", "err", err)
+					log.Error("Router: failed to report latency", "err", err)
 				} else {
 					r.measured = true
 				}
 			} else {
 				log.Info(
-					"Router: not in reporter slot, skipping",
+					"Router: already reported, skipping",
 					"height",
 					height,
-					"reporter idx",
-					reporterIndex,
-					"reporter",
-					committee.Members[reporterIndex].Address,
 				)
+			}
+
+			if r.lastReportedHeight > r.lastRefreshedHeight {
+				if err := r.refreshClusters(); err != nil {
+					log.Error("Router: failed to refresh clusters", "err", err)
+				} else {
+					r.lastRefreshedHeight = height
+				}
 			}
 
 		case ev := <-r.reportedEventChan:
@@ -210,11 +206,8 @@ func (r *Router) loop(ctx context.Context) {
 				log.Info("Router: not going to cluster a small scale network")
 				continue
 			}
-			// For every measurementWindow, there will be a unique validator assigned to measure and send the latencies.
-			log.Info("Router: latency report detected, refreshing network clustering", "reporter", ev.Reporter)
-			if err := r.refreshClusters(); err != nil {
-				log.Error("failed to refresh clusters", "err", err)
-			}
+			log.Info("Router: latency report detected, scheduling network clustering", "reporter", ev.Reporter)
+			r.lastReportedHeight = max(r.lastReportedHeight, ev.Raw.BlockNumber)
 		}
 	}
 }
