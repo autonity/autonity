@@ -7,9 +7,12 @@ import (
 	"reflect"
 	"runtime"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
@@ -31,7 +34,7 @@ type (
 		NewtonBalance *big.Int
 		Bonds         []Delegation
 	}
-	genericDeployer func(address common.Address, abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) error
+	genericDeployer func(address common.Address, abi *abi.ABI, bytecode []byte, value *uint256.Int, args ...interface{}) error
 	genericCaller   func(caller common.Address, contractAddress common.Address, abi *abi.ABI, method string, args ...interface{}) ([]byte, error)
 	genesisStep     func(chainConfig *params.ChainConfig, genesisBonds GenesisBonds, deployer genericDeployer, caller genericCaller) error
 )
@@ -86,7 +89,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 		address common.Address,
 		abi *abi.ABI,
 		bytecode []byte,
-		value *big.Int,
+		value *uint256.Int,
 		args ...interface{},
 	) error {
 		constructorParams, err := abi.Pack("", args...)
@@ -94,7 +97,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 			return fmt.Errorf("failed to pack parameters: %w", err)
 		}
 		if value.BitLen() != 0 && evm.StateDB.GetBalance(params.DeployerAddress).Cmp(value) < 0 {
-			evm.StateDB.AddBalance(params.DeployerAddress, value)
+			evm.StateDB.AddBalance(params.DeployerAddress, value, tracing.BalanceChangeUnspecified)
 		}
 		data := append(bytecode, constructorParams...)
 		gas := uint64(math.MaxUint64)
@@ -120,7 +123,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 			return nil, fmt.Errorf("failed to pack parameters for method: %s %w", method, err)
 		}
 		gas := uint64(math.MaxUint64)
-		packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, common.Big0)
+		packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, uint256.NewInt(0))
 		return packedResult, err
 	}
 
@@ -180,7 +183,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 		params.AutonityContractAddress,
 		&generated.AutonityAbi,
 		generated.AutonityBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		validators,
 		contractConfig,
 	)
@@ -281,7 +284,7 @@ func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, de
 		params.AccountabilityContractAddress,
 		&generated.AccountabilityAbi,
 		generated.AccountabilityBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		params.AutonityContractAddress,
 		accountabilityConfig,
 	)
@@ -312,7 +315,7 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
 		generated.OmissionAccountabilityBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
 		treasuries,
@@ -355,7 +358,7 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 		params.OracleContractAddress,
 		&generated.OracleAbi,
 		generated.OracleBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		voters,
 		validators,
 		treasuries,
@@ -385,7 +388,7 @@ func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy generi
 		params.ACUContractAddress,
 		&generated.ACUAbi,
 		generated.ACUBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		config.ASM.ACUContractConfig.Symbols,
 		bigQuantities,
 		new(big.Int).SetUint64(config.ASM.ACUContractConfig.Scale),
@@ -412,7 +415,7 @@ func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, dep
 		params.SupplyControlContractAddress,
 		&generated.SupplyControlAbi,
 		generated.SupplyControlBytecode,
-		value,
+		uint256.MustFromBig(value),
 		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
 		params.StabilizationContractAddress,
@@ -428,7 +431,7 @@ func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, de
 		params.UpgradeManagerContractAddress,
 		&generated.UpgradeManagerAbi,
 		generated.UpgradeManagerBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
 	)
@@ -458,7 +461,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 		params.StabilizationContractAddress,
 		&generated.StabilizationAbi,
 		generated.StabilizationBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		stabilizationConfig,
 		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
@@ -490,7 +493,7 @@ func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBond
 		params.InflationControllerContractAddress,
 		&generated.InflationControllerAbi,
 		generated.InflationControllerBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		param,
 	)
 	if err != nil {
@@ -510,7 +513,7 @@ func deployStakableVestingManagerContract(config *params.ChainConfig, _ GenesisB
 		params.StakeableVestingManagerContractAddress,
 		&generated.StakeableVestingManagerAbi,
 		generated.StakeableVestingManagerBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		params.AutonityContractAddress,
 	)
 	if err != nil {
@@ -562,7 +565,7 @@ func deployNonStakableVestingContract(_ *params.ChainConfig, _ GenesisBonds, dep
 		params.NonStakeableVestingContractAddress,
 		&generated.NonStakeableVestingAbi,
 		generated.NonStakeableVestingBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		params.AutonityContractAddress,
 	)
 	if err != nil {
@@ -638,7 +641,7 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 		params.AutonityContractAddress,
 		&generated.AutonityTestAbi,
 		generated.AutonityTestBytecode,
-		common.Big0,
+		uint256.NewInt(0),
 		validators,
 		contractConfig,
 	)

@@ -5,8 +5,9 @@ import (
 	"math/big"
 	"reflect"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/accounts/abi"
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -73,7 +74,7 @@ func AutonityContractCall(autonityAbi *abi.ABI, evm *vm.EVM, function string, re
 		params.AutonityContractAddress,
 		packedArgs,
 		math.MaxUint64,
-		common.Big0,
+		uint256.NewInt(0),
 	)
 	if err != nil {
 		return usedGas, newErrorWithRevertReason(err, ret)

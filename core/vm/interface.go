@@ -106,7 +106,7 @@ type StateDB interface {
 	Finalise(bool)
 
 	TxIndex() int
-	GetLogs(hash common.Hash, blockHash common.Hash) []*types.Log
+	GetLogs(hash common.Hash, blockNumber uint64, blockHash common.Hash) []*types.Log
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

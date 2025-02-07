@@ -29,10 +29,10 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
-
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/autonity/autonity/rlp"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/lru"
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/common/prque"
 	"github.com/autonity/autonity/consensus"
@@ -210,14 +210,16 @@ type BlockChain struct {
 	currentBlock     atomic.Value // Current head of the blockchain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache    state.Database // State database to reuse between imports (contains state cache)
-	bodyCache     *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache  *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	receiptsCache *lru.Cache     // Cache for the most recent receipts per block
-	blockCache    *lru.Cache     // Cache for the most recent entire blocks
-	epochCache    *lru.Cache     // Cache for the most recent height's epoch
-	txLookupCache *lru.Cache     // Cache for the most recent transaction lookup data.
-	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
+	stateCache    state.Database                            // State database to reuse between imports (contains state cache)
+	bodyCache     *lru.Cache[common.Hash, *types.Body]      // Cache for the most recent block bodies
+	bodyRLPCache  *lru.Cache[common.Hash, rlp.RawValue]     // Cache for the most recent block bodies in RLP encoded format
+	receiptsCache *lru.Cache[common.Hash, []*types.Receipt] // Cache for the most recent receipts per block
+	blockCache    *lru.Cache[common.Hash, *types.Block]     // Cache for the most recent entire blocks
+	epochCache    *lru.Cache[common.Hash, *types.EpochInfo] // Cache for the most recent height's epoch
+
+	txLookupLock  sync.RWMutex
+	txLookupCache *lru.Cache[common.Hash, txLookup]     // Cache for the most recent transaction lookup data.
+	futureBlocks  *lru.Cache[common.Hash, *types.Block] // future blocks are blocks added for later processing
 
 	wg            sync.WaitGroup
 	quit          chan struct{} // shutdown signal, closed in Stop.
@@ -255,11 +257,7 @@ func NewBlockChain(db ethdb.Database,
 	if cacheConfig == nil {
 		cacheConfig = defaultCacheConfig
 	}
-	bodyCache, _ := lru.New(bodyCacheLimit)
-	bodyRLPCache, _ := lru.New(bodyCacheLimit)
-	receiptsCache, _ := lru.New(receiptsCacheLimit)
-	blockCache, _ := lru.New(blockCacheLimit)
-	txLookupCache, _ := lru.New(txLookupCacheLimit)
+
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	epochCache, _ := lru.New(epochCacheLimit)
 
@@ -275,11 +273,11 @@ func NewBlockChain(db ethdb.Database,
 		}),
 		quit:          make(chan struct{}),
 		chainmu:       syncx.NewClosableMutex(),
-		bodyCache:     bodyCache,
-		bodyRLPCache:  bodyRLPCache,
-		receiptsCache: receiptsCache,
-		blockCache:    blockCache,
-		txLookupCache: txLookupCache,
+		bodyCache:     lru.NewCache[common.Hash, *types.Body](bodyCacheLimit),
+		bodyRLPCache:  lru.NewCache[common.Hash, rlp.RawValue](bodyCacheLimit),
+		receiptsCache: lru.NewCache[common.Hash, []*types.Receipt](receiptsCacheLimit),
+		blockCache:    lru.NewCache[common.Hash, *types.Block](blockCacheLimit),
+		txLookupCache: lru.NewCache[common.Hash, txLookup](txLookupCacheLimit),
 		epochCache:    epochCache,
 		futureBlocks:  futureBlocks,
 		engine:        engine,

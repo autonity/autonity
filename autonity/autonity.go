@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
@@ -80,7 +82,7 @@ func (c *evmContract) ABI() *abi.ABI {
 func (c *evmContract) callContractFunc(statedb vm.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, uint64, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, params.DeployerAddress, statedb)
-	packedResult, leftOverGas, err := evm.Call(vm.AccountRef(params.DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
+	packedResult, leftOverGas, err := evm.Call(vm.AccountRef(params.DeployerAddress), contractAddress, packedArgs, gas, uint256.NewInt(0))
 	usedGas := gas - leftOverGas
 	return packedResult, usedGas, err
 }
@@ -88,7 +90,7 @@ func (c *evmContract) callContractFunc(statedb vm.StateDB, header *types.Header,
 func (c *evmContract) callContractFuncAs(statedb vm.StateDB, header *types.Header, contractAddress common.Address, origin common.Address, packedArgs []byte) ([]byte, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, origin, statedb)
-	packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, new(big.Int))
+	packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, uint256.NewInt(0))
 	return packedResult, err
 }
 
@@ -340,7 +342,7 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 	receipt := types.NewReceipt(nil, false, 0)
 	receipt.TxHash = common.ACHash(header.Number)
 	receipt.GasUsed = 0
-	receipt.Logs = statedb.GetLogs(receipt.TxHash, header.Hash())
+	receipt.Logs = statedb.GetLogs(receipt.TxHash, header.Number.Uint64(), header.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 	receipt.BlockHash = header.Hash()
 	receipt.BlockNumber = header.Number
