@@ -140,19 +140,19 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 // Main protocol steps
 // *
 
-func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	contractConfig := bindings.AutonityConfig{
+func ToContractConfig(acg *params.AutonityContractGenesis) *bindings.AutonityConfig {
+	return &bindings.AutonityConfig{
 		Policy: bindings.AutonityPolicy{
-			TreasuryFee:             new(big.Int).SetUint64(config.AutonityContractConfig.TreasuryFee),
-			MinBaseFee:              new(big.Int).SetUint64(config.AutonityContractConfig.MinBaseFee),
-			DelegationRate:          new(big.Int).SetUint64(config.AutonityContractConfig.DelegationRate),
-			UnbondingPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.UnbondingPeriod),
-			InitialInflationReserve: (*big.Int)(config.AutonityContractConfig.InitialInflationReserve),
-			WithholdingThreshold:    new(big.Int).SetUint64(config.AutonityContractConfig.WithholdingThreshold),
-			ProposerRewardRate:      new(big.Int).SetUint64(config.AutonityContractConfig.ProposerRewardRate),
-			OracleRewardRate:        new(big.Int).SetUint64(config.AutonityContractConfig.OracleRewardRate),
-			WithheldRewardsPool:     config.AutonityContractConfig.WithheldRewardsPool,
-			TreasuryAccount:         config.AutonityContractConfig.Treasury,
+			TreasuryFee:             new(big.Int).SetUint64(acg.TreasuryFee),
+			MinBaseFee:              new(big.Int).SetUint64(acg.MinBaseFee),
+			DelegationRate:          new(big.Int).SetUint64(acg.DelegationRate),
+			UnbondingPeriod:         new(big.Int).SetUint64(acg.UnbondingPeriod),
+			InitialInflationReserve: (*big.Int)(acg.InitialInflationReserve),
+			WithholdingThreshold:    new(big.Int).SetUint64(acg.WithholdingThreshold),
+			ProposerRewardRate:      new(big.Int).SetUint64(acg.ProposerRewardRate),
+			OracleRewardRate:        new(big.Int).SetUint64(acg.OracleRewardRate),
+			WithheldRewardsPool:     acg.WithheldRewardsPool,
+			TreasuryAccount:         acg.Treasury,
 		},
 		Contracts: bindings.AutonityContracts{
 			AccountabilityContract:         params.AccountabilityContractAddress,
@@ -165,14 +165,17 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 		},
 		Protocol: bindings.AutonityProtocol{
-			OperatorAccount:     config.AutonityContractConfig.Operator,
-			EpochPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.EpochPeriod),
-			BlockPeriod:         new(big.Int).SetUint64(config.AutonityContractConfig.BlockPeriod),
-			CommitteeSize:       new(big.Int).SetUint64(config.AutonityContractConfig.MaxCommitteeSize),
-			MaxScheduleDuration: new(big.Int).SetUint64(config.AutonityContractConfig.MaxScheduleDuration),
+			OperatorAccount:     acg.Operator,
+			EpochPeriod:         new(big.Int).SetUint64(acg.EpochPeriod),
+			BlockPeriod:         new(big.Int).SetUint64(acg.BlockPeriod),
+			CommitteeSize:       new(big.Int).SetUint64(acg.MaxCommitteeSize),
+			MaxScheduleDuration: new(big.Int).SetUint64(acg.MaxScheduleDuration),
 		},
 		ContractVersion: big.NewInt(1),
 	}
+}
+
+func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
 	validators := make([]params.Validator, 0, len(config.AutonityContractConfig.Validators))
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
@@ -183,7 +186,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 		generated.AutonityBytecode,
 		common.Big0,
 		validators,
-		contractConfig,
+		*ToContractConfig(config.AutonityContractConfig),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Autonity contract: %w", err)
