@@ -343,6 +343,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}
 
+	config, err := autonity.CallConfig(evm)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve genesis config: %w", err)
+	}
+	// TODO: not sure it is the best idea to write it here, we might already have a value for it
+	rawdb.WriteAutonityConfig(db, 0, config)
+
 	root := statedb.IntermediateRoot(false)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),

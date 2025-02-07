@@ -106,6 +106,15 @@ func CallGetCommittee(evm *vm.EVM) (*types.Committee, error) {
 	return committee, nil
 }
 
+// TODO: kinda ugly to have two methods which do the same thing in different ways
+func CallConfig(evm *vm.EVM) (*bindings.AutonityConfig, error) {
+	var config bindings.AutonityConfig
+	if _, err := AutonityContractCall(&generated.AutonityAbi, evm, "config", &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
 func (c *AutonityContract) CallGetCommitteeEnodes(state vm.StateDB, header *types.Header, asACN bool) (*types.Nodes, error) {
 	var returnedEnodes []string
 	_, err := AutonityContractCall(c.contractABI, c.evmProvider(header, params.DeployerAddress, state), "getCommitteeEnodes", &returnedEnodes)
