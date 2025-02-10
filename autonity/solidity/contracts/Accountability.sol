@@ -72,12 +72,12 @@ contract Accountability is IAccountability, AccessAutonity {
     /**
     * @notice Event emitted after accountability factors namely collusion, history and jail.
     */
-    event AccountabilityFactorsUpdated(Factors oldFactors, Factors newFactors);
+    event AccountabilityFactorsUpdate(Factors oldFactors, Factors newFactors);
 
     /**
     * @notice Event emitted after base slashing rates are updated
     */
-    event BaseSlashingRateUpdated(BaseSlashingRates oldRates, BaseSlashingRates newRates);
+    event BaseSlashingRateUpdate(BaseSlashingRates oldRates, BaseSlashingRates newRates);
 
     //Todo(youssef): consider another structure purely for internal events
     Event[] public events;
