@@ -114,6 +114,12 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return recipients
 }
 
+func (r *Router) ClusteringActive() bool {
+	r.clusterLock.RLock()
+	defer r.clusterLock.RUnlock()
+	return r.clusters != nil
+}
+
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	log.Info("Router: starting latency router")
 	reportEventSub, err := chain.ProtocolContracts().Latency.WatchReported(nil, r.reportedEventChan, nil)
