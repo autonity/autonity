@@ -547,7 +547,7 @@ contract Accountability is IAccountability, AccessAutonity {
     */
     function setBaseSlashingRates(BaseSlashingRates memory _rates) external virtual onlyOperator {
         _ratesSanityCheck(_rates);
-        emit BaseSlashingRateUpdated(config.baseSlashingRates, _rates);
+        emit BaseSlashingRateUpdate(config.baseSlashingRates, _rates);
         config.baseSlashingRates = _rates;
     }
 
@@ -558,7 +558,7 @@ contract Accountability is IAccountability, AccessAutonity {
     */
     function setFactors(Factors memory _factors) external virtual onlyOperator {
         _factorsSanityCheck(_factors);
-        emit AccountabilityFactorsUpdated(config.factors, _factors);
+        emit AccountabilityFactorsUpdate(config.factors, _factors);
         config.factors = _factors;
     }
 

@@ -189,7 +189,7 @@ contract Slasher {
       * @notice returns the scale factor used for slashing
       * @return slashing scale factor
       */
-    function getSlashingScaleFactor() external view returns (uint256) {
+    function getSlashingScaleFactor() external pure returns (uint256) {
         return SLASHING_RATE_SCALE_FACTOR;
     }
 

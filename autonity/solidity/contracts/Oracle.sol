@@ -49,7 +49,6 @@ contract Oracle is IOracle {
     mapping(string => mapping(address => Report)) public reports;
 
     // ==== Private state variables ====
-    uint8 private constant DECIMALS = 18;
     string[] private symbols;
     string[] private newSymbols;
 
@@ -431,7 +430,7 @@ contract Oracle is IOracle {
     * @notice Decimal places to be used with price reports
     * @dev IOracle interface method implementation.
     */
-    function getDecimals() external view returns (uint8) {
+    function getDecimals() external pure returns (uint8) {
         return DECIMALS;
     }
 
@@ -509,7 +508,7 @@ contract Oracle is IOracle {
         config.baseSlashingRate = _baseSlashingRate;
     }
 
-    function _checkVotePeriod(uint _votePeriod) internal {
+    function _checkVotePeriod(uint _votePeriod) internal view {
         // we need this check to update new voters at the end of voting round
         uint256 _epochPeriod = config.autonity.getCurrentEpochPeriod();
         require(_votePeriod * 2 <= _epochPeriod, "vote period is too big");
@@ -657,7 +656,7 @@ contract Oracle is IOracle {
         return (_outliers, _totalOutliers, _filteredReports, _totalReports);
     }
 
-    function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal returns (uint256) {
+    function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal pure returns (uint256) {
         uint256 _totalConfidence = 0;
         uint256 _price = 0;
         for (uint256 i = 0; i < _reportCount; i++) {
