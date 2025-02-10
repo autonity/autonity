@@ -69,6 +69,12 @@ var (
 		background: log.BackgroundLightYellow,
 	}, {
 		foreground: log.Black,
+		background: log.BackgroundLightRed,
+	}, {
+		foreground: log.Black,
+		background: log.BackgroundLightGray,
+	}, {
+		foreground: log.Black,
 		background: log.BackgroundLightMagenta,
 	}, {
 		foreground: log.Black,
