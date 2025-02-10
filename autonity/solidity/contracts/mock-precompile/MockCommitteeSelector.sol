@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 import "../Autonity.sol";
+import "../interfaces/IAutonity.sol";
 
 contract MockCommitteeSelector {
 
@@ -46,13 +47,13 @@ contract MockCommitteeSelector {
                 uint256 validatorStakeSlot = uint256(keccak256(key))+5;
                 uint256 validatorStateSlot = uint256(keccak256(key))+19;
                 uint256 bondedStake;
-                ValidatorState state;
+                IAutonity.ValidatorState state;
                 assembly {
                     bondedStake := sload(validatorStakeSlot)
                     state := sload(validatorStateSlot)
                 }
 
-                if (bondedStake > threshold && state == ValidatorState.active) {
+                if (bondedStake > threshold && state == IAutonity.ValidatorState.active) {
                     count++;
                 }
             }
@@ -72,7 +73,7 @@ contract MockCommitteeSelector {
                 uint256 stateSlot = uint256(keccak256(key))+19;
                 uint256 consensusKeySlot = uint256(keccak256(key))+18;
                 uint256 bondedStake;
-                ValidatorState state;
+                IAutonity.ValidatorState state;
                 uint256 consensusKeyData;
                 assembly {
                     bondedStake := sload(stakeSlot)
@@ -80,7 +81,7 @@ contract MockCommitteeSelector {
                     consensusKeyData := sload(consensusKeySlot)
                 }
 
-                if (bondedStake > threshold && state == ValidatorState.active) {
+                if (bondedStake > threshold && state == IAutonity.ValidatorState.active) {
                     bytes memory addressBytes = new bytes(32);
                     assembly {
                         mstore(add(addressBytes, 0x20), mload(add(key, 0x20)))
