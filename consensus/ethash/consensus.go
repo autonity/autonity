@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"runtime"
 	"time"
@@ -595,6 +596,11 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	// TODO: proper fix
+	state.SetConfig(&bindings.AutonityConfig{
+		Policy:   bindings.AutonityPolicy{MinBaseFee: common.Big1},
+		Protocol: bindings.AutonityProtocol{EpochPeriod: common.Big256},
+	})
 	return nil, nil, nil
 }
 
