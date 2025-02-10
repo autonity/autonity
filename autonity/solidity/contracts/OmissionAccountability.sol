@@ -332,7 +332,6 @@ contract OmissionAccountability is IOmissionAccountability {
                 proposerEffort[_nodeAddress] = 0;
             }
         }
-        //todo: TotalProposerReward event -  atnReward, ntnReward, in the tool fetch proposer Effort and compute individual rewards
         emit TotalProposerRewards(_ntnReward, _atnReward);
 
         totalEffort = 0;

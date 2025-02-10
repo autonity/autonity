@@ -214,12 +214,6 @@ contract Oracle is IOracle {
 
         lastRoundBlock = block.number;
         round += 1;
-        // symbol update should happen in the symbolUpdatedRound+2 since we expect
-        // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
-        // for the new symbols in symbolUpdatedRound+2
-        if (int256(round) == symbolUpdatedRound + 2) {
-            symbols = newSymbols;
-        }
         emit NewRound(round,  block.timestamp, config.votePeriod);
         return true;
     }
