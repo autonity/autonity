@@ -174,7 +174,7 @@ func (r *Router) loop(ctx context.Context) {
 
 			if !r.measured {
 				log.Info(
-					"Router: new block reporting latency",
+					"Router: new epoch reporting latency",
 					"height",
 					height,
 					"reporter",
