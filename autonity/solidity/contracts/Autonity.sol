@@ -268,7 +268,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         Config memory _config
     ) internal {
         config = _config;
-        newEpochPeriod = _config.protocol.epochPeriod;
+        newEpochPeriod = config.protocol.epochPeriod;
         inflationReserve = config.policy.initialInflationReserve;
 
         // deploy liquid logic and slasher

@@ -377,6 +377,10 @@ func InspectDatabase(db ethdb.Database, keyPrefix, keyStart []byte) error {
 			metadata.Add(size)
 		case bytes.HasPrefix(key, bloomBitsPrefix) && len(key) == (len(bloomBitsPrefix)+10+common.HashLength):
 			bloomBits.Add(size)
+		case bytes.HasPrefix(key, jailedValidatorAddressPrefix) && len(key) == (len(jailedValidatorAddressPrefix)+8+8):
+			metadata.Add(size)
+		case bytes.HasPrefix(key, jailedValidatorCountPrefix) && len(key) == (len(jailedValidatorCountPrefix)+8):
+			metadata.Add(size)
 		case bytes.HasPrefix(key, BloomBitsIndexPrefix):
 			bloomBits.Add(size)
 		case bytes.HasPrefix(key, []byte("cht-")) ||
@@ -393,7 +397,7 @@ func InspectDatabase(db ethdb.Database, keyPrefix, keyStart []byte) error {
 				databaseVersionKey, headHeaderKey, headEpochHeaderKey, headBlockKey, headFastBlockKey, lastPivotKey,
 				fastTrieProgressKey, snapshotDisabledKey, SnapshotRootKey, snapshotJournalKey,
 				snapshotGeneratorKey, snapshotRecoveryKey, txIndexTailKey, fastTxLookupLimitKey,
-				uncleanShutdownKey, badBlockKey, transitionStatusKey, jailedValidatorCount, jailedValidatorAddress,
+				uncleanShutdownKey, badBlockKey, transitionStatusKey,
 			} {
 				if bytes.Equal(key, meta) {
 					metadata.Add(size)

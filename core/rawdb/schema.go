@@ -105,8 +105,8 @@ var (
 	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
 	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
 
-	jailedValidatorCount   = []byte("JailedCount")
-	jailedValidatorAddress = []byte("JailedAddress")
+	jailedValidatorCountPrefix   = []byte("JailedCount")
+	jailedValidatorAddressPrefix = []byte("JailedAddress")
 
 	autonityConfigPrefix = []byte("ac-")
 )
@@ -146,34 +146,34 @@ type LegacyTxLookupEntry struct {
 	Index      uint64
 }
 
-// encodeBlockNumber encodes a block number as big endian uint64
-func encodeBlockNumber(number uint64) []byte {
+// encodeNumber encodes a block number as big endian uint64
+func encodeNumber(number uint64) []byte {
 	enc := make([]byte, 8)
 	binary.BigEndian.PutUint64(enc, number)
 	return enc
 }
 
-// jailedCountKeyPrefix = jailedValidatorCount + epochID (uint64 big endian)
-func jailedCountKeyPrefix(number uint64) []byte {
-	return append(jailedValidatorCount, encodeBlockNumber(number)...)
+// jailedCountKey = jailedValidatorCountPrefix + epochID (uint64 big endian)
+func jailedCountKey(number uint64) []byte {
+	return append(jailedValidatorCountPrefix, encodeNumber(number)...)
 }
 
-// jailedAddressKeyPrefix = jailedValidatorAddress + jaildCount (uint64 big endian)
-func jailedAddressKeyPrefix(epochID, index uint64) []byte {
+// jailedAddressKey = jailedValidatorAddressPrefix + jailedCount (uint64 big endian)
+func jailedAddressKey(epochID, index uint64) []byte {
 	return append(
-		jailedValidatorAddress,
-		append(encodeBlockNumber(epochID), encodeBlockNumber(index)...)...,
+		jailedValidatorAddressPrefix,
+		append(encodeNumber(epochID), encodeNumber(index)...)...,
 	)
 }
 
 // headerKeyPrefix = headerPrefix + num (uint64 big endian)
 func headerKeyPrefix(number uint64) []byte {
-	return append(headerPrefix, encodeBlockNumber(number)...)
+	return append(headerPrefix, encodeNumber(number)...)
 }
 
 // headerKey = headerPrefix + num (uint64 big endian) + hash
 func headerKey(number uint64, hash common.Hash) []byte {
-	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+	return append(append(headerPrefix, encodeNumber(number)...), hash.Bytes()...)
 }
 
 // headerTDKey = headerPrefix + num (uint64 big endian) + hash + headerTDSuffix
@@ -183,7 +183,7 @@ func headerTDKey(number uint64, hash common.Hash) []byte {
 
 // headerHashKey = headerPrefix + num (uint64 big endian) + headerHashSuffix
 func headerHashKey(number uint64) []byte {
-	return append(append(headerPrefix, encodeBlockNumber(number)...), headerHashSuffix...)
+	return append(append(headerPrefix, encodeNumber(number)...), headerHashSuffix...)
 }
 
 // headerNumberKey = headerNumberPrefix + hash
@@ -193,12 +193,12 @@ func headerNumberKey(hash common.Hash) []byte {
 
 // blockBodyKey = blockBodyPrefix + num (uint64 big endian) + hash
 func blockBodyKey(number uint64, hash common.Hash) []byte {
-	return append(append(blockBodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+	return append(append(blockBodyPrefix, encodeNumber(number)...), hash.Bytes()...)
 }
 
 // blockReceiptsKey = blockReceiptsPrefix + num (uint64 big endian) + hash
 func blockReceiptsKey(number uint64, hash common.Hash) []byte {
-	return append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+	return append(append(blockReceiptsPrefix, encodeNumber(number)...), hash.Bytes()...)
 }
 
 // txLookupKey = txLookupPrefix + hash
@@ -256,5 +256,5 @@ func configKey(hash common.Hash) []byte {
 }
 
 func autonityConfigKey(number uint64) []byte {
-	return append(autonityConfigPrefix, encodeBlockNumber(number)...)
+	return append(autonityConfigPrefix, encodeNumber(number)...)
 }
