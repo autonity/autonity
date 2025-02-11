@@ -465,12 +465,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /**
     * @notice Set the minimum gas price. Restricted to the operator account.
     * @param _price Positive integer.
-    * @dev Emit a {MinimumBaseFeeUpdated} event.
     */
     function setMinimumBaseFee(uint256 _price) public virtual onlyOperator {
         emit ConfigUpdateUint("minBaseFee", config.policy.minBaseFee, _price);
         config.policy.minBaseFee = _price;
-//        emit MinimumBaseFeeUpdated(_price);
     }
 
     /**
