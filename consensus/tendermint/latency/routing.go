@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
-	"net"
 	"sync"
 	"time"
 
@@ -23,16 +22,9 @@ import (
 )
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
-var ScaleThresholdForClustering = 1 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
+var ScaleThresholdForClustering = 10 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
-var ErrInvalidPeerType = errors.New("invalid peer type")
-
-type peerLatency interface {
-	consensus.Peer
-	RemoteAddr() net.Addr
-	Node() *enode.Node
-}
 
 type Router struct {
 	self        common.Address
