@@ -156,10 +156,4 @@ interface IAutonity {
      */
     event CallFailed(address to, string methodSignature, bytes returnData);
 
-    /**
-     * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
-     * Note that `gasPrice` may be zero.
-     */
-    event MinimumBaseFeeUpdated(uint256 gasPrice);
-
 }
