@@ -65,7 +65,7 @@ func (bc *BlockChain) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
-	height := bc.currentBlock.Load().(*types.Block).Number().Uint64()
+	height := bc.currentBlock.Load().Number.Uint64()
 	return bc.hc.EpochByHeight(height)
 }
 
@@ -77,14 +77,14 @@ func (bc *BlockChain) CurrentHeader() *types.Header {
 
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
-func (bc *BlockChain) CurrentBlock() *types.Block {
-	return bc.currentBlock.Load().(*types.Block)
+func (bc *BlockChain) CurrentBlock() *types.Header {
+	return bc.currentBlock.Load()
 }
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
-func (bc *BlockChain) CurrentFastBlock() *types.Block {
-	return bc.currentFastBlock.Load().(*types.Block)
+func (bc *BlockChain) CurrentSnapBlock() *types.Header {
+	return bc.currentFastBlock.Load()
 }
 
 // HasHeader checks if a block header is present in the database or not, caching

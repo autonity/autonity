@@ -436,7 +436,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, nil, false}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, true, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, nil, false}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -512,6 +512,7 @@ var (
 		nil,
 		nil,
 		nil,
+		true,
 		nil,
 		new(EthashConfig),
 		TestAutonityContractConfig,
@@ -644,6 +645,10 @@ type ChainConfig struct {
 	CancunBlock         *big.Int `json:"cancunBlock,omitempty"`         // Cancun Fork(nil = no fork, 0 = already in merge proceedings)
 	PragueBlock         *big.Int `json:"pragueBlock,omitempty"`         // Prague Fork(nil = no fork, 0 = already in merge proceedings)
 
+	// In production networks (mainnet and public testnets), verkle activation
+	// always occurs after the genesis block, making this flag irrelevant in
+	// those cases.
+	EnableVerkleAtGenesis bool `json:"enableVerkleAtGenesis,omitempty"`
 	// TerminalTotalDifficulty is the amount of total difficulty reached by
 	// the network that triggers the consensus upgrade.
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`

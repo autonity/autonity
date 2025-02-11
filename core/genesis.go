@@ -73,6 +73,12 @@ type Genesis struct {
 	BaseFee *big.Int `json:"baseFeePerGas"`
 }
 
+// ChainOverrides contains the changes to chain config.
+type ChainOverrides struct {
+	OverrideCancun *uint64
+	OverrideVerkle *uint64
+}
+
 // GenesisAlloc specifies the initial state that is part of the genesis block.
 type GenesisAlloc map[common.Address]GenesisAccount
 
@@ -193,7 +199,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	return SetupGenesisBlockWithOverride(db, genesis, nil, nil)
 }
 
-func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, overrideArrowGlacier, overrideTerminalTotalDifficulty *big.Int) (*params.ChainConfig, common.Hash, error) {
+func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, overrides *ChainOverrides) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
@@ -498,6 +504,29 @@ func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big
 		Mixhash: types.BFTDigest,
 	}
 	return g.MustCommit(db)
+}
+
+// EnableVerkleAtGenesis indicates whether the verkle fork should be activated
+// at genesis. This is a temporary solution only for verkle devnet testing, where
+// verkle fork is activated at genesis, and the configured activation date has
+// already passed.
+//
+// In production networks (mainnet and public testnets), verkle activation always
+// occurs after the genesis block, making this function irrelevant in those cases.
+func EnableVerkleAtGenesis(db ethdb.Database, genesis *Genesis) (bool, error) {
+	if genesis != nil {
+		if genesis.Config == nil {
+			return false, errGenesisNoConfig
+		}
+		return genesis.Config.EnableVerkleAtGenesis, nil
+	}
+	if ghash := rawdb.ReadCanonicalHash(db, 0); ghash != (common.Hash{}) {
+		chainCfg := rawdb.ReadChainConfig(db, ghash)
+		if chainCfg != nil {
+			return chainCfg.EnableVerkleAtGenesis, nil
+		}
+	}
+	return false, nil
 }
 
 // DefaultGenesisBlock returns a default genesis block for testing purposes.
