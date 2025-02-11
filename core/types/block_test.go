@@ -99,7 +99,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		}},
 	}
 
-	epoch := &Epoch{PreviousEpochBlock: common.Big1, NextEpochBlock: common.Big256, Committee: c, Delta: common.Big5}
+	epoch := &Epoch{PreviousEpochBlock: common.Big1, NextEpochBlock: common.Big256, Committee: c, OmissionDelta: common.Big5}
 
 	t.Run("encode / decode with not nil epoch in block header", func(t *testing.T) {
 		header := &Header{
@@ -586,7 +586,7 @@ func TestEpochDeserialization(t *testing.T) {
 	require.Equal(t, header, headerDecoded)
 
 	// valid epoch information
-	validEpoch := &Epoch{Committee: committee.Copy(), PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, Delta: common.Big5}
+	validEpoch := &Epoch{Committee: committee.Copy(), PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, OmissionDelta: common.Big5}
 	require.NoError(t, validEpoch.Committee.Enrich())
 	header = headerWithEpoch(validEpoch)
 	b, err = rlp.EncodeToBytes(header)
@@ -635,7 +635,7 @@ func TestEpochDeserialization(t *testing.T) {
 
 	// delta should not be 0
 	epoch = validEpoch.Copy()
-	epoch.Delta = common.Big0
+	epoch.OmissionDelta = common.Big0
 	header = headerWithEpoch(epoch)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)

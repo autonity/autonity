@@ -131,7 +131,7 @@ func TestVerifyHeader(t *testing.T) {
 		// now advance the chain of delta blocks
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 		for i := uint64(0); i < delta; i++ {
 			mineOneBlock(t, chain, engine)
 		}
@@ -205,7 +205,7 @@ func TestVerifyHeader(t *testing.T) {
 		// advance the chain of delta blocks
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 		for i := uint64(0); i < delta; i++ {
 			mineOneBlock(t, chain, engine)
 		}
@@ -800,7 +800,7 @@ func TestAssembleProof(t *testing.T) {
 
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 
 		proof, round, err := backend.assembleActivityProof(0, epoch)
 		require.Nil(t, proof)
@@ -816,13 +816,13 @@ func TestAssembleProof(t *testing.T) {
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 	})
-	t.Run("from block Delta+1 of the epoch, assembling should return a valid proof", func(t *testing.T) {
+	t.Run("from block OmissionDelta+1 of the epoch, assembling should return a valid proof", func(t *testing.T) {
 		chain, backend := newBlockChain(1)
 
 		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 
 		for i := 0; i < int(delta); i++ {
 			mineOneBlock(t, chain, backend)
@@ -872,7 +872,7 @@ func TestAssembleProof(t *testing.T) {
 		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 
 		for i := 0; i < int(delta); i++ {
 			mineOneBlock(t, chain, backend)

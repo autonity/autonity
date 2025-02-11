@@ -47,7 +47,7 @@ func testSyncMode(t *testing.T, mode downloader.SyncMode) {
 	require.Greater(t, epoch.PreviousEpochBlock.Uint64(), uint64(0))
 	require.Greater(t, epoch.EpochBlock.Uint64(), epoch.PreviousEpochBlock.Uint64())
 	require.NotEqual(t, epoch.NextEpochBlock.Uint64(), epoch.EpochBlock.Uint64())
-	require.Equal(t, params.DefaultOmissionAccountabilityConfig.Delta, epoch.Delta.Uint64())
+	require.Equal(t, params.DefaultOmissionAccountabilityConfig.Delta, epoch.OmissionDelta.Uint64())
 
 	err = syncNode.Close(true)
 	require.NoError(t, err)

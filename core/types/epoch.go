@@ -33,7 +33,7 @@ type Epoch struct {
 	PreviousEpochBlock *big.Int   `rlp:"nil" json:"previousEpochBlock" gencodec:"required"`
 	NextEpochBlock     *big.Int   `rlp:"nil" json:"nextEpochBlock" gencodec:"required"`
 	Committee          *Committee `rlp:"nil" json:"committee" gencodec:"required"`
-	Delta              *big.Int   `rlp:"nil" json:"delta" gencodec:"required"` // delta for omission failure
+	OmissionDelta      *big.Int   `rlp:"nil" json:"omissionDelta" gencodec:"required"` // delta for omission failure
 }
 
 // MarshalJSON marshals as JSON.
@@ -42,7 +42,7 @@ func (e Epoch) MarshalJSON() ([]byte, error) {
 		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
 		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
 		Committee          Committee    `json:"committee" gencodec:"required"`
-		Delta              *hexutil.Big `json:"delta" gencodec:"required"`
+		OmissionDelta      *hexutil.Big `json:"omissionDelta" gencodec:"required"`
 	}
 	var enc epoch
 	enc.PreviousEpochBlock = (*hexutil.Big)(e.PreviousEpochBlock)
@@ -51,7 +51,7 @@ func (e Epoch) MarshalJSON() ([]byte, error) {
 	if e.Committee != nil {
 		enc.Committee = *e.Committee // nolint
 	}
-	enc.Delta = (*hexutil.Big)(e.Delta)
+	enc.OmissionDelta = (*hexutil.Big)(e.OmissionDelta)
 	return json.Marshal(&enc)
 }
 
@@ -61,7 +61,7 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 		PreviousEpochBlock *hexutil.Big `json:"previousEpochBlock" gencodec:"required"`
 		NextEpochBlock     *hexutil.Big `json:"nextEpochBlock" gencodec:"required"`
 		Committee          *Committee   `json:"committee" gencodec:"required"`
-		Delta              *hexutil.Big `json:"delta" gencodec:"required"`
+		OmissionDelta      *hexutil.Big `json:"omissionDelta" gencodec:"required"`
 	}
 
 	var dec epoch
@@ -84,10 +84,10 @@ func (e *Epoch) UnmarshalJSON(input []byte) error {
 	}
 	e.Committee = dec.Committee
 
-	if dec.Delta == nil {
-		return errors.New("missing required field 'delta' for epoch")
+	if dec.OmissionDelta == nil {
+		return errors.New("missing required field 'omissionDelta' for epoch")
 	}
-	e.Delta = dec.Delta.ToInt()
+	e.OmissionDelta = dec.OmissionDelta.ToInt()
 	return nil
 }
 
@@ -106,8 +106,8 @@ func (e *Epoch) Copy() *Epoch {
 		cpy.Committee = e.Committee.Copy()
 	}
 
-	if e.Delta != nil {
-		cpy.Delta = new(big.Int).Set(e.Delta)
+	if e.OmissionDelta != nil {
+		cpy.OmissionDelta = new(big.Int).Set(e.OmissionDelta)
 	}
 	return cpy
 }
@@ -135,7 +135,7 @@ func (e *Epoch) Equal(other *Epoch) bool {
 		return false
 	}
 
-	if e.Delta.Cmp(other.Delta) != 0 {
+	if e.OmissionDelta.Cmp(other.OmissionDelta) != 0 {
 		return false
 	}
 

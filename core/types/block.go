@@ -417,12 +417,12 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 				return fmt.Errorf("invalid epoch boundary")
 			}
 
-			if hExtra.Epoch.Delta == nil {
-				return fmt.Errorf("invalid epoch delta")
+			if hExtra.Epoch.OmissionDelta == nil {
+				return fmt.Errorf("invalid omission epoch delta")
 			}
 
-			if hExtra.Epoch.Delta.Cmp(common.Big0) == 0 {
-				return fmt.Errorf("epoch delta is zero")
+			if hExtra.Epoch.OmissionDelta.Cmp(common.Big0) == 0 {
+				return fmt.Errorf("epoch omission delta is zero")
 			}
 
 			if !hExtra.Epoch.PreviousEpochBlock.IsUint64() {
@@ -433,8 +433,8 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 				return fmt.Errorf("too large next epoch block number: bitlen %d", hExtra.Epoch.NextEpochBlock.BitLen())
 			}
 
-			if !hExtra.Epoch.Delta.IsUint64() {
-				return fmt.Errorf("too large next epoch delta: bitlen %d", hExtra.Epoch.Delta.BitLen())
+			if !hExtra.Epoch.OmissionDelta.IsUint64() {
+				return fmt.Errorf("too large next epoch omission delta: bitlen %d", hExtra.Epoch.OmissionDelta.BitLen())
 			}
 
 			if hExtra.Epoch.PreviousEpochBlock.Cmp(origin.Number) > 0 {

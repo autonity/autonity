@@ -58,12 +58,12 @@ func TestHeaderHash(t *testing.T) {
 		},
 	}
 
-	epoch := &Epoch{PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c, Delta: common.Big5}
+	epoch := &Epoch{PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c, OmissionDelta: common.Big5}
 	signature := testKey.Sign(testKey.PublicKey().Marshal())
 	proposerSeal := signature.Marshal()
 
 	epoch2 := epoch.Copy()
-	epoch2.Delta = common.Big2
+	epoch2.OmissionDelta = common.Big2
 
 	testCases := []struct {
 		header Header

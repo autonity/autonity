@@ -364,7 +364,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		Committee:          committee,
 		PreviousEpochBlock: common.Big0,
 		NextEpochBlock:     new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
-		Delta:              new(big.Int).SetUint64(g.Config.OmissionAccountabilityConfig.Delta),
+		OmissionDelta:      new(big.Int).SetUint64(g.Config.OmissionAccountabilityConfig.Delta),
 	}
 	head.Epoch = epoch
 

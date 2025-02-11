@@ -207,7 +207,7 @@ func TestGetters(t *testing.T) {
 
 		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
 		require.Equal(t, uint64(50), info.NextEpochBlock.Uint64())
-		require.Equal(t, uint64(5), info.Delta.Uint64())
+		require.Equal(t, uint64(5), info.OmissionDelta.Uint64())
 		require.Len(t, info.Committee.Members, 10)
 	})
 

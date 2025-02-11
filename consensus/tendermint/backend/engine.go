@@ -196,14 +196,14 @@ func (sb *Backend) verifyHeaderSignatures(header *types.Header, epoch *types.Epo
 
 // verify activity proof during header verification
 func (sb *Backend) verifyActivityProof(header *types.Header, epoch *types.EpochInfo, hash HashGetter) error {
-	mustBeEmpty := header.Number.Uint64() <= epoch.EpochBlock.Uint64()+epoch.Delta.Uint64()
+	mustBeEmpty := header.Number.Uint64() <= epoch.EpochBlock.Uint64()+epoch.OmissionDelta.Uint64()
 
 	if mustBeEmpty && header.ActivityProof != nil {
 		return errNotEmptyActivityProof
 	}
 
 	if header.ActivityProof != nil {
-		targetHeight := header.Number.Uint64() - epoch.Delta.Uint64()
+		targetHeight := header.Number.Uint64() - epoch.OmissionDelta.Uint64()
 		targetHash, err := hash(targetHeight)
 		if err != nil {
 			return err
@@ -376,7 +376,7 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
 func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (*types.AggregateSignature, uint64, error) {
 	epochBlock := epochInfo.EpochBlock.Uint64()
-	delta := epochInfo.Delta.Uint64()
+	delta := epochInfo.OmissionDelta.Uint64()
 
 	// for the 1st delta blocks of the epoch, the proposer does not have to provide an activity proof
 	if h <= epochBlock+delta {
