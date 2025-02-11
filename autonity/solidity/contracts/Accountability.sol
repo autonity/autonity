@@ -7,7 +7,7 @@ import "./Autonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 import {AccessAutonity} from "./AccessAutonity.sol";
 
-contract Accountability is IAccountability, AccessAutonity {
+contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
 
     struct BaseSlashingRates {
         uint256 low;
@@ -536,7 +536,7 @@ contract Accountability is IAccountability, AccessAutonity {
     * @param _window, the new value for the window (in blocks)
     */
     function setInnocenceProofSubmissionWindow(uint256 _window) external virtual onlyOperator {
-        emit IAutonity.ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window);
+        emit ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window);
         config.innocenceProofSubmissionWindow = _window;
     }
 

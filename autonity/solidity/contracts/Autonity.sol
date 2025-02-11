@@ -20,11 +20,12 @@ import "./ReentrancyGuard.sol";
 import "./ScheduleController.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvent.sol";
 
 uint8 constant DECIMALS = 18;
 
 /** @title Proof-of-Stake Autonity Contract */
-contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable {
+contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable, IConfigEvents {
     uint256 internal constant CONSENSUS_KEY_LEN = 48;
     uint256 internal constant BLS_PROOF_LEN = 96;
     uint256 internal constant ECDSA_SIGNATURE_LEN = 65;

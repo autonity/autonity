@@ -18,29 +18,6 @@ interface IAutonity {
     */
     function getOracle() external view returns (address);
 
-    /**
-    * @notice Emitted after updating config parameter of type uint
-    * @param name configuration name
-    * @param oldValue old value of configuration
-    * @param newValue new value of configuration
-    */
-    event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue);
-
-    /**
-    * @notice Emitted after updating config parameter of type int
-    * @param name configuration name
-    * @param oldValue old value of configuration
-    * @param newValue new value of configuration
-    */
-    event ConfigUpdateInt(string name, int256 oldValue, int256 newValue);
-
-    /**
-    * @notice Emitted after updating config parameter of type address
-    * @param name configuration name
-    * @param oldValue old value of configuration
-    * @param newValue new value of configuration
-    */
-    event ConfigUpdateAddress(string name, address oldValue, address newValue);
 
     /**
     * @notice Emitted after updating a enode address of a validator

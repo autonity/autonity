@@ -12,7 +12,7 @@ import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
  * @notice This contract implements the Oracle for the Autonity Protocol, allowing voters to submit price reports
  * and aggregate them while detecting outliers.
  */
-contract Oracle is IOracle {
+contract Oracle is IOracle, IConfigEvents {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // Struct to hold metadata information concerning a voter
@@ -486,7 +486,7 @@ contract Oracle is IOracle {
     */
     function setVotePeriod(uint _votePeriod) external onlyOperator {
         _checkVotePeriod(_votePeriod);
-        emit IAutonity.ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
+        emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
         config.votePeriod = _votePeriod;
     }
 
@@ -500,11 +500,11 @@ contract Oracle is IOracle {
     external
     onlyOperator
     {
-        emit IAutonity.ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
+        emit ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
-        emit IAutonity.ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
+        emit ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
         config.outlierDetectionThreshold = _outlierDetectionThreshold;
-        emit IAutonity.ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate);
+        emit ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate);
         config.baseSlashingRate = _baseSlashingRate;
     }
 
