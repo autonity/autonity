@@ -39,6 +39,7 @@ type Router struct {
 	clusterLock sync.RWMutex
 	clusters    Clusters
 	nodeKey     *ecdsa.PrivateKey
+	cache       *latencyCache
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -54,10 +55,8 @@ type Router struct {
 	chainEventSub  event.Subscription
 
 	curEpochInfo *types.EpochInfo
-	// measurementWindow uint64
-	lastReportedHeight  uint64
-	lastRefreshedHeight uint64
-	measured            bool
+	newReporters []common.Address
+	measured     bool
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -73,9 +72,12 @@ func NewRouter(
 		reportedEventChan: make(chan *autonity.LatencyReported),
 		epochEventChan:    make(chan core.EpochHeadEvent),
 		chainEventChan:    make(chan core.ChainEvent),
+		cache:             newLatencyCache(),
 	}
 	return r
 }
+
+// Exported functions
 
 // Route just select recipients from the clusters, it does not do the message sending.
 func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
@@ -152,6 +154,125 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	go r.loop(ctx)
 }
 
+func (r *Router) Stop() {
+	r.cancel()
+	r.reportEventSub.Unsubscribe()
+	r.chainEventSub.Unsubscribe()
+	r.epochEventSub.Unsubscribe()
+	r.wg.Wait()
+}
+
+func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
+	r.broadcaster = broadcaster
+}
+
+// Internal package functions
+
+// refreshClusters updates the clusters based on the new reporters, it will first fetch the
+// newly reported latencies from the on-chain contract, then recluster
+func (r *Router) refreshClusters(newReporters []common.Address) error {
+	committee, err := r.contracts.Latency.GetCommittee(nil)
+	if err != nil {
+		return err
+	}
+	// if we have a lot of new reporters, we should update the matrix by fetching the full latency matrix
+	if len(newReporters) > 10 {
+		latency, err := r.contracts.Latency.Read(nil)
+		if err != nil {
+			return err
+		}
+		r.cache.updateMatrix(committee, latency)
+	} else {
+		// otherwise we insert the new reporters individually
+		for _, reporter := range newReporters {
+			latencyVec, err := r.contracts.Latency.ReadReport(nil, reporter)
+			if err != nil {
+				return err
+			}
+			r.cache.insertMatrixLine(reporter, committee, latencyVec)
+		}
+
+	}
+
+	latencyMat := r.cache.readMatrix(committee)
+	clusters, err := AssignClusters(latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
+	if err != nil {
+		return err
+	}
+
+	r.clusterLock.Lock()
+	r.clusters = clusters
+	r.clusterLock.Unlock()
+	return nil
+}
+
+// reset clusters, it is used to merge the cluster when we have a small scale of network.
+func (r *Router) resetClusters() {
+	r.clusterLock.Lock()
+	defer r.clusterLock.Unlock()
+	r.clusters = nil
+}
+
+func (r *Router) report() error {
+	if r.contracts == nil {
+		return errors.New("contracts not set, can't report latency")
+	}
+	committee, err := r.contracts.Latency.GetCommittee(nil)
+	if err != nil {
+		return err
+	}
+	missing := r.cache.missingMeasurements(committee)
+	missingLatencies, err := r.fetchLatency(missing)
+	if err != nil {
+		return err
+	}
+	r.cache.insertMeasurements(missing, missingLatencies)
+
+	// this should not have the full measurements
+	latencyVec, err := r.cache.latencyView(committee)
+	if err != nil {
+		return err
+	}
+	return r.reporter.ReportLatency(latencyVec)
+}
+
+func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]uint8, error) {
+	if r.broadcaster == nil {
+		return nil, errors.New("broadcaster not set, can't fetch latency")
+	}
+
+	committeeEnodes := r.broadcaster.CommitteeEnodes()
+
+	latency := make(map[common.Address]uint8)
+	pingTargets := make([]ping.Target, len(validators))
+
+	for i, member := range validators {
+		if member == r.self {
+			pingTargets[i] = ping.Target{}
+			continue
+		}
+		if memberNode, ok := findByAddress(committeeEnodes, member); ok {
+			ip := memberNode.IP()
+			port := memberNode.TCP()
+			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
+			log.Info("Router: fetching latency", "targetIP", ip, "targetPort", port)
+		} else {
+			log.Error("Router: peer not found in broadcaster", "peer", member)
+			pingTargets[i] = ping.Target{}
+		}
+	}
+
+	latencyArray := pingPeers(pingTargets)
+	for i, addr := range validators {
+		// set self latency to 0
+		if addr == r.self {
+			latency[addr] = 0
+		}
+		latency[addr] = latencyArray[i]
+	}
+	return latency, nil
+}
+
 func (r *Router) loop(ctx context.Context) {
 	defer r.wg.Done()
 	for {
@@ -166,13 +287,14 @@ func (r *Router) loop(ctx context.Context) {
 			r.measured = false
 
 			// on new epoch, we have a small scale of network, clustering does not benefit anymore.
-			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
+			if epochEv.Header.Epoch.Committee.Len() <= ScaleThresholdForClustering {
+				log.Warn("Router: new epoch detected, committee too small resetting clusters")
 				r.resetClusters()
 			}
 
 		case ev := <-r.chainEventChan:
 			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
-				log.Info("not going to measure latency within a small network")
+				log.Info("Router: not going to measure latency within a small network")
 				continue
 			}
 
@@ -199,11 +321,12 @@ func (r *Router) loop(ctx context.Context) {
 				)
 			}
 
-			if r.lastReportedHeight > r.lastRefreshedHeight {
-				if err := r.refreshClusters(); err != nil {
+			if len(r.newReporters) > 0 {
+				log.Info("Router: new reporters detected, refreshing clusters", "reporters", r.newReporters)
+				if err := r.refreshClusters(r.newReporters); err != nil {
 					log.Error("Router: failed to refresh clusters", "err", err)
 				} else {
-					r.lastRefreshedHeight = height
+					r.newReporters = nil
 				}
 			}
 
@@ -213,120 +336,12 @@ func (r *Router) loop(ctx context.Context) {
 				continue
 			}
 			log.Info("Router: latency report detected, scheduling network clustering", "reporter", ev.Reporter)
-			r.lastReportedHeight = max(r.lastReportedHeight, ev.Raw.BlockNumber)
+			r.newReporters = append(r.newReporters, ev.Reporter)
 		}
 	}
 }
 
-func (r *Router) Stop() {
-	r.cancel()
-	r.reportEventSub.Unsubscribe()
-	r.chainEventSub.Unsubscribe()
-	r.epochEventSub.Unsubscribe()
-	r.wg.Wait()
-}
-
-func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
-	r.broadcaster = broadcaster
-}
-
-func (r *Router) refreshClusters() error {
-	committee, err := r.contracts.Latency.GetCommittee(nil)
-	if err != nil {
-		return err
-	}
-
-	latency, err := r.contracts.Latency.Read(nil)
-	if err != nil {
-		return err
-	}
-
-	// TODO: validate and fill latency matrix with default values
-	latencyMat := make(map[common.Address][]uint8)
-	for i, validator := range committee {
-		latencyVec := latency[i]
-		for j, peer := range committee {
-			// 0 is reserved for self, ^uint8(0) is reserved for non-connected peers
-			if validator == peer {
-				latencyVec[j] = 0
-			} else if latencyVec[j] == 0 {
-				latencyVec[j] = ^uint8(0)
-			}
-		}
-		latencyMat[validator] = latencyVec
-	}
-
-	clusters, err := AssignClusters(latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
-	if err != nil {
-		return err
-	}
-
-	r.clusterLock.Lock()
-	r.clusters = clusters
-	r.clusterLock.Unlock()
-	return nil
-}
-
-// reset clusters, it is used to merge the cluster when we have a small scale of network.
-func (r *Router) resetClusters() {
-	r.clusterLock.Lock()
-	defer r.clusterLock.Unlock()
-	r.clusters = nil
-}
-
-func (r *Router) report() error {
-	latency, err := r.fetchLatency()
-	if err != nil {
-		return err
-	}
-
-	return r.reporter.ReportLatency(latency)
-}
-
-func (r *Router) fetchLatency() (map[common.Address]uint8, error) {
-	if r.broadcaster == nil {
-		return nil, errors.New("broadcaster not set, can't fetch latency")
-	}
-
-	committee, err := r.contracts.Latency.GetCommittee(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	committeeEnodes := r.broadcaster.CommitteeEnodes()
-
-	latency := make(map[common.Address]uint8)
-	pingTargets := make([]ping.Target, len(committee))
-
-	for i, member := range committee {
-		if member == r.self {
-			pingTargets[i] = ping.Target{}
-			continue
-		}
-		if memberNode, ok := findByAddress(committeeEnodes, member); ok {
-			// todo: this is a less hacky, but we should probably have a better way to get the peer ip
-			ip := memberNode.IP()
-			port := memberNode.TCP()
-			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
-			log.Info("Router: fetching latency", "targetIP", ip, "targetPort", port)
-		} else {
-			log.Error("Router: peer not found in broadcaster", "peer", member)
-			pingTargets[i] = ping.Target{}
-		}
-	}
-
-	latencyArray := PingPeers(pingTargets)
-	for i, addr := range committee {
-		// set self latency to 0
-		if addr == r.self {
-			latency[addr] = 0
-		}
-		latency[addr] = latencyArray[i]
-	}
-	return latency, nil
-}
-
-func PingPeers(targets []ping.Target) []uint8 {
+func pingPeers(targets []ping.Target) []uint8 {
 	channelArray := make([]chan time.Duration, len(targets))
 	for i, t := range targets {
 		resultCh := make(chan time.Duration, 1)
