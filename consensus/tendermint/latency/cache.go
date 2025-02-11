@@ -39,6 +39,9 @@ func (l *latencyCache) updateMatrix(validators []common.Address, latMat [][]uint
 	defer l.mu.Unlock()
 	for i := range validators {
 		for j := range validators {
+			if _, ok := l.matrix[validators[i]]; !ok {
+				l.matrix[validators[i]] = make(map[common.Address]uint8)
+			}
 			if i == j {
 				l.matrix[validators[i]][validators[j]] = 0
 			} else if latMat[i][j] == 0 {
@@ -53,6 +56,9 @@ func (l *latencyCache) updateMatrix(validators []common.Address, latMat [][]uint
 func (l *latencyCache) insertMatrixLine(reporter common.Address, validators []common.Address, latencies []uint8) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if _, ok := l.matrix[reporter]; !ok {
+		l.matrix[reporter] = make(map[common.Address]uint8)
+	}
 	for i, validator := range validators {
 		if validator == reporter {
 			l.matrix[reporter][validator] = 0
