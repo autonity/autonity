@@ -204,7 +204,7 @@ func (s *StateDB) SetContractsConfig(contractsConfig *bindings.AutonityClientAwa
 	s.contractsConfig = contractsConfig
 }
 
-func (s *StateDB) Config() *bindings.AutonityClientAwareConfig {
+func (s *StateDB) ContractsConfig() *bindings.AutonityClientAwareConfig {
 	return s.contractsConfig
 }
 
@@ -668,8 +668,12 @@ func (s *StateDB) Copy() *StateDB {
 		preimages:           make(map[common.Hash][]byte, len(s.preimages)),
 		journal:             newJournal(),
 		hasher:              crypto.NewKeccakState(),
-		// TODO: deep copy
-		contractsConfig: s.contractsConfig,
+		// TODO(reminder) add new fields
+		contractsConfig: &bindings.AutonityClientAwareConfig{
+			MinBaseFee:  new(big.Int).Set(s.contractsConfig.MinBaseFee),
+			EpochPeriod: new(big.Int).Set(s.contractsConfig.EpochPeriod),
+			BlockPeriod: new(big.Int).Set(s.contractsConfig.BlockPeriod),
+		},
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {

@@ -824,13 +824,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * each block after processing every transactions within it. It must be restricted to the
     * protocol only.
     *
-    * @return upgrade Set to true if an autonity contract upgrade is available.
-    * @return epochEnded Set to true if an epoch is ended.
-    * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
-    * @return previousEpochBlock The previous epoch block number.
-    * @return nextEpochBlock The next epoch block number.
-    * @return omissionDelta, the current value for delta (omission failure)
-    * @return config, the current contract config
+    * @return FinalizeResult, containing all the information needed to coordinate with the golang client
     */
     function finalize() external virtual onlyProtocol nonReentrant returns (FinalizeResult memory) {
         lastFinalizedBlock = block.number;

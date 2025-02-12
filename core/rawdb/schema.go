@@ -20,9 +20,9 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/metrics"
 )
 
 // The fields below define the low level database schema prefixing.
@@ -102,13 +102,13 @@ var (
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
 
-	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
-	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
-
 	jailedValidatorCountPrefix   = []byte("JailedCount")
 	jailedValidatorAddressPrefix = []byte("JailedAddress")
 
-	contractsConfigPrefix = []byte("cc-")
+	contractsConfigPrefix = []byte("C")
+
+	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
+	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
 )
 
 const (

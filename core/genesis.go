@@ -438,7 +438,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteHeadHeaderHash(db, block.Hash())
 	rawdb.WriteEpochHeaderHash(db, block.Hash())
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
-	// TODO: verify that genesis config is not modified during deployment process
+	// TODO(reminder) add other fields
 	rawdb.WriteContractsConfig(db, block.NumberU64(), &bindings.AutonityClientAwareConfig{
 		MinBaseFee:  new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
 		EpochPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),

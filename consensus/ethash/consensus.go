@@ -596,10 +596,11 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	// TODO: proper fix
+	// TODO(reminder) add other fields + is this fix fine?
 	state.SetContractsConfig(&bindings.AutonityClientAwareConfig{
 		MinBaseFee:  common.Big1,
 		EpochPeriod: common.Big256,
+		BlockPeriod: common.Big1,
 	})
 	return nil, nil, nil
 }

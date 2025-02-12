@@ -298,10 +298,10 @@ func (r *Runner) setupActivityProofAndCoinbase(proposer common.Address, absentee
 	epochInfo, _, err := r.Autonity.GetEpochInfo(nil)
 	require.NoError(r.T, err)
 
-	mustBeEmpty := r.Evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.Delta.Uint64()
+	mustBeEmpty := r.Evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.OmissionDelta.Uint64()
 	if !mustBeEmpty {
 		r.Evm.Context.Coinbase = proposer
-		targetHeight := r.Evm.Context.BlockNumber.Uint64() - epochInfo.Delta.Uint64()
+		targetHeight := r.Evm.Context.BlockNumber.Uint64() - epochInfo.OmissionDelta.Uint64()
 
 		r.Evm.Context.ActivityProofRound = 0
 		r.Evm.Context.ActivityProof = activityProof(r.Committee.Validators, sealFaker(targetHeight, r.Evm.Context.ActivityProofRound), absentees)

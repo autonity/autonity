@@ -381,6 +381,8 @@ func InspectDatabase(db ethdb.Database, keyPrefix, keyStart []byte) error {
 			metadata.Add(size)
 		case bytes.HasPrefix(key, jailedValidatorCountPrefix) && len(key) == (len(jailedValidatorCountPrefix)+8):
 			metadata.Add(size)
+		case bytes.HasPrefix(key, contractsConfigPrefix) && len(key) == (len(contractsConfigPrefix)+8):
+			metadata.Add(size)
 		case bytes.HasPrefix(key, BloomBitsIndexPrefix):
 			bloomBits.Add(size)
 		case bytes.HasPrefix(key, []byte("cht-")) ||

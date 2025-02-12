@@ -1282,8 +1282,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	rawdb.WriteBlock(blockBatch, block)
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
 	rawdb.WritePreimages(blockBatch, state.Preimages())
-	// TODO: consider passing it along like receipts instead of storing in state object
-	rawdb.WriteContractsConfig(blockBatch, block.NumberU64(), state.Config())
+	rawdb.WriteContractsConfig(blockBatch, block.NumberU64(), state.ContractsConfig())
 	if err := blockBatch.Write(); err != nil {
 		bc.log.Crit("Failed to write block into disk", "err", err)
 	}
@@ -2417,14 +2416,14 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	return 0, err
 }
 
-// TODO: should we bind the call to a specific block
+// TODO(reminder): should we bind the call to a specific block
 func (bc *BlockChain) MinBaseFee() *big.Int {
 	currentHeadNumber := bc.CurrentBlock().NumberU64()
 	config := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
 	return config.MinBaseFee
 }
 
-// TODO: should we bind the call to a specific block
+// TODO(reminder): should we bind the call to a specific block
 func (bc *BlockChain) EpochPeriod() *big.Int {
 	currentHeadNumber := bc.CurrentBlock().NumberU64()
 	config := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
