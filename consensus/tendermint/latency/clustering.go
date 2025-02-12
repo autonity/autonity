@@ -14,14 +14,19 @@ var KmeansClusterSeed = int64(12345)
 type Clusters [][]common.Address
 
 // selectK selects k members from each cluster
-func (c Clusters) selectK(k int) []common.Address {
+func (c Clusters) selectK(k int, seed int64) []common.Address {
 	var result []common.Address
+	r := rand.New(rand.NewSource(seed))
 	for _, cluster := range c {
 		if len(cluster) <= k {
 			result = append(result, cluster...)
 		} else {
+			selected := make(map[int]struct{})
 			for j := 0; j < k; j++ {
-				index := rand.Intn(len(cluster))
+				index := r.Intn(len(cluster))
+				for _, ok := selected[index]; ok; {
+					index = r.Intn(len(cluster))
+				}
 				result = append(result, cluster[index])
 			}
 		}

@@ -239,7 +239,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 					go p.SendRaw(ProposeNetworkMsg, m.Payload()) //nolint
 				}
 			}
-
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
