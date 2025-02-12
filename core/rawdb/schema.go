@@ -108,7 +108,7 @@ var (
 	jailedValidatorCountPrefix   = []byte("JailedCount")
 	jailedValidatorAddressPrefix = []byte("JailedAddress")
 
-	autonityConfigPrefix = []byte("ac-")
+	contractsConfigPrefix = []byte("cc-")
 )
 
 const (
@@ -255,6 +255,6 @@ func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
 }
 
-func autonityConfigKey(number uint64) []byte {
-	return append(autonityConfigPrefix, encodeNumber(number)...)
+func contractsConfigKey(number uint64) []byte {
+	return append(contractsConfigPrefix, encodeNumber(number)...)
 }

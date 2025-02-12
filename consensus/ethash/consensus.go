@@ -597,9 +597,9 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// TODO: proper fix
-	state.SetConfig(&bindings.AutonityConfig{
-		Policy:   bindings.AutonityPolicy{MinBaseFee: common.Big1},
-		Protocol: bindings.AutonityProtocol{EpochPeriod: common.Big256},
+	state.SetContractsConfig(&bindings.AutonityClientAwareConfig{
+		MinBaseFee:  common.Big1,
+		EpochPeriod: common.Big256,
 	})
 	return nil, nil, nil
 }

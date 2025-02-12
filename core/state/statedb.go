@@ -69,7 +69,7 @@ type StateDB struct {
 	trie         Trie
 	hasher       crypto.KeccakState
 
-	config *bindings.AutonityConfig // config at current block finalization
+	contractsConfig *bindings.AutonityClientAwareConfig
 
 	snaps         *snapshot.Tree
 	snap          snapshot.Snapshot
@@ -200,12 +200,12 @@ func (s *StateDB) AddLog(log *types.Log) {
 	s.logSize++
 }
 
-func (s *StateDB) SetConfig(config *bindings.AutonityConfig) {
-	s.config = config
+func (s *StateDB) SetContractsConfig(contractsConfig *bindings.AutonityClientAwareConfig) {
+	s.contractsConfig = contractsConfig
 }
 
-func (s *StateDB) Config() *bindings.AutonityConfig {
-	return s.config
+func (s *StateDB) Config() *bindings.AutonityClientAwareConfig {
+	return s.contractsConfig
 }
 
 func (s *StateDB) GetLogs(hash common.Hash, blockHash common.Hash) []*types.Log {
@@ -669,7 +669,7 @@ func (s *StateDB) Copy() *StateDB {
 		journal:             newJournal(),
 		hasher:              crypto.NewKeccakState(),
 		// TODO: deep copy
-		config: s.config,
+		contractsConfig: s.contractsConfig,
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {

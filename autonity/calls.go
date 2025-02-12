@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"errors"
+	"fmt"
 	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"reflect"
@@ -213,46 +214,56 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 }
 
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, error) {
-	var updateReady bool
-	var epochEnded bool
-	var committeeMembers []types.CommitteeMember
-	previousEpochBlock := new(big.Int)
-	nextEpochBlock := new(big.Int)
-	delta := new(big.Int)
-	config := bindings.AutonityConfig{}
+	var output raw
+
 	usedGas, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
 		"finalize",
-		&[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock, &delta, &config},
+		&output,
 	)
-	recordFinalizeGasUsage(epochEnded, header.Number.Uint64(), int64(usedGas))
 	if err != nil {
-		return false, nil, err
+		return false, nil, fmt.Errorf("call finalize failed: %w", err)
 	}
 
-	// set current config in the statedb object
-	state.SetConfig(&config)
+	unpackedOutput, err := c.contractABI.Unpack("finalize", output)
+	if err != nil {
+		return false, nil, fmt.Errorf("unpacking raw finalize output failed: %w", err)
+	}
 
-	if !epochEnded {
-		return updateReady, nil, nil
+	result := *abi.ConvertType(unpackedOutput[0], new(bindings.AutonityFinalizeResult)).(*bindings.AutonityFinalizeResult)
+
+	recordFinalizeGasUsage(result.EpochEnded, header.Number.Uint64(), int64(usedGas))
+
+	// set current config in the statedb object
+	state.SetContractsConfig(&(result.Config))
+
+	if !result.EpochEnded {
+		return result.ContractUpgradeReady, nil, nil
 	}
 
 	// return with epoch info
 	committee := &types.Committee{}
-	committee.Members = committeeMembers
+	committee.Members = make([]types.CommitteeMember, len(result.Committee))
+	for i, member := range result.Committee {
+		committee.Members[i] = types.CommitteeMember{
+			Address:           member.Addr,
+			VotingPower:       member.VotingPower,
+			ConsensusKeyBytes: member.ConsensusKey,
+		}
+	}
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error())
 	}
 
 	epoch := &types.Epoch{
-		PreviousEpochBlock: previousEpochBlock,
-		NextEpochBlock:     nextEpochBlock,
+		PreviousEpochBlock: result.PreviousEpochBlock,
+		NextEpochBlock:     result.NextEpochBlock,
 		Committee:          committee,
-		OmissionDelta:      delta,
+		OmissionDelta:      result.OmissionDelta,
 	}
 
-	return updateReady, epoch, nil
+	return result.ContractUpgradeReady, epoch, nil
 }
 
 func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.Header) ([]byte, string, error) {

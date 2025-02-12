@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"net"
 	"strings"
@@ -438,7 +439,11 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteEpochHeaderHash(db, block.Hash())
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	// TODO: verify that genesis config is not modified during deployment process
-	rawdb.WriteAutonityConfig(db, block.NumberU64(), autonity.ToContractConfig(g.Config.AutonityContractConfig))
+	rawdb.WriteContractsConfig(db, block.NumberU64(), &bindings.AutonityClientAwareConfig{
+		MinBaseFee:  new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
+		EpochPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
+		BlockPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
+	})
 	return block, nil
 }
 

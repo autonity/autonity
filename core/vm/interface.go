@@ -79,7 +79,7 @@ type StateDB interface {
 	TxIndex() int
 	GetLogs(hash common.Hash, blockHash common.Hash) []*types.Log
 
-	SetConfig(config *bindings.AutonityConfig)
+	SetContractsConfig(config *bindings.AutonityClientAwareConfig)
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

@@ -84,8 +84,8 @@ func WriteChainConfig(db ethdb.KeyValueWriter, hash common.Hash, cfg *params.Cha
 	}
 }
 
-func ReadAutonityConfig(db ethdb.KeyValueReader, number uint64) *bindings.AutonityConfig {
-	data, _ := db.Get(autonityConfigKey(number))
+func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) *bindings.AutonityClientAwareConfig {
+	data, _ := db.Get(contractsConfigKey(number))
 	if len(data) == 0 {
 		return nil
 	}
@@ -93,14 +93,14 @@ func ReadAutonityConfig(db ethdb.KeyValueReader, number uint64) *bindings.Autoni
 	// result is a block number, find the config in the respective block
 	if len(data) == 8 {
 		number = binary.BigEndian.Uint64(data)
-		data, _ = db.Get(autonityConfigKey(number))
+		data, _ = db.Get(contractsConfigKey(number))
 	}
 
 	if len(data) == 0 {
 		panic("cannot fetch autonity config")
 	}
 
-	config := &bindings.AutonityConfig{}
+	config := &bindings.AutonityClientAwareConfig{}
 	err := rlp.DecodeBytes(data, config)
 	if err != nil {
 		// TODO: panic? show also "previous" number?
@@ -110,7 +110,7 @@ func ReadAutonityConfig(db ethdb.KeyValueReader, number uint64) *bindings.Autoni
 	return config
 }
 
-func WriteAutonityConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.AutonityConfig) {
+func WriteContractsConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.AutonityClientAwareConfig) {
 	if cfg == nil {
 		return
 	}
@@ -121,7 +121,7 @@ func WriteAutonityConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.A
 		log.Crit("Failed to RLP encode chain config", "err", err)
 	}
 	//log.Warn("Storing chain config", "hash", number, "config", cfg)
-	if err := db.Put(autonityConfigKey(number), data); err != nil {
+	if err := db.Put(contractsConfigKey(number), data); err != nil {
 		log.Crit("Failed to store chain config", "err", err)
 	}
 }

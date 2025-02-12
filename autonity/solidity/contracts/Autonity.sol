@@ -157,6 +157,31 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 omissionDelta;
     }
 
+    // part of the config which the golang client is keeping track of
+    struct ClientAwareConfig {
+        uint256 minBaseFee;
+        uint256 epochPeriod;
+        uint256 blockPeriod;
+        // TODO: extension bytes
+        // TODO:
+        // gas limit
+        // accountability height range
+        // accountability delta blocks
+        // maybe EIP-1559 parameters?
+        // maybe committee? epoch blocks nums?
+        // basically all the info we have in header right now
+    }
+
+    struct FinalizeResult {
+        bool contractUpgradeReady;
+        bool epochEnded;
+        CommitteeMember[] committee;
+        uint256 previousEpochBlock;
+        uint256 nextEpochBlock;
+        uint256 omissionDelta;
+        ClientAwareConfig config;
+    }
+
     Config public config;
     address[] internal validatorList;
 
@@ -807,15 +832,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @return omissionDelta, the current value for delta (omission failure)
     * @return config, the current contract config
     */
-    function finalize() external virtual onlyProtocol nonReentrant returns (
-        bool,                       // contractUpgradeReady
-        bool,                       // epochEnded
-        CommitteeMember[] memory,   // committee
-        uint256,                    // epochInfos[epochID].previousEpochBlock
-        uint256,                    // epochInfos[epochID].nextEpochBlock
-        uint256,                    // omissionDelta
-        Config memory               // config
-    ) {
+    function finalize() external virtual onlyProtocol nonReentrant returns (FinalizeResult memory) {
         lastFinalizedBlock = block.number;
         blockEpochMap[block.number] = epochID;
 
@@ -879,7 +896,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             catch {}
         }
 
-        return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _omissionDelta, config);
+        return FinalizeResult(
+            contractUpgradeReady,
+            _epochEnded,
+            committee,
+            epochInfos[epochID].previousEpochBlock,
+            epochInfos[epochID].nextEpochBlock,
+            _omissionDelta,
+            ClientAwareConfig(
+                config.policy.minBaseFee,
+                config.protocol.epochPeriod,
+                config.protocol.blockPeriod
+            )
+        );
     }
 
     /**
