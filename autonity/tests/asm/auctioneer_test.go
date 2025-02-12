@@ -88,7 +88,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 
 		oracleData, _, err := r.Oracle.GetRoundData(nil, auction.StartRound, "NTN-ATN")
 		require.NoError(t, err)
-		require.Equal(t, newtonPrice, oracleData.Price)
+		require.Equal(t, newtonAutonPrice, oracleData.Price)
 
 		ntnCost, _, err := r.Auctioneer.MinInterestPayment(nil, auction.Id)
 		require.NoError(t, err)
@@ -261,7 +261,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 	}
 
 	tests.RunWithSetup("Debt auction is not callable on a non-liquidatable cdp", setup, func(r *tests.Runner) {
-		user, _ := setupCDP(r, toBase("100.00", 18), []*big.Int{newtonPrice}, false)
+		user, _ := setupCDP(r, toBase("100.00", 18), []*big.Int{newtonAutonPrice}, false)
 
 		cdp, _, err := r.Stabilization.Cdps(nil, user)
 		require.NoError(t, err)
@@ -292,10 +292,12 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 
 	tests.RunWithSetup("Cannot bid on a debt auction that with a round before the cdp was created", setup, func(r *tests.Runner) {
 		or := newOracleTestRounds([]*big.Int{
-			newtonPrice,
-			newtonPrice,
-			newtonPrice,
-			newtonPrice,
+			newtonAutonPrice,
+			newtonAutonPrice,
+			newtonAutonPrice,
+			new(big.Int).Div(newtonAutonPrice, common.Big2),
+			new(big.Int).Div(newtonAutonPrice, common.Big2),
+			new(big.Int).Div(newtonAutonPrice, common.Big2),
 		})
 
 		or.initialize(r)
@@ -349,12 +351,12 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 
 	tests.RunWithSetup("Cannot bid on a debt auction that is no longer liquidatable", setup, func(r *tests.Runner) {
 		or := newOracleTestRounds([]*big.Int{
-			newtonPrice,
-			newtonPrice,
-			newtonPrice,
-			newtonPrice,
-			new(big.Int).Mul(newtonPrice, common.Big2),
-			new(big.Int).Mul(newtonPrice, common.Big2),
+			newtonAutonPrice,
+			newtonAutonPrice,
+			new(big.Int).Div(newtonAutonPrice, common.Big2),
+			newtonAutonPrice,
+			new(big.Int).Mul(newtonAutonPrice, common.Big2),
+			new(big.Int).Mul(newtonAutonPrice, common.Big2),
 		})
 
 		or.initialize(r)
@@ -380,7 +382,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 
 		or.increment(r)
 
-		// cdp should be liquidatable from interest accumulation
+		// cdp should be liquidatable from price decrease
 		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
 		require.NoError(t, err)
 		require.True(t, liquidatable, "CDP should be liquidatable")
@@ -417,10 +419,13 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 
 	tests.RunWithSetup("Cannot bid on a debt auction with a round before the cdp was last updated", setup, func(r *tests.Runner) {
 		or := newOracleTestRounds([]*big.Int{
-			newtonPrice,
-			newtonPrice,
-			newtonPrice,
-			newtonPrice,
+			newtonAutonPrice,
+			newtonAutonPrice,
+			new(big.Int).Div(newtonAutonPrice, common.Big2),
+			new(big.Int).Div(newtonAutonPrice, common.Big2),
+			new(big.Int).Div(newtonAutonPrice, common.Big4),
+			new(big.Int).Div(newtonAutonPrice, common.Big4),
+			new(big.Int).Div(newtonAutonPrice, common.Big4),
 		})
 		or.initialize(r)
 		or.increment(r)
@@ -445,7 +450,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 
 		or.increment(r)
 
-		// cdp should be liquidatable from interest accumulation
+		// cdp should be liquidatable from price decrease
 		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
 		require.NoError(t, err)
 		require.True(t, liquidatable, "CDP should be liquidatable")
@@ -462,7 +467,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		_, err = r.Autonity.Approve(tests.FromSender(user, common.Big0), r.Stabilization.Address(), depositAmount)
 		require.NoError(t, err)
 
-		_, err = r.Stabilization.Deposit(tests.FromSender(user, common.Big0), big.NewInt(100000))
+		_, err = r.Stabilization.Deposit(tests.FromSender(user, common.Big0), depositAmount)
 		require.NoError(t, err)
 
 		// should no longer be liquidatable
@@ -495,10 +500,21 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Can bid with maximum current amount", setup, func(r *tests.Runner) {
-		user, or := setupCDP(r, toBase("100.00", 18), []*big.Int{newtonPrice}, true)
+		user, or := setupCDP(
+			r,
+			toBase("100.00", 18),
+			[]*big.Int{
+				newtonAutonPrice,
+				newtonAutonPrice,
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+			},
+			true,
+		)
 		or.increment(r)
 
-		// cdp should be liquidatable from interest accumulation
+		// cdp should be liquidatable from price decrease
 		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
 		require.NoError(t, err)
 		require.True(t, liquidatable, "CDP should be liquidatable")
@@ -540,10 +556,21 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Cannot bid with above maximum current amount", setup, func(r *tests.Runner) {
-		user, or := setupCDP(r, toBase("100.00", 18), []*big.Int{newtonPrice}, true)
+		user, or := setupCDP(
+			r,
+			toBase("100.00", 18),
+			[]*big.Int{
+				newtonAutonPrice,
+				newtonAutonPrice,
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+			},
+			true,
+		)
 		or.increment(r)
 
-		// cdp should be liquidatable from interest accumulation
+		// cdp should be liquidatable from price decrease
 		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
 		require.NoError(t, err)
 		require.True(t, liquidatable, "CDP should be liquidatable")
@@ -574,10 +601,21 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Can bid below maximum current amount", setup, func(r *tests.Runner) {
-		user, or := setupCDP(r, toBase("100.00", 18), []*big.Int{newtonPrice}, true)
+		user, or := setupCDP(
+			r,
+			toBase("100.00", 18),
+			[]*big.Int{
+				newtonAutonPrice,
+				newtonAutonPrice,
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+				new(big.Int).Div(newtonAutonPrice, common.Big2),
+			},
+			true,
+		)
 		or.increment(r)
 
-		// cdp should be liquidatable from interest accumulation
+		// cdp should be liquidatable from price decrease
 		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
 		require.NoError(t, err)
 		require.True(t, liquidatable, "CDP should be liquidatable")
@@ -681,7 +719,7 @@ func TestAuctioneerSetters(t *testing.T) {
 }
 
 func setupInterestAuction(r *tests.Runner, atnAboveMininum *big.Int) (auctionAmount *big.Int) {
-	or := newOracleTestRounds([]*big.Int{newtonPrice, newtonPrice, newtonPrice, newtonPrice})
+	or := newOracleTestRounds([]*big.Int{newtonAutonPrice, newtonAutonPrice, newtonAutonPrice, newtonAutonPrice})
 	or.initialize(r)
 	or.increment(r)
 	or.increment(r)
@@ -743,8 +781,20 @@ func newOracleTestRounds(ntnPrices []*big.Int) *testOracleRounds {
 		currentRound: 0,
 	}
 	oracleDecimals := int64(18)
+
+	// here we are assuming the price of ATN is equal to the target price (in ACU)
+	// ACU price = 1.0193722 USD from the parameters we set here
+	atnUSDPrice := toBase("1.65", oracleDecimals)
+	ntnUSDPrice := make([]*big.Int, len(ntnPrices))
+	for i := range ntnPrices {
+		ntnUSDPrice[i] = new(big.Int).Quo(
+			new(big.Int).Mul(ntnPrices[i], atnUSDPrice),
+			new(big.Int).SetUint64(1e18),
+		)
+	}
 	data := map[string][]*big.Int{
 		"NTN-ATN": ntnPrices,
+		"NTN-USD": {newtonUSDPrice},
 		"AUD-USD": {toBase("0.6757", oracleDecimals)},
 		"CAD-USD": {toBase("0.75694", oracleDecimals)},
 		"EUR-USD": {toBase("1.1085", oracleDecimals)},
@@ -752,7 +802,7 @@ func newOracleTestRounds(ntnPrices []*big.Int) *testOracleRounds {
 		"JPY-USD": {toBase("0.00713", oracleDecimals)},
 		"USD-USD": {toBase("1.0", oracleDecimals)},
 		"SEK-USD": {toBase("0.09597", oracleDecimals)},
-		"ATN-USD": {toBase("0.50", oracleDecimals)},
+		"ATN-USD": {atnUSDPrice},
 	}
 	for symbol, prices := range data {
 		or.symbols = append(or.symbols, symbol)
