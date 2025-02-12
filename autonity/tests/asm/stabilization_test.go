@@ -18,15 +18,16 @@ var (
 	e12 = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
 )
 
-// newtonPrice = 1234567 * 10^12 = 1.234567 * 10^18
-var newtonPrice = new(big.Int).Mul(big.NewInt(1234567), e12)
+// newtonAutonPrice = 1234567 * 10^12 = 1.234567 * 10^18
+var newtonAutonPrice = toBase("1.234567", 18)
+var newtonUSDPrice = toBase("2.03626873", 18)
 var basicConfig = tests.IStabilizationConfig{
-	BorrowInterestRate:        new(big.Int).Div(e18, big.NewInt(2)),
+	BorrowInterestRate:        toBase("0.5", 18),
 	AnnouncementWindow:        big.NewInt(30),
-	LiquidationRatio:          new(big.Int).Mul(big.NewInt(15), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil)),
-	MinCollateralizationRatio: new(big.Int).Mul(big.NewInt(25), new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil)),
+	LiquidationRatio:          toBase("1.5", 18),
+	MinCollateralizationRatio: toBase("2.5", 18),
 	MinDebtRequirement:        new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil),
-	TargetPrice:               new(big.Int).Set(e18),
+	TargetPrice:               toBase("1.0", 18),
 }
 
 func TestStabilizationConstructor(t *testing.T) {
@@ -213,7 +214,7 @@ func TestStabilizationWithdraw(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		setBasicConfig(r)
-		primePrices(r, newtonPrice, toBase("0.97", 18))
+		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
 		_, err := r.Autonity.Mint(r.Operator, userAccount, fundedAmount)
 		require.NoError(t, err)
@@ -313,12 +314,16 @@ func TestStabilizationWithdraw(t *testing.T) {
 
 		borrowLimit := calcBorrowLimit(r, userAccount)
 
+		newtonAcuPrice, _, err := r.Stabilization.CollateralPriceACU(nil)
+		require.NoError(t, err)
+
 		// borrow
 		borrowAmount := new(big.Int).Div(borrowLimit, big.NewInt(2))
 		collateralRequired, _, err := r.Stabilization.MinimumCollateral(
 			nil,
 			borrowAmount,
-			newtonPrice,
+			newtonAcuPrice,
+			cfg.TargetPrice,
 			cfg.MinCollateralizationRatio,
 		)
 		require.NoError(t, err)
@@ -339,7 +344,7 @@ func TestStabilizationBorrow(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		setBasicConfig(r)
-		primePrices(r, newtonPrice, toBase("1.64935913824", 18))
+		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
 		_, err := r.Autonity.Mint(r.Operator, userAccount, fundedAmount)
 		require.NoError(t, err)
@@ -514,7 +519,7 @@ func TestStabilizationRepay(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		setBasicConfig(r)
-		primePrices(r, newtonPrice, toBase("0.97", 18))
+		primePrices(r, newtonAutonPrice, toBase("0.97", 18))
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
 		_, err := r.Autonity.Mint(r.Operator, userAccount, fundedAmount)
 		require.NoError(t, err)
@@ -655,7 +660,7 @@ func TestStabilizationLiquidate(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		setBasicConfig(r)
-		primePrices(r, newtonPrice, toBase("0.97", 18))
+		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 
 		fundedAmount := new(big.Int).Mul(e18, big.NewInt(100))
 		totalDeposit := new(big.Int).Div(fundedAmount, big.NewInt(10))
@@ -690,11 +695,8 @@ func TestStabilizationLiquidate(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test liquidate returns overpayment to bidder", setup, func(r *tests.Runner) {
-		r.WaitNBlocks(10) // interest accrual should make the cdp liquidatable
+		makeLiquidatable(r, userAccount)
 
-		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, userAccount)
-		require.NoError(t, err)
-		require.True(t, liquidatable)
 		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
 		require.NoError(t, err)
 
@@ -719,7 +721,7 @@ func TestStabilizationLiquidate(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test liquidate reduces debt by full amount", setup, func(r *tests.Runner) {
-		r.WaitNBlocks(10) // interest accrual should make the cdp liquidatable
+		makeLiquidatable(r, userAccount)
 
 		cdpBefore, _, err := r.Stabilization.Cdps(nil, userAccount)
 		require.NoError(t, err)
@@ -779,50 +781,46 @@ func TestStabilizationCalculations(t *testing.T) {
 	}
 
 	tests.RunWithSetup("Test borrow limit", setup, func(r *tests.Runner) {
-		// borrow limit = (collateral * price / mcr) * (target atn-acu / atn-acu)
+		// borrow limit = (collateral * price / mcr * target atn-acu)
 		testCases := [][]*big.Int{
 			{
-				toBase("100", 18),                    // collateral
-				toBase("1.2", 18),                    // price ntn-atn
-				toBase("1.5", 18),                    // mcr
-				toBase("1.23", 18),                   // target price atn-acu
-				toBase("0.9", 18),                    // atn-acu
-				toBase("109.333333333333333333", 18), // expected
+				toBase("100", 18),                   // collateral
+				toBase("1.2", 18),                   // price ntn-acu
+				toBase("1.5", 18),                   // mcr
+				toBase("1.20", 18),                  // target price atn-acu
+				toBase("66.666666666666666666", 18), // expected
 			},
 			{
 				toBase("100", 18),
 				toBase("0.8", 18),
 				toBase("1.5", 18),
-				toBase("1.23", 18),
-				toBase("0.9", 18),
-				toBase("72.888888888888888888", 18),
+				toBase("1.20", 18),
+				toBase("44.444444444444444444", 18),
 			},
 			{
 				toBase("100", 18),
 				toBase("1.2", 18),
 				toBase("1.2", 18),
-				toBase("1.23", 18),
-				toBase("0.9", 18),
-				toBase("136.666666666666666666", 18),
+				toBase("1.47", 18),
+				toBase("68.027210884353741496", 18),
 			},
 			{
-				toBase("100", 18),
+				toBase("120", 18),
 				toBase("0.8", 18),
 				toBase("1.5", 18),
 				toBase("1.23", 18),
-				toBase("1.6", 18),
-				toBase("41.000000000000000000", 18),
+				toBase("52.032520325203252032", 18),
 			},
 		}
 
-		calculated := func(collateral, price, mcr, targetAtnACU, atnAcu *big.Int) *big.Int {
+		calculated := func(collateral, priceNtnACU, mcr, targetPrice *big.Int) *big.Int {
 			num := newFloat0().Mul(
-				newFloat0().Mul(newFloat(collateral), newFloat(price)),
-				newFloat(targetAtnACU),
+				newFloat0().Mul(newFloat(collateral), newFloat(priceNtnACU)),
+				newFloat(e18),
 			)
 			den := newFloat0().Mul(
 				newFloat(mcr),
-				newFloat(atnAcu),
+				newFloat(targetPrice),
 			)
 			result, _ := newFloat0().Quo(num, den).Int(nil)
 			return result
@@ -830,18 +828,16 @@ func TestStabilizationCalculations(t *testing.T) {
 
 		for _, tc := range testCases {
 			collateral := tc[0]
-			price := tc[1]
+			priceNtnACU := tc[1]
 			mcr := tc[2]
 			targetAtnACU := tc[3]
-			atnACU := tc[4]
 
-			expected := tc[5]
+			expected := tc[4]
 
 			actual, _, err := r.Stabilization.BorrowLimit(
 				nil,
 				collateral,   // collateral
-				price,        // collateralPrice
-				atnACU,       // debtPrice
+				priceNtnACU,  // collateralPrice
 				targetAtnACU, // targetDebtPrice
 				mcr,          // mcr
 			)
@@ -849,7 +845,7 @@ func TestStabilizationCalculations(t *testing.T) {
 			require.Equal(t, expected, actual)
 
 			// check that the calculated value is the same
-			require.Equal(t, expected, calculated(collateral, price, mcr, targetAtnACU, atnACU))
+			require.Equal(t, expected, calculated(collateral, priceNtnACU, mcr, targetAtnACU))
 		}
 	})
 
@@ -858,19 +854,11 @@ func TestStabilizationCalculations(t *testing.T) {
 			big.NewInt(100_000_000),
 			e18,
 		) // 100 million
-		atnUsd := toBase("0.0001", 18)
-		acuUsd := toBase("0.78", 18)
+		ntnACU := toBase("0.0001", 18)
 		_, _, err := r.Stabilization.BorrowLimit(
 			nil,
-			ntnMaxSupply,
-			toBase("1000000000000.2", 18), // price
-			new(big.Int).Div(
-				new(big.Int).Mul(
-					atnUsd,
-					e18,
-				),
-				acuUsd,
-			), // atn-acu
+			ntnMaxSupply,       // collateral
+			ntnACU,             // price ntn-acu
 			toBase("1.23", 18), // target price atn-acu
 			toBase("1.5", 18),  // mcr
 		)
@@ -878,49 +866,58 @@ func TestStabilizationCalculations(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test minimum collateral", setup, func(r *tests.Runner) {
+		// minimum collateral = (principal * mcr * target price) / price
 		testCases := [][]*big.Int{
 			{
-				toBase("80", 18),
-				toBase("1.2", 18),
-				toBase("1.5", 18),
-				toBase("100", 18),
+				toBase("80", 18),  // collateral
+				toBase("1.2", 18), // price ntn-acu
+				toBase("1.0", 18), // target price atn-acu
+				toBase("2.5", 18), // mcr
+				toBase("166.666666666666666666", 18),
 			},
 			{
-				bigInt("53333333333333333333"),
+				toBase("53.333333333333333333", 18),
 				toBase("0.8", 18),
+				toBase("1.0", 18),
 				toBase("1.5", 18),
-				bigInt("99999999999999999999"),
+				toBase("99.999999999999999999", 18),
 			},
 			{
 				toBase("100", 18),
 				toBase("1.2", 18),
-				toBase("1.2", 18),
-				toBase("100", 18),
+				toBase("1.618", 18),
+				toBase("1.5", 18),
+				toBase("202.25", 18),
 			},
 			{
-				bigInt("66666666666666666666"),
+				toBase("66.666666666666666666", 18),
 				toBase("0.8", 18),
+				toBase("2.0", 18),
 				toBase("1.2", 18),
-				bigInt("99999999999999999999"),
+				toBase("199.999999999999999998", 18),
 			},
 		}
 
-		calculated := func(principal, mcr, price *big.Int) *big.Int {
-			return new(big.Int).Div(new(big.Int).Mul(principal, mcr), price)
+		calculated := func(principal, mcr, price, targetPrice *big.Int) *big.Int {
+			return new(big.Int).Div(
+				new(big.Int).Mul(principal, new(big.Int).Mul(mcr, targetPrice)),
+				new(big.Int).Mul(price, e18),
+			)
 		}
 
 		for _, tc := range testCases {
 			principal := tc[0]
 			price := tc[1]
-			mcr := tc[2]
-			expected := tc[3]
+			targetPrice := tc[2]
+			mcr := tc[3]
+			expected := tc[4]
 
-			actual, _, err := r.Stabilization.MinimumCollateral(nil, principal, price, mcr)
+			actual, _, err := r.Stabilization.MinimumCollateral(nil, principal, price, targetPrice, mcr)
 			require.NoError(t, err)
 			require.Equal(t, expected, actual)
 
 			// check that the calculated value is the same
-			require.Equal(t, expected, calculated(principal, mcr, price))
+			require.Equal(t, expected, calculated(principal, mcr, price, targetPrice))
 		}
 	})
 
@@ -968,10 +965,10 @@ func TestStabilizationCalculations(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test collateral price has 18 decimals", setup, func(r *tests.Runner) {
-		primeOracle(r, []string{"NTN-ATN"}, []*big.Int{newtonPrice})
+		primeOracle(r, []string{"NTN-ATN"}, []*big.Int{newtonAutonPrice})
 		price, _, err := r.Stabilization.CollateralPrice(nil)
 		require.NoError(t, err)
-		require.Equal(t, price, newtonPrice)
+		require.Equal(t, price, newtonAutonPrice)
 	})
 }
 
@@ -1026,7 +1023,7 @@ func TestInterestCalculation(t *testing.T) {
 				common.Big0,
 			),
 		)
-		primePrices(r, newtonPrice, toBase("0.97", 18))
+		primePrices(r, newtonAutonPrice, toBase("0.97", 18))
 		r.GiveMeSomeMoney(user, new(big.Int).Mul(e18, big.NewInt(100)))
 		_, err := r.Autonity.Mint(r.Operator, user, depositAmmount)
 		require.NoError(t, err)
@@ -1600,7 +1597,7 @@ func bigInt(s string) *big.Int {
 	return i
 }
 
-func primePrices(r *tests.Runner, ntnAtnPrice *big.Int, atnUsdPrice *big.Int) {
+func primePrices(r *tests.Runner, ntnAtnPrice *big.Int, ntnUsdPrice *big.Int) {
 	oracleScale, _, err := r.Oracle.GetDecimals(nil)
 	require.NoError(r.T, err)
 	oracleDecimals := int64(oracleScale)
@@ -1637,7 +1634,7 @@ func primePrices(r *tests.Runner, ntnAtnPrice *big.Int, atnUsdPrice *big.Int) {
 		toBase("1.41", acuDecimals),
 	}
 	primeACUBasket(r, symbols, quantities, big.NewInt(acuDecimals))
-	primeOracle(r, append(symbols, "NTN-ATN", "ATN-USD"), append(prices, ntnAtnPrice, atnUsdPrice))
+	primeOracle(r, append(symbols, "NTN-ATN", "NTN-USD"), append(prices, ntnAtnPrice, ntnUsdPrice))
 	_, err = r.Acu.Update(tests.FromAutonity)
 	require.NoError(r.T, err)
 }
@@ -1719,10 +1716,28 @@ func calculateDebt(r *tests.Runner, debtInt *big.Int, debtStartTime *big.Int, ra
 			ert,
 		)
 	}
-	// debt = new(big.Float).Mul(
-	// 	debt,
-	// 	e18Float,
-	// )
 	debtInt, _ = debt.Int(nil)
 	return debtInt
+}
+
+func makeLiquidatable(r *tests.Runner, user common.Address) {
+	cfg, _, err := r.Stabilization.Config(nil)
+	require.NoError(r.T, err)
+
+	r.NoError(r.Stabilization.UpdateMinCollateralizationRatio(
+		r.Operator,
+		new(big.Int).Mul(cfg.MinCollateralizationRatio, big.NewInt(3)),
+	))
+	require.NoError(r.T, err)
+	progressTime(r, cfg.AnnouncementWindow.Int64())
+
+	r.NoError(r.Stabilization.UpdateLiquidationRatio(
+		r.Operator,
+		new(big.Int).Mul(cfg.MinCollateralizationRatio, big.NewInt(2)),
+	))
+	require.NoError(r.T, err)
+	progressTime(r, cfg.AnnouncementWindow.Int64())
+	liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
+	require.NoError(r.T, err)
+	require.True(r.T, liquidatable)
 }

@@ -301,7 +301,8 @@ contract Stabilization is IStabilization {
             cdp.collateral - amount <
             StabilizationMath.minimumCollateral(
                 cdp.principal,
-                price,
+                collateralPriceACU(),
+                _config.targetPrice,
                 _minCollateralizationRatio.value()
             )
         ) revert InsufficientCollateral();
@@ -635,8 +636,7 @@ contract Stabilization is IStabilization {
     ) public view returns (uint256) {
         uint256 borrowLimit = StabilizationMath.borrowLimit(
             collateral,
-            collateralPrice(),
-            debtPrice(),
+            collateralPriceACU(),
             _config.targetPrice,
             _minCollateralizationRatio.value()
         );
@@ -662,18 +662,17 @@ contract Stabilization is IStabilization {
         price = data.price;
     }
 
-    /// Price Auton in USD
+    /// Price the Collateral Token in ACU
     ///
-    /// Retrieves the Auton price from the Oracle Contract
-    /// @return price Price of ATN in ACU
-    /// @dev The function reverts in case the price is invalid or unavailable.
-    function debtPrice() public view returns (uint256) {
-        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.ATN_SYMBOL);
-        if (!data.success) revert PriceUnavailable(StabilizationMath.ATN_SYMBOL);
+    /// Retrieves the Collateral Token price from the Oracle Contract in USD
+    /// and converts it to ACU
+    /// @return price Price of Collateral Token in ACU
+    function collateralPriceACU() public view returns (uint256) {
+        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
+        if (!data.success) revert PriceUnavailable(StabilizationMath.NTN_USD_SYMBOL);
         if (data.price <= 0) revert InvalidPrice();
-        uint256 atnUsd = data.price;
         uint256 acuUsd = acuPrice();
-        return atnUsd * StabilizationMath.SCALE_FACTOR / acuUsd;
+        return data.price * StabilizationMath.SCALE_FACTOR / acuUsd;
     }
 
     /// Price the ACU value in USD.
@@ -782,26 +781,30 @@ contract Stabilization is IStabilization {
     // ToDo(scott): figure out the best way to avoid this redundancy
     function borrowLimit(
         uint256 collateral,
-        uint256 collateralPrice,
-        uint256 debtPrice,
-        uint256 targetDebtPrice,
+        uint256 collateralPriceACU,
+        uint256 targetPriceACU,
         uint256 mcr
     ) external pure returns (uint256) {
         return StabilizationMath.borrowLimit(
             collateral,
-            collateralPrice,
-            debtPrice,
-            targetDebtPrice,
+            collateralPriceACU,
+            targetPriceACU,
             mcr
         );
     }
 
     function minimumCollateral(
         uint256 principal,
-        uint256 price,
+        uint256 collateralPriceACU,
+        uint256 targetPriceACU,
         uint256 mcr
     ) external pure returns (uint256) {
-        return StabilizationMath.minimumCollateral(principal, price, mcr);
+        return StabilizationMath.minimumCollateral(
+            principal,
+            collateralPriceACU,
+            targetPriceACU,
+            mcr
+        );
     }
 
     function interestDue(

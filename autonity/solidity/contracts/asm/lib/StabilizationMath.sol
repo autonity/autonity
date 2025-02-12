@@ -7,7 +7,7 @@ import {UD60x18, ud} from "../../lib/prb-math-4.0.1/UD60x18.sol";
 library StabilizationMath {
 
     string internal constant NTN_SYMBOL = "NTN-ATN";
-    string internal constant ATN_SYMBOL = "ATN-USD";
+    string internal constant NTN_USD_SYMBOL = "NTN-USD";
 
     /// The decimal places in fixed-point integer representation.
     uint256 internal constant SCALE = 18; // Match UD60x18
@@ -47,8 +47,8 @@ library StabilizationMath {
         }
         UD60x18 L = ud(liquidationRatio);
         UD60x18 C = ud(totalCollateral);
-        UD60x18 t = ud(timeDelta*SCALE_FACTOR);
-        UD60x18 T = ud(duration*SCALE_FACTOR);
+        UD60x18 t = ud(timeDelta * SCALE_FACTOR);
+        UD60x18 T = ud(duration * SCALE_FACTOR);
         UD60x18 sqrtTau = t.div(T).sqrt();
         UD60x18 one = ud(SCALE_FACTOR);
 
@@ -95,35 +95,35 @@ library StabilizationMath {
     /// Calculate the maximum amount of ATN that can be borrowed for the
     /// given amount of Collateral Token.
     /// @param collateral Amount of Collateral Token backing the debt
-    /// @param collateralPrice The price of Collateral Token in Auton
-    /// @param debtPrice The price of ATN in ACU
-    /// @param targetDebtPrice The ACU value of 1 unit of debt
+    /// @param collateralPriceACU The price of Collateral Token in ACU
+    /// @param targetDebtPriceACU The value of 1 unit of debt in ACU
     /// @param mcr The minimum collateralization ratio
     /// @return The maximum ATN that can be borrowed
     function borrowLimit(
         uint256 collateral,
-        uint256 collateralPrice,
-        uint256 debtPrice,
-        uint256 targetDebtPrice,
+        uint256 collateralPriceACU,
+        uint256 targetDebtPriceACU,
         uint256 mcr
     ) internal pure returns (uint256) {
-        if (collateralPrice == 0 || mcr == 0 || debtPrice == 0) revert InvalidParameter();
-        return (collateral * collateralPrice * targetDebtPrice) / (mcr * debtPrice);
+        if (collateralPriceACU == 0 || mcr == 0 || targetDebtPriceACU == 0) revert InvalidParameter();
+        return (collateral * collateralPriceACU * SCALE_FACTOR) / (mcr * targetDebtPriceACU);
     }
 
     /// Calculate the minimum amount of Collateral Token that must be deposited
     /// in the CDP in order to borrow the given amount of Autons.
     /// @param principal Auton amount to borrow
-    /// @param price The price of Collateral Token in Auton
+    /// @param collateralPriceACU The price of Collateral Token in ACU
+    /// @param targetDebtPriceACU The value of 1 unit of debt in ACU
     /// @param mcr The minimum collateralization ratio
     /// @return The minimum Collateral Token amount required
     function minimumCollateral(
         uint256 principal,
-        uint256 price,
+        uint256 collateralPriceACU,
+        uint256 targetDebtPriceACU,
         uint256 mcr
     ) internal pure returns (uint256) {
-        if (price == 0 || mcr == 0) revert InvalidParameter();
-        return (principal * mcr) / price;
+        if (collateralPriceACU == 0 || mcr == 0) revert InvalidParameter();
+        return (principal * mcr * targetDebtPriceACU) / (collateralPriceACU * SCALE_FACTOR);
     }
 
     /// Calculate the interest due for a given amount of debt.
@@ -185,7 +185,7 @@ library StabilizationMath {
     function toScaleFactor(uint256 value, uint256 valueScaleFactor) internal pure returns (uint256) {
         return (value * SCALE_FACTOR) / valueScaleFactor;
     }
-    
+
     /**
      * @dev Calculates the interest exponent for given rate in the given time window
      * @param interestRate interest rate
