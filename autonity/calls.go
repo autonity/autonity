@@ -177,7 +177,7 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 			Committee:          committee,
 			PreviousEpochBlock: info.PreviousEpochBlock,
 			NextEpochBlock:     info.NextEpochBlock,
-			OmissionDelta:      info.Delta,
+			OmissionDelta:      info.OmissionDelta,
 		},
 		EpochBlock: info.EpochBlock,
 	}

@@ -15,14 +15,14 @@ library Precompiled {
     address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
 
 
-    function computeAbsentees(bool _mustBeEmpty, uint256 _delta, uint256 _committeeSlot) internal returns (
+    function computeAbsentees(bool _mustBeEmpty, uint256 _omissionDelta, uint256 _committeeSlot) internal returns (
         bool,               // isProposerOmissionFaulty
         uint256,            // proposerEffort
         address[] memory    // absentees
     ){
         address to = ACTIVITY_CONTRACT;
 
-        bytes memory _input = abi.encodePacked(_mustBeEmpty, _delta, _committeeSlot);
+        bytes memory _input = abi.encodePacked(_mustBeEmpty, _omissionDelta, _committeeSlot);
         uint256 _outputLength;
 
         assembly {

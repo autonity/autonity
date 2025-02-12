@@ -154,7 +154,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 previousEpochBlock;
         uint256 epochBlock;
         uint256 nextEpochBlock;
-        uint256 delta;
+        uint256 omissionDelta;
     }
 
     Config public config;
@@ -308,14 +308,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
     }
 
-    function finalizeInitialization(uint256 delta) onlyProtocol nonReentrant public {
+    function finalizeInitialization(uint256 omissionDelta) onlyProtocol nonReentrant public {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
         lastFinalizedBlock = block.number;
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
-        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, delta));
+        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, omissionDelta));
     }
 
     /**
@@ -587,13 +587,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     /*
     * @notice Set the epoch period. It will be applied at epoch end. Restricted to the Operator account.
-    * @param _period Positive integer. Needs to respect the equation epochPeriod > delta+lookback-1
+    * @param _period Positive integer. Needs to respect the equation epochPeriod > omissionDelta+lookback-1
     */
     function setEpochPeriod(uint256 _period) public virtual onlyOperator {
         uint256 _lookbackWindow = config.contracts.omissionAccountabilityContract.getLookbackWindow();
-        uint256 _delta = config.contracts.omissionAccountabilityContract.getDelta();
+        uint256 _omissionDelta = config.contracts.omissionAccountabilityContract.getDelta();
         require(_period > 0, "epoch period cannot be 0");
-        require(_period > _delta + _lookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
+        require(_period > _omissionDelta + _lookbackWindow - 1, "epoch period needs to be greater than omissionDelta+lookbackWindow-1");
 
         // we need this check to update new voters at the end of voting round
         uint256 _votePeriod = config.contracts.oracleContract.getVotePeriod();
@@ -804,7 +804,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @return committee The next epoch's consensus committee, if there is no epoch rotation, an empty set is returned.
     * @return previousEpochBlock The previous epoch block number.
     * @return nextEpochBlock The next epoch block number.
-    * @return delta, the current value for delta (omission failure)
+    * @return omissionDelta, the current value for delta (omission failure)
     * @return config, the current contract config
     */
     function finalize() external virtual onlyProtocol nonReentrant returns (
@@ -813,7 +813,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         CommitteeMember[] memory,   // committee
         uint256,                    // epochInfos[epochID].previousEpochBlock
         uint256,                    // epochInfos[epochID].nextEpochBlock
-        uint256,                    // delta
+        uint256,                    // omissionDelta
         Config memory               // config
     ) {
         lastFinalizedBlock = block.number;
@@ -824,7 +824,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         // finalize all auxiliary contracts
         config.contracts.accountabilityContract.finalize(_epochEnded);
-        uint256 _delta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
+        uint256 _omissionDelta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
         bool newRound = config.contracts.oracleContract.finalize();
 
         if (_epochEnded) {
@@ -869,7 +869,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             // NOTE: Rewards distribution depends on the current value of epochID,
             // so we should always keep this epoch increment at the end of this block.
             epochID += 1;
-            _addEpochInfo(epochID, EpochInfo(committee, _previousEpochBlock, block.number, _nextEpochBlock, _delta));
+            _addEpochInfo(epochID, EpochInfo(committee, _previousEpochBlock, block.number, _nextEpochBlock, _omissionDelta));
             emit NewEpoch(epochID);
         }
 
@@ -879,7 +879,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             catch {}
         }
 
-        return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _delta, config);
+        return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _omissionDelta, config);
     }
 
     /**
@@ -1802,7 +1802,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         epoch.previousEpochBlock = _epoch.previousEpochBlock;
         epoch.epochBlock = _epoch.epochBlock;
         epoch.nextEpochBlock = _epoch.nextEpochBlock;
-        epoch.delta = _epoch.delta;
+        epoch.omissionDelta = _epoch.omissionDelta;
         for (uint256 i = 0; i < _epoch.committee.length; i++) {
             epoch.committee.push(_epoch.committee[i]);
         }

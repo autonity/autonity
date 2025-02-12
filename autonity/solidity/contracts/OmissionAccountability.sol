@@ -76,7 +76,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
         Autonity.EpochInfo memory epochInfo = autonity.getEpochInfo();
-        require(epochInfo.delta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
+        require(epochInfo.omissionDelta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
 
         operator = _operator;
         config = _config;
