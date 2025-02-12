@@ -668,13 +668,16 @@ func (s *StateDB) Copy() *StateDB {
 		preimages:           make(map[common.Hash][]byte, len(s.preimages)),
 		journal:             newJournal(),
 		hasher:              crypto.NewKeccakState(),
+	}
+	if s.contractsConfig != nil {
 		// TODO(reminder) add new fields
-		contractsConfig: &bindings.AutonityClientAwareConfig{
+		state.contractsConfig = &bindings.AutonityClientAwareConfig{
 			MinBaseFee:  new(big.Int).Set(s.contractsConfig.MinBaseFee),
 			EpochPeriod: new(big.Int).Set(s.contractsConfig.EpochPeriod),
 			BlockPeriod: new(big.Int).Set(s.contractsConfig.BlockPeriod),
-		},
+		}
 	}
+
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
 		// As documented [here](https://github.com/autonity/autonity/pull/16485#issuecomment-380438527),
