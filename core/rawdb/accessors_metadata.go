@@ -17,7 +17,6 @@
 package rawdb
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"github.com/autonity/autonity/autonity/bindings"
 	"time"
@@ -91,10 +90,11 @@ func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) *bindings.Auton
 	}
 
 	// result is a block number, find the config in the respective block
-	if len(data) == 8 {
-		number = binary.BigEndian.Uint64(data)
-		data, _ = db.Get(contractsConfigKey(number))
-	}
+	/*
+		if len(data) == 8 {
+			number = binary.BigEndian.Uint64(data)
+			data, _ = db.Get(contractsConfigKey(number))
+		}*/
 
 	if len(data) == 0 {
 		panic("cannot fetch autonity config")

@@ -255,6 +255,7 @@ func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
 }
 
+// contractsConfigKey = contractsConfigPrefix + number (uint64 big endian)
 func contractsConfigKey(number uint64) []byte {
 	return append(contractsConfigPrefix, encodeNumber(number)...)
 }
