@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
+	"math/big"
 	"sync"
 	"time"
 
@@ -90,7 +91,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	// if we are sending the proposal, we should send it to every cluster
 	var recipients []types.CommitteeMember
 	if from == r.self {
-		for _, addr := range r.clusters.selectK(ClusterRedundancyParameter) {
+		for _, addr := range r.clusters.selectK(ClusterRedundancyParameter, seed(msg)) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
@@ -376,4 +377,15 @@ func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.N
 		}
 	}
 	return nil, false
+}
+
+func seed(msg message.Msg) int64 {
+	// this ensures we end up with a seed that is > 0 < math.MaxInt64, but is still reliant on
+	// the message hash and the message height and round
+	hash := new(big.Int).
+		Mod(
+			msg.Hash().Big(),
+			new(big.Int).Div(big.NewInt(math.MaxInt64), big.NewInt(int64(msg.H())*msg.R())),
+		)
+	return int64(msg.H()) * msg.R() * hash.Int64()
 }
