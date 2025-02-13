@@ -15,6 +15,7 @@ import "./Oracle.sol";
 import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";
 import "./asm/SupplyControl.sol";
+import "./StakingPool.sol";
 import "./UpgradeManager.sol";
 import "./InflationController.sol";
 import "./vesting/NonStakeableVesting.sol";

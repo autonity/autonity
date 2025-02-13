@@ -5,10 +5,8 @@ import "../Autonity.sol";
 
 contract LiquidStorage {
     mapping(address => uint256) internal balances;
-    mapping(address => uint256) internal lockedBalances;
 
     mapping(address => mapping (address => uint256)) internal allowances;
-    uint256 internal supply;
 
     mapping(address => uint256) internal atnRealisedFees;
     mapping(address => uint256) internal atnUnrealisedFeeFactors;
@@ -19,7 +17,6 @@ contract LiquidStorage {
 
     address internal validator;
     address payable internal treasury;
-    uint256 internal commissionRate;
 
     uint256 internal treasuryUnclaimedATN;
 
