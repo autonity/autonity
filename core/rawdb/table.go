@@ -172,6 +172,58 @@ func (t *table) NewBatch() ethdb.Batch {
 	return &tableBatch{t.db.NewBatch(), t.prefix}
 }
 
+type tableBatchWithReader struct {
+	batch  ethdb.BatchWithReader
+	prefix string
+}
+
+// Has retrieves if a prefixed version of a key is present in the database.
+func (t *tableBatchWithReader) Has(key []byte) (bool, error) {
+	return t.batch.Has(append([]byte(t.prefix), key...))
+}
+
+// Get retrieves the given prefixed key if it's present in the database.
+func (t *tableBatchWithReader) Get(key []byte) ([]byte, error) {
+	return t.batch.Get(append([]byte(t.prefix), key...))
+}
+
+// Put inserts the given value into the batch for later committing.
+func (b *tableBatchWithReader) Put(key, value []byte) error {
+	return b.batch.Put(append([]byte(b.prefix), key...), value)
+}
+
+// Delete inserts the a key removal into the batch for later committing.
+func (b *tableBatchWithReader) Delete(key []byte) error {
+	return b.batch.Delete(append([]byte(b.prefix), key...))
+}
+
+// ValueSize retrieves the amount of data queued up for writing.
+func (b *tableBatchWithReader) ValueSize() int {
+	return b.batch.ValueSize()
+}
+
+// Write flushes any accumulated data to disk.
+func (b *tableBatchWithReader) Write() error {
+	return b.batch.Write()
+}
+
+// Reset resets the batch for reuse.
+func (b *tableBatchWithReader) Reset() {
+	b.batch.Reset()
+}
+
+// Replay replays the batch contents.
+func (b *tableBatchWithReader) Replay(w ethdb.KeyValueWriter) error {
+	return b.batch.Replay(&tableReplayer{w: w, prefix: b.prefix})
+}
+
+func (t *table) NewBatchWithReader() ethdb.BatchWithReader {
+	return &tableBatchWithReader{
+		t.db.NewBatchWithReader(),
+		t.prefix,
+	}
+}
+
 // tableBatch is a wrapper around a database batch that prefixes each key access
 // with a pre-configured string.
 type tableBatch struct {

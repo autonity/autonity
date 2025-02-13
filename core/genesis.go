@@ -429,21 +429,26 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		return nil, errors.New("can't commit genesis block with number > 0")
 	}
 
-	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
-	rawdb.WriteBlock(db, block)
-	rawdb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
-	rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
-	rawdb.WriteHeadBlockHash(db, block.Hash())
-	rawdb.WriteHeadFastBlockHash(db, block.Hash())
-	rawdb.WriteHeadHeaderHash(db, block.Hash())
-	rawdb.WriteEpochHeaderHash(db, block.Hash())
-	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
+	batch := db.NewBatchWithReader()
+	rawdb.WriteTd(batch, block.Hash(), block.NumberU64(), g.Difficulty)
+	rawdb.WriteBlock(batch, block)
+	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), nil)
+	rawdb.WriteCanonicalHash(batch, block.Hash(), block.NumberU64())
+	rawdb.WriteHeadBlockHash(batch, block.Hash())
+	rawdb.WriteHeadFastBlockHash(batch, block.Hash())
+	rawdb.WriteHeadHeaderHash(batch, block.Hash())
+	rawdb.WriteEpochHeaderHash(batch, block.Hash())
+	rawdb.WriteChainConfig(batch, block.Hash(), g.Config)
 	// TODO(reminder) add other fields
-	rawdb.WriteContractsConfig(db, block.NumberU64(), &bindings.AutonityClientAwareConfig{
+	rawdb.WriteContractsConfig(batch, block.NumberU64(), &bindings.AutonityClientAwareConfig{
 		MinBaseFee:  new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
 		EpochPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
 		BlockPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
 	})
+	err = batch.Write()
+	if err != nil {
+		panic("failed to write genesis block: " + err.Error())
+	}
 	return block, nil
 }
 

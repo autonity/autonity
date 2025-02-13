@@ -93,8 +93,8 @@ func isRlpEncodedUint64(b byte) bool {
 	switch {
 	case b < 0x80: // Byte
 		return true
-	case b < 0xB8:
-		return true // String
+	case b < 0xB8: // String
+		return true
 	case b < 0xC0: // String
 		return true
 	case b < 0xF8: // List
@@ -145,7 +145,7 @@ func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*bindings.Auto
 	return config, number
 }
 
-func WriteContractsConfig(db ethdb.KeyValueStore, targetNumber uint64, cfg *bindings.AutonityClientAwareConfig) {
+func WriteContractsConfig(db ethdb.BatchWithReader, targetNumber uint64, cfg *bindings.AutonityClientAwareConfig) {
 	// if writing genesis contracts config, no need to check previous ones
 	if targetNumber == 0 {
 		writeContractsConfig(db, targetNumber, cfg)
