@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../interfaces/IStakeableVesting.sol";
-import {PendingStakingRequest, QueueLib} from "./QueueLib.sol";
+import {PendingStakingRequest, StakingQueueLib} from "./lib/StakingQueueLib.sol";
 import "./StakeableVestingStorage.sol";
 import "./ValidatorManager.sol";
 
@@ -13,7 +13,7 @@ import "./ValidatorManager.sol";
  */
 contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting {
 
-    using QueueLib for StakingRequestQueue;
+    using StakingQueueLib for StakingRequestQueue;
 
     event BeneficiaryChanged(address indexed newBeneficiary, address indexed oldBeneficiary, address indexed contractAddress); 
 
@@ -445,9 +445,10 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         uint256 _topIndex = unbondingQueue.topIndex;
 
         // first delete all unbonding request from queue that are released
+        IStakingPool _stakingPool = IStakingPool(autonity.getStakingPool());
         while (_topIndex < _length) {
             _unbondingRequest = _queue[_topIndex];
-            if (autonity.isUnbondingReleased(_unbondingRequest.requestID)) {
+            if (_stakingPool.isUnbondingReleased(_unbondingRequest.requestID)) {
                 _topIndex++;
             }
             else {
@@ -465,16 +466,17 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         uint256 _currentEpochID = _getEpochID();
         PendingStakingRequest[] storage _queue = unbondingQueue.array;
         uint256 _length = _queue.length;
+        IStakingPool _stakingPool = IStakingPool(autonity.getStakingPool());
 
         for (uint256 i = unbondingQueue.topIndex; i < _length; i++) {
             _unbondingRequest = _queue[i];
             if (_unbondingRequest.epochID == _currentEpochID) {
                 break;
             }
-            if (autonity.isUnbondingReleased(_unbondingRequest.requestID)) {
+            if (_stakingPool.isUnbondingReleased(_unbondingRequest.requestID)) {
                 continue;
             }
-            _unbondingShare = autonity.getUnbondingShare(_unbondingRequest.requestID);
+            _unbondingShare = _stakingPool.getUnbondingShare(_unbondingRequest.requestID);
             if (_unbondingShare == 0) {
                 continue;
             }
