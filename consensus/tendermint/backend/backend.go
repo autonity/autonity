@@ -3,6 +3,7 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -88,7 +89,12 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey)
+	// apply customized pinger which might be used by local e2e testing.
+	var pinger ping.Pinger
+	if services != nil && services.Pinger != nil {
+		pinger = services.Pinger
+	}
+	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey, pinger)
 
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,
@@ -145,7 +151,8 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	router *latency.Router
+	//router *latency.Router
+	router interfaces.Router
 
 	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 	vmConfig        *vm.Config

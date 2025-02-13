@@ -50,6 +50,8 @@ type Router struct {
 	newReporters []common.Address
 	measured     bool
 
+	pinger ping.Pinger
+
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 }
@@ -57,6 +59,7 @@ type Router struct {
 func NewRouter(
 	broadcaster consensus.Broadcaster,
 	nodeKey *ecdsa.PrivateKey,
+	pinger ping.Pinger,
 ) *Router {
 	r := &Router{
 		broadcaster:       broadcaster,
@@ -64,7 +67,13 @@ func NewRouter(
 		reportedEventChan: make(chan *autonity.LatencyReported),
 		epochEventChan:    make(chan core.EpochHeadEvent),
 		chainEventChan:    make(chan core.ChainEvent),
+		pinger:            pinger,
 		cache:             newLatencyCache(),
+	}
+
+	// now customized pinger, taking the TCP pinger as the default one.
+	if pinger == nil {
+		r.pinger = ping.NewPinger(ping.TCP)
 	}
 	return r
 }
@@ -254,7 +263,7 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 		}
 	}
 
-	latencyArray := pingPeers(pingTargets)
+	latencyArray := r.pingPeers(pingTargets)
 	for i, addr := range validators {
 		// set self latency to 0
 		if addr == r.self {
@@ -333,7 +342,7 @@ func (r *Router) loop(ctx context.Context) {
 	}
 }
 
-func pingPeers(targets []ping.Target) []uint8 {
+func (r *Router) pingPeers(targets []ping.Target) []uint8 {
 	channelArray := make([]chan time.Duration, len(targets))
 	for i, t := range targets {
 		resultCh := make(chan time.Duration, 1)
@@ -345,7 +354,7 @@ func pingPeers(targets []ping.Target) []uint8 {
 			continue
 		}
 		// icmp pinger to compare results
-		ping.NewPinger(ping.TCP).Ping(t, resultCh)
+		r.pinger.Ping(t, resultCh)
 		channelArray[i] = resultCh
 	}
 	results := make([]uint8, len(targets))
