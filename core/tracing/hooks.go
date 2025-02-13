@@ -322,3 +322,29 @@ const (
 	// it will be "manually" tracked by a direct emit of the gas change event.
 	GasChangeIgnored GasChangeReason = 0xFF
 )
+
+// NonceChangeReason is used to indicate the reason for a nonce change.
+type NonceChangeReason byte
+
+const (
+	NonceChangeUnspecified NonceChangeReason = 0
+
+	// NonceChangeGenesis is the nonce allocated to accounts at genesis.
+	NonceChangeGenesis NonceChangeReason = 1
+
+	// NonceChangeEoACall is the nonce change due to an EoA call.
+	NonceChangeEoACall NonceChangeReason = 2
+
+	// NonceChangeContractCreator is the nonce change of an account creating a contract.
+	NonceChangeContractCreator NonceChangeReason = 3
+
+	// NonceChangeNewContract is the nonce change of a newly created contract.
+	NonceChangeNewContract NonceChangeReason = 4
+
+	// NonceChangeTransaction is the nonce change due to a EIP-7702 authorization.
+	NonceChangeAuthorization NonceChangeReason = 5
+
+	// NonceChangeRevert is emitted when the nonce is reverted back to a previous value due to call failure.
+	// It is only emitted when the tracer has opted in to use the journaling wrapper (WrapWithJournal).
+	NonceChangeRevert NonceChangeReason = 6
+)

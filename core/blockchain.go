@@ -340,7 +340,7 @@ func NewBlockChain(db ethdb.Database,
 		senderCacher:  senderCacher,
 		log:           log,
 	}
-	``
+
 	bc.flushInterval.Store(int64(cacheConfig.TrieTimeLimit))
 	bc.statedb = state.NewDatabase(bc.triedb, nil)
 	bc.validator = NewBlockValidator(chainConfig, bc)
