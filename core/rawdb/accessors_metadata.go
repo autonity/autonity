@@ -157,7 +157,7 @@ func WriteContractsConfig(db ethdb.KeyValueStore, targetNumber uint64, cfg *bind
 	if isEqual(previousConfig, cfg) {
 		// nothing changed, just point to the previous config
 		if err := db.Put(contractsConfigKey(targetNumber), rlpEncodeUint64(number)); err != nil {
-			panic("Failed to store contracts config: " + err.Error())
+			panic("Failed to store contracts config: " + err.Error()) //nolint:goconst
 		}
 	} else {
 		// config changed, stored the new one
@@ -185,7 +185,7 @@ func writeContractsConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.
 		panic("Failed to RLP encode contracts config: " + err.Error())
 	}
 	if err := db.Put(contractsConfigKey(number), data); err != nil {
-		panic("Failed to store contracts config: " + err.Error())
+		panic("Failed to store contracts config: " + err.Error()) //nolint:goconst
 	}
 }
 
