@@ -2419,14 +2419,14 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 // TODO(reminder): should we bind the call to a specific block
 func (bc *BlockChain) MinBaseFee() *big.Int {
 	currentHeadNumber := bc.CurrentBlock().NumberU64()
-	config := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
+	config, _ := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
 	return config.MinBaseFee
 }
 
 // TODO(reminder): should we bind the call to a specific block
 func (bc *BlockChain) EpochPeriod() *big.Int {
 	currentHeadNumber := bc.CurrentBlock().NumberU64()
-	config := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
+	config, _ := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
 	return config.EpochPeriod
 }
 

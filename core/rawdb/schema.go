@@ -146,7 +146,7 @@ type LegacyTxLookupEntry struct {
 	Index      uint64
 }
 
-// encodeNumber encodes a block number as big endian uint64
+// encodeNumber encodes a number as big endian uint64
 func encodeNumber(number uint64) []byte {
 	enc := make([]byte, 8)
 	binary.BigEndian.PutUint64(enc, number)

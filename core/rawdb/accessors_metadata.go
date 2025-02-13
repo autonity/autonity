@@ -18,7 +18,9 @@ package rawdb
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/autonity/autonity/autonity/bindings"
+	"strconv"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -83,46 +85,107 @@ func WriteChainConfig(db ethdb.KeyValueWriter, hash common.Hash, cfg *params.Cha
 	}
 }
 
-func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) *bindings.AutonityClientAwareConfig {
+// TODO(reminder) maybe a cleanest way would be to use something like typedMessage,
+// as this relies on the internals of RLP encoding
+func isRlpEncodedUint64(b byte) bool {
+	// encoded uint64 are always encoded either as Byte or as String
+	// structs are always encoded as Lists
+	switch {
+	case b < 0x80: // Byte
+		return true
+	case b < 0xB8:
+		return true // String
+	case b < 0xC0: // String
+		return true
+	case b < 0xF8: // List
+		return false
+	default: // List
+		return false
+	}
+}
+
+func rlpEncodeUint64(number uint64) []byte {
+	encoded, err := rlp.EncodeToBytes(number)
+	if err != nil {
+		panic("failed to encode RLP encoded number, err: " + err.Error())
+	}
+	return encoded
+}
+
+func rlpDecodeUint64(encoded []byte) uint64 {
+	var number uint64
+	if err := rlp.DecodeBytes(encoded, &number); err != nil {
+		panic("failed to decode RLP encoded number, err: " + err.Error())
+	}
+	return number
+}
+
+// returns the config at block `number` and the number at which it was stored in statedb
+func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*bindings.AutonityClientAwareConfig, uint64) {
+	requestedNumber := number
 	data, _ := db.Get(contractsConfigKey(number))
 	if len(data) == 0 {
-		return nil
+		return nil, 0
 	}
 
-	// result is a block number, find the config in the respective block
-	/*
-		if len(data) == 8 {
-			number = binary.BigEndian.Uint64(data)
-			data, _ = db.Get(contractsConfigKey(number))
-		}*/
-
-	if len(data) == 0 {
-		panic("cannot fetch autonity config")
+	// if result is a block number, find the config in the respective block
+	if isRlpEncodedUint64(data[0]) {
+		number = rlpDecodeUint64(data)
+		data, _ = db.Get(contractsConfigKey(number))
+		if len(data) == 0 || isRlpEncodedUint64(data[0]) {
+			panic("cannot fetch contracts config, data length: " + strconv.Itoa(len(data)))
+		}
 	}
 
 	config := &bindings.AutonityClientAwareConfig{}
 	err := rlp.DecodeBytes(data, config)
 	if err != nil {
-		// TODO: panic? show also "previous" number?
-		log.Error("Invalid chain config RLP", "number", number, "err", err)
-		return nil
+		panic(fmt.Sprintf("Invalid contracts config RLP. requestedNumber: %d, number: %d, err: %v", requestedNumber, number, err))
 	}
-	return config
+	return config, number
 }
 
-func WriteContractsConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.AutonityClientAwareConfig) {
-	if cfg == nil {
+func WriteContractsConfig(db ethdb.KeyValueStore, targetNumber uint64, cfg *bindings.AutonityClientAwareConfig) {
+	// if writing genesis contracts config, no need to check previous ones
+	if targetNumber == 0 {
+		writeContractsConfig(db, targetNumber, cfg)
 		return
 	}
-	// TODO: implement logic to check if something changed wrt previous config
 
+	// check if something changed wrt to previous config
+	previousConfig, number := ReadContractsConfig(db, targetNumber-1)
+	if isEqual(previousConfig, cfg) {
+		// nothing changed, just point to the previous config
+		if err := db.Put(contractsConfigKey(targetNumber), rlpEncodeUint64(number)); err != nil {
+			panic("Failed to store contracts config: " + err.Error())
+		}
+	} else {
+		// config changed, stored the new one
+		writeContractsConfig(db, targetNumber, cfg)
+	}
+}
+
+// TODO(reminder) add new fields or use reflection
+func isEqual(cfg1, cfg2 *bindings.AutonityClientAwareConfig) bool {
+	if cfg1.MinBaseFee.Cmp(cfg2.MinBaseFee) != 0 {
+		return false
+	}
+	if cfg1.EpochPeriod.Cmp(cfg2.EpochPeriod) != 0 {
+		return false
+	}
+	if cfg1.BlockPeriod.Cmp(cfg2.BlockPeriod) != 0 {
+		return false
+	}
+	return true
+}
+
+func writeContractsConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.AutonityClientAwareConfig) {
 	data, err := rlp.EncodeToBytes(cfg)
 	if err != nil {
-		log.Crit("Failed to RLP encode chain config", "err", err)
+		panic("Failed to RLP encode contracts config: " + err.Error())
 	}
-	//log.Warn("Storing chain config", "hash", number, "config", cfg)
 	if err := db.Put(contractsConfigKey(number), data); err != nil {
-		log.Crit("Failed to store chain config", "err", err)
+		panic("Failed to store contracts config: " + err.Error())
 	}
 }
 
