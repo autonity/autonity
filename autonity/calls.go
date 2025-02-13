@@ -127,6 +127,17 @@ func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*
 	return &config, err
 }
 
+func (c *AutonityContract) CallClientConfig(state vm.StateDB, header *types.Header) (*bindings.AutonityClientAwareConfig, error) {
+	var config bindings.AutonityClientAwareConfig
+	_, err := AutonityContractCall(
+		c.contractABI,
+		c.evmProvider(header, params.DeployerAddress, state),
+		"clientConfig",
+		&config,
+	)
+	return &config, err
+}
+
 func (c *AutonityContract) CallEpochID(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	epochID := new(big.Int)
 	_, err := AutonityContractCall(

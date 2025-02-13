@@ -183,6 +183,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     Config public config;
+    ClientAwareConfig public clientConfig;
     address[] internal validatorList;
 
     // Stake token state transitions happen every epoch.
@@ -341,6 +342,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
         _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, omissionDelta));
+        // update client aware config for genesis
+        clientConfig = ClientAwareConfig(
+            config.policy.minBaseFee,
+            config.protocol.epochPeriod,
+            config.protocol.blockPeriod
+        );
     }
 
     /**
@@ -890,6 +897,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             catch {}
         }
 
+        clientConfig = ClientAwareConfig(
+                config.policy.minBaseFee,
+                config.protocol.epochPeriod,
+                config.protocol.blockPeriod
+        );
+
         return FinalizeResult(
             contractUpgradeReady,
             _epochEnded,
@@ -897,11 +910,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             epochInfos[epochID].previousEpochBlock,
             epochInfos[epochID].nextEpochBlock,
             _omissionDelta,
-            ClientAwareConfig(
-                config.policy.minBaseFee,
-                config.protocol.epochPeriod,
-                config.protocol.blockPeriod
-            )
+            clientConfig
         );
     }
 

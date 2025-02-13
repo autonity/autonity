@@ -444,7 +444,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 		MinBaseFee:  new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
 		EpochPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
 		BlockPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
-	})
+	}, false)
 	err = batch.Write()
 	if err != nil {
 		panic("failed to write genesis block: " + err.Error())

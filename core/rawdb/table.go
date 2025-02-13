@@ -178,13 +178,13 @@ type tableBatchWithReader struct {
 }
 
 // Has retrieves if a prefixed version of a key is present in the database.
-func (t *tableBatchWithReader) Has(key []byte) (bool, error) {
-	return t.batch.Has(append([]byte(t.prefix), key...))
+func (b *tableBatchWithReader) Has(key []byte) (bool, error) {
+	return b.batch.Has(append([]byte(b.prefix), key...))
 }
 
 // Get retrieves the given prefixed key if it's present in the database.
-func (t *tableBatchWithReader) Get(key []byte) ([]byte, error) {
-	return t.batch.Get(append([]byte(t.prefix), key...))
+func (b *tableBatchWithReader) Get(key []byte) ([]byte, error) {
+	return b.batch.Get(append([]byte(b.prefix), key...))
 }
 
 // Put inserts the given value into the batch for later committing.

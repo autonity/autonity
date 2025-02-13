@@ -733,6 +733,22 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
 		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}
+
+	// update contracts config
+	state, err := state.New(block.Root(), bc.stateCache, bc.snaps)
+	if err != nil {
+		panic(err)
+	}
+	contractsConfig, err := bc.ProtocolContracts().CallClientConfig(state, block.Header())
+	if err != nil {
+		panic(err)
+	}
+	blockBatch := bc.db.NewBatchWithReader()
+	rawdb.WriteContractsConfig(blockBatch, block.NumberU64(), contractsConfig, true)
+	err = blockBatch.Write()
+	if err != nil {
+		panic(err)
+	}
 	bc.chainmu.Unlock()
 
 	// Destroy any existing state snapshot and regenerate it in the background,
@@ -1282,7 +1298,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	rawdb.WriteBlock(blockBatch, block)
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
 	rawdb.WritePreimages(blockBatch, state.Preimages())
-	rawdb.WriteContractsConfig(blockBatch, block.NumberU64(), state.ContractsConfig())
+	rawdb.WriteContractsConfig(blockBatch, block.NumberU64(), state.ContractsConfig(), false)
 	if err := blockBatch.Write(); err != nil {
 		bc.log.Crit("Failed to write block into disk", "err", err)
 	}
