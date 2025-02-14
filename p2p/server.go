@@ -980,7 +980,7 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscPeerNotInCommittee
 	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
 		return DiscPeerOutsideTopology
-	case srv.Net == Consensus && !srv.isConsensusEndpointReachable(c.node.ID()):
+	case srv.Net == Consensus && c.is(inboundConn) && !srv.isConsensusEndpointReachable(c.node.ID()):
 		return DiscACNPeerNotReachable
 	default:
 		return nil
