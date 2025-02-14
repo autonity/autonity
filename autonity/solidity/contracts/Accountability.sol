@@ -22,6 +22,8 @@ contract Accountability is IAccountability, AccessAutonity {
 
     struct Config {
         uint256 innocenceProofSubmissionWindow;
+        uint256 delta;
+        uint256 range;
         BaseSlashingRates baseSlashingRates;
         Factors factors;
     }

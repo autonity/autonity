@@ -67,6 +67,8 @@ var (
 	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
 	DefaultAccountabilityConfig = &AccountabilityGenesis{
 		InnocenceProofSubmissionWindow: 100, // 100 blocks
+		Delta:                          10,  // 10 blocks
+		Range:                          256, // 256 blocks
 		BaseSlashingRateLow:            400, // 4%
 		BaseSlashingRateMid:            600, // 6%
 		BaseSlashingRateHigh:           800, // 8%
@@ -154,6 +156,8 @@ type AutonityContractGenesis struct {
 
 type AccountabilityGenesis struct {
 	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
+	Delta                          uint64 `json:"delta"`
+	Range                          uint64 `json:"range"`
 
 	// Slashing parameters
 	BaseSlashingRateLow  uint64 `json:"baseSlashingRateLow"`

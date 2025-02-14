@@ -476,6 +476,8 @@ var (
 	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
 	TestAccountabilityConfig = &AccountabilityGenesis{
 		InnocenceProofSubmissionWindow: 30,  // 30 blocks, to shorten the tests
+		Delta:                          10,  // 10 blocks
+		Range:                          256, // 256 blocks
 		BaseSlashingRateLow:            400, // 4%
 		BaseSlashingRateMid:            600, // 6%
 		BaseSlashingRateHigh:           800, // 8%

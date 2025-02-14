@@ -103,8 +103,6 @@ func (a *AccusationVerifier) Run(input []byte, blockNumber uint64, e *vm.EVM, _ 
 	}
 
 	// Do preliminary checks that do not rely on signature correctness
-	// NOTE: We do not have guarantees that: a.chain.CurrentBlock().NumberU64() == blockNumber - 1
-	// This is because the chain head can change while we are executing this tx, therefore the blockNumber might become obsolete.
 	if err = preVerifyAccusation(p.Message, blockNumber); err != nil {
 		return failureReturn, nil
 	}

@@ -270,6 +270,8 @@ func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, de
 	}
 	accountabilityConfig := bindings.AccountabilityConfig{
 		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(config.AccountabilityConfig.InnocenceProofSubmissionWindow),
+		Delta:                          new(big.Int).SetUint64(config.AccountabilityConfig.Delta),
+		Range:                          new(big.Int).SetUint64(config.AccountabilityConfig.Range),
 		BaseSlashingRates: bindings.AccountabilityBaseSlashingRates{
 			Low:  new(big.Int).SetUint64(config.AccountabilityConfig.BaseSlashingRateLow),
 			Mid:  new(big.Int).SetUint64(config.AccountabilityConfig.BaseSlashingRateMid),
