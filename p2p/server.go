@@ -29,8 +29,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/crypto"
@@ -471,23 +469,28 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 }
 
 func (srv *Server) isConsensusEndpointReachable(id enode.ID) bool {
-	var node *enode.Node
+	var (
+		ip   net.IP
+		port int
+	)
+
 	srv.enodeMu.RLock()
-	for _, n := range srv.committee {
-		if id == n.ID() {
-			node = n
+	for _, node := range srv.committee {
+		if id == node.ID() {
+			ip = node.IP()
+			port = node.TCP()
 			break
 		}
 	}
 	srv.enodeMu.RUnlock()
-
-	if node == nil {
+	if ip == nil || port == 0 {
 		return false
 	}
-	srv.log.Info("verifying connectivity towards consensus endpoint", "ip", node.IP(), "port", node.TCP())
-	conn, err := srv.Dialer.Dial(context.Background(), node)
+
+	srv.log.Info("verifying connectivity towards consensus endpoint", "ip", ip, "port", port)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), defaultDialTimeout)
 	if err != nil {
-		srv.log.Warn("unable to reach peer consensus endpoint", "error", err, "peer", node.ID(), "ip", node.IP(), "port", node.TCP())
+		srv.log.Warn("unable to reach peer consensus endpoint", "error", err, "ip", ip, "port", port)
 		return false
 	}
 	_ = conn.Close()
@@ -980,7 +983,7 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscPeerNotInCommittee
 	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
 		return DiscPeerOutsideTopology
-	case srv.Net == Consensus && c.is(inboundConn) && !srv.isConsensusEndpointReachable(c.node.ID()):
+	case srv.Net == Consensus && !srv.isConsensusEndpointReachable(c.node.ID()):
 		return DiscACNPeerNotReachable
 	default:
 		return nil
