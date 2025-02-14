@@ -30,6 +30,13 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
+var (
+	// NOTE: this prefix are not used for prefixing keys, but
+	// rather for prefixing data. See WriteContractsConfig
+	contractsConfigDataPrefix = []byte("c")
+	blockNumberDataPrefix     = []byte("b")
+)
+
 // ReadDatabaseVersion retrieves the version number of the database.
 func ReadDatabaseVersion(db ethdb.KeyValueReader) *uint64 {
 	var version uint64
@@ -85,36 +92,30 @@ func WriteChainConfig(db ethdb.KeyValueWriter, hash common.Hash, cfg *params.Cha
 	}
 }
 
-// TODO(reminder) maybe a cleanest way would be to use something like typedMessage,
-// as this relies on the internals of RLP encoding
 func isRlpEncodedUint64(b byte) bool {
-	// encoded uint64 are always encoded either as Byte or as String
-	// structs are always encoded as Lists
-	switch {
-	case b < 0x80: // Byte
+	if b == blockNumberDataPrefix[0] {
 		return true
-	case b < 0xB8: // String
-		return true
-	case b < 0xC0: // String
-		return true
-	case b < 0xF8: // List
-		return false
-	default: // List
+	}
+	if b == contractsConfigDataPrefix[0] {
 		return false
 	}
+	panic("unexpected prefix")
 }
 
-func rlpEncodeUint64(number uint64) []byte {
+func rlpEncodeUint64WithPrefix(number uint64) []byte {
 	encoded, err := rlp.EncodeToBytes(number)
 	if err != nil {
 		panic("failed to encode RLP encoded number, err: " + err.Error())
 	}
-	return encoded
+	return append(blockNumberDataPrefix, encoded...)
 }
 
-func rlpDecodeUint64(encoded []byte) uint64 {
+func rlpDecodeUint64WithPrefix(encoded []byte) uint64 {
+	if encoded[0] != blockNumberDataPrefix[0] {
+		panic("unexpected prefix")
+	}
 	var number uint64
-	if err := rlp.DecodeBytes(encoded, &number); err != nil {
+	if err := rlp.DecodeBytes(encoded[1:], &number); err != nil {
 		panic("failed to decode RLP encoded number, err: " + err.Error())
 	}
 	return number
@@ -130,7 +131,7 @@ func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*bindings.Auto
 
 	// if result is a block number, find the config in the respective block
 	if isRlpEncodedUint64(data[0]) {
-		number = rlpDecodeUint64(data)
+		number = rlpDecodeUint64WithPrefix(data)
 		data, _ = db.Get(contractsConfigKey(number))
 		if len(data) == 0 || isRlpEncodedUint64(data[0]) {
 			panic("cannot fetch contracts config, data length: " + strconv.Itoa(len(data)))
@@ -138,7 +139,7 @@ func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*bindings.Auto
 	}
 
 	config := &bindings.AutonityClientAwareConfig{}
-	err := rlp.DecodeBytes(data, config)
+	err := rlp.DecodeBytes(data[1:], config)
 	if err != nil {
 		panic(fmt.Sprintf("Invalid contracts config RLP. requestedNumber: %d, number: %d, err: %v", requestedNumber, number, err))
 	}
@@ -157,7 +158,7 @@ func WriteContractsConfig(db ethdb.KeyValueReaderWriter, targetNumber uint64, cf
 	previousConfig, number := ReadContractsConfig(db, targetNumber-1)
 	if isEqual(previousConfig, cfg) {
 		// nothing changed, just point to the previous config
-		if err := db.Put(contractsConfigKey(targetNumber), rlpEncodeUint64(number)); err != nil {
+		if err := db.Put(contractsConfigKey(targetNumber), rlpEncodeUint64WithPrefix(number)); err != nil {
 			panic("Failed to store contracts config: " + err.Error()) //nolint:goconst
 		}
 	} else {
@@ -185,7 +186,7 @@ func writeContractsConfig(db ethdb.KeyValueWriter, number uint64, cfg *bindings.
 	if err != nil {
 		panic("Failed to RLP encode contracts config: " + err.Error())
 	}
-	if err := db.Put(contractsConfigKey(number), data); err != nil {
+	if err := db.Put(contractsConfigKey(number), append(contractsConfigDataPrefix, data...)); err != nil {
 		panic("Failed to store contracts config: " + err.Error()) //nolint:goconst
 	}
 }
