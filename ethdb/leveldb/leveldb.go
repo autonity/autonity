@@ -213,7 +213,11 @@ func (b *batchWithReader) Has(key []byte) (bool, error) {
 }
 
 func (b *batchWithReader) Get(key []byte) ([]byte, error) {
-	return b.db.Get(key, nil)
+	dat, err := b.db.Get(key, nil)
+	if err != nil {
+		return nil, err
+	}
+	return dat, nil
 }
 
 // NewBatch creates a write-only key-value store that buffers changes to its host
