@@ -743,12 +743,7 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 	if err != nil {
 		panic(err)
 	}
-	blockBatch := bc.db.NewBatchWithReader()
-	rawdb.WriteContractsConfig(blockBatch, block.NumberU64(), contractsConfig, true)
-	err = blockBatch.Write()
-	if err != nil {
-		panic(err)
-	}
+	rawdb.WriteContractsConfig(bc.db, block.NumberU64(), contractsConfig, true)
 	bc.chainmu.Unlock()
 
 	// Destroy any existing state snapshot and regenerate it in the background,

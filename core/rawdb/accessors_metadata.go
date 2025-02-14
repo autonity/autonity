@@ -145,7 +145,7 @@ func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*bindings.Auto
 	return config, number
 }
 
-func WriteContractsConfig(db ethdb.BatchWithReader, targetNumber uint64, cfg *bindings.AutonityClientAwareConfig, ignorePrevious bool) {
+func WriteContractsConfig(db ethdb.KeyValueReaderWriter, targetNumber uint64, cfg *bindings.AutonityClientAwareConfig, ignorePrevious bool) {
 	// if writing genesis contracts config, or if requested
 	// no need to check previous ones
 	if targetNumber == 0 || ignorePrevious {
