@@ -50,6 +50,7 @@ type Router struct {
 	newReporters []common.Address
 	measured     bool
 
+	// a stateless pinger which can be shared by different rountines.
 	pinger ping.Pinger
 
 	cancel context.CancelFunc
@@ -353,7 +354,7 @@ func (r *Router) pingPeers(targets []ping.Target) []uint8 {
 			channelArray[i] = resultCh
 			continue
 		}
-		// icmp pinger to compare results
+
 		r.pinger.Ping(t, resultCh)
 		channelArray[i] = resultCh
 	}
