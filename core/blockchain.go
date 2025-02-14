@@ -719,31 +719,39 @@ func (bc *BlockChain) SnapSyncCommitHead(hash common.Hash) error {
 		return errChainStopped
 	}
 
-	// update chain head markers as this pivot block is resolved for the completion of snap sync.
+	// fetch contracts config from state
+	state, err := state.New(block.Root(), bc.stateCache, bc.snaps)
+	if err != nil {
+		panic("cannot open state for snap sync head: " + err.Error())
+	}
+	contractsConfig, err := bc.ProtocolContracts().CallClientConfig(state, block.Header())
+	if err != nil {
+		panic("cannot get contracts config for snap sync head: " + err.Error())
+	}
+
+	// update the disk db before updating the in-memory markers
+	batch := bc.db.NewBatchWithReader()
+	rawdb.WriteContractsConfig(batch, block.NumberU64(), contractsConfig, true)
+
+	// update epoch header hash if needed
+	if block.IsEpochHead() {
+		rawdb.WriteEpochHeaderHash(batch, block.Hash())
+	}
+
+	if err = batch.Write(); err != nil {
+		panic("Failed to commit snap sync head: " + err.Error())
+	}
+
+	// update in-memory chain head markers as this pivot block is resolved for the completion of snap sync.
 	// from now on, it will start full sync.
 	bc.currentBlock.Store(block)
 	headBlockGauge.Update(int64(block.NumberU64()))
 	// update epoch header markers as well if the pivot block is an epoch head.
 	if block.IsEpochHead() {
-		batch := bc.db.NewBatch()
-		rawdb.WriteEpochHeaderHash(batch, block.Hash())
-		if err := batch.Write(); err != nil {
-			bc.log.Crit("Failed to update epoch header markers", "err", err)
-		}
 		bc.hc.SetCurrentHeadEpochHeader(block.Header())
 		headEpochHeaderGauge.Update(int64(block.NumberU64()))
 	}
 
-	// update contracts config
-	state, err := state.New(block.Root(), bc.stateCache, bc.snaps)
-	if err != nil {
-		panic(err)
-	}
-	contractsConfig, err := bc.ProtocolContracts().CallClientConfig(state, block.Header())
-	if err != nil {
-		panic(err)
-	}
-	rawdb.WriteContractsConfig(bc.db, block.NumberU64(), contractsConfig, true)
 	bc.chainmu.Unlock()
 
 	// Destroy any existing state snapshot and regenerate it in the background,

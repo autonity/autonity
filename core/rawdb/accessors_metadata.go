@@ -125,6 +125,8 @@ func rlpDecodeUint64WithPrefix(encoded []byte) uint64 {
 func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*bindings.AutonityClientAwareConfig, uint64) {
 	requestedNumber := number
 	data, _ := db.Get(contractsConfigKey(number))
+	// NOTE: this case can happen for the blocks before the pivot block
+	// when snap syncing. Those will have no configuration attached.
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -146,15 +148,18 @@ func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*bindings.Auto
 	return config, number
 }
 
-func WriteContractsConfig(db ethdb.KeyValueReaderWriter, targetNumber uint64, cfg *bindings.AutonityClientAwareConfig, ignorePrevious bool) {
-	// if writing genesis contracts config, or if requested
-	// no need to check previous ones
-	if targetNumber == 0 || ignorePrevious {
+func WriteContractsConfig(db ethdb.KeyValueReaderWriter, targetNumber uint64, cfg *bindings.AutonityClientAwareConfig, isSnapSyncHead bool) {
+	// if writing genesis contracts config or snap sync head config
+	// no need to check previous ones.
+	if targetNumber == 0 || isSnapSyncHead {
 		writeContractsConfig(db, targetNumber, cfg)
 		return
 	}
 
 	// check if something changed wrt to previous config
+	// previousConfig could theoretically be nil, but this should
+	// happen only in case of snap sync, which is already dealt with before.
+	// so if nil here, there is something very wrong.
 	previousConfig, number := ReadContractsConfig(db, targetNumber-1)
 	if isEqual(previousConfig, cfg) {
 		// nothing changed, just point to the previous config
