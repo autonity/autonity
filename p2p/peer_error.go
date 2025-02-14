@@ -78,9 +78,9 @@ const (
 	DiscPeerNotInCommittee
 	DiscPeerOutsideTopology
 	DiscSyncFailed
-	DiscSubprotocolError = 0x10
-
-	DiscInvalid = 0xff
+	DiscACNPeerNotReachable
+	DiscSubprotocolError = 0x11
+	DiscInvalid          = 0xff
 )
 
 var discReasonToString = [...]string{
@@ -100,6 +100,7 @@ var discReasonToString = [...]string{
 	DiscPeerNotInCommittee:  "validator is not part of committee",
 	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSyncFailed:          "failed to sync with remote peer",
+	DiscACNPeerNotReachable: "peer consensus endpoint is not reachable",
 	DiscSubprotocolError:    "subprotocol error",
 	DiscInvalid:             "invalid disconnect reason",
 }
