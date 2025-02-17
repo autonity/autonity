@@ -1,10 +1,14 @@
 package clustering
 
 import (
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
+	"math/big"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 // TestClusteringHappyCase is a happy case to test 5 clusters with each of them contains 5 nodes. The latency measurement
@@ -26,10 +30,103 @@ func TestClusteringHappyCase(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// runs for about 10 epoches period.
-	_ = network.WaitToMineNBlocks(500, 500, false)
+	network.WaitToMineNBlocks(500, 500, false)
+}
+
+// TestClusteringResetAllNodes, it stops all nodes one by one, and start them again one by one. The network should recover to
+// mining.
+func TestClusteringResetAllNodes(t *testing.T) {
+	numOfNodes := 25
+	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
+
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	for _, validator := range validators {
+		validator.TendermintServices = mockedService
+	}
+
+	// creates a network of 25 validators and starts all the nodes in it
+	network, err := e2e.NewNetworkFromValidators(t, validators, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(10, 10, false)
+
+	// reset all nodes concurrently
+	for _, n := range network {
+		go resetNode(t, n)
+	}
+
+	// network should be up and continue to mine blocks
+	network.WaitToMineNBlocks(300, 300, false)
+}
+
+// TestClusteringResetFNodes, it stops random selected F nodes one by one, and observe if the net is still mining, then it recover
+// F nodes one by one, the network should keep mining all the time.
+func TestClusteringResetFNodes(t *testing.T) {
+	numOfNodes := 25
+	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
+
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	for _, validator := range validators {
+		validator.TendermintServices = mockedService
+	}
+	// creates a network of 25 validators and starts all the nodes in it
+	network, err := e2e.NewNetworkFromValidators(t, validators, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(60, 60, false)
+
+	// stop random selected F nodes.
+	f := bft.F(new(big.Int).SetInt64(int64(numOfNodes))).Int64()
+	fNodes := make(map[int]struct{})
+	for i := int64(0); i < f; {
+		selectedID := rand.Intn(len(network))
+		if _, ok := fNodes[selectedID]; ok {
+			continue
+		}
+		i++
+
+		go stopNode(t, network, selectedID)
+		fNodes[selectedID] = struct{}{}
+	}
+
+	// network should be up and continue to mine blocks
+	network.WaitToMineNBlocks(300, 300, false)
+
+	// recover nodes
+	for id, _ := range fNodes {
+		go startNode(t, network, id)
+	}
+	// network should be up and continue to mine blocks
+	network.WaitToMineNBlocks(10, 10, false)
 }
 
 // todo: test customized K nodes selectors for message routing.
 func TestCustomizedSelectors(t *testing.T) {
 
+}
+
+func resetNode(t *testing.T, node *e2e.Node) {
+	err := node.Close(false)
+	node.Wait()
+	require.NoError(t, err)
+	err = node.Start()
+	require.NoError(t, err)
+}
+
+func stopNode(t *testing.T, net e2e.Network, id int) {
+	err := net[id].Close(false)
+	net[id].Wait()
+	require.NoError(t, err)
+	time.Sleep(time.Second * 10)
+}
+
+func startNode(t *testing.T, net e2e.Network, id int) {
+	err := net[id].Start()
+	require.NoError(t, err)
 }

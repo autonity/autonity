@@ -8,5 +8,6 @@ type Services struct {
 	Proposer    func(c Core) Proposer
 	Precommiter func(c Core) Precommiter
 	Gossiper    func(b Backend) Gossiper
+	Router      func(r Router) Router
 	Pinger      ping.Pinger
 }
