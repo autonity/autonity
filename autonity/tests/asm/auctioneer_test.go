@@ -267,7 +267,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, cdp.Principal.Cmp(common.Big0) > 0, "CDP should have a non-zero principal")
 
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, user)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
 		require.NoError(t, err)
 
 		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
@@ -335,7 +335,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 
 		// try to bid on a debt auction with an invalid round
 		liquidator := testrand.Address()
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, user)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
 		require.NoError(t, err)
 		r.GiveMeSomeMoney(liquidator, debtAmount)
 
@@ -402,7 +402,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		require.False(t, liquidatable, "CDP should not be liquidatable")
 
 		liquidator := testrand.Address()
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, user)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
 		require.NoError(t, err)
 		r.GiveMeSomeMoney(liquidator, debtAmount)
 
@@ -484,7 +484,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		require.True(t, liquidatable, "CDP should be liquidatable")
 
 		liquidator := testrand.Address()
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, user)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
 		require.NoError(t, err)
 
 		r.GiveMeSomeMoney(liquidator, debtAmount)
@@ -526,7 +526,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		or.increment(r)
 
 		liquidator := testrand.Address()
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, user)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
 		require.NoError(t, err)
 		r.GiveMeSomeMoney(liquidator, debtAmount)
 
@@ -582,7 +582,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		or.increment(r)
 
 		liquidator := testrand.Address()
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, user)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
 		require.NoError(t, err)
 		r.GiveMeSomeMoney(liquidator, debtAmount)
 
@@ -627,7 +627,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		or.increment(r)
 
 		liquidator := testrand.Address()
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, user)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
 		require.NoError(t, err)
 
 		r.GiveMeSomeMoney(liquidator, debtAmount)

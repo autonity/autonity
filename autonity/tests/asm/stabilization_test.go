@@ -15,7 +15,6 @@ import (
 
 var (
 	e18 = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-	e12 = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
 )
 
 // newtonAutonPrice = 1234567 * 10^12 = 1.234567 * 10^18
@@ -635,7 +634,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay interest forwarded to auctioneer", setup, func(r *tests.Runner) {
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount)
 		require.NoError(t, err)
 
 		cdp, _, err := r.Stabilization.Cdps(nil, userAccount)
@@ -697,7 +696,7 @@ func TestStabilizationLiquidate(t *testing.T) {
 	tests.RunWithSetup("Test liquidate returns overpayment to bidder", setup, func(r *tests.Runner) {
 		makeLiquidatable(r, userAccount)
 
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount)
 		require.NoError(t, err)
 
 		liquidator := testrand.Address()
@@ -731,7 +730,7 @@ func TestStabilizationLiquidate(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, liquidatable)
 
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount)
 		require.NoError(t, err)
 
 		liquidator := testrand.Address()
@@ -761,7 +760,7 @@ func TestStabilizationLiquidate(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, liquidatable)
 
-		debtAmount, _, err := r.Stabilization.DebtAmount0(nil, userAccount)
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount)
 		require.NoError(t, err)
 		r.GiveMeSomeMoney(r.Auctioneer.Address(), debtAmount)
 
@@ -1579,7 +1578,7 @@ func calcBorrowLimit(r *tests.Runner, userAccount common.Address) *big.Int {
 }
 
 func getDebt(r *tests.Runner, user common.Address) *big.Int {
-	debt, _, err := r.Stabilization.DebtAmount0(nil, user)
+	debt, _, err := r.Stabilization.DebtAmount(nil, user)
 	require.NoError(r.T, err)
 	return debt
 }

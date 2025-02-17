@@ -87,7 +87,7 @@ contract Auctioneer {
             revert InvalidRound(liquidatableRound);
         }
 
-        uint256 debtAmount = _stabilization.debtAmount(debtor, block.timestamp);
+        uint256 debtAmount = _stabilization.debtAmountAtTime(debtor, block.timestamp);
         if (msg.value < debtAmount) {
             revert InvalidAmount();
         }
@@ -97,7 +97,7 @@ contract Auctioneer {
             !StabilizationMath.underCollateralized(
             cdp.collateral,
             round.price,
-            _stabilization.debtAmount(debtor, round.timestamp),
+            _stabilization.debtAmountAtTime(debtor, round.timestamp),
             _stabilization.config().liquidationRatio)
         ) {
             revert InvalidRound(liquidatableRound);

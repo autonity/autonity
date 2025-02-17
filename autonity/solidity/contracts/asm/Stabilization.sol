@@ -331,7 +331,7 @@ contract Stabilization is IStabilization {
                 cdp.collateral,
                 price,
                 debt,
-                _config.liquidationRatio.value()
+                _liquidationRatio.value()
             )
         ) revert Liquidatable();
 
@@ -407,7 +407,7 @@ contract Stabilization is IStabilization {
                 cdp.collateral,
                 collateralPrice(),
                 debt,
-                _config.liquidationRatio.value()
+                _liquidationRatio.value()
         )
         ) revert NotLiquidatable();
 
