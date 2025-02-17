@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/autonity/autonity/common"
@@ -68,7 +69,7 @@ func TestAccusation(t *testing.T) {
 		// report same accusation should be reverted since the accusation is pending now.
 		_, err = r.Accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xff}, noAccessor))
 		require.Equal(t, "execution reverted: already processing an accusation", err.Error())
-		// nwo set new committee without having the reporter, then it is not allowed for reporting.
+		// now set new committee without having the reporter, then it is not allowed for reporting.
 		_, err = r.Accountability.SetCommittee(&runOptions{origin: params.AutonityContractAddress}, newCommittee[0:len(newCommittee)-1])
 		require.NoError(r.T, err)
 		// report same accusation should be reverted since the accusation is pending now.
@@ -81,7 +82,6 @@ func TestAccusation(t *testing.T) {
 func TestAccusationTiming(t *testing.T) {
 	r := Setup(t, nil)
 
-	// no more dependency of blockchain now.
 	accountability.LoadPrecompiles()
 
 	currentHeight := uint64(1024) // height of current consensus instance
@@ -133,4 +133,47 @@ func TestAccusationTiming(t *testing.T) {
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
 		require.NoError(r.T, err)
 	})
+}
+
+// a validator pausing at epoch x can still be accused in the first blocks epoch x+1
+// but accusation needs to be for blocks of epoch x
+func TestCrossEpochAccusation(t *testing.T) {
+	r := Setup(t, nil)
+	accountability.LoadPrecompiles()
+
+	// pause the offender
+	offender := *params.TestAutonityContractConfig.Validators[0].NodeAddress
+	offenderTreasury := params.TestAutonityContractConfig.Validators[0].Treasury
+	_, err := r.Autonity.PauseValidator(FromSender(offenderTreasury, nil), offender)
+	require.NoError(t, err)
+
+	epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
+	require.NoError(t, err)
+
+	r.WaitNBlocks(int(epochPeriod.Uint64() + accountability.DeltaBlocks - 2))
+
+	epochId, _, err := r.Autonity.EpochID(nil)
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(1), epochId.Uint64())
+
+	// offender should not be in committee anymore
+	committee, _, err := r.Autonity.GetCommittee(nil)
+	require.NoError(t, err)
+	for _, member := range committee {
+		if member.Addr == offender {
+			t.Fatalf("offender is still in committee for epoch 1")
+		}
+	}
+
+	// accusation should be for a block of past epoch
+	accusationHeight := r.Evm.Context.BlockNumber.Uint64() - accountability.DeltaBlocks - 1
+	epochId, _, err = r.Autonity.GetEpochFromBlock(nil, new(big.Int).SetUint64(accusationHeight))
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(0), epochId.Uint64())
+
+	r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
+	_, err = r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
+	require.NoError(r.T, err)
 }
