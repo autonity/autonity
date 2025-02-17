@@ -54,7 +54,7 @@ interface IStabilization {
     function cdps(address owner) external view returns (CDP memory);
 
     // view functions
-    function debtAmount(address account, uint timestamp) external view returns (uint256);
+    function debtAmountAtTime(address account, uint timestamp) external view returns (uint256);
 
     /// Liquidate an undercollateralized CDP.
     /// @param account The address of the CDP owner.
