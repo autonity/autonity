@@ -109,6 +109,8 @@ contract('Accountability', function (accounts) {
 
   const accountabilityConfig = {
     "innocenceProofSubmissionWindow": 30,
+    "delta": 10,
+    "range": 256,
     "baseSlashingRates" : {
       "low": 400,
       "mid": 600,

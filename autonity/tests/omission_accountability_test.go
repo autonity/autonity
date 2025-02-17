@@ -732,6 +732,8 @@ func TestProposerRewardDistribution(t *testing.T) {
 		// deploy and set the AccountabilityTest contract. We will need write access to the beneficiaries map later
 		_, _, accountabilityTest, err := r.DeployAccountabilityTest(nil, r.Autonity.address, AccountabilityConfig{
 			InnocenceProofSubmissionWindow: big.NewInt(int64(params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow)),
+			Delta:                          big.NewInt(int64(params.DefaultAccountabilityConfig.Delta)),
+			Range:                          big.NewInt(int64(params.DefaultAccountabilityConfig.Range)),
 			BaseSlashingRates: AccountabilityBaseSlashingRates{
 				Low:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
 				Mid:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
