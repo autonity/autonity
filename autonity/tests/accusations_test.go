@@ -152,10 +152,10 @@ func TestCrossEpochAccusation(t *testing.T) {
 
 	r.WaitNBlocks(int(epochPeriod.Uint64() + accountability.DeltaBlocks - 2))
 
-	epochId, _, err := r.Autonity.EpochID(nil)
+	epochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(1), epochId.Uint64())
+	require.Equal(t, uint64(1), epochID.Uint64())
 
 	// offender should not be in committee anymore
 	committee, _, err := r.Autonity.GetCommittee(nil)
@@ -168,10 +168,10 @@ func TestCrossEpochAccusation(t *testing.T) {
 
 	// accusation should be for a block of past epoch
 	accusationHeight := r.Evm.Context.BlockNumber.Uint64() - accountability.DeltaBlocks - 1
-	epochId, _, err = r.Autonity.GetEpochFromBlock(nil, new(big.Int).SetUint64(accusationHeight))
+	epochID, _, err = r.Autonity.GetEpochFromBlock(nil, new(big.Int).SetUint64(accusationHeight))
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(0), epochId.Uint64())
+	require.Equal(t, uint64(0), epochID.Uint64())
 
 	r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 	_, err = r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
