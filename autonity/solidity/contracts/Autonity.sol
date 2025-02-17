@@ -286,12 +286,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
 
         _stakingOperations();
-        computeCommittee();
+        (, , address[] memory _treasuries) = computeCommittee();
         lastEpochTime = block.timestamp;
         lastFinalizedBlock = block.number;
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
         _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, delta));
+
+        config.contracts.accountabilityContract.finalizeInitialization(committee);
+        config.contracts.omissionAccountabilityContract.finalizeInitialization(epochInfos[epochID], _treasuries);
     }
 
     /**
@@ -870,7 +873,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice update the current committee by selecting top staking validators.
     * Restricted to the protocol.
     */
-    function computeCommittee() public virtual onlyProtocol returns (address[] memory, address[] memory, address[] memory){
+    function computeCommittee() public virtual onlyProtocol returns (
+        address[] memory _oracleVoters,
+        address[] memory _afdReporters,
+        address[] memory _treasuries
+    ) {
         // Left public for testing purposes.
         require(validatorList.length > 0, "There must be validators");
         uint256[5] memory input;
@@ -887,9 +894,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         delete committeeNodes;
         uint256 committeeSize = committee.length;
         require(committeeSize > 0, "committee is empty");
-        address[] memory _oracleVoters = new address[](committeeSize);
-        address[] memory _afdReporters = new address[](committeeSize);
-        address[] memory _treasuries = new address[](committeeSize);
+        _oracleVoters = new address[](committeeSize);
+        _afdReporters = new address[](committeeSize);
+        _treasuries = new address[](committeeSize);
         for (uint i = 0; i < committeeSize; i++) {
             Validator storage _member = validators[committee[i].addr];
             committeeNodes.push(_member.enode);
@@ -1498,8 +1505,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
                     _applyNewCommissionRate(committee[i].addr);
                     _val.liquidStateContract.redistribute{value: _atnDelegationReward}(
                         accounts[address(_val.liquidStateContract)],
-                        _val.commissionRate,
-                        _val.liquidSupply
+                        _val.commissionRate
                     );
                 }
                 // TODO: This has to be reconsidered - I feel it is too expensive

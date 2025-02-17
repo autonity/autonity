@@ -7,6 +7,7 @@ contract LiquidStorage {
     mapping(address => uint256) internal balances;
 
     mapping(address => mapping (address => uint256)) internal allowances;
+    uint256 internal supply;
 
     mapping(address => uint256) internal atnRealisedFees;
     mapping(address => uint256) internal atnUnrealisedFeeFactors;

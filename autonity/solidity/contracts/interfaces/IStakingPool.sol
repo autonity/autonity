@@ -6,6 +6,52 @@ import {ValidatorState} from "../Autonity.sol";
 
 interface IStakingPool {
     /* Used for epoched staking */
+    
+    /* Staking Pool of the Validator for Future Processing */
+    /**
+     * @dev The fields are updated as new bonding or unboning requests appear.
+     * At epoch end, validators are updated with the information from the `ValidatorPool`.
+     */
+    struct ValidatorBondingPool {
+        uint256 selfBondingStake;
+        uint256 delegatingStake;
+        bool notActive;
+    }
+
+    struct ValidatorUnbondingPool {
+        uint256 selfUnbondingStake;
+        uint256 liquidBurning;
+        uint256 selfUnbondingShare;
+        uint256 unbondingShare;
+    }
+
+    /* Staking Pool of the Delegator for Future Processing */
+    /**
+     * @dev The fields are updated at epoch end.
+     * On external calls, delegators take their share from the pool.
+     */
+    struct DelegatorBondingPool {
+        uint256 liquidMinted;
+        uint256 feeFactor;
+        uint256 rewardsCollected;
+    }
+
+    struct DelegatorUnbondingPool {
+        uint256 selfUnbondingShare;
+        uint256 unbondingShare;
+        uint256 releasedSelfStake;
+        uint256 releasedStake;
+        uint256 feeFactor;
+        uint256 rewardsCollected;
+    }
+
+    struct PoolCollection {
+        ValidatorBondingPool validatorBondingPool;
+        ValidatorUnbondingPool validatorUnbondingPool;
+        DelegatorBondingPool delegatorBondingPool;
+        DelegatorUnbondingPool delegatorUnbondingPool;
+    }
+    
     struct BondingRequest {
         address payable delegator;
         address validator;
@@ -66,6 +112,7 @@ interface IStakingPool {
     function calculateRejectedBonding(address _delegator, uint256 _epochID) external view returns (uint256);
     function calculateLiquidMinted(address _delegator, address _validator) external view returns (uint256);
     function calculateLiquidBurning(address _delegator, address _validator) external view returns (uint256);
+    function calculateRewards(address _delegator, address _validator) external view returns (uint256);
 
     event BondingPoolRejected(address indexed validator, uint256 selfBondingAmount, uint256 delegatingAmount, ValidatorState state);
 }

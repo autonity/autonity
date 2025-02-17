@@ -5,55 +5,11 @@ import "./AccessAutonity.sol";
 import "./interfaces/IStakingPool.sol";
 import {EnumerableSet} from "./utils/AddressSet.sol";
 import {UintQueue, UintQueueLib} from "./lib/UintQueueLib.sol";
+import {StakingPoolMath} from "./lib/StakingPoolMath.sol";
 
 contract StakingPool is AccessAutonity, IStakingPool {
     using EnumerableSet for EnumerableSet.AddressSet;
     using UintQueueLib for UintQueue;
-
-    /* Staking Pool of the Validator for Future Processing */
-    /**
-     * @dev The fields are updated as new bonding or unboning requests appear.
-     * At epoch end, validators are updated with the information from the `ValidatorPool`.
-     */
-    struct ValidatorBondingPool {
-        uint256 selfBondingStake;
-        uint256 delegatingStake;
-        bool notActive;
-    }
-
-    struct ValidatorUnbondingPool {
-        uint256 selfUnbondingStake;
-        uint256 liquidBurning;
-        uint256 selfUnbondingShare;
-        uint256 unbondingShare;
-    }
-
-    /* Staking Pool of the Delegator for Future Processing */
-    /**
-     * @dev The fields are updated at epoch end.
-     * On external calls, delegators take their share from the pool.
-     */
-    struct DelegatorBondingPool {
-        uint256 liquidMinted;
-        uint256 feeFactor;
-        uint256 rewardsCollected;
-    }
-
-    struct DelegatorUnbondingPool {
-        uint256 selfUnbondingShare;
-        uint256 unbondingShare;
-        uint256 releasedSelfStake;
-        uint256 releasedStake;
-        uint256 feeFactor;
-        uint256 rewardsCollected;
-    }
-
-    struct PoolCollection {
-        ValidatorBondingPool validatorBondingPool;
-        ValidatorUnbondingPool validatorUnbondingPool;
-        DelegatorBondingPool delegatorBondingPool;
-        DelegatorUnbondingPool delegatorUnbondingPool;
-    }
 
     /** @dev Stores historical data for staking operations for some epoch. */
     mapping(uint256 => mapping(address => PoolCollection)) internal epochStakesPool;
@@ -189,7 +145,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
             if (_validatorInfo.state == ValidatorState.active) {
                 // `delegatingStake` from `_validatorPool` is converted to `_liquidMinted`
-                uint256 _liquidMinted = _liquidFromStake(
+                uint256 _liquidMinted = StakingPoolMath.liquidFromStake(
                     _validatorPool.delegatingStake,
                     _validatorInfo.bondedStake - _validatorInfo.selfBondedStake,
                     _validatorInfo.liquidSupply
@@ -249,12 +205,12 @@ contract StakingPool is AccessAutonity, IStakingPool {
             if (_stakePool.validatorUnbondingPool.liquidBurning > 0) {
                 // `liquidBurning` from `validatorUnbondingPool` is converted to `_unbondingStake`
                 // and then converted to `_unbondingShare`
-                _unbondingStake = _unbondingStakeFromLiquid(
+                _unbondingStake = StakingPoolMath.unbondingStakeFromLiquid(
                     _stakePool.validatorUnbondingPool.liquidBurning,
                     _validatorInfo.liquidSupply,
                     _validatorInfo.bondedStake - _validatorInfo.selfBondedStake
                 );
-                _unbondingShare = _unbondingShareFromStake(
+                _unbondingShare = StakingPoolMath.unbondingShareFromStake(
                     _unbondingStake,
                     _validatorInfo.unbondingStake,
                     _validatorInfo.unbondingShares
@@ -268,7 +224,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
                 // `_stakePool.validatorUnbondingPool.liquidBurning` is going to be burnt. Rewards accumulated due to this amount
                 // needs to be stored for resdributing later on external call
-                _stakePool.delegatorUnbondingPool.rewardsCollected = _computeRewardsFromFeeFactor(
+                _stakePool.delegatorUnbondingPool.rewardsCollected = StakingPoolMath.computeRewardsFromFeeFactor(
                     lastFeeFactor[_validator],
                     _stakePool.delegatorUnbondingPool.feeFactor,
                     _stakePool.validatorUnbondingPool.liquidBurning
@@ -281,7 +237,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 (_validatorInfo.selfBondedStake >= _stakePool.validatorUnbondingPool.selfUnbondingStake) ?
                 _stakePool.validatorUnbondingPool.selfUnbondingStake : _validatorInfo.selfBondedStake;
             // `selfUnbondingStake` from `validatorUnbondingPool` is converted to `_selfUnbondingShare`
-            uint256 _selfUnbondingShare = _unbondingShareFromStake(
+            uint256 _selfUnbondingShare = StakingPoolMath.unbondingShareFromStake(
                 _selfUnbondingStake,
                 _validatorInfo.selfUnbondingStake,
                 _validatorInfo.selfUnbondingShares
@@ -324,7 +280,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
 
                 // `unbondingShare` from `validatorUnbondingPool` is converted to `_releasedStake`
-                uint256 _releasedStake = _releasedStakeFromShare(
+                uint256 _releasedStake = StakingPoolMath.releasedStakeFromShare(
                     _stakePool.validatorUnbondingPool.unbondingShare,
                     _validatorInfo.unbondingShares,
                     _validatorInfo.unbondingStake
@@ -333,7 +289,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 _stakePool.delegatorUnbondingPool.releasedStake = _releasedStake;
 
                 // `selfUnbondingShare` from `validatorUnbondingPool` is converted to `_releasedSelfStake`
-                uint256 _releasedSelfStake = _releasedStakeFromShare(
+                uint256 _releasedSelfStake = StakingPoolMath.releasedStakeFromShare(
                     _stakePool.validatorUnbondingPool.selfUnbondingShare,
                     _validatorInfo.selfUnbondingShares,
                     _validatorInfo.selfUnbondingStake
@@ -417,13 +373,13 @@ contract StakingPool is AccessAutonity, IStakingPool {
         // assuming unbonding is applied
         PoolCollection storage _pool = epochStakesPool[_item.epochID][_item.validator];
         if (_item.selfDelegation) {
-            return _unbondingShareFromRequestAmount(
+            return StakingPoolMath.unbondingShareFromRequestAmount(
                 _item.amount,
                 _pool.validatorUnbondingPool.selfUnbondingStake,
                 _pool.delegatorUnbondingPool.selfUnbondingShare
             );
         }
-        return _unbondingShareFromRequestAmount(
+        return StakingPoolMath.unbondingShareFromRequestAmount(
             _item.amount,
             _pool.validatorUnbondingPool.liquidBurning,
             _pool.delegatorUnbondingPool.unbondingShare
@@ -449,14 +405,14 @@ contract StakingPool is AccessAutonity, IStakingPool {
             // release the stakes
             _pool = epochStakesPool[_request.epochID][_request.validator];
             if (_request.selfDelegation) {
-                _releasedStakes += _releasedStakeFromShare(
+                _releasedStakes += StakingPoolMath.releasedStakeFromShare(
                     _request.unbondingShare,
                     _pool.validatorUnbondingPool.selfUnbondingShare,
                     _pool.delegatorUnbondingPool.releasedSelfStake
                 );
             }
             else {
-                _releasedStakes += _releasedStakeFromShare(
+                _releasedStakes += StakingPoolMath.releasedStakeFromShare(
                     _request.unbondingShare,
                     _pool.validatorUnbondingPool.unbondingShare,
                     _pool.delegatorUnbondingPool.releasedStake
@@ -512,10 +468,10 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 break;
             }
 
-            _pool = epochStakesPool[_request.epochID][_request.validator];
+            _pool = epochStakesPool[_request.epochID][_validator];
             if (!_pool.validatorBondingPool.notActive) {
                 // validator was active at the time and liquid is minted
-                _liquidMinted += _liquidFromStake(
+                _liquidMinted += StakingPoolMath.liquidFromStake(
                     _request.amount,
                     _pool.validatorBondingPool.delegatingStake,
                     _pool.delegatorBondingPool.liquidMinted
@@ -552,6 +508,11 @@ contract StakingPool is AccessAutonity, IStakingPool {
             _processingIndex++;
         }
         return _liquidBurning;
+    }
+
+    function calculateRewards(address _delegator, address _validator) external view returns (uint256) {
+        uint256 _epochID = autonity.epochID();
+        return _rewardsFromLiquidMinted(_delegator, _validator, _epochID) + _rewardsFromLiquidBurning(_delegator, _validator, _epochID);
     }
 
     /*
@@ -620,7 +581,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
             else if (!_request.selfDelegation && _pool.delegatorBondingPool.liquidMinted > 0) {
                 // calculate liquid amount
                 uint256 _totalLiquid = _pool.delegatorBondingPool.liquidMinted;
-                uint256 _earnedLiquid = _liquidFromStake(
+                uint256 _earnedLiquid = StakingPoolMath.liquidFromStake(
                     _request.amount,
                     _pool.validatorBondingPool.delegatingStake,
                     _totalLiquid
@@ -633,7 +594,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 
                 // calculate and send rewards due to `_earnedLiquid`
                 // first calculate total rewards for `_totalLiquid` and store it
-                uint256 _totalRewards = _pool.delegatorBondingPool.rewardsCollected + _computeRewardsFromFeeFactor(
+                uint256 _totalRewards = _pool.delegatorBondingPool.rewardsCollected + StakingPoolMath.computeRewardsFromFeeFactor(
                     lastFeeFactor[_request.validator],
                     _pool.delegatorBondingPool.feeFactor,
                     _totalLiquid
@@ -641,7 +602,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 _pool.delegatorBondingPool.feeFactor = lastFeeFactor[_request.validator];
                 // now compute the share earned due to `_earnedLiquid`
                 // this way we have minimal dust remaining in address(this).balance
-                uint256 _reward = _computeRewardFraction(
+                uint256 _reward = StakingPoolMath.computeRewardFraction(
                     _totalRewards,
                     _earnedLiquid,
                     _totalLiquid
@@ -702,7 +663,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
             _pool = epochStakesPool[_request.epochID][_request.validator];
             if (_request.selfDelegation) {
                 // calculate unbonding share
-                uint256 _share = _unbondingShareFromRequestAmount(
+                uint256 _share = StakingPoolMath.unbondingShareFromRequestAmount(
                     _request.amount,
                     _pool.validatorUnbondingPool.selfUnbondingStake,
                     _pool.delegatorUnbondingPool.selfUnbondingShare
@@ -717,7 +678,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
             else {
                 // calculate unbonding share
                 uint256 _totalLiquid = _pool.validatorUnbondingPool.liquidBurning;
-                uint256 _share = _unbondingShareFromRequestAmount(
+                uint256 _share = StakingPoolMath.unbondingShareFromRequestAmount(
                     _request.amount,
                     _totalLiquid,
                     _pool.delegatorUnbondingPool.unbondingShare
@@ -725,7 +686,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 _request.unbondingShare = _share;
 
                 // calculate and send the rewards due to `_request.amount`
-                uint256 _rewards = _computeRewardFraction(
+                uint256 _rewards = StakingPoolMath.computeRewardFraction(
                     _pool.delegatorUnbondingPool.rewardsCollected,
                     _request.amount,
                     _totalLiquid
@@ -764,7 +725,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
             // release the stakes
             _pool = epochStakesPool[_request.epochID][_request.validator];
             if (_request.selfDelegation) {
-                uint256 _share = _releasedStakeFromShare(
+                uint256 _share = StakingPoolMath.releasedStakeFromShare(
                     _request.unbondingShare,
                     _pool.validatorUnbondingPool.selfUnbondingShare,
                     _pool.delegatorUnbondingPool.releasedSelfStake
@@ -774,7 +735,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 _releasedStakes += _share;
             }
             else {
-                uint256 _share = _releasedStakeFromShare(
+                uint256 _share = StakingPoolMath.releasedStakeFromShare(
                     _request.unbondingShare,
                     _pool.validatorUnbondingPool.unbondingShare,
                     _pool.delegatorUnbondingPool.releasedStake
@@ -794,6 +755,80 @@ contract StakingPool is AccessAutonity, IStakingPool {
         }
     }
 
+    function _rewardsFromLiquidMinted(address _delegator, address _validator, uint256 _epochID) internal view returns (uint256) {
+        UintQueue storage _queue = pendingBondingQueue[_delegator];
+        uint256[] storage _array = _queue.array;
+        uint256 _length = _array.length;
+        uint256 _topIndex = _queue.topIndex;
+        BondingRequest storage _request;
+        PoolCollection storage _pool;
+        uint256 _rewards;
+
+        while (_topIndex < _length) {
+            _request = bondingArray[_array[_topIndex]];
+            if (_request.epochID == _epochID) {
+                break;
+            }
+            if (_request.validator != _validator) {
+                continue;
+            }
+            if (_request.selfDelegation) {
+                break;
+            }
+
+            _pool = epochStakesPool[_request.epochID][_validator];
+            uint256 _liquidEarned = StakingPoolMath.liquidFromStake(
+                _request.amount,
+                _pool.validatorBondingPool.delegatingStake,
+                _pool.delegatorBondingPool.liquidMinted
+            );
+            uint256 _totalRewards = _pool.delegatorBondingPool.rewardsCollected + StakingPoolMath.computeRewardsFromFeeFactor(
+                _pool.delegatorBondingPool.feeFactor,
+                lastFeeFactor[_validator],
+                _pool.delegatorBondingPool.liquidMinted
+            );
+            _rewards += StakingPoolMath.computeRewardFraction(
+                _totalRewards,
+                _liquidEarned,
+                _pool.delegatorBondingPool.liquidMinted
+            );
+            _topIndex++;
+        }
+        return _rewards;
+    }
+
+    function _rewardsFromLiquidBurning(address _delegator, address _validator, uint256 _epochID) internal view returns (uint256) {
+        UnbondingQueue storage _queue = pendingUnbondingQueue[_delegator];
+        uint256[] storage _array = _queue.queue.array;
+        uint256 _length = _array.length;
+        uint256 _processingIndex = _queue.unlockingIndex;
+        UnbondingRequest storage _request;
+        PoolCollection storage _pool;
+        uint256 _rewards;
+
+        while (_processingIndex < _length) {
+            _request = unbondingArray[_array[_processingIndex]];
+            if (_request.epochID == _epochID) {
+                break;
+            }
+            if (_request.validator != _validator) {
+                continue;
+            }
+            if (_request.selfDelegation) {
+                break;
+            }
+
+            _pool = epochStakesPool[_request.epochID][_validator];
+            _rewards += StakingPoolMath.computeRewardFraction(
+                _pool.delegatorUnbondingPool.rewardsCollected,
+                _request.amount,
+                _pool.validatorUnbondingPool.liquidBurning
+            );
+            _processingIndex++;
+        }
+        return _rewards;
+    }
+
     /*
     ============================================================
 
@@ -801,137 +836,4 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     ============================================================
      */
-
-    function _computeRewardsFromFeeFactor(
-        uint256 _lastFeeFactor,
-        uint256 _feeFactor,
-        uint256 _balance
-    ) internal pure returns (uint256) {
-        return (_lastFeeFactor - _feeFactor) * _balance / FEE_FACTOR_UNIT_RECIP;
-    }
-
-    function _computeRewardFraction(
-        uint256 _rewards,
-        uint256 _share,
-        uint256 _totalShare
-    ) internal pure returns (uint256) {
-        return (_rewards * _share) / _totalShare;
-    }
-
-    /**
-     * @dev Calculates minted liquid amount from the amount of newton bonded.
-     * As liquid is minted, in case of `_totalDelegation == 0`, we mint in 1:1 ratio.
-     * @param _newtonBonded new bonded stake
-     * @param _totalDelegation total delegated stake in existence or in a pool
-     * @param _totalLiquid total liquid in supply or in a pool
-     */
-    function _liquidFromStake(
-        uint256 _newtonBonded,
-        uint256 _totalDelegation,
-        uint256 _totalLiquid
-    ) internal pure returns (uint256) {
-        if (_totalDelegation == 0) {
-            return _newtonBonded;
-        }
-        return (_totalLiquid * _newtonBonded) / _totalDelegation;
-    }
-
-    /**
-     * @dev Calculates amount of unbonding stake from the amount of liquid. As nothing is minted here,
-     * we can assume `_liquidBurning <= _totalLiquid`.
-     * @param _liquidBurning amount of liquid being burnt
-     * @param _totalLiquid total liquid in supply or in a pool
-     * @param _totalDelegation total delegated stake in existence or in a pool 
-     */
-    function _unbondingStakeFromLiquid(
-        uint256 _liquidBurning,
-        uint256 _totalLiquid,
-        uint256 _totalDelegation
-    ) internal pure returns (uint256) {
-        if (_liquidBurning == 0) {
-            return 0;
-        }
-        // assuming valid inputs `_liquidBurning <= _totalLiquid`
-        return _convertFromRatio(
-            _liquidBurning,
-            _totalDelegation,
-            _totalLiquid
-        );
-    }
-
-    /**
-     * @dev Calculates amount of unbonding share from unbonding stake. Unbonding share is minted,
-     * so in case of `_totalUnbondingStake == 0`, we mint in 1:1 ratio.
-     * @param _unbondingStake amount of stake under unbonding
-     * @param _totalUnbondingStake total unbonding stake in existence or in a pool
-     * @param _totalUnbondingShare total unbonding share in existence or in a pool
-     */
-    function _unbondingShareFromStake(
-        uint256 _unbondingStake,
-        uint256 _totalUnbondingStake,
-        uint256 _totalUnbondingShare
-    ) internal pure returns (uint256) {
-        if (_totalUnbondingStake == 0) {
-            return _unbondingStake;
-        }
-        return _convertFromRatio(
-            _unbondingStake,
-            _totalUnbondingShare,
-            _totalUnbondingStake
-        );
-    }
-
-    /**
-     * @dev Calculates amount of unbonding share from requested self unbonding stake or liquid amount.
-     * As unbonding share is not minted here, we can assume `_requestAmount <= _totalUnbondingAmount`.
-     * @param _requestAmount amount of liquid or self unbonding stake
-     * @param _totalUnbondingAmount total unbonding stake or liquid in existence or in a pool
-     * @param _totalUnbondingShare total unbonding share in existence or in a pool
-     */
-    function _unbondingShareFromRequestAmount(
-        uint256 _requestAmount,
-        uint256 _totalUnbondingAmount,
-        uint256 _totalUnbondingShare
-    ) internal pure returns (uint256) {
-        if (_requestAmount == 0) {
-            return 0;
-        }
-        // assuming valid inputs `_requestAmount <= _totalUnbondingAmount`
-        return _convertFromRatio(
-            _requestAmount,
-            _totalUnbondingShare,
-            _totalUnbondingAmount
-        );
-    }
-
-    /**
-     * @dev Calculates amount of stakes released from unbonding shares. As nothing is minted here,
-     * we can assume `_unbondingShare <= _totalUnbondingStake`.
-     * @param _unbondingShare unbonding share
-     * @param _totalUnbondingShare total unbonding share in existence or in a pool
-     * @param _totalUnbondingStake total unbonding stake in existence or in a pool
-     */
-    function _releasedStakeFromShare(
-        uint256 _unbondingShare,
-        uint256 _totalUnbondingShare,
-        uint256 _totalUnbondingStake
-    ) internal pure returns (uint256) {
-        if (_unbondingShare == 0) {
-            return 0;
-        }
-        // assuming valid inputs `_unbondingShare <= _totalUnbondingStake`
-        return _convertFromRatio(
-            _unbondingShare,
-            _totalUnbondingStake,
-            _totalUnbondingShare
-        );
-    }
-
-    function _convertFromRatio(
-        uint256 _share,
-        uint256 _ratioNumerator,
-        uint256 _ratioDenominator
-    ) internal pure returns (uint256) {
-        return (_share * _ratioNumerator) / _ratioDenominator;
-    }
 }

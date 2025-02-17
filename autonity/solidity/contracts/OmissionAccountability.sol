@@ -64,7 +64,6 @@ contract OmissionAccountability is IOmissionAccountability {
     constructor(
         address payable _autonity,
         address _operator,
-        address[] memory _treasuries,
         Config memory _config
     ) {
         // config sanity checks
@@ -74,20 +73,20 @@ contract OmissionAccountability is IOmissionAccountability {
 
         autonity = Autonity(_autonity);
 
-        // fetch committee and make sure that delta is set correctly in the autonity contract
-        Autonity.EpochInfo memory epochInfo = autonity.getEpochInfo();
-        require(epochInfo.delta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
-
         operator = _operator;
         config = _config;
-        for (uint256 i = 0; i < epochInfo.committee.length; i++) {
-            committee.push(epochInfo.committee[i]);
-            lastActive[committee[i].addr] = - 1;
-        }
-        treasuries = _treasuries;
 
         newLookbackWindow = config.lookbackWindow;
         newDelta = config.delta;
+    }
+
+    function finalizeInitialization(Autonity.EpochInfo memory _epochInfo, address[] memory _treasuries) external onlyAutonity {
+        require(_epochInfo.delta == config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
+        for (uint256 i = 0; i < _epochInfo.committee.length; i++) {
+            committee.push(_epochInfo.committee[i]);
+            lastActive[committee[i].addr] = - 1;
+        }
+        treasuries = _treasuries;
     }
 
     /**

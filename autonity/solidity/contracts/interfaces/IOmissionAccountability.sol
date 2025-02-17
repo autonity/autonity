@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "../Autonity.sol";
 
 interface IOmissionAccountability {
+    function finalizeInitialization(Autonity.EpochInfo memory _epochInfo, address[] memory _treasuries) external;
     function finalize(bool _epochEnded) external returns (uint256);
     function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external;
     function setEpochBlock(uint256 _epochBlock) external;

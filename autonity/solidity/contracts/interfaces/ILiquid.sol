@@ -8,7 +8,7 @@ interface ILiquid is IERC20 {
     function claimRewards() external;
     function claimTreasuryATN() external;
     function burnFromPool(address _pool, uint256 _amount) external;
-    function redistribute(uint256 _ntnReward, uint256 _commissionRate, uint256 _supply) external payable returns (uint256);
+    function redistribute(uint256 _ntnReward, uint256 _commissionRate) external payable returns (uint256);
     function transferFromPool(address _account, uint256 _amount) external;
     function unclaimedRewards(address _account) external view returns(uint256);
     function decimals() external pure returns (uint8);

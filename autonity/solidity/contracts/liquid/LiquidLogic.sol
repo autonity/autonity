@@ -58,7 +58,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * Update lastUnrealisedFeeFactor and transfer treasury fees.
      * @custom:restricted-to the autonity contract
      */
-    function redistribute(uint256 _ntnReward, uint256 _commissionRate, uint256 _supply) external virtual payable onlyAutonity returns (uint256) {
+    function redistribute(uint256 _ntnReward, uint256 _commissionRate) external virtual payable onlyAutonity returns (uint256) {
         uint256 _atnReward = msg.value;
         // Step 1 : transfer entitled amount of fees to validator's
         // treasury account.
@@ -76,12 +76,12 @@ contract LiquidLogic is ILiquid, LiquidStorage {
 
         // Step 2 : perform redistribution amongst liquid stake token
         // holders for this validator.
-        uint256 _atnFeeFactorThisReward = (_atnReward * FEE_FACTOR_UNIT_RECIP) / _supply;
+        uint256 _atnFeeFactorThisReward = (_atnReward * FEE_FACTOR_UNIT_RECIP) / supply;
         atnLastUnrealisedFeeFactor = atnLastUnrealisedFeeFactor + _atnFeeFactorThisReward;
 
         // Compute the maximum amount that can be claimed after
         // rounding.
-        uint256 _atnMaxClaimable = (_atnFeeFactorThisReward * _supply) / FEE_FACTOR_UNIT_RECIP;
+        uint256 _atnMaxClaimable = (_atnFeeFactorThisReward * supply) / FEE_FACTOR_UNIT_RECIP;
         return _atnValidatorReward + _atnMaxClaimable;
     }
 
@@ -211,6 +211,9 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     function _increaseBalance(address _delegator, uint256 _value) private {
         _realiseFees(_delegator); //always updates fee factor
         balances[_delegator] += _value;
+        // when transferring, this value will just be decreased
+        // again by the same amount.
+        supply += _value;
     }
 
     function _requireAndDecreaseBalance(address _delegator, uint256 _value) private {
@@ -223,6 +226,9 @@ contract LiquidLogic is ILiquid, LiquidStorage {
             // get back some gas
             delete atnUnrealisedFeeFactors[_delegator];
         }
+        // when transferring, this value will just be increased
+        // again by the same amount.
+        supply -= _value;
     }
 
 
@@ -313,14 +319,14 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     function unclaimedRewards(address _account) external virtual view returns (uint256) {
         uint256 _balance = balances[_account];
         uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, atnLastUnrealisedFeeFactor, atnUnrealisedFeeFactors[_account]);
-        return atnRealisedFees[_account] + _atnUnrealisedFee;
+        return atnRealisedFees[_account] + _atnUnrealisedFee + IStakingPool(autonityContract.getStakingPool()).calculateRewards(_account, validator);
     }
 
     /**
      * @notice Returns the total amount of stake token issued.
      */
     function totalSupply() external virtual view returns (uint256) {
-        return autonityContract.getValidator(validator).liquidSupply;
+        return supply;
     }
 
     /**

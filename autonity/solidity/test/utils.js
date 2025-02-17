@@ -210,7 +210,8 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
 }
 
 async function initialize(autonity, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator) {
-  await autonity.finalizeInitialization(omissionAccountabilityConfig.delta,{from:deployer});
+  // staking pool contract
+  const stakingPool = await StakingPool.new(autonity.address, operator, {from: deployer});
 
   // accountability contract
   const accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
@@ -242,7 +243,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
 
   // omission accountability contract
-  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, treasuries, omissionAccountabilityConfig, {from:deployer})
+  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, omissionAccountabilityConfig, {from:deployer})
 
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});
@@ -251,6 +252,9 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator})
+  await autonity.setStakingPool(stakingPool.address, {from: operator})
+
+  await autonity.finalizeInitialization(omissionAccountabilityConfig.delta,{from:deployer});
 }
 
 // deploys protocol contracts
@@ -261,10 +265,6 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // we can't really simulate a proper genesis sequence with truffle. As consequence all calculations
     // regarding the inflation rate will be wrong here which should be tested using the native go framework.
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG ,{from:deployer})
-
-    // staking pool address is needed in the config at autonity contructor
-    const stakingPool = await StakingPool.new(autonity.address, operator, {from: deployer});
-    autonityConfig.contracts.stakingPool = stakingPool.address;
 
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
 
@@ -278,10 +278,6 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 // set shortenEpoch = false if no need to call utils.endEpoch
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
-
-    // staking pool address is needed in the config at autonity contructor
-    const stakingPool = await StakingPool.new(autonity.address, operator, {from: deployer});
-    autonityConfig.contracts.stakingPool = stakingPool.address;
 
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
 
