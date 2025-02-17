@@ -141,6 +141,8 @@ class NetworkPlanner(object):
                 "oracle": {"votePeriod": 10},
                 "accountability": {
                     "innocenceProofSubmissionWindow": 30,
+                    "delta": 10,
+                    "range": 256,
                     "baseSlashingRateLow": 400,
                     "baseSlashingRateMid": 600,
                     "baseSlashingRateHigh": 800,
