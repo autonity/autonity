@@ -19,6 +19,8 @@ const ORACLE_REWARD_RATE = 0; // tests for oracle rewards are outside of the Tru
 
 const ACCOUNTABILITY_CONFIG = {
         "innocenceProofSubmissionWindow": 30,
+        "delta": 10,
+        "range": 256,
         "baseSlashingRates" : {
             "low": 400,
             "mid": 600,
