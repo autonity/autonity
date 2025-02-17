@@ -48,7 +48,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
         uint256 rewardsCollected;
     }
 
-    struct StakingHistory {
+    struct PoolCollection {
         ValidatorBondingPool validatorBondingPool;
         ValidatorUnbondingPool validatorUnbondingPool;
         DelegatorBondingPool delegatorBondingPool;
@@ -56,7 +56,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
     }
 
     /** @dev Stores historical data for staking operations for some epoch. */
-    mapping(uint256 => mapping(address => StakingHistory)) internal epochStakesPool;
+    mapping(uint256 => mapping(address => PoolCollection)) internal epochStakesPool;
     mapping(uint256 => EnumerableSet.AddressSet) internal validatorBonded;
     mapping(uint256 => EnumerableSet.AddressSet) internal validatorUnbonded;
     /** @dev Tracks amount of rejected bonding newton which is necessary for passive balance update in Autonity. */
@@ -123,7 +123,6 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function unbond(
         address _validator,
-        ILiquid _liquidContract,
         uint256 _amount,
         address payable _recipient,
         uint256 _epochID,
@@ -131,7 +130,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
     ) external onlyAutonity returns (uint256) {
         validatorUnbonded[_epochID].add(_validator);
         // requested unboning amount goes to the validators pool which will be processed at epoch end
-        StakingHistory storage _stakePool = epochStakesPool[_epochID][_validator];
+        PoolCollection storage _stakePool = epochStakesPool[_epochID][_validator];
         ValidatorUnbondingPool storage _pool = _stakePool.validatorUnbondingPool;
         if (_selfBond) {
             _pool.selfUnbondingStake += _amount;
@@ -141,12 +140,11 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 _stakePool.delegatorUnbondingPool.feeFactor = lastFeeFactor[_validator];
             }
             _pool.liquidBurning += _amount;
-            _liquidContract.lockInPool(_recipient, _amount);
         }
         uint256 _id = unbondingArray.length;
         unbondingArray.push(
             UnbondingRequest(
-                _recipient, _validator, _amount, 0, block.number, _epochID, false, false, _selfBond
+                _recipient, _validator, _amount, 0, block.number, _epochID, false, _selfBond
             )
         );
         pendingUnbondingQueue[_recipient].queue.enqueue(_id);
@@ -185,7 +183,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
         uint256 _length = _validators.length();
         while (_length > 0) {
             address _validator = _validators.at(0);
-            StakingHistory storage _stakePool = epochStakesPool[_epochID][_validator];
+            PoolCollection storage _stakePool = epochStakesPool[_epochID][_validator];
             ValidatorBondingPool storage _validatorPool = _stakePool.validatorBondingPool;
             Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
 
@@ -242,7 +240,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
         uint256 _length = _validators.length();
         for (uint256 i = 0; i < _length; i++) {
             address _validator = _validators.at(i);
-            StakingHistory storage _stakePool = epochStakesPool[_epochID][_validator];
+            PoolCollection storage _stakePool = epochStakesPool[_epochID][_validator];
             Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
 
             // for delegation
@@ -322,7 +320,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
             while (_length > 0) {
                 address _validator = _validators.at(0);
-                StakingHistory storage _stakePool = epochStakesPool[_epochID][_validator];
+                PoolCollection storage _stakePool = epochStakesPool[_epochID][_validator];
                 Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
 
                 // `unbondingShare` from `validatorUnbondingPool` is converted to `_releasedStake`
@@ -363,16 +361,21 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     /**
      * @notice Persist the information of the delegator in the state from the delegators pool.
-     * Restricted to autonity contract.
+     * Restricted to the autonity contract or the delegator.
      * @param _delegator Delegator account
-     * @param _epochID Epoch id of the running epoch
      */
-    function updateDelegatorPool(address _delegator, uint256 _epochID) external onlyTokenHolder(_delegator) {
-        _applyBondingRequest(_delegator, _epochID);
-        _applyUnbondingRequest(_delegator, _epochID);
-        if (unbondingEpoch > 0) {
-            _releaseUnbondingStake(_delegator, unbondingEpoch - 1);
-        }
+    function updateDelegatorPool(address _delegator) external virtual onlyTokenHolder(_delegator) {
+        _updateDelegatorPool(_delegator);
+    }
+
+    /**
+     * @notice Persist the information of the delegator in the state from the delegators pool.
+     * Restricted to the autonity contract or the delegator.
+     * @param _delegator Delegator account
+     * @param _validator Validator address
+     */
+    function updateDelegatorPool(address _delegator,address _validator) external virtual onlyLiquidHolder(_delegator, _validator) {
+        _updateDelegatorPool(_delegator);
     }
 
     /*
@@ -401,11 +404,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function isUnbondingReleased(uint256 _id) external view returns (bool) {
         require(unbondingArray.length > _id, "request doesn't exist");
-        UnbondingRequest storage _item = unbondingArray[_id];
-        if (_item.released) {
-            return true;
-        }
-        return _item.epochID < unbondingEpoch;
+        return unbondingArray[_id].epochID < unbondingEpoch;
     }
 
     function getUnbondingShare(uint256 _id) external view returns (uint256) {
@@ -416,7 +415,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
         }
 
         // assuming unbonding is applied
-        StakingHistory storage _pool = epochStakesPool[_item.epochID][_item.validator];
+        PoolCollection storage _pool = epochStakesPool[_item.epochID][_item.validator];
         if (_item.selfDelegation) {
             return _unbondingShareFromRequestAmount(
                 _item.amount,
@@ -429,6 +428,130 @@ contract StakingPool is AccessAutonity, IStakingPool {
             _pool.validatorUnbondingPool.liquidBurning,
             _pool.delegatorUnbondingPool.unbondingShare
         );
+    }
+
+    function calculateReleasedStake(address _delegator) external view returns (uint256) {
+        uint256 _epochID = unbondingEpoch;
+        UintQueue storage _queue = pendingUnbondingQueue[_delegator].queue;
+        uint256[] storage _array = _queue.array;
+        uint256 _length = _array.length;
+        uint256 _topIndex = _queue.topIndex;
+        UnbondingRequest storage _request;
+        PoolCollection storage _pool;
+        uint256 _releasedStakes;
+
+        while (_topIndex < _length) {
+            _request = unbondingArray[_array[_topIndex]];
+            if (_request.epochID >= _epochID) {
+                break;
+            }
+
+            // release the stakes
+            _pool = epochStakesPool[_request.epochID][_request.validator];
+            if (_request.selfDelegation) {
+                _releasedStakes += _releasedStakeFromShare(
+                    _request.unbondingShare,
+                    _pool.validatorUnbondingPool.selfUnbondingShare,
+                    _pool.delegatorUnbondingPool.releasedSelfStake
+                );
+            }
+            else {
+                _releasedStakes += _releasedStakeFromShare(
+                    _request.unbondingShare,
+                    _pool.validatorUnbondingPool.unbondingShare,
+                    _pool.delegatorUnbondingPool.releasedStake
+                );
+            }
+            _topIndex++;
+        }
+        return _releasedStakes;
+    }
+
+    function calculateRejectedBonding(address _delegator, uint256 _epochID) external view returns (uint256) {
+        UintQueue storage _queue = pendingBondingQueue[_delegator];
+        uint256[] storage _array = _queue.array;
+        uint256 _length = _array.length;
+        uint256 _topIndex = _queue.topIndex;
+        BondingRequest storage _request;
+        uint256 _bondingRejected;
+
+        while (_topIndex < _length) {
+            _request = bondingArray[_array[_topIndex]];
+            if (_request.epochID >= _epochID) {
+                break;
+            }
+
+            if (epochStakesPool[_request.epochID][_request.validator].validatorBondingPool.notActive) {
+                // validator was inactive at the time
+                _bondingRejected += _request.amount;
+            }
+            _topIndex++;
+        }
+        return _bondingRejected;
+    }
+
+    function calculateLiquidMinted(address _delegator, address _validator) external view returns (uint256) {
+        uint256 _epochID = autonity.epochID();
+        UintQueue storage _queue = pendingBondingQueue[_delegator];
+        uint256[] storage _array = _queue.array;
+        uint256 _length = _array.length;
+        uint256 _topIndex = _queue.topIndex;
+        BondingRequest storage _request;
+        PoolCollection storage _pool;
+        uint256 _liquidMinted;
+
+        while (_topIndex < _length) {
+            _request = bondingArray[_array[_topIndex]];
+            if (_request.epochID == _epochID) {
+                break;
+            }
+            if (_request.validator != _validator) {
+                continue;
+            }
+            if (_request.selfDelegation) {
+                break;
+            }
+
+            _pool = epochStakesPool[_request.epochID][_request.validator];
+            if (!_pool.validatorBondingPool.notActive) {
+                // validator was active at the time and liquid is minted
+                _liquidMinted += _liquidFromStake(
+                    _request.amount,
+                    _pool.validatorBondingPool.delegatingStake,
+                    _pool.delegatorBondingPool.liquidMinted
+                );
+            }
+            _topIndex++;
+        }
+        return _liquidMinted;
+    }
+
+    function calculateLiquidBurning(address _delegator, address _validator) external view returns (uint256) {
+        UnbondingQueue storage _queue = pendingUnbondingQueue[_delegator];
+        uint256[] storage _array = _queue.queue.array;
+        uint256 _length = _array.length;
+        uint256 _processingIndex = _queue.unlockingIndex;
+        UnbondingRequest storage _request;
+        uint256 _epochID = autonity.epochID();
+        uint256 _liquidBurning;
+
+        while (_processingIndex < _length) {
+            _request = unbondingArray[_array[_processingIndex]];
+            if (_request.validator != _validator) {
+                continue;
+            }
+            if (_request.selfDelegation) {
+                break;
+            }
+            if (_request.epochID < _epochID) {
+                // these requests are already unlocked and liquid is already burnt
+                continue;
+            }
+
+            _liquidBurning += _request.amount;
+            _processingIndex++;
+        }
+        return _liquidBurning;
     }
 
     /*
@@ -447,7 +570,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
         _;
     }
 
-    modifier onlyLiquidHolder(address _validator, address _delegator) {
+    modifier onlyLiquidHolder(address _delegator, address _validator) {
         require(
             _delegator == msg.sender || address(autonity.getValidator(_validator).liquidStateContract) == msg.sender,
             "Call restricted to account holder or liquid contract"
@@ -463,6 +586,13 @@ contract StakingPool is AccessAutonity, IStakingPool {
     ============================================================
      */
 
+    function _updateDelegatorPool(address _delegator) internal {
+        uint256 _epochID = autonity.epochID();
+        _applyBondingRequest(_delegator, _epochID);
+        _applyUnbondingRequest(_delegator, _epochID);
+        _releaseUnbondingStake(_delegator, unbondingEpoch);
+    }
+
     /**
      * @dev Apply all bonding requests from `_delegator` coming in epoch `_epochID` or before.
      */
@@ -472,12 +602,12 @@ contract StakingPool is AccessAutonity, IStakingPool {
         uint256 _length = _array.length;
         uint256 _topIndex = _queue.topIndex;
         BondingRequest storage _request;
-        StakingHistory storage _pool;
+        PoolCollection storage _pool;
         uint256 _bondingRejected;
 
         while (_topIndex < _length) {
             _request = bondingArray[_array[_topIndex]];
-            if (_request.epochID > _epochID) {
+            if (_request.epochID == _epochID) {
                 break;
             }
 
@@ -559,11 +689,11 @@ contract StakingPool is AccessAutonity, IStakingPool {
         uint256 _length = _array.length;
         uint256 _processingIndex = _queue.unlockingIndex;
         UnbondingRequest storage _request;
-        StakingHistory storage _pool;
+        PoolCollection storage _pool;
 
         while (_processingIndex < _length) {
             _request = unbondingArray[_array[_processingIndex]];
-            if (_request.epochID > _epochID) {
+            if (_request.epochID == _epochID) {
                 break;
             }
 
@@ -622,37 +752,42 @@ contract StakingPool is AccessAutonity, IStakingPool {
         uint256 _length = _array.length;
         uint256 _topIndex = _queue.topIndex;
         UnbondingRequest storage _request;
-        StakingHistory storage _pool;
-
+        PoolCollection storage _pool;
         uint256 _releasedStakes;
+
         while (_topIndex < _length) {
             _request = unbondingArray[_array[_topIndex]];
-            if (_request.epochID > _epochID) {
+            if (_request.epochID >= _epochID) {
                 break;
             }
 
             // release the stakes
-            _request.released = true;
             _pool = epochStakesPool[_request.epochID][_request.validator];
             if (_request.selfDelegation) {
-                _releasedStakes += _releasedStakeFromShare(
+                uint256 _share = _releasedStakeFromShare(
                     _request.unbondingShare,
                     _pool.validatorUnbondingPool.selfUnbondingShare,
                     _pool.delegatorUnbondingPool.releasedSelfStake
                 );
+                _pool.validatorUnbondingPool.selfUnbondingShare -= _request.unbondingShare;
+                _pool.delegatorUnbondingPool.releasedSelfStake -= _share;
+                _releasedStakes += _share;
             }
             else {
-                _releasedStakes += _releasedStakeFromShare(
+                uint256 _share = _releasedStakeFromShare(
                     _request.unbondingShare,
                     _pool.validatorUnbondingPool.unbondingShare,
                     _pool.delegatorUnbondingPool.releasedStake
                 );
+                _pool.validatorUnbondingPool.unbondingShare -= _request.unbondingShare;
+                _pool.delegatorUnbondingPool.releasedStake -= _share;
+                _releasedStakes += _share;
             }
             _topIndex++;
         }
 
         // TODO (tariq): consider deleting unbonding request from `unbondingArray` as they are released
-        _queue.dequeue(_topIndex - _queue.topIndex);
+        pendingUnbondingQueue[_delegator].queue.dequeue(_topIndex - _queue.topIndex);
         if (_releasedStakes > 0) {
             releasedStakes -= _releasedStakes;
             autonity.updateWithReleasedStake(_delegator, _releasedStakes);

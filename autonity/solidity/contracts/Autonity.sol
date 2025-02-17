@@ -253,12 +253,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
            stack limit issues.
          */
         for (uint256 i = 0; i < _validators.length; i++) {
-            uint256 _bondedStake = _validators[i].bondedStake;
 
             // Sanitize the validator fields for a fresh new deployment.
+            // keep the `bondedStake` in `Validator` struct temporarily, it will be removed at `finalizeInitialization`
             _validators[i].liquidSupply = 0;
             _validators[i].liquidStateContract = ILiquid(address(0));
-            _validators[i].bondedStake = 0;
             _validators[i].selfBondedStake = 0;
             _validators[i].registrationBlock = 0;
             _validators[i].commissionRate = config.policy.delegationRate;
@@ -273,12 +272,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _registerOracle(_validators[i].oracleAddress);
             _deployLiquidStateContract(_validators[i]);
 
-            _mint(_validators[i].treasury, _bondedStake);
-            _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
+            _mint(_validators[i].treasury, _validators[i].bondedStake);
         }
     }
 
     function finalizeInitialization(uint256 delta) onlyProtocol nonReentrant public {
+        // bond before applying staking operations
+        uint256 _count = validatorList.length;
+        for (uint i = 0; i < _count; i++) {
+            Validator storage _validator = validators[validatorList[i]];
+            _bond(_validator.nodeAddress, _validator.bondedStake, payable(_validator.treasury));
+            _validator.bondedStake = 0;
+        }
+
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
@@ -688,6 +694,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.upgradeManagerContract = _address;
     }
 
+    function setStakingPoolContract(IStakingPool _address) public virtual onlyOperator {
+        config.contracts.stakingPool = _address;
+    }
+
     /**
      * @notice Set address of the liquid logic contact.
      * @custom:restricted-to operator account
@@ -711,6 +721,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
     function burn(address _addr, uint256 _amount) public virtual onlyOperator {
         require(accounts[_addr] >= _amount, "Amount exceeds balance");
+        config.contracts.stakingPool.updateDelegatorPool(_addr);
         accounts[_addr] -= _amount;
         stakeSupply -= _amount;
         stakeCirculating -= _amount;
@@ -1049,7 +1060,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             );
         }
 
-        _validator.selfUnbondingStakeLocked += _selfUnbondingRequested;
+        _validator.selfUnbondingStakeLocked -= _selfUnbondingRequested;
 
         _validator.selfBondedStake -= _selfUnbondingStake;
         _validator.selfUnbondingStake += _selfUnbondingStake;
@@ -1182,7 +1193,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Returns the amount of unbonded Newton token held by the account (ERC-20).
     */
     function balanceOf(address _addr) external view virtual override returns (uint256) {
-        return accounts[_addr];
+        return accounts[_addr] + config.contracts.stakingPool.calculateReleasedStake(_addr)
+                + config.contracts.stakingPool.calculateRejectedBonding(_addr, epochID);
     }
 
     /**
@@ -1553,6 +1565,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     // We may want to switch to OZ's ERC20 at one point to deal with callbacks
     // but we'll have to deal with re-entrency stuff in this case. For the time being we are conservative.
     function _transfer(address _sender, address _recipient, uint256 _amount) internal virtual {
+        config.contracts.stakingPool.updateDelegatorPool(_sender);
         require(accounts[_sender] >= _amount, "amount exceeds balance");
         accounts[_sender] -= _amount;
         accounts[_recipient] += _amount;
@@ -1697,12 +1710,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
+        config.contracts.stakingPool.updateDelegatorPool(_recipient);
         Validator storage _validator = validators[_validatorAddress];
         bool selfDelegation = _recipient == _validator.treasury;
         if (!selfDelegation) {
             // Lock LNTN if it was issued (non self-delegated stake case)
             uint256 liqBalance = _validator.liquidStateContract.unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
+            _validator.liquidStateContract.lockInPool(_recipient, address(config.contracts.stakingPool), _amount);
         }
         else {
             require(
@@ -1715,7 +1730,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
         return config.contracts.stakingPool.unbond(
             _validatorAddress,
-            _validator.liquidStateContract,
             _amount,
             _recipient,
             epochID,

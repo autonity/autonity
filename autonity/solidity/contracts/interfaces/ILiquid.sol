@@ -4,7 +4,7 @@ import "./IERC20.sol";
 
 interface ILiquid is IERC20 {
     function mintInPool(address _pool, uint256 _amount) external;
-    function lockInPool(address _account, uint256 _amount) external;
+    function lockInPool(address _account, address _pool, uint256 _amount) external;
     function claimRewards() external;
     function claimTreasuryATN() external;
     function burnFromPool(address _pool, uint256 _amount) external;

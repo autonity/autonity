@@ -11,7 +11,7 @@ const Acu = artifacts.require("ACU")
 const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const InflationController = artifacts.require("InflationController")
-const NonStakeableVesting = artifacts.require("NonStakeableVesting")
+const StakingPool = artifacts.require("StakingPool")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
 const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
@@ -262,6 +262,10 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
     // regarding the inflation rate will be wrong here which should be tested using the native go framework.
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG ,{from:deployer})
 
+    // staking pool address is needed in the config at autonity contructor
+    const stakingPool = await StakingPool.new(autonity.address, operator, {from: deployer});
+    autonityConfig.contracts.stakingPool = stakingPool.address;
+
     const autonity = await createAutonityContract(validators, autonityConfig, {from: deployer});
 
     // now init autonity contract with sub protocol contracts, otherwise finalize() will be reverted.
@@ -274,6 +278,10 @@ const deployContracts = async (validators, autonityConfig, accountabilityConfig,
 // set shortenEpoch = false if no need to call utils.endEpoch
 const deployAutonityTestContract = async (validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, shortenEpoch = true) => {
     const inflationController = await InflationController.new(config.INFLATION_CONTROLLER_CONFIG,{from:deployer})
+
+    // staking pool address is needed in the config at autonity contructor
+    const stakingPool = await StakingPool.new(autonity.address, operator, {from: deployer});
+    autonityConfig.contracts.stakingPool = stakingPool.address;
 
     const autonityTest = await createAutonityTestContract(validators, autonityConfig, {from: deployer});
 

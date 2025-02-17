@@ -23,7 +23,6 @@ interface IStakingPool {
         uint256 requestBlock;
         uint256 epochID;
         bool unlocked;
-        bool released;
         bool selfDelegation;
     }
 
@@ -39,17 +38,21 @@ interface IStakingPool {
 
     function unbond(
         address _validator,
-        ILiquid _liquidContract,
         uint256 _amount,
         address payable _recipient,
         uint256 _epochID,
         bool _selfBond
     ) external returns (uint256);
 
+    /* Protocol calls done in `autonity.finalize()` by autonity contract */
     function collectRewards(address[] memory _validators, ILiquid[] memory _liquidContracts) external;
     function applyBonding(uint256 _epochID) external;
     function applyUnbonding(uint256 _epochID) external;
     function releaseUnbondingStake(uint256 _epochID) external;
+
+    /* Updates the information of the `_delegator` from the delegators pool. Both function do the same thing. */
+    function updateDelegatorPool(address _delegator) external;
+    function updateDelegatorPool(address _delegator, address _validator) external;
 
     function getBondingRequest(uint256 _id) external view returns (BondingRequest memory);
     function getUnbondingRequest(uint256 _id) external view returns (UnbondingRequest memory);
@@ -59,6 +62,10 @@ interface IStakingPool {
     function releasedStakes() external view returns (uint256);
     function isUnbondingReleased(uint256 _id) external view returns (bool);
     function getUnbondingShare(uint256 _id) external view returns (uint256);
+    function calculateReleasedStake(address _delegator) external view returns (uint256);
+    function calculateRejectedBonding(address _delegator, uint256 _epochID) external view returns (uint256);
+    function calculateLiquidMinted(address _delegator, address _validator) external view returns (uint256);
+    function calculateLiquidBurning(address _delegator, address _validator) external view returns (uint256);
 
     event BondingPoolRejected(address indexed validator, uint256 selfBondingAmount, uint256 delegatingAmount, ValidatorState state);
 }

@@ -3,6 +3,7 @@
 pragma solidity ^0.8.3;
 
 import "../interfaces/ILiquid.sol";
+import "../interfaces/IStakingPool.sol";
 import "./LiquidStorage.sol";
 import "../ProtocolConstants.sol";
 
@@ -176,8 +177,8 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @param _account address of the account to lock funds .
               _amount LNTN amount of tokens to lock.
      */
-    function lockInPool(address _account, uint256 _amount) external virtual onlyStakingPool {
-        _transfer(_account, msg.sender, _amount);
+    function lockInPool(address _account, address _pool, uint256 _amount) external virtual onlyAutonity {
+        _transfer(_account, _pool, _amount);
     }
 
     function transferFromPool(
@@ -272,6 +273,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     }
 
     function _transfer(address _from, address _to, uint256 _amount) internal virtual {
+        IStakingPool(autonityContract.getStakingPool()).updateDelegatorPool(_from, validator);
         _requireAndDecreaseBalance(_from, _amount);
         _increaseBalance(_to, _amount);
     }
@@ -341,21 +343,22 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     }
 
     function balanceInPool(address _account) public virtual view returns (uint256) {
-        // TODO
+        IStakingPool _stakingPool = IStakingPool(autonityContract.getStakingPool());
+        return _stakingPool.calculateLiquidBurning(_account, validator) + _stakingPool.calculateLiquidMinted(_account, validator);
     }
 
     /**
      * @notice Returns the amount of locked liquid newtons held by the account.
      */
     function lockedBalanceOf(address _account) external virtual view returns (uint256) {
-        return balanceInPool(_account);
+        return IStakingPool(autonityContract.getStakingPool()).calculateLiquidBurning(_account, validator);
     }
 
     /**
      * @notice Returns the amount of unlocked liquid newtons held by the account.
      */
-    function unlockedBalanceOf(address _delegator) external virtual view returns (uint256) {
-        return  balances[_delegator];
+    function unlockedBalanceOf(address _account) external virtual view returns (uint256) {
+        return  balances[_account] + IStakingPool(autonityContract.getStakingPool()).calculateLiquidMinted(_account, validator);
     }
 
     /**
