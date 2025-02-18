@@ -54,7 +54,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain) *StateProcess
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, *state.StateDB, uint64, error) {
+func (p *StateProcessor) ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*ProcessResult, error) {
 	var (
 		receipts  types.Receipts
 		usedGas   uint64

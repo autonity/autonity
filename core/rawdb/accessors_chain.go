@@ -853,12 +853,10 @@ func WriteBlock(db ethdb.KeyValueWriter, block *types.Block) {
 	WriteHeader(db, block.Header())
 }
 
-// WriteAncientBlock writes entire block data into ancient store and returns the total written size.
-func WriteAncientBlocks(db ethdb.AncientWriter, blocks []*types.Block, receipts []types.Receipts, td *big.Int) (int64, error) {
-	var (
-		tdSum      = new(big.Int).Set(td)
-		stReceipts []*types.ReceiptForStorage
-	)
+// WriteAncientBlocks writes entire block data into ancient store and returns the total written size.
+func WriteAncientBlocks(db ethdb.AncientWriter, blocks []*types.Block, receipts []types.Receipts) (int64, error) {
+	var stReceipts []*types.ReceiptForStorage
+
 	return db.ModifyAncients(func(op ethdb.AncientWriteOp) error {
 		for i, block := range blocks {
 			// Convert receipts to storage format and sum up total difficulty.
@@ -867,10 +865,7 @@ func WriteAncientBlocks(db ethdb.AncientWriter, blocks []*types.Block, receipts 
 				stReceipts = append(stReceipts, (*types.ReceiptForStorage)(receipt))
 			}
 			header := block.Header()
-			if i > 0 {
-				tdSum.Add(tdSum, header.Difficulty)
-			}
-			if err := writeAncientBlock(op, block, header, stReceipts, tdSum); err != nil {
+			if err := writeAncientBlock(op, block, header, stReceipts); err != nil {
 				return err
 			}
 		}
@@ -878,7 +873,7 @@ func WriteAncientBlocks(db ethdb.AncientWriter, blocks []*types.Block, receipts 
 	})
 }
 
-func writeAncientBlock(op ethdb.AncientWriteOp, block *types.Block, header *types.Header, receipts []*types.ReceiptForStorage, td *big.Int) error {
+func writeAncientBlock(op ethdb.AncientWriteOp, block *types.Block, header *types.Header, receipts []*types.ReceiptForStorage) error {
 	num := block.NumberU64()
 	if err := op.AppendRaw(ChainFreezerHashTable, num, block.Hash().Bytes()); err != nil {
 		return fmt.Errorf("can't add block %d hash: %v", num, err)
@@ -891,9 +886,6 @@ func writeAncientBlock(op ethdb.AncientWriteOp, block *types.Block, header *type
 	}
 	if err := op.Append(ChainFreezerReceiptTable, num, receipts); err != nil {
 		return fmt.Errorf("can't append block %d receipts: %v", num, err)
-	}
-	if err := op.Append(freezerDifficultyTable, num, td); err != nil {
-		return fmt.Errorf("can't append block %d total difficulty: %v", num, err)
 	}
 	return nil
 }

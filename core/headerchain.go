@@ -313,7 +313,7 @@ func (hc *HeaderChain) WriteHeaders(headers []*types.Header) (int, error) {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-func (hc *HeaderChain) writeHeadersAndSetHead(headers []*types.Header, forker *ForkChoice) (*headerWriteResult, error) {
+func (hc *HeaderChain) writeHeadersAndSetHead(headers []*types.Header) (*headerWriteResult, error) {
 	inserted, err := hc.WriteHeaders(headers)
 	if err != nil {
 		return nil, err
@@ -329,21 +329,6 @@ func (hc *HeaderChain) writeHeadersAndSetHead(headers []*types.Header, forker *F
 			lastHeader: lastHeader,
 		}
 	)
-	// Ask the fork choicer if the reorg is necessary.
-	// Forker is the fork chooser based on the highest total difficulty of the
-	// chain(the fork choice used in the eth1) and the external fork choice (the fork
-	// choice used in the eth2). This main goal of this ForkChoice is not only for
-	// offering fork choice during the eth1/2 merge phase, but also keep the compatibility
-	// for all other proof-of-work networks. As Tendermint is an instant consensus protocol, thus
-	// the reorg shouldn't happen in tendermint at all.
-	if reorg, err := forker.ReorgNeeded(hc.CurrentHeader(), lastHeader); err != nil {
-		return nil, err
-	} else if !reorg {
-		if inserted != 0 {
-			result.status = SideStatTy
-		}
-		return result, nil
-	}
 	// Special case, all the inserted headers are already on the canonical
 	// header chain, skip the reorg operation.
 	if hc.GetCanonicalHash(lastHeader.Number.Uint64()) == lastHash && lastHeader.Number.Uint64() <= hc.CurrentHeader().Number.Uint64() {
@@ -357,7 +342,7 @@ func (hc *HeaderChain) writeHeadersAndSetHead(headers []*types.Header, forker *F
 	return result, nil
 }
 
-func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
+func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 {
@@ -370,32 +355,9 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 			return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x..], item %d is #%d [%x..] (parent [%x..])", i-1, chain[i-1].Number,
 				parentHash.Bytes()[:4], i, chain[i].Number, hash.Bytes()[:4], chain[i].ParentHash[:4])
 		}
-		// If the header is a banned one, straight out abort
-		if BadHashes[chain[i].ParentHash] {
-			return i - 1, ErrBannedHash
-		}
-		// If it's the last header in the cunk, we need to check it too
-		if i == len(chain)-1 && BadHashes[chain[i].Hash()] {
-			return i, ErrBannedHash
-		}
 	}
-
-	// Generate the list of seal verification requests, and start the parallel verifier
-	seals := make([]bool, len(chain))
-	if checkFreq != 0 {
-		// In case of checkFreq == 0 all seals are left false.
-		for i := 0; i <= len(seals)/checkFreq; i++ {
-			index := i*checkFreq + hc.rand.Intn(checkFreq)
-			if index >= len(seals) {
-				index = len(seals) - 1
-			}
-			seals[index] = true
-		}
-		// Last should always be verified to avoid junk.
-		seals[len(seals)-1] = true
-	}
-
-	abort, results := hc.engine.VerifyHeaders(hc, chain, seals)
+	// Start the parallel verifier
+	abort, results := hc.engine.VerifyHeaders(hc, chain)
 	defer close(abort)
 
 	// Iterate over the headers and ensure they all check out
@@ -424,11 +386,11 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int)
 //
 // The returned 'write status' says if the inserted headers are part of the canonical chain
 // or a side chain.
-func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, start time.Time, forker *ForkChoice) (WriteStatus, error) {
+func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, start time.Time) (WriteStatus, error) {
 	if hc.procInterrupt() {
 		return 0, errors.New("aborted")
 	}
-	res, err := hc.writeHeadersAndSetHead(chain, forker)
+	res, err := hc.writeHeadersAndSetHead(chain)
 	if err != nil {
 		return 0, err
 	}
@@ -446,7 +408,7 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, start time.Time,
 	if res.ignored > 0 {
 		context = append(context, []interface{}{"ignored", res.ignored}...)
 	}
-	log.Info("Imported new block headers", context...)
+	log.Debug("Imported new block headers", context...)
 	return res.status, err
 }
 
@@ -666,7 +628,7 @@ type (
 	// before head header is updated. The method will return the actual block it
 	// updated the head to (missing state) and a flag if setHead should continue
 	// rewinding till that forcefully (exceeded ancient limits)
-	UpdateHeadBlocksCallback func(ethdb.KeyValueWriter, *types.Header) (uint64, bool)
+	UpdateHeadBlocksCallback func(ethdb.KeyValueWriter, *types.Header) (*types.Header, bool)
 
 	// DeleteBlockContentCallback is a callback function that is called by SetHead
 	// before each header is deleted.
@@ -676,12 +638,43 @@ type (
 // SetHead rewinds the local chain to a new head. Everything above the new head
 // will be deleted and the new one set.
 func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, delFn DeleteBlockContentCallback) {
+	hc.setHead(head, 0, updateFn, delFn)
+}
+
+// SetHeadWithTimestamp rewinds the local chain to a new head timestamp. Everything
+// above the new head will be deleted and the new one set.
+func (hc *HeaderChain) SetHeadWithTimestamp(time uint64, updateFn UpdateHeadBlocksCallback, delFn DeleteBlockContentCallback) {
+	hc.setHead(0, time, updateFn, delFn)
+}
+
+// setHead rewinds the local chain to a new head block or a head timestamp.
+// Everything above the new head will be deleted and the new one set.
+func (hc *HeaderChain) setHead(headBlock uint64, headTime uint64, updateFn UpdateHeadBlocksCallback, delFn DeleteBlockContentCallback) {
+	// Sanity check that there's no attempt to undo the genesis block. This is
+	// a fairly synthetic case where someone enables a timestamp based fork
+	// below the genesis timestamp. It's nice to not allow that instead of the
+	// entire chain getting deleted.
+	if headTime > 0 && hc.genesisHeader.Time > headTime {
+		// Note, a critical error is quite brutal, but we should really not reach
+		// this point. Since pre-timestamp based forks it was impossible to have
+		// a fork before block 0, the setHead would always work. With timestamp
+		// forks it becomes possible to specify below the genesis. That said, the
+		// only time we setHead via timestamp is with chain config changes on the
+		// startup, so failing hard there is ok.
+		log.Crit("Rejecting genesis rewind via timestamp", "target", headTime, "genesis", hc.genesisHeader.Time)
+	}
 	var (
 		parentHash common.Hash
 		batch      = hc.chainDb.NewBatch()
 		origin     = true
 	)
-	for hdr := hc.CurrentHeader(); hdr != nil && hdr.Number.Uint64() > head; hdr = hc.CurrentHeader() {
+	done := func(header *types.Header) bool {
+		if headTime > 0 {
+			return header.Time <= headTime
+		}
+		return header.Number.Uint64() <= headBlock
+	}
+	for hdr := hc.CurrentHeader(); hdr != nil && !done(hdr); hdr = hc.CurrentHeader() {
 		num := hdr.Number.Uint64()
 
 		// Rewind block chain to new head.
@@ -701,9 +694,9 @@ func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, d
 		markerBatch := hc.chainDb.NewBatch()
 		if updateFn != nil {
 			newHead, force := updateFn(markerBatch, parent)
-			if force && newHead < head {
-				log.Warn("Force rewinding till ancient limit", "head", newHead)
-				head = newHead
+			if force && ((headTime > 0 && newHead.Time < headTime) || (headTime == 0 && newHead.Number.Uint64() < headBlock)) {
+				log.Warn("Force rewinding till ancient limit", "head", newHead.Number.Uint64())
+				headBlock, headTime = newHead.Number.Uint64(), 0 // Target timestamp passed, continue rewind in block mode (cleaner)
 			}
 		}
 

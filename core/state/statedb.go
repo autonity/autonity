@@ -29,12 +29,11 @@ import (
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/autonity/autonity/core/stateless"
-	"github.com/autonity/autonity/core/tracing"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state/snapshot"
+	"github.com/autonity/autonity/core/stateless"
+	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
@@ -434,7 +433,7 @@ func (s *StateDB) SetBalance(addr common.Address, amount *uint256.Int, reason tr
 	}
 }
 
-func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
+func (s *StateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.NonceChangeReason) {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)

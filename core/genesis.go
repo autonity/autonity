@@ -66,7 +66,7 @@ type Genesis struct {
 	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
 	Mixhash    common.Hash         `json:"mixHash"`
 	Coinbase   common.Address      `json:"coinbase"`
-	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
+	Alloc      types.GenesisAlloc  `json:"alloc"      gencodec:"required"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -201,6 +201,33 @@ func (h *storageJSON) UnmarshalText(text []byte) error {
 
 func (h storageJSON) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(h[:]).MarshalText()
+}
+
+func getGenesisState(db ethdb.Database, blockhash common.Hash) (alloc types.GenesisAlloc, err error) {
+	blob := rawdb.ReadGenesisStateSpec(db, blockhash)
+	if len(blob) != 0 {
+		if err := alloc.UnmarshalJSON(blob); err != nil {
+			return nil, err
+		}
+
+		return alloc, nil
+	}
+
+	// Genesis allocation is missing and there are several possibilities:
+	// the node is legacy which doesn't persist the genesis allocation or
+	// the persisted allocation is just lost.
+	// - supported networks(mainnet, testnets), recover with defined allocations
+	// - private network, can't recover
+	var genesis *Genesis
+	switch blockhash {
+	case params.MainnetGenesisHash:
+		genesis = DefaultGenesisBlock()
+	}
+	if genesis != nil {
+		return genesis.Alloc, nil
+	}
+
+	return nil, nil
 }
 
 // GenesisMismatchError is raised when trying to overwrite an existing

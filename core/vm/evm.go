@@ -65,7 +65,6 @@ type BlockContext struct {
 	Time        uint64         // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	BaseFee     *big.Int       // Provides information for BASEFEE (0 if vm runs with NoBaseFee flag and 0 gas price)
-	BlobBaseFee *big.Int       // Provides information for BLOBBASEFEE (0 if vm runs with NoBaseFee flag and 0 blob gas price)
 	Random      *common.Hash   // Provides information for PREVRANDAO
 
 	ActivityProof      *types.AggregateSignature
@@ -442,7 +441,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if nonce+1 < nonce {
 		return nil, common.Address{}, gas, ErrNonceUintOverflow
 	}
-	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	evm.StateDB.SetNonce(caller.Address(), nonce+1, tracing.NonceChangeContractCreator)
 
 	// Charge the contract creation init gas in verkle mode
 	if evm.chainRules.IsEIP4762 {
@@ -490,7 +489,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	evm.StateDB.CreateContract(address)
 
 	if evm.chainRules.IsEIP158 {
-		evm.StateDB.SetNonce(address, 1)
+		evm.StateDB.SetNonce(address, 1, tracing.NonceChangeNewContract)
 	}
 	// Charge the contract creation init gas in verkle mode
 	if evm.chainRules.IsEIP4762 {
@@ -665,7 +664,7 @@ func (evm *EVM) Replace(caller ContractRef, code []byte, address common.Address)
 	if nonce+1 < nonce {
 		return nil, common.Address{}, gas, ErrNonceUintOverflow
 	}
-	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	evm.StateDB.SetNonce(caller.Address(), nonce+1, tracing.NonceChangeContractCreator)
 	// We add this to the access list _before_ taking a snapshot. Even if the creation fails,
 	// the access-list change should not be rolled back
 	if evm.chainRules.IsBerlin {

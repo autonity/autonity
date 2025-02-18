@@ -84,7 +84,7 @@ func (bc *BlockChain) CurrentBlock() *types.Header {
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentSnapBlock() *types.Header {
-	return bc.currentFastBlock.Load()
+	return bc.currentSnapBlock.Load()
 }
 
 // HasHeader checks if a block header is present in the database or not, caching
@@ -318,6 +318,18 @@ func (bc *BlockChain) TrieNode(hash common.Hash) ([]byte, error) {
 	return bc.stateCache.TrieDB().Node(hash)
 }
 
+// stateRecoverable checks if the specified state is recoverable.
+// Note, this function assumes the state is not present, because
+// state is not treated as recoverable if it's available, thus
+// false will be returned in this case.
+func (bc *BlockChain) stateRecoverable(root common.Hash) bool {
+	if bc.triedb.Scheme() == rawdb.HashScheme {
+		return false
+	}
+	result, _ := bc.triedb.Recoverable(root)
+	return result
+}
+
 // ContractCode retrieves a blob of data associated with a contract hash
 // either from ephemeral in-memory cache, or from persistent storage.
 func (bc *BlockChain) ContractCode(hash common.Hash) ([]byte, error) {
@@ -326,24 +338,20 @@ func (bc *BlockChain) ContractCode(hash common.Hash) ([]byte, error) {
 
 // ContractCodeWithPrefix retrieves a blob of data associated with a contract
 // hash either from ephemeral in-memory cache, or from persistent storage.
-//
-// If the code doesn't exist in the in-memory cache, check the storage with
-// new code scheme.
-func (bc *BlockChain) ContractCodeWithPrefix(hash common.Hash) ([]byte, error) {
-	type codeReader interface {
-		ContractCodeWithPrefix(addrHash, codeHash common.Hash) ([]byte, error)
-	}
-	return bc.stateCache.(codeReader).ContractCodeWithPrefix(common.Hash{}, hash)
+func (bc *BlockChain) ContractCodeWithPrefix(hash common.Hash) []byte {
+	// TODO(rjl493456442) The associated account address is also required
+	// in Verkle scheme. Fix it once snap-sync is supported for Verkle.
+	return bc.statedb.ContractCodeWithPrefix(common.Address{}, hash)
 }
 
 // State returns a new mutable state based on the current HEAD block.
 func (bc *BlockChain) State() (*state.StateDB, error) {
-	return bc.StateAt(bc.CurrentBlock().Root())
+	return bc.StateAt(bc.CurrentBlock().Root)
 }
 
 // StateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
-	return state.New(root, bc.stateCache, bc.snaps)
+	return state.New(root, bc.statedb)
 }
 
 // Config retrieves the chain's fork configuration.
@@ -369,7 +377,7 @@ func (bc *BlockChain) Processor() Processor {
 
 // StateCache returns the caching database underpinning the blockchain instance.
 func (bc *BlockChain) StateCache() state.Database {
-	return bc.stateCache
+	return bc.statedb
 }
 
 // GasLimit returns the gas limit of the current HEAD block.

@@ -278,19 +278,24 @@ func opMcopy(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]by
 // opBlobHash implements the BLOBHASH opcode
 func opBlobHash(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	index := scope.Stack.peek()
+	/*  Autonity does not support Blob transactions but in order to retain compatibility
+		with the latest EVM compiler version we still implement this opcode
+		Below the original implementation:
 	if index.LtUint64(uint64(len(interpreter.evm.TxContext.BlobHashes))) {
 		blobHash := interpreter.evm.TxContext.BlobHashes[index.Uint64()]
 		index.SetBytes32(blobHash[:])
 	} else {
 		index.Clear()
 	}
+	*/
+	index.Clear()
 	return nil, nil
 }
 
 // opBlobBaseFee implements BLOBBASEFEE opcode
 func opBlobBaseFee(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	blobBaseFee, _ := uint256.FromBig(interpreter.evm.Context.BlobBaseFee)
-	scope.Stack.push(blobBaseFee)
+	// In Autonity BlobBaseFee doesn't exist, the return value for this opcode is 0
+	scope.Stack.push(uint256.NewInt(0))
 	return nil, nil
 }
 
