@@ -2468,6 +2468,34 @@ func (bc *BlockChain) EpochPeriodByNumber(number uint64) (*big.Int, error) {
 	return config.EpochPeriod, nil
 }
 
+func (bc *BlockChain) AccountabilityDelta() *big.Int {
+	currentHeadNumber := bc.CurrentBlock().NumberU64()
+	accountabilityDelta, _ := bc.AccountabilityDeltaByNumber(currentHeadNumber)
+	return accountabilityDelta
+}
+
+func (bc *BlockChain) AccountabilityDeltaByNumber(number uint64) (*big.Int, error) {
+	config, err := bc.ReadContractsConfigByNumber(number)
+	if err != nil {
+		return nil, err
+	}
+	return config.AccountabilityDelta, nil
+}
+
+func (bc *BlockChain) AccountabilityRange() *big.Int {
+	currentHeadNumber := bc.CurrentBlock().NumberU64()
+	accountabilityRange, _ := bc.AccountabilityRangeByNumber(currentHeadNumber)
+	return accountabilityRange
+}
+
+func (bc *BlockChain) AccountabilityRangeByNumber(number uint64) (*big.Int, error) {
+	config, err := bc.ReadContractsConfigByNumber(number)
+	if err != nil {
+		return nil, err
+	}
+	return config.AccountabilityRange, nil
+}
+
 func (bc *BlockChain) ReadContractsConfigByNumber(number uint64) (*bindings.AutonityClientAwareConfig, error) {
 	config, _ := rawdb.ReadContractsConfig(bc.db, number)
 	if config == nil {
