@@ -681,33 +681,42 @@ func (w *worker) resultLoop() {
 	}
 }
 
+func (w *worker) optimisticState(parent *types.Block) (*state.StateDB, error) {
+	var state *state.StateDB
+	var hash common.Hash
+	// Making environment by coping cached optimistic parent block's state also copies the receipt logs.
+	if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
+		sealHash := w.engine.SealHash(parent.Header())
+		w.pendingMu.Lock()
+		task, exist := w.pendingTasks[sealHash]
+		if exist {
+			state = task.env.state.Copy()
+		} else {
+			w.pendingMu.Unlock()
+			return nil, fmt.Errorf("no state cache available for optimistic block")
+		}
+		w.pendingMu.Unlock()
+	} else {
+		state, hash = w.chain.LoadProposalState()
+		if parent.Hash() != hash {
+			return nil, fmt.Errorf("no state cache available for optimistic block")
+		}
+	}
+	return state, nil
+
+}
+
 // makeEnv creates a new environment for the sealing block.
 func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase common.Address, optimisticCandidate bool) (*environment, error) {
 	// Retrieve the parent state to execute on top and start a prefetcher for
 	// the miner to speed block sealing up a bit.
-	var (
-		state *state.StateDB
-		err   error
-		hash  common.Hash
-	)
+	var state *state.StateDB
+	var err error
+
 	if optimisticCandidate {
-		// Making environment by coping cached optimistic parent block's state also copies the receipt logs.
-		if parent.Header().Coinbase == w.coinbase { // we were the proposer for the parent
-			sealHash := w.engine.SealHash(parent.Header())
-			w.pendingMu.Lock()
-			task, exist := w.pendingTasks[sealHash]
-			if exist {
-				state = task.env.state.Copy()
-			} else {
-				w.pendingMu.Unlock()
-				return nil, fmt.Errorf("no state cache available for optimistic block")
-			}
-			w.pendingMu.Unlock()
-		} else {
-			state, hash = w.chain.LoadProposalState()
-			if parent.Hash() != hash {
-				return nil, fmt.Errorf("no state cache available for optimistic block")
-			}
+		state, err = w.optimisticState(parent)
+		if err != nil {
+			return nil, fmt.Errorf("error while fetching optimistic state: %w", err)
 		}
 	} else {
 		state, err = w.chain.StateAt(parent.Root())
@@ -878,6 +887,18 @@ type generateParams struct {
 	noExtra    bool           // Flag whether the extra field assignment is allowed
 }
 
+type optimisticFeeGetter struct {
+	number uint64
+	st     *state.StateDB
+}
+
+func (o *optimisticFeeGetter) MinBaseFeeByNumber(number uint64) (*big.Int, error) {
+	if number != o.number {
+		panic(fmt.Sprintf("fetching minBaseFee from wrong state. state num: %d, number %d", o.number, number))
+	}
+	return new(big.Int).Set(o.st.ContractsConfig().MinBaseFee), nil
+}
+
 // prepareWork constructs the sealing task according to the given parameters,
 // either based on the last chain head or specified parent. In this function
 // the pending transactions are not filled yet, only the empty task returned.
@@ -934,7 +955,22 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 	}
 	// Set baseFee and GasLimit if we are on an EIP-1559 chain
 	if w.chainConfig.IsLondon(header.Number) {
-		header.BaseFee = misc.CalcBaseFee(w.chainConfig, parent.Header(), w.chain)
+		var feeGetter misc.BaseFeeGetter
+		if !optimisticCandidate {
+			feeGetter = w.chain
+		} else {
+			st, err := w.optimisticState(parent)
+			if err != nil {
+				w.eth.Logger().Error("Failed to get optimistic state", "err", err)
+				return nil, fmt.Errorf("error while fetching optimistic state: %w", err)
+			}
+			feeGetter = &optimisticFeeGetter{
+				number: parent.NumberU64(),
+				st:     st,
+			}
+		}
+
+		header.BaseFee = misc.CalcBaseFee(w.chainConfig, parent.Header(), feeGetter)
 		if !w.chainConfig.IsLondon(parent.Number()) {
 			parentGasLimit := parent.GasLimit() * params.ElasticityMultiplier
 			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)

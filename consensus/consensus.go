@@ -70,6 +70,9 @@ type ChainReader interface {
 
 	// MinbaseFee returns the minimum base fee
 	MinBaseFee() *big.Int
+
+	// MinbaseFeeByNumber returns the minimum base fee at a specified block
+	MinBaseFeeByNumber(number uint64) (*big.Int, error)
 }
 
 // Engine is an algorithm agnostic consensus engine.

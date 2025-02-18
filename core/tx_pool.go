@@ -148,6 +148,7 @@ type blockChain interface {
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 	MinBaseFee() *big.Int
+	MinBaseFeeByNumber(number uint64) (*big.Int, error)
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.

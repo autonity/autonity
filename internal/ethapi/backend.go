@@ -96,6 +96,7 @@ type Backend interface {
 	Engine() consensus.Engine
 
 	MinBaseFee() *big.Int
+	MinBaseFeeByNumber(number uint64) (*big.Int, error)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

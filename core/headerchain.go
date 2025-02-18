@@ -151,6 +151,10 @@ func (hc *HeaderChain) MinBaseFee() *big.Int {
 	return big.NewInt(0)
 }
 
+func (hc *HeaderChain) MinBaseFeeByNumber(_ uint64) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
 type headerWriteResult struct {
 	status     WriteStatus
 	ignored    int

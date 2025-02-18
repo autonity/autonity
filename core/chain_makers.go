@@ -390,6 +390,9 @@ func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int      
 func (cr *fakeChainReader) MinBaseFee() *big.Int {
 	return big.NewInt(0)
 }
+func (cr *fakeChainReader) MinBaseFeeByNumber(_ uint64) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
 func (cr *fakeChainReader) EpochByHeight(_ uint64) (*types.EpochInfo, error) {
 	return nil, nil
 }

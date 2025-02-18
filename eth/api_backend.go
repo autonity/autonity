@@ -369,3 +369,7 @@ func (b *EthAPIBackend) StateAtTransaction(ctx context.Context, block *types.Blo
 func (b *EthAPIBackend) MinBaseFee() *big.Int {
 	return b.eth.blockchain.MinBaseFee()
 }
+
+func (b *EthAPIBackend) MinBaseFeeByNumber(number uint64) (*big.Int, error) {
+	return b.eth.blockchain.MinBaseFeeByNumber(number)
+}

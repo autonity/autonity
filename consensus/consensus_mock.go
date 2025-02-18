@@ -310,6 +310,21 @@ func (mr *MockChainReaderMockRecorder) MinBaseFee() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainReader)(nil).MinBaseFee))
 }
 
+// MinBaseFeeByNumber mocks base method.
+func (m *MockChainReader) MinBaseFeeByNumber(number uint64) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MinBaseFeeByNumber", number)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MinBaseFeeByNumber indicates an expected call of MinBaseFeeByNumber.
+func (mr *MockChainReaderMockRecorder) MinBaseFeeByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFeeByNumber", reflect.TypeOf((*MockChainReader)(nil).MinBaseFeeByNumber), number)
+}
+
 // MockEngine is a mock of Engine interface.
 type MockEngine struct {
 	ctrl     *gomock.Controller

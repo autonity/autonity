@@ -68,6 +68,10 @@ func (bc *testBlockChain) MinBaseFee() *big.Int {
 	return big.NewInt(0)
 }
 
+func (bc *testBlockChain) MinBaseFeeByNumber(_ uint64) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
 func (bc *testBlockChain) CurrentBlock() *types.Block {
 	return types.NewBlock(&types.Header{
 		GasLimit: atomic.LoadUint64(&bc.gasLimit),

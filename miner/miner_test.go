@@ -78,6 +78,10 @@ func (bc *testBlockChain) MinBaseFee() *big.Int {
 	return new(big.Int)
 }
 
+func (bc *testBlockChain) MinBaseFeeByNumber(_ uint64) (*big.Int, error) {
+	return new(big.Int), nil
+}
+
 func (bc *testBlockChain) Config() *params.ChainConfig {
 	return nil
 }

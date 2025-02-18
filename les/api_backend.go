@@ -64,6 +64,10 @@ func (b *LesApiBackend) MinBaseFee() *big.Int {
 	return big.NewInt(0)
 }
 
+func (b *LesApiBackend) MinBaseFeeByNumber(_ uint64) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
 func (b *LesApiBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
 	// Return the latest current as the pending one since there
 	// is no pending notion in the light client. TODO(rjl493456442)
