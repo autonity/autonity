@@ -102,6 +102,7 @@ contract Accountability is IAccountability, AccessAutonity {
     constructor(address payable _autonity, Config memory _config) AccessAutonity(_autonity) {
         _ratesSanityCheck(_config.baseSlashingRates);
         _factorsSanityCheck(_config.factors);
+        require(config.range > config.delta,"height range needs to be greater than delta");
 
         Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
         for (uint256 i=0; i < committee.length; i++) {
@@ -528,6 +529,26 @@ contract Accountability is IAccountability, AccessAutonity {
     */
     function setInnocenceProofSubmissionWindow(uint256 _window) external virtual onlyOperator {
         config.innocenceProofSubmissionWindow = _window;
+    }
+
+    /*
+    * @notice sets the delta for the provable fault detection
+    * @dev restricted to the operator
+    * @param _delta, the new value for the delta (in blocks)
+    */
+    function setDelta(uint256 _delta) external virtual onlyOperator {
+        require(_delta < config.range,"delta needs to be smaller than range");
+        config.delta = _delta;
+    }
+
+    /*
+    * @notice sets the height range for the provable fault detection
+    * @dev restricted to the operator
+    * @param _range, the new value for the height range (in blocks)
+    */
+    function setRange(uint256 _range) external virtual onlyOperator {
+        require(_range > config.delta,"height range needs to be greater than delta");
+        config.range = _range;
     }
 
     /*
