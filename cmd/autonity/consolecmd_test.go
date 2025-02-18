@@ -74,8 +74,8 @@ var genesis = `{
 				},
 				"accountability": {
 					  "innocenceProofSubmissionWindow": 30,
-                      "delta": 10,
-                      "range": 256,
+					  "delta": 10,
+					  "range": 256,
 					  "baseSlashingRateLow": 400,
 					  "baseSlashingRateMid": 600,
 					  "baseSlashingRateHigh": 800,
