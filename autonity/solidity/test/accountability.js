@@ -18,7 +18,7 @@ const Accountability = artifacts.require("Accountability");
 const AccountabilityTest = artifacts.require("AccountabilityTest");
 const toBN = web3.utils.toBN;
 const config = require("./config");
-const {SLASHING_RATE_PRECISION, OMISSION_ACCOUNTABILITY_CONFIG} = require("./config");
+const {SLASHING_RATE_PRECISION, OMISSION_ACCOUNTABILITY_CONFIG, AUTONITY_INITIALIZATION_KIT} = require("./config");
 
 
 function checkEvent(event, offender, reporter, rawProof) {
@@ -133,7 +133,7 @@ contract('Accountability', function (accounts) {
   describe.skip('Contract initial state', function () {
     before(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta, {from: deployer});
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT, {from: deployer});
       accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
     });
     //TODO(tariq) low priority.
@@ -142,7 +142,7 @@ contract('Accountability', function (accounts) {
   describe.skip('Contract permissioning', function () {
     before(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta, {from:deployer});
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT, {from:deployer});
       accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
     });
     //TODO(tariq) modifiers (low priority)
@@ -152,7 +152,7 @@ contract('Accountability', function (accounts) {
   describe('Slashing', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, OMISSION_ACCOUNTABILITY_CONFIG, deployer, operator);
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta, {from: deployer});
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT, {from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -173,7 +173,7 @@ contract('Accountability', function (accounts) {
       let delegatedStake = 100
       await autonity.mint(delegator, delegatedStake, {from: operator});
       await autonity.bond(offender.nodeAddress, delegatedStake, {from: delegator});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer}) // I use finalizeInitialization as a way to trigger the staking operations
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT,{from: deployer}) // I use finalizeInitialization as a way to trigger the staking operations
       offender = await autonity.getValidator(validators[0].nodeAddress)
       assert.equal(offender.bondedStake,genesisStake + delegatedStake)
       assert.equal(offender.selfBondedStake,genesisStake)
@@ -186,7 +186,7 @@ contract('Accountability', function (accounts) {
       let unbondDelegated = 50
       await autonity.unbond(offender.nodeAddress, unbondSelf, {from: offender.treasury});
       await autonity.unbond(offender.nodeAddress, unbondDelegated, {from: delegator});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer})
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT,{from: deployer})
       offender = await autonity.getValidator(validators[0].nodeAddress)
       assert.equal(offender.bondedStake,genesisStake + delegatedStake - unbondSelf - unbondDelegated)
       assert.equal(offender.selfBondedStake,genesisStake - unbondSelf)
@@ -379,7 +379,7 @@ contract('Accountability', function (accounts) {
   describe('misbehavior flow', function () {
     beforeEach(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer});
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT,{from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -418,7 +418,7 @@ contract('Accountability', function (accounts) {
   describe('accusation flow', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,OMISSION_ACCOUNTABILITY_CONFIG, deployer, operator);
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer});
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT,{from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });
@@ -600,7 +600,7 @@ contract('Accountability', function (accounts) {
   describe('events', function () {
     beforeEach(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer});
+      await autonity.finalizeInitialization(AUTONITY_INITIALIZATION_KIT,{from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from:operator});
     });

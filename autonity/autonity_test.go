@@ -188,7 +188,11 @@ func TestGetters(t *testing.T) {
 	db, contract, contractAddress, err := deployAutonity(10, validators, deployer)
 	require.NoError(t, err)
 
-	_, err = callContractFunctionAs(contract, contractAddress, db, header, contractAbi, deployer, "finalizeInitialization", common.Big5)
+	_, err = callContractFunctionAs(contract, contractAddress, db, header, contractAbi, deployer, "finalizeInitialization", bindings.AutonityInitializationKit{
+		OmissionDelta:       common.Big5,
+		AccountabilityDelta: common.Big5,
+		AccountabilityRange: common.Big256,
+	})
 	require.NoError(t, err)
 
 	autonity := &AutonityContract{

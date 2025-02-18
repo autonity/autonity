@@ -183,6 +183,12 @@ function validators(accounts) {
     ];
 }
 
+const AUTONITY_INITIALIZATION_KIT = {
+    "omissionDelta": 5, // 5 blocks
+    "accountabilityDelta": 10,
+    "accountabilityRange": 256,
+}
+
 module.exports = {
     MIN_BASE_FEE: MIN_BASE_FEE,
     COMMITTEE_SIZE: COMMITTEE_SIZE,
@@ -196,6 +202,7 @@ module.exports = {
     INFLATION_CONTROLLER_CONFIG: INFLATION_CONTROLLER_CONFIG,
     STABILIZATION_CONFIG: STABILIZATION_CONFIG,
     SLASHING_RATE_PRECISION: SLASHING_RATE_PRECISION,
+    AUTONITY_INITIALIZATION_KIT: AUTONITY_INITIALIZATION_KIT,
     autonityConfig: autonityConfig,
     validators: validators,
 };

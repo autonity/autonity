@@ -210,7 +210,11 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
 }
 
 async function initialize(autonity, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator) {
-  await autonity.finalizeInitialization(omissionAccountabilityConfig.delta,{from:deployer});
+  await autonity.finalizeInitialization({
+    "omissionDelta": omissionAccountabilityConfig.delta,
+    "accountabilityDelta": accountabilityConfig.delta,
+    "accountabilityRange": accountabilityConfig.range,
+  },{from:deployer});
 
   // accountability contract
   const accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
