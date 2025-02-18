@@ -42,7 +42,7 @@ func TestPrepareChainConfig(t *testing.T) {
 		}
 		contractConfig.Validators = append(contractConfig.Validators, validator)
 	}
-	chainConfig := ChainConfig{AutonityContractConfig: &contractConfig, OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig}
+	chainConfig := ChainConfig{AutonityContractConfig: &contractConfig, OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig, AccountabilityConfig: TestAccountabilityConfig}
 	assert.NoError(t, chainConfig.Prepare())
 }
 

@@ -30,9 +30,11 @@ func TestReadWriteContractsConfig(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	config := &bindings.AutonityClientAwareConfig{
-		BlockPeriod: common.Big1,
-		EpochPeriod: common.Big256,
-		MinBaseFee:  common.Big5,
+		BlockPeriod:         common.Big1,
+		EpochPeriod:         common.Big256,
+		MinBaseFee:          common.Big5,
+		AccountabilityDelta: big.NewInt(10),
+		AccountabilityRange: big.NewInt(100),
 	}
 	targetNumber := uint64(0)
 
