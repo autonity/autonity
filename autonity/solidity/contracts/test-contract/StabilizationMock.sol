@@ -14,7 +14,11 @@ contract StabilizationMock is IStabilization {
     }
 
     // view functions
-    function debtAmount(address account, uint timestamp) external view returns (uint256) {
+    function debtAmountAtTime(address account, uint timestamp) external view returns (uint256) {
+        return 0;
+    }
+
+    function debtAmount(address account) external view returns (uint256) {
         return 0;
     }
 
