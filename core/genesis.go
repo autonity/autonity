@@ -440,9 +440,11 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	// TODO(reminder) add other fields
 	rawdb.WriteContractsConfig(db, block.NumberU64(), &bindings.AutonityClientAwareConfig{
-		MinBaseFee:  new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
-		EpochPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
-		BlockPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
+		MinBaseFee:          new(big.Int).SetUint64(g.Config.AutonityContractConfig.MinBaseFee),
+		EpochPeriod:         new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
+		BlockPeriod:         new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
+		AccountabilityDelta: new(big.Int).SetUint64(g.Config.AccountabilityConfig.Delta),
+		AccountabilityRange: new(big.Int).SetUint64(g.Config.AccountabilityConfig.Range),
 	}, false)
 	return block, nil
 }

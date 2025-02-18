@@ -672,9 +672,11 @@ func (s *StateDB) Copy() *StateDB {
 	if s.contractsConfig != nil {
 		// TODO(reminder) add new fields
 		state.contractsConfig = &bindings.AutonityClientAwareConfig{
-			MinBaseFee:  new(big.Int).Set(s.contractsConfig.MinBaseFee),
-			EpochPeriod: new(big.Int).Set(s.contractsConfig.EpochPeriod),
-			BlockPeriod: new(big.Int).Set(s.contractsConfig.BlockPeriod),
+			MinBaseFee:          new(big.Int).Set(s.contractsConfig.MinBaseFee),
+			EpochPeriod:         new(big.Int).Set(s.contractsConfig.EpochPeriod),
+			BlockPeriod:         new(big.Int).Set(s.contractsConfig.BlockPeriod),
+			AccountabilityDelta: new(big.Int).Set(s.contractsConfig.AccountabilityDelta),
+			AccountabilityRange: new(big.Int).Set(s.contractsConfig.AccountabilityRange),
 		}
 	}
 

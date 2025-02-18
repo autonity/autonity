@@ -162,11 +162,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 minBaseFee;
         uint256 epochPeriod;
         uint256 blockPeriod;
+        uint256 accountabilityDelta;
+        uint256 accountabilityRange;
         // TODO: extension bytes
         // TODO:
         // gas limit
-        // accountability height range
-        // accountability delta blocks
         // maybe EIP-1559 parameters?
         // maybe committee? epoch blocks nums?
         // basically all the info we have in header right now
@@ -180,6 +180,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 nextEpochBlock;
         uint256 omissionDelta;
         ClientAwareConfig config;
+    }
+
+    struct InitializationKit {
+        uint256 omissionDelta;
+        uint256 accountabilityDelta;
+        uint256 accountabilityRange;
     }
 
     Config public config;
@@ -334,19 +340,21 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
     }
 
-    function finalizeInitialization(uint256 omissionDelta) onlyProtocol nonReentrant public {
+    function finalizeInitialization(InitializationKit memory init) onlyProtocol nonReentrant public {
         _stakingOperations();
         computeCommittee();
         lastEpochTime = block.timestamp;
         lastFinalizedBlock = block.number;
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
-        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, omissionDelta));
+        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, init.omissionDelta));
         // update client aware config for genesis
         clientConfig = ClientAwareConfig(
             config.policy.minBaseFee,
             config.protocol.epochPeriod,
-            config.protocol.blockPeriod
+            config.protocol.blockPeriod,
+            init.accountabilityDelta,
+            init.accountabilityRange
         );
     }
 
@@ -841,7 +849,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         bool _epochEnded = block.number >= epochInfos[epochID].nextEpochBlock;
 
         // finalize all auxiliary contracts
-        config.contracts.accountabilityContract.finalize(_epochEnded);
+        (uint256 accountabilityDelta,uint256 accountabilityRange) = config.contracts.accountabilityContract.finalize(_epochEnded);
         uint256 _omissionDelta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
         bool newRound = config.contracts.oracleContract.finalize();
 
@@ -900,7 +908,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         clientConfig = ClientAwareConfig(
                 config.policy.minBaseFee,
                 config.protocol.epochPeriod,
-                config.protocol.blockPeriod
+                config.protocol.blockPeriod,
+                accountabilityDelta,
+                accountabilityRange
         );
 
         return FinalizeResult(

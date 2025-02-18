@@ -20,6 +20,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"io"
 	"math/big"
 	"sort"
@@ -2435,18 +2436,44 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	return 0, err
 }
 
-// TODO(reminder): should we bind the call to a specific block
+// gets the latest min base fee
 func (bc *BlockChain) MinBaseFee() *big.Int {
 	currentHeadNumber := bc.CurrentBlock().NumberU64()
-	config, _ := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
-	return config.MinBaseFee
+	minBaseFee, _ := bc.MinBaseFeeByNumber(currentHeadNumber)
+	return minBaseFee
 }
 
-// TODO(reminder): should we bind the call to a specific block
+// gets the min base fee at a specified block
+func (bc *BlockChain) MinBaseFeeByNumber(number uint64) (*big.Int, error) {
+	config, err := bc.ReadContractsConfigByNumber(number)
+	if err != nil {
+		return nil, err
+	}
+	return config.MinBaseFee, nil
+}
+
+// gets the latest epoch period
 func (bc *BlockChain) EpochPeriod() *big.Int {
 	currentHeadNumber := bc.CurrentBlock().NumberU64()
-	config, _ := rawdb.ReadContractsConfig(bc.db, currentHeadNumber)
-	return config.EpochPeriod
+	epochPeriod, _ := bc.EpochPeriodByNumber(currentHeadNumber)
+	return epochPeriod
+}
+
+// gets the epoch period at a specified block
+func (bc *BlockChain) EpochPeriodByNumber(number uint64) (*big.Int, error) {
+	config, err := bc.ReadContractsConfigByNumber(number)
+	if err != nil {
+		return nil, err
+	}
+	return config.EpochPeriod, nil
+}
+
+func (bc *BlockChain) ReadContractsConfigByNumber(number uint64) (*bindings.AutonityClientAwareConfig, error) {
+	config, _ := rawdb.ReadContractsConfig(bc.db, number)
+	if config == nil {
+		return nil, fmt.Errorf("cannot fetch config for block number %d", number)
+	}
+	return config, nil
 }
 
 // HasBadBlock returns whether the block with the hash is a bad block

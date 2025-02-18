@@ -544,7 +544,7 @@ func init() {
 		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)
 	}
-	TestGenesisConfig := &ChainConfig{AutonityContractConfig: TestAutonityContractConfig, OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig}
+	TestGenesisConfig := &ChainConfig{AutonityContractConfig: TestAutonityContractConfig, OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig, AccountabilityConfig: TestAccountabilityConfig}
 	TestGenesisConfig.Prepare()
 	// Setup the validator section of the Picadilly configuration
 	for _, v := range PiccadillyGenesisValidators {
@@ -778,6 +778,12 @@ func (c *ChainConfig) Prepare() error {
 	if c.AutonityContractConfig.EpochPeriod <= delta+lookbackWindow-1 {
 		return fmt.Errorf("epoch period cannot be lower or equal than delta+lookbackWindow-1. epoch period: %d, delta: %d, lookback: %d", c.AutonityContractConfig.EpochPeriod, delta, lookbackWindow)
 	}
+
+	// provable fault accountability check
+	if c.AccountabilityConfig.Range <= c.AccountabilityConfig.Delta {
+		return fmt.Errorf("accountability height range cannot be lower or equal than delta")
+	}
+
 	return nil
 }
 

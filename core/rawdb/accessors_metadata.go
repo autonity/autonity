@@ -183,6 +183,12 @@ func isEqual(cfg1, cfg2 *bindings.AutonityClientAwareConfig) bool {
 	if cfg1.BlockPeriod.Cmp(cfg2.BlockPeriod) != 0 {
 		return false
 	}
+	if cfg1.AccountabilityDelta.Cmp(cfg2.AccountabilityDelta) != 0 {
+		return false
+	}
+	if cfg1.AccountabilityRange.Cmp(cfg2.AccountabilityRange) != 0 {
+		return false
+	}
 	return true
 }
 

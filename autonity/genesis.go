@@ -259,7 +259,11 @@ func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, 
 		params.AutonityContractAddress,
 		&generated.AutonityAbi,
 		"finalizeInitialization",
-		new(big.Int).SetUint64(config.OmissionAccountabilityConfig.Delta),
+		bindings.AutonityInitializationKit{
+			OmissionDelta:       new(big.Int).SetUint64(config.OmissionAccountabilityConfig.Delta),
+			AccountabilityDelta: new(big.Int).SetUint64(config.AccountabilityConfig.Delta),
+			AccountabilityRange: new(big.Int).SetUint64(config.AccountabilityConfig.Range),
+		},
 	)
 	return newErrorWithRevertReason(err, ret)
 }

@@ -598,9 +598,11 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// TODO(reminder) add other fields + is this fix fine?
 	state.SetContractsConfig(&bindings.AutonityClientAwareConfig{
-		MinBaseFee:  common.Big1,
-		EpochPeriod: common.Big256,
-		BlockPeriod: common.Big1,
+		MinBaseFee:          common.Big1,
+		EpochPeriod:         common.Big256,
+		BlockPeriod:         common.Big1,
+		AccountabilityDelta: new(big.Int).SetUint64(10),
+		AccountabilityRange: new(big.Int).SetUint64(256),
 	})
 	return nil, nil, nil
 }

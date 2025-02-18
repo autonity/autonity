@@ -102,7 +102,7 @@ contract Accountability is IAccountability, AccessAutonity {
     constructor(address payable _autonity, Config memory _config) AccessAutonity(_autonity) {
         _ratesSanityCheck(_config.baseSlashingRates);
         _factorsSanityCheck(_config.factors);
-        require(config.range > config.delta,"height range needs to be greater than delta");
+        require(_config.range > _config.delta,"height range needs to be greater than delta");
 
         Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
         for (uint256 i=0; i < committee.length; i++) {
@@ -116,13 +116,16 @@ contract Accountability is IAccountability, AccessAutonity {
     * @notice called by the Autonity Contract at block finalization, before
     * processing reward redistribution.
     * @param _epochEnd whether or not the current block is the last one from the epoch.
+    * @return delta, the delta for the provable fault detector
+    * @return range, the height range for the provable fault detector
     */
-    function finalize(bool _epochEnd) external virtual onlyAutonity {
+    function finalize(bool _epochEnd) external virtual onlyAutonity returns (uint256,uint256) {
         // on each block, try to promote accusations without proof of innocence into misconducts.
         _promoteGuiltyAccusations();
         if (_epochEnd) {
             _performSlashingTasks();
         }
+        return (config.delta,config.range);
     }
 
    /**

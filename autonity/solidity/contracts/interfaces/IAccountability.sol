@@ -6,8 +6,10 @@ interface IAccountability {
     * @notice called by the Autonity Contract at block finalization, before
     * processing reward redistribution.
     * @param _epochEnd whether or not the current block is the last one from the epoch.
+    * @return delta, the delta for the provable fault detector
+    * @return range, the height range for the provable fault detector
     */
-    function finalize(bool _epochEnd) external;
+    function finalize(bool _epochEnd) external returns (uint256,uint256);
 
     /**
     * @notice distribute slashing rewards to reporters.
