@@ -128,6 +128,7 @@ var (
 	StakeableVestingManagerContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	NonStakeableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
 	OmissionAccountabilityContractAddress  = crypto.CreateAddress(DeployerAddress, 10)
+	StakingPoolContractAddress             = crypto.CreateAddress(DeployerAddress, 11)
 )
 
 type AutonityContractGenesis struct {

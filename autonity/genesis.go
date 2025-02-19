@@ -38,9 +38,6 @@ type (
 
 var (
 	commonSequence = []genesisStep{
-		executeGenesisDelegations,
-		createAutonitySchedules,
-		finalizeAutonityInitialization,
 		deployAccountabilityContract,
 		deployOracleContract,
 		deployACUContract,
@@ -49,10 +46,14 @@ var (
 		deployUpgradeManagerContract,
 		deployInflationControllerContract,
 		deployStakableVestingManagerContract,
-		createDefaultStakableVestingContracts,
 		deployNonStakableVestingContract,
-		createDefaultNonStakableVestingContracts,
 		deployOmissionAccountabilityContract,
+		deployStakingPoolContract,
+		executeGenesisDelegations,
+		createAutonitySchedules,
+		finalizeAutonityInitialization,
+		createDefaultStakableVestingContracts,
+		createDefaultNonStakableVestingContracts,
 	}
 	genesisSequence = append(
 		[]genesisStep{
@@ -162,6 +163,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			StakingPool:                    params.StakingPoolContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,
@@ -176,9 +178,15 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
 	}
+	// parsed, err := abi.JSON(strings.NewReader(DebugAut1ABI))
+	// if err != nil {
+	// 	return fmt.Errorf("failed to parse Autonity contract abi: %w", err)
+	// }
 	err := deploy(
 		params.AutonityContractAddress,
 		&generated.AutonityAbi,
+		// &parsed,
+		// common.FromHex(DebugAut1Bin),
 		generated.AutonityBytecode,
 		common.Big0,
 		validators,
@@ -257,7 +265,10 @@ func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, 
 		"finalizeInitialization",
 		new(big.Int).SetUint64(config.OmissionAccountabilityConfig.Delta),
 	)
-	return newErrorWithRevertReason(err, ret)
+	if err != nil {
+		return fmt.Errorf("error while finalising initialization: %w", newErrorWithRevertReason(err, ret))
+	}
+	return nil
 }
 
 func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
@@ -304,10 +315,6 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 		Delta:                  new(big.Int).SetUint64(omissionConfig.Delta),
 	}
 
-	treasuries := make([]common.Address, len(config.AutonityContractConfig.Validators))
-	for i, val := range config.AutonityContractConfig.Validators {
-		treasuries[i] = val.Treasury
-	}
 	err := deploy(
 		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
@@ -315,7 +322,6 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 		common.Big0,
 		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
-		treasuries,
 		conf,
 	)
 	if err != nil {
@@ -593,6 +599,21 @@ func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ Gene
 	return nil
 }
 
+func deployStakingPoolContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
+	err := deploy(
+		params.StakingPoolContractAddress,
+		&generated.StakingPoolAbi,
+		generated.StakingPoolBytecode,
+		common.Big0,
+		params.AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to deploy staking pool contract: %w", err)
+	}
+	return nil
+}
+
 // *
 // Test only functions
 // *
@@ -620,6 +641,7 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			StakingPool:                    params.StakingPoolContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,
@@ -634,9 +656,15 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
 	}
+	// parsed, err := abi.JSON(strings.NewReader(DebugAut5ABI))
+	// if err != nil {
+	// 	return fmt.Errorf("failed to parse Autonity contract abi: %w", err)
+	// }
 	err := deploy(
 		params.AutonityContractAddress,
+		// &parsed,
 		&generated.AutonityTestAbi,
+		// common.FromHex(DebugAut5Bin),
 		generated.AutonityTestBytecode,
 		common.Big0,
 		validators,
