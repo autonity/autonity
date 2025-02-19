@@ -3,11 +3,11 @@ pragma solidity >=0.8.2 ;
 import "./IERC20.sol";
 
 interface ILiquid is IERC20 {
-    function mintInPool(address _pool, uint256 _amount) external;
+    function mint(address _pool, uint256 _amount) external;
     function lockInPool(address _account, address _pool, uint256 _amount) external;
     function claimRewards() external;
     function claimTreasuryATN() external;
-    function burnFromPool(address _pool, uint256 _amount) external;
+    function burn(address _pool, uint256 _amount) external;
     function redistribute(uint256 _ntnReward, uint256 _commissionRate) external payable returns (uint256);
     function transferFromPool(address _account, uint256 _amount) external;
     function unclaimedRewards(address _account) external view returns(uint256);
@@ -23,6 +23,6 @@ interface ILiquid is IERC20 {
     function getCommissionRate() external view returns (uint256);
     function getTreasuryUnclaimedATN() external view returns (uint256);
 
-    event MintedInPool(address indexed account, uint256 amount);
-    event BurnedFromPool(address indexed account, uint256 amount);
+    event LiquidMinted(address indexed account, uint256 amount);
+    event LiquidBurnt(address indexed account, uint256 amount);
 }

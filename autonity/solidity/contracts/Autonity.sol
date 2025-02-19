@@ -69,13 +69,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         bytes consensusKey;
     }
 
-    /* Used to track commission rate change*/
-    struct CommissionRateChangeRequest {
-        address validator;
-        uint256 startBlock;
-        uint256 rate;
-    }
-
     // commission update request
     mapping(address => uint256) internal commissionUpdateBlock;
     mapping(address => uint256) internal pendingCommission;
@@ -1041,7 +1034,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         if (_liquidMinted > 0) {
             _validator.liquidSupply += _liquidMinted;
-            _validator.liquidStateContract.mintInPool(
+            _validator.liquidStateContract.mint(
                 address(config.contracts.stakingPool),
                 _liquidMinted
             );
@@ -1061,7 +1054,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         if (_liquidBurning > 0) {
             _validator.liquidSupply -= _liquidBurning;
-            _validator.liquidStateContract.burnFromPool(
+            _validator.liquidStateContract.burn(
                 address(config.contracts.stakingPool),
                 _liquidBurning
             );

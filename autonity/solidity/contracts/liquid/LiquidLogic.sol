@@ -89,18 +89,18 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Increase supply.
      * @custom:restricted-to the autonity contract.
      */
-    function mintInPool(address _pool, uint256 _amount) external virtual onlyAutonity {
+    function mint(address _pool, uint256 _amount) external virtual onlyAutonity {
         _increaseBalance(_pool, _amount);
-        emit MintedInPool(_pool, _amount);
+        emit LiquidMinted(_pool, _amount);
     }
 
     /**
      * @notice Decrease supply.
      * @custom:restricted-to Restricted to the autonity contract.
      */
-    function burnFromPool(address _pool, uint256 _amount) external virtual onlyAutonity {
+    function burn(address _pool, uint256 _amount) external virtual onlyAutonity {
         _requireAndDecreaseBalance(_pool, _amount);
-        emit BurnedFromPool(_pool, _amount);
+        emit LiquidBurnt(_pool, _amount);
     }
 
     /**

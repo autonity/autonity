@@ -162,8 +162,8 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 // update the stakes for the validator
                 autonity.applyBonding(
                     _validator,
-                    _validatorPool.delegatingStake,
                     _validatorPool.selfBondingStake,
+                    _validatorPool.delegatingStake,
                     _liquidMinted
                 );
             }

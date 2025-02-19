@@ -9,6 +9,7 @@ library StakingPoolMath {
         uint256 _feeFactor,
         uint256 _balance
     ) internal pure returns (uint256) {
+        // assuming valid inputs, so `_lastFeeFactor >= _feeFactor`
         return (_lastFeeFactor - _feeFactor) * _balance / FEE_FACTOR_UNIT_RECIP;
     }
 
@@ -17,6 +18,10 @@ library StakingPoolMath {
         uint256 _share,
         uint256 _totalShare
     ) internal pure returns (uint256) {
+        if (_share == 0) {
+            return 0;
+        }
+        // assuming valid inputs, so `_share <= _totalShare`
         return (_rewards * _share) / _totalShare;
     }
 
@@ -54,11 +59,7 @@ library StakingPoolMath {
             return 0;
         }
         // assuming valid inputs `_liquidBurning <= _totalLiquid`
-        return convertFromRatio(
-            _liquidBurning,
-            _totalDelegation,
-            _totalLiquid
-        );
+        return (_liquidBurning * _totalDelegation) / _totalLiquid;
     }
 
     /**
@@ -76,11 +77,7 @@ library StakingPoolMath {
         if (_totalUnbondingStake == 0) {
             return _unbondingStake;
         }
-        return convertFromRatio(
-            _unbondingStake,
-            _totalUnbondingShare,
-            _totalUnbondingStake
-        );
+        return (_unbondingStake * _totalUnbondingShare) / _totalUnbondingStake;
     }
 
     /**
@@ -99,11 +96,7 @@ library StakingPoolMath {
             return 0;
         }
         // assuming valid inputs `_requestAmount <= _totalUnbondingAmount`
-        return convertFromRatio(
-            _requestAmount,
-            _totalUnbondingShare,
-            _totalUnbondingAmount
-        );
+        return (_requestAmount * _totalUnbondingShare) / _totalUnbondingAmount;
     }
 
     /**
@@ -122,18 +115,6 @@ library StakingPoolMath {
             return 0;
         }
         // assuming valid inputs `_unbondingShare <= _totalUnbondingStake`
-        return convertFromRatio(
-            _unbondingShare,
-            _totalUnbondingStake,
-            _totalUnbondingShare
-        );
-    }
-
-    function convertFromRatio(
-        uint256 _share,
-        uint256 _ratioNumerator,
-        uint256 _ratioDenominator
-    ) internal pure returns (uint256) {
-        return (_share * _ratioNumerator) / _ratioDenominator;
+        return (_unbondingShare * _totalUnbondingStake) / _totalUnbondingShare;
     }
 }
