@@ -927,8 +927,16 @@ running:
 				}
 				// disconnect superfluous peers
 				srv.enforcePeersLimit(peers)
-			} else {
-				srv.log.Error("Error while addPeer Checks", "err", err, "localnode", srv.ListenAddr, "remote", c.fd.RemoteAddr().String())
+			} else if srv.Net == Consensus {
+				srv.log.Error(
+					"Error while addPeer Checks",
+					"err",
+					err,
+					"localnode",
+					srv.ListenAddr,
+					"remote",
+					c.fd.RemoteAddr().String(),
+				)
 			}
 			c.cont <- err
 
