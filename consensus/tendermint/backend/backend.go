@@ -3,7 +3,7 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
+	ping2 "github.com/autonity/autonity/consensus/tendermint/latency/ping"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -89,12 +89,15 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	// apply customized pinger which might be used by local e2e testing.
-	var pinger ping.Pinger
-	if services != nil && services.Pinger != nil {
+	var pinger ping2.Pinger
+	var selector latency.PeerSelector
+	if services.Pinger != nil {
 		pinger = services.Pinger
 	}
-	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey, pinger)
+	if services.Selector != nil {
+		selector = services.Selector
+	}
+	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey, pinger, selector)
 
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,

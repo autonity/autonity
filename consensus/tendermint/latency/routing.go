@@ -26,6 +26,10 @@ var ScaleThresholdForClustering = 10 // by according to the simulation and testi
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
 
+type PeerSelector interface {
+	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
+}
+
 type Router struct {
 	self        common.Address
 	clusterLock sync.RWMutex
@@ -50,8 +54,8 @@ type Router struct {
 	newReporters []common.Address
 	measured     bool
 
-	// a stateless pinger which can be shared by different rountines.
-	pinger ping.Pinger
+	pinger       ping.Pinger
+	peerSelector PeerSelector
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -61,6 +65,7 @@ func NewRouter(
 	broadcaster consensus.Broadcaster,
 	nodeKey *ecdsa.PrivateKey,
 	pinger ping.Pinger,
+	selector PeerSelector,
 ) *Router {
 	r := &Router{
 		broadcaster:       broadcaster,
@@ -68,54 +73,34 @@ func NewRouter(
 		reportedEventChan: make(chan *autonity.LatencyReported),
 		epochEventChan:    make(chan core.EpochHeadEvent),
 		chainEventChan:    make(chan core.ChainEvent),
-		pinger:            pinger,
+		pinger:            ping.NewPinger(ping.TCP),
 		cache:             newLatencyCache(),
 	}
+	r.SetDefaultHandlers()
 
-	// now customized pinger, taking the TCP pinger as the default one.
-	if pinger == nil {
-		r.pinger = ping.NewPinger(ping.TCP)
+	if pinger != nil {
+		r.pinger = pinger
+	}
+
+	if selector != nil {
+		r.peerSelector = selector
 	}
 	return r
+}
+
+func (r *Router) SetDefaultHandlers() {
+	r.peerSelector = &Selector{r}
+}
+
+func (r *Router) PeerSelector() PeerSelector {
+	return r.peerSelector
 }
 
 // Exported functions
 
 // Route just select recipients from the clusters, it does not do the message sending.
 func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
-	// if not part of the committee return
-	if member := committee.MemberByAddress(from); member == nil {
-		return nil
-	}
-
-	r.clusterLock.RLock()
-	defer r.clusterLock.RUnlock()
-
-	// currently only proposals are routed through clustering
-	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
-	if msg.Code() != message.ProposalCode || r.clusters == nil {
-		return committee.Members
-	}
-
-	// if we are sending the proposal, we should send it to every cluster
-	var recipients []types.CommitteeMember
-	if from == r.self {
-		for _, addr := range r.clusters.selectK(ClusterRedundancyParameter) {
-			if member := committee.MemberByAddress(addr); member != nil {
-				recipients = append(recipients, *member)
-			}
-		}
-	}
-	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
-	if ownCluster := r.clusters.clusterContaining(r.self); ownCluster != r.clusters.clusterContaining(from) && ownCluster >= 0 {
-		for _, addr := range r.clusters[ownCluster] {
-			if member := committee.MemberByAddress(addr); member != nil {
-				recipients = append(recipients, *member)
-			}
-		}
-	}
-
-	return recipients
+	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
 func (r *Router) ClusteringActive() bool {
@@ -386,4 +371,44 @@ func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.N
 		}
 	}
 	return nil, false
+}
+
+type Selector struct {
+	*Router
+}
+
+func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+	// if not part of the committee return
+	if member := committee.MemberByAddress(from); member == nil {
+		return nil
+	}
+
+	s.clusterLock.RLock()
+	defer s.clusterLock.RUnlock()
+
+	// currently only proposals are routed through clustering
+	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
+	if msg.Code() != message.ProposalCode || s.clusters == nil {
+		return committee.Members
+	}
+
+	// if we are sending the proposal, we should send it to every cluster
+	var recipients []types.CommitteeMember
+	if from == s.self {
+		for _, addr := range s.clusters.selectK(ClusterRedundancyParameter) {
+			if member := committee.MemberByAddress(addr); member != nil {
+				recipients = append(recipients, *member)
+			}
+		}
+	}
+	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
+	if ownCluster := s.clusters.clusterContaining(s.self); ownCluster != s.clusters.clusterContaining(from) && ownCluster >= 0 {
+		for _, addr := range s.clusters[ownCluster] {
+			if member := committee.MemberByAddress(addr); member != nil {
+				recipients = append(recipients, *member)
+			}
+		}
+	}
+
+	return recipients
 }

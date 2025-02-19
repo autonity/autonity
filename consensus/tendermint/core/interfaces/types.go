@@ -1,6 +1,9 @@
 package interfaces
 
-import "github.com/autonity/autonity/consensus/tendermint/latency/ping"
+import (
+	"github.com/autonity/autonity/consensus/tendermint/latency"
+	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
+)
 
 type Services struct {
 	Broadcaster func(c Core) Broadcaster
@@ -8,6 +11,6 @@ type Services struct {
 	Proposer    func(c Core) Proposer
 	Precommiter func(c Core) Precommiter
 	Gossiper    func(b Backend) Gossiper
-	Router      func(r Router) Router
+	Selector    latency.PeerSelector
 	Pinger      ping.Pinger
 }

@@ -1,8 +1,11 @@
 package clustering
 
 import (
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -106,9 +109,97 @@ func TestClusteringResetFNodes(t *testing.T) {
 	network.WaitToMineNBlocks(10, 10, false)
 }
 
-// todo: test customized K nodes selectors for message routing.
-func TestCustomizedSelectors(t *testing.T) {
+// NoRelayingSelector is used for not to relay proposal in the network for Faulty nodes.
+type NoRelayingSelector struct{}
 
+func (r *NoRelayingSelector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+	// if not part of the committee return
+	if member := committee.MemberByAddress(from); member == nil {
+		return nil
+	}
+
+	if msg.Code() != message.ProposalCode {
+		return committee.Members
+	}
+
+	return nil
+}
+
+func TestFFaultyRelayers(t *testing.T) {
+	numOfNodes := 25
+	pinger := NewSimulatedPinger()
+
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	// Create the network with F num of nodes which does not relay proposal.
+	f := bft.F(new(big.Int).SetInt64(int64(numOfNodes))).Int64()
+	for i, validator := range validators {
+		mockedService := &interfaces.Services{Pinger: pinger}
+		if int64(i) < f {
+			mockedService.Selector = &NoRelayingSelector{}
+		}
+		validator.TendermintServices = mockedService
+	}
+
+	network, err := e2e.NewNetworkFromValidators(t, validators, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(500, 500, false)
+}
+
+func Test2FFaultyRelayers(t *testing.T) {
+	numOfNodes := 25
+	pinger := NewSimulatedPinger()
+
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	// Create the network with F num of nodes which does not relay proposal.
+	f := bft.F(new(big.Int).SetInt64(int64(numOfNodes))).Int64()
+	overF := f * 2
+	for i, validator := range validators {
+		mockedService := &interfaces.Services{Pinger: pinger}
+		if int64(i) < overF {
+			mockedService.Selector = &NoRelayingSelector{}
+		}
+		validator.TendermintServices = mockedService
+	}
+
+	network, err := e2e.NewNetworkFromValidators(t, validators, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(500, 500, false)
+}
+
+func Test3FFaultyRelayers(t *testing.T) {
+	numOfNodes := 25
+	pinger := NewSimulatedPinger()
+
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	// Create the network with F num of nodes which does not relay proposal.
+	f := bft.F(new(big.Int).SetInt64(int64(numOfNodes))).Int64()
+	overF := f * 3
+	for i, validator := range validators {
+		mockedService := &interfaces.Services{Pinger: pinger}
+		if int64(i) < overF {
+			mockedService.Selector = &NoRelayingSelector{}
+		}
+		validator.TendermintServices = mockedService
+	}
+
+	network, err := e2e.NewNetworkFromValidators(t, validators, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// wait for the consensus engine to work.
+	network.WaitToMineNBlocks(60, 60, false)
 }
 
 func resetNode(t *testing.T, node *e2e.Node) {
