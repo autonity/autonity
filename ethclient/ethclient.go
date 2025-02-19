@@ -41,6 +41,7 @@ func Dial(rawurl string) (*Client, error) {
 	return DialContext(context.Background(), rawurl)
 }
 
+// DialContext connects a client to the given URL with context.
 func DialContext(ctx context.Context, rawurl string) (*Client, error) {
 	c, err := rpc.DialContext(ctx, rawurl)
 	if err != nil {
@@ -54,8 +55,14 @@ func NewClient(c *rpc.Client) *Client {
 	return &Client{c}
 }
 
+// Close closes the underlying RPC connection.
 func (ec *Client) Close() {
 	ec.c.Close()
+}
+
+// Client gets the underlying RPC client.
+func (ec *Client) Client() *rpc.Client {
+	return ec.c
 }
 
 // Blockchain Access
@@ -78,11 +85,23 @@ func (ec *Client) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	return ec.getBlock(ctx, "eth_getBlockByHash", hash, true)
 }
 
-// BlockByNumber returns a block from the current canonical chain. If number is nil, the
-// latest known block is returned.
+// BlockByNumber returns a block from the current canonical chain.
+// If `number` is nil, the latest known block is returned.
 //
-// Note that loading full blocks requires two requests. Use HeaderByNumber
-// if you don't need all transactions or uncle headers.
+// Use `HeaderByNumber` if you don't need full transaction data or uncle headers.
+//
+// Supported special block number tags:
+// - `earliest`  : The genesis (earliest) block
+// - `latest`    : The most recently included block
+// - `safe`      : The latest safe head block
+// - `finalized` : The latest finalized block
+// - `pending`   : The pending block
+//
+// Example usage:
+//
+// ```go
+// BlockByNumber(context.Background(), big.NewInt(int64(rpc.LatestBlockNumber)))
+// ```
 func (ec *Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return ec.getBlock(ctx, "eth_getBlockByNumber", toBlockNumArg(number), true)
 }
@@ -92,6 +111,23 @@ func (ec *Client) BlockNumber(ctx context.Context) (uint64, error) {
 	var result hexutil.Uint64
 	err := ec.c.CallContext(ctx, &result, "eth_blockNumber")
 	return uint64(result), err
+}
+
+// PeerCount returns the number of p2p peers as reported by the net_peerCount method.
+func (ec *Client) PeerCount(ctx context.Context) (uint64, error) {
+	var result hexutil.Uint64
+	err := ec.c.CallContext(ctx, &result, "net_peerCount")
+	return uint64(result), err
+}
+
+// BlockReceipts returns the receipts of a given block number or hash.
+func (ec *Client) BlockReceipts(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) ([]*types.Receipt, error) {
+	var r []*types.Receipt
+	err := ec.c.CallContext(ctx, &r, "eth_getBlockReceipts", blockNrOrHash.String())
+	if err == nil && r == nil {
+		return nil, ethereum.NotFound
+	}
+	return r, err
 }
 
 type rpcBlock struct {
@@ -105,30 +141,34 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 	err := ec.c.CallContext(ctx, &raw, method, args...)
 	if err != nil {
 		return nil, err
-	} else if len(raw) == 0 {
-		return nil, ethereum.NotFound
 	}
+
 	// Decode header and transactions.
 	var head *types.Header
-	var body rpcBlock
 	if err := json.Unmarshal(raw, &head); err != nil {
 		return nil, err
 	}
+	// When the block is not found, the API returns JSON null.
+	if head == nil {
+		return nil, ethereum.NotFound
+	}
+
+	var body rpcBlock
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return nil, err
 	}
 	// Quick-verify transaction and uncle lists. This mostly helps with debugging the server.
 	if head.UncleHash == types.EmptyUncleHash && len(body.UncleHashes) > 0 {
-		return nil, fmt.Errorf("server returned non-empty uncle list but block header indicates no uncles")
+		return nil, errors.New("server returned non-empty uncle list but block header indicates no uncles")
 	}
 	if head.UncleHash != types.EmptyUncleHash && len(body.UncleHashes) == 0 {
-		return nil, fmt.Errorf("server returned empty uncle list but block header indicates uncles")
+		return nil, errors.New("server returned empty uncle list but block header indicates uncles")
 	}
-	if head.TxHash == types.EmptyRootHash && len(body.Transactions) > 0 {
-		return nil, fmt.Errorf("server returned non-empty transaction list but block header indicates no transactions")
+	if head.TxHash == types.EmptyTxsHash && len(body.Transactions) > 0 {
+		return nil, errors.New("server returned non-empty transaction list but block header indicates no transactions")
 	}
-	if head.TxHash != types.EmptyRootHash && len(body.Transactions) == 0 {
-		return nil, fmt.Errorf("server returned empty transaction list but block header indicates transactions")
+	if head.TxHash != types.EmptyTxsHash && len(body.Transactions) == 0 {
+		return nil, errors.New("server returned empty transaction list but block header indicates transactions")
 	}
 	// Load uncles because they are not included in the block response.
 	var uncles []*types.Header
@@ -162,7 +202,12 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 		}
 		txs[i] = tx.tx
 	}
-	return types.NewBlockWithHeader(head).WithBody(txs, uncles), nil
+
+	return types.NewBlockWithHeader(head).WithBody(
+		types.Body{
+			Transactions: txs,
+			Uncles:       uncles,
+		}), nil
 }
 
 // HeaderByHash returns the block header with the given hash.
@@ -175,8 +220,21 @@ func (ec *Client) HeaderByHash(ctx context.Context, hash common.Hash) (*types.He
 	return head, err
 }
 
-// HeaderByNumber returns a block header from the current canonical chain. If number is
-// nil, the latest known header is returned.
+// HeaderByNumber returns a block header from the current canonical chain.
+// If `number` is nil, the latest known block header is returned.
+//
+// Supported special block number tags:
+// - `earliest`  : The genesis (earliest) block
+// - `latest`    : The most recently included block
+// - `safe`      : The latest safe head block
+// - `finalized` : The latest finalized block
+// - `pending`   : The pending block
+//
+// Example usage:
+//
+// ```go
+// HeaderByNumber(context.Background(), big.NewInt(int64(rpc.LatestBlockNumber)))
+// ```
 func (ec *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
 	var head *types.Header
 	err := ec.c.CallContext(ctx, &head, "eth_getBlockByNumber", toBlockNumArg(number), false)
@@ -213,7 +271,7 @@ func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *
 	} else if json == nil {
 		return nil, false, ethereum.NotFound
 	} else if _, r, _ := json.tx.RawSignatureValues(); r == nil {
-		return nil, false, fmt.Errorf("server returned transaction without signature")
+		return nil, false, errors.New("server returned transaction without signature")
 	}
 	if json.From != nil && json.BlockHash != nil {
 		setSenderFromServer(json.tx, *json.From, *json.BlockHash)
@@ -265,7 +323,7 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash,
 	if json == nil {
 		return nil, ethereum.NotFound
 	} else if _, r, _ := json.tx.RawSignatureValues(); r == nil {
-		return nil, fmt.Errorf("server returned transaction without signature")
+		return nil, errors.New("server returned transaction without signature")
 	}
 	if json.From != nil && json.BlockHash != nil {
 		setSenderFromServer(json.tx, *json.From, *json.BlockHash)
@@ -278,10 +336,8 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash,
 func (ec *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	var r *types.Receipt
 	err := ec.c.CallContext(ctx, &r, "eth_getTransactionReceipt", txHash)
-	if err == nil {
-		if r == nil {
-			return nil, ethereum.NotFound
-		}
+	if err == nil && r == nil {
+		return nil, ethereum.NotFound
 	}
 	return r, err
 }
@@ -305,49 +361,32 @@ func (ec *Client) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, err
 	return p.toSyncProgress(), nil
 }
 
-// IsMining retrieves the current mining state of the client.
-func (ec *Client) IsMining(ctx context.Context) (bool, error) {
-	var raw json.RawMessage
-	if err := ec.c.CallContext(ctx, &raw, "eth_mining"); err != nil {
-		return false, err
-	}
-
-	// Handle the response.
-	var mining bool
-	err := json.Unmarshal(raw, &mining)
-	if err != nil {
-		return false, err
-	}
-
-	return mining, nil
-}
-
 // SubscribeNewHead subscribes to notifications about the current blockchain head
 // on the given channel.
 func (ec *Client) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
-	return ec.c.EthSubscribe(ctx, ch, "newHeads")
+	sub, err := ec.c.EthSubscribe(ctx, ch, "newHeads")
+	if err != nil {
+		// Defensively prefer returning nil interface explicitly on error-path, instead
+		// of letting default golang behavior wrap it with non-nil interface that stores
+		// nil concrete type value.
+		return nil, err
+	}
+	return sub, nil
 }
 
 // State Access
 
-// NetworkID returns the network ID (also known as the chain ID) for this chain.
+// NetworkID returns the network ID for this client.
 func (ec *Client) NetworkID(ctx context.Context) (*big.Int, error) {
 	version := new(big.Int)
 	var ver string
 	if err := ec.c.CallContext(ctx, &ver, "net_version"); err != nil {
 		return nil, err
 	}
-	if _, ok := version.SetString(ver, 10); !ok {
+	if _, ok := version.SetString(ver, 0); !ok {
 		return nil, fmt.Errorf("invalid net_version result %q", ver)
 	}
 	return version, nil
-}
-
-// PeerCount returns the number of peer connection for this client.
-func (ec *Client) PeerCount(ctx context.Context) (uint, error) {
-	var result hexutil.Uint
-	err := ec.c.CallContext(ctx, &result, "net_peerCount")
-	return uint(result), err
 }
 
 // BalanceAt returns the wei balance of the given account.
@@ -355,6 +394,13 @@ func (ec *Client) PeerCount(ctx context.Context) (uint, error) {
 func (ec *Client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	var result hexutil.Big
 	err := ec.c.CallContext(ctx, &result, "eth_getBalance", account, toBlockNumArg(blockNumber))
+	return (*big.Int)(&result), err
+}
+
+// BalanceAtHash returns the wei balance of the given account.
+func (ec *Client) BalanceAtHash(ctx context.Context, account common.Address, blockHash common.Hash) (*big.Int, error) {
+	var result hexutil.Big
+	err := ec.c.CallContext(ctx, &result, "eth_getBalance", account, rpc.BlockNumberOrHashWithHash(blockHash, false))
 	return (*big.Int)(&result), err
 }
 
@@ -366,6 +412,13 @@ func (ec *Client) StorageAt(ctx context.Context, account common.Address, key com
 	return result, err
 }
 
+// StorageAtHash returns the value of key in the contract storage of the given account.
+func (ec *Client) StorageAtHash(ctx context.Context, account common.Address, key common.Hash, blockHash common.Hash) ([]byte, error) {
+	var result hexutil.Bytes
+	err := ec.c.CallContext(ctx, &result, "eth_getStorageAt", account, key, rpc.BlockNumberOrHashWithHash(blockHash, false))
+	return result, err
+}
+
 // CodeAt returns the contract code of the given account.
 // The block number can be nil, in which case the code is taken from the latest known block.
 func (ec *Client) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
@@ -374,11 +427,25 @@ func (ec *Client) CodeAt(ctx context.Context, account common.Address, blockNumbe
 	return result, err
 }
 
+// CodeAtHash returns the contract code of the given account.
+func (ec *Client) CodeAtHash(ctx context.Context, account common.Address, blockHash common.Hash) ([]byte, error) {
+	var result hexutil.Bytes
+	err := ec.c.CallContext(ctx, &result, "eth_getCode", account, rpc.BlockNumberOrHashWithHash(blockHash, false))
+	return result, err
+}
+
 // NonceAt returns the account nonce of the given account.
 // The block number can be nil, in which case the nonce is taken from the latest known block.
 func (ec *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	var result hexutil.Uint64
 	err := ec.c.CallContext(ctx, &result, "eth_getTransactionCount", account, toBlockNumArg(blockNumber))
+	return uint64(result), err
+}
+
+// NonceAtHash returns the account nonce of the given account.
+func (ec *Client) NonceAtHash(ctx context.Context, account common.Address, blockHash common.Hash) (uint64, error) {
+	var result hexutil.Uint64
+	err := ec.c.CallContext(ctx, &result, "eth_getTransactionCount", account, rpc.BlockNumberOrHashWithHash(blockHash, false))
 	return uint64(result), err
 }
 
@@ -401,7 +468,14 @@ func (ec *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuer
 	if err != nil {
 		return nil, err
 	}
-	return ec.c.EthSubscribe(ctx, ch, "logs", arg)
+	sub, err := ec.c.EthSubscribe(ctx, ch, "logs", arg)
+	if err != nil {
+		// Defensively prefer returning nil interface explicitly on error-path, instead
+		// of letting default golang behavior wrap it with non-nil interface that stores
+		// nil concrete type value.
+		return nil, err
+	}
+	return sub, nil
 }
 
 func toFilterArg(q ethereum.FilterQuery) (interface{}, error) {
@@ -412,7 +486,7 @@ func toFilterArg(q ethereum.FilterQuery) (interface{}, error) {
 	if q.BlockHash != nil {
 		arg["blockHash"] = *q.BlockHash
 		if q.FromBlock != nil || q.ToBlock != nil {
-			return nil, fmt.Errorf("cannot specify both BlockHash and FromBlock/ToBlock")
+			return nil, errors.New("cannot specify both BlockHash and FromBlock/ToBlock")
 		}
 	} else {
 		if q.FromBlock == nil {
@@ -522,6 +596,38 @@ func (ec *Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return (*big.Int)(&hex), nil
 }
 
+type feeHistoryResultMarshaling struct {
+	OldestBlock  *hexutil.Big     `json:"oldestBlock"`
+	Reward       [][]*hexutil.Big `json:"reward,omitempty"`
+	BaseFee      []*hexutil.Big   `json:"baseFeePerGas,omitempty"`
+	GasUsedRatio []float64        `json:"gasUsedRatio"`
+}
+
+// FeeHistory retrieves the fee market history.
+func (ec *Client) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (*ethereum.FeeHistory, error) {
+	var res feeHistoryResultMarshaling
+	if err := ec.c.CallContext(ctx, &res, "eth_feeHistory", hexutil.Uint(blockCount), toBlockNumArg(lastBlock), rewardPercentiles); err != nil {
+		return nil, err
+	}
+	reward := make([][]*big.Int, len(res.Reward))
+	for i, r := range res.Reward {
+		reward[i] = make([]*big.Int, len(r))
+		for j, r := range r {
+			reward[i][j] = (*big.Int)(r)
+		}
+	}
+	baseFee := make([]*big.Int, len(res.BaseFee))
+	for i, b := range res.BaseFee {
+		baseFee[i] = (*big.Int)(b)
+	}
+	return &ethereum.FeeHistory{
+		OldestBlock:  (*big.Int)(res.OldestBlock),
+		Reward:       reward,
+		BaseFee:      baseFee,
+		GasUsedRatio: res.GasUsedRatio,
+	}, nil
+}
+
 // EstimateGas tries to estimate the gas needed to execute a specific transaction based on
 // the current pending state of the backend blockchain. There is no guarantee that this is
 // the true gas limit requirement as other transactions may be added or removed by miners,
@@ -547,15 +653,36 @@ func (ec *Client) SendTransaction(ctx context.Context, tx *types.Transaction) er
 	return ec.c.CallContext(ctx, nil, "eth_sendRawTransaction", hexutil.Encode(data))
 }
 
+// RevertErrorData returns the 'revert reason' data of a contract call.
+//
+// This can be used with CallContract and EstimateGas, and only when the server is Geth.
+func RevertErrorData(err error) ([]byte, bool) {
+	var ec rpc.Error
+	var ed rpc.DataError
+	if errors.As(err, &ec) && errors.As(err, &ed) && ec.ErrorCode() == 3 {
+		if eds, ok := ed.ErrorData().(string); ok {
+			revertData, err := hexutil.Decode(eds)
+			if err == nil {
+				return revertData, true
+			}
+		}
+	}
+	return nil, false
+}
+
 func toBlockNumArg(number *big.Int) string {
 	if number == nil {
 		return "latest"
 	}
-	pending := big.NewInt(-1)
-	if number.Cmp(pending) == 0 {
-		return "pending"
+	if number.Sign() >= 0 {
+		return hexutil.EncodeBig(number)
 	}
-	return hexutil.EncodeBig(number)
+	// It's negative.
+	if number.IsInt64() {
+		return rpc.BlockNumber(number.Int64()).String()
+	}
+	// It's negative and large, which is invalid.
+	return fmt.Sprintf("<invalid %d>", number)
 }
 
 func toCallArg(msg ethereum.CallMsg) interface{} {
@@ -564,7 +691,7 @@ func toCallArg(msg ethereum.CallMsg) interface{} {
 		"to":   msg.To,
 	}
 	if len(msg.Data) > 0 {
-		arg["data"] = hexutil.Bytes(msg.Data)
+		arg["input"] = hexutil.Bytes(msg.Data)
 	}
 	if msg.Value != nil {
 		arg["value"] = (*hexutil.Big)(msg.Value)
@@ -574,6 +701,15 @@ func toCallArg(msg ethereum.CallMsg) interface{} {
 	}
 	if msg.GasPrice != nil {
 		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
+	}
+	if msg.GasFeeCap != nil {
+		arg["maxFeePerGas"] = (*hexutil.Big)(msg.GasFeeCap)
+	}
+	if msg.GasTipCap != nil {
+		arg["maxPriorityFeePerGas"] = (*hexutil.Big)(msg.GasTipCap)
+	}
+	if msg.AccessList != nil {
+		arg["accessList"] = msg.AccessList
 	}
 	return arg
 }
@@ -587,18 +723,20 @@ type rpcProgress struct {
 	PulledStates hexutil.Uint64
 	KnownStates  hexutil.Uint64
 
-	SyncedAccounts      hexutil.Uint64
-	SyncedAccountBytes  hexutil.Uint64
-	SyncedBytecodes     hexutil.Uint64
-	SyncedBytecodeBytes hexutil.Uint64
-	SyncedStorage       hexutil.Uint64
-	SyncedStorageBytes  hexutil.Uint64
-	HealedTrienodes     hexutil.Uint64
-	HealedTrienodeBytes hexutil.Uint64
-	HealedBytecodes     hexutil.Uint64
-	HealedBytecodeBytes hexutil.Uint64
-	HealingTrienodes    hexutil.Uint64
-	HealingBytecode     hexutil.Uint64
+	SyncedAccounts         hexutil.Uint64
+	SyncedAccountBytes     hexutil.Uint64
+	SyncedBytecodes        hexutil.Uint64
+	SyncedBytecodeBytes    hexutil.Uint64
+	SyncedStorage          hexutil.Uint64
+	SyncedStorageBytes     hexutil.Uint64
+	HealedTrienodes        hexutil.Uint64
+	HealedTrienodeBytes    hexutil.Uint64
+	HealedBytecodes        hexutil.Uint64
+	HealedBytecodeBytes    hexutil.Uint64
+	HealingTrienodes       hexutil.Uint64
+	HealingBytecode        hexutil.Uint64
+	TxIndexFinishedBlocks  hexutil.Uint64
+	TxIndexRemainingBlocks hexutil.Uint64
 }
 
 func (p *rpcProgress) toSyncProgress() *ethereum.SyncProgress {
@@ -606,22 +744,24 @@ func (p *rpcProgress) toSyncProgress() *ethereum.SyncProgress {
 		return nil
 	}
 	return &ethereum.SyncProgress{
-		StartingBlock:       uint64(p.StartingBlock),
-		CurrentBlock:        uint64(p.CurrentBlock),
-		HighestBlock:        uint64(p.HighestBlock),
-		PulledStates:        uint64(p.PulledStates),
-		KnownStates:         uint64(p.KnownStates),
-		SyncedAccounts:      uint64(p.SyncedAccounts),
-		SyncedAccountBytes:  uint64(p.SyncedAccountBytes),
-		SyncedBytecodes:     uint64(p.SyncedBytecodes),
-		SyncedBytecodeBytes: uint64(p.SyncedBytecodeBytes),
-		SyncedStorage:       uint64(p.SyncedStorage),
-		SyncedStorageBytes:  uint64(p.SyncedStorageBytes),
-		HealedTrienodes:     uint64(p.HealedTrienodes),
-		HealedTrienodeBytes: uint64(p.HealedTrienodeBytes),
-		HealedBytecodes:     uint64(p.HealedBytecodes),
-		HealedBytecodeBytes: uint64(p.HealedBytecodeBytes),
-		HealingTrienodes:    uint64(p.HealingTrienodes),
-		HealingBytecode:     uint64(p.HealingBytecode),
+		StartingBlock:          uint64(p.StartingBlock),
+		CurrentBlock:           uint64(p.CurrentBlock),
+		HighestBlock:           uint64(p.HighestBlock),
+		PulledStates:           uint64(p.PulledStates),
+		KnownStates:            uint64(p.KnownStates),
+		SyncedAccounts:         uint64(p.SyncedAccounts),
+		SyncedAccountBytes:     uint64(p.SyncedAccountBytes),
+		SyncedBytecodes:        uint64(p.SyncedBytecodes),
+		SyncedBytecodeBytes:    uint64(p.SyncedBytecodeBytes),
+		SyncedStorage:          uint64(p.SyncedStorage),
+		SyncedStorageBytes:     uint64(p.SyncedStorageBytes),
+		HealedTrienodes:        uint64(p.HealedTrienodes),
+		HealedTrienodeBytes:    uint64(p.HealedTrienodeBytes),
+		HealedBytecodes:        uint64(p.HealedBytecodes),
+		HealedBytecodeBytes:    uint64(p.HealedBytecodeBytes),
+		HealingTrienodes:       uint64(p.HealingTrienodes),
+		HealingBytecode:        uint64(p.HealingBytecode),
+		TxIndexFinishedBlocks:  uint64(p.TxIndexFinishedBlocks),
+		TxIndexRemainingBlocks: uint64(p.TxIndexRemainingBlocks),
 	}
 }
