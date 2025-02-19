@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
+// Package tracing defines hooks for 'live tracing' of block processing and transaction
+// execution. Here we define the low-level [Hooks] object that carries hooks which are
+// invoked by the go-ethereum core at various points in the state transition.
+//
+// To create a tracer that can be invoked with Geth, you need to register it using
+// [github.com/autonity/autonity/eth/tracers.LiveDirectory.Register].
+//
+// See https://geth.ethereum.org/docs/developers/evm-tracing/live-tracing for a tutorial.
 package tracing
 
 import (
@@ -63,7 +71,9 @@ type VMContext struct {
 // BlockEvent is emitted upon tracing an incoming block.
 // It contains the block as well as consensus related information.
 type BlockEvent struct {
-	Block *types.Block
+	Block     *types.Block
+	Finalized *types.Header
+	Safe      *types.Header
 }
 
 type (
@@ -162,6 +172,9 @@ type (
 	// NonceChangeHook is called when the nonce of an account changes.
 	NonceChangeHook = func(addr common.Address, prev, new uint64)
 
+	// NonceChangeHookV2 is called when the nonce of an account changes.
+	NonceChangeHookV2 = func(addr common.Address, prev, new uint64, reason NonceChangeReason)
+
 	// CodeChangeHook is called when the code of an account changes.
 	CodeChangeHook = func(addr common.Address, prevCodeHash common.Hash, prevCode []byte, codeHash common.Hash, code []byte)
 
@@ -170,6 +183,9 @@ type (
 
 	// LogHook is called when a log is emitted.
 	LogHook = func(log *types.Log)
+
+	// BlockHashReadHook is called when EVM reads the blockhash of a block.
+	BlockHashReadHook = func(blockNumber uint64, hash common.Hash)
 )
 
 type Hooks struct {
@@ -194,9 +210,12 @@ type Hooks struct {
 	// State events
 	OnBalanceChange BalanceChangeHook
 	OnNonceChange   NonceChangeHook
+	OnNonceChangeV2 NonceChangeHookV2
 	OnCodeChange    CodeChangeHook
 	OnStorageChange StorageChangeHook
 	OnLog           LogHook
+	// Block hash read
+	OnBlockHashRead BlockHashReadHook
 }
 
 // BalanceChangeReason is used to indicate the reason for a balance change, useful
@@ -248,6 +267,10 @@ const (
 	// account within the same tx (captured at end of tx).
 	// Note it doesn't account for a self-destruct which appoints itself as recipient.
 	BalanceDecreaseSelfdestructBurn BalanceChangeReason = 14
+
+	// BalanceChangeRevert is emitted when the balance is reverted back to a previous value due to call failure.
+	// It is only emitted when the tracer has opted in to use the journaling wrapper (WrapWithJournal).
+	BalanceChangeRevert BalanceChangeReason = 15
 )
 
 // GasChangeReason is used to indicate the reason for a gas change, useful

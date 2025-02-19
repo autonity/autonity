@@ -24,6 +24,7 @@ import (
 	"io"
 	"math/big"
 	"reflect"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -530,8 +531,8 @@ type Block struct {
 	transactions Transactions
 
 	// caches
-	hash atomic.Value
-	size atomic.Value
+	hash atomic.Pointer[common.Hash]
+	size atomic.Uint64
 
 	// Td is used by package core to store the total difficulty
 	// of the chain up to and including the block.
@@ -675,7 +676,7 @@ func CopyHeader(h *Header) *Header {
 	return cpy
 }
 
-// DecodeRLP decodes the Ethereum
+// DecodeRLP decodes a block from RLP.
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	var eb extblock
 	_, size, _ := s.Kind()
@@ -683,7 +684,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 	b.header, b.uncles, b.transactions = eb.Header, eb.Uncles, eb.Txs
-	b.size.Store(common.StorageSize(rlp.ListSize(size)))
+	b.size.Store(rlp.ListSize(size))
 	return nil
 }
 
@@ -701,7 +702,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) Uncles() []*Header                 { return b.uncles }
 func (b *Block) Transactions() Transactions        { return b.transactions }
 func (b *Block) SetTransactions(tr []*Transaction) { b.transactions = tr }
-func (b *Block) SetHash(h atomic.Value)            { b.hash = h }
+func (b *Block) SetHash(h *common.Hash)            { b.hash.Store(h) }
 
 func (b *Block) Transaction(hash common.Hash) *Transaction {
 	for _, transaction := range b.transactions {
@@ -745,15 +746,15 @@ func (b *Block) SetHeaderNumber(hNum *big.Int) { b.header.Number = hNum }
 func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
-// and returning it, or returning a previsouly cached value.
-func (b *Block) Size() common.StorageSize {
-	if size := b.size.Load(); size != nil {
-		return size.(common.StorageSize)
+// and returning it, or returning a previously cached value.
+func (b *Block) Size() uint64 {
+	if size := b.size.Load(); size > 0 {
+		return size
 	}
 	c := writeCounter(0)
 	rlp.Encode(&c, b)
-	b.size.Store(common.StorageSize(c))
-	return common.StorageSize(c)
+	b.size.Store(uint64(c))
+	return uint64(c)
 }
 
 func (b *Block) IsEpochHead() bool { return b.header.IsEpochHeader() }
@@ -789,16 +790,16 @@ func (b *Block) WithSeal(header *Header) *Block {
 	}
 }
 
-// WithBody returns a new block with the given transaction and uncle contents.
-func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
+// WithBody returns a new block with the original header and a deep copy of the
+// provided body.
+func (b *Block) WithBody(body Body) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
-		transactions: make([]*Transaction, len(transactions)),
-		uncles:       make([]*Header, len(uncles)),
+		transactions: slices.Clone(body.Transactions),
+		uncles:       make([]*Header, len(body.Uncles)),
 	}
-	copy(block.transactions, transactions)
-	for i := range uncles {
-		block.uncles[i] = CopyHeader(uncles[i])
+	for i := range body.Uncles {
+		block.uncles[i] = CopyHeader(body.Uncles[i])
 	}
 	return block
 }
@@ -807,11 +808,11 @@ func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 // The hash is computed on the first call and cached thereafter.
 func (b *Block) Hash() common.Hash {
 	if hash := b.hash.Load(); hash != nil {
-		return hash.(common.Hash)
+		return *hash
 	}
-	v := b.header.Hash()
-	b.hash.Store(v)
-	return v
+	h := b.header.Hash()
+	b.hash.Store(&h)
+	return h
 }
 
 type Blocks []*Block

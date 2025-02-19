@@ -70,13 +70,14 @@ var (
 	accountCommitTimer = metrics.NewRegisteredTimer("chain/account/commits", nil)
 
 	storageReadTimer   = metrics.NewRegisteredTimer("chain/storage/reads", nil)
-	storageHashTimer   = metrics.NewRegisteredTimer("chain/storage/hashes", nil)
 	storageUpdateTimer = metrics.NewRegisteredTimer("chain/storage/updates", nil)
 	storageCommitTimer = metrics.NewRegisteredTimer("chain/storage/commits", nil)
 
-	snapshotAccountReadTimer = metrics.NewRegisteredTimer("chain/snapshot/account/reads", nil)
-	snapshotStorageReadTimer = metrics.NewRegisteredTimer("chain/snapshot/storage/reads", nil)
-	snapshotCommitTimer      = metrics.NewRegisteredTimer("chain/snapshot/commits", nil)
+	accountReadSingleTimer = metrics.NewRegisteredResettingTimer("chain/account/single/reads", nil)
+	storageReadSingleTimer = metrics.NewRegisteredResettingTimer("chain/storage/single/reads", nil)
+
+	snapshotCommitTimer = metrics.NewRegisteredTimer("chain/snapshot/commits", nil)
+	triedbCommitTimer   = metrics.NewRegisteredResettingTimer("chain/triedb/commits", nil)
 
 	blockInsertTimer     = metrics.NewRegisteredTimer("chain/inserts", nil)
 	blockValidationTimer = metrics.NewRegisteredTimer("chain/validation", nil)
@@ -1513,7 +1514,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		log.Crit("Failed to write block into disk", "err", err)
 	}
 	// Commit all cached state changes into underlying memory database.
-	root, err := statedb.Commit(block.NumberU64(), bc.chainConfig.IsEIP158(block.Number()), bc.chainConfig.IsCancun(block.Number(), block.Time()))
+	root, err := statedb.Commit(block.NumberU64(), bc.chainConfig.IsEIP158(block.Number()), bc.chainConfig.IsCancun(block.Number()))
 	if err != nil {
 		return err
 	}
@@ -1687,7 +1688,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool, makeWitness 
 	bc.senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
 
 	var (
-		stats     = insertStats{startTime: mclock.Now(), logger: bc.log}
+		stats     = insertStats{startTime: mclock.Now(), log: bc.log}
 		lastCanon *types.Block
 	)
 	// Fire a single chain head event if we've progressed the chain
@@ -1890,9 +1891,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool, makeWitness 
 				}(time.Now(), followup, throwaway)
 			}
 		}
-
+		var (
+			res *blockProcessingResult
+		)
 		// Process block using the parent state as reference point
-		res, err := bc.processBlockFromCache(block, statedb, bc.vmConfig)
+		res, statedb, err = bc.processBlockFromCache(block, statedb, start, setHead)
 		followupInterrupt.Store(true)
 		if err != nil {
 			return nil, it.index, err
@@ -1955,7 +1958,7 @@ type blockProcessingResult struct {
 
 // processBlock executes and validates the given block. If there was no error
 // it writes the block and associated state to database.
-func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.StateDB, start time.Time, setHead bool) (_ *blockProcessingResult, blockEndErr error) {
+func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.StateDB, start time.Time, setHead bool) (_ *blockProcessingResult, _ *state.StateDB, blockEndErr error) {
 	if bc.logger != nil && bc.logger.OnBlockStart != nil {
 		bc.logger.OnBlockStart(tracing.BlockEvent{
 			Block: block,
@@ -1969,20 +1972,25 @@ func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.S
 
 	// Process block using the parent state as reference point
 	pstart := time.Now()
-	res, err := bc.processor.ProcessFromCache(block, statedb, bc.vmConfig)
+	var (
+		res *ProcessResult
+		err error
+	)
+	res, statedb, err = bc.processor.ProcessFromCache(block, statedb, bc.vmConfig)
 	if err != nil {
 		bc.reportBlock(block, res, err)
-		return nil, err
+		return nil, statedb, err
 	}
 	ptime := time.Since(pstart)
 
 	vstart := time.Now()
 	if err := bc.validator.ValidateState(block, statedb, res, false); err != nil {
 		bc.reportBlock(block, res, err)
-		return nil, err
+		return nil, statedb, err
 	}
 	vtime := time.Since(vstart)
 
+	/*  // Stateless execution is not supported with Autonity
 	// If witnesses was generated and stateless self-validation requested, do
 	// that now. Self validation should *never* run in production, it's more of
 	// a tight integration to enable running *all* consensus tests through the
@@ -2012,6 +2020,7 @@ func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.S
 		}
 	}
 	xvtime := time.Since(xvstart)
+	*/
 	proctime := time.Since(start) // processing + validation + cross validation
 
 	// Update the metrics touched during block processing and validation
@@ -2030,7 +2039,6 @@ func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.S
 	trieUpdate := statedb.AccountUpdates + statedb.StorageUpdates                     // The time spent on tries update
 	blockExecutionTimer.Update(ptime - (statedb.AccountReads + statedb.StorageReads)) // The time spent on EVM processing
 	blockValidationTimer.Update(vtime - (triehash + trieUpdate))                      // The time spent on block validation
-	blockCrossValidationTimer.Update(xvtime)                                          // The time spent on stateless cross validation
 
 	// Write the block to the chain and get the status.
 	var (
@@ -2044,7 +2052,7 @@ func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.S
 		status, err = bc.writeBlockAndSetHead(block, res.Receipts, res.Logs, statedb, false)
 	}
 	if err != nil {
-		return nil, err
+		return nil, statedb, err
 	}
 	// Update the metrics touched during block commit
 	accountCommitTimer.Update(statedb.AccountCommits)   // Account commits are complete, we can mark them
@@ -2055,7 +2063,7 @@ func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.S
 	blockWriteTimer.Update(time.Since(wstart) - max(statedb.AccountCommits, statedb.StorageCommits) /* concurrent */ - statedb.SnapshotCommits - statedb.TrieDBCommits)
 	blockInsertTimer.UpdateSince(start)
 
-	return &blockProcessingResult{usedGas: res.GasUsed, procTime: proctime, status: status}, nil
+	return &blockProcessingResult{usedGas: res.GasUsed, procTime: proctime, status: status}, statedb, nil
 }
 
 // insertSideChain is called when an import batch hits upon a pruned ancestor
@@ -2486,9 +2494,9 @@ func (bc *BlockChain) SetCanonical(head *types.Block) (common.Hash, error) {
 		bc.logsFeed.Send(logs)
 	}
 
-	if newBlock.IsEpochHead() {
-		bc.epochHeadFeed.Send(EpochHeadEvent{newBlock.Header()})
-		bc.log.Info("Set the epoch head", "number", newBlock.Number(), "hash", newBlock.Hash())
+	if head.IsEpochHead() {
+		bc.epochHeadFeed.Send(EpochHeadEvent{head.Header()})
+		bc.log.Info("Set the epoch head", "number", head.Number(), "hash", head.Hash())
 	}
 
 	bc.chainHeadFeed.Send(ChainHeadEvent{Header: head.Header()})
@@ -2580,20 +2588,17 @@ func summarizeBadBlock(block *types.Block, receipts []*types.Receipt, config *pa
 			i, receipt.CumulativeGasUsed, receipt.GasUsed, receipt.ContractAddress.Hex(),
 			receipt.Status, receipt.TxHash.Hex(), receipt.Logs, receipt.Bloom, receipt.PostState)
 	}
-	version, vcs := version.Info()
+	version := version.Info()
 	platform := fmt.Sprintf("%s %s %s %s", version, runtime.Version(), runtime.GOARCH, runtime.GOOS)
-	if vcs != "" {
-		vcs = fmt.Sprintf("\nVCS: %s", vcs)
-	}
 	return fmt.Sprintf(`
 ########## BAD BLOCK #########
 Block: %v (%#x)
 Error: %v
-Platform: %v%v
+Platform: %v
 Chain config: %#v
 Receipts: %v
 ##############################
-`, block.Number(), block.Hash(), err, platform, vcs, config, receiptString)
+`, block.Number(), block.Hash(), err, platform, config, receiptString)
 }
 
 // InsertHeaderChain attempts to insert the given header chain in to the local

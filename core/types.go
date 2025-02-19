@@ -33,7 +33,7 @@ type Validator interface {
 
 	// ValidateState validates the given statedb and optionally the receipts and
 	// gas used.
-	ValidateState(block *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error
+	ValidateState(block *types.Block, state *state.StateDB, res *ProcessResult, stateless bool) error
 }
 
 // Prefetcher is an interface for pre-caching transaction signatures and state.
@@ -54,7 +54,7 @@ type Processor interface {
 
 	// ProcessFromCache processes the state same as Process except it checks the availability
 	// of cached state and utilizes the same if present
-	ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*ProcessResult, error)
+	ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*ProcessResult, *state.StateDB, error)
 }
 
 // ProcessResult contains the values computed by Process.
