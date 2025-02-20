@@ -341,9 +341,21 @@ func signersOfPrecommit(precommit *message.Precommit, committee *types.Committee
 }
 
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
+	var com *types.Committee
+
+	if c.Height().Uint64() == msg.H() {
+		com = c.committee.Committee()
+	} else {
+		var err error
+		com, err = c.Backend().BlockChain().CommitteeByHeight(msg.H())
+		if err != nil {
+			panic("can't get committee by height")
+		}
+
+	}
 	if msg.Code() == message.PrecommitCode {
 		prec := msg.(*message.Precommit)
-		s := signersOfPrecommit(prec, c.committee.Committee())
+		s := signersOfPrecommit(prec, com)
 		for _, v := range common.Valset {
 			for _, ad := range s {
 				if ad == v {
@@ -358,7 +370,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		// Moreover, I am still wondering if it would be useful to gossip old height messages, as they could be useful for accountability
 		var signers []common.Address
 		if msg.Code() == message.PrecommitCode {
-			signers = signersOfPrecommit(msg.(*message.Precommit), c.committee.Committee())
+			signers = signersOfPrecommit(msg.(*message.Precommit), com)
 		}
 		c.logger.Debug("ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64(), "signers", signers)
 		return constants.ErrOldHeightMessage
@@ -371,7 +383,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	// if we already decided on this height block, discard the message. It is useless by now.
 	if c.step == PrecommitDone {
 		if msg.Code() == message.PrecommitCode {
-			signers := signersOfPrecommit(msg.(*message.Precommit), c.committee.Committee())
+			signers := signersOfPrecommit(msg.(*message.Precommit), com)
 			c.logger.Debug("Precommit done reject", "signers", signers)
 		}
 		return constants.ErrHeightClosed
