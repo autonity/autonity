@@ -339,11 +339,12 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 	}
 
 	// Create a new receipt for the finalize call
-	receipt := types.NewReceipt(nil, false, 0)
+	// (youssef) Considering building it in the state-processor
+	receipt := &types.Receipt{}
 	receipt.TxHash = common.ACHash(header.Number)
 	receipt.GasUsed = 0
 	receipt.Logs = statedb.GetLogs(receipt.TxHash, header.Number.Uint64(), header.Hash())
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	receipt.Bloom = types.CreateBloom(receipt)
 	receipt.BlockHash = header.Hash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())

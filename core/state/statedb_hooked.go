@@ -58,6 +58,13 @@ func (s *hookedStateDB) GetBalance(addr common.Address) *uint256.Int {
 	return s.inner.GetBalance(addr)
 }
 
+func (s *hookedStateDB) TxIndex() int {
+	return s.inner.TxIndex()
+}
+
+func (s *hookedStateDB) GetLogs(hash common.Hash, blockNumber uint64, blockHash common.Hash) []*types.Log {
+	return s.inner.GetLogs(hash, blockNumber, blockHash)
+}
 func (s *hookedStateDB) GetNonce(addr common.Address) uint64 {
 	return s.inner.GetNonce(addr)
 }

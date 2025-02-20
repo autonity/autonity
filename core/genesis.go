@@ -24,11 +24,9 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/holiman/uint256"
-	"golang.org/x/exp/slices"
 
 	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/autonity"
@@ -44,7 +42,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
 	"github.com/autonity/autonity/triedb"
 	"github.com/autonity/autonity/triedb/pathdb"
@@ -110,55 +107,6 @@ func (o *ChainOverrides) apply(cfg *params.ChainConfig) error {
 	return cfg.CheckConfigForkOrder()
 }
 
-// GenesisAlloc specifies the initial state that is part of the genesis block.
-type GenesisAlloc map[common.Address]GenesisAccount
-
-func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
-	m := make(map[common.UnprefixedAddress]GenesisAccount)
-	if err := json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-	*ga = make(GenesisAlloc)
-	for addr, a := range m {
-		(*ga)[common.Address(addr)] = a
-	}
-	return nil
-}
-
-func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
-	ret := make(autonity.GenesisBonds, 0, len(*ga))
-	for addr, alloc := range *ga {
-		delegations := make([]autonity.Delegation, 0)
-		for validator, amount := range alloc.Bonds {
-			delegations = append(delegations, autonity.Delegation{Validator: validator, Amount: amount})
-		}
-		slices.SortFunc(delegations, func(a, b autonity.Delegation) bool {
-			return a.Validator.String() < b.Validator.String()
-		})
-		ret = append(ret, autonity.GenesisBond{
-			Staker:        addr,
-			NewtonBalance: alloc.NewtonBalance,
-			Bonds:         delegations,
-		})
-	}
-	slices.SortFunc(ret, func(a, b autonity.GenesisBond) bool {
-		return a.Staker.String() < b.Staker.String()
-	})
-	return ret
-}
-
-// GenesisAccount is an account in the state of the genesis block.
-type GenesisAccount struct {
-	Code          []byte                      `json:"code,omitempty"`
-	Storage       map[common.Hash]common.Hash `json:"storage,omitempty"`
-	Balance       *big.Int                    `json:"balance" gencodec:"required"`
-	NewtonBalance *big.Int                    `json:"newtonBalance"`
-	// validator address to amount bond to this validator
-	Bonds      map[common.Address]*big.Int `json:"bonds"`
-	Nonce      uint64                      `json:"nonce,omitempty"`
-	PrivateKey []byte                      `json:"secretKey,omitempty"` // for tests
-}
-
 // field type overrides for gencodec
 type genesisSpecMarshaling struct {
 	Nonce      math.HexOrDecimal64
@@ -169,17 +117,7 @@ type genesisSpecMarshaling struct {
 	Number     math.HexOrDecimal64
 	Difficulty *math.HexOrDecimal256
 	BaseFee    *math.HexOrDecimal256
-	Alloc      map[common.UnprefixedAddress]GenesisAccount
-}
-
-type genesisAccountMarshaling struct {
-	Code          hexutil.Bytes
-	Balance       *math.HexOrDecimal256
-	NewtonBalance *math.HexOrDecimal256
-	Bonds         map[common.Address]*math.HexOrDecimal256
-	Nonce         math.HexOrDecimal64
-	Storage       map[storageJSON]storageJSON
-	PrivateKey    hexutil.Bytes
+	Alloc      map[common.UnprefixedAddress]types.Account
 }
 
 // storageJSON represents a 256 bit byte array, but allows less than 256 bits when
@@ -397,15 +335,14 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, uint256.MustFromBig(account.Balance), tracing.BalanceIncreaseGenesisBalance)
 		statedb.SetCode(addr, account.Code)
-		statedb.SetNonce(addr, account.Nonce)
+		statedb.SetNonce(addr, account.Nonce, tracing.NonceChangeGenesis)
 		for key, value := range account.Storage {
 			statedb.SetState(addr, key, value)
 		}
 	}
 
-	genesisBonds := g.Alloc.ToGenesisBonds()
 	evm := genesisEVM(g, statedb)
-	if err := autonity.ExecuteGenesisSequence(g.Config, genesisBonds, evm); err != nil {
+	if err := autonity.ExecuteGenesisSequence(g.Config, g.Alloc, evm); err != nil {
 		return nil, fmt.Errorf("cannot execute genesis sequence: %w", err)
 	}
 
@@ -568,7 +505,7 @@ func (g *Genesis) IsVerkle() bool {
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisBlockForTesting(db ethdb.Database, triedb *triedb.Database, addr common.Address, balance *big.Int) *types.Block {
 	g := Genesis{
-		Alloc:   GenesisAlloc{addr: {Balance: balance}},
+		Alloc:   types.GenesisAlloc{addr: {Balance: balance}},
 		Config:  params.TestChainConfig,
 		BaseFee: big.NewInt(params.InitialBaseFee),
 		Mixhash: types.BFTDigest,
@@ -608,7 +545,6 @@ func DefaultGenesisBlock() *Genesis {
 		GasLimit:   5000,
 		Difficulty: big.NewInt(0),
 		BaseFee:    big.NewInt(params.InitialBaseFee),
-		Alloc:      decodePrealloc(mainnetAllocData),
 	}
 }
 
@@ -624,7 +560,7 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 		GasLimit:   20_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
-		Alloc: map[common.Address]GenesisAccount{
+		Alloc: map[common.Address]types.Account{
 			sdpAccount: { // SDP Simulator Account
 				Bonds: make(map[common.Address]*big.Int),
 			},
@@ -636,7 +572,7 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 			prev.Balance = alloc.Value
 			g.Alloc[alloc.Address] = prev
 		} else {
-			g.Alloc[alloc.Address] = GenesisAccount{
+			g.Alloc[alloc.Address] = types.Account{
 				Balance: alloc.Value,
 			}
 		}
@@ -647,7 +583,7 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 			prev.NewtonBalance = alloc.Value
 			g.Alloc[alloc.Address] = prev
 		} else {
-			g.Alloc[alloc.Address] = GenesisAccount{
+			g.Alloc[alloc.Address] = types.Account{
 				NewtonBalance: alloc.Value,
 			}
 		}
@@ -698,51 +634,15 @@ func DefaultBakerlooGenesisBlock() *Genesis {
 		GasLimit:   30_000_000,
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
-		Alloc: map[common.Address]GenesisAccount{
+		Alloc: map[common.Address]types.Account{
 			params.BakerlooChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
 		},
 	}
 	for _, v := range g.Config.AutonityContractConfig.Validators {
-		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
-		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[*v.NodeAddress] = types.Account{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.OracleAddress] = types.Account{Balance: big.NewInt(params.Ether)}
 	}
 	return g
-}
-
-// DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
-func DefaultRopstenGenesisBlock() *Genesis {
-	return &Genesis{
-		Config:     params.RopstenChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
-		Alloc:      decodePrealloc(ropstenAllocData),
-	}
-}
-
-// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
-func DefaultRinkebyGenesisBlock() *Genesis {
-	return &Genesis{
-		Config:     params.RinkebyChainConfig,
-		Timestamp:  1492009146,
-		ExtraData:  hexutil.MustDecode("0x52657370656374206d7920617574686f7269746168207e452e436172746d616e42eb768f2244c8811c63729a21a3569731535f067ffc57839b00206d1ad20c69a1981b489f772031b279182d99e65703f0076e4812653aab85fca0f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
-		GasLimit:   4700000,
-		Difficulty: big.NewInt(1),
-		Alloc:      decodePrealloc(rinkebyAllocData),
-	}
-}
-
-// DefaultGoerliGenesisBlock returns the Görli network genesis block.
-func DefaultGoerliGenesisBlock() *Genesis {
-	return &Genesis{
-		Config:     params.GoerliChainConfig,
-		Timestamp:  1548854791,
-		ExtraData:  hexutil.MustDecode("0x22466c6578692069732061207468696e6722202d204166726900000000000000e0a2bd4258d2768837baa26a28fe71dc079f84c70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
-		GasLimit:   10485760,
-		Difficulty: big.NewInt(1),
-		Alloc:      decodePrealloc(goerliAllocData),
-	}
 }
 
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
@@ -803,21 +703,9 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		GasLimit:   gasLimit,
 		BaseFee:    big.NewInt(15000000000),
 		Difficulty: big.NewInt(0),
-		Alloc: map[common.Address]GenesisAccount{
+		Alloc: map[common.Address]types.Account{
 			faucet.Address: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
 		},
 		Config: testChainConfig,
 	}
-}
-
-func decodePrealloc(data string) GenesisAlloc {
-	var p []struct{ Addr, Balance *big.Int }
-	if err := rlp.NewStream(strings.NewReader(data), 0).Decode(&p); err != nil {
-		panic(err)
-	}
-	ga := make(GenesisAlloc, len(p))
-	for _, account := range p {
-		ga[common.BigToAddress(account.Addr)] = GenesisAccount{Balance: account.Balance}
-	}
-	return ga
 }
