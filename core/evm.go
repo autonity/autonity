@@ -67,7 +67,7 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 		GetHash:     GetHashFn(header, chain),
 		Coinbase:    beneficiary,
 		BlockNumber: new(big.Int).Set(header.Number),
-		Time:        new(big.Int).SetUint64(header.Time),
+		Time:        header.Time,
 		Difficulty:  new(big.Int).Set(header.Difficulty),
 		BaseFee:     baseFee,
 		GasLimit:    header.GasLimit,
@@ -87,7 +87,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			GetHash:     GetHashFn(header, chain),
 			Coinbase:    header.Coinbase,
 			BlockNumber: new(big.Int).Set(header.Number),
-			Time:        new(big.Int).SetUint64(header.Time),
+			Time:        header.Time,
 			GasLimit:    header.GasLimit,
 			Difficulty:  header.Difficulty,
 			BaseFee:     header.BaseFee,
@@ -99,7 +99,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			Origin:   origin,
 			GasPrice: new(big.Int).SetUint64(0x0),
 		}
-		evm := vm.NewEVM(evmContext, txContext, statedb, chain.chainConfig,
+		evm := vm.NewEVM(evmContext, statedb, chain.chainConfig,
 			vm.Config{
 				//// Uncomment this to get EVM debugging logs
 				//Debug: true,
@@ -114,6 +114,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 				//}, os.Stdout),
 			},
 		)
+		evm.SetTxContext(txContext)
 		return evm
 	}
 }

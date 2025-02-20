@@ -199,10 +199,10 @@ func DefaultCacheConfigWithScheme(scheme string) *CacheConfig {
 
 // txLookup is wrapper over transaction lookup along with the corresponding
 // transaction object.
-/*type txLookup struct {
+type txLookup struct {
 	lookup      *rawdb.LegacyTxLookupEntry
 	transaction *types.Transaction
-}*/
+}
 
 type blockStateCache struct {
 	hash     common.Hash
@@ -268,7 +268,7 @@ type BlockChain struct {
 	bodyRLPCache  *lru.Cache[common.Hash, rlp.RawValue]     // Cache for the most recent block bodies in RLP encoded format
 	receiptsCache *lru.Cache[common.Hash, []*types.Receipt] // Cache for the most recent receipts per block
 	blockCache    *lru.Cache[common.Hash, *types.Block]     // Cache for the most recent entire blocks
-	epochCache    *lru.Cache[common.Hash, *types.EpochInfo] // Cache for the most recent height's epoch
+	epochCache    *lru.Cache[uint64, *types.EpochInfo]      // Cache for the most recent height's epoch
 
 	txLookupLock  sync.RWMutex
 	txLookupCache *lru.Cache[common.Hash, txLookup]     // Cache for the most recent transaction lookup data.
@@ -340,7 +340,7 @@ func NewBlockChain(db ethdb.Database,
 		receiptsCache: lru.NewCache[common.Hash, []*types.Receipt](receiptsCacheLimit),
 		blockCache:    lru.NewCache[common.Hash, *types.Block](blockCacheLimit),
 		txLookupCache: lru.NewCache[common.Hash, txLookup](txLookupCacheLimit),
-		epochCache:    lru.NewCache[common.Hash, *types.EpochInfo](epochCacheLimit),
+		epochCache:    lru.NewCache[uint64, *types.EpochInfo](epochCacheLimit),
 		futureBlocks:  lru.NewCache[common.Hash, *types.Block](maxFutureBlocks),
 		engine:        engine,
 		vmConfig:      vmConfig,
@@ -2227,12 +2227,8 @@ func (bc *BlockChain) recoverAncestors(block *types.Block, makeWitness bool) (co
 // collectLogs collects the logs that were generated or removed during the
 // processing of a block. These logs are later announced as deleted or reborn.
 func (bc *BlockChain) collectLogs(b *types.Block, removed bool) []*types.Log {
-	var blobGasPrice *big.Int
-	if b.ExcessBlobGas() != nil {
-		blobGasPrice = eip4844.CalcBlobFee(bc.chainConfig, b.Header())
-	}
 	receipts := rawdb.ReadRawReceipts(bc.db, b.Hash(), b.NumberU64())
-	if err := receipts.DeriveFields(bc.chainConfig, b.Hash(), b.NumberU64(), b.Time(), b.BaseFee(), blobGasPrice, b.Transactions()); err != nil {
+	if err := receipts.DeriveFields(bc.chainConfig, b.Hash(), b.NumberU64(), b.BaseFee(), b.Transactions()); err != nil {
 		log.Error("Failed to derive block receipts fields", "hash", b.Hash(), "number", b.NumberU64(), "err", err)
 	}
 	var logs []*types.Log
