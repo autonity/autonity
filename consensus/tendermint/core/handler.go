@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/core/types"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -331,12 +332,24 @@ func (c *Core) SendEvent(ev any) {
 	c.backend.Post(ev)
 }
 
+func signersOfPrecommit(precommit *message.Precommit, committee *types.Committee) []common.Address {
+	var signers []common.Address
+	for _, index := range precommit.Signers().FlattenUniq() {
+		signers = append(signers, committee.Members[index].Address)
+	}
+	return signers
+}
+
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	// These checks need to be repeated here due to backlogged messages being re-injected
 	if c.Height().Uint64() > msg.H() {
 		// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
 		// Moreover, I am still wondering if it would be useful to gossip old height messages, as they could be useful for accountability
-		c.logger.Debug("ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
+		var signers []common.Address
+		if msg.Code() == message.PrecommitCode {
+			signers = signersOfPrecommit(msg.(*message.Precommit), c.committee.Committee())
+		}
+		c.logger.Debug("ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64(), "signers", signers)
 		return constants.ErrOldHeightMessage
 	}
 
@@ -346,6 +359,10 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 
 	// if we already decided on this height block, discard the message. It is useless by now.
 	if c.step == PrecommitDone {
+		if msg.Code() == message.PrecommitCode {
+			signers := signersOfPrecommit(msg.(*message.Precommit), c.committee.Committee())
+			c.logger.Debug("Precommit done reject", "signers", signers)
+		}
 		return constants.ErrHeightClosed
 	}
 

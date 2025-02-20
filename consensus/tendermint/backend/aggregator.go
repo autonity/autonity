@@ -653,6 +653,14 @@ func (a *aggregator) toSkip(msg message.Msg) bool {
 	return ignore
 }
 
+func signersOfPrecommit(precommit *message.Precommit, committee *types.Committee) []common.Address {
+	var signers []common.Address
+	for _, index := range precommit.Signers().FlattenUniq() {
+		signers = append(signers, committee.Members[index].Address)
+	}
+	return signers
+}
+
 func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	start := time.Now()
 	msg := event.Message
@@ -660,11 +668,20 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 
 	a.messagesFrom[sender] = append(a.messagesFrom[sender], msg.Hash())
 
+	committee, err := a.backend.BlockChain().CommitteeByHeight(msg.H())
+	if err != nil {
+		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
+	}
+
 	// NOTE: Aggregator and Core run asynchronously. The code needs to take into account that Core can change state at any point here.
 	// This also implies that height checks still needs to be done in Core.
 	coreHeight := a.core.Height().Uint64()
 	if msg.H() < coreHeight {
-		a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
+		var signers []common.Address
+		if msg.Code() == message.PrecommitCode {
+			signers = signersOfPrecommit(msg.(*message.Precommit), committee)
+		}
+		a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight, "signers", signers)
 		signatureInput := msg.SignatureInput()
 		a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
 		return
@@ -674,10 +691,6 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		a.logger.Crit("future message in aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 	}
 
-	committee, err := a.backend.BlockChain().CommitteeByHeight(msg.H())
-	if err != nil {
-		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
-	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	coreRound := a.core.Round()
@@ -868,10 +881,18 @@ loop:
 							signatureInput := sameValueVotes[0].Message.SignatureInput() // all votes have same (h,r,c,v)
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
 						}
+						committee, err := a.backend.BlockChain().CommitteeByHeight(h)
+						if err != nil {
+							panic(err)
+						}
 						// precommits
 						for _, sameValueVotes := range roundInfo.precommits {
 							if len(sameValueVotes) == 0 {
 								continue
+							}
+							for _, samevalueVote := range sameValueVotes {
+								signers := signersOfPrecommit(samevalueVote.Message.(*message.Precommit), committee)
+								a.logger.Debug("backlogging", "signers", signers)
 							}
 							signatureInput := sameValueVotes[0].Message.SignatureInput() // all votes have same (h,r,c,v)
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
@@ -890,8 +911,8 @@ loop:
 			a.messagesFrom = make(map[common.Address][]common.Hash)
 			a.toIgnore = make(map[common.Hash]struct{})
 		case <-oldMessagesTicker.C:
-			a.logger.Trace("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent
+			num := 0
 			for _, batch := range a.staleMessages {
 				// if batch of proposals, validate them individually
 				if batch[0].Message.Code() == message.ProposalCode {
@@ -903,8 +924,10 @@ loop:
 					}
 					continue
 				}
+				num += len(batch)
 				batches = append(batches, batch)
 			}
+			a.logger.Debug("Processing stale messages in the aggregator", "num", num)
 			a.processBatches(batches, oldHeightEventBuilder)
 
 			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
