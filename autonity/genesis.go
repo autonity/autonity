@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"reflect"
 	"runtime"
+	"slices"
 
 	"github.com/holiman/uint256"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/tracing"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
@@ -76,14 +78,35 @@ var (
 // Genesis sequence execution
 // *
 
-func ExecuteGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM) error {
-	return executeGenesisSequence(genesisConfig, genesisBonds, evm, genesisSequence)
+func ExecuteGenesisSequence(genesisConfig *params.ChainConfig, alloc types.GenesisAlloc, evm *vm.EVM) error {
+	return executeGenesisSequence(genesisConfig, bondsFromAlloc(alloc), evm, genesisSequence)
 }
 
-func ExecuteTestGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM) error {
-	return executeGenesisSequence(genesisConfig, genesisBonds, evm, testGenesisSequence)
+func ExecuteTestGenesisSequence(genesisConfig *params.ChainConfig, alloc types.GenesisAlloc, evm *vm.EVM) error {
+	return executeGenesisSequence(genesisConfig, bondsFromAlloc(alloc), evm, testGenesisSequence)
 }
 
+func bondsFromAlloc(alloc types.GenesisAlloc) GenesisBonds {
+	ret := make(GenesisBonds, 0, len(alloc))
+	for addr, alloc := range alloc {
+		delegations := make([]Delegation, 0)
+		for validator, amount := range alloc.Bonds {
+			delegations = append(delegations, Delegation{Validator: validator, Amount: amount})
+		}
+		slices.SortFunc(delegations, func(a, b Delegation) int {
+			return a.Validator.Cmp(b.Validator)
+		})
+		ret = append(ret, GenesisBond{
+			Staker:        addr,
+			NewtonBalance: alloc.NewtonBalance,
+			Bonds:         delegations,
+		})
+	}
+	slices.SortFunc(ret, func(a, b GenesisBond) int {
+		return a.Staker.Cmp(b.Staker)
+	})
+	return ret
+}
 func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM, genesisSeq []genesisStep) error {
 	contractDeployer := func(
 		address common.Address,
