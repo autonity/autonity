@@ -46,7 +46,7 @@ var (
 )
 
 func recordMessageProcessingTime(code uint8, start time.Time) {
-	if !metrics.Enabled {
+	if !metrics.Enabled() {
 		return
 	}
 	switch code {
@@ -501,7 +501,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 		if len(batch) == 0 {
 			continue
 		}
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			BatchesBg.Add(int64(len(batch)))
 		}
 		processed += len(batch)
@@ -580,7 +580,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 		}
 
 		// disconnect validators who sent us invalid votes at p2p layer and ignore the msgs coming from them
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			InvalidBg.Add(int64(len(invalids)))
 		}
 		for _, index := range invalids {
@@ -727,7 +727,7 @@ loop:
 			if !ok {
 				break loop
 			}
-			if metrics.Enabled {
+			if metrics.Enabled() {
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)
@@ -786,7 +786,7 @@ loop:
 					// re-handling 1 message for each value is enough to cover all needed power checks
 					a.handleVote(evs[0], committee, quorum, false)
 				}
-				if metrics.Enabled {
+				if metrics.Enabled() {
 					RoundBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.PowerChangeEvent:
@@ -824,7 +824,7 @@ loop:
 
 				// processing one vote for the value for which power changed is enough to do all necessary checks
 				a.handleVote(votesEvent[0], committee, quorum, false)
-				if metrics.Enabled {
+				if metrics.Enabled() {
 					PowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.FuturePowerChangeEvent:
@@ -843,7 +843,7 @@ loop:
 				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
 					a.processRound(height, round)
 				}
-				if metrics.Enabled {
+				if metrics.Enabled() {
 					FuturePowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			}

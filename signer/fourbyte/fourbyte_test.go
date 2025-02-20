@@ -39,7 +39,7 @@ func TestEmbeddedDatabase(t *testing.T) {
 		//  selector is: "handleAccountabilityEvents((uint8,uint8,address,bytes32,bytes)[])", a wrong abi spec is
 		//  returned by parseSelector, then the hash computing from "handleAccountabilityEvents((uint8,uint8,address,bytes32,bytes)"
 		//  is not match with solc which computes it from "handleAccountabilityEvents((uint8,uint8,address,bytes32,bytes)[])".
-		//  https://github.com/ethereum/go-ethereum/pull/24407 this PR from upstream may fix it, Lorenzo will cherry pick it.
+		//  https://github.com/autonity/autonity/pull/24407 this PR from upstream may fix it, Lorenzo will cherry pick it.
 
 		if selector == "handleAccountabilityEvents((uint8,uint8,uint8,uint8,address,address,bytes32,bytes)[])" ||
 			id == "2a0d8226" || id == "01d4dc03" {

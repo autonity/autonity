@@ -1357,7 +1357,7 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 	}
 }
 
-func setMiner(ctx *cli.Context, cfg *miner.Config) {
+func setMiner(ctx *cli.Context, cfg *miner.MinerConfig) {
 	if ctx.GlobalIsSet(MinerNotifyFlag.Name) {
 		cfg.Notify = strings.Split(ctx.GlobalString(MinerNotifyFlag.Name), ",")
 	}
@@ -1694,7 +1694,7 @@ func RegisterGraphQLService(stack *node.Node, backend ethapi.Backend, cfg node.C
 }
 
 func SetupMetrics(ctx *cli.Context) {
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		log.Info("Enabling metrics collection")
 
 		var (

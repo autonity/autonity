@@ -17,13 +17,14 @@
 package miner
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	"math/big"
 	"math/rand"
 	"os"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/accountability"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
@@ -80,7 +81,7 @@ var (
 	pendingTxs []*types.Transaction
 	newTxs     []*types.Transaction
 
-	testConfig = &Config{
+	testConfig = &MinerConfig{
 		Etherbase: testUserAddress,
 		Recommit:  time.Second,
 		GasFloor:  params.GenesisGasLimit,

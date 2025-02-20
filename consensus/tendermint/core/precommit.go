@@ -43,7 +43,7 @@ func (c *Precommiter) SendPrecommit(_ context.Context, isNil bool) {
 	c.LogPrecommitMessageEvent("Precommit sent", precommit)
 	c.sentPrecommit = true
 	c.Broadcaster().Broadcast(precommit)
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		PrecommitSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 }

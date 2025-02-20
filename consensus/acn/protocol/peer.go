@@ -73,7 +73,7 @@ func (p *Peer) Address() common.Address {
 }
 
 func (p *Peer) Send(msgcode uint64, data interface{}) error {
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		defer func(start time.Time) {
 			getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
 		}(time.Now())
@@ -82,7 +82,7 @@ func (p *Peer) Send(msgcode uint64, data interface{}) error {
 }
 
 func (p *Peer) SendRaw(msgcode uint64, data []byte) error {
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		defer func(start time.Time) {
 			getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
 		}(time.Now())

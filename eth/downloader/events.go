@@ -23,5 +23,3 @@ type DoneEvent struct {
 }
 type StartEvent struct{}
 type FailedEvent struct{ Err error }
-
-type SyncedEvent struct{}

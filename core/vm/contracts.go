@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"sync"
 
@@ -248,6 +249,11 @@ func activePrecompiledContracts(rules params.Rules) PrecompiledContracts {
 	default:
 		return PrecompiledContractsHomestead
 	}
+}
+
+// ActivePrecompiledContracts returns a copy of precompiled contracts enabled with the current configuration.
+func ActivePrecompiledContracts(rules params.Rules) PrecompiledContracts {
+	return maps.Clone(activePrecompiledContracts(rules))
 }
 
 // ActivePrecompiles returns the precompile addresses enabled with the current configuration.

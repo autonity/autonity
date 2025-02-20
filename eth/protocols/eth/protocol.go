@@ -1,4 +1,4 @@
-// Copyright 2014 The go-ethereum Authors
+// Copyright 2020 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -30,25 +30,23 @@ import (
 
 // Constants to match up protocol versions and messages
 const (
-	ETH66 = 66
+	ETH68 = 68
 )
 
 // ProtocolName is the official short name of the `eth` protocol used during
 // devp2p capability negotiation.
-const ProtocolName = "aut"
+const ProtocolName = "eth"
 
 // ProtocolVersions are the supported versions of the `eth` protocol (first
 // is primary).
-var ProtocolVersions = []uint{ETH66}
+var ProtocolVersions = []uint{ETH68}
 
 // protocolLengths are the number of implemented message corresponding to
 // different protocol versions.
-var protocolLengths = map[uint]uint64{ETH66: 17}
+var protocolLengths = map[uint]uint64{ETH68: 17}
 
-//var protocolLengths = map[uint]uint64{ETH66: 22}
-
-// MaxMessageSize is the maximum cap on the size of a protocol message.
-const MaxMessageSize = 10 * 1024 * 1024
+// maxMessageSize is the maximum cap on the size of a protocol message.
+const maxMessageSize = 10 * 1024 * 1024
 
 const (
 	StatusMsg                     = 0x00
@@ -62,17 +60,8 @@ const (
 	NewPooledTransactionHashesMsg = 0x08
 	GetPooledTransactionsMsg      = 0x09
 	PooledTransactionsMsg         = 0x0a
-	// 0x0b ?
-	// 0x0c ?
-	GetNodeDataMsg = 0x0d
-	NodeDataMsg    = 0x0e
-	GetReceiptsMsg = 0x0f
-	ReceiptsMsg    = 0x10
-	// 0x11 reserved for ProposeNetworkMsg
-	// 0x12 reserved for PrevoteNetworkMsg
-	// 0x13 reserved for PrecommitNetworkMsg
-	// 0x14 reserved for SyncNetworkMsg
-	// 0x15 reserved for AccountabilityNetworkMsg
+	GetReceiptsMsg                = 0x0f
+	ReceiptsMsg                   = 0x10
 )
 
 var (
@@ -92,7 +81,7 @@ type Packet interface {
 	Kind() byte   // Kind returns the message type.
 }
 
-// StatusPacket is the network packet for the status message for eth/64 and later.
+// StatusPacket is the network packet for the status message.
 type StatusPacket struct {
 	ProtocolVersion uint32
 	NetworkID       uint64
@@ -125,18 +114,18 @@ func (p *NewBlockHashesPacket) Unpack() ([]common.Hash, []uint64) {
 // TransactionsPacket is the network packet for broadcasting new transactions.
 type TransactionsPacket []*types.Transaction
 
-// GetBlockHeadersPacket represents a block header query.
-type GetBlockHeadersPacket struct {
+// GetBlockHeadersRequest represents a block header query.
+type GetBlockHeadersRequest struct {
 	Origin  HashOrNumber // Block from which to retrieve headers
 	Amount  uint64       // Maximum number of headers to retrieve
 	Skip    uint64       // Blocks to skip between consecutive headers
 	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
 }
 
-// GetBlockHeadersPacket66 represents a block header query over eth/66
-type GetBlockHeadersPacket66 struct {
+// GetBlockHeadersPacket represents a block header query with request ID wrapping.
+type GetBlockHeadersPacket struct {
 	RequestId uint64
-	*GetBlockHeadersPacket
+	*GetBlockHeadersRequest
 }
 
 // HashOrNumber is a combined field for specifying an origin block.
@@ -175,23 +164,23 @@ func (hn *HashOrNumber) DecodeRLP(s *rlp.Stream) error {
 	}
 }
 
-// BlockHeadersPacket represents a block header response.
-type BlockHeadersPacket []*types.Header
+// BlockHeadersRequest represents a block header response.
+type BlockHeadersRequest []*types.Header
 
-// BlockHeadersPacket represents a block header response over eth/66.
-type BlockHeadersPacket66 struct {
+// BlockHeadersPacket represents a block header response over with request ID wrapping.
+type BlockHeadersPacket struct {
 	RequestId uint64
-	BlockHeadersPacket
+	BlockHeadersRequest
 }
 
-// BlockHeadersRLPPacket represents a block header response, to use when we already
+// BlockHeadersRLPResponse represents a block header response, to use when we already
 // have the headers rlp encoded.
-type BlockHeadersRLPPacket []rlp.RawValue
+type BlockHeadersRLPResponse []rlp.RawValue
 
-// BlockHeadersPacket represents a block header response over eth/66.
-type BlockHeadersRLPPacket66 struct {
+// BlockHeadersRLPPacket represents a block header response with request ID wrapping.
+type BlockHeadersRLPPacket struct {
 	RequestId uint64
-	BlockHeadersRLPPacket
+	BlockHeadersRLPResponse
 }
 
 // NewBlockPacket is the network packet for the block propagation message.
@@ -200,33 +189,34 @@ type NewBlockPacket struct {
 	TD    *big.Int
 }
 
-// GetBlockBodiesPacket represents a block body query.
-type GetBlockBodiesPacket []common.Hash
+// GetBlockBodiesRequest represents a block body query.
+type GetBlockBodiesRequest []common.Hash
 
-// GetBlockBodiesPacket represents a block body query over eth/66.
-type GetBlockBodiesPacket66 struct {
+// GetBlockBodiesPacket represents a block body query with request ID wrapping.
+type GetBlockBodiesPacket struct {
 	RequestId uint64
-	GetBlockBodiesPacket
+	GetBlockBodiesRequest
 }
 
-// BlockBodiesPacket is the network packet for block content distribution.
-type BlockBodiesPacket []*BlockBody
+// BlockBodiesResponse is the network packet for block content distribution.
+type BlockBodiesResponse []*BlockBody
 
-// BlockBodiesPacket is the network packet for block content distribution over eth/66.
-type BlockBodiesPacket66 struct {
+// BlockBodiesPacket is the network packet for block content distribution with
+// request ID wrapping.
+type BlockBodiesPacket struct {
 	RequestId uint64
-	BlockBodiesPacket
+	BlockBodiesResponse
 }
 
-// BlockBodiesRLPPacket is used for replying to block body requests, in cases
+// BlockBodiesRLPResponse is used for replying to block body requests, in cases
 // where we already have them RLP-encoded, and thus can avoid the decode-encode
 // roundtrip.
-type BlockBodiesRLPPacket []rlp.RawValue
+type BlockBodiesRLPResponse []rlp.RawValue
 
-// BlockBodiesRLPPacket66 is the BlockBodiesRLPPacket over eth/66
-type BlockBodiesRLPPacket66 struct {
+// BlockBodiesRLPPacket is the BlockBodiesRLPResponse with request ID wrapping.
+type BlockBodiesRLPPacket struct {
 	RequestId uint64
-	BlockBodiesRLPPacket
+	BlockBodiesRLPResponse
 }
 
 // BlockBody represents the data content of a single block.
@@ -237,7 +227,7 @@ type BlockBody struct {
 
 // Unpack retrieves the transactions and uncles from the range packet and returns
 // them in a split flat format that's more consistent with the internal data structures.
-func (p *BlockBodiesPacket) Unpack() ([][]*types.Transaction, [][]*types.Header) {
+func (p *BlockBodiesResponse) Unpack() ([][]*types.Transaction, [][]*types.Header) {
 	var (
 		txset    = make([][]*types.Transaction, len(*p))
 		uncleset = make([][]*types.Header, len(*p))
@@ -248,79 +238,68 @@ func (p *BlockBodiesPacket) Unpack() ([][]*types.Transaction, [][]*types.Header)
 	return txset, uncleset
 }
 
-// GetNodeDataPacket represents a trie node data query.
-type GetNodeDataPacket []common.Hash
+// GetReceiptsRequest represents a block receipts query.
+type GetReceiptsRequest []common.Hash
 
-// GetNodeDataPacket represents a trie node data query over eth/66.
-type GetNodeDataPacket66 struct {
+// GetReceiptsPacket represents a block receipts query with request ID wrapping.
+type GetReceiptsPacket struct {
 	RequestId uint64
-	GetNodeDataPacket
+	GetReceiptsRequest
 }
 
-// NodeDataPacket is the network packet for trie node data distribution.
-type NodeDataPacket [][]byte
+// ReceiptsResponse is the network packet for block receipts distribution.
+type ReceiptsResponse [][]*types.Receipt
 
-// NodeDataPacket is the network packet for trie node data distribution over eth/66.
-type NodeDataPacket66 struct {
+// ReceiptsPacket is the network packet for block receipts distribution with
+// request ID wrapping.
+type ReceiptsPacket struct {
 	RequestId uint64
-	NodeDataPacket
+	ReceiptsResponse
 }
 
-// GetReceiptsPacket represents a block receipts query.
-type GetReceiptsPacket []common.Hash
+// ReceiptsRLPResponse is used for receipts, when we already have it encoded
+type ReceiptsRLPResponse []rlp.RawValue
 
-// GetReceiptsPacket represents a block receipts query over eth/66.
-type GetReceiptsPacket66 struct {
+// ReceiptsRLPPacket is ReceiptsRLPResponse with request ID wrapping.
+type ReceiptsRLPPacket struct {
 	RequestId uint64
-	GetReceiptsPacket
+	ReceiptsRLPResponse
 }
 
-// ReceiptsPacket is the network packet for block receipts distribution.
-type ReceiptsPacket [][]*types.Receipt
-
-// ReceiptsPacket is the network packet for block receipts distribution over eth/66.
-type ReceiptsPacket66 struct {
-	RequestId uint64
-	ReceiptsPacket
+// NewPooledTransactionHashesPacket represents a transaction announcement packet on eth/68 and newer.
+type NewPooledTransactionHashesPacket struct {
+	Types  []byte
+	Sizes  []uint32
+	Hashes []common.Hash
 }
 
-// ReceiptsRLPPacket is used for receipts, when we already have it encoded
-type ReceiptsRLPPacket []rlp.RawValue
+// GetPooledTransactionsRequest represents a transaction query.
+type GetPooledTransactionsRequest []common.Hash
 
-// ReceiptsPacket66 is the eth-66 version of ReceiptsRLPPacket
-type ReceiptsRLPPacket66 struct {
+// GetPooledTransactionsPacket represents a transaction query with request ID wrapping.
+type GetPooledTransactionsPacket struct {
 	RequestId uint64
-	ReceiptsRLPPacket
+	GetPooledTransactionsRequest
 }
 
-// NewPooledTransactionHashesPacket represents a transaction announcement packet.
-type NewPooledTransactionHashesPacket []common.Hash
+// PooledTransactionsResponse is the network packet for transaction distribution.
+type PooledTransactionsResponse []*types.Transaction
 
-// GetPooledTransactionsPacket represents a transaction query.
-type GetPooledTransactionsPacket []common.Hash
-
-type GetPooledTransactionsPacket66 struct {
+// PooledTransactionsPacket is the network packet for transaction distribution
+// with request ID wrapping.
+type PooledTransactionsPacket struct {
 	RequestId uint64
-	GetPooledTransactionsPacket
+	PooledTransactionsResponse
 }
 
-// PooledTransactionsPacket is the network packet for transaction distribution.
-type PooledTransactionsPacket []*types.Transaction
-
-// PooledTransactionsPacket is the network packet for transaction distribution over eth/66.
-type PooledTransactionsPacket66 struct {
-	RequestId uint64
-	PooledTransactionsPacket
-}
-
-// PooledTransactionsPacket is the network packet for transaction distribution, used
+// PooledTransactionsRLPResponse is the network packet for transaction distribution, used
 // in the cases we already have them in rlp-encoded form
-type PooledTransactionsRLPPacket []rlp.RawValue
+type PooledTransactionsRLPResponse []rlp.RawValue
 
-// PooledTransactionsRLPPacket66 is the eth/66 form of PooledTransactionsRLPPacket
-type PooledTransactionsRLPPacket66 struct {
+// PooledTransactionsRLPPacket is PooledTransactionsRLPResponse with request ID wrapping.
+type PooledTransactionsRLPPacket struct {
 	RequestId uint64
-	PooledTransactionsRLPPacket
+	PooledTransactionsRLPResponse
 }
 
 func (*StatusPacket) Name() string { return "Status" }
@@ -332,38 +311,32 @@ func (*NewBlockHashesPacket) Kind() byte   { return NewBlockHashesMsg }
 func (*TransactionsPacket) Name() string { return "Transactions" }
 func (*TransactionsPacket) Kind() byte   { return TransactionsMsg }
 
-func (*GetBlockHeadersPacket) Name() string { return "GetBlockHeaders" }
-func (*GetBlockHeadersPacket) Kind() byte   { return GetBlockHeadersMsg }
+func (*GetBlockHeadersRequest) Name() string { return "GetBlockHeaders" }
+func (*GetBlockHeadersRequest) Kind() byte   { return GetBlockHeadersMsg }
 
-func (*BlockHeadersPacket) Name() string { return "BlockHeaders" }
-func (*BlockHeadersPacket) Kind() byte   { return BlockHeadersMsg }
+func (*BlockHeadersRequest) Name() string { return "BlockHeaders" }
+func (*BlockHeadersRequest) Kind() byte   { return BlockHeadersMsg }
 
-func (*GetBlockBodiesPacket) Name() string { return "GetBlockBodies" }
-func (*GetBlockBodiesPacket) Kind() byte   { return GetBlockBodiesMsg }
+func (*GetBlockBodiesRequest) Name() string { return "GetBlockBodies" }
+func (*GetBlockBodiesRequest) Kind() byte   { return GetBlockBodiesMsg }
 
-func (*BlockBodiesPacket) Name() string { return "BlockBodies" }
-func (*BlockBodiesPacket) Kind() byte   { return BlockBodiesMsg }
+func (*BlockBodiesResponse) Name() string { return "BlockBodies" }
+func (*BlockBodiesResponse) Kind() byte   { return BlockBodiesMsg }
 
 func (*NewBlockPacket) Name() string { return "NewBlock" }
 func (*NewBlockPacket) Kind() byte   { return NewBlockMsg }
 
-func (*GetNodeDataPacket) Name() string { return "GetNodeData" }
-func (*GetNodeDataPacket) Kind() byte   { return GetNodeDataMsg }
-
-func (*NodeDataPacket) Name() string { return "NodeData" }
-func (*NodeDataPacket) Kind() byte   { return NodeDataMsg }
-
-func (*GetReceiptsPacket) Name() string { return "GetReceipts" }
-func (*GetReceiptsPacket) Kind() byte   { return GetReceiptsMsg }
-
-func (*ReceiptsPacket) Name() string { return "Receipts" }
-func (*ReceiptsPacket) Kind() byte   { return ReceiptsMsg }
-
 func (*NewPooledTransactionHashesPacket) Name() string { return "NewPooledTransactionHashes" }
 func (*NewPooledTransactionHashesPacket) Kind() byte   { return NewPooledTransactionHashesMsg }
 
-func (*GetPooledTransactionsPacket) Name() string { return "GetPooledTransactions" }
-func (*GetPooledTransactionsPacket) Kind() byte   { return GetPooledTransactionsMsg }
+func (*GetPooledTransactionsRequest) Name() string { return "GetPooledTransactions" }
+func (*GetPooledTransactionsRequest) Kind() byte   { return GetPooledTransactionsMsg }
 
-func (*PooledTransactionsPacket) Name() string { return "PooledTransactions" }
-func (*PooledTransactionsPacket) Kind() byte   { return PooledTransactionsMsg }
+func (*PooledTransactionsResponse) Name() string { return "PooledTransactions" }
+func (*PooledTransactionsResponse) Kind() byte   { return PooledTransactionsMsg }
+
+func (*GetReceiptsRequest) Name() string { return "GetReceipts" }
+func (*GetReceiptsRequest) Kind() byte   { return GetReceiptsMsg }
+
+func (*ReceiptsResponse) Name() string { return "Receipts" }
+func (*ReceiptsResponse) Kind() byte   { return ReceiptsMsg }

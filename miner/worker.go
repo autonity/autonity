@@ -167,7 +167,7 @@ type intervalAdjust struct {
 // worker is the main object which takes care of submitting new work to consensus engine
 // and gathering the sealing result.
 type worker struct {
-	config      *Config
+	config      *MinerConfig
 	chainConfig *params.ChainConfig
 	engine      consensus.Engine
 	eth         Backend
@@ -226,7 +226,7 @@ type worker struct {
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 }
 
-func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
+func newWorker(config *MinerConfig, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
 	worker := &worker{
 		config:                  config,
 		chainConfig:             chainConfig,
@@ -585,7 +585,7 @@ func (w *worker) taskLoop() {
 					return
 				}
 
-				if metrics.Enabled {
+				if metrics.Enabled() {
 					now := time.Now()
 					SealWorkTimer.Update(now.Sub(sealStart))
 					SealWorkBg.Add(now.Sub(sealStart).Nanoseconds())
@@ -651,7 +651,7 @@ func (w *worker) resultLoop() {
 				w.eth.Logger().Error("Failed writing block to chain", "err", err)
 				continue
 			}
-			if metrics.Enabled {
+			if metrics.Enabled() {
 				now := time.Now()
 				PersistWorkTimer.Update(now.Sub(persistStart))
 				PersistWorkBg.Add(now.Sub(persistStart).Nanoseconds())
@@ -1010,7 +1010,7 @@ func (w *worker) commitWork(req *newWorkReq) {
 	if err != nil {
 		return
 	}
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		PrepareWorkTimer.Update(now.Sub(start))
 		PrepareWorkBg.Add(now.Sub(start).Nanoseconds())
@@ -1025,7 +1025,7 @@ func (w *worker) commitWork(req *newWorkReq) {
 	fillTxStart := time.Now()
 	// Fill pending transactions from the txpool
 	w.fillTransactions(req.interrupt, work)
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		FillWorkTimer.Update(now.Sub(fillTxStart))
 		FillWorkBg.Add(now.Sub(fillTxStart).Nanoseconds())
@@ -1033,7 +1033,7 @@ func (w *worker) commitWork(req *newWorkReq) {
 
 	commitWorkStart := time.Now()
 	w.commit(work, w.fullTaskHook, true, start)
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		CommitWorkTimer.Update(now.Sub(commitWorkStart))
 		CommitWorkBg.Add(now.Sub(commitWorkStart).Nanoseconds())
@@ -1062,14 +1062,14 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		if err != nil {
 			return err
 		}
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			now := time.Now()
 			FinalizeWorkTimer.Update(now.Sub(finalizeStart))
 			FinalizeWorkBg.Add(now.Sub(finalizeStart).Nanoseconds())
 		}
 		select {
 		case w.taskCh <- &task{env: env, block: block, createdAt: time.Now()}:
-			if metrics.Enabled {
+			if metrics.Enabled() {
 				TotalTaskPrepareBg.Add(time.Since(start).Nanoseconds())
 			}
 			w.eth.Logger().Info("Preparing new block proposal", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),

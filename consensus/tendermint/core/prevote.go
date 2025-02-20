@@ -42,7 +42,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		PrevoteSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 }

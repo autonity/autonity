@@ -53,7 +53,7 @@ func (c *Proposer) SendProposal(_ context.Context, block *types.Block) {
 	c.backend.SetProposedBlockHash(block.Hash())
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Sent", proposal)
 	c.Broadcaster().Broadcast(proposal)
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		ProposalSentTimer.Update(now.Sub(c.newRound))
 		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
@@ -105,7 +105,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	// current step could be either Proposal, Prevote, or Precommit.
 
 	// received a current round proposal
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		ProposalReceivedTimer.Update(now.Sub(c.newRound))
 		c.currBlockTimeStamp = time.Unix(int64(proposal.Block().Header().Time), 0)
@@ -125,7 +125,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		duration, err = c.backend.VerifyProposal(proposal.Block())
 	}
 
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		ProposalVerifiedTimer.Update(now.Sub(start))
 		ProposalVerifiedBg.Add(now.Sub(start).Nanoseconds())

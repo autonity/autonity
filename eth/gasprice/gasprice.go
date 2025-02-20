@@ -22,6 +22,8 @@ import (
 	"sort"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -29,7 +31,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 const sampleNumber = 3 // Number of transactions sampled in a block
@@ -123,10 +124,10 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 		for {
 			select {
 			case ev := <-headEvent:
-				if ev.Block.ParentHash() != lastHead {
+				if ev.Header.ParentHash != lastHead {
 					cache.Purge()
 				}
-				lastHead = ev.Block.Hash()
+				lastHead = ev.Header.Hash()
 			case <-chainHeadEventSub.Err():
 				return
 			}

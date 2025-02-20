@@ -489,7 +489,7 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		sealDelayBg.Add(delay.Nanoseconds())
 	}
 	select {

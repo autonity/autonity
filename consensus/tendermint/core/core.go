@@ -275,7 +275,7 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		CommitTimer.Update(now.Sub(start))
 		CommitBg.Add(now.Sub(start).Nanoseconds())
@@ -390,7 +390,7 @@ func (c *Core) setInitialState(r int64) {
 		c.futurePower = make(map[int64]*message.AggregatedPower)
 		c.futureRoundLock.Unlock()
 		// update height duration timer
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			now := time.Now()
 			HeightTimer.Update(now.Sub(c.newHeight))
 			HeightBg.Add(now.Sub(c.newHeight).Nanoseconds())
@@ -409,7 +409,7 @@ func (c *Core) setInitialState(r int64) {
 	c.setRound(r)
 
 	// update round duration timer
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		RoundTimer.Update(now.Sub(c.newRound))
 		RoundBg.Add(now.Sub(c.newRound).Nanoseconds())
@@ -419,7 +419,7 @@ func (c *Core) setInitialState(r int64) {
 
 func (c *Core) SetStep(ctx context.Context, step Step) {
 	now := time.Now()
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		switch {
 		// "standard" tendermint transitions
 		case c.step == PrecommitDone && step == Propose: // precommitdone --> propose

@@ -102,7 +102,7 @@ func shouldDisconnectSender(err error) bool {
 }
 
 func recordMessageProcessingTime(code uint8, start time.Time) {
-	if !metrics.Enabled {
+	if !metrics.Enabled() {
 		return
 	}
 	switch code {
@@ -159,7 +159,7 @@ eventLoop:
 			newCandidateBlockEvent := ev
 			pb := &newCandidateBlockEvent.NewCandidateBlock
 			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
-			if metrics.Enabled && c.IsProposer() {
+			if metrics.Enabled() && c.IsProposer() {
 				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
 			}
 		case ev, ok := <-c.messageSub.Chan():
@@ -170,7 +170,7 @@ eventLoop:
 			// An event arrived, process content
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if metrics.Enabled {
+				if metrics.Enabled() {
 					AggregatorCoreTransitBg.Add(time.Since(e.Posted).Nanoseconds())
 				}
 				msg := e.Message

@@ -153,7 +153,7 @@ func handleConsensusMsg[T any, PT interface {
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
 
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		defer func(start time.Time) {
 			getProcessMetric(p2pMsg.Code).Add(time.Since(start).Nanoseconds())
 		}(time.Now())

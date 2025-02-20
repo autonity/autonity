@@ -167,3 +167,7 @@ func (g *StandardBufferedGauge) Values() []GaugeValue {
 	defer g.Unlock()
 	return g.values
 }
+
+func GetIntPointer(val int) *int {
+	return &val
+}

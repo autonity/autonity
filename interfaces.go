@@ -128,6 +128,14 @@ type SyncProgress struct {
 	TxIndexRemainingBlocks uint64 // Number of blocks whose transactions are not indexed yet
 }
 
+// Done returns the indicator if the initial sync is finished or not.
+func (prog SyncProgress) Done() bool {
+	if prog.CurrentBlock < prog.HighestBlock {
+		return false
+	}
+	return prog.TxIndexRemainingBlocks == 0
+}
+
 // ChainSyncReader wraps access to the node's current sync status. If there's no
 // sync currently running, it returns nil.
 type ChainSyncReader interface {
