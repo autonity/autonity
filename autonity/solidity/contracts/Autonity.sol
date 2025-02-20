@@ -269,22 +269,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
     }
 
-    function finalizeInitialization(uint256 delta) onlyProtocol nonReentrant public {
-        // bond before applying staking operations
-        uint256 _count = validatorList.length;
-        for (uint i = 0; i < _count; i++) {
-            Validator storage _validator = validators[validatorList[i]];
-            _bond(_validator.nodeAddress, _validator.bondedStake, payable(_validator.treasury));
-            _validator.bondedStake = 0;
-        }
-
-        _stakingOperations();
-        (, , address[] memory _treasuries) = computeCommittee();
-        lastEpochTime = block.timestamp;
-        lastFinalizedBlock = block.number;
-        // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
-        blockEpochMap[block.number] = 0;
-        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, delta));
+    function finalizeInitialization(uint256 _delta) onlyProtocol nonReentrant public {
+        address[] memory _treasuries = _finalizeState(_delta);
 
         config.contracts.accountabilityContract.finalizeInitialization(committee);
         config.contracts.omissionAccountabilityContract.finalizeInitialization(epochInfos[epochID], _treasuries);
@@ -1193,7 +1179,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Returns the amount of unbonded Newton token held by the account (ERC-20).
     */
     function balanceOf(address _addr) external view virtual override returns (uint256) {
-        return accounts[_addr] + config.contracts.stakingPool.calculateReleasedStake(_addr)
+        uint256 _balance = accounts[_addr];
+        if (_addr == address(config.contracts.stakingPool)) {
+            return _balance - config.contracts.stakingPool.rejectedBonding() - config.contracts.stakingPool.releasedStakes();
+        }
+        return _balance + config.contracts.stakingPool.calculateReleasedStake(_addr)
                 + config.contracts.stakingPool.calculateRejectedBonding(_addr, epochID);
     }
 
@@ -1736,6 +1726,15 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         );
     }
 
+    function _genesisBonding() internal {
+        uint256 _count = validatorList.length;
+        for (uint i = 0; i < _count; i++) {
+            Validator storage _validator = validators[validatorList[i]];
+            _bond(_validator.nodeAddress, _validator.bondedStake, payable(_validator.treasury));
+            _validator.bondedStake = 0;
+        }
+    }
+
     /* Should be called at every epoch */
     function _stakingOperations() internal virtual {
         config.contracts.stakingPool.applyBonding(epochID);
@@ -1770,6 +1769,18 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // for `_epochID - 1` we have `epochInfos[_epochID-1].nextEpochBlock = epochInfos[_epochID].epochBlock < _blockOutOfRange`
         // so we can release unbonding requests from epoch `_epochID - 1` as it is out of the forbidden range
         return int256(_epochID) - 1;
+    }
+
+    function _finalizeState(uint256 _delta) internal returns (address[] memory _treasuries) {
+        // bond before applying staking operations
+        _genesisBonding();
+        _stakingOperations();
+        (, , _treasuries) = computeCommittee();
+        lastEpochTime = block.timestamp;
+        lastFinalizedBlock = block.number;
+        // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
+        blockEpochMap[block.number] = 0;
+        _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, config.protocol.epochPeriod, _delta));
     }
 
     function _inCommittee(address _validator) internal virtual view returns (bool) {

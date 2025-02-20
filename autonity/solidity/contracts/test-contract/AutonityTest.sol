@@ -27,6 +27,14 @@ contract AutonityTest is Autonity {
         lastFinalizedBlock = _height;
     }
 
+    function finalizeInitializationOnlyAutonity(uint256 _delta) public {
+        _finalizeState(_delta);
+    }
+
+    function applyGenesisBonding() public {
+        _genesisBonding();
+    }
+
     function applyStakingOperations() public {
         _stakingOperations();
     }

@@ -462,6 +462,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 break;
             }
             if (_request.validator != _validator) {
+                _topIndex++;
                 continue;
             }
             if (_request.selfDelegation) {
@@ -494,6 +495,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
         while (_processingIndex < _length) {
             _request = unbondingArray[_array[_processingIndex]];
             if (_request.validator != _validator) {
+                _processingIndex++;
                 continue;
             }
             if (_request.selfDelegation) {
@@ -501,6 +503,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
             }
             if (_request.epochID < _epochID) {
                 // these requests are already unlocked and liquid is already burnt
+                _processingIndex++;
                 continue;
             }
 
@@ -770,6 +773,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 break;
             }
             if (_request.validator != _validator) {
+                _topIndex++;
                 continue;
             }
             if (_request.selfDelegation) {
@@ -812,6 +816,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 break;
             }
             if (_request.validator != _validator) {
+                _processingIndex++;
                 continue;
             }
             if (_request.selfDelegation) {
