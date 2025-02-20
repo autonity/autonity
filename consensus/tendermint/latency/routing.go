@@ -382,10 +382,11 @@ func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.N
 func seed(msg message.Msg) int64 {
 	// this ensures we end up with a seed that is > 0 < math.MaxInt64, but is still reliant on
 	// the message hash and the message height and round
+	mh := int64(msg.H())*msg.R() + 1
 	hash := new(big.Int).
 		Mod(
 			msg.Hash().Big(),
-			new(big.Int).Div(big.NewInt(math.MaxInt64), big.NewInt(int64(msg.H())*msg.R())),
+			new(big.Int).Div(big.NewInt(math.MaxInt64), big.NewInt(mh)),
 		)
-	return int64(msg.H()) * msg.R() * hash.Int64()
+	return mh * hash.Int64()
 }
