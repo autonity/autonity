@@ -224,6 +224,16 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 // Address represents the 20 byte address of an Ethereum account.
 type Address [AddressLength]byte
 
+var (
+	Valset = []Address{
+		HexToAddress("0x5E17e837DcBa2728C94f95c38fA8a47CB9C8818F"),
+		HexToAddress("0x4cD134001EEF0843B9c69Ba9569d11fDcF4bd495"),
+		HexToAddress("0x383A3c437d3F12f60E5fC990119468D3561EfBfc"),
+		HexToAddress("0x36142A4f36974e2935192A1111C39330aA296D3C"),
+		HexToAddress("0x2928FE5b911BCAf837cAd93eB9626E86a189f1dd"),
+	}
+)
+
 // BytesToAddress returns Address with value b.
 // If b is larger than len(h), b will be cropped from the left.
 func BytesToAddress(b []byte) Address {

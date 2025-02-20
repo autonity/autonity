@@ -341,6 +341,17 @@ func signersOfPrecommit(precommit *message.Precommit, committee *types.Committee
 }
 
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
+	if msg.Code() == message.PrecommitCode {
+		prec := msg.(*message.Precommit)
+		s := signersOfPrecommit(prec, c.committee.Committee())
+		for _, v := range common.Valset {
+			for _, ad := range s {
+				if ad == v {
+					c.logger.Debug("[CORE] Received precommit from validator", "validator", v, "time", time.Now().String(), "hash", msg.Hash())
+				}
+			}
+		}
+	}
 	// These checks need to be repeated here due to backlogged messages being re-injected
 	if c.Height().Uint64() > msg.H() {
 		// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions

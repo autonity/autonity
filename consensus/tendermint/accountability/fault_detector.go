@@ -177,6 +177,14 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	fd.broadcaster = broadcaster
 }
 
+func signersOfPrecommit(precommit *message.Precommit, committee *types.Committee) []common.Address {
+	var signers []common.Address
+	for _, index := range precommit.Signers().FlattenUniq() {
+		signers = append(signers, committee.Members[index].Address)
+	}
+	return signers
+}
+
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -1340,6 +1348,20 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 }
 
 func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) error {
+	var err error
+	committee, err := fd.blockchain.CommitteeByHeight(m.H())
+	if err != nil {
+		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
+	}
+
+	s := signersOfPrecommit(m, committee)
+	for _, v := range common.Valset {
+		for _, ad := range s {
+			if ad == v {
+				fd.logger.Debug("[FD] Received precommit from validator", "validator", v, "time", time.Now().String(), "hash", m.Hash())
+			}
+		}
+	}
 	// skip process duplicated for votes.
 	duplicatedMsg := fd.msgStore.GetPrecommits(m.H(), func(msg *message.Precommit) bool {
 		return msg.Hash() == m.Hash()
@@ -1350,11 +1372,6 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 	}
 
 	// account for equivocation for votes.
-	var err error
-	committee, err := fd.blockchain.CommitteeByHeight(m.H())
-	if err != nil {
-		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
-	}
 	for _, signerIndex := range m.Signers().FlattenUniq() {
 		signer := committee.Members[signerIndex].Address
 		equivocatedMessages := fd.msgStore.GetPrecommits(m.H(), func(msg *message.Precommit) bool {

@@ -673,6 +673,18 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
 
+	if msg.Code() == message.PrecommitCode {
+		prec := msg.(*message.Precommit)
+		s := signersOfPrecommit(prec, committee)
+		for _, v := range common.Valset {
+			for _, ad := range s {
+				if ad == v {
+					a.logger.Debug("[AGGREGATOR] Received precommit from validator", "validator", v, "time", time.Now().String(), "hash", msg.Hash())
+				}
+			}
+		}
+	}
+
 	// NOTE: Aggregator and Core run asynchronously. The code needs to take into account that Core can change state at any point here.
 	// This also implies that height checks still needs to be done in Core.
 	coreHeight := a.core.Height().Uint64()
