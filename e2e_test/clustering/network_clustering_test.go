@@ -20,7 +20,7 @@ func TestClusteringHappyCase(t *testing.T) {
 	// mocked service with a local ping simulator which generates [0, 500) ms latency.
 	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
 
-	validators, err := e2e.Validators(t, 25, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 36, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	for _, validator := range validators {
@@ -39,7 +39,7 @@ func TestClusteringHappyCase(t *testing.T) {
 // TestClusteringResetAllNodes, it stops all nodes one by one, and start them again one by one. The network should recover to
 // mining.
 func TestClusteringResetAllNodes(t *testing.T) {
-	numOfNodes := 25
+	numOfNodes := 36
 	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
@@ -68,7 +68,7 @@ func TestClusteringResetAllNodes(t *testing.T) {
 // TestClusteringResetFNodes, it stops random selected F nodes one by one, and observe if the net is still mining, then it recover
 // F nodes one by one, the network should keep mining all the time.
 func TestClusteringResetFNodes(t *testing.T) {
-	numOfNodes := 25
+	numOfNodes := 36
 	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
@@ -126,7 +126,7 @@ func (r *NoRelayingSelector) SelectPeers(committee *types.Committee, msg message
 }
 
 func TestFFaultyRelayers(t *testing.T) {
-	numOfNodes := 25
+	numOfNodes := 36
 	pinger := NewSimulatedPinger()
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
@@ -151,7 +151,7 @@ func TestFFaultyRelayers(t *testing.T) {
 }
 
 func Test2FFaultyRelayers(t *testing.T) {
-	numOfNodes := 25
+	numOfNodes := 36
 	pinger := NewSimulatedPinger()
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
@@ -177,7 +177,7 @@ func Test2FFaultyRelayers(t *testing.T) {
 }
 
 func Test3FFaultyRelayers(t *testing.T) {
-	numOfNodes := 25
+	numOfNodes := 36
 	pinger := NewSimulatedPinger()
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
