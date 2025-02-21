@@ -18,7 +18,6 @@
 package fetcher
 
 import (
-	"errors"
 	"math/rand"
 	"time"
 
@@ -29,7 +28,6 @@ import (
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
-	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/trie"
 )
 
@@ -67,8 +65,6 @@ var (
 	bodyFilterOutMeter   = metrics.NewRegisteredMeter("eth/fetcher/block/filter/bodies/out", nil)
 )
 
-var errTerminated = errors.New("terminated")
-
 // HeaderRetrievalFn is a callback type for retrieving a header from the local chain.
 type HeaderRetrievalFn func(common.Hash) *types.Header
 
@@ -97,7 +93,7 @@ type headersInsertFn func(headers []*types.Header) (int, error)
 type chainInsertFn func(types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string, reason p2p.DiscReason)
+type peerDropFn func(id string)
 
 // blockAnnounce is the hash notification of the availability of a new block in the
 // network.
@@ -176,9 +172,9 @@ type BlockFetcher struct {
 	completing map[common.Hash]*blockAnnounce   // Blocks with headers, currently body-completing
 
 	// Block cache
-	queue  *prque.Prque                         // Queue containing the import operations (block number sorted)
-	queues map[string]int                       // Per peer block counts to prevent memory exhaustion
-	queued map[common.Hash]*blockOrHeaderInject // Set of already queued blocks (to dedup imports)
+	queue  *prque.Prque[int64, *blockOrHeaderInject] // Queue containing the import operations (block number sorted)
+	queues map[string]int                            // Per peer block counts to prevent memory exhaustion
+	queued map[common.Hash]*blockOrHeaderInject      // Set of already queued blocks (to dedup imports)
 
 	// Callbacks
 	getHeader      HeaderRetrievalFn  // Retrieves a header from the local chain
@@ -213,7 +209,7 @@ func NewBlockFetcher(light bool, getHeader HeaderRetrievalFn, getBlock blockRetr
 		fetching:       make(map[common.Hash]*blockAnnounce),
 		fetched:        make(map[common.Hash][]*blockAnnounce),
 		completing:     make(map[common.Hash]*blockAnnounce),
-		queue:          prque.New(nil),
+		queue:          prque.New[int64, *blockOrHeaderInject](nil),
 		queues:         make(map[string]int),
 		queued:         make(map[common.Hash]*blockOrHeaderInject),
 		getHeader:      getHeader,
@@ -352,7 +348,7 @@ func (f *BlockFetcher) loop() {
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
 		for !f.queue.Empty() {
-			op := f.queue.PopItem().(*blockOrHeaderInject)
+			op := f.queue.PopItem()
 			hash := op.hash()
 			if f.queueChangeHook != nil {
 				f.queueChangeHook(hash, false)
@@ -478,10 +474,21 @@ func (f *BlockFetcher) loop() {
 							}
 							defer req.Close()
 
-							res := <-resCh
-							res.Done <- nil
+							timeout := time.NewTimer(2 * fetchTimeout) // 2x leeway before dropping the peer
+							defer timeout.Stop()
 
-							f.FilterHeaders(peer, *res.Res.(*eth.BlockHeadersPacket), time.Now().Add(res.Time))
+							select {
+							case res := <-resCh:
+								res.Done <- nil
+								f.FilterHeaders(peer, *res.Res.(*eth.BlockHeadersRequest), time.Now())
+
+							case <-timeout.C:
+								// The peer didn't respond in time. The request
+								// was already rescheduled at this point, we were
+								// waiting for a catchup. With an unresponsive
+								// peer however, it's a protocol violation.
+								f.dropPeer(peer)
+							}
 						}(hash)
 					}
 				}(peer)
@@ -524,11 +531,23 @@ func (f *BlockFetcher) loop() {
 					}
 					defer req.Close()
 
-					res := <-resCh
-					res.Done <- nil
+					timeout := time.NewTimer(2 * fetchTimeout) // 2x leeway before dropping the peer
+					defer timeout.Stop()
 
-					txs, uncles := res.Res.(*eth.BlockBodiesPacket).Unpack()
-					f.FilterBodies(peer, txs, uncles, time.Now())
+					select {
+					case res := <-resCh:
+						res.Done <- nil
+						// Ignoring withdrawals here, since the block fetcher is not used post-merge.
+						txs, uncles := res.Res.(*eth.BlockBodiesResponse).Unpack()
+						f.FilterBodies(peer, txs, uncles, time.Now())
+
+					case <-timeout.C:
+						// The peer didn't respond in time. The request
+						// was already rescheduled at this point, we were
+						// waiting for a catchup. With an unresponsive
+						// peer however, it's a protocol violation.
+						f.dropPeer(peer)
+					}
 				}(peer, hashes)
 			}
 			// Schedule the next fetch if blocks are still pending
@@ -557,7 +576,7 @@ func (f *BlockFetcher) loop() {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
 						log.Trace("Invalid block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
-						f.dropPeer(announce.origin, p2p.DiscUselessPeer)
+						f.dropPeer(announce.origin)
 						f.forgetHash(hash)
 						continue
 					}
@@ -577,7 +596,7 @@ func (f *BlockFetcher) loop() {
 						announce.time = task.time
 
 						// If the block is empty (header only), short circuit into the final import queue
-						if header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash {
+						if header.TxHash == types.EmptyTxsHash && header.UncleHash == types.EmptyUncleHash {
 							log.Trace("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash())
 
 							block := types.NewBlockWithHeader(header)
@@ -664,13 +683,12 @@ func (f *BlockFetcher) loop() {
 						// Mark the body matched, reassemble if still unknown
 						matched = true
 						if f.getBlock(hash) == nil {
-							block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.uncles[i])
+							block := types.NewBlockWithHeader(announce.header).WithBody(types.Body{task.transactions[i], task.uncles[i]})
 							block.ReceivedAt = task.time
 							blocks = append(blocks, block)
 						} else {
 							f.forgetHash(hash)
 						}
-
 					}
 					if matched {
 						task.transactions = append(task.transactions[:i], task.transactions[i+1:]...)
@@ -787,13 +805,7 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 	log.Debug("Importing propagated header", "peer", peer, "number", header.Number, "hash", hash)
 
 	go func() {
-		defer func() {
-			select {
-			case <-f.quit:
-			case f.done <- hash:
-			}
-		}()
-
+		defer func() { f.done <- hash }()
 		// If the parent's unknown, abort insertion
 		parent := f.getHeader(header.ParentHash)
 		if parent == nil {
@@ -801,9 +813,9 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 			return
 		}
 		// Validate the header and if something went wrong, drop the peer
-		if err := f.verifyHeader(header); err != nil && err != consensus.ErrFutureTimestampBlock {
+		if err := f.verifyHeader(header); err != nil && err != consensus.ErrFutureBlock {
 			log.Debug("Propagated header verification failed", "peer", peer, "number", header.Number, "hash", hash, "err", err)
-			f.dropPeer(peer, p2p.DiscUselessPeer)
+			f.dropPeer(peer)
 			return
 		}
 		// Run the actual import and log any issues
@@ -827,12 +839,7 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 	// Run the import on a new thread
 	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {
-		defer func() {
-			select {
-			case <-f.quit:
-			case f.done <- hash:
-			}
-		}()
+		defer func() { f.done <- hash }()
 
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
@@ -847,13 +854,13 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 			blockBroadcastOutTimer.UpdateSince(block.ReceivedAt)
 			go f.broadcastBlock(block, true)
 
-		case consensus.ErrFutureTimestampBlock:
+		case consensus.ErrFutureBlock:
 			// Weird future block, don't fail, but neither propagate
 
 		default:
 			// Something went very wrong, drop the peer
 			log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
-			f.dropPeer(peer, p2p.DiscUselessPeer)
+			f.dropPeer(peer)
 			return
 		}
 		// Run the actual import and log any issues

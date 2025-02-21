@@ -1,4 +1,4 @@
-// Copyright 2020 The go-ethereum Authors
+// Copyright 2019 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -17,41 +17,50 @@
 package fetcher
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	mrand "math/rand"
 	"sort"
 	"time"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/lru"
 	"github.com/autonity/autonity/common/mclock"
-	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
-	mapset "github.com/deckarep/golang-set"
 )
 
 const (
-	// maxTxAnnounces is the maximum number of unique transaction a peer
+	// maxTxAnnounces is the maximum number of unique transactions a peer
 	// can announce in a short time.
 	maxTxAnnounces = 4096
 
-	// maxTxRetrievals is the maximum transaction number can be fetched in one
-	// request. The rationale to pick 256 is:
-	//   - In eth protocol, the softResponseLimit is 2MB. Nowadays according to
-	//     Etherscan the average transaction size is around 200B, so in theory
-	//     we can include lots of transaction in a single protocol packet.
-	//   - However the maximum size of a single transaction is raised to 128KB,
-	//     so pick a middle value here to ensure we can maximize the efficiency
-	//     of the retrieval and response size overflow won't happen in most cases.
+	// maxTxRetrievals is the maximum number of transactions that can be fetched
+	// in one request. The rationale for picking 256 is to have a reasonabe lower
+	// bound for the transferred data (don't waste RTTs, transfer more meaningful
+	// batch sizes), but also have an upper bound on the sequentiality to allow
+	// using our entire peerset for deliveries.
+	//
+	// This number also acts as a failsafe against malicious announces which might
+	// cause us to request more data than we'd expect.
 	maxTxRetrievals = 256
+
+	// maxTxRetrievalSize is the max number of bytes that delivered transactions
+	// should weigh according to the announcements. The 128KB was chosen to limit
+	// retrieving a maximum of one blob transaction at a time to minimize hogging
+	// a connection between two peers.
+	maxTxRetrievalSize = 128 * 1024
 
 	// maxTxUnderpricedSetSize is the size of the underpriced transaction set that
 	// is used to track recent transactions that have been dropped so we don't
 	// re-request them.
 	maxTxUnderpricedSetSize = 32768
+
+	// maxTxUnderpricedTimeout is the max time a transaction should be stuck in the underpriced set.
+	maxTxUnderpricedTimeout = 5 * time.Minute
 
 	// txArriveTimeout is the time allowance before an announced transaction is
 	// explicitly requested.
@@ -97,11 +106,28 @@ var (
 	txFetcherFetchingHashes = metrics.NewRegisteredGauge("eth/fetcher/transaction/fetching/hashes", nil)
 )
 
+var errTerminated = errors.New("terminated")
+
 // txAnnounce is the notification of the availability of a batch
 // of new transactions in the network.
 type txAnnounce struct {
 	origin string        // Identifier of the peer originating the notification
 	hashes []common.Hash // Batch of transaction hashes being announced
+	metas  []txMetadata  // Batch of metadata associated with the hashes
+}
+
+// txMetadata provides the extra data transmitted along with the announcement
+// for better fetch scheduling.
+type txMetadata struct {
+	kind byte   // Transaction consensus type
+	size uint32 // Transaction size in bytes
+}
+
+// txMetadataWithSeq is a wrapper of transaction metadata with an extra field
+// tracking the transaction sequence number.
+type txMetadataWithSeq struct {
+	txMetadata
+	seq uint64
 }
 
 // txRequest represents an in-flight transaction retrieval request destined to
@@ -117,10 +143,11 @@ type txRequest struct {
 type txDelivery struct {
 	origin string        // Identifier of the peer originating the notification
 	hashes []common.Hash // Batch of transaction hashes having been delivered
+	metas  []txMetadata  // Batch of metadata associated with the delivered hashes
 	direct bool          // Whether this is a direct reply or a broadcast
 }
 
-// txDrop is the notiication that a peer has disconnected.
+// txDrop is the notification that a peer has disconnected.
 type txDrop struct {
 	peer string
 }
@@ -138,7 +165,7 @@ type txDrop struct {
 // The invariants of the fetcher are:
 //   - Each tracked transaction (hash) must only be present in one of the
 //     three stages. This ensures that the fetcher operates akin to a finite
-//     state automata and there's do data leak.
+//     state automata and there's no data leak.
 //   - Each peer that announced transactions may be scheduled retrievals, but
 //     only ever one concurrently. This ensures we can immediately know what is
 //     missing from a reply and reschedule it.
@@ -148,18 +175,19 @@ type TxFetcher struct {
 	drop    chan *txDrop
 	quit    chan struct{}
 
-	underpriced mapset.Set // Transactions discarded as too cheap (don't re-fetch)
+	txSeq       uint64                             // Unique transaction sequence number
+	underpriced *lru.Cache[common.Hash, time.Time] // Transactions discarded as too cheap (don't re-fetch)
 
 	// Stage 1: Waiting lists for newly discovered transactions that might be
 	// broadcast without needing explicit request/reply round trips.
-	waitlist  map[common.Hash]map[string]struct{} // Transactions waiting for an potential broadcast
-	waittime  map[common.Hash]mclock.AbsTime      // Timestamps when transactions were added to the waitlist
-	waitslots map[string]map[common.Hash]struct{} // Waiting announcement sgroupped by peer (DoS protection)
+	waitlist  map[common.Hash]map[string]struct{}           // Transactions waiting for an potential broadcast
+	waittime  map[common.Hash]mclock.AbsTime                // Timestamps when transactions were added to the waitlist
+	waitslots map[string]map[common.Hash]*txMetadataWithSeq // Waiting announcements grouped by peer (DoS protection)
 
 	// Stage 2: Queue of transactions that waiting to be allocated to some peer
 	// to be retrieved directly.
-	announces map[string]map[common.Hash]struct{} // Set of announced transactions, grouped by origin peer
-	announced map[common.Hash]map[string]struct{} // Set of download locations, grouped by transaction hash
+	announces map[string]map[common.Hash]*txMetadataWithSeq // Set of announced transactions, grouped by origin peer
+	announced map[common.Hash]map[string]struct{}           // Set of download locations, grouped by transaction hash
 
 	// Stage 3: Set of transactions currently being retrieved, some which may be
 	// fulfilled and some rescheduled. Note, this step shares 'announces' from the
@@ -172,6 +200,7 @@ type TxFetcher struct {
 	hasTx    func(common.Hash) bool             // Retrieves a tx from the local txpool
 	addTxs   func([]*types.Transaction) []error // Insert a batch of transactions into local txpool
 	fetchTxs func(string, []common.Hash) error  // Retrieves a set of txs from a remote peer
+	dropPeer func(string)                       // Drops a peer in case of announcement violation
 
 	step  chan struct{} // Notification channel when the fetcher loop iterates
 	clock mclock.Clock  // Time wrapper to simulate in tests
@@ -180,14 +209,14 @@ type TxFetcher struct {
 
 // NewTxFetcher creates a transaction fetcher to retrieve transaction
 // based on hash announcements.
-func NewTxFetcher(hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error) *TxFetcher {
-	return NewTxFetcherForTests(hasTx, addTxs, fetchTxs, mclock.System{}, nil)
+func NewTxFetcher(hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error, dropPeer func(string)) *TxFetcher {
+	return NewTxFetcherForTests(hasTx, addTxs, fetchTxs, dropPeer, mclock.System{}, nil)
 }
 
 // NewTxFetcherForTests is a testing method to mock out the realtime clock with
 // a simulated version and the internal randomness with a deterministic one.
 func NewTxFetcherForTests(
-	hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error,
+	hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error, dropPeer func(string),
 	clock mclock.Clock, rand *mrand.Rand) *TxFetcher {
 	return &TxFetcher{
 		notify:      make(chan *txAnnounce),
@@ -196,16 +225,17 @@ func NewTxFetcherForTests(
 		quit:        make(chan struct{}),
 		waitlist:    make(map[common.Hash]map[string]struct{}),
 		waittime:    make(map[common.Hash]mclock.AbsTime),
-		waitslots:   make(map[string]map[common.Hash]struct{}),
-		announces:   make(map[string]map[common.Hash]struct{}),
+		waitslots:   make(map[string]map[common.Hash]*txMetadataWithSeq),
+		announces:   make(map[string]map[common.Hash]*txMetadataWithSeq),
 		announced:   make(map[common.Hash]map[string]struct{}),
 		fetching:    make(map[common.Hash]string),
 		requests:    make(map[string]*txRequest),
 		alternates:  make(map[common.Hash]map[string]struct{}),
-		underpriced: mapset.NewSet(),
+		underpriced: lru.NewCache[common.Hash, time.Time](maxTxUnderpricedSetSize),
 		hasTx:       hasTx,
 		addTxs:      addTxs,
 		fetchTxs:    fetchTxs,
+		dropPeer:    dropPeer,
 		clock:       clock,
 		rand:        rand,
 	}
@@ -213,42 +243,45 @@ func NewTxFetcherForTests(
 
 // Notify announces the fetcher of the potential availability of a new batch of
 // transactions in the network.
-func (f *TxFetcher) Notify(peer string, hashes []common.Hash) error {
+func (f *TxFetcher) Notify(peer string, types []byte, sizes []uint32, hashes []common.Hash) error {
 	// Keep track of all the announced transactions
 	txAnnounceInMeter.Mark(int64(len(hashes)))
 
 	// Skip any transaction announcements that we already know of, or that we've
-	// previously marked as cheap and discarded. This check is of course racey,
+	// previously marked as cheap and discarded. This check is of course racy,
 	// because multiple concurrent notifies will still manage to pass it, but it's
 	// still valuable to check here because it runs concurrent  to the internal
 	// loop, so anything caught here is time saved internally.
 	var (
-		unknowns               = make([]common.Hash, 0, len(hashes))
-		duplicate, underpriced int64
+		unknownHashes = make([]common.Hash, 0, len(hashes))
+		unknownMetas  = make([]txMetadata, 0, len(hashes))
+
+		duplicate   int64
+		underpriced int64
 	)
-	for _, hash := range hashes {
+	for i, hash := range hashes {
 		switch {
 		case f.hasTx(hash):
 			duplicate++
-
-		case f.underpriced.Contains(hash):
+		case f.isKnownUnderpriced(hash):
 			underpriced++
-
 		default:
-			unknowns = append(unknowns, hash)
+			unknownHashes = append(unknownHashes, hash)
+
+			// Transaction metadata has been available since eth68, and all
+			// legacy eth protocols (prior to eth68) have been deprecated.
+			// Therefore, metadata is always expected in the announcement.
+			unknownMetas = append(unknownMetas, txMetadata{kind: types[i], size: sizes[i]})
 		}
 	}
 	txAnnounceKnownMeter.Mark(duplicate)
 	txAnnounceUnderpricedMeter.Mark(underpriced)
 
 	// If anything's left to announce, push it into the internal loop
-	if len(unknowns) == 0 {
+	if len(unknownHashes) == 0 {
 		return nil
 	}
-	announce := &txAnnounce{
-		origin: peer,
-		hashes: unknowns,
-	}
+	announce := &txAnnounce{origin: peer, hashes: unknownHashes, metas: unknownMetas}
 	select {
 	case f.notify <- announce:
 		return nil
@@ -257,62 +290,93 @@ func (f *TxFetcher) Notify(peer string, hashes []common.Hash) error {
 	}
 }
 
+// isKnownUnderpriced reports whether a transaction hash was recently found to be underpriced.
+func (f *TxFetcher) isKnownUnderpriced(hash common.Hash) bool {
+	prevTime, ok := f.underpriced.Peek(hash)
+	if ok && prevTime.Before(time.Now().Add(-maxTxUnderpricedTimeout)) {
+		f.underpriced.Remove(hash)
+		return false
+	}
+	return ok
+}
+
 // Enqueue imports a batch of received transaction into the transaction pool
 // and the fetcher. This method may be called by both transaction broadcasts and
 // direct request replies. The differentiation is important so the fetcher can
-// re-shedule missing transactions as soon as possible.
+// re-schedule missing transactions as soon as possible.
 func (f *TxFetcher) Enqueue(peer string, txs []*types.Transaction, direct bool) error {
-	// Keep track of all the propagated transactions
-	if direct {
-		txReplyInMeter.Mark(int64(len(txs)))
-	} else {
-		txBroadcastInMeter.Mark(int64(len(txs)))
+	var (
+		inMeter          = txReplyInMeter
+		knownMeter       = txReplyKnownMeter
+		underpricedMeter = txReplyUnderpricedMeter
+		otherRejectMeter = txReplyOtherRejectMeter
+	)
+	if !direct {
+		inMeter = txBroadcastInMeter
+		knownMeter = txBroadcastKnownMeter
+		underpricedMeter = txBroadcastUnderpricedMeter
+		otherRejectMeter = txBroadcastOtherRejectMeter
 	}
+	// Keep track of all the propagated transactions
+	inMeter.Mark(int64(len(txs)))
+
 	// Push all the transactions into the pool, tracking underpriced ones to avoid
 	// re-requesting them and dropping the peer in case of malicious transfers.
 	var (
-		added       = make([]common.Hash, 0, len(txs))
-		duplicate   int64
-		underpriced int64
-		otherreject int64
+		added = make([]common.Hash, 0, len(txs))
+		metas = make([]txMetadata, 0, len(txs))
 	)
-	errs := f.addTxs(txs)
-	for i, err := range errs {
-		// Track the transaction hash if the price is too low for us.
-		// Avoid re-request this transaction when we receive another
-		// announcement.
-		if errors.Is(err, core.ErrUnderpriced) || errors.Is(err, core.ErrReplaceUnderpriced) {
-			for f.underpriced.Cardinality() >= maxTxUnderpricedSetSize {
-				f.underpriced.Pop()
+	// proceed in batches
+	for i := 0; i < len(txs); i += 128 {
+		end := i + 128
+		if end > len(txs) {
+			end = len(txs)
+		}
+		var (
+			duplicate   int64
+			underpriced int64
+			otherreject int64
+		)
+		batch := txs[i:end]
+
+		for j, err := range f.addTxs(batch) {
+			// Track the transaction hash if the price is too low for us.
+			// Avoid re-request this transaction when we receive another
+			// announcement.
+			if errors.Is(err, txpool.ErrUnderpriced) || errors.Is(err, txpool.ErrReplaceUnderpriced) {
+				f.underpriced.Add(batch[j].Hash(), batch[j].Time())
 			}
-			f.underpriced.Add(txs[i].Hash())
+			// Track a few interesting failure types
+			switch {
+			case err == nil: // Noop, but need to handle to not count these
+
+			case errors.Is(err, txpool.ErrAlreadyKnown):
+				duplicate++
+
+			case errors.Is(err, txpool.ErrUnderpriced) || errors.Is(err, txpool.ErrReplaceUnderpriced):
+				underpriced++
+
+			default:
+				otherreject++
+			}
+			added = append(added, batch[j].Hash())
+			metas = append(metas, txMetadata{
+				kind: batch[j].Type(),
+				size: uint32(batch[j].Size()),
+			})
 		}
-		// Track a few interesting failure types
-		switch {
-		case err == nil: // Noop, but need to handle to not count these
+		knownMeter.Mark(duplicate)
+		underpricedMeter.Mark(underpriced)
+		otherRejectMeter.Mark(otherreject)
 
-		case errors.Is(err, core.ErrAlreadyKnown):
-			duplicate++
-
-		case errors.Is(err, core.ErrUnderpriced) || errors.Is(err, core.ErrReplaceUnderpriced):
-			underpriced++
-
-		default:
-			otherreject++
+		// If 'other reject' is >25% of the deliveries in any batch, sleep a bit.
+		if otherreject > 128/4 {
+			time.Sleep(200 * time.Millisecond)
+			log.Debug("Peer delivering stale transactions", "peer", peer, "rejected", otherreject)
 		}
-		added = append(added, txs[i].Hash())
-	}
-	if direct {
-		txReplyKnownMeter.Mark(duplicate)
-		txReplyUnderpricedMeter.Mark(underpriced)
-		txReplyOtherRejectMeter.Mark(otherreject)
-	} else {
-		txBroadcastKnownMeter.Mark(duplicate)
-		txBroadcastUnderpricedMeter.Mark(underpriced)
-		txBroadcastOtherRejectMeter.Mark(otherreject)
 	}
 	select {
-	case f.cleanup <- &txDelivery{origin: peer, hashes: added, direct: direct}:
+	case f.cleanup <- &txDelivery{origin: peer, hashes: added, metas: metas, direct: direct}:
 		return nil
 	case <-f.quit:
 		return errTerminated
@@ -369,13 +433,25 @@ func (f *TxFetcher) loop() {
 			want := used + len(ann.hashes)
 			if want > maxTxAnnounces {
 				txAnnounceDOSMeter.Mark(int64(want - maxTxAnnounces))
+
 				ann.hashes = ann.hashes[:want-maxTxAnnounces]
+				ann.metas = ann.metas[:want-maxTxAnnounces]
 			}
 			// All is well, schedule the remainder of the transactions
-			idleWait := len(f.waittime) == 0
-			_, oldPeer := f.announces[ann.origin]
+			var (
+				idleWait   = len(f.waittime) == 0
+				_, oldPeer = f.announces[ann.origin]
+				hasBlob    bool
 
-			for _, hash := range ann.hashes {
+				// nextSeq returns the next available sequence number for tagging
+				// transaction announcement and also bump it internally.
+				nextSeq = func() uint64 {
+					seq := f.txSeq
+					f.txSeq++
+					return seq
+				}
+			)
+			for i, hash := range ann.hashes {
 				// If the transaction is already downloading, add it to the list
 				// of possible alternates (in case the current retrieval fails) and
 				// also account it for the peer.
@@ -384,9 +460,17 @@ func (f *TxFetcher) loop() {
 
 					// Stage 2 and 3 share the set of origins per tx
 					if announces := f.announces[ann.origin]; announces != nil {
-						announces[hash] = struct{}{}
+						announces[hash] = &txMetadataWithSeq{
+							txMetadata: ann.metas[i],
+							seq:        nextSeq(),
+						}
 					} else {
-						f.announces[ann.origin] = map[common.Hash]struct{}{hash: {}}
+						f.announces[ann.origin] = map[common.Hash]*txMetadataWithSeq{
+							hash: {
+								txMetadata: ann.metas[i],
+								seq:        nextSeq(),
+							},
+						}
 					}
 					continue
 				}
@@ -397,9 +481,17 @@ func (f *TxFetcher) loop() {
 
 					// Stage 2 and 3 share the set of origins per tx
 					if announces := f.announces[ann.origin]; announces != nil {
-						announces[hash] = struct{}{}
+						announces[hash] = &txMetadataWithSeq{
+							txMetadata: ann.metas[i],
+							seq:        nextSeq(),
+						}
 					} else {
-						f.announces[ann.origin] = map[common.Hash]struct{}{hash: {}}
+						f.announces[ann.origin] = map[common.Hash]*txMetadataWithSeq{
+							hash: {
+								txMetadata: ann.metas[i],
+								seq:        nextSeq(),
+							},
+						}
 					}
 					continue
 				}
@@ -407,27 +499,56 @@ func (f *TxFetcher) loop() {
 				// yet downloading, add the peer as an alternate origin in the
 				// waiting list.
 				if f.waitlist[hash] != nil {
+					// Ignore double announcements from the same peer. This is
+					// especially important if metadata is also passed along to
+					// prevent malicious peers flip-flopping good/bad values.
+					if _, ok := f.waitlist[hash][ann.origin]; ok {
+						continue
+					}
 					f.waitlist[hash][ann.origin] = struct{}{}
 
 					if waitslots := f.waitslots[ann.origin]; waitslots != nil {
-						waitslots[hash] = struct{}{}
+						waitslots[hash] = &txMetadataWithSeq{
+							txMetadata: ann.metas[i],
+							seq:        nextSeq(),
+						}
 					} else {
-						f.waitslots[ann.origin] = map[common.Hash]struct{}{hash: {}}
+						f.waitslots[ann.origin] = map[common.Hash]*txMetadataWithSeq{
+							hash: {
+								txMetadata: ann.metas[i],
+								seq:        nextSeq(),
+							},
+						}
 					}
 					continue
 				}
 				// Transaction unknown to the fetcher, insert it into the waiting list
 				f.waitlist[hash] = map[string]struct{}{ann.origin: {}}
-				f.waittime[hash] = f.clock.Now()
 
-				if waitslots := f.waitslots[ann.origin]; waitslots != nil {
-					waitslots[hash] = struct{}{}
+				// Assign the current timestamp as the wait time, but for blob transactions,
+				// skip the wait time since they are only announced.
+				if ann.metas[i].kind != types.BlobTxType {
+					f.waittime[hash] = f.clock.Now()
 				} else {
-					f.waitslots[ann.origin] = map[common.Hash]struct{}{hash: {}}
+					hasBlob = true
+					f.waittime[hash] = f.clock.Now() - mclock.AbsTime(txArriveTimeout)
+				}
+				if waitslots := f.waitslots[ann.origin]; waitslots != nil {
+					waitslots[hash] = &txMetadataWithSeq{
+						txMetadata: ann.metas[i],
+						seq:        nextSeq(),
+					}
+				} else {
+					f.waitslots[ann.origin] = map[common.Hash]*txMetadataWithSeq{
+						hash: {
+							txMetadata: ann.metas[i],
+							seq:        nextSeq(),
+						},
+					}
 				}
 			}
 			// If a new item was added to the waitlist, schedule it into the fetcher
-			if idleWait && len(f.waittime) > 0 {
+			if hasBlob || (idleWait && len(f.waittime) > 0) {
 				f.rescheduleWait(waitTimer, waitTrigger)
 			}
 			// If this peer is new and announced something already queued, maybe
@@ -449,9 +570,9 @@ func (f *TxFetcher) loop() {
 					f.announced[hash] = f.waitlist[hash]
 					for peer := range f.waitlist[hash] {
 						if announces := f.announces[peer]; announces != nil {
-							announces[hash] = struct{}{}
+							announces[hash] = f.waitslots[peer][hash]
 						} else {
-							f.announces[peer] = map[common.Hash]struct{}{hash: {}}
+							f.announces[peer] = map[common.Hash]*txMetadataWithSeq{hash: f.waitslots[peer][hash]}
 						}
 						delete(f.waitslots[peer], hash)
 						if len(f.waitslots[peer]) == 0 {
@@ -520,10 +641,28 @@ func (f *TxFetcher) loop() {
 
 		case delivery := <-f.cleanup:
 			// Independent if the delivery was direct or broadcast, remove all
-			// traces of the hash from internal trackers
-			for _, hash := range delivery.hashes {
+			// traces of the hash from internal trackers. That said, compare any
+			// advertised metadata with the real ones and drop bad peers.
+			for i, hash := range delivery.hashes {
 				if _, ok := f.waitlist[hash]; ok {
 					for peer, txset := range f.waitslots {
+						if meta := txset[hash]; meta != nil {
+							if delivery.metas[i].kind != meta.kind {
+								log.Warn("Announced transaction type mismatch", "peer", peer, "tx", hash, "type", delivery.metas[i].kind, "ann", meta.kind)
+								f.dropPeer(peer)
+							} else if delivery.metas[i].size != meta.size {
+								if math.Abs(float64(delivery.metas[i].size)-float64(meta.size)) > 8 {
+									log.Warn("Announced transaction size mismatch", "peer", peer, "tx", hash, "size", delivery.metas[i].size, "ann", meta.size)
+
+									// Normally we should drop a peer considering this is a protocol violation.
+									// However, due to the RLP vs consensus format messyness, allow a few bytes
+									// wiggle-room where we only warn, but don't drop.
+									//
+									// TODO(karalabe): Get rid of this relaxation when clients are proven stable.
+									f.dropPeer(peer)
+								}
+							}
+						}
 						delete(txset, hash)
 						if len(txset) == 0 {
 							delete(f.waitslots, peer)
@@ -533,6 +672,23 @@ func (f *TxFetcher) loop() {
 					delete(f.waittime, hash)
 				} else {
 					for peer, txset := range f.announces {
+						if meta := txset[hash]; meta != nil {
+							if delivery.metas[i].kind != meta.kind {
+								log.Warn("Announced transaction type mismatch", "peer", peer, "tx", hash, "type", delivery.metas[i].kind, "ann", meta.kind)
+								f.dropPeer(peer)
+							} else if delivery.metas[i].size != meta.size {
+								if math.Abs(float64(delivery.metas[i].size)-float64(meta.size)) > 8 {
+									log.Warn("Announced transaction size mismatch", "peer", peer, "tx", hash, "size", delivery.metas[i].size, "ann", meta.size)
+
+									// Normally we should drop a peer considering this is a protocol violation.
+									// However, due to the RLP vs consensus format messyness, allow a few bytes
+									// wiggle-room where we only warn, but don't drop.
+									//
+									// TODO(karalabe): Get rid of this relaxation when clients are proven stable.
+									f.dropPeer(peer)
+								}
+							}
+						}
 						delete(txset, hash)
 						if len(txset) == 0 {
 							delete(f.announces, peer)
@@ -558,7 +714,7 @@ func (f *TxFetcher) loop() {
 			// In case of a direct delivery, also reschedule anything missing
 			// from the original query
 			if delivery.direct {
-				// Mark the reqesting successful (independent of individual status)
+				// Mark the requesting successful (independent of individual status)
 				txRequestDoneMeter.Mark(int64(len(delivery.hashes)))
 
 				// Make sure something was pending, nuke it
@@ -607,7 +763,7 @@ func (f *TxFetcher) loop() {
 					delete(f.alternates, hash)
 					delete(f.fetching, hash)
 				}
-				// Something was delivered, try to rechedule requests
+				// Something was delivered, try to reschedule requests
 				f.scheduleFetches(timeoutTimer, timeoutTrigger, nil) // Partial delivery may enable others to deliver too
 			}
 
@@ -685,7 +841,7 @@ func (f *TxFetcher) loop() {
 // rescheduleWait iterates over all the transactions currently in the waitlist
 // and schedules the movement into the fetcher for the earliest.
 //
-// The method has a granularity of 'gatherSlack', since there's not much point in
+// The method has a granularity of 'txGatherSlack', since there's not much point in
 // spinning over all the transactions just to maybe find one that should trigger
 // a few ms earlier.
 func (f *TxFetcher) rescheduleWait(timer *mclock.Timer, trigger chan struct{}) {
@@ -698,7 +854,7 @@ func (f *TxFetcher) rescheduleWait(timer *mclock.Timer, trigger chan struct{}) {
 	for _, instance := range f.waittime {
 		if earliest > instance {
 			earliest = instance
-			if txArriveTimeout-time.Duration(now-earliest) < gatherSlack {
+			if txArriveTimeout-time.Duration(now-earliest) < txGatherSlack {
 				break
 			}
 		}
@@ -711,7 +867,7 @@ func (f *TxFetcher) rescheduleWait(timer *mclock.Timer, trigger chan struct{}) {
 // rescheduleTimeout iterates over all the transactions currently in flight and
 // schedules a cleanup run when the first would trigger.
 //
-// The method has a granularity of 'gatherSlack', since there's not much point in
+// The method has a granularity of 'txGatherSlack', since there's not much point in
 // spinning over all the transactions just to maybe find one that should trigger
 // a few ms earlier.
 //
@@ -719,7 +875,7 @@ func (f *TxFetcher) rescheduleWait(timer *mclock.Timer, trigger chan struct{}) {
 // should be rescheduled if some request is pending. In practice, a timeout will
 // cause the timer to be rescheduled every 5 secs (until the peer comes through or
 // disconnects). This is a limitation of the fetcher code because we don't trac
-// pending requests and timed out requests separatey. Without double tracking, if
+// pending requests and timed out requests separately. Without double tracking, if
 // we simply didn't reschedule the timer on all-timeout then the timer would never
 // be set again since len(request) > 0 => something's running.
 func (f *TxFetcher) rescheduleTimeout(timer *mclock.Timer, trigger chan struct{}) {
@@ -736,7 +892,7 @@ func (f *TxFetcher) rescheduleTimeout(timer *mclock.Timer, trigger chan struct{}
 		}
 		if earliest > req.time {
 			earliest = req.time
-			if txFetchTimeout-time.Duration(now-earliest) < gatherSlack {
+			if txFetchTimeout-time.Duration(now-earliest) < txGatherSlack {
 				break
 			}
 		}
@@ -769,25 +925,31 @@ func (f *TxFetcher) scheduleFetches(timer *mclock.Timer, timeout chan struct{}, 
 		if len(f.announces[peer]) == 0 {
 			return // continue in the for-each
 		}
-		hashes := make([]common.Hash, 0, maxTxRetrievals)
-		f.forEachHash(f.announces[peer], func(hash common.Hash) bool {
-			if _, ok := f.fetching[hash]; !ok {
-				// Mark the hash as fetching and stash away possible alternates
-				f.fetching[hash] = peer
-
-				if _, ok := f.alternates[hash]; ok {
-					panic(fmt.Sprintf("alternate tracker already contains fetching item: %v", f.alternates[hash]))
-				}
-				f.alternates[hash] = f.announced[hash]
-				delete(f.announced, hash)
-
-				// Accumulate the hash and stop if the limit was reached
-				hashes = append(hashes, hash)
-				if len(hashes) >= maxTxRetrievals {
-					return false // break in the for-each
-				}
+		var (
+			hashes = make([]common.Hash, 0, maxTxRetrievals)
+			bytes  uint64
+		)
+		f.forEachAnnounce(f.announces[peer], func(hash common.Hash, meta txMetadata) bool {
+			// If the transaction is already fetching, skip to the next one
+			if _, ok := f.fetching[hash]; ok {
+				return true
 			}
-			return true // continue in the for-each
+			// Mark the hash as fetching and stash away possible alternates
+			f.fetching[hash] = peer
+
+			if _, ok := f.alternates[hash]; ok {
+				panic(fmt.Sprintf("alternate tracker already contains fetching item: %v", f.alternates[hash]))
+			}
+			f.alternates[hash] = f.announced[hash]
+			delete(f.announced, hash)
+
+			// Accumulate the hash and stop if the limit was reached
+			hashes = append(hashes, hash)
+			if len(hashes) >= maxTxRetrievals {
+				return false // break in the for-each
+			}
+			bytes += uint64(meta.size)
+			return bytes < maxTxRetrievalSize
 		})
 		// If any hashes were allocated, request them from the peer
 		if len(hashes) > 0 {
@@ -832,27 +994,26 @@ func (f *TxFetcher) forEachPeer(peers map[string]struct{}, do func(peer string))
 	}
 }
 
-// forEachHash does a range loop over a map of hashes in production, but during
-// testing it does a deterministic sorted random to allow reproducing issues.
-func (f *TxFetcher) forEachHash(hashes map[common.Hash]struct{}, do func(hash common.Hash) bool) {
-	// If we're running production, use whatever Go's map gives us
-	if f.rand == nil {
-		for hash := range hashes {
-			if !do(hash) {
-				return
-			}
-		}
-		return
+// forEachAnnounce loops over the given announcements in arrival order, invoking
+// the do function for each until it returns false. We enforce an arrival
+// ordering to minimize the chances of transaction nonce-gaps, which result in
+// transactions being rejected by the txpool.
+func (f *TxFetcher) forEachAnnounce(announces map[common.Hash]*txMetadataWithSeq, do func(hash common.Hash, meta txMetadata) bool) {
+	type announcement struct {
+		hash common.Hash
+		meta txMetadata
+		seq  uint64
 	}
-	// We're running the test suite, make iteration deterministic
-	list := make([]common.Hash, 0, len(hashes))
-	for hash := range hashes {
-		list = append(list, hash)
+	// Process announcements by their arrival order
+	list := make([]announcement, 0, len(announces))
+	for hash, entry := range announces {
+		list = append(list, announcement{hash: hash, meta: entry.txMetadata, seq: entry.seq})
 	}
-	sortHashes(list)
-	rotateHashes(list, f.rand.Intn(len(list)))
-	for _, hash := range list {
-		if !do(hash) {
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].seq < list[j].seq
+	})
+	for i := range list {
+		if !do(list[i].hash, list[i].meta) {
 			return
 		}
 	}
@@ -862,29 +1023,6 @@ func (f *TxFetcher) forEachHash(hashes map[common.Hash]struct{}, do func(hash co
 // used in tests to simulate random map iteration but keep it deterministic.
 func rotateStrings(slice []string, n int) {
 	orig := make([]string, len(slice))
-	copy(orig, slice)
-
-	for i := 0; i < len(orig); i++ {
-		slice[i] = orig[(i+n)%len(orig)]
-	}
-}
-
-// sortHashes sorts a slice of hashes. This method is only used in tests in order
-// to simulate random map iteration but keep it deterministic.
-func sortHashes(slice []common.Hash) {
-	for i := 0; i < len(slice); i++ {
-		for j := i + 1; j < len(slice); j++ {
-			if bytes.Compare(slice[i][:], slice[j][:]) > 0 {
-				slice[i], slice[j] = slice[j], slice[i]
-			}
-		}
-	}
-}
-
-// rotateHashes rotates the contents of a slice by n steps. This method is only
-// used in tests to simulate random map iteration but keep it deterministic.
-func rotateHashes(slice []common.Hash, n int) {
-	orig := make([]common.Hash, len(slice))
 	copy(orig, slice)
 
 	for i := 0; i < len(orig); i++ {
