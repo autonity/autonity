@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
+	"math/big"
 	"sync"
 	"time"
 
@@ -249,7 +250,7 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 		}
 	}
 
-	latencyArray := r.pingPeers(pingTargets)
+	latencyArray := pingPeers(pingTargets)
 	for i, addr := range validators {
 		// set self latency to 0
 		if addr == r.self {
@@ -328,7 +329,7 @@ func (r *Router) loop(ctx context.Context) {
 	}
 }
 
-func (r *Router) pingPeers(targets []ping.Target) []uint8 {
+func pingPeers(targets []ping.Target) []uint8 {
 	channelArray := make([]chan time.Duration, len(targets))
 	for i, t := range targets {
 		resultCh := make(chan time.Duration, 1)
@@ -378,6 +379,7 @@ type Selector struct {
 }
 
 func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+
 	// if not part of the committee return
 	if member := committee.MemberByAddress(from); member == nil {
 		return nil
@@ -395,7 +397,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	// if we are sending the proposal, we should send it to every cluster
 	var recipients []types.CommitteeMember
 	if from == s.self {
-		for _, addr := range s.clusters.selectK(ClusterRedundancyParameter) {
+		for _, addr := range s.clusters.selectK(ClusterRedundancyParameter, seed(msg)) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
@@ -411,4 +413,16 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	}
 
 	return recipients
+}  
+
+func seed(msg message.Msg) int64 {
+	// this ensures we end up with a seed that is > 0 < math.MaxInt64, but is still reliant on
+	// the message hash and the message height and round
+	mh := int64(msg.H())*msg.R() + 1
+	hash := new(big.Int).
+		Mod(
+			msg.Hash().Big(),
+			new(big.Int).Div(big.NewInt(math.MaxInt64), big.NewInt(mh)),
+		)
+	return mh * hash.Int64()
 }

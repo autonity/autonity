@@ -89,14 +89,14 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 }
 
 func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
-	ret := make(autonity.GenesisBonds, 0, len(*ga))
+	ret := make([]autonity.GenesisBond, 0, len(*ga))
 	for addr, alloc := range *ga {
 		delegations := make([]autonity.Delegation, 0)
 		for validator, amount := range alloc.Bonds {
 			delegations = append(delegations, autonity.Delegation{Validator: validator, Amount: amount})
 		}
-		slices.SortFunc(delegations, func(a, b autonity.Delegation) bool {
-			return a.Validator.String() < b.Validator.String()
+		slices.SortFunc(delegations, func(a, b autonity.Delegation) int {
+			return strings.Compare(a.Validator.String(), b.Validator.String())
 		})
 		ret = append(ret, autonity.GenesisBond{
 			Staker:        addr,
@@ -104,8 +104,8 @@ func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
 			Bonds:         delegations,
 		})
 	}
-	slices.SortFunc(ret, func(a, b autonity.GenesisBond) bool {
-		return a.Staker.String() < b.Staker.String()
+	slices.SortFunc(ret, func(a, b autonity.GenesisBond) int {
+		return strings.Compare(a.Staker.String(), b.Staker.String())
 	})
 	return ret
 }

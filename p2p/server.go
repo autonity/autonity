@@ -415,6 +415,9 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 	srv.committee = newCommittee
 	srv.committeeSubset = newCommitteeSubset
 	srv.enodeMu.Unlock()
+	if srv.Net == Consensus {
+		srv.log.Error("new committee for listener", "local", srv.ListenAddr, "count", len(newCommitteeSubset))
+	}
 	// Check for peers that needs to be disconnected
 	for _, connectedPeer := range currentCommitteeSubset {
 		found := false
@@ -426,7 +429,9 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 		}
 		if !found {
 			go func(peer *enode.Node) {
-				log.Debug("Dropping node from static peers", "enode", peer.String(), "server", srv.Net.String())
+				if srv.Net == Consensus {
+					log.Error("Dropping node from static peers", "enode", peer.String(), "server", srv.Net.String())
+				}
 				srv.RemoveTrustedPeer(peer)
 				switch srv.Net {
 				case Execution:
@@ -890,6 +895,16 @@ running:
 				}
 				// disconnect superfluous peers
 				srv.enforcePeersLimit(peers)
+			} else if srv.Net == Consensus {
+				srv.log.Error(
+					"Error while addPeer Checks",
+					"err",
+					err,
+					"localnode",
+					srv.ListenAddr,
+					"remote",
+					c.fd.RemoteAddr().String(),
+				)
 			}
 			c.cont <- err
 

@@ -523,7 +523,7 @@ func (_ACU *ACU) DecodeError(data []byte, err error) error {
 
 	case "4ff799c5":
 		var e ACUInvalidBasketError
-		err := _ACU.abi.UnpackIntoInterface(&e, "InvalidBasket", data)
+		err := _ACU.abi.UnpackIntoInterface(&e, "InvalidBasket", data[4:])
 		if err != nil {
 			return err
 		}
@@ -531,7 +531,7 @@ func (_ACU *ACU) DecodeError(data []byte, err error) error {
 
 	case "3a7c0176":
 		var e ACUNoACUValueError
-		err := _ACU.abi.UnpackIntoInterface(&e, "NoACUValue", data)
+		err := _ACU.abi.UnpackIntoInterface(&e, "NoACUValue", data[4:])
 		if err != nil {
 			return err
 		}
@@ -539,7 +539,7 @@ func (_ACU *ACU) DecodeError(data []byte, err error) error {
 
 	case "82b42900":
 		var e ACUUnauthorizedError
-		err := _ACU.abi.UnpackIntoInterface(&e, "Unauthorized", data)
+		err := _ACU.abi.UnpackIntoInterface(&e, "Unauthorized", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9456,7 +9456,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "5173648d":
 		var e InflationControllerPRBMathMulDiv18OverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9464,7 +9464,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "63a05778":
 		var e InflationControllerPRBMathMulDivOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9472,7 +9472,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "9d581091":
 		var e InflationControllerPRBMathSD59x18ConvertOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9480,7 +9480,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "99474eeb":
 		var e InflationControllerPRBMathSD59x18ConvertUnderflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Underflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Convert_Underflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9488,7 +9488,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "9fe2b450":
 		var e InflationControllerPRBMathSD59x18DivInputTooSmallError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_InputTooSmall", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_InputTooSmall", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9496,7 +9496,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "d49c26b3":
 		var e InflationControllerPRBMathSD59x18DivOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Div_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9504,7 +9504,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "0360d028":
 		var e InflationControllerPRBMathSD59x18Exp2InputTooBigError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp2_InputTooBig", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp2_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9512,7 +9512,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "ca7ec0c5":
 		var e InflationControllerPRBMathSD59x18ExpInputTooBigError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp_InputTooBig", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Exp_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9520,7 +9520,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "a6070c25":
 		var e InflationControllerPRBMathSD59x18MulInputTooSmallError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_InputTooSmall", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_InputTooSmall", data[4:])
 		if err != nil {
 			return err
 		}
@@ -9528,7 +9528,7 @@ func (_InflationController *InflationController) DecodeError(data []byte, err er
 
 	case "120b5b43":
 		var e InflationControllerPRBMathSD59x18MulOverflowError
-		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_Overflow", data)
+		err := _InflationController.abi.UnpackIntoInterface(&e, "PRBMath_SD59x18_Mul_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13775,7 +13775,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "13be252b":
 		var e StabilizationInsufficientAllowanceError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientAllowance", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientAllowance", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13783,7 +13783,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "3a23d825":
 		var e StabilizationInsufficientCollateralError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientCollateral", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientCollateral", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13791,7 +13791,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "cd1c8867":
 		var e StabilizationInsufficientPaymentError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientPayment", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InsufficientPayment", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13799,7 +13799,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "2c5211c6":
 		var e StabilizationInvalidAmountError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidAmount", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidAmount", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13807,7 +13807,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "e6bd4479":
 		var e StabilizationInvalidDebtPositionError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidDebtPosition", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidDebtPosition", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13815,7 +13815,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "613970e0":
 		var e StabilizationInvalidParameterError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidParameter", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidParameter", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13823,7 +13823,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "00bfc921":
 		var e StabilizationInvalidPriceError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidPrice", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "InvalidPrice", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13831,7 +13831,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "62294153":
 		var e StabilizationLiquidatableError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "Liquidatable", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "Liquidatable", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13839,7 +13839,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "8aa5baf3":
 		var e StabilizationNoDebtPositionError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "NoDebtPosition", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "NoDebtPosition", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13847,7 +13847,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "ddeb79ba":
 		var e StabilizationNotLiquidatableError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "NotLiquidatable", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "NotLiquidatable", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13855,7 +13855,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "5173648d":
 		var e StabilizationPRBMathMulDiv18OverflowError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv18_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13863,7 +13863,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "63a05778":
 		var e StabilizationPRBMathMulDivOverflowError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_MulDiv_Overflow", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13871,7 +13871,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "b3b6ba1f":
 		var e StabilizationPRBMathUD60x18Exp2InputTooBigError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp2_InputTooBig", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp2_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13879,7 +13879,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "1af63aca":
 		var e StabilizationPRBMathUD60x18ExpInputTooBigError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp_InputTooBig", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PRBMath_UD60x18_Exp_InputTooBig", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13887,7 +13887,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "cb08be81":
 		var e StabilizationPriceUnavailableError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "PriceUnavailable", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "PriceUnavailable", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13895,7 +13895,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "90b8ec18":
 		var e StabilizationTransferFailedError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "TransferFailed", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "TransferFailed", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13903,7 +13903,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "82b42900":
 		var e StabilizationUnauthorizedError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "Unauthorized", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "Unauthorized", data[4:])
 		if err != nil {
 			return err
 		}
@@ -13911,7 +13911,7 @@ func (_Stabilization *Stabilization) DecodeError(data []byte, err error) error {
 
 	case "7c946ed7":
 		var e StabilizationZeroValueError
-		err := _Stabilization.abi.UnpackIntoInterface(&e, "ZeroValue", data)
+		err := _Stabilization.abi.UnpackIntoInterface(&e, "ZeroValue", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15825,7 +15825,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "2c5211c6":
 		var e SupplyControlInvalidAmountError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidAmount", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidAmount", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15833,7 +15833,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "9c8d2cd2":
 		var e SupplyControlInvalidRecipientError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidRecipient", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "InvalidRecipient", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15841,7 +15841,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "82b42900":
 		var e SupplyControlUnauthorizedError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "Unauthorized", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "Unauthorized", data[4:])
 		if err != nil {
 			return err
 		}
@@ -15849,7 +15849,7 @@ func (_SupplyControl *SupplyControl) DecodeError(data []byte, err error) error {
 
 	case "7c946ed7":
 		var e SupplyControlZeroValueError
-		err := _SupplyControl.abi.UnpackIntoInterface(&e, "ZeroValue", data)
+		err := _SupplyControl.abi.UnpackIntoInterface(&e, "ZeroValue", data[4:])
 		if err != nil {
 			return err
 		}

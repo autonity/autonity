@@ -36,7 +36,7 @@ import (
 	tracers2 "github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/eth/tracers/js/internal/tracers"
 	"github.com/autonity/autonity/log"
-	"gopkg.in/olebedev/go-duktape.v3"
+	"github.com/nayarsystems/go-duktape"
 )
 
 // camel converts a snake cased input string into a camel cased output.
@@ -842,7 +842,6 @@ func (jst *jsTracer) GetResult() (json.RawMessage, error) {
 	}
 	// Clean up the JavaScript environment
 	jst.vm.DestroyHeap()
-	jst.vm.Destroy()
 
 	return result, jst.err
 }

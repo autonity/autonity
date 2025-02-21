@@ -7,7 +7,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/internal/testrand"
 )
 
 func TestRouter(t *testing.T) {
@@ -20,5 +22,18 @@ func TestRouter(t *testing.T) {
 
 		router := NewRouter(broadcaster, key)
 		require.NotNil(t, router.self)
+	})
+
+	t.Run("Test cluster seed does not panic", func(t *testing.T) {
+		msg := message.NewFakePropose(message.Fake{
+			FakeRound:  0,
+			FakeHeight: 0,
+			FakeHash:   testrand.Hash(),
+		})
+
+		require.NotPanics(t, func() {
+			s := seed(msg)
+			require.NotZero(t, s)
+		})
 	})
 }

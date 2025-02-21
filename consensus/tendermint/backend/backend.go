@@ -154,7 +154,6 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	//router *latency.Router
 	router interfaces.Router
 
 	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
