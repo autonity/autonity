@@ -63,8 +63,6 @@ type Receipt struct {
 	ContractAddress   common.Address `json:"contractAddress"`
 	GasUsed           uint64         `json:"gasUsed" gencodec:"required"`
 	EffectiveGasPrice *big.Int       `json:"effectiveGasPrice"` // required, but tag omitted for backwards compatibility
-	BlobGasUsed       uint64         `json:"blobGasUsed,omitempty"`
-	BlobGasPrice      *big.Int       `json:"blobGasPrice,omitempty"`
 
 	// Inclusion information: These fields provide information about the inclusion of the
 	// transaction corresponding to this receipt.

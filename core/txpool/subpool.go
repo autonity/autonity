@@ -81,10 +81,8 @@ type AddressReserver func(addr common.Address, reserve bool) error
 type PendingFilter struct {
 	MinTip  *uint256.Int // Minimum miner tip required to include a transaction
 	BaseFee *uint256.Int // Minimum 1559 basefee needed to include a transaction
-	BlobFee *uint256.Int // Minimum 4844 blobfee needed to include a blob transaction
 
 	OnlyPlainTxs bool // Return only plain EVM transactions (peer-join announces, block space filling)
-	OnlyBlobTxs  bool // Return only blob transactions (block blob-space filling)
 }
 
 // SubPool represents a specialized transaction pool that lives on its own (e.g.

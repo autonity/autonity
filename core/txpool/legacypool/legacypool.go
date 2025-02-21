@@ -494,11 +494,6 @@ func (pool *LegacyPool) ContentFrom(addr common.Address) ([]*types.Transaction, 
 // The transactions can also be pre-filtered by the dynamic fee components to
 // reduce allocations and load on downstream subsystems.
 func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
-	// If only blob transactions are requested, this pool is unsuitable as it
-	// contains none, don't even bother.
-	if filter.OnlyBlobTxs {
-		return nil
-	}
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -537,7 +532,6 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 					GasFeeCap: uint256.MustFromBig(txs[i].GasFeeCap()),
 					GasTipCap: uint256.MustFromBig(txs[i].GasTipCap()),
 					Gas:       txs[i].Gas(),
-					BlobGas:   txs[i].BlobGas(),
 				}
 			}
 			pending[addr] = lazies
@@ -1213,7 +1207,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		pool.demoteUnexecutables()
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
-				pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead)
+				pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead, nil)
 				pool.priced.SetBaseFee(pendingBaseFee)
 			} else {
 				pool.priced.Reheap()
@@ -1347,7 +1341,7 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
-	core.SenderCacher().Recover(pool.signer, reinject)
+	pool.chain.SenderCacher.Recover(pool.signer, reinject)
 	pool.addTxsLocked(reinject)
 }
 

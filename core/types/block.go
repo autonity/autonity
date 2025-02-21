@@ -797,7 +797,7 @@ func (b *Block) WithSeal(header *Header) *Block {
 // provided body.
 func (b *Block) WithBody(body Body) *Block {
 	block := &Block{
-		header:       CopyHeader(b.header),
+		header:       b.header,
 		transactions: slices.Clone(body.Transactions),
 		uncles:       make([]*Header, len(body.Uncles)),
 	}
