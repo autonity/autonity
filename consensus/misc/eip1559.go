@@ -91,8 +91,12 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter Bas
 		baseFeeDelta := x.Div(y, baseFeeChangeDenominator)
 
 		minBaseFee := big.NewInt(0)
+		var err error
 		if feeGetter != nil {
-			minBaseFee, _ = feeGetter.MinBaseFeeByNumber(parent.Number.Uint64())
+			minBaseFee, err = feeGetter.MinBaseFeeByNumber(parent.Number.Uint64())
+			if err != nil {
+				panic(fmt.Sprintf("could not fetch minimum base fee. height: %d, err: %d", parent.Number.Uint64(), err))
+			}
 		}
 		return math.BigMax(
 			x.Sub(parent.BaseFee, baseFeeDelta),
