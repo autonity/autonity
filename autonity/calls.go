@@ -89,7 +89,6 @@ func AutonityContractCall(autonityAbi *abi.ABI, evm *vm.EVM, function string, re
 		log.Error("Could not unpack returned value", "function", function)
 		return usedGas, err
 	}
-
 	return usedGas, nil
 }
 
@@ -213,12 +212,14 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 }
 
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, error) {
-	var updateReady bool
-	var epochEnded bool
-	var committeeMembers []types.CommitteeMember
-	previousEpochBlock := new(big.Int)
-	nextEpochBlock := new(big.Int)
-	delta := new(big.Int)
+	var (
+		updateReady        bool
+		epochEnded         bool
+		committeeMembers   []types.CommitteeMember
+		previousEpochBlock = new(big.Int)
+		nextEpochBlock     = new(big.Int)
+		delta              = new(big.Int)
+	)
 	usedGas, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
@@ -229,7 +230,6 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	if err != nil {
 		return false, nil, err
 	}
-
 	if !epochEnded {
 		return updateReady, nil, nil
 	}
@@ -240,14 +240,12 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error())
 	}
-
 	epoch := &types.Epoch{
 		PreviousEpochBlock: previousEpochBlock,
 		NextEpochBlock:     nextEpochBlock,
 		Committee:          committee,
 		Delta:              delta,
 	}
-
 	return updateReady, epoch, nil
 }
 

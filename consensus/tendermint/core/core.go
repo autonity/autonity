@@ -368,14 +368,14 @@ func (c *Core) setInitialState(r int64) {
 	// Start of new height where round is 0
 	if r == 0 {
 		lastBlockMined := c.backend.HeadBlock()
-		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		c.committee.SetLastHeader(lastBlockMined.Header())
+		c.setHeight(new(big.Int).Add(lastBlockMined.Number, common.Big1))
+		c.committee.SetLastHeader(lastBlockMined)
 		epoch, err := c.Backend().EpochByHeight(c.Height().Uint64())
 		if err != nil {
 			panic(err)
 		}
 		if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
-			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
+			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number)
 			c.epoch = epoch
 			c.committee.SetCommittee(epoch.Committee)
 		}

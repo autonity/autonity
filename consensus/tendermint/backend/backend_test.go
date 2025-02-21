@@ -428,17 +428,15 @@ func TestSyncPeer(t *testing.T) {
 func TestBackendLastCommittedProposal(t *testing.T) {
 	t.Run("return current block", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{})
-
 		b := &Backend{
 			database: rawdb.NewMemoryDatabase(),
-			currentBlock: func() *types.Block {
-				return block
+			currentBlock: func() *types.Header {
+				return block.Header()
 			},
 			logger: log.New("backend", "test", "id", 0),
 		}
-
 		bl := b.HeadBlock()
-		if !reflect.DeepEqual(bl, block) {
+		if !reflect.DeepEqual(bl, block.Header()) {
 			t.Fatalf("expected %v, got %v", block, bl)
 		}
 	})

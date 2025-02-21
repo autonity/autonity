@@ -420,24 +420,21 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
 // Finalize doesn't modify the passed header.
-func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	_ []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
-
-	receipt, epochInfo, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
+func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, body *types.Body, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
+	state.SetTxContext(common.ACHash(header.Number), len(body.Transactions))
+	receipt, epochInfo, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
-		return nil, nil, err
+		sb.logger.Error("Autonity Contract finalize", "err", err)
 	}
-
-	return receipt, epochInfo, nil
+	state.Finalise(true)
+	return receipt, epochInfo, err
 }
 
 // FinalizeAndAssemble call Finalize to compute post transaction state modifications
 // and assembles the final block.
-func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
-
-	statedb.Prepare(common.ACHash(header.Number), len(txs))
-	receipt, epochInfo, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
+// todo(youssef): can we avoid using a pointer for the receipts?
+func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, body *types.Body, receipts *[]*types.Receipt) (*types.Block, error) {
+	receipt, epochInfo, err := sb.Finalize(chain, header, statedb, body, *receipts)
 	if err != nil {
 		return nil, err
 	}
@@ -446,27 +443,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 	header.Epoch = epochInfo
-
-	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
-}
-
-// AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
-// committee field containing the list of committee members allowed to participate in consensus for the next block.
-func (sb *Backend) AutonityContractFinalize(
-	header *types.Header,
-	_ consensus.ChainReader,
-	state *state.StateDB,
-	_ []*types.Transaction,
-	_ []*types.Receipt,
-) (*types.Receipt, *types.Epoch, error) {
-
-	receipt, epochInfo, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
-	if err != nil {
-		sb.logger.Error("Autonity Contract finalize", "err", err)
-		return nil, nil, err
-	}
-
-	return receipt, epochInfo, nil
+	return types.NewBlock(header, body, *receipts, new(trie.Trie)), nil
 }
 
 // Seal generates a new block for the given input block with the local miner's
@@ -636,7 +613,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	}()
 
 	// re-initialize jailed metadata from disk
-	currentHeader := sb.blockchain.CurrentBlock().Header()
+	currentHeader := sb.blockchain.CurrentBlock()
 	state, err := sb.blockchain.StateAt(currentHeader.Root)
 	if err != nil {
 		sb.logger.Crit("Could not retrieve state at head block", "err", err)

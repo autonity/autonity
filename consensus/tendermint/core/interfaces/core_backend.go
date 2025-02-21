@@ -43,7 +43,7 @@ type Backend interface {
 	HandleUnhandledMsgs(ctx context.Context)
 
 	// HeadBlock retrieves latest committed proposal and the address of proposer
-	HeadBlock() *types.Block
+	HeadBlock() *types.Header
 
 	Post(ev any)
 
