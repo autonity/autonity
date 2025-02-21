@@ -91,10 +91,10 @@ func New(
 
 	var pinger ping2.Pinger
 	var selector latency.PeerSelector
-	if services.Pinger != nil {
+	if services != nil && services.Pinger != nil {
 		pinger = services.Pinger
 	}
-	if services.Selector != nil {
+	if services != nil && services.Selector != nil {
 		selector = services.Selector
 	}
 	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey, pinger, selector)
