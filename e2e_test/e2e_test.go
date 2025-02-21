@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"testing"
 	"text/tabwriter"
 	"time"
+
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
@@ -942,11 +943,17 @@ func TestLargeNetwork(t *testing.T) {
 	//Set the root logger level for everything else.
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// Fast epoch to see changes in committee reflected fast
-	params.TestAutonityContractConfig.EpochPeriod = 5
+	// too short epoch can cause validators be omission faulty, 20 is relatively safe
+	params.TestAutonityContractConfig.EpochPeriod = 20
+	params.DefaultOmissionAccountabilityConfig.Delta = 5
+	params.DefaultOmissionAccountabilityConfig.LookbackWindow = 10
+	params.TestOracleConfig.VotePeriod = 10
 	// total peers to be deployed
-	const peerCount = 150
+	const peerCount = 40
 	// peers above max committee are participants
-	const maxCommittee = 50
+	const maxCommittee = 38
+	var newMaxCommittee = maxCommittee
+	var epoch = params.TestAutonityContractConfig.EpochPeriod
 
 	//
 	//----End config -------------
@@ -985,17 +992,27 @@ func TestLargeNetwork(t *testing.T) {
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 2, 1, ' ', 0)
 	tickCount := 0
+	done := make(chan struct{})
 	go func() {
 		for range ticker.C {
 			tickCount++
 			fmt.Println("-------------", tickCount, "---------------")
 
-			if tickCount%10 == 4 {
-				newMaxCommittee := rand.Intn(50) + 1
+			select {
+			case <-done:
+				return
+			default:
+			}
+
+			if tickCount%int(epoch) == int(epoch-1) {
+				newMaxCommittee = 1
+				fmt.Println("setting new committee size:", newMaxCommittee)
 				autonityContract.SetCommitteeSize(transactOpts, big.NewInt(int64(newMaxCommittee)))
-				fmt.Println("new committee size:", newMaxCommittee)
 			}
 			maxHeight, committee := getNetworkState()
+			if committee == nil {
+				continue
+			}
 			fmt.Println("max height:", maxHeight)
 			fmt.Println("go routines:", runtime.NumGoroutine())
 			var peersBuf strings.Builder
@@ -1028,8 +1045,16 @@ func TestLargeNetwork(t *testing.T) {
 		}
 	}()
 
-	err = network.WaitToMineNBlocks(20, 30, false)
+	err = network.WaitToMineNBlocks(120, 180, false)
+	close(done)
 	require.NoError(t, err)
+	_, committee := getNetworkState()
+	for _, node := range network {
+		if inCommittee(node.Address, committee) {
+			acnCount := node.ConsensusServer().PeerCount()
+			require.Equal(t, newMaxCommittee-1, uint64(acnCount))
+		}
+	}
 }
 
 func TestLoad(t *testing.T) {
