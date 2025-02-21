@@ -25,7 +25,7 @@ env:
   # purpose of defining them here.
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
-  GO_VERSION: "1.21" # 1.15 seems to cause tests to fail
+  GO_VERSION: "1.24.0"
   TRUFFLE_TESTS: |
     [
       "autonity.js",
@@ -52,6 +52,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -70,7 +73,6 @@ jobs:
         if: steps.gocache.outputs.cache-hit != 'true'
         run: |
           go mod download -x
-          go install github.com/influxdata/pkg-config@latest
           make autonity
           go build ./...
           go test -c ./eth
@@ -102,6 +104,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -124,6 +129,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
       - uses: actions/checkout@v3
       - name: Go cache
         uses: actions/cache@v4
@@ -151,6 +158,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
       - uses: actions/checkout@v3
       - name: Go cache
         uses: actions/cache@v4
@@ -203,6 +212,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -236,6 +248,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -267,6 +282,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
         with:
           fetch-depth: '2'
@@ -292,6 +310,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -303,7 +324,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: go install github.com/influxdata/pkg-config@latest && make all
+        run: make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=0 END=4
@@ -317,6 +338,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -328,7 +352,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: go install github.com/influxdata/pkg-config@latest && make all
+        run: make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=4 END=8
@@ -342,6 +366,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -353,7 +380,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: go install github.com/influxdata/pkg-config@latest && make all
+        run: make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=8 END=13
@@ -367,6 +394,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -378,7 +408,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: go install github.com/influxdata/pkg-config@latest && make all
+        run: make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=13 END=17
@@ -392,6 +422,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -403,7 +436,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: go install github.com/influxdata/pkg-config@latest && make all
+        run: make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=17 END=22
@@ -417,6 +450,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
         id: go
 
+      - name: Install pkg-config
+        run: go install github.com/influxdata/pkg-config@latest
+
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -428,7 +464,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
 
       - name: Build
-        run: go install github.com/influxdata/pkg-config@latest && make all
+        run: make all
 
       - name: Run docker e2e tests
         run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=22 END=26

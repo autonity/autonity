@@ -533,38 +533,38 @@ func TestValidation(t *testing.T) {
 
 	// A
 	s.increment(0)
-	t.Logf(s.String())
+	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// A + B
 	s.increment(1)
-	t.Logf(s.String())
+	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// A + B + C
 	s.increment(2)
-	t.Logf(s.String())
+	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// A + B + C + D
 	s.increment(3)
-	t.Logf(s.String())
+	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// 2A + B + C + D
 	s.increment(0)
-	t.Logf(s.String())
+	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// 3A + B + C + D
 	s.increment(0)
-	t.Logf(s.String())
+	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// 4A + 2B + C + D
 	s.increment(0)
 	s.increment(1)
-	t.Logf(s.String())
+	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	s.Coefficients = append(s.Coefficients, []uint16{0xca, 0xfe}...)
