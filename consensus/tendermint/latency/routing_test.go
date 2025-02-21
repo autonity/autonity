@@ -20,7 +20,7 @@ func TestRouter(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 
-		router := NewRouter(broadcaster, key)
+		router := NewRouter(broadcaster, key, nil, nil)
 		require.NotNil(t, router.self)
 	})
 
