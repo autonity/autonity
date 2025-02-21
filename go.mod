@@ -49,6 +49,7 @@ require (
 	github.com/holiman/uint256 v1.3.2
 	github.com/huin/goupnp v1.0.2
 	github.com/influxdata/influxdb v1.8.3
+	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/influxdata/influxdb-client-go/v2 v2.4.0
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
 	github.com/jackpal/go-nat-pmp v1.0.2

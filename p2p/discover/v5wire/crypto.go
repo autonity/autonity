@@ -25,10 +25,11 @@ import (
 	"fmt"
 	"hash"
 
+	"golang.org/x/crypto/hkdf"
+
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
-	"golang.org/x/crypto/hkdf"
 )
 
 const (
@@ -129,9 +130,7 @@ func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n
 	sec := session{writeKey: make([]byte, aesKeySize), readKey: make([]byte, aesKeySize)}
 	kdf.Read(sec.writeKey)
 	kdf.Read(sec.readKey)
-	for i := range eph {
-		eph[i] = 0
-	}
+	clear(eph)
 	return &sec
 }
 

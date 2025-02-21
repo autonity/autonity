@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/bits"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/autonity/autonity/p2p/enr"
@@ -36,7 +37,17 @@ var errMissingPrefix = errors.New("missing 'enr:' prefix for base64-encoded reco
 type Node struct {
 	r  enr.Record
 	id ID
+
+	// hostname tracks the DNS name of the node.
+	hostname string
+
+	// endpoint information
+	ip  netip.Addr
+	udp uint16
+	tcp uint16
+
 	// Only required to be set for Nodes that have a host entry
+	// todo(youssef): why having it local to this object?
 	resolveFunc func(host string) ([]net.IP, error)
 }
 
@@ -46,11 +57,82 @@ func New(validSchemes enr.IdentityScheme, r *enr.Record) (*Node, error) {
 	if err := r.VerifySignature(validSchemes); err != nil {
 		return nil, err
 	}
-	node := &Node{r: *r}
-	if n := copy(node.id[:], validSchemes.NodeAddr(&node.r)); n != len(ID{}) {
-		return nil, fmt.Errorf("invalid node ID length %d, need %d", n, len(ID{}))
+	var id ID
+	if n := copy(id[:], validSchemes.NodeAddr(r)); n != len(id) {
+		return nil, fmt.Errorf("invalid node ID length %d, need %d", n, len(id))
 	}
-	return node, nil
+	return newNodeWithID(r, id), nil
+}
+
+func newNodeWithID(r *enr.Record, id ID) *Node {
+	n := &Node{r: *r, id: id}
+	// Set the preferred endpoint.
+	// Here we decide between IPv4 and IPv6, choosing the 'most global' address.
+	var ip4 netip.Addr
+	var ip6 netip.Addr
+	n.Load((*enr.IPv4Addr)(&ip4))
+	n.Load((*enr.IPv6Addr)(&ip6))
+	valid4 := validIP(ip4)
+	valid6 := validIP(ip6)
+	switch {
+	case valid4 && valid6:
+		if localityScore(ip4) >= localityScore(ip6) {
+			n.setIP4(ip4)
+		} else {
+			n.setIP6(ip6)
+		}
+	case valid4:
+		n.setIP4(ip4)
+	case valid6:
+		n.setIP6(ip6)
+	default:
+		n.setIPv4Ports()
+	}
+	return n
+}
+
+// validIP reports whether 'ip' is a valid node endpoint IP address.
+func validIP(ip netip.Addr) bool {
+	return ip.IsValid() && !ip.IsMulticast()
+}
+
+func localityScore(ip netip.Addr) int {
+	switch {
+	case ip.IsUnspecified():
+		return 0
+	case ip.IsLoopback():
+		return 1
+	case ip.IsLinkLocalUnicast():
+		return 2
+	case ip.IsPrivate():
+		return 3
+	default:
+		return 4
+	}
+}
+
+func (n *Node) setIP4(ip netip.Addr) {
+	n.ip = ip
+	n.setIPv4Ports()
+}
+
+func (n *Node) setIPv4Ports() {
+	n.Load((*enr.UDP)(&n.udp))
+	n.Load((*enr.TCP)(&n.tcp))
+}
+
+func (n *Node) setIP6(ip netip.Addr) {
+	if ip.Is4In6() {
+		n.setIP4(ip)
+		return
+	}
+	n.ip = ip
+	if err := n.Load((*enr.UDP6)(&n.udp)); err != nil {
+		n.Load((*enr.UDP)(&n.udp))
+	}
+	if err := n.Load((*enr.TCP6)(&n.tcp)); err != nil {
+		n.Load((*enr.TCP)(&n.tcp))
+	}
 }
 
 // MustParse parses a node record or enode:// URL. It panics if the input is invalid.
@@ -91,43 +173,71 @@ func (n *Node) Seq() uint64 {
 	return n.r.Seq()
 }
 
-// Incomplete returns true for nodes with no IP address.
-func (n *Node) Incomplete() bool {
-	return n.IP() == nil
-}
-
 // Load retrieves an entry from the underlying record.
 func (n *Node) Load(k enr.Entry) error {
 	return n.r.Load(k)
 }
 
-// IP returns the IP address of the node. This prefers IPv4 addresses.
+// IP returns the IP address of the node.
 func (n *Node) IP() net.IP {
-	var (
-		ip4 enr.IPv4
-		ip6 enr.IPv6
-	)
-	if n.Load(&ip4) == nil {
-		return net.IP(ip4)
-	}
-	if n.Load(&ip6) == nil {
-		return net.IP(ip6)
-	}
-	return nil
+	return net.IP(n.ip.AsSlice())
+}
+
+// IPAddr returns the IP address of the node.
+func (n *Node) IPAddr() netip.Addr {
+	return n.ip
 }
 
 // UDP returns the UDP port of the node.
 func (n *Node) UDP() int {
-	var port enr.UDP
-	n.Load(&port)
-	return int(port)
+	return int(n.udp)
 }
 
 // TCP returns the TCP port of the node.
 func (n *Node) TCP() int {
-	var port enr.TCP
-	n.Load(&port)
-	return int(port)
+	return int(n.tcp)
+}
+
+// WithHostname adds a DNS hostname to the node.
+func (n *Node) WithHostname(hostname string) *Node {
+	cpy := *n
+	cpy.hostname = hostname
+	return &cpy
+}
+
+// Hostname returns the DNS name assigned by WithHostname.
+func (n *Node) Hostname() string {
+	return n.hostname
+}
+
+// UDPEndpoint returns the announced UDP endpoint.
+func (n *Node) UDPEndpoint() (netip.AddrPort, bool) {
+	if !n.ip.IsValid() || n.ip.IsUnspecified() || n.udp == 0 {
+		return netip.AddrPort{}, false
+	}
+	return netip.AddrPortFrom(n.ip, n.udp), true
+}
+
+// TCPEndpoint returns the announced TCP endpoint.
+func (n *Node) TCPEndpoint() (netip.AddrPort, bool) {
+	if !n.ip.IsValid() || n.ip.IsUnspecified() || n.tcp == 0 {
+		return netip.AddrPort{}, false
+	}
+	return netip.AddrPortFrom(n.ip, n.tcp), true
+}
+
+// QUICEndpoint returns the announced QUIC endpoint.
+func (n *Node) QUICEndpoint() (netip.AddrPort, bool) {
+	var quic uint16
+	if n.ip.Is4() || n.ip.Is4In6() {
+		n.Load((*enr.QUIC)(&quic))
+	} else if n.ip.Is6() {
+		n.Load((*enr.QUIC6)(&quic))
+	}
+	if !n.ip.IsValid() || n.ip.IsUnspecified() || quic == 0 {
+		return netip.AddrPort{}, false
+	}
+	return netip.AddrPortFrom(n.ip, quic), true
 }
 
 // Pubkey returns the secp256k1 public key of the node, if present.
@@ -137,6 +247,54 @@ func (n *Node) Pubkey() *ecdsa.PublicKey {
 		return nil
 	}
 	return &key
+}
+
+// Record returns the node's record. The return value is a copy and may
+// be modified by the caller.
+func (n *Node) Record() *enr.Record {
+	cpy := n.r
+	return &cpy
+}
+
+// ValidateComplete checks whether n has a valid IP and UDP port.
+// Deprecated: don't use this method.
+func (n *Node) ValidateComplete() error {
+	if !n.ip.IsValid() {
+		return errors.New("missing IP address")
+	}
+	if n.ip.IsMulticast() || n.ip.IsUnspecified() {
+		return errors.New("invalid IP (multicast/unspecified)")
+	}
+	if n.udp == 0 {
+		return errors.New("missing UDP port")
+	}
+	// Validate the node key (on curve, etc.).
+	var key Secp256k1
+	return n.Load(&key)
+}
+
+// String returns the text representation of the record.
+func (n *Node) String() string {
+	if isNewV4(n) {
+		return n.URLv4() // backwards-compatibility glue for NewV4 nodes
+	}
+	enc, _ := rlp.EncodeToBytes(&n.r) // always succeeds because record is valid
+	b64 := base64.RawURLEncoding.EncodeToString(enc)
+	return "enr:" + b64
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (n *Node) MarshalText() ([]byte, error) {
+	return []byte(n.String()), nil
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (n *Node) UnmarshalText(text []byte) error {
+	dec, err := Parse(ValidSchemes, string(text))
+	if err == nil {
+		*n = *dec
+	}
+	return err
 }
 
 // Host returns the host if set or an empty string otherwise.
@@ -178,55 +336,6 @@ func (n *Node) ResolveHost() error {
 	return nil
 }
 
-// Record returns the node's record. The return value is a copy and may
-// be modified by the caller.
-func (n *Node) Record() *enr.Record {
-	cpy := n.r
-	return &cpy
-}
-
-// ValidateComplete checks whether n has a valid IP and UDP port.
-// Deprecated: don't use this method.
-func (n *Node) ValidateComplete() error {
-	if n.Incomplete() {
-		return errors.New("missing IP address")
-	}
-	if n.UDP() == 0 {
-		return errors.New("missing UDP port")
-	}
-	ip := n.IP()
-	if ip.IsMulticast() || ip.IsUnspecified() {
-		return errors.New("invalid IP (multicast/unspecified)")
-	}
-	// Validate the node key (on curve, etc.).
-	var key Secp256k1
-	return n.Load(&key)
-}
-
-// String returns the text representation of the record.
-func (n *Node) String() string {
-	if isNewV4(n) {
-		return n.URLv4() // backwards-compatibility glue for NewV4 nodes
-	}
-	enc, _ := rlp.EncodeToBytes(&n.r) // always succeeds because record is valid
-	b64 := base64.RawURLEncoding.EncodeToString(enc)
-	return "enr:" + b64
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (n *Node) MarshalText() ([]byte, error) {
-	return []byte(n.String()), nil
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (n *Node) UnmarshalText(text []byte) error {
-	dec, err := Parse(ValidSchemes, string(text))
-	if err == nil {
-		*n = *dec
-	}
-	return err
-}
-
 // ID is a unique identifier for each node.
 type ID [32]byte
 
@@ -240,7 +349,7 @@ func (n ID) String() string {
 	return fmt.Sprintf("%x", n[:])
 }
 
-// The Go syntax representation of a ID is a call to HexID.
+// GoString returns the Go syntax representation of a ID is a call to HexID.
 func (n ID) GoString() string {
 	return fmt.Sprintf("enode.HexID(\"%x\")", n[:])
 }
