@@ -102,7 +102,7 @@ func TestClusteringResetFNodes(t *testing.T) {
 	network.WaitToMineNBlocks(300, 300, false)
 
 	// recover nodes
-	for id, _ := range fNodes {
+	for id := range fNodes {
 		go startNode(t, network, id)
 	}
 	// network should be up and continue to mine blocks
