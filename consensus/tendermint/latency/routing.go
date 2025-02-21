@@ -250,7 +250,7 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 		}
 	}
 
-	latencyArray := pingPeers(pingTargets)
+	latencyArray := r.pingPeers(pingTargets)
 	for i, addr := range validators {
 		// set self latency to 0
 		if addr == r.self {
@@ -329,7 +329,7 @@ func (r *Router) loop(ctx context.Context) {
 	}
 }
 
-func pingPeers(targets []ping.Target) []uint8 {
+func (r *Router) pingPeers(targets []ping.Target) []uint8 {
 	channelArray := make([]chan time.Duration, len(targets))
 	for i, t := range targets {
 		resultCh := make(chan time.Duration, 1)
@@ -413,7 +413,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	}
 
 	return recipients
-}  
+}
 
 func seed(msg message.Msg) int64 {
 	// this ensures we end up with a seed that is > 0 < math.MaxInt64, but is still reliant on
