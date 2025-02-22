@@ -24,12 +24,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/consensus/misc/eip1559"
-	"github.com/autonity/autonity/consensus/misc/eip4844"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/misc"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
@@ -151,33 +149,23 @@ func (sim *simulator) processBlock(ctx context.Context, block *simBlock, header,
 		// Base fee could have been overridden.
 		if header.BaseFee == nil {
 			if sim.validate {
-				header.BaseFee = eip1559.CalcBaseFee(sim.chainConfig, parent)
+				header.BaseFee = misc.CalcBaseFee(sim.chainConfig, parent, nil)
 			} else {
 				header.BaseFee = big.NewInt(0)
 			}
 		}
 	}
-	if sim.chainConfig.IsCancun(header.Number, header.Time) {
-		var excess uint64
-		if sim.chainConfig.IsCancun(parent.Number, parent.Time) {
-			excess = eip4844.CalcExcessBlobGas(sim.chainConfig, parent, header.Time)
-		}
-		header.ExcessBlobGas = &excess
-	}
 	blockContext := core.NewEVMBlockContext(header, sim.newSimulatedChainContext(ctx, headers), nil)
-	if block.BlockOverrides.BlobBaseFee != nil {
-		blockContext.BlobBaseFee = block.BlockOverrides.BlobBaseFee.ToInt()
-	}
 	precompiles := sim.activePrecompiles(sim.base)
 	// State overrides are applied prior to execution of a block
 	if err := block.StateOverrides.Apply(sim.state, precompiles); err != nil {
 		return nil, nil, err
 	}
 	var (
-		gasUsed, blobGasUsed uint64
-		txes                 = make([]*types.Transaction, len(block.Calls))
-		callResults          = make([]simCallResult, len(block.Calls))
-		receipts             = make([]*types.Receipt, len(block.Calls))
+		gasUsed     uint64
+		txes        = make([]*types.Transaction, len(block.Calls))
+		callResults = make([]simCallResult, len(block.Calls))
+		receipts    = make([]*types.Receipt, len(block.Calls))
 		// Block hash will be repaired after execution.
 		tracer   = newTracer(sim.traceTransfers, blockContext.BlockNumber.Uint64(), common.Hash{}, common.Hash{}, 0)
 		vmConfig = &vm.Config{
@@ -195,7 +183,7 @@ func (sim *simulator) processBlock(ctx context.Context, block *simBlock, header,
 	if precompiles != nil {
 		evm.SetPrecompiles(precompiles)
 	}
-	if sim.chainConfig.IsPrague(header.Number, header.Time) || sim.chainConfig.IsVerkle(header.Number, header.Time) {
+	if sim.chainConfig.IsPrague(header.Number) || sim.chainConfig.IsVerkle(header.Number) {
 		core.ProcessParentBlockHash(header.ParentHash, evm)
 	}
 	var allLogs []*types.Log

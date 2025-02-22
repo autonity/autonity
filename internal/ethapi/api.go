@@ -867,6 +867,7 @@ func (api *BlockChainAPI) EstimateGas(ctx context.Context, args TransactionArgs,
 }
 
 // RPCMarshalHeader converts the given header to the RPC output .
+// todo(youssef): add missing epoch & PoS fields
 func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	result := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
@@ -889,21 +890,7 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	if head.BaseFee != nil {
 		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
 	}
-	if head.WithdrawalsHash != nil {
-		result["withdrawalsRoot"] = head.WithdrawalsHash
-	}
-	if head.BlobGasUsed != nil {
-		result["blobGasUsed"] = hexutil.Uint64(*head.BlobGasUsed)
-	}
-	if head.ExcessBlobGas != nil {
-		result["excessBlobGas"] = hexutil.Uint64(*head.ExcessBlobGas)
-	}
-	if head.ParentBeaconRoot != nil {
-		result["parentBeaconBlockRoot"] = head.ParentBeaconRoot
-	}
-	if head.RequestsHash != nil {
-		result["requestsHash"] = head.RequestsHash
-	}
+
 	return result
 }
 
@@ -936,9 +923,7 @@ func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool, config *param
 		uncleHashes[i] = uncle.Hash()
 	}
 	fields["uncles"] = uncleHashes
-	if block.Withdrawals() != nil {
-		fields["withdrawals"] = block.Withdrawals()
-	}
+
 	return fields
 }
 
@@ -1026,21 +1011,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		}
 
 	case types.BlobTxType:
-		al := tx.AccessList()
-		yparity := hexutil.Uint64(v.Sign())
-		result.Accesses = &al
-		result.ChainID = (*hexutil.Big)(tx.ChainId())
-		result.YParity = &yparity
-		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
-		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
-		// if the transaction has been mined, compute the effective gas price
-		if baseFee != nil && blockHash != (common.Hash{}) {
-			result.GasPrice = (*hexutil.Big)(effectiveGasPrice(tx, baseFee))
-		} else {
-			result.GasPrice = (*hexutil.Big)(tx.GasFeeCap())
-		}
-		result.MaxFeePerBlobGas = (*hexutil.Big)(tx.BlobGasFeeCap())
-		result.BlobVersionedHashes = tx.BlobHashes()
+		return nil
 
 	case types.SetCodeTxType:
 		al := tx.AccessList()
@@ -1170,7 +1141,7 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 	}
 	isPostMerge := header.Difficulty.Sign() == 0
 	// Retrieve the precompiles since they don't need to be added to the access list
-	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isPostMerge, header.Time))
+	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isPostMerge))
 
 	// Create an initial tracer
 	prevTracer := logger.NewAccessListTracer(nil, args.from(), to, precompiles)
@@ -1357,7 +1328,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, hash commo
 	receipt := receipts[index]
 
 	// Derive the sender.
-	signer := types.MakeSigner(api.b.ChainConfig(), header.Number, header.Time)
+	signer := types.MakeSigner(api.b.ChainConfig(), header.Number)
 	return marshalReceipt(receipt, blockHash, blockNumber, signer, tx, int(index)), nil
 }
 
@@ -1389,11 +1360,6 @@ func marshalReceipt(receipt *types.Receipt, blockHash common.Hash, blockNumber u
 	}
 	if receipt.Logs == nil {
 		fields["logs"] = []*types.Log{}
-	}
-
-	if tx.Type() == types.BlobTxType {
-		fields["blobGasUsed"] = hexutil.Uint64(receipt.BlobGasUsed)
-		fields["blobGasPrice"] = (*hexutil.Big)(receipt.BlobGasPrice)
 	}
 
 	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
