@@ -408,7 +408,7 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) {
 		if d.trusted == nil {
 			return errNetRestrict
-		} else if !isTrustedIP(d.trusted, n.IP()) {
+		} else if !isTrustedIP(d.trusted, n.IPAddr()) {
 			return errNetRestrict
 		}
 	}
