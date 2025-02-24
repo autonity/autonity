@@ -77,7 +77,6 @@ type FaultDetector struct {
 	wg               sync.WaitGroup
 	tendermintMsgSub *event.TypeMuxSubscription
 
-	txPool     *core.TxPool
 	ethBackend ethapi.Backend
 	txOpts     *bind.TransactOpts // transactor options for accountability events
 
@@ -114,7 +113,6 @@ func NewFaultDetector(
 	nodeAddress common.Address,
 	sub *event.TypeMuxSubscription,
 	ms *engineCore.MsgStore,
-	txPool *core.TxPool,
 	ethBackend ethapi.Backend,
 	nodeKey *ecdsa.PrivateKey,
 	protocolContracts *autonity.ProtocolContracts,
@@ -131,7 +129,6 @@ func NewFaultDetector(
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
 		protocolContracts:     protocolContracts,
 		rateLimiter:           NewAccusationRateLimiter(),
-		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,
 		tendermintMsgSub:      sub,
@@ -240,7 +237,7 @@ tendermintMsgLoop:
 			}
 
 			// on every 60 blocks, reset Peer Justified Accusations and height accusations counters.
-			if e.Block.NumberU64()%msgGCInterval == 0 {
+			if e.Header.Number.Uint64()%msgGCInterval == 0 {
 				fd.rateLimiter.resetHeightRateLimiter()
 				fd.rateLimiter.resetPeerJustifiedAccusations()
 			}
@@ -275,13 +272,13 @@ loop:
 			if !ok {
 				break loop
 			}
-
+			height := ev.Header.Number.Uint64()
 			// try to escalate expired off chain accusation on chain.
-			fd.escalateExpiredAccusations(ev.Block.NumberU64())
+			fd.escalateExpiredAccusations(height)
 
 			// run rule engine over a specific height.
-			if ev.Block.NumberU64() > uint64(DeltaBlocks) {
-				checkpoint := ev.Block.NumberU64() - uint64(DeltaBlocks)
+			if height > uint64(DeltaBlocks) {
+				checkpoint := height - uint64(DeltaBlocks)
 				if events := fd.runRuleEngine(checkpoint); len(events) > 0 {
 					fd.pendingEvents = append(fd.pendingEvents, events...)
 				}
@@ -290,7 +287,7 @@ loop:
 				}
 			}
 			// msg store delete msgs out of buffering window on every 60 blocks.
-			fd.checkMsgStoreGC(ev.Block.NumberU64())
+			fd.checkMsgStoreGC(height)
 		case accusation := <-fd.accountabilityEventCh:
 			fd.logger.Warn("Local node byzantine accusation!")
 			accusationEvent, err := fd.protocolContracts.Events(nil, accusation.Id)

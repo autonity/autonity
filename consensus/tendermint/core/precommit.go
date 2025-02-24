@@ -10,7 +10,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
@@ -87,7 +86,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 func (c *Precommiter) HandleCommit(ctx context.Context) {
 	c.logger.Debug("Received a final committed proposal", "step", c.step)
 	lastBlock := c.backend.HeadBlock()
-	height := new(big.Int).Add(lastBlock.Number(), common.Big1)
+	height := new(big.Int).Add(lastBlock.Number, common.Big1)
 	if height.Cmp(c.Height()) == 0 {
 		c.logger.Debug("Discarding event as Core is at the same height", "height", c.Height())
 	} else {
@@ -97,21 +96,23 @@ func (c *Precommiter) HandleCommit(ctx context.Context) {
 }
 
 func (c *Precommiter) LogPrecommitMessageEvent(message string, precommit *message.Precommit) {
-	c.logger.Debug(message,
-		"type", "Precommit",
-		"local address", log.Lazy{Fn: func() string { return c.Address().String() }},
-		"currentHeight", log.Lazy{Fn: c.Height},
-		"msgHeight", precommit.H(),
-		"currentRound", log.Lazy{Fn: c.Round},
-		"msgRound", precommit.R(),
-		"currentStep", c.step,
-		"isProposer", log.Lazy{Fn: c.IsProposer},
-		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
-		"isNilMsg", precommit.Value() == common.Hash{},
-		"value", precommit.Value(),
-		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrecommitsTotalPower},
-		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(common.Hash{}) }},
-		"proposedBlockVote", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrecommitsPower(c.curRoundMessages.ProposalHash()) }},
-		"precommit", log.Lazy{Fn: func() string { return precommit.String() }},
-	)
+	if c.logger.Enabled(context.Background(), log.LevelDebug) {
+		c.logger.Debug(message,
+			"type", "Precommit",
+			"local address", c.Address().String(),
+			"currentHeight", c.Height(),
+			"msgHeight", precommit.H(),
+			"currentRound", c.Round(),
+			"msgRound", precommit.R(),
+			"currentStep", c.step,
+			"isProposer", c.IsProposer(),
+			"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+			"isNilMsg", precommit.Value() == common.Hash{},
+			"value", precommit.Value(),
+			"totalVotes", c.curRoundMessages.PrecommitsTotalPower(),
+			"totalNilVotes", c.curRoundMessages.PrecommitsPower(common.Hash{}),
+			"proposedBlockVote", c.curRoundMessages.PrecommitsPower(c.curRoundMessages.ProposalHash()),
+			"precommit", precommit.String(),
+		)
+	}
 }

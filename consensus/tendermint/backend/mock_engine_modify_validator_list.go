@@ -39,10 +39,10 @@ func (m *ModifyCommitteeEngine) VerifyProposal(block *types.Block) (time.Duratio
 	return 0, nil
 }
 
-func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
+func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header) error {
 	if header.Number.Uint64() < 2 {
 		// skip genesis and the first block
-		return m.Backend.VerifyHeader(chain, header, seal)
+		return m.Backend.VerifyHeader(chain, header)
 	}
 	return nil
 }

@@ -209,18 +209,20 @@ func (c *Proposer) StopFutureProposalTimer() {
 }
 
 func (c *Proposer) LogProposalMessageEvent(message string, proposal *message.Propose) {
-	c.logger.Debug(message,
-		"type", "Proposal",
-		"local address", log.Lazy{Fn: func() string { return c.Address().String() }},
-		"currentHeight", log.Lazy{Fn: c.Height},
-		"msgHeight", proposal.H(),
-		"currentRound", log.Lazy{Fn: c.Round},
-		"msgRound", proposal.R(),
-		"currentStep", c.step,
-		"isProposer", log.Lazy{Fn: c.IsProposer},
-		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
-		"isNilMsg", log.Lazy{Fn: func() bool { return proposal.Block().Hash() == common.Hash{} }},
-		"value", log.Lazy{Fn: func() common.Hash { return proposal.Block().Hash() }},
-		"proposal", log.Lazy{Fn: func() string { return proposal.String() }},
-	)
+	if c.logger.Enabled(context.Background(), log.LevelDebug) {
+		c.logger.Debug(message,
+			"type", "Proposal",
+			"local address", c.Address().String(),
+			"currentHeight", c.Height(),
+			"msgHeight", proposal.H(),
+			"currentRound", c.Round(),
+			"msgRound", proposal.R(),
+			"currentStep", c.step,
+			"isProposer", c.IsProposer(),
+			"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+			"isNilMsg", proposal.Block().Hash() == common.Hash{},
+			"value", proposal.Block().Hash(),
+			"proposal", proposal.String(),
+		)
+	}
 }
