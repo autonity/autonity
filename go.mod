@@ -56,6 +56,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shirou/gopsutil/v4 v4.25.1
+	github.com/shopspring/decimal v1.4.0
 	github.com/spf13/cobra v1.8.1
 	github.com/status-im/keycard-go v0.3.3
 	github.com/stretchr/testify v1.10.0
