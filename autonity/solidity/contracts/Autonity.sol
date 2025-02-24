@@ -1780,6 +1780,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         lastFinalizedBlock = block.number;
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
         blockEpochMap[block.number] = 0;
+        _addEpochInfo(epochID, EpochInfo(committee, 0, 0, block.number, _delta));
         // `epochID = 0` marks the genesis sequence. so we start new epoch after genesis sequence
         epochID += 1;
         _addEpochInfo(epochID, EpochInfo(committee, 0, block.number, block.number + config.protocol.epochPeriod, _delta));
