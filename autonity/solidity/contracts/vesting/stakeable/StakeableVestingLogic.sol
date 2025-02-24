@@ -491,23 +491,19 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @param _validator validator address
      */
     function _claimAndSendRewards(address _validator) internal {
-        address _myAddress = address(this);
-        uint256 _atnBalance = _myAddress.balance;
         _liquidStateContract(_validator).claimRewards();
-        _sendRewards(_myAddress.balance - _atnBalance, false);
+        _sendRewards(address(this).balance, false);
     }
 
     /**
      * @dev Claims all rewards from the liquid contract from all bonded validators.
      */
     function _claimAndSendRewards(bool _allowFailure) internal {
-        address _myAddress = address(this);
-        uint256 _atnBalance = _myAddress.balance;
         uint256 _length = linkedValidators.length;
         for (uint256 i = 0; i < _length; i++) {
             _liquidStateContract(linkedValidators[i]).claimRewards();
         }
-        _sendRewards(_myAddress.balance - _atnBalance, _allowFailure);
+        _sendRewards(address(this).balance, _allowFailure);
     }
 
     /*
@@ -520,7 +516,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Returns unclaimed rewards from bonding to validator.
      * @param _validator validator address
      */
-    function unclaimedRewards(address _validator) virtual external view returns (uint256) {
+    function unclaimedRewardsForValidator(address _validator) virtual external view returns (uint256) {
         return _unclaimedRewards(_validator);
     }
 
@@ -532,7 +528,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         for (uint256 i = 0; i < linkedValidators.length; i++) {
             _atnRewards += _unclaimedRewards(linkedValidators[i]);
         }
-        return _atnRewards;
+        return _atnRewards + address(this).balance;
     }
 
     /**

@@ -4,7 +4,13 @@ pragma solidity ^0.8.0;
 import "../ProtocolConstants.sol";
 
 library StakingPoolMath {
-    function computeRewardsFromFeeFactor(
+    /**
+     * @dev Computes unrealised rewards from fee factor.
+     * @param _lastFeeFactor Last fee factor
+     * @param _feeFactor Fee factor
+     * @param _balance LNTN balance
+     */
+    function computeUnrealisedRewards(
         uint256 _lastFeeFactor,
         uint256 _feeFactor,
         uint256 _balance

@@ -224,7 +224,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
                 // `_stakePool.validatorUnbondingPool.liquidBurning` is going to be burnt. Rewards accumulated due to this amount
                 // needs to be stored for resdributing later on external call
-                _stakePool.delegatorUnbondingPool.rewardsCollected = StakingPoolMath.computeRewardsFromFeeFactor(
+                _stakePool.delegatorUnbondingPool.rewardsCollected = StakingPoolMath.computeUnrealisedRewards(
                     lastFeeFactor[_validator],
                     _stakePool.delegatorUnbondingPool.feeFactor,
                     _stakePool.validatorUnbondingPool.liquidBurning
@@ -363,7 +363,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
         return unbondingArray[_id].epochID < unbondingEpoch;
     }
 
-    function getUnbondingShare(uint256 _id) external view returns (uint256) {
+    function getUnbondingShare(uint256 _id) public view returns (uint256) {
         require(unbondingArray.length > _id, "request doesn't exist");
         UnbondingRequest storage _item = unbondingArray[_id];
         if (_item.unlocked) {
@@ -389,31 +389,28 @@ contract StakingPool is AccessAutonity, IStakingPool {
     function calculateReleasedStake(address _delegator) external view returns (uint256) {
         uint256 _epochID = unbondingEpoch;
         UintQueue storage _queue = pendingUnbondingQueue[_delegator].queue;
-        uint256[] storage _array = _queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.array.length;
         uint256 _topIndex = _queue.topIndex;
-        UnbondingRequest storage _request;
-        PoolCollection storage _pool;
         uint256 _releasedStakes;
 
         while (_topIndex < _length) {
-            _request = unbondingArray[_array[_topIndex]];
+            UnbondingRequest storage _request = unbondingArray[_queue.array[_topIndex]];
             if (_request.epochID >= _epochID) {
                 break;
             }
 
-            // release the stakes
-            _pool = epochStakesPool[_request.epochID][_request.validator];
+            PoolCollection storage _pool = epochStakesPool[_request.epochID][_request.validator];
+            // calculate released stake
             if (_request.selfDelegation) {
                 _releasedStakes += StakingPoolMath.releasedStakeFromShare(
-                    _request.unbondingShare,
+                    getUnbondingShare(_queue.array[_topIndex]),
                     _pool.validatorUnbondingPool.selfUnbondingShare,
                     _pool.delegatorUnbondingPool.releasedSelfStake
                 );
             }
             else {
                 _releasedStakes += StakingPoolMath.releasedStakeFromShare(
-                    _request.unbondingShare,
+                    getUnbondingShare(_queue.array[_topIndex]),
                     _pool.validatorUnbondingPool.unbondingShare,
                     _pool.delegatorUnbondingPool.releasedStake
                 );
@@ -425,14 +422,12 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function calculateRejectedBonding(address _delegator, uint256 _epochID) external view returns (uint256) {
         UintQueue storage _queue = pendingBondingQueue[_delegator];
-        uint256[] storage _array = _queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.array.length;
         uint256 _topIndex = _queue.topIndex;
-        BondingRequest storage _request;
         uint256 _bondingRejected;
 
         while (_topIndex < _length) {
-            _request = bondingArray[_array[_topIndex]];
+            BondingRequest storage _request = bondingArray[_queue.array[_topIndex]];
             if (_request.epochID >= _epochID) {
                 break;
             }
@@ -449,15 +444,12 @@ contract StakingPool is AccessAutonity, IStakingPool {
     function calculateLiquidMinted(address _delegator, address _validator) external view returns (uint256) {
         uint256 _epochID = autonity.epochID();
         UintQueue storage _queue = pendingBondingQueue[_delegator];
-        uint256[] storage _array = _queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.array.length;
         uint256 _topIndex = _queue.topIndex;
-        BondingRequest storage _request;
-        PoolCollection storage _pool;
         uint256 _liquidMinted;
 
         while (_topIndex < _length) {
-            _request = bondingArray[_array[_topIndex]];
+            BondingRequest storage _request = bondingArray[_queue.array[_topIndex]];
             if (_request.epochID == _epochID) {
                 break;
             }
@@ -469,7 +461,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 break;
             }
 
-            _pool = epochStakesPool[_request.epochID][_validator];
+            PoolCollection storage _pool = epochStakesPool[_request.epochID][_validator];
             if (!_pool.validatorBondingPool.notActive) {
                 // validator was active at the time and liquid is minted
                 _liquidMinted += StakingPoolMath.liquidFromStake(
@@ -485,15 +477,13 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function calculateLiquidBurning(address _delegator, address _validator) external view returns (uint256) {
         UnbondingQueue storage _queue = pendingUnbondingQueue[_delegator];
-        uint256[] storage _array = _queue.queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.queue.array.length;
         uint256 _processingIndex = _queue.unlockingIndex;
-        UnbondingRequest storage _request;
         uint256 _epochID = autonity.epochID();
         uint256 _liquidBurning;
 
         while (_processingIndex < _length) {
-            _request = unbondingArray[_array[_processingIndex]];
+            UnbondingRequest storage _request = unbondingArray[_queue.queue.array[_processingIndex]];
             if (_request.validator != _validator) {
                 _processingIndex++;
                 continue;
@@ -552,31 +542,29 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function _updateDelegatorPool(address _delegator) internal {
         uint256 _epochID = autonity.epochID();
-        _applyBondingRequest(_delegator, _epochID);
-        _applyUnbondingRequest(_delegator, _epochID);
+        _processBondingRequest(_delegator, _epochID);
+        _processUnbondingRequest(_delegator, _epochID);
         _releaseUnbondingStake(_delegator, unbondingEpoch);
     }
 
     /**
      * @dev Apply all bonding requests from `_delegator` coming in epoch `_epochID` or before.
      */
-    function _applyBondingRequest(address _delegator, uint256 _epochID) internal {
+    function _processBondingRequest(address _delegator, uint256 _epochID) internal {
         UintQueue storage _queue = pendingBondingQueue[_delegator];
-        uint256[] storage _array = _queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.array.length;
         uint256 _topIndex = _queue.topIndex;
-        BondingRequest storage _request;
-        PoolCollection storage _pool;
         uint256 _bondingRejected;
+        uint256 _rewards;
 
         while (_topIndex < _length) {
-            _request = bondingArray[_array[_topIndex]];
+            BondingRequest storage _request = bondingArray[_queue.array[_topIndex]];
             if (_request.epochID == _epochID) {
                 break;
             }
 
             // apply the bonding request
-            _pool = epochStakesPool[_request.epochID][_request.validator];
+            PoolCollection storage _pool = epochStakesPool[_request.epochID][_request.validator];
             if (_pool.validatorBondingPool.notActive) {
                 // validator was inactive at the time
                 _bondingRejected += _request.amount;
@@ -597,7 +585,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 
                 // calculate and send rewards due to `_earnedLiquid`
                 // first calculate total rewards for `_totalLiquid` and store it
-                uint256 _totalRewards = _pool.delegatorBondingPool.rewardsCollected + StakingPoolMath.computeRewardsFromFeeFactor(
+                uint256 _totalRewards = _pool.delegatorBondingPool.rewardsCollected + StakingPoolMath.computeUnrealisedRewards(
                     lastFeeFactor[_request.validator],
                     _pool.delegatorBondingPool.feeFactor,
                     _totalLiquid
@@ -605,19 +593,16 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 _pool.delegatorBondingPool.feeFactor = lastFeeFactor[_request.validator];
                 // now compute the share earned due to `_earnedLiquid`
                 // this way we have minimal dust remaining in address(this).balance
-                uint256 _reward = StakingPoolMath.computeRewardFraction(
+                uint256 _rewardCalculated = StakingPoolMath.computeRewardFraction(
                     _totalRewards,
                     _earnedLiquid,
                     _totalLiquid
                 );
-
-                //   solhint-disable-next-line avoid-low-level-calls
-                (bool _sent, ) = _request.delegator.call{value: _reward}("");
-                require(_sent, "Failed to send ATN");
+                _rewards += _rewardCalculated;
 
                 // remove the share of the delegator from the delegators pool
                 _pool.delegatorBondingPool.liquidMinted = _totalLiquid - _earnedLiquid;
-                _pool.delegatorBondingPool.rewardsCollected = _totalRewards - _reward;
+                _pool.delegatorBondingPool.rewardsCollected = _totalRewards - _rewardCalculated;
 
                 // clean some storage
                 if (_totalLiquid == _earnedLiquid) {
@@ -635,6 +620,12 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
             _topIndex++;
         }
+
+        if (_rewards > 0) {
+            //   solhint-disable-next-line avoid-low-level-calls
+            (bool _sent, ) = _delegator.call{value: _rewards}("");
+            require(_sent, "Failed to send ATN");
+        }
         
         // TODO (tariq): consider deleting bonding request from `bondingArray` as they are applied
         _queue.dequeue(_topIndex - _queue.topIndex);
@@ -647,23 +638,21 @@ contract StakingPool is AccessAutonity, IStakingPool {
     /**
      * @dev Apply all unbonding requests from `_delegator` coming in epoch `_epochID` or before.
      */
-    function _applyUnbondingRequest(address _delegator, uint256 _epochID) internal {
+    function _processUnbondingRequest(address _delegator, uint256 _epochID) internal {
         UnbondingQueue storage _queue = pendingUnbondingQueue[_delegator];
-        uint256[] storage _array = _queue.queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.queue.array.length;
         uint256 _processingIndex = _queue.unlockingIndex;
-        UnbondingRequest storage _request;
-        PoolCollection storage _pool;
+        uint256 _rewards;
 
         while (_processingIndex < _length) {
-            _request = unbondingArray[_array[_processingIndex]];
+            UnbondingRequest storage _request = unbondingArray[_queue.queue.array[_processingIndex]];
             if (_request.epochID == _epochID) {
                 break;
             }
 
             // apply the unbonding request
             _request.unlocked = true;
-            _pool = epochStakesPool[_request.epochID][_request.validator];
+            PoolCollection storage _pool = epochStakesPool[_request.epochID][_request.validator];
             if (_request.selfDelegation) {
                 // calculate unbonding share
                 uint256 _share = StakingPoolMath.unbondingShareFromRequestAmount(
@@ -689,20 +678,27 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 _request.unbondingShare = _share;
 
                 // calculate and send the rewards due to `_request.amount`
-                uint256 _rewards = StakingPoolMath.computeRewardFraction(
+                uint256 _rewardCalculated = StakingPoolMath.computeRewardFraction(
                     _pool.delegatorUnbondingPool.rewardsCollected,
                     _request.amount,
                     _totalLiquid
                 );
+                _rewards += _rewardCalculated;
                 
                 // remove the share of the delegator from the delegators pool
                 _pool.delegatorUnbondingPool.unbondingShare -= _share;
-                _pool.delegatorUnbondingPool.rewardsCollected -= _rewards;
+                _pool.delegatorUnbondingPool.rewardsCollected -= _rewardCalculated;
                 // remove the requested amount from validators pool
                 _pool.validatorUnbondingPool.liquidBurning = _totalLiquid - _request.amount;
             }
 
             _processingIndex++;
+        }
+
+        if (_rewards > 0) {
+            //   solhint-disable-next-line avoid-low-level-calls
+            (bool _sent, ) = _delegator.call{value: _rewards}("");
+            require(_sent, "Failed to send ATN");
         }
         _queue.unlockingIndex = _processingIndex;
     }
@@ -711,22 +707,19 @@ contract StakingPool is AccessAutonity, IStakingPool {
      * @dev Release all unbonding requests from `_delegator` coming in epoch `_epochID` or before.
      */
     function _releaseUnbondingStake(address _delegator, uint256 _epochID) internal {
-        UintQueue storage _queue = pendingUnbondingQueue[_delegator].queue;
-        uint256[] storage _array = _queue.array;
-        uint256 _length = _array.length;
-        uint256 _topIndex = _queue.topIndex;
-        UnbondingRequest storage _request;
-        PoolCollection storage _pool;
+        UnbondingQueue storage _queue = pendingUnbondingQueue[_delegator];
+        uint256 _length = _queue.queue.array.length;
+        uint256 _topIndex = _queue.queue.topIndex;
         uint256 _releasedStakes;
 
         while (_topIndex < _length) {
-            _request = unbondingArray[_array[_topIndex]];
+            UnbondingRequest storage _request = unbondingArray[_queue.queue.array[_topIndex]];
             if (_request.epochID >= _epochID) {
                 break;
             }
 
             // release the stakes
-            _pool = epochStakesPool[_request.epochID][_request.validator];
+            PoolCollection storage _pool = epochStakesPool[_request.epochID][_request.validator];
             if (_request.selfDelegation) {
                 uint256 _share = StakingPoolMath.releasedStakeFromShare(
                     _request.unbondingShare,
@@ -751,7 +744,10 @@ contract StakingPool is AccessAutonity, IStakingPool {
         }
 
         // TODO (tariq): consider deleting unbonding request from `unbondingArray` as they are released
-        pendingUnbondingQueue[_delegator].queue.dequeue(_topIndex - _queue.topIndex);
+        _queue.queue.dequeue(_topIndex - _queue.queue.topIndex);
+        if (_queue.queue.array.length < _queue.unlockingIndex) {
+            _queue.unlockingIndex = _queue.queue.array.length;
+        }
         if (_releasedStakes > 0) {
             releasedStakes -= _releasedStakes;
             autonity.updateWithReleasedStake(_delegator, _releasedStakes);
@@ -760,15 +756,12 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function _rewardsFromLiquidMinted(address _delegator, address _validator, uint256 _epochID) internal view returns (uint256) {
         UintQueue storage _queue = pendingBondingQueue[_delegator];
-        uint256[] storage _array = _queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.array.length;
         uint256 _topIndex = _queue.topIndex;
-        BondingRequest storage _request;
-        PoolCollection storage _pool;
         uint256 _rewards;
 
         while (_topIndex < _length) {
-            _request = bondingArray[_array[_topIndex]];
+            BondingRequest storage _request = bondingArray[_queue.array[_topIndex]];
             if (_request.epochID == _epochID) {
                 break;
             }
@@ -780,22 +773,25 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 break;
             }
 
-            _pool = epochStakesPool[_request.epochID][_validator];
-            uint256 _liquidEarned = StakingPoolMath.liquidFromStake(
-                _request.amount,
-                _pool.validatorBondingPool.delegatingStake,
-                _pool.delegatorBondingPool.liquidMinted
-            );
-            uint256 _totalRewards = _pool.delegatorBondingPool.rewardsCollected + StakingPoolMath.computeRewardsFromFeeFactor(
-                _pool.delegatorBondingPool.feeFactor,
-                lastFeeFactor[_validator],
-                _pool.delegatorBondingPool.liquidMinted
-            );
-            _rewards += StakingPoolMath.computeRewardFraction(
-                _totalRewards,
-                _liquidEarned,
-                _pool.delegatorBondingPool.liquidMinted
-            );
+            PoolCollection storage _pool = epochStakesPool[_request.epochID][_validator];
+            if (!_pool.validatorBondingPool.notActive) {
+                uint256 _liquidEarned = StakingPoolMath.liquidFromStake(
+                    _request.amount,
+                    _pool.validatorBondingPool.delegatingStake,
+                    _pool.delegatorBondingPool.liquidMinted
+                );
+                uint256 _totalRewards = _pool.delegatorBondingPool.rewardsCollected + StakingPoolMath.computeUnrealisedRewards(
+                    lastFeeFactor[_validator],
+                    _pool.delegatorBondingPool.feeFactor,
+                    _pool.delegatorBondingPool.liquidMinted
+                );
+                _rewards += StakingPoolMath.computeRewardFraction(
+                    _totalRewards,
+                    _liquidEarned,
+                    _pool.delegatorBondingPool.liquidMinted
+                );
+            }
+            
             _topIndex++;
         }
         return _rewards;
@@ -803,15 +799,12 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function _rewardsFromLiquidBurning(address _delegator, address _validator, uint256 _epochID) internal view returns (uint256) {
         UnbondingQueue storage _queue = pendingUnbondingQueue[_delegator];
-        uint256[] storage _array = _queue.queue.array;
-        uint256 _length = _array.length;
+        uint256 _length = _queue.queue.array.length;
         uint256 _processingIndex = _queue.unlockingIndex;
-        UnbondingRequest storage _request;
-        PoolCollection storage _pool;
         uint256 _rewards;
 
         while (_processingIndex < _length) {
-            _request = unbondingArray[_array[_processingIndex]];
+            UnbondingRequest storage _request = unbondingArray[_queue.queue.array[_processingIndex]];
             if (_request.epochID == _epochID) {
                 break;
             }
@@ -823,7 +816,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
                 break;
             }
 
-            _pool = epochStakesPool[_request.epochID][_validator];
+            PoolCollection storage _pool = epochStakesPool[_request.epochID][_validator];
             _rewards += StakingPoolMath.computeRewardFraction(
                 _pool.delegatorUnbondingPool.rewardsCollected,
                 _request.amount,
