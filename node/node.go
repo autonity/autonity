@@ -31,6 +31,7 @@ import (
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/ethdb/memorydb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -589,6 +590,17 @@ func (n *Node) HTTPEndpoint() string {
 	return "http://" + n.http.listenAddr()
 }
 
+// getAPIs return two sets of APIs, both the ones that do not require
+// authentication, and the complete set
+func (n *Node) getAPIs() (unauthenticated, all []rpc.API) {
+	for _, api := range n.rpcAPIs {
+		if !api.Authenticated {
+			unauthenticated = append(unauthenticated, api)
+		}
+	}
+	return unauthenticated, n.rpcAPIs
+}
+
 // WSEndpoint returns the current JSON-RPC over WebSocket endpoint.
 func (n *Node) WSEndpoint() string {
 	if n.http.wsAllowed() {
@@ -622,9 +634,15 @@ func (n *Node) OpenDatabase(name string, cache, handles int, namespace string, r
 	if n.config.DataDir == "" {
 		db = rawdb.NewMemoryDatabase()
 	} else {
-		db, err = rawdb.NewLevelDBDatabase(n.ResolvePath(name), cache, handles, namespace, readonly)
+		db, err = openDatabase(openOptions{
+			Type:      n.config.DBEngine,
+			Directory: n.ResolvePath(name),
+			Namespace: namespace,
+			Cache:     cache,
+			Handles:   handles,
+			ReadOnly:  readonly,
+		})
 	}
-
 	if err == nil {
 		db = n.wrapDatabase(db)
 	}
@@ -636,28 +654,27 @@ func (n *Node) OpenDatabase(name string, cache, handles int, namespace string, r
 // also attaching a chain freezer to it that moves ancient chain data from the
 // database to immutable append-only files. If the node is an ephemeral one, a
 // memory database is returned.
-func (n *Node) OpenDatabaseWithFreezer(name string, cache, handles int, freezer, namespace string, readonly bool) (ethdb.Database, error) {
+func (n *Node) OpenDatabaseWithFreezer(name string, cache, handles int, ancient string, namespace string, readonly bool) (ethdb.Database, error) {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 	if n.state == closedState {
 		return nil, ErrNodeStopped
 	}
-
 	var db ethdb.Database
 	var err error
 	if n.config.DataDir == "" {
-		db = rawdb.NewMemoryDatabase()
+		db, err = rawdb.NewDatabaseWithFreezer(memorydb.New(), "", namespace, readonly)
 	} else {
-		root := n.ResolvePath(name)
-		switch {
-		case freezer == "":
-			freezer = filepath.Join(root, "ancient")
-		case !filepath.IsAbs(freezer):
-			freezer = n.ResolvePath(freezer)
-		}
-		db, err = rawdb.NewLevelDBDatabaseWithFreezer(root, cache, handles, freezer, namespace, readonly)
+		db, err = openDatabase(openOptions{
+			Type:              n.config.DBEngine,
+			Directory:         n.ResolvePath(name),
+			AncientsDirectory: n.ResolveAncient(name, ancient),
+			Namespace:         namespace,
+			Cache:             cache,
+			Handles:           handles,
+			ReadOnly:          readonly,
+		})
 	}
-
 	if err == nil {
 		db = n.wrapDatabase(db)
 	}
@@ -667,6 +684,17 @@ func (n *Node) OpenDatabaseWithFreezer(name string, cache, handles int, freezer,
 // ResolvePath returns the absolute path of a resource in the instance directory.
 func (n *Node) ResolvePath(x string) string {
 	return n.config.ResolvePath(x)
+}
+
+// ResolveAncient returns the absolute path of the root ancient directory.
+func (n *Node) ResolveAncient(name string, ancient string) string {
+	switch {
+	case ancient == "":
+		ancient = filepath.Join(n.ResolvePath(name), "ancient")
+	case !filepath.IsAbs(ancient):
+		ancient = n.ResolvePath(ancient)
+	}
+	return ancient
 }
 
 // wrapDatabase ensures the database will be auto-closed when Node is closed.

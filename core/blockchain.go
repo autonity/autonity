@@ -289,9 +289,8 @@ type BlockChain struct {
 	protocolContracts *autonity.ProtocolContracts
 
 	// senderCacher is a concurrent transaction sender recoverer and cacher
-	senderCacher *TxSenderCacher
-	log          log.Logger
-	cachedState  atomic.Pointer[blockStateCache]
+	log         log.Logger
+	cachedState atomic.Pointer[blockStateCache]
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -303,7 +302,6 @@ func NewBlockChain(db ethdb.Database,
 	engine consensus.Engine,
 	vmConfig vm.Config,
 	overrides *ChainOverrides,
-	senderCacher *TxSenderCacher,
 	txLookupLimit *uint64,
 	contractBackendCreator func(chain *BlockChain, state ethdb.Database) bind.ContractBackend,
 	log log.Logger,
@@ -344,7 +342,6 @@ func NewBlockChain(db ethdb.Database,
 		futureBlocks:  lru.NewCache[common.Hash, *types.Block](maxFutureBlocks),
 		engine:        engine,
 		vmConfig:      vmConfig,
-		senderCacher:  senderCacher,
 		log:           log,
 		logger:        vmConfig.Tracer,
 	}
@@ -453,7 +450,7 @@ func NewBlockChain(db ethdb.Database,
 	// The first thing the node will do is reconstruct the verification data for
 	// the head block (ethash cache or clique voting snapshot). Might as well do
 	// it in advance.
-	bc.engine.VerifyHeader(bc, bc.CurrentHeader(), true) // nolint
+	bc.engine.VerifyHeader(bc, bc.CurrentHeader()) // nolint
 
 	if bc.logger != nil && bc.logger.OnBlockchainInit != nil {
 		bc.logger.OnBlockchainInit(chainConfig)
@@ -1685,7 +1682,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool, makeWitness 
 	}
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
-	bc.senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
+	SenderCacher().RecoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
 
 	var (
 		stats     = insertStats{startTime: mclock.Now(), log: bc.log}

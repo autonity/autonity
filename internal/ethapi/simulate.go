@@ -183,9 +183,7 @@ func (sim *simulator) processBlock(ctx context.Context, block *simBlock, header,
 	if precompiles != nil {
 		evm.SetPrecompiles(precompiles)
 	}
-	if sim.chainConfig.IsPrague(header.Number) || sim.chainConfig.IsVerkle(header.Number) {
-		core.ProcessParentBlockHash(header.ParentHash, evm)
-	}
+
 	var allLogs []*types.Log
 	for i, call := range block.Calls {
 		if err := ctx.Err(); err != nil {
@@ -213,7 +211,6 @@ func (sim *simulator) processBlock(ctx context.Context, block *simBlock, header,
 		}
 		gasUsed += result.UsedGas
 		receipts[i] = core.MakeReceipt(evm, result, sim.state, blockContext.BlockNumber, common.Hash{}, tx, gasUsed, root)
-		blobGasUsed += receipts[i].BlobGasUsed
 		logs := tracer.Logs()
 		callRes := simCallResult{ReturnValue: result.Return(), Logs: logs, GasUsed: hexutil.Uint64(result.UsedGas)}
 		if result.Failed() {
@@ -231,33 +228,13 @@ func (sim *simulator) processBlock(ctx context.Context, block *simBlock, header,
 		}
 		callResults[i] = callRes
 	}
-	var requests [][]byte
+
 	// Process EIP-7685 requests
-	if sim.chainConfig.IsPrague(header.Number, header.Time) {
-		requests = [][]byte{}
-		// EIP-6110
-		if err := core.ParseDepositLogs(&requests, allLogs, sim.chainConfig); err != nil {
-			return nil, nil, err
-		}
-		// EIP-7002
-		core.ProcessWithdrawalQueue(&requests, evm)
-		// EIP-7251
-		core.ProcessConsolidationQueue(&requests, evm)
-	}
+
 	header.Root = sim.state.IntermediateRoot(true)
 	header.GasUsed = gasUsed
-	if sim.chainConfig.IsCancun(header.Number, header.Time) {
-		header.BlobGasUsed = &blobGasUsed
-	}
-	var withdrawals types.Withdrawals
-	if sim.chainConfig.IsShanghai(header.Number, header.Time) {
-		withdrawals = make([]*types.Withdrawal, 0)
-	}
-	if requests != nil {
-		reqHash := types.CalcRequestsHash(requests)
-		header.RequestsHash = &reqHash
-	}
-	b := types.NewBlock(header, &types.Body{Transactions: txes, Withdrawals: withdrawals}, receipts, trie.NewStackTrie(nil))
+
+	b := types.NewBlock(header, &types.Body{Transactions: txes}, receipts, trie.NewStackTrie(nil))
 	repairLogs(callResults, b.Hash())
 	return b, callResults, nil
 }
@@ -295,7 +272,7 @@ func (sim *simulator) sanitizeCall(call *TransactionArgs, state vm.StateDB, head
 func (sim *simulator) activePrecompiles(base *types.Header) vm.PrecompiledContracts {
 	var (
 		isMerge = (base.Difficulty.Sign() == 0)
-		rules   = sim.chainConfig.Rules(base.Number, isMerge, base.Time)
+		rules   = sim.chainConfig.Rules(base.Number, isMerge)
 	)
 	return vm.ActivePrecompiledContracts(rules)
 }
@@ -370,24 +347,13 @@ func (sim *simulator) makeHeaders(blocks []simBlock) ([]*types.Header, error) {
 			return nil, errors.New("empty block number")
 		}
 		overrides := block.BlockOverrides
-
-		var withdrawalsHash *common.Hash
-		if sim.chainConfig.IsShanghai(overrides.Number.ToInt(), (uint64)(*overrides.Time)) {
-			withdrawalsHash = &types.EmptyWithdrawalsHash
-		}
-		var parentBeaconRoot *common.Hash
-		if sim.chainConfig.IsCancun(overrides.Number.ToInt(), (uint64)(*overrides.Time)) {
-			parentBeaconRoot = &common.Hash{}
-		}
 		header = overrides.MakeHeader(&types.Header{
-			UncleHash:        types.EmptyUncleHash,
-			ReceiptHash:      types.EmptyReceiptsHash,
-			TxHash:           types.EmptyTxsHash,
-			Coinbase:         header.Coinbase,
-			Difficulty:       header.Difficulty,
-			GasLimit:         header.GasLimit,
-			WithdrawalsHash:  withdrawalsHash,
-			ParentBeaconRoot: parentBeaconRoot,
+			UncleHash:   types.EmptyUncleHash,
+			ReceiptHash: types.EmptyReceiptsHash,
+			TxHash:      types.EmptyTxsHash,
+			Coinbase:    header.Coinbase,
+			Difficulty:  header.Difficulty,
+			GasLimit:    header.GasLimit,
 		})
 		res[bi] = header
 	}

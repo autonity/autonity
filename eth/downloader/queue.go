@@ -29,11 +29,9 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/prque"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/kzg4844"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
-	"github.com/autonity/autonity/params"
 )
 
 const (
@@ -70,7 +68,6 @@ type fetchResult struct {
 	Uncles       []*types.Header
 	Transactions types.Transactions
 	Receipts     types.Receipts
-	Withdrawals  types.Withdrawals
 }
 
 func newFetchResult(header *types.Header, fastSync bool) *fetchResult {
@@ -79,8 +76,6 @@ func newFetchResult(header *types.Header, fastSync bool) *fetchResult {
 	}
 	if !header.EmptyBody() {
 		item.pending.Store(item.pending.Load() | (1 << bodyType))
-	} else if header.WithdrawalsHash != nil {
-		item.Withdrawals = make(types.Withdrawals, 0)
 	}
 	if fastSync && !header.EmptyReceipts() {
 		item.pending.Store(item.pending.Load() | (1 << receiptType))
@@ -93,7 +88,6 @@ func (f *fetchResult) body() types.Body {
 	return types.Body{
 		Transactions: f.Transactions,
 		Uncles:       f.Uncles,
-		Withdrawals:  f.Withdrawals,
 	}
 }
 
@@ -386,7 +380,6 @@ func (q *queue) Results(block bool) []*fetchResult {
 		for _, tx := range result.Transactions {
 			size += common.StorageSize(tx.Size())
 		}
-		size += common.StorageSize(result.Withdrawals.Size())
 		q.resultSize = common.StorageSize(blockCacheSizeWeight)*size +
 			(1-common.StorageSize(blockCacheSizeWeight))*q.resultSize
 	}
@@ -785,7 +778,6 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, hashes []comm
 // also wakes any threads waiting for data delivery.
 func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListHashes []common.Hash,
 	uncleLists [][]*types.Header, uncleListHashes []common.Hash,
-	withdrawalLists [][]*types.Withdrawal, withdrawalListHashes []common.Hash,
 ) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -797,57 +789,12 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 		if uncleListHashes[index] != header.UncleHash {
 			return errInvalidBody
 		}
-		if header.WithdrawalsHash == nil {
-			// nil hash means that withdrawals should not be present in body
-			if withdrawalLists[index] != nil {
-				return errInvalidBody
-			}
-		} else { // non-nil hash: body must have withdrawals
-			if withdrawalLists[index] == nil {
-				return errInvalidBody
-			}
-			if withdrawalListHashes[index] != *header.WithdrawalsHash {
-				return errInvalidBody
-			}
-		}
-		// Blocks must have a number of blobs corresponding to the header gas usage,
-		// and zero before the Cancun hardfork.
-		var blobs int
-		for _, tx := range txLists[index] {
-			// Count the number of blobs to validate against the header's blobGasUsed
-			blobs += len(tx.BlobHashes())
-
-			// Validate the data blobs individually too
-			if tx.Type() == types.BlobTxType {
-				if len(tx.BlobHashes()) == 0 {
-					return errInvalidBody
-				}
-				for _, hash := range tx.BlobHashes() {
-					if !kzg4844.IsValidVersionedHash(hash[:]) {
-						return errInvalidBody
-					}
-				}
-				if tx.BlobTxSidecar() != nil {
-					return errInvalidBody
-				}
-			}
-		}
-		if header.BlobGasUsed != nil {
-			if want := *header.BlobGasUsed / params.BlobTxBlobGasPerBlob; uint64(blobs) != want { // div because the header is surely good vs the body might be bloated
-				return errInvalidBody
-			}
-		} else {
-			if blobs != 0 {
-				return errInvalidBody
-			}
-		}
 		return nil
 	}
 
 	reconstruct := func(index int, result *fetchResult) {
 		result.Transactions = txLists[index]
 		result.Uncles = uncleLists[index]
-		result.Withdrawals = withdrawalLists[index]
 		result.SetBodyDone()
 	}
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool,

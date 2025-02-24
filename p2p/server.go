@@ -207,7 +207,7 @@ type Server struct {
 
 	nodedb    *enode.DB
 	localnode *enode.LocalNode
-	ntab      *discover.UDPv4
+	discv4    *discover.UDPv4
 	DiscV5    *discover.UDPv5
 	discmix   *enode.FairMix
 	dialsched *dialScheduler
@@ -500,6 +500,11 @@ func (srv *Server) Self() *enode.Node {
 	return ln.Node()
 }
 
+// DiscoveryV4 returns the discovery v4 instance, if configured.
+func (srv *Server) DiscoveryV4() *discover.UDPv4 {
+	return srv.discv4
+}
+
 // Stop terminates the server and all active peer connections.
 // It blocks until all active connections have been closed.
 func (srv *Server) Stop() {
@@ -705,7 +710,7 @@ func (srv *Server) setupDiscovery() error {
 		if err != nil {
 			return err
 		}
-		srv.ntab = ntab
+		srv.discv4 = ntab
 		srv.discmix.AddSource(ntab.RandomNodes())
 	}
 
@@ -742,8 +747,8 @@ func (srv *Server) setupDialScheduler() {
 		trusted:        &srv.trusted,
 		net:            srv.Net,
 	}
-	if srv.ntab != nil {
-		config.resolver = srv.ntab
+	if srv.discv4 != nil {
+		config.resolver = srv.discv4
 	}
 	if config.dialer == nil {
 		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
@@ -903,8 +908,8 @@ running:
 	srv.log.Trace("P2P networking is spinning down for ", "server", srv.Net.String())
 
 	// Terminate discovery. If there is a running lookup it will terminate soon.
-	if srv.ntab != nil {
-		srv.ntab.Close()
+	if srv.discv4 != nil {
+		srv.discv4.Close()
 	}
 	if srv.DiscV5 != nil {
 		srv.DiscV5.Close()

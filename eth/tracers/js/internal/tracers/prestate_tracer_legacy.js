@@ -47,22 +47,22 @@
 	// result is invoked when all the opcodes have been iterated over and returns
 	// the final result of the tracing.
 	result: function(ctx, db) {
-    if (this.prestate === null) {
-      this.prestate = {};
-      // If tx is transfer-only, the recipient account
-      // hasn't been populated.
-      this.lookupAccount(ctx.to, db);
-    }
+		if (this.prestate === null) {
+			this.prestate = {};
+			// If tx is transfer-only, the recipient account
+			// hasn't been populated.
+			this.lookupAccount(ctx.to, db);
+		}
 
-    // At this point, we need to deduct the 'value' from the
-    // outer transaction, and move it back to the origin
-    this.lookupAccount(ctx.from, db);
+		// At this point, we need to deduct the 'value' from the
+		// outer transaction, and move it back to the origin
+		this.lookupAccount(ctx.from, db);
 
-    var fromBal = bigInt(this.prestate[toHex(ctx.from)].balance.slice(2), 16);
-    var toBal = bigInt(this.prestate[toHex(ctx.to)].balance.slice(2), 16);
+		var fromBal = bigInt(this.prestate[toHex(ctx.from)].balance.slice(2), 16);
+		var toBal   = bigInt(this.prestate[toHex(ctx.to)].balance.slice(2), 16);
 
-    this.prestate[toHex(ctx.to)].balance = '0x' + toBal.subtract(ctx.value).toString(16);
-    this.prestate[toHex(ctx.from)].balance = '0x' + fromBal.add(ctx.value).add((ctx.gasUsed + ctx.intrinsicGas) * ctx.gasPrice).toString(16);
+		this.prestate[toHex(ctx.to)].balance   = '0x'+toBal.subtract(ctx.value).toString(16);
+		this.prestate[toHex(ctx.from)].balance = '0x'+fromBal.add(ctx.value).add(ctx.gasUsed * ctx.gasPrice).toString(16);
 
 		// Decrement the caller's nonce, and remove empty create targets
 		this.prestate[toHex(ctx.from)].nonce--;
@@ -85,21 +85,18 @@
 			this.lookupAccount(log.contract.getAddress(), db);
 		}
 		// Whenever new state is accessed, add it to the prestate
-    switch (log.op.toString()) {
-      case "EXTCODECOPY":
-      case "EXTCODESIZE":
-      case "EXTCODEHASH":
-      case "BALANCE":
-        this.lookupAccount(toAddress(log.stack.peek(0).toString(16)), db);
-        break;
-      case "CREATE":
-        var from = log.contract.getAddress();
-        this.lookupAccount(toContract(from, db.getNonce(from)), db);
-        break;
-      case "CREATE2":
-        var from = log.contract.getAddress();
-        // stack: salt, size, offset, endowment
-        var offset = log.stack.peek(1).valueOf()
+		switch (log.op.toString()) {
+			case "EXTCODECOPY": case "EXTCODESIZE": case "EXTCODEHASH": case "BALANCE":
+				this.lookupAccount(toAddress(log.stack.peek(0).toString(16)), db);
+				break;
+			case "CREATE":
+				var from = log.contract.getAddress();
+				this.lookupAccount(toContract(from, db.getNonce(from)), db);
+				break;
+			case "CREATE2":
+				var from = log.contract.getAddress();
+				// stack: salt, size, offset, endowment
+				var offset = log.stack.peek(1).valueOf()
 				var size = log.stack.peek(2).valueOf()
 				var end = offset + size
 				this.lookupAccount(toContract2(from, log.stack.peek(3).toString(16), log.memory.slice(offset, end)), db);

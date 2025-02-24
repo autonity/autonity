@@ -275,7 +275,7 @@ func (api *adminAPI) StartWS(host *string, port *int, allowedOrigins *string, ap
 	}
 
 	// Enable WebSocket on the server.
-	server := api.node.wsServerForPort(*port, false)
+	server := api.node.wsServerForPort(*port)
 	if err := server.setListenAddr(*host, *port); err != nil {
 		return false, err
 	}

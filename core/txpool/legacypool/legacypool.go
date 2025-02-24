@@ -1341,7 +1341,7 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
-	pool.chain.SenderCacher.Recover(pool.signer, reinject)
+	core.SenderCacher().Recover(pool.signer, reinject)
 	pool.addTxsLocked(reinject)
 }
 
