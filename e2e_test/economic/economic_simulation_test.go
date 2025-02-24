@@ -14,11 +14,12 @@ import (
 )
 
 var (
-	defATNPriceInUSD, _ = decimal.NewFromString("1.28")
-	defNTNPriceInUSD, _ = decimal.NewFromString("1.25")
+	defATNPriceInUSD, _ = decimal.NewFromString("211.28") // to be replaced with production price
+	defNTNPriceInUSD, _ = decimal.NewFromString("985.25") // to be replaced with production price
 	defSysParams        = systemParams{
-		genesisGasLimit:          30_000_000,
-		gasCeil:                  20_000_000,
+		genesisGasLimit: 20_000_000,
+		// todo: measure the 20M gas target in perf, to make sure we maintain the 1s block period with 1000 validators.
+		gasCeil:                  20_000_000, // 20M
 		blockGasTarget:           20_000_000,
 		initialBaseFee:           new(big.Int).SetUint64(1_000_000_000),
 		minBaseFee:               new(big.Int).SetUint64(500_000_000),
@@ -42,11 +43,12 @@ type systemParams struct {
 }
 
 type block struct {
-	number    uint64
-	numOfTXNs uint64
-	gasLimit  uint64
-	gasUsed   uint64
-	baseFee   *big.Int
+	number            uint64
+	numOfTXNs         uint64
+	gasLimit          uint64
+	gasUsed           uint64
+	baseFee           *big.Int
+	baseFeeChangeRate decimal.Decimal
 }
 
 func (b *block) string() string {
@@ -67,8 +69,8 @@ func (b *block) string() string {
 	baseFeeInUSD := new(big.Float).Mul(baseFeeInETH, atnToUSD)
 
 	return fmt.Sprintf(
-		"number: %d, gasLimit: %d, gasUsed: %d, baseFee(Wei): %s, baseFee(ATN): %.9f, baseFee(USD): %.9f",
-		b.number, b.gasLimit, b.gasUsed, b.baseFee.String(), baseFeeInETH, baseFeeInUSD,
+		"number: %d, gasLimit: %d, gasUsed: %d, baseFeeChangeRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.9f, baseFee(USD): %.9f",
+		b.number, b.gasLimit, b.gasUsed, b.baseFeeChangeRate.String(), b.baseFee.String(), baseFeeInETH, baseFeeInUSD,
 	)
 }
 
@@ -174,11 +176,106 @@ func (f *fullFiller) genTXNs(parent *block) (uint64, uint64) {
 	return numTxns, usedGas
 }
 
+func baseFeeChangeRate(parentBaseFee *big.Int, curBaseFee *big.Int) decimal.Decimal {
+	// Convert parentBaseFee and curBaseFee to decimal.Decimal
+	parentFee := decimal.NewFromBigInt(parentBaseFee, 0)
+	curFee := decimal.NewFromBigInt(curBaseFee, 0)
+
+	// Calculate the difference between curBaseFee and parentBaseFee
+	diff := curFee.Sub(parentFee)
+
+	// Calculate the change rate: (diff / parentFee) * 100
+	changeRate := diff.Mul(decimal.NewFromInt(100)).Div(parentFee)
+
+	return changeRate
+}
+
 func (f *fullFiller) fillBlock(parent *block) (*block, *big.Int, *big.Int) {
+	baseFee := CalcBaseFee(parent, f.params)
+	changeRate := baseFeeChangeRate(parent.baseFee, baseFee)
+
+	numOfTXN, gasUsed := f.genTXNs(parent)
+
+	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
+	// todo: extract the inflation reward from protocol.
+	inflationRewards := new(big.Int).SetUint64(0)
+
+	return &block{
+		number:            parent.number + 1,
+		gasUsed:           gasUsed,
+		numOfTXNs:         numOfTXN,
+		gasLimit:          core.CalcGasLimit(parent.gasLimit, f.params.gasCeil),
+		baseFee:           baseFee,
+		baseFeeChangeRate: changeRate,
+	}, atnRewards, inflationRewards
+}
+
+type halfFiller struct {
+	params *systemParams
+}
+
+func (f *halfFiller) genTXNs(parent *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Generate a random number of additional transactions (1 to 5)
+	rand.Seed(time.Now().UnixNano())
+	additionalTxns := rand.Intn(5) + 1
+
+	// Calculate the minimum gas required to exceed the parent's gas limit
+	minGasRequired := parent.gasLimit/2 + uint64(additionalTxns*gasPerTxn)
+
+	// Calculate the number of transactions needed to exceed the gas limit
+	numTxns := minGasRequired / gasPerTxn
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
+
+func (f *halfFiller) fillBlock(parent *block) (*block, *big.Int, *big.Int) {
 	baseFee := CalcBaseFee(parent, f.params)
 	numOfTXN, gasUsed := f.genTXNs(parent)
 
 	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
+
+	// todo: extract the inflation reward.
+	inflationRewards := new(big.Int).SetUint64(0)
+
+	return &block{
+		number:    parent.number + 1,
+		gasUsed:   gasUsed,
+		numOfTXNs: numOfTXN,
+		gasLimit:  core.CalcGasLimit(parent.gasLimit, f.params.gasCeil),
+		baseFee:   baseFee,
+	}, atnRewards, inflationRewards
+}
+
+type dustFiller struct {
+	params *systemParams
+}
+
+func (f *dustFiller) genTXNs(_ *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Generate a random number of additional transactions (1 to 5)
+	rand.Seed(time.Now().UnixNano())
+	numTxns := uint64(rand.Intn(5)) + 1
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
+
+func (f *dustFiller) fillBlock(parent *block) (*block, *big.Int, *big.Int) {
+	baseFee := CalcBaseFee(parent, f.params)
+	numOfTXN, gasUsed := f.genTXNs(parent)
+
+	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
+	// todo: extract the inflation reward.
 	inflationRewards := new(big.Int).SetUint64(0)
 
 	return &block{
@@ -236,9 +333,29 @@ func (s *simulator) start() {
 	return
 }
 
-func TestFullBlocks(t *testing.T) {
+func TestFullFilledBlocks(t *testing.T) {
 	blocks := uint64(900)
-	systemParam := &defSysParams
-	sim := newSimulator(blocks, systemParam, &fullFiller{params: systemParam})
+	copyParams := defSysParams
+	copyParams.baseFeeChangeDenominator = 8
+	sim := newSimulator(blocks, &copyParams, &fullFiller{params: &copyParams})
 	sim.start()
 }
+
+func TestHalfFilledBlocks(t *testing.T) {
+	blocks := uint64(900)
+	copyParam := defSysParams
+	systemParam := &copyParam
+	sim := newSimulator(blocks, systemParam, &halfFiller{params: systemParam})
+	sim.start()
+}
+
+func TestDustFilledBlocks(t *testing.T) {
+	blocks := uint64(900)
+	systemParam := &defSysParams
+	sim := newSimulator(blocks, systemParam, &dustFiller{params: systemParam})
+	sim.start()
+}
+
+// todo, address the cost of spam.
+
+// todo, add helpers to render data in a diagram.
