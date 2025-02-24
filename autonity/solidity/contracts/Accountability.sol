@@ -261,7 +261,7 @@ contract Accountability is IAccountability, AccessAutonity {
     function _handleAccusation(Event memory _ev) internal virtual {
         // Validate the accusation proof. It also does height related checks 
         (bool _success, address _offender, uint256 _ruleId, uint256 _block, uint256 _messageHash) =
-            Precompiled.verifyAccountabilityEvent(Precompiled.ACCUSATION_CONTRACT, _ev.rawProof);
+            Precompiled.verifyAccountabilityAccusation(Precompiled.ACCUSATION_CONTRACT, _ev.rawProof, config.range, config.delta);
         require(_success, "failed accusation verification");
         require(_offender == _ev.offender, "offender mismatch");
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");

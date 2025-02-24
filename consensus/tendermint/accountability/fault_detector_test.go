@@ -143,7 +143,7 @@ func TestRunRuleEngine(t *testing.T) {
 	round := int64(3)
 	t.Run("test run rules with malicious behaviour should be detected", func(t *testing.T) {
 		chainHead := uint64(100)
-		checkPointHeight := chainHead - uint64(DeltaBlocks)
+		checkPointHeight := chainHead - params.TestAccountabilityConfig.Delta
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)

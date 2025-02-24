@@ -262,7 +262,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		msgHeight := uint64(10)
 		msgRound := int64(1)
 		validRound := int64(0)
-		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
+		currentHeight := msgHeight + params.TestAccountabilityConfig.Delta + offChainAccusationProofWindow + 1
 		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			OffenderIndex: proposerIdx,
@@ -288,6 +288,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+		chainMock.EXPECT().AccountabilityDeltaByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Delta), nil)
 		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -303,7 +304,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		msgHeight := uint64(10)
 		msgRound := int64(1)
 		validRound := int64(0)
-		currentHeight := msgHeight + DeltaBlocks + offChainAccusationProofWindow + 1
+		currentHeight := msgHeight + params.TestAccountabilityConfig.Delta + offChainAccusationProofWindow + 1
 		proposal := newValidatedProposalMessage(msgHeight, msgRound, validRound, signer, committee, nil, proposerIdx)
 		var accusationPO = Proof{
 			OffenderIndex: proposerIdx,
@@ -330,6 +331,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		chainMock.EXPECT().CommitteeByHeight(msgHeight).AnyTimes().Return(committee, nil)
+		chainMock.EXPECT().AccountabilityDeltaByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Delta), nil)
 		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, nil, nil, nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -346,7 +348,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 	sender := committee.Members[1].Address
 	height := uint64(100)
-	accusationHeight := height - DeltaBlocks
+	accusationHeight := height - params.TestAccountabilityConfig.Delta
 	round := int64(1)
 	validRound := int64(0)
 
@@ -358,6 +360,8 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 	chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 	chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 	chainMock.EXPECT().CommitteeByHeight(accusationHeight).AnyTimes().Return(committee, nil)
+	chainMock.EXPECT().AccountabilityRangeByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Range), nil)
+	chainMock.EXPECT().AccountabilityDeltaByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Delta), nil)
 	t.Run("malicious accusation with duplicated msg", func(t *testing.T) {
 		ms := core.NewMsgStore()
 		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
@@ -417,7 +421,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 
 func TestHandleOffChainAccusation(t *testing.T) {
 	height := uint64(100)
-	accusationHeight := height - DeltaBlocks
+	accusationHeight := height - params.TestAccountabilityConfig.Delta
 	round := int64(1)
 	validRound := int64(0)
 	currentHeader := newBlockHeader(height, committee)
@@ -430,6 +434,8 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		chainMock.EXPECT().CurrentBlock().AnyTimes().Return(types.NewBlockWithHeader(currentHeader))
+		chainMock.EXPECT().AccountabilityRangeByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Range), nil)
+		chainMock.EXPECT().AccountabilityDeltaByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Delta), nil)
 
 		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
@@ -459,6 +465,8 @@ func TestHandleOffChainAccusation(t *testing.T) {
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
 		chainMock.EXPECT().CurrentBlock().AnyTimes().Return(types.NewBlockWithHeader(currentHeader))
+		chainMock.EXPECT().AccountabilityRangeByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Range), nil)
+		chainMock.EXPECT().AccountabilityDeltaByNumber(gomock.Any()).Times(1).Return(new(big.Int).SetUint64(params.TestAccountabilityConfig.Delta), nil)
 		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		proposal := newValidatedProposalMessage(accusationHeight, round, validRound, signer, committee, nil, proposerIdx)

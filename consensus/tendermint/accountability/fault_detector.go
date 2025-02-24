@@ -38,6 +38,8 @@ type ChainContext interface {
 	HasBadBlock(hash common.Hash) bool
 	Validator() core.Validator
 	CommitteeByHeight(height uint64) (*types.Committee, error)
+	AccountabilityRangeByNumber(number uint64) (*big.Int, error)
+	AccountabilityDeltaByNumber(number uint64) (*big.Int, error)
 }
 
 const (
@@ -46,9 +48,6 @@ const (
 	maxAccusationPerHeight        = 4                            // max number of accusation allowed to be produced by rule engine over a height against a validator.
 	maxNumOfInnocenceProofCached  = 120 * maxAccusationPerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
 	reportingSlotPeriod           = 20                           // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
-	//NOTE: update to below constants might require a chain fork to upgrade clients, since they impact the Accountability Event execution result. They should be turned into protocol parameters https://github.com/autonity/autonity/issues/949
-	HeightRange = 256 // Default msg buffer range for AFD.
-	DeltaBlocks = 10  // Wait until the GST + delta blocks to start accounting
 )
 
 var (
@@ -170,8 +169,8 @@ func (fd *FaultDetector) Start() {
 	go fd.consensusMsgHandlerLoop()
 }
 
-func IsHeightExpired(headHeight uint64, height uint64) bool {
-	return headHeight > HeightRange && height < headHeight-HeightRange
+func IsHeightExpired(headHeight uint64, height uint64, heightRange uint64) bool {
+	return headHeight > heightRange && height < headHeight-heightRange
 }
 
 func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
@@ -189,10 +188,11 @@ tendermintMsgLoop:
 				break tendermintMsgLoop
 			}
 			currentHeight := fd.blockchain.CurrentBlock().NumberU64()
+			currentHeightRange, _ := fd.blockchain.AccountabilityRangeByNumber(currentHeight) //nolint:typecheck
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if IsHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentHeight, e.Message.H(), currentHeightRange.Uint64()) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -208,7 +208,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 			case events.OldMessageEvent:
-				if IsHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentHeight, e.Message.H(), currentHeightRange.Uint64()) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -261,8 +261,9 @@ tendermintMsgLoop:
 
 // check to GC msg store for those msgs out of buffering window on every 60 blocks.
 func (fd *FaultDetector) checkMsgStoreGC(height uint64) {
-	if height > HeightRange && height%msgGCInterval == 0 {
-		threshold := height - HeightRange
+	heightRange, _ := fd.blockchain.AccountabilityRangeByNumber(height)
+	if height > heightRange.Uint64() && height%msgGCInterval == 0 {
+		threshold := height - heightRange.Uint64()
 		fd.msgStore.DeleteOlds(threshold)
 	}
 }
@@ -277,12 +278,15 @@ loop:
 				break loop
 			}
 
+			number := ev.Block.NumberU64()
+
 			// try to escalate expired off chain accusation on chain.
-			fd.escalateExpiredAccusations(ev.Block.NumberU64())
+			fd.escalateExpiredAccusations(number)
 
 			// run rule engine over a specific height.
-			if ev.Block.NumberU64() > uint64(DeltaBlocks) {
-				checkpoint := ev.Block.NumberU64() - uint64(DeltaBlocks)
+			accountabilityDelta, _ := fd.blockchain.AccountabilityDeltaByNumber(number)
+			if number > accountabilityDelta.Uint64() {
+				checkpoint := number - accountabilityDelta.Uint64()
 				if events := fd.runRuleEngine(checkpoint); len(events) > 0 {
 					fd.pendingEvents = append(fd.pendingEvents, events...)
 				}
@@ -291,7 +295,7 @@ loop:
 				}
 			}
 			// msg store delete msgs out of buffering window on every 60 blocks.
-			fd.checkMsgStoreGC(ev.Block.NumberU64())
+			fd.checkMsgStoreGC(number)
 		case accusation := <-fd.accountabilityEventCh:
 			fd.logger.Warn("Local node byzantine accusation!")
 			accusationEvent, err := fd.protocolContracts.Events(nil, accusation.Id)

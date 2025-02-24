@@ -230,8 +230,12 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 		return errInvalidAccusation
 	}
 
+	lastCommittedBlock := fd.blockchain.CurrentBlock().NumberU64()
+	heightRange, _ := fd.blockchain.AccountabilityRangeByNumber(lastCommittedBlock)
+	delta, _ := fd.blockchain.AccountabilityDeltaByNumber(lastCommittedBlock)
+
 	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+	if err := preVerifyAccusation(accusation.Message, lastCommittedBlock+1, heightRange.Uint64(), delta.Uint64()); err != nil {
 		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
 		return nil
 	}
@@ -316,10 +320,13 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 	fd.offChainAccusationsMu.RLock()
 	defer fd.offChainAccusationsMu.RUnlock()
 	var expiredOnes []*Proof
+
+	currentAccountabilityDelta, _ := fd.blockchain.AccountabilityDeltaByNumber(currentChainHeight)
+
 	for _, proof := range fd.offChainAccusations {
 		// NOTE: accusations for message at height h is generated at height h + delta by the fault detector
 		// then we have up to h + delta + offchainWindow to resolve it offchain
-		if currentChainHeight-proof.Message.H() > (DeltaBlocks + offChainAccusationProofWindow) {
+		if currentChainHeight-proof.Message.H() > (currentAccountabilityDelta.Uint64() + offChainAccusationProofWindow) {
 			expiredOnes = append(expiredOnes, proof)
 		}
 	}

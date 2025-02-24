@@ -47,6 +47,36 @@ func (m *MockChainContext) EXPECT() *MockChainContextMockRecorder {
 	return m.recorder
 }
 
+// AccountabilityDeltaByNumber mocks base method.
+func (m *MockChainContext) AccountabilityDeltaByNumber(number uint64) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccountabilityDeltaByNumber", number)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AccountabilityDeltaByNumber indicates an expected call of AccountabilityDeltaByNumber.
+func (mr *MockChainContextMockRecorder) AccountabilityDeltaByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountabilityDeltaByNumber", reflect.TypeOf((*MockChainContext)(nil).AccountabilityDeltaByNumber), number)
+}
+
+// AccountabilityRangeByNumber mocks base method.
+func (m *MockChainContext) AccountabilityRangeByNumber(number uint64) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccountabilityRangeByNumber", number)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AccountabilityRangeByNumber indicates an expected call of AccountabilityRangeByNumber.
+func (mr *MockChainContextMockRecorder) AccountabilityRangeByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountabilityRangeByNumber", reflect.TypeOf((*MockChainContext)(nil).AccountabilityRangeByNumber), number)
+}
+
 // CommitteeByHeight mocks base method.
 func (m *MockChainContext) CommitteeByHeight(height uint64) (*types.Committee, error) {
 	m.ctrl.T.Helper()

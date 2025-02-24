@@ -60,7 +60,7 @@ func New(
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
 	log log.Logger, noGossip bool,
-	isHeightExpired func(headHeight uint64, height uint64) bool) *Backend {
+	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -140,7 +140,7 @@ type Backend struct {
 	vmConfig        *vm.Config
 	MsgStore        *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 	aggregator      *aggregator
-	isHeightExpired func(headHeight uint64, height uint64) bool // pass a function to avoid import loops
+	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops
 
 	jailed jailed // metadata for p2p jailed validators
 	future future // buffer for future height events and related metadata

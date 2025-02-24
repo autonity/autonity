@@ -54,7 +54,7 @@ var (
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
 
-func fakeExpiryChecker(_ uint64, _ uint64) bool {
+func fakeExpiryChecker(_ uint64, _ uint64, _ uint64) bool {
 	return false
 }
 

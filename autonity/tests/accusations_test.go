@@ -28,15 +28,18 @@ func TestAccusation(t *testing.T) {
 	r.WaitNBlocks(int(currentHeight - 1))
 	lastCommittedHeight := currentHeight - 1
 
+	config, _, err := r.Accountability.Config(nil)
+	require.NoError(t, err)
+
 	// TODO(lorenzo) add similar tests for PVO and C1
 	r.Run("PVN accusation with prevote nil should revert", func(r *Runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
+		accusationHeight := lastCommittedHeight - config.Delta.Uint64()
 		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0x1} }
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}, reporter))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
 	r.Run("accusation for committed value should revert", func(r *Runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
+		accusationHeight := lastCommittedHeight - config.Delta.Uint64()
 		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0xca, 0xfe} }
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
@@ -44,9 +47,9 @@ func TestAccusation(t *testing.T) {
 
 	r.Run("reporting right tests", func(r *Runner) {
 		// reporting should be reverted since reporter is not in current committee and last committee
-		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
+		accusationHeight := lastCommittedHeight - config.Range.Uint64() + (config.Range.Uint64() / 4) + 1
 		noAccessor := common.Address{}
-		_, err := r.Accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, noAccessor))
+		_, err = r.Accountability.HandleAccusation(&runOptions{origin: noAccessor}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, noAccessor))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 		require.Equal(r.T, "execution reverted: function restricted to a committee member", err.Error())
 		// set committee with reporter
@@ -90,14 +93,17 @@ func TestAccusationTiming(t *testing.T) {
 	r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 	lastCommittedHeight := currentHeight - 1 // height of last committed block
 
+	config, _, err := r.Accountability.Config(nil)
+	require.NoError(t, err)
+
 	r.Run("submit accusation at height = lastCommittedHeight - delta (valid)", func(r *Runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks
+		accusationHeight := lastCommittedHeight - config.Delta.Uint64()
 		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
 		require.NoError(r.T, err)
 	})
 	r.Run("submit accusation at height = lastCommittedHeight - delta + 1 (too recent)", func(r *Runner) {
-		accusationHeight := lastCommittedHeight - accountability.DeltaBlocks + 1
+		accusationHeight := lastCommittedHeight - config.Delta.Uint64() + 1
 
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
@@ -115,20 +121,20 @@ func TestAccusationTiming(t *testing.T) {
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
 	r.Run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange (too old)", func(r *Runner) {
-		accusationHeight := lastCommittedHeight - accountability.HeightRange
+		accusationHeight := lastCommittedHeight - config.Range.Uint64()
 
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
 	r.Run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4)  (too old)", func(r *Runner) {
-		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4)
+		accusationHeight := lastCommittedHeight - config.Range.Uint64() + (config.Range.Uint64() / 4)
 
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
 
 	r.Run("submit accusation at height = lastCommittedHeight - AccountabilityHeightRange + (AccountabilityHeightRange/4) + 1  (valid)", func(r *Runner) {
-		accusationHeight := lastCommittedHeight - accountability.HeightRange + (accountability.HeightRange / 4) + 1
+		accusationHeight := lastCommittedHeight - config.Range.Uint64() + (config.Range.Uint64() / 4) + 1
 		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{} }
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{0xca, 0xfe}, reporter))
 		require.NoError(r.T, err)
@@ -150,7 +156,10 @@ func TestCrossEpochAccusation(t *testing.T) {
 	epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
 	require.NoError(t, err)
 
-	r.WaitNBlocks(int(epochPeriod.Uint64() + accountability.DeltaBlocks - 2))
+	config, _, err := r.Accountability.Config(nil)
+	require.NoError(t, err)
+
+	r.WaitNBlocks(int(epochPeriod.Uint64() + config.Delta.Uint64() - 2))
 
 	epochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(t, err)
@@ -167,7 +176,7 @@ func TestCrossEpochAccusation(t *testing.T) {
 	}
 
 	// accusation should be for a block of past epoch
-	accusationHeight := r.Evm.Context.BlockNumber.Uint64() - accountability.DeltaBlocks - 1
+	accusationHeight := r.Evm.Context.BlockNumber.Uint64() - config.Delta.Uint64() - 1
 	epochID, _, err = r.Autonity.GetEpochFromBlock(nil, new(big.Int).SetUint64(accusationHeight))
 	require.NoError(t, err)
 
