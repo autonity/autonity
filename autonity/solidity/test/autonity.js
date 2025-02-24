@@ -276,7 +276,7 @@ contract('Autonity', function (accounts) {
     beforeEach(async function () {
       // the test contract exposes the applyNewCommissionRates function
       let config = JSON.parse(JSON.stringify(autonityConfig));
-      config.policy.unbondingPeriod = 0;
+      config.policy.unbondingPeriod = 1;
       autonity = await utils.deployAutonityTestContract(validators, config, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
     });
 
