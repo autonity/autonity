@@ -253,8 +253,6 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator})
   await autonity.setStakingPool(stakingPool.address, {from: operator})
-
-  await autonity.finalizeInitialization(omissionAccountabilityConfig.delta,{from:deployer});
 }
 
 // deploys protocol contracts
@@ -286,6 +284,11 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     return autonityTest;
 };
+
+async function setAccountabilityContracts(autonity, accountability, omission, operator) {
+    await autonity.setAccountabilityContract(accountability, {from: operator})
+    await autonity.setOmissionAccountabilityContract(omission, {from: operator})
+}
 
 function ruleToRate(accountabilityConfig,rule){
   if(rule == 9) { // equivocation
@@ -462,3 +465,4 @@ module.exports.publicKeyCompressed = publicKeyCompressed;
 module.exports.publicKey = publicKey;
 module.exports.address = address;
 module.exports.slash = slash;
+module.exports.setAccountabilityContracts = setAccountabilityContracts;
