@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -164,6 +166,7 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 // refreshClusters updates the clusters based on the new reporters, it will first fetch the
 // newly reported latencies from the on-chain contract, then recluster
 func (r *Router) refreshClusters(newReporters []common.Address) error {
+	log.Debug("Router: refreshing clusters after new reports", "reporters", newReporters)
 	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
 		return err
@@ -193,6 +196,14 @@ func (r *Router) refreshClusters(newReporters []common.Address) error {
 		return err
 	}
 
+	clusterInts := make([][]int, len(clusters))
+	for i, cluster := range clusters {
+		clusterInts[i] = make([]int, len(cluster))
+		for j, member := range cluster {
+			clusterInts[i][j] = slices.Index(committee, member)
+		}
+	}
+	log.Debug("Router: assigned clusters", "clusters", clusterInts)
 	r.clusterLock.Lock()
 	r.clusters = clusters
 	r.clusterLock.Unlock()
