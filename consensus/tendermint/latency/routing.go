@@ -144,6 +144,14 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	}
 	r.self = r.reporter.txOpts.From
 
+	r.setDefaultClusters(func() []common.Address {
+		result := make([]common.Address, r.curEpochInfo.Committee.Len())
+		for i, member := range r.curEpochInfo.Committee.Members {
+			result[i] = member.Address
+		}
+		return result
+	}())
+
 	ctx, r.cancel = context.WithCancel(ctx)
 	r.wg.Add(1)
 	go r.loop(ctx)
@@ -162,6 +170,22 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 // Internal package functions
+
+// setDefaultClusters partitions the committee into default clusters
+func (r *Router) setDefaultClusters(committee []common.Address) {
+	if len(committee) <= ScaleThresholdForClustering {
+		return
+	}
+	numClusters := numClustersFor(committee)
+	clusters := make([][]common.Address, numClusters)
+	for i, addr := range committee {
+		k := i / numClusters
+		clusters[k] = append(clusters[k], addr)
+	}
+	r.clusterLock.Lock()
+	defer r.clusterLock.Unlock()
+	r.clusters = clusters
+}
 
 // refreshClusters updates the clusters based on the new reporters, it will first fetch the
 // newly reported latencies from the on-chain contract, then recluster
@@ -259,7 +283,7 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 			ip := memberNode.IP()
 			port := memberNode.TCP()
 			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
-			log.Info("Router: fetching latency", "targetIP", ip, "targetPort", port)
+			log.Debug("Router: fetching latency", "targetIP", ip, "targetPort", port)
 		} else {
 			log.Error("Router: peer not found in broadcaster", "peer", member)
 			pingTargets[i] = ping.Target{}
@@ -325,13 +349,21 @@ func (r *Router) loop(ctx context.Context) {
 				)
 			}
 
-			if len(r.newReporters) > 0 {
+			if len(r.newReporters) > 2*len(r.curEpochInfo.Committee.Members)/3 {
 				log.Info("Router: new reporters detected, refreshing clusters", "reporters", r.newReporters)
 				if err := r.refreshClusters(r.newReporters); err != nil {
 					log.Error("Router: failed to refresh clusters", "err", err)
 				} else {
 					r.newReporters = nil
 				}
+			} else if len(r.newReporters) > 0 {
+				log.Info(
+					"Router: new reporters detected, not enough reporters to refresh",
+					"reporters",
+					len(r.newReporters),
+					"committee",
+					len(r.curEpochInfo.Committee.Members),
+				)
 			}
 
 		case ev := <-r.reportedEventChan:
@@ -339,7 +371,7 @@ func (r *Router) loop(ctx context.Context) {
 				log.Info("Router: not going to cluster a small scale network")
 				continue
 			}
-			log.Info("Router: latency report detected, scheduling network clustering", "reporter", ev.Reporter)
+			log.Debug("Router: latency report detected, scheduling network clustering", "reporter", ev.Reporter)
 			r.newReporters = append(r.newReporters, ev.Reporter)
 		}
 	}
@@ -400,4 +432,8 @@ func seed(msg message.Msg) int64 {
 			new(big.Int).Div(big.NewInt(math.MaxInt64), big.NewInt(mh)),
 		)
 	return mh * hash.Int64()
+}
+
+func numClustersFor(committee []common.Address) int {
+	return int(math.Floor(math.Sqrt(float64(len(committee)))))
 }
