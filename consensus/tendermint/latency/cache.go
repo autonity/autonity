@@ -104,7 +104,13 @@ func (l *latencyCache) readMatrix(validators []common.Address) map[common.Addres
 			if val, ok := l.matrix[va][vb]; ok {
 				result[va][i] = val
 			} else {
-				result[va][i] = ^uint8(0)
+				// check if we have the opposite direction
+				if val, ok := l.matrix[vb][va]; ok {
+					result[va][i] = val
+				} else {
+					// default to largest latency
+					result[va][i] = ^uint8(0)
+				}
 			}
 		}
 	}

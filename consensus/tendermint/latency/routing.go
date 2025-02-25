@@ -49,9 +49,10 @@ type Router struct {
 	chainEventChan chan core.ChainEvent
 	chainEventSub  event.Subscription
 
-	curEpochInfo *types.EpochInfo
-	newReporters []common.Address
-	measured     bool
+	curEpochInfo       *types.EpochInfo
+	newReporters       []common.Address
+	measured           bool
+	clusteredThisEpoch bool
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -131,7 +132,8 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 		return
 	}
 	r.curEpochInfo = curEpoch
-	r.measured = false // measure on startup
+	r.measured = false           // measure on startup
+	r.clusteredThisEpoch = false // start with no clustering
 
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
 	r.chainEventSub = chain.SubscribeChainEvent(r.chainEventChan)
@@ -195,39 +197,33 @@ func (r *Router) refreshClusters(newReporters []common.Address) error {
 	if err != nil {
 		return err
 	}
-	// if we have a lot of new reporters, we should update the matrix by fetching the full latency matrix
-	if len(newReporters) > 10 {
-		latency, err := r.contracts.Latency.Read(nil)
+
+	// we insert the new reporters individually
+	for _, reporter := range newReporters {
+		latencyVec, err := r.contracts.Latency.ReadReport(nil, reporter)
 		if err != nil {
 			return err
 		}
-		r.cache.updateMatrix(committee, latency)
-	} else {
-		// otherwise we insert the new reporters individually
-		for _, reporter := range newReporters {
-			latencyVec, err := r.contracts.Latency.ReadReport(nil, reporter)
-			if err != nil {
-				return err
-			}
-			r.cache.insertMatrixLine(reporter, committee, latencyVec)
-		}
-
+		r.cache.insertMatrixLine(reporter, committee, latencyVec)
 	}
 
 	latencyMat := r.cache.readMatrix(committee)
-	clusters, err := AssignClusters(latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
+	clusters, err := AssignClusters(latencyMat, numClustersFor(committee))
 	if err != nil {
 		return err
 	}
 
-	clusterInts := make([][]int, len(clusters))
-	for i, cluster := range clusters {
-		clusterInts[i] = make([]int, len(cluster))
-		for j, member := range cluster {
-			clusterInts[i][j] = slices.Index(committee, member)
+	log.Debug("Router: assigned clusters", "clusters", func() [][]int {
+		clusterInts := make([][]int, len(clusters))
+		for i, cluster := range clusters {
+			clusterInts[i] = make([]int, len(cluster))
+			for j, member := range cluster {
+				clusterInts[i][j] = slices.Index(committee, member)
+			}
 		}
-	}
-	log.Debug("Router: assigned clusters", "clusters", clusterInts)
+		return clusterInts
+	}())
+
 	r.clusterLock.Lock()
 	r.clusters = clusters
 	r.clusterLock.Unlock()
@@ -313,11 +309,20 @@ func (r *Router) loop(ctx context.Context) {
 				EpochBlock: epochEv.Header.Number,
 			}
 			r.measured = false
+			r.clusteredThisEpoch = false
 
 			// on new epoch, we have a small scale of network, clustering does not benefit anymore.
 			if epochEv.Header.Epoch.Committee.Len() <= ScaleThresholdForClustering {
 				log.Warn("Router: new epoch detected, committee too small resetting clusters")
 				r.resetClusters()
+			} else {
+				r.setDefaultClusters(func() []common.Address {
+					result := make([]common.Address, r.curEpochInfo.Committee.Len())
+					for i, member := range r.curEpochInfo.Committee.Members {
+						result[i] = member.Address
+					}
+					return result
+				}())
 			}
 
 		case ev := <-r.chainEventChan:
@@ -349,12 +354,13 @@ func (r *Router) loop(ctx context.Context) {
 				)
 			}
 
-			if len(r.newReporters) > 2*len(r.curEpochInfo.Committee.Members)/3 {
+			if (len(r.newReporters) > 2*len(r.curEpochInfo.Committee.Members)/3 && !r.clusteredThisEpoch) || (len(r.newReporters) > 0 && r.clusteredThisEpoch) {
 				log.Info("Router: new reporters detected, refreshing clusters", "reporters", r.newReporters)
 				if err := r.refreshClusters(r.newReporters); err != nil {
 					log.Error("Router: failed to refresh clusters", "err", err)
 				} else {
 					r.newReporters = nil
+					r.clusteredThisEpoch = true
 				}
 			} else if len(r.newReporters) > 0 {
 				log.Info(
