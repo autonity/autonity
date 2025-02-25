@@ -3,6 +3,7 @@ package economic
 import (
 	"fmt"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/shopspring/decimal"
@@ -140,14 +141,14 @@ type simulator struct {
 	numOfBlocks uint64
 	coreState   *state
 	params      *systemParams
-	blockFiler  blockFiller
+	txnPacker   TXNPacker
 
 	inflationEngine inflationEngine
 
 	blocks []*block
 }
 
-func newSimulator(blocks uint64, sp *systemParams, filler blockFiller) *simulator {
+func newSimulator(blocks uint64, sp *systemParams, filler TXNPacker) *simulator {
 	coreState := &state{
 		new(big.Int).SetUint64(0),
 		new(big.Int).SetUint64(0),
@@ -198,8 +199,7 @@ func (s *simulator) start() {
 	lastEpochTime := new(big.Int).SetInt64(genesisBlock.timestamp)
 
 	for i := uint64(0); i < s.numOfBlocks; i++ {
-		b, feeReward := s.blockFiler.fillBlock(preBlock)
-
+		b, feeReward := fillBlock(preBlock, s.params, s.txnPacker)
 		if i != 0 && i%s.params.epochPeriod == 0 {
 			currentTime := new(big.Int).SetInt64(b.timestamp)
 			inflationReward := s.inflationEngine.calculateSupplyDelta(circulatingSupply, s.params.InflationReserves, lastEpochTime, currentTime)
@@ -215,4 +215,22 @@ func (s *simulator) start() {
 	}
 
 	return
+}
+
+func fillBlock(parent *block, params *systemParams, f TXNPacker) (*block, *big.Int) {
+	baseFee := CalcBaseFee(parent, params)
+	baseFeeChgRate := baseFeeChangeRate(parent.baseFee, baseFee)
+	gasLimit := core.CalcGasLimit(parent.gasLimit, params.gasCeil)
+	numOfTXN, gasUsed := f.packTXNs(parent)
+	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
+	b := &block{
+		timestamp:         parent.timestamp + 1,
+		number:            parent.number + 1,
+		gasLimit:          gasLimit,
+		baseFee:           baseFee,
+		baseFeeChangeRate: baseFeeChgRate,
+		numOfTXNs:         numOfTXN,
+		gasUsed:           gasUsed,
+	}
+	return b, atnRewards
 }

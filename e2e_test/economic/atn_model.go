@@ -3,12 +3,129 @@ package economic
 import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
-	"github.com/autonity/autonity/core"
 	"github.com/shopspring/decimal"
 	"math/big"
 	"math/rand"
 	"time"
 )
+
+type TXNPacker interface {
+	packTXNs(parent *block) (uint64, uint64)
+}
+
+type fullPacker struct {
+	params *systemParams
+}
+
+func (f *fullPacker) packTXNs(parent *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Generate a random number of additional transactions (1 to 5)
+	rand.Seed(time.Now().UnixNano())
+	additionalTxns := rand.Intn(5) + 1
+
+	// Calculate the minimum gas required to exceed the parent's gas limit
+	minGasRequired := parent.gasLimit + uint64(additionalTxns*gasPerTxn)
+
+	// Calculate the number of transactions needed to exceed the gas limit
+	numTxns := minGasRequired / gasPerTxn
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
+
+type twoThirdPacker struct {
+	params *systemParams
+}
+
+func (f *twoThirdPacker) packTXNs(parent *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Generate a random number of additional transactions (1 to 5)
+	rand.Seed(time.Now().UnixNano())
+	additionalTxns := rand.Intn(5) + 1
+
+	// Calculate the minimum gas required to exceed the parent's gas limit
+	minGasRequired := parent.gasLimit*2/3 + uint64(additionalTxns*gasPerTxn)
+
+	// Calculate the number of transactions needed to exceed the gas limit
+	numTxns := minGasRequired / gasPerTxn
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
+
+type halfPacker struct {
+	params *systemParams
+}
+
+func (f *halfPacker) packTXNs(parent *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Generate a random number of additional transactions (1 to 5)
+	rand.Seed(time.Now().UnixNano())
+	additionalTxns := rand.Intn(5) + 1
+
+	// Calculate the minimum gas required to exceed the parent's gas limit
+	minGasRequired := parent.gasLimit/2 + uint64(additionalTxns*gasPerTxn)
+
+	// Calculate the number of transactions needed to exceed the gas limit
+	numTxns := minGasRequired / gasPerTxn
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
+
+type oneThirdPacker struct {
+	params *systemParams
+}
+
+func (f *oneThirdPacker) packTXNs(parent *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Generate a random number of additional transactions (1 to 5)
+	rand.Seed(time.Now().UnixNano())
+	additionalTxns := rand.Intn(5) + 1
+
+	// Calculate the minimum gas required to exceed the parent's gas limit
+	minGasRequired := parent.gasLimit/3 + uint64(additionalTxns*gasPerTxn)
+
+	// Calculate the number of transactions needed to exceed the gas limit
+	numTxns := minGasRequired / gasPerTxn
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
+
+type dustFiller struct {
+	params *systemParams
+}
+
+func (f *dustFiller) packTXNs(_ *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Generate a random number of additional transactions (1 to 5)
+	rand.Seed(time.Now().UnixNano())
+	numTxns := uint64(rand.Intn(5)) + 1
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
 
 // CalcBaseFee calculates the basefee of the header.
 func CalcBaseFee(parent *block, params *systemParams) *big.Int {
@@ -45,35 +162,6 @@ func CalcBaseFee(parent *block, params *systemParams) *big.Int {
 		)
 	}
 }
-
-type blockFiller interface {
-	fillBlock(parent *block) (*block, *big.Int)
-}
-
-type fullFiller struct {
-	params *systemParams
-}
-
-func (f *fullFiller) genTXNs(parent *block) (uint64, uint64) {
-	// Define the gas cost per transaction
-	const gasPerTxn = 21000
-
-	// Generate a random number of additional transactions (1 to 5)
-	rand.Seed(time.Now().UnixNano())
-	additionalTxns := rand.Intn(5) + 1
-
-	// Calculate the minimum gas required to exceed the parent's gas limit
-	minGasRequired := parent.gasLimit + uint64(additionalTxns*gasPerTxn)
-
-	// Calculate the number of transactions needed to exceed the gas limit
-	numTxns := minGasRequired / gasPerTxn
-
-	// Calculate the total gas used
-	usedGas := numTxns * gasPerTxn
-
-	return numTxns, usedGas
-}
-
 func baseFeeChangeRate(parentBaseFee *big.Int, curBaseFee *big.Int) decimal.Decimal {
 	// Convert parentBaseFee and curBaseFee to decimal.Decimal
 	parentFee := decimal.NewFromBigInt(parentBaseFee, 0)
@@ -86,96 +174,4 @@ func baseFeeChangeRate(parentBaseFee *big.Int, curBaseFee *big.Int) decimal.Deci
 	changeRate := diff.Mul(decimal.NewFromInt(100)).Div(parentFee)
 
 	return changeRate
-}
-
-func (f *fullFiller) fillBlock(parent *block) (*block, *big.Int) {
-	baseFee := CalcBaseFee(parent, f.params)
-	changeRate := baseFeeChangeRate(parent.baseFee, baseFee)
-
-	numOfTXN, gasUsed := f.genTXNs(parent)
-
-	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
-	return &block{
-		timestamp:         parent.timestamp + 1,
-		number:            parent.number + 1,
-		gasUsed:           gasUsed,
-		numOfTXNs:         numOfTXN,
-		gasLimit:          core.CalcGasLimit(parent.gasLimit, f.params.gasCeil),
-		baseFee:           baseFee,
-		baseFeeChangeRate: changeRate,
-	}, atnRewards
-}
-
-type halfFiller struct {
-	params *systemParams
-}
-
-func (f *halfFiller) genTXNs(parent *block) (uint64, uint64) {
-	// Define the gas cost per transaction
-	const gasPerTxn = 21000
-
-	// Generate a random number of additional transactions (1 to 5)
-	rand.Seed(time.Now().UnixNano())
-	additionalTxns := rand.Intn(5) + 1
-
-	// Calculate the minimum gas required to exceed the parent's gas limit
-	minGasRequired := parent.gasLimit/2 + uint64(additionalTxns*gasPerTxn)
-
-	// Calculate the number of transactions needed to exceed the gas limit
-	numTxns := minGasRequired / gasPerTxn
-
-	// Calculate the total gas used
-	usedGas := numTxns * gasPerTxn
-
-	return numTxns, usedGas
-}
-
-func (f *halfFiller) fillBlock(parent *block) (*block, *big.Int) {
-	baseFee := CalcBaseFee(parent, f.params)
-	numOfTXN, gasUsed := f.genTXNs(parent)
-
-	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
-
-	return &block{
-		timestamp: parent.timestamp + 1,
-		number:    parent.number + 1,
-		gasUsed:   gasUsed,
-		numOfTXNs: numOfTXN,
-		gasLimit:  core.CalcGasLimit(parent.gasLimit, f.params.gasCeil),
-		baseFee:   baseFee,
-	}, atnRewards
-}
-
-type dustFiller struct {
-	params *systemParams
-}
-
-func (f *dustFiller) genTXNs(_ *block) (uint64, uint64) {
-	// Define the gas cost per transaction
-	const gasPerTxn = 21000
-
-	// Generate a random number of additional transactions (1 to 5)
-	rand.Seed(time.Now().UnixNano())
-	numTxns := uint64(rand.Intn(5)) + 1
-
-	// Calculate the total gas used
-	usedGas := numTxns * gasPerTxn
-
-	return numTxns, usedGas
-}
-
-func (f *dustFiller) fillBlock(parent *block) (*block, *big.Int) {
-	baseFee := CalcBaseFee(parent, f.params)
-	numOfTXN, gasUsed := f.genTXNs(parent)
-
-	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
-
-	return &block{
-		timestamp: parent.timestamp + 1,
-		number:    parent.number + 1,
-		gasUsed:   gasUsed,
-		numOfTXNs: numOfTXN,
-		gasLimit:  core.CalcGasLimit(parent.gasLimit, f.params.gasCeil),
-		baseFee:   baseFee,
-	}, atnRewards
 }
