@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	defATNPriceInUSD, _ = decimal.NewFromString("211.28") // to be replaced with production price
-	defNTNPriceInUSD, _ = decimal.NewFromString("985.25") // to be replaced with production price
+	defATNPriceInUSD, _ = decimal.NewFromString("1.28") // to be replaced with production price
+	defNTNPriceInUSD, _ = decimal.NewFromString("1.25") // to be replaced with production price
 	defSysParams        = systemParams{
 		epochPeriod: 30,
 
@@ -129,8 +129,8 @@ func (s *state) string() string {
 	ntnRewardsInUSD := new(big.Float).Mul(ntnRewardsInNTN, ntnToUSD)
 
 	return fmt.Sprintf(
-		"feeRWD(Wei): %s, feeRWD(ATN): %.9f, feeRWD(USD): %.9f "+
-			"infRWD: %s, infRWD(NTN): %.9f, infRWD(USD): %.9f",
+		"feeRWD: %s (Wei), %.9f (ATN), %.9f (USD) "+
+			"inflationRWD: %s, %.9f (NTN), %.9f (USD)",
 		s.accumulatedATNRewards.String(), atnRewardsInATN, atnRewardsInUSD,
 		s.accumulatedNTNRewards.String(), ntnRewardsInNTN, ntnRewardsInUSD,
 	)
@@ -197,16 +197,17 @@ func (s *simulator) start() {
 	// todo: add the simulation of dynamic adjustment of circulatingSupply.
 	circulatingSupply := new(big.Int).Set(s.params.NTNCirculatingSupply)
 	lastEpochTime := new(big.Int).SetInt64(genesisBlock.timestamp)
-
+	inflationReserve := new(big.Int).Set(s.params.InflationReserves)
 	for i := uint64(0); i < s.numOfBlocks; i++ {
 		b, feeReward := fillBlock(preBlock, s.params, s.txnPacker)
 		if i != 0 && i%s.params.epochPeriod == 0 {
 			currentTime := new(big.Int).SetInt64(b.timestamp)
-			inflationReward := s.inflationEngine.calculateSupplyDelta(circulatingSupply, s.params.InflationReserves, lastEpochTime, currentTime)
+			inflationReward := s.inflationEngine.calculateSupplyDelta(circulatingSupply, inflationReserve, lastEpochTime, currentTime)
 			lastEpochTime = currentTime
 			s.coreState.accumulatedNTNRewards = s.coreState.accumulatedNTNRewards.Add(s.coreState.accumulatedNTNRewards, inflationReward)
+			inflationReserve.Sub(inflationReserve, inflationReward)
+			circulatingSupply.Add(circulatingSupply, inflationReward)
 		}
-
 		preBlock = b
 		s.coreState.accumulatedATNRewards = s.coreState.accumulatedATNRewards.Add(s.coreState.accumulatedATNRewards, feeReward)
 		s.blocks = append(s.blocks, b)
