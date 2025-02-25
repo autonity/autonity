@@ -21,18 +21,14 @@ func TestDefaultConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runSimulation(t, tt.name, tt.blocks, &defSysParams, tt.packer)
+			runSimulation(tt.name, tt.blocks, &defSysParams, tt.packer)
 		})
 	}
 }
 
 // runSimulation runs a simulation and logs the results.
-func runSimulation(t *testing.T, name string, blocks uint64, params *systemParams, packer TXNPacker) {
+func runSimulation(name string, blocks uint64, params *systemParams, packer TXNPacker) {
 	log.Info("Running test", "name", name, "blocks", blocks, "params", params)
-	sim := newSimulator(blocks, params, packer)
+	sim := newSimulator(name, blocks, params, packer)
 	sim.start()
 }
-
-// todo, address the cost of spam.
-
-// todo, add helpers to render data in a diagram.

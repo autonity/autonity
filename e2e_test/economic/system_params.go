@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	defATNPriceInUSD, _ = decimal.NewFromString("1.28") // to be replaced with production price
-	defNTNPriceInUSD, _ = decimal.NewFromString("1.25") // to be replaced with production price
+	defATNPriceInUSD, _ = decimal.NewFromString("211.28") // to be replaced with production price
+	defNTNPriceInUSD, _ = decimal.NewFromString("985.25") // to be replaced with production price
 	defSysParams        = systemParams{
 		epochPeriod: 30,
 
@@ -73,9 +73,21 @@ type block struct {
 	gasUsed           uint64
 	baseFee           *big.Int
 	baseFeeChangeRate decimal.Decimal
+	data              *blockData
 }
 
-func (b *block) string() string {
+type blockData struct {
+	H                  uint64
+	gasLimit           uint64
+	gasUsed            uint64
+	baseFeeChangeRate  decimal.Decimal
+	baseFee            *big.Int
+	baseFeeInATN       *big.Float
+	baseFeeInUSD       *big.Float
+	blockSpamCostInUSD *big.Float
+}
+
+func (b *block) collectData() {
 	// Convert 1e18 to a big.Float for floating-point division
 	oneATNInWei := new(big.Float).SetUint64(1e18)
 
@@ -83,18 +95,36 @@ func (b *block) string() string {
 	baseFeeFloat := new(big.Float).SetInt(b.baseFee)
 
 	// Calculate baseFee in ATN with decimals
-	baseFeeInETH := new(big.Float).Quo(baseFeeFloat, oneATNInWei)
+	baseFeeInATN := new(big.Float).Quo(baseFeeFloat, oneATNInWei)
 
 	// ATN to USD exchange rate (1 ATN = 1.28 USD)
 	price := defATNPriceInUSD.InexactFloat64()
 	atnToUSD := new(big.Float).SetFloat64(price)
 
 	// Calculate baseFee in USD
-	baseFeeInUSD := new(big.Float).Mul(baseFeeInETH, atnToUSD)
+	baseFeeInUSD := new(big.Float).Mul(baseFeeInATN, atnToUSD)
 
+	// Block spam cost.
+	gasLimit := new(big.Float).SetUint64(b.gasLimit)
+	blockSpamCostInUSD := new(big.Float).Mul(baseFeeInUSD, gasLimit)
+
+	b.data = &blockData{
+		H:                  b.number,
+		gasLimit:           b.gasLimit,
+		gasUsed:            b.gasUsed,
+		baseFeeChangeRate:  b.baseFeeChangeRate,
+		baseFee:            b.baseFee,
+		baseFeeInATN:       baseFeeInATN,
+		baseFeeInUSD:       baseFeeInUSD,
+		blockSpamCostInUSD: blockSpamCostInUSD,
+	}
+}
+
+func (b *block) string() string {
+	b.collectData()
 	return fmt.Sprintf(
-		"H: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.9f, baseFee(USD): %.9f",
-		b.number, b.gasLimit, b.gasUsed, b.baseFeeChangeRate.String(), b.baseFee.String(), baseFeeInETH, baseFeeInUSD,
+		"H: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.9f, baseFee(USD): %.9f, blockSpamCost(USD): %.9f",
+		b.data.H, b.data.gasLimit, b.data.gasUsed, b.data.baseFeeChangeRate.String(), b.data.baseFee.String(), b.data.baseFeeInATN, b.data.baseFeeInUSD, b.data.blockSpamCostInUSD,
 	)
 }
 
@@ -137,23 +167,19 @@ func (s *state) string() string {
 }
 
 type simulator struct {
+	name        string
 	genesisTime int64
 	numOfBlocks uint64
-	coreState   *state
 	params      *systemParams
 	txnPacker   TXNPacker
 
 	inflationEngine inflationEngine
 
 	blocks []*block
+	states []*state
 }
 
-func newSimulator(blocks uint64, sp *systemParams, filler TXNPacker) *simulator {
-	coreState := &state{
-		new(big.Int).SetUint64(0),
-		new(big.Int).SetUint64(0),
-	}
-
+func newSimulator(name string, blocks uint64, sp *systemParams, filler TXNPacker) *simulator {
 	genesisTime := time.Now().Unix()
 
 	inflationParams := &autonity.InflationControllerParams{
@@ -167,12 +193,13 @@ func newSimulator(blocks uint64, sp *systemParams, filler TXNPacker) *simulator 
 	inflationCore := newInflationEngine(inflationParams, new(big.Int).SetInt64(genesisTime))
 
 	return &simulator{
+		name,
 		genesisTime,
 		blocks,
-		coreState,
 		sp,
 		filler,
 		inflationCore,
+		nil,
 		nil}
 }
 
@@ -189,8 +216,16 @@ func (s *simulator) genesisBlock() *block {
 
 // start the simulation, and collect runtime data.
 func (s *simulator) start() {
+
 	genesisBlock := s.genesisBlock()
 	s.blocks = append(s.blocks, genesisBlock)
+
+	lastState := &state{
+		accumulatedATNRewards: new(big.Int).SetUint64(0),
+		accumulatedNTNRewards: new(big.Int).SetUint64(0),
+	}
+	s.states = append(s.states, lastState)
+
 	preBlock := genesisBlock
 	log.Info("", "genesis", genesisBlock.string())
 
@@ -200,22 +235,46 @@ func (s *simulator) start() {
 	inflationReserve := new(big.Int).Set(s.params.InflationReserves)
 	for i := uint64(0); i < s.numOfBlocks; i++ {
 		b, feeReward := fillBlock(preBlock, s.params, s.txnPacker)
+
+		newState := &state{
+			accumulatedATNRewards: new(big.Int).Add(lastState.accumulatedATNRewards, feeReward),
+			accumulatedNTNRewards: new(big.Int).Set(lastState.accumulatedNTNRewards),
+		}
+
 		if i != 0 && i%s.params.epochPeriod == 0 {
 			currentTime := new(big.Int).SetInt64(b.timestamp)
 			inflationReward := s.inflationEngine.calculateSupplyDelta(circulatingSupply, inflationReserve, lastEpochTime, currentTime)
 			lastEpochTime = currentTime
-			s.coreState.accumulatedNTNRewards = s.coreState.accumulatedNTNRewards.Add(s.coreState.accumulatedNTNRewards, inflationReward)
+			newState.accumulatedNTNRewards = new(big.Int).Add(lastState.accumulatedNTNRewards, inflationReward)
 			inflationReserve.Sub(inflationReserve, inflationReward)
 			circulatingSupply.Add(circulatingSupply, inflationReward)
 		}
-		preBlock = b
-		s.coreState.accumulatedATNRewards = s.coreState.accumulatedATNRewards.Add(s.coreState.accumulatedATNRewards, feeReward)
-		s.blocks = append(s.blocks, b)
 
-		log.Info("", "data", b.string(), "rewards", s.coreState.string())
+		preBlock = b
+		s.blocks = append(s.blocks, b)
+		s.states = append(s.states, newState)
+		lastState = newState
+
+		log.Info("", "block data", b.string(), "accumulating rewards", newState.string())
 	}
 
-	return
+	// render data charts for analysis.
+	s.renderDataCharts()
+}
+
+func (s *simulator) renderDataCharts() {
+	// render gas limit and gas used in YAxis and block in XAxis.
+
+	// render baseFee(ATN) baseFee(USD) in YAxis and block in XAxis.
+
+	// render baseFeeChangeRate in YAxis and block in XAxis.
+
+	// render block spam cost(USD) in YAxis and block in XAxis.
+
+	// Merge the 3 into 1 chart?
+	// render accumulating fee rewards(ATN) & (USD) in YAxis and block in XAxis.
+	// render accumulating ntn rewards(NTN) & (USD) in YAxis and block in XAxis.
+	// render accumulating merged rewards(USD) in YAxis and block in XAxis.
 }
 
 func fillBlock(parent *block, params *systemParams, f TXNPacker) (*block, *big.Int) {

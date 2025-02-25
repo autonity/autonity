@@ -63,6 +63,7 @@ require (
 	github.com/supranational/blst v0.3.13
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tyler-smith/go-bip39 v1.1.0
+	github.com/wcharczuk/go-chart/v2 v2.1.2
 	github.com/zfjagann/golang-ring v0.0.0-20220330170733-19bcea1b6289
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.5.0
@@ -106,6 +107,7 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/flatbuffers v25.1.24+incompatible // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -147,6 +149,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect
