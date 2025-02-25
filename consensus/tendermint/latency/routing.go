@@ -181,7 +181,7 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 	numClusters := numClustersFor(committee)
 	clusters := make([][]common.Address, numClusters)
 	for i, addr := range committee {
-		k := i / numClusters
+		k := int(math.Min(float64(i/numClusters), float64(numClusters-1)))
 		clusters[k] = append(clusters[k], addr)
 	}
 	r.clusterLock.Lock()
