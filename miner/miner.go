@@ -57,8 +57,8 @@ type Miner struct {
 	startCh      chan struct{}
 	stopCh       chan struct{}
 	forceStartCh chan struct{}
-
-	wg sync.WaitGroup
+	prio         []common.Address // A list of senders to prioritize
+	wg           sync.WaitGroup
 
 	// used in the miner update loop
 	canStart    bool
@@ -228,7 +228,7 @@ func (miner *Miner) SetRecommitInterval(interval time.Duration) {
 }
 
 // Pending returns the currently pending block and associated state.
-func (miner *Miner) Pending() (*types.Block, *state.StateDB) {
+func (miner *Miner) Pending() (*types.Header, *state.StateDB) {
 	return miner.worker.pending()
 }
 
@@ -274,4 +274,8 @@ func (miner *Miner) GetSealingBlock(parent common.Hash, timestamp uint64, coinba
 // to the given channel.
 func (miner *Miner) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
 	return miner.worker.pendingLogsFeed.Subscribe(ch)
+}
+
+func (miner *Miner) SetPrioAddresses(prio []common.Address) {
+	miner.prio = prio
 }

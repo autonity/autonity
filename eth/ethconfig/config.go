@@ -169,6 +169,7 @@ type MinerConfig struct {
 	GasPrice   *big.Int       // Minimum gas price for mining a transaction
 	Recommit   time.Duration  // The time interval for miner to re-create mining work.
 	Noverify   bool           // Disable remote mining solution verification(only useful in ethash).
+	Prio       []common.Address
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service

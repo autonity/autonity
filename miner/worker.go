@@ -25,7 +25,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/metrics"
@@ -719,8 +722,8 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		state.StartPrefetcher("miner", nil)
 	}
 
-	blockContext := NewEVMBlockContext(header, bc, author)
-	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg
+	blockContext := core.NewEVMBlockContext(header, w.chain, &w.coinbase)
+	vmenv := vm.NewEVM(blockContext, state, w.chainConfig, *w.chain.GetVMConfig())
 	// Note the passed coinbase may be different with header.Coinbase.
 	env := &environment{
 		signer:       types.MakeSigner(w.chainConfig, header.Number),
@@ -728,6 +731,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		coinbase:     coinbase,
 		header:       header,
 		parentHeader: parent.Header(),
+		evm:          vmenv,
 	}
 	// Keep track of transactions which return errors so they can be removed
 	env.tcount = 0
@@ -737,7 +741,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*types.Log, error) {
 	snap := env.state.Snapshot()
 
-	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &env.coinbase, env.gasPool, env.state, env.header, tx, &env.header.GasUsed, *w.chain.GetVMConfig())
+	receipt, err := core.ApplyTransaction(env.evm, env.gasPool, env.state, env.header, tx, &env.header.GasUsed)
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return nil, err
@@ -957,28 +961,43 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Block) (*e
 // into the given sealing block. The transaction selection and ordering strategy can
 // be customized with the plugin in the future.
 func (w *worker) fillTransactions(interrupt *int32, env *environment) {
-	// Split the pending transactions into locals and remotes
+	tip := w.config.GasPrice
+	prio := w.config.Prio
+
+	// Retrieve the pending transactions pre-filtered by the 1559/4844 dynamic fees
+	filter := txpool.PendingFilter{
+		MinTip:       uint256.MustFromBig(tip),
+		OnlyPlainTxs: true,
+	}
+	if env.header.BaseFee != nil {
+		filter.BaseFee = uint256.MustFromBig(env.header.BaseFee)
+	}
+
+	pendingPlainTxs := w.eth.TxPool().Pending(filter)
+
+	// Split the pending transactions into locals and remotes.
+	prioPlainTxs, normalPlainTxs := make(map[common.Address][]*txpool.LazyTransaction), pendingPlainTxs
+
+	for _, account := range prio {
+		if txs := normalPlainTxs[account]; len(txs) > 0 {
+			delete(normalPlainTxs, account)
+			prioPlainTxs[account] = txs
+		}
+	}
 	// Fill the block with all available pending transactions.
-	pending := w.eth.TxPool().Pending(true)
-	localTxs, remoteTxs := make(map[common.Address]types.Transactions), pending
-	for _, account := range w.eth.TxPool().Locals() {
-		if txs := remoteTxs[account]; len(txs) > 0 {
-			delete(remoteTxs, account)
-			localTxs[account] = txs
-		}
-	}
-	if len(localTxs) > 0 {
-		txs := types.NewTransactionsByPriceAndNonce(env.signer, localTxs, env.header.BaseFee)
-		if w.commitTransactions(env, txs, interrupt) {
+	if len(prioPlainTxs) > 0 {
+		plainTxs := newTransactionsByPriceAndNonce(env.signer, prioPlainTxs, env.header.BaseFee)
+		if w.commitTransactions(env, plainTxs, interrupt) {
 			return
 		}
 	}
-	if len(remoteTxs) > 0 {
-		txs := types.NewTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
-		if w.commitTransactions(env, txs, interrupt) {
+	if len(normalPlainTxs) > 0 {
+		plainTxs := newTransactionsByPriceAndNonce(env.signer, normalPlainTxs, env.header.BaseFee)
+		if w.commitTransactions(env, plainTxs, interrupt) {
 			return
 		}
 	}
+	return
 }
 
 // generateWork generates a sealing block based on the given parameters.
