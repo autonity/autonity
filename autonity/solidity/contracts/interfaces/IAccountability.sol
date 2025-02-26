@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.0;
+import "../Autonity.sol";
 
 interface IAccountability {
     /**
@@ -8,6 +9,8 @@ interface IAccountability {
     * @param _epochEnd whether or not the current block is the last one from the epoch.
     */
     function finalize(bool _epochEnd) external;
+
+    function finalizeInitialization( Autonity.CommitteeMember[] memory _committee) external;
 
     /**
     * @notice distribute slashing rewards to reporters.

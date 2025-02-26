@@ -11,7 +11,7 @@ const Acu = artifacts.require("ACU")
 const SupplyControl = artifacts.require("SupplyControl")
 const Stabilization = artifacts.require("Stabilization")
 const InflationController = artifacts.require("InflationController")
-const NonStakeableVesting = artifacts.require("NonStakeableVesting")
+const StakingPool = artifacts.require("StakingPool")
 const AutonityTest = artifacts.require("AutonityTest");
 const mockEnodeVerifier = artifacts.require("MockEnodeVerifier")
 const mockCommitteeSelector = artifacts.require("MockCommitteeSelector")
@@ -85,22 +85,18 @@ async function bulkUnbondingRequest(autonity, delegators, delegatee, tokenUnbond
 
 async function mineTillUnbondingRelease(autonity, operator, deployer, maybeReleasedAlready = true) {
   let requestID = (await autonity.getHeadUnbondingID()).toNumber() - 1;
-  let request = await autonity.getUnbondingRequest(requestID);
-  let currentUnbondingPeriod = (await autonity.getUnbondingPeriod()).toNumber();
-  let unbondingReleaseHeight = Number(request.requestBlock) + currentUnbondingPeriod;
-  let lastEpochBlock = (await autonity.getLastEpochBlock()).toNumber();
+  let stakingPool = await StakingPool.at((await autonity.getStakingPool()).toString())
   if (!maybeReleasedAlready) {
-    // the following needs to be true in case unbonding not released already:
-    // UnbondingRequestBlock + UnbondingPeriod > LastEpochBlock
     assert(
-      unbondingReleaseHeight > lastEpochBlock,
-      `unbonding period too short for testing, request-block: ${Number(request.requestBlock)}, unbonding-period: ${currentUnbondingPeriod}, `
-      + `last-epoch-block: ${lastEpochBlock}`
-    );
+      (await stakingPool.isUnbondingReleased(requestID)) == false,
+      "unbonding already released"
+    )
   }
-  // mine blocks until unbonding period is reached
-  while (await web3.eth.getBlockNumber() < unbondingReleaseHeight) {
-    await mineEmptyBlock();
+  while (true) {
+    if ((await stakingPool.isUnbondingReleased(requestID)) == false) {
+      await endEpoch(autonity, operator, deployer)
+    }
+    else break
   }
 }
 
@@ -209,8 +205,16 @@ const createAutonityTestContract = async (validators, autonityConfig, deployer) 
   return AutonityTest.new(validators, autonityConfig, deployer);
 }
 
+async function finalizeAutonity(autonity, delta, operator, deployer) {
+  // staking pool contract
+  const stakingPool = await StakingPool.new(autonity.address, operator, {from: deployer});
+  await autonity.setStakingPoolContract(stakingPool.address, {from: operator})
+  await autonity.finalizeInitialization(delta, {from: deployer})
+}
+
 async function initialize(autonity, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator) {
-  await autonity.finalizeInitialization(omissionAccountabilityConfig.delta,{from:deployer});
+  // staking pool contract
+  const stakingPool = await StakingPool.new(autonity.address, operator, {from: deployer});
 
   // accountability contract
   const accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
@@ -242,7 +246,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
 
   // omission accountability contract
-  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, treasuries, omissionAccountabilityConfig, {from:deployer})
+  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, omissionAccountabilityConfig, {from:deployer})
 
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});
@@ -251,6 +255,8 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator})
+  await autonity.setStakingPoolContract(stakingPool.address, {from: operator})
+  await autonity.finalizeInitialization(omissionAccountabilityConfig.delta, {from: deployer})
 }
 
 // deploys protocol contracts
@@ -282,6 +288,11 @@ const deployAutonityTestContract = async (validators, autonityConfig, accountabi
     await initialize(autonityTest, autonityConfig, validators, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     return autonityTest;
 };
+
+async function setAccountabilityContracts(autonity, accountability, omission, operator) {
+    await autonity.setAccountabilityContract(accountability, {from: operator})
+    await autonity.setOmissionAccountabilityContract(omission, {from: operator})
+}
 
 function ruleToRate(accountabilityConfig,rule){
   if(rule == 9) { // equivocation
@@ -458,3 +469,5 @@ module.exports.publicKeyCompressed = publicKeyCompressed;
 module.exports.publicKey = publicKey;
 module.exports.address = address;
 module.exports.slash = slash;
+module.exports.setAccountabilityContracts = setAccountabilityContracts;
+module.exports.finalizeAutonity = finalizeAutonity;

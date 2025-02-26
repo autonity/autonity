@@ -548,7 +548,7 @@ func TestVotersUpdate(t *testing.T) {
 		newVoterCheck(r, voters, true)
 
 		for {
-			released, _, err := r.Autonity.IsUnbondingReleased(nil, common.Big0)
+			released, _, err := r.StakingPool.IsUnbondingReleased(nil, common.Big0)
 			require.NoError(r.T, err)
 			if released {
 				break
@@ -786,12 +786,22 @@ func TestVotersUpdate(t *testing.T) {
 
 		// check voter update
 		newCommitteeSet := addToCommittee(r, 2)
+		unbondingID, _, err := r.StakingPool.GetUnbondingArrayLength(nil)
+		require.NoError(r.T, err)
 		removeFromCommittee(r, len(r.Committee.Validators))
 		oldVoters := getVoters(r)
 		r.WaitNextEpoch()
 		checkCommittee(r, newCommitteeSet)
 		checkVoterUpdate(r, true, oldVoters)
 		// check again
+		for {
+			released, _, err := r.StakingPool.IsUnbondingReleased(nil, unbondingID)
+			require.NoError(r.T, err)
+			if released {
+				break
+			}
+			r.WaitNextEpoch()
+		}
 		newCommitteeSet = addToCommittee(r, 2)
 		removeFromCommittee(r, len(r.Committee.Validators))
 		oldVoters = getVoters(r)

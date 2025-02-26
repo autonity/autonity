@@ -22,6 +22,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
@@ -32,15 +33,19 @@ func BenchmarkComputeCommittee(b *testing.B) {
 	validatorCount := 100000
 	validators, err := randomValidators(validatorCount, 30)
 	require.NoError(b, err)
-	contractAbi := &generated.AutonityAbi
+	contractAbi := &generated.AutonityTestAbi
 	deployer := params.DeployerAddress
 	committeeSize := 100
 
 	b.Run("computeCommittee", func(b *testing.B) {
-		stateDB, evmContract, contractAddress, err := deployAutonity(committeeSize, validators, deployer)
+		stateDB, ethDB, evm, err := initializeEvm()
+		require.NoError(b, err)
+		evmContract, contractAddress, err := deployAutonityTest(
+			committeeSize, validators, deployer, stateDB, ethDB, evm,
+		)
 		require.NoError(b, err)
 		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "finalizeInitialization")
+		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "finalizeInitializationOnlyAutonity", common.Big0)
 		require.NoError(b, err)
 		packedArgs, err := contractAbi.Pack("computeCommittee")
 		require.NoError(b, err)
@@ -71,7 +76,12 @@ func TestUpdateEnode(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Success: update node ip of enode", func(t *testing.T) {
-		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		stateDB, ethDB, evm, err := initializeEvm()
+		require.NoError(t, err)
+		evmContract, contractAddress, err := deployAutonityTest(
+			5, validators, deployer, stateDB, ethDB, evm,
+		)
+		require.NoError(t, err)
 		var header *types.Header
 		val := validators[0]
 		node, _ := enode.ParseV4(val.Enode)
@@ -91,7 +101,12 @@ func TestUpdateEnode(t *testing.T) {
 	})
 
 	t.Run("Failure: update to invalid enode format", func(t *testing.T) {
-		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		stateDB, ethDB, evm, err := initializeEvm()
+		require.NoError(t, err)
+		evmContract, contractAddress, err := deployAutonityTest(
+			5, validators, deployer, stateDB, ethDB, evm,
+		)
+		require.NoError(t, err)
 		var header *types.Header
 		val := validators[0]
 		testKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
@@ -106,7 +121,12 @@ func TestUpdateEnode(t *testing.T) {
 	})
 
 	t.Run("Failure: update node address of enode", func(t *testing.T) {
-		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		stateDB, ethDB, evm, err := initializeEvm()
+		require.NoError(t, err)
+		evmContract, contractAddress, err := deployAutonityTest(
+			5, validators, deployer, stateDB, ethDB, evm,
+		)
+		require.NoError(t, err)
 		var header *types.Header
 		val := validators[0]
 		testKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
@@ -121,7 +141,12 @@ func TestUpdateEnode(t *testing.T) {
 	})
 
 	t.Run("Failure: update ip of enode, unknown msg.sender", func(t *testing.T) {
-		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		stateDB, ethDB, evm, err := initializeEvm()
+		require.NoError(t, err)
+		evmContract, contractAddress, err := deployAutonityTest(
+			5, validators, deployer, stateDB, ethDB, evm,
+		)
+		require.NoError(t, err)
 		var header *types.Header
 		val := validators[0]
 		node, _ := enode.ParseV4(val.Enode)
@@ -135,7 +160,12 @@ func TestUpdateEnode(t *testing.T) {
 	})
 
 	t.Run("Failure: update ip of enode, validator not registered", func(t *testing.T) {
-		stateDB, evmContract, contractAddress, _ := deployAutonity(5, validators, deployer)
+		stateDB, ethDB, evm, err := initializeEvm()
+		require.NoError(t, err)
+		evmContract, contractAddress, err := deployAutonityTest(
+			5, validators, deployer, stateDB, ethDB, evm,
+		)
+		require.NoError(t, err)
 		var header *types.Header
 		randVals, _ := randomValidators(1, 100)
 		val := randVals[0]
@@ -150,12 +180,16 @@ func TestUpdateEnode(t *testing.T) {
 	})
 
 	t.Run("Failure: update ip of enode, validator In Committee", func(t *testing.T) {
-		// update committee size to 10, so all the validators will be in committeee
-		stateDB, evmContract, contractAddress, _ := deployAutonity(10, validators, deployer)
-		var header *types.Header
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
+		stateDB, ethDB, evm, err := initializeEvm()
 		require.NoError(t, err)
-		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "computeCommittee")
+		// update committee size to 10, so all the validators will be in committeee
+		evmContract, contractAddress, err := deployAutonityTest(
+			10, validators, deployer, stateDB, ethDB, evm,
+		)
+		require.NoError(t, err)
+		var header *types.Header
+
+		_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "finalizeInitializationOnlyAutonity", common.Big0)
 		require.NoError(t, err)
 
 		val := validators[0]
@@ -179,15 +213,19 @@ func TestUpdateEnode(t *testing.T) {
 }
 
 func TestGetters(t *testing.T) {
-	contractAbi := &generated.AutonityAbi
+	contractAbi := &generated.AutonityTestAbi
 	deployer := params.DeployerAddress
 	validators, err := randomValidators(10, 100)
 	require.NoError(t, err)
+	db, ethDB, evm, err := initializeEvm()
+	require.NoError(t, err)
 	var header *types.Header
-	db, contract, contractAddress, err := deployAutonity(10, validators, deployer)
+	contract, contractAddress, err := deployAutonityTest(
+		10, validators, deployer, db, ethDB, evm,
+	)
 	require.NoError(t, err)
 
-	_, err = callContractFunctionAs(contract, contractAddress, db, header, contractAbi, deployer, "finalizeInitialization", common.Big5)
+	_, err = callContractFunctionAs(contract, contractAddress, db, header, contractAbi, deployer, "finalizeInitializationOnlyAutonity", common.Big5)
 	require.NoError(t, err)
 
 	autonity := &AutonityContract{
@@ -205,6 +243,15 @@ func TestGetters(t *testing.T) {
 		require.NotNil(t, info)
 
 		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
+		require.Equal(t, uint64(0), info.NextEpochBlock.Uint64())
+		require.Equal(t, uint64(5), info.Delta.Uint64())
+		require.Len(t, info.Committee.Members, 10)
+
+		info, err = autonity.CallEpochByHeight(db, header, big.NewInt(1))
+		require.NoError(t, err)
+		require.NotNil(t, info)
+
+		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
 		require.Equal(t, uint64(50), info.NextEpochBlock.Uint64())
 		require.Equal(t, uint64(5), info.Delta.Uint64())
 		require.Len(t, info.Committee.Members, 10)
@@ -212,54 +259,51 @@ func TestGetters(t *testing.T) {
 
 }
 
-func deployAutonity(
-	committeeSize int, validators []params.Validator, deployer common.Address,
-) (*state.StateDB, *evmContract, common.Address, error) {
-	abi := &generated.AutonityAbi
-	stateDB, evm, evmContract, err := initializeEvm(abi)
-	if err != nil {
-		return stateDB, evmContract, common.Address{}, err
-	}
-	contractConfig := autonityTestConfig()
-	contractConfig.Protocol.OperatorAccount = common.Address{}
-	contractConfig.Protocol.CommitteeSize = big.NewInt(int64(committeeSize))
-	args, err := abi.Pack("", validators, contractConfig)
-	if err != nil {
-		return stateDB, evmContract, common.Address{}, err
-	}
-	contractAddress, err := deployContract(generated.AutonityTestBytecode, args, deployer, evm)
-	return stateDB, evmContract, contractAddress, err
-}
-
 func deployAutonityTest(
 	committeeSize int, validators []params.Validator, deployer common.Address,
-) (*state.StateDB, *evmContract, common.Address, error) {
-	abi := &generated.AutonityTestAbi
-	stateDB, evm, evmContract, err := initializeEvm(abi)
-	if err != nil {
-		return stateDB, evmContract, common.Address{}, err
-	}
+	stateDB *state.StateDB, ethDb ethdb.Database, evm *vm.EVM,
+) (*evmContract, common.Address, error) {
 	contractConfig := autonityTestConfig()
 	contractConfig.Protocol.OperatorAccount = common.Address{}
 	contractConfig.Protocol.CommitteeSize = big.NewInt(int64(committeeSize))
-	args, err := abi.Pack("", validators, contractConfig)
+	autonityAbi := &generated.AutonityTestAbi
+	args, err := autonityAbi.Pack("", validators, contractConfig)
 	if err != nil {
-		return stateDB, evmContract, common.Address{}, err
+		return new(evmContract), common.Address{}, err
 	}
 	contractAddress, err := deployContract(generated.AutonityTestBytecode, args, deployer, evm)
-	return stateDB, evmContract, contractAddress, err
+	if err != nil {
+		return new(evmContract), common.Address{}, err
+	}
+	// deploy staking pool
+	abi := &generated.StakingPoolAbi
+	args, err = abi.Pack("", contractAddress, contractConfig.Protocol.OperatorAccount)
+	if err != nil {
+		return new(evmContract), common.Address{}, err
+	}
+	stakingPool, err := deployContract(generated.StakingPoolBytecode, args, deployer, evm)
+	if err != nil {
+		return new(evmContract), common.Address{}, err
+	}
+	evmContract := createEvmContract(autonityAbi, ethDb)
+	callContractFunction(evmContract, contractAddress, stateDB, nil, autonityAbi, "setStakingPoolContract", stakingPool)
+
+	return evmContract, contractAddress, err
 }
 
-func initializeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *evmContract, error) {
+func initializeEvm() (*state.StateDB, ethdb.Database, *vm.EVM, error) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
 	stateDB, err := state.New(common.Hash{}, db, nil)
 	if err != nil {
-		return new(state.StateDB), new(vm.EVM), new(evmContract), err
+		return new(state.StateDB), nil, new(vm.EVM), err
 	}
 	evm := createTestVM(stateDB)
-	evmContract := NewEVMContract(testEVMProvider(), abi, ethDb, params.TestChainConfig)
-	return stateDB, evm, evmContract, nil
+	return stateDB, ethDb, evm, nil
+}
+
+func createEvmContract(abi *abi.ABI, ethDb ethdb.Database) *evmContract {
+	return NewEVMContract(testEVMProvider(), abi, ethDb, params.TestChainConfig)
 }
 
 func deployContract(byteCode []byte, args []byte, deployer common.Address, evm *vm.EVM) (common.Address, error) {
@@ -398,6 +442,7 @@ func autonityTestConfig() AutonityConfig {
 			StabilizationContract:          params.StabilizationContractAddress,
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
+			StakingPool:                    params.StakingPoolContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     params.TestAutonityContractConfig.Operator,
@@ -548,9 +593,16 @@ func testComputeCommittee(committeeSize int, validatorCount int, t *testing.T) {
 	validators, err := randomValidators(validatorCount, 30)
 	require.NoError(t, err)
 
-	stateDB, evmContract, contractAddress, err := deployAutonityTest(committeeSize, validators, deployer)
+	stateDB, ethDB, evm, err := initializeEvm()
+	require.NoError(t, err)
+
+	evmContract, contractAddress, err := deployAutonityTest(
+		committeeSize, validators, deployer, stateDB, ethDB, evm,
+	)
 	require.NoError(t, err)
 	var header *types.Header
+	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyGenesisBonding")
+	require.NoError(t, err)
 	_, err = callContractFunction(evmContract, contractAddress, stateDB, header, contractAbi, "applyStakingOperations")
 	require.NoError(t, err)
 

@@ -16,6 +16,7 @@ const utils = require('./utils.js');
 const Autonity = artifacts.require("Autonity");
 const Accountability = artifacts.require("Accountability");
 const AccountabilityTest = artifacts.require("AccountabilityTest");
+const OmissionAccountability = artifacts.require("OmissionAccountability");
 const toBN = web3.utils.toBN;
 const config = require("./config");
 const {SLASHING_RATE_PRECISION, OMISSION_ACCOUNTABILITY_CONFIG} = require("./config");
@@ -131,8 +132,10 @@ contract('Accountability', function (accounts) {
   describe.skip('Contract initial state', function () {
     before(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta, {from: deployer});
       accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
+      const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, OMISSION_ACCOUNTABILITY_CONFIG, {from:deployer})
+      await utils.setAccountabilityContracts(autonity, accountability.address, omissionAccountability.address, operator)
+      await utils.finalizeAutonity(autonity, OMISSION_ACCOUNTABILITY_CONFIG.delta, operator, deployer);
     });
     //TODO(tariq) low priority.
     // test that config gets set properly at contract deploy 
@@ -140,8 +143,10 @@ contract('Accountability', function (accounts) {
   describe.skip('Contract permissioning', function () {
     before(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta, {from:deployer});
       accountability = await Accountability.new(autonity.address, accountabilityConfig, {from: deployer});
+      const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, OMISSION_ACCOUNTABILITY_CONFIG, {from:deployer})
+      await utils.setAccountabilityContracts(autonity, accountability.address, omissionAccountability.address, operator)
+      await utils.finalizeAutonity(autonity, OMISSION_ACCOUNTABILITY_CONFIG.delta, operator, deployer);
     });
     //TODO(tariq) modifiers (low priority)
     // only registered validators can submit accountability events (handleEvent)
@@ -150,9 +155,10 @@ contract('Accountability', function (accounts) {
   describe('Slashing', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, OMISSION_ACCOUNTABILITY_CONFIG, deployer, operator);
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta, {from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
-      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+      const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, OMISSION_ACCOUNTABILITY_CONFIG, {from:deployer})
+      await utils.setAccountabilityContracts(autonity, accountability.address, omissionAccountability.address, operator)
+      await autonity.finalizeInitializationOnlyAccountability();
     });
     it("test stake slashing priority (PAS first)", async function() { 
       let offender = await autonity.getValidator(validators[0].nodeAddress)
@@ -171,20 +177,23 @@ contract('Accountability', function (accounts) {
       let delegatedStake = 100
       await autonity.mint(delegator, delegatedStake, {from: operator});
       await autonity.bond(offender.nodeAddress, delegatedStake, {from: delegator});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer}) // I use finalizeInitialization as a way to trigger the staking operations
+      await autonity.applyStakingOperations()
       offender = await autonity.getValidator(validators[0].nodeAddress)
       assert.equal(offender.bondedStake,genesisStake + delegatedStake)
       assert.equal(offender.selfBondedStake,genesisStake)
       assert.equal(offender.bondedStake - offender.selfBondedStake,delegatedStake) 
       assert.equal(offender.selfUnbondingStake,0)
-      assert.equal(offender.unbondingStake,0) 
+      assert.equal(offender.unbondingStake,0)
+
+      await autonity.progressEpoch()
 
       // unbond some self-bonded stake and some delegated stake
       let unbondSelf = 10
       let unbondDelegated = 50
       await autonity.unbond(offender.nodeAddress, unbondSelf, {from: offender.treasury});
       await autonity.unbond(offender.nodeAddress, unbondDelegated, {from: delegator});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer})
+
+      await autonity.applyStakingOperations()
       offender = await autonity.getValidator(validators[0].nodeAddress)
       assert.equal(offender.bondedStake,genesisStake + delegatedStake - unbondSelf - unbondDelegated)
       assert.equal(offender.selfBondedStake,genesisStake - unbondSelf)
@@ -226,7 +235,7 @@ contract('Accountability', function (accounts) {
         "rawProof": [], 
         "id": 0,
         "block": 1,
-        "epoch": 0,
+        "epoch": 1,
         "reportingBlock": 2,
         "messageHash": 0, 
       }
@@ -323,7 +332,7 @@ contract('Accountability', function (accounts) {
         "rawProof": [],
         "id":0,
         "block": currentBlock - 1,
-        "epoch": 0,
+        "epoch": 1,
         "reportingBlock": currentBlock,
         "messageHash": 0, 
       }
@@ -377,9 +386,10 @@ contract('Accountability', function (accounts) {
   describe('misbehavior flow', function () {
     beforeEach(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
-      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+      const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, OMISSION_ACCOUNTABILITY_CONFIG, {from:deployer})
+      await utils.setAccountabilityContracts(autonity, accountability.address, omissionAccountability.address, operator)
+      await utils.finalizeAutonity(autonity, OMISSION_ACCOUNTABILITY_CONFIG.delta, operator, deployer);
     });
     it("cannot submit misbehavior with severity X for validator already slashed for the offence epoch with severity Y >= X", async function() {
       let reporter = validators[0]
@@ -416,9 +426,8 @@ contract('Accountability', function (accounts) {
   describe('accusation flow', function () {
     beforeEach(async function () {
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,OMISSION_ACCOUNTABILITY_CONFIG, deployer, operator);
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
-      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+      await autonity.setAccountabilityContract(accountability.address, {from: operator})
     });
     it("cannot submit accusation with severity X for validator already slashed for the offence epoch with severity Y >= X", async function() {
       let reporter = validators[0]
@@ -455,38 +464,6 @@ contract('Accountability', function (accounts) {
       // TODO(lorenzo) once implemented in contract
       // add canAccuse and handleValidAccusation asserts when submitting an accusation of higher severity (slashing is possible in that case)
 
-    });
-    it("Cannot accuse validator already under accusation", async function() {
-      let reporter = validators[0]
-      let offender = validators[1]
-      let PNrule = 0
-      const event = {
-        "eventType": 0,
-        "rule": PNrule,
-        "reporter": reporter.treasury,
-        "offender": offender.nodeAddress,
-        "rawProof": [],
-        "id": 0,
-        "block": 10,
-        "epoch": 0,
-        "reportingBlock": 11,
-        "messageHash": 0, 
-      }
-      let canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block);
-      assert.strictEqual(canAccuse._result,true);
-      assert.strictEqual(canAccuse._deadline.toString(),'0');
-
-      await accountability.handleValidAccusation(event);
-      
-      canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block+1);
-      assert.strictEqual(canAccuse._result,false);
-      assert.strictEqual(canAccuse._deadline.toNumber(),event.block + accountabilityConfig.innocenceProofSubmissionWindow);
-
-      await truffleAssert.fails(
-        accountability.handleValidAccusation(event),
-        truffleAssert.ErrorType.REVERT,
-        "already processing an accusation"
-      );
     });
 
     it("Only expired unadressed accusations are promoted to misbehavior and lead to slashing", async function() {
@@ -595,12 +572,54 @@ contract('Accountability', function (accounts) {
     });
   });
 
+  describe('accusation flow 1', function () {
+    beforeEach(async function () {
+      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig,OMISSION_ACCOUNTABILITY_CONFIG, deployer, operator);
+      accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
+      await autonity.setAccountabilityContract(accountability.address, {from: operator})
+      await autonity.finalizeInitializationOnlyAccountability()
+    });
+    it("Cannot accuse validator already under accusation", async function() {
+      let reporter = validators[0]
+      let offender = validators[1]
+      let PNrule = 0
+      const event = {
+        "eventType": 0,
+        "rule": PNrule,
+        "reporter": reporter.treasury,
+        "offender": offender.nodeAddress,
+        "rawProof": [],
+        "id": 0,
+        "block": 10,
+        "epoch": 1,
+        "reportingBlock": 11,
+        "messageHash": 0, 
+      }
+      let canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block);
+      assert.strictEqual(canAccuse._result,true);
+      assert.strictEqual(canAccuse._deadline.toString(),'0');
+
+      await accountability.handleValidAccusation(event);
+      
+      canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block+1);
+      assert.strictEqual(canAccuse._result,false);
+      assert.strictEqual(canAccuse._deadline.toNumber(),event.block + accountabilityConfig.innocenceProofSubmissionWindow);
+
+      await truffleAssert.fails(
+        accountability.handleValidAccusation(event),
+        truffleAssert.ErrorType.REVERT,
+        "already processing an accusation"
+      );
+    });
+  });
+
   describe('events', function () {
     beforeEach(async function () {
       autonity = await Autonity.new(validators, autonityConfig, {from: deployer});
-      await autonity.finalizeInitialization(OMISSION_ACCOUNTABILITY_CONFIG.delta,{from: deployer});
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
-      await autonity.setAccountabilityContract(accountability.address, {from:operator});
+      const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, OMISSION_ACCOUNTABILITY_CONFIG, {from:deployer})
+      await utils.setAccountabilityContracts(autonity, accountability.address, omissionAccountability.address, operator)
+      await utils.finalizeAutonity(autonity, OMISSION_ACCOUNTABILITY_CONFIG.delta, operator, deployer);
     });
 
     it("non-validator cannot submit event", async function () {

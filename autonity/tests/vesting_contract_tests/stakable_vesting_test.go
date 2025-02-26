@@ -301,19 +301,19 @@ func TestBonding(t *testing.T) {
 		_, _, _, beneficiary, validator, _ := initiate2(r)
 		bondingAmount := big.NewInt(contractTotalAmount + 10)
 		requests := make([]StakingRequest, 3)
-		requests[0] = StakingRequest{beneficiary, validator, contractID, bondingAmount, "execution reverted: insufficient Newton balance", true}
+		requests[0] = StakingRequest{beneficiary, validator, contractID, bondingAmount, "execution reverted: amount exceeds balance", true}
 
 		bondingAmount = big.NewInt(contractTotalAmount / 2)
 		requests[1] = StakingRequest{beneficiary, validator, contractID, bondingAmount, "", true}
 
 		remaining := new(big.Int).Sub(big.NewInt(contractTotalAmount), bondingAmount)
 		bondingAmount = new(big.Int).Add(big.NewInt(10), remaining)
-		requests[2] = StakingRequest{beneficiary, validator, contractID, bondingAmount, "execution reverted: insufficient Newton balance", true}
+		requests[2] = StakingRequest{beneficiary, validator, contractID, bondingAmount, "execution reverted: amount exceeds balance", true}
 
 		bondAndFinalize(r, requests)
 
 		requests = make([]StakingRequest, 2)
-		requests[0] = StakingRequest{beneficiary, validator, contractID, bondingAmount, "execution reverted: insufficient Newton balance", true}
+		requests[0] = StakingRequest{beneficiary, validator, contractID, bondingAmount, "execution reverted: amount exceeds balance", true}
 		requests[1] = StakingRequest{beneficiary, validator, contractID, remaining, "", true}
 
 		bondAndFinalize(r, requests)
@@ -677,17 +677,17 @@ func TestRewardTracking(t *testing.T) {
 		require.NoError(r.T, err)
 		require.True(r.T, rewardOfContract.Cmp(common.Big0) > 0, "no ATN reward")
 
-		rewardOfUser, _, err := stakeableContract.UnclaimedRewards(nil, validator)
+		rewardOfUser, _, err := stakeableContract.UnclaimedRewardsForValidator(nil, validator)
 		require.NoError(r.T, err)
 		require.Equal(r.T, rewardOfContract, rewardOfUser, "ATN reward mismatch")
 
-		rewardOfUser, _, err = stakeableContract.UnclaimedRewards0(nil)
+		rewardOfUser, _, err = stakeableContract.UnclaimedRewards(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, rewardOfContract, rewardOfUser, "ATN reward mismatch")
 
 		// checking all the variations of claim rewards function
 		r.RunAndRevert(func(r *tests.Runner) {
-			checkClaimAllRewardsFunction(
+			checkClaimRewardsFunction(
 				r, beneficiary, rewardOfUser,
 				func() {
 					r.NoError(
@@ -698,7 +698,7 @@ func TestRewardTracking(t *testing.T) {
 		})
 
 		r.RunAndRevert(func(r *tests.Runner) {
-			checkClaimAllRewardsFunction(
+			checkClaimRewardsFunction(
 				r, beneficiary, rewardOfUser,
 				func() {
 					r.NoError(
@@ -726,7 +726,9 @@ func TestRewardTracking(t *testing.T) {
 				),
 			)
 		}
-		for r.Committee.Validators[0].CommissionRate.Cmp(common.Big0) > 0 {
+		for r.CheckErrorAndGetData(
+			r.Autonity.GetValidatorCommissionRate(nil, r.Committee.Validators[0].NodeAddress),
+		).(*big.Int).Cmp(common.Big0) > 0 {
 			r.WaitNextEpoch()
 		}
 
@@ -781,6 +783,8 @@ func TestRewardTracking(t *testing.T) {
 	tests.RunWithSetup("bond in different epoch and track reward", setup, func(r *tests.Runner) {
 		users, validators, liquidStateContracts := initiate2(r)
 		extraBonds := make([]StakingRequest, 0)
+		// dummy request at the beginning
+		extraBonds = append(extraBonds, StakingRequest{common.Address{}, validators[0], common.Big0, common.Big0, "", true})
 
 		for _, user := range users {
 			extraBonds = append(extraBonds, StakingRequest{user, validators[0], common.Big0, bondingAmount, "", true})
@@ -788,7 +792,7 @@ func TestRewardTracking(t *testing.T) {
 			extraBonds = append(extraBonds, StakingRequest{user, validators[1], common.Big0, bondingAmount, "", true})
 			extraBonds = append(extraBonds, StakingRequest{user, validators[0], common.Big0, bondingAmount, "", true})
 		}
-		// dummy
+		// dummy request at the end
 		extraBonds = append(extraBonds, StakingRequest{common.Address{}, validators[0], common.Big0, common.Big0, "", true})
 
 		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
@@ -799,27 +803,57 @@ func TestRewardTracking(t *testing.T) {
 			"all rewards should be zero initially",
 		)
 
+		userUnclaimedRewards := unclaimedRewards(r, contractCount, users, validators)
+
 		for _, request := range extraBonds {
 
 			user := request.staker
 			if request.amount.Cmp(common.Big0) > 0 {
+				// claim rewards here and verify the amount
+				// this makes later calculation easier
 				stakeableContract := r.StakeableVestingContractObject(user, request.contractID)
 				r.NoError(
 					stakeableContract.Bond(
 						tests.FromSender(user, nil), request.validator, request.amount,
 					),
 				)
+				rewards := big.NewInt(0)
+
+				for _, v := range validators {
+					rewards = new(big.Int).Add(
+						rewards,
+						userUnclaimedRewards[user][int(request.contractID.Int64())][v].RewardATN,
+					)
+					userUnclaimedRewards[user][int(request.contractID.Int64())][v] = Reward{big.NewInt(0), big.NewInt(0)}
+				}
+
+				checkClaimRewardsFunction(
+					r, user,
+					rewards,
+					func() {
+						r.NoError(
+							stakeableContract.ClaimAllRewards(tests.FromSender(user, nil)),
+						)
+					},
+				)
 			}
 
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
-			oldUserRewards := unclaimedRewards(r, contractCount, users, validators)
 			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 
 			// request is not applied yet
+			// `oldUserRewards` is verified at the previous iteration
+			// so we verify new rewards here
+			//
+			// the dummy request at the beginning of the requests let us check
+			// the initial rewards before any request is applied
+			//
+			// the dummy request at the end of the requests let us check
+			// the last rewards after all requests are applied
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, userStakes, oldUserRewards,
+				validators, users, userStakes, userUnclaimedRewards,
 			)
 
 			// request is applied, because checkRewards progress 1 epoch
@@ -837,6 +871,8 @@ func TestRewardTracking(t *testing.T) {
 	tests.RunWithSetup("multiple bonding in same epoch and track rewards", setup, func(r *tests.Runner) {
 		users, validators, liquidStateContracts := initiate2(r)
 		extraBondsArray := make([][]StakingRequest, 0)
+		// dummy at the beginning
+		extraBondsArray = append(extraBondsArray, nil)
 		extraBonds := make([]StakingRequest, 0)
 
 		for _, user := range users {
@@ -852,7 +888,7 @@ func TestRewardTracking(t *testing.T) {
 			extraBondsArray = append(extraBondsArray, extraBonds)
 			testCount--
 		}
-		// dummy
+		// dummy at the end
 		extraBondsArray = append(extraBondsArray, nil)
 
 		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
@@ -862,6 +898,8 @@ func TestRewardTracking(t *testing.T) {
 			isAllRewardsZero(r, contractCount, liquidStateContracts, users, validators),
 			"all rewards should be zero initially",
 		)
+
+		userUnclaimedRewards := unclaimedRewards(r, contractCount, users, validators)
 
 		for _, requests := range extraBondsArray {
 			for _, request := range requests {
@@ -873,17 +911,37 @@ func TestRewardTracking(t *testing.T) {
 						tests.FromSender(user, nil), request.validator, request.amount,
 					),
 				)
+
+				rewards := big.NewInt(0)
+
+				for _, v := range validators {
+					rewards = new(big.Int).Add(
+						rewards,
+						userUnclaimedRewards[user][int(request.contractID.Int64())][v].RewardATN,
+					)
+					userUnclaimedRewards[user][int(request.contractID.Int64())][v] = Reward{big.NewInt(0), big.NewInt(0)}
+				}
+
+				checkClaimRewardsFunction(
+					r, user,
+					rewards,
+					func() {
+						r.NoError(
+							stakeableContract.ClaimAllRewards(tests.FromSender(user, nil)),
+						)
+					},
+				)
 			}
 
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
-			oldUserRewards := unclaimedRewards(r, contractCount, users, validators)
+			// oldUserRewards := unclaimedRewards(r, contractCount, users, validators)
 			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 
 			// request is not applied yet
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, userStakes, oldUserRewards,
+				validators, users, userStakes, userUnclaimedRewards,
 			)
 
 			for _, request := range requests {
@@ -941,6 +999,8 @@ func TestRewardTracking(t *testing.T) {
 		userLiquidBalance := make(map[common.Address]map[common.Address]*big.Int)
 		// unbonding request can be treated as release request
 		releaseRequests := make([]StakingRequest, 0)
+		// dummy at the beginning
+		releaseRequests = append(releaseRequests, StakingRequest{common.Address{}, validators[0], common.Big0, common.Big0, "", false})
 
 		for _, user := range users {
 			userLiquidBalance[user] = make(map[common.Address]*big.Int)
@@ -952,7 +1012,7 @@ func TestRewardTracking(t *testing.T) {
 			releaseRequests = append(releaseRequests, StakingRequest{user, validators[1], common.Big0, releaseAmount, "", false})
 			releaseRequests = append(releaseRequests, StakingRequest{user, validators[0], common.Big0, releaseAmount, "", false})
 		}
-		// dummy
+		// dummy at the end
 		releaseRequests = append(releaseRequests, StakingRequest{common.Address{}, validators[0], common.Big0, common.Big0, "", false})
 
 		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
@@ -963,13 +1023,32 @@ func TestRewardTracking(t *testing.T) {
 			liquidStateContractsMap[validators[i]] = liquidStateContract
 		}
 
+		for _, user := range users {
+			for i := 0; i < contractCount; i++ {
+				stakeableContract := r.StakeableVestingContractObject(user, big.NewInt(int64(i)))
+				r.NoError(
+					r.StakingPool.UpdateDelegatorPool(
+						tests.FromAutonity,
+						stakeableContract.Address(),
+					),
+				)
+			}
+		}
+
+		require.True(
+			r.T,
+			isAllRewardsZero(r, contractCount, liquidStateContracts, users, validators),
+			"all rewards should be zero initially",
+		)
+
+		userUnclaimedRewards := unclaimedRewards(r, contractCount, users, validators)
+
 		for _, request := range releaseRequests {
 
 			// some epoch is passed and we are entitled to some reward,
 			// but we don't know about it because we did not get notified
 			// or we did not claim them or call unclaimedRewards
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
-			oldUserRewards := unclaimedRewards(r, contractCount, users, validators)
 			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 
@@ -997,7 +1076,7 @@ func TestRewardTracking(t *testing.T) {
 
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, userStakes, oldUserRewards,
+				validators, users, userStakes, userUnclaimedRewards,
 			)
 
 			// for next reward
@@ -1013,16 +1092,26 @@ func TestRewardTracking(t *testing.T) {
 		users, validators, liquidStateContracts := initiate3(r)
 		unbondingAmount := big.NewInt(100)
 		extraUnbonds := make([]StakingRequest, 0)
+		// dummy at the beginning
+		extraUnbonds = append(extraUnbonds, StakingRequest{common.Address{}, validators[0], common.Big0, common.Big0, "", false})
 		for _, user := range users {
 			extraUnbonds = append(extraUnbonds, StakingRequest{user, validators[0], common.Big0, unbondingAmount, "", false})
 			extraUnbonds = append(extraUnbonds, StakingRequest{user, validators[0], common.Big1, unbondingAmount, "", false})
 			extraUnbonds = append(extraUnbonds, StakingRequest{user, validators[1], common.Big0, unbondingAmount, "", false})
 			extraUnbonds = append(extraUnbonds, StakingRequest{user, validators[0], common.Big0, unbondingAmount, "", false})
 		}
-		// dummy
+		// dummy at the end
 		extraUnbonds = append(extraUnbonds, StakingRequest{common.Address{}, validators[0], common.Big0, common.Big0, "", false})
 
 		validatorStakes, userStakes, totalStake := initialStakes(r, contractCount, liquidStateContracts, users, validators)
+
+		require.True(
+			r.T,
+			isAllRewardsZero(r, contractCount, liquidStateContracts, users, validators),
+			"all rewards should be zero initially",
+		)
+
+		userUnclaimedRewards := unclaimedRewards(r, contractCount, users, validators)
 
 		for _, request := range extraUnbonds {
 
@@ -1034,16 +1123,33 @@ func TestRewardTracking(t *testing.T) {
 						tests.FromSender(user, nil), request.validator, request.amount,
 					),
 				)
+
+				reward := big.NewInt(0)
+				for _, validator := range validators {
+					reward = new(big.Int).Add(
+						reward,
+						userUnclaimedRewards[user][int(request.contractID.Int64())][validator].RewardATN,
+					)
+					userUnclaimedRewards[user][int(request.contractID.Int64())][validator] = Reward{big.NewInt(0), big.NewInt(0)}
+				}
+
+				checkClaimRewardsFunction(
+					r, user, reward,
+					func() {
+						r.NoError(
+							stakeableContract.ClaimAllRewards(tests.FromSender(user, nil)),
+						)
+					},
+				)
 			}
 
 			r.GiveMeSomeMoney(r.Autonity.Address(), reward)
-			oldUserRewards := unclaimedRewards(r, contractCount, users, validators)
 			totalReward := r.RewardsAfterOneEpoch()
 			r.WaitNextEpoch()
 			// request is not applied yet
 			checkRewards(
 				r, contractCount, totalStake, totalReward,
-				validators, users, userStakes, oldUserRewards,
+				validators, users, userStakes, userUnclaimedRewards,
 			)
 
 			// request is applied, because checkRewards progress 1 epoch
@@ -1113,7 +1219,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		r.WaitNextEpoch()
 		r.GiveMeSomeMoney(r.Autonity.Address(), reward)
 		r.WaitNextEpoch()
-		rewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+		rewards, _, err := stakeableContract.UnclaimedRewards(nil)
 		require.NoError(r.T, err)
 		atnBalance := r.GetBalanceOf(user)
 
@@ -1145,7 +1251,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		r.WaitNextEpoch()
 		r.GiveMeSomeMoney(r.Autonity.Address(), reward)
 		r.WaitNextEpoch()
-		rewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+		rewards, _, err := stakeableContract.UnclaimedRewards(nil)
 		require.NoError(r.T, err)
 		oldUserAtnBalance := r.GetBalanceOf(dummyContract)
 
@@ -1170,7 +1276,7 @@ func TestChangeContractBeneficiary(t *testing.T) {
 		require.Equal(r.T, new(big.Int).Add(treasuryBalance, rewards), r.GetBalanceOf(treasury))
 		// dummyContract did not receive reward because it doesn't have payable fallback or receive method
 		require.Equal(r.T, oldUserAtnBalance.Uint64(), r.GetBalanceOf(dummyContract).Uint64())
-		currentRewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+		currentRewards, _, err := stakeableContract.UnclaimedRewards(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, uint64(0), currentRewards.Uint64())
 	}
@@ -1774,7 +1880,7 @@ func unclaimedRewards(
 			oldUserRewards[user][i] = make(map[common.Address]Reward)
 			stakeableContract := r.StakeableVestingContractObject(user, big.NewInt(int64(i)))
 			for _, validator := range validators {
-				unclaimedReward, _, err := stakeableContract.UnclaimedRewards(nil, validator)
+				unclaimedReward, _, err := stakeableContract.UnclaimedRewardsForValidator(nil, validator)
 				require.NoError(r.T, err)
 				oldUserRewards[user][i][validator] = Reward{unclaimedReward, common.Big0}
 			}
@@ -1784,7 +1890,7 @@ func unclaimedRewards(
 	return oldUserRewards
 }
 
-func checkClaimAllRewardsFunction(
+func checkClaimRewardsFunction(
 	r *tests.Runner,
 	account common.Address,
 	unclaimedAtnRewards *big.Int,
@@ -1827,7 +1933,7 @@ func checkRewards(
 				}
 				calculatedReward.Add(calculatedReward, oldUserRewards[user][i][validator].RewardATN)
 
-				unclaimedReward, _, err := stakeableContract.UnclaimedRewards(nil, validator)
+				unclaimedReward, _, err := stakeableContract.UnclaimedRewardsForValidator(nil, validator)
 				require.NoError(r.T, err)
 
 				diff := new(big.Int).Sub(calculatedReward, unclaimedReward)
@@ -1838,31 +1944,19 @@ func checkRewards(
 					diff.Cmp(common.Big1) <= 0,
 					"atn reward calculation mismatch",
 				)
+				oldUserRewards[user][i][validator] = Reward{unclaimedReward, big.NewInt(0)}
 
 				unclaimedRewardForContract.Add(unclaimedRewardForContract, unclaimedReward)
-
-				// so that following code snippet reverts
-				r.RunAndRevert(func(r *tests.Runner) {
-					checkClaimAllRewardsFunction(
-						r, user, unclaimedReward,
-						func() {
-							r.NoError(
-								stakeableContract.ClaimRewards(tests.FromSender(user, nil), validator),
-							)
-						},
-					)
-
-				})
 			}
 
-			unclaimedReward, _, err := stakeableContract.UnclaimedRewards0(nil)
+			unclaimedReward, _, err := stakeableContract.UnclaimedRewards(nil)
 			require.NoError(r.T, err)
 
 			require.Equal(r.T, unclaimedRewardForContract, unclaimedReward)
 
 			// so that following code snippet reverts
 			r.RunAndRevert(func(r *tests.Runner) {
-				checkClaimAllRewardsFunction(
+				checkClaimRewardsFunction(
 					r, user, unclaimedReward,
 					func() {
 						r.NoError(
@@ -1886,7 +1980,7 @@ func isAllRewardsZero(
 		for i := 0; i < contractCount; i++ {
 			stakeableContract := r.StakeableVestingContractObject(user, big.NewInt(int64(i)))
 			for _, validator := range validators {
-				rewards, _, err := stakeableContract.UnclaimedRewards(nil, validator)
+				rewards, _, err := stakeableContract.UnclaimedRewardsForValidator(nil, validator)
 				require.NoError(r.T, err)
 
 				if rewards.Cmp(common.Big0) != 0 {
@@ -1903,7 +1997,7 @@ func isAllRewardsZero(
 				}
 			}
 
-			rewards, _, err := stakeableContract.UnclaimedRewards0(nil)
+			rewards, _, err := stakeableContract.UnclaimedRewards(nil)
 			require.NoError(r.T, err)
 
 			if rewards.Cmp(common.Big0) != 0 {
@@ -2277,8 +2371,8 @@ func unbondAndRelease(
 ) {
 	liquidStateContracts, ntnBalanceOfContract, liquidOfUser := initialBalances(r, unbondingRequests)
 
-	unbondingRequestBlock := r.Evm.Context.BlockNumber
-
+	unbondingID, _, err := r.StakingPool.GetUnbondingArrayLength(nil)
+	require.NoError(r.T, err)
 	for _, request := range unbondingRequests {
 		stakeableContract := r.StakeableVestingContractObject(request.staker, request.contractID)
 		lockedLiquid, _, err := stakeableContract.LockedLiquidBalance(nil, request.validator)
@@ -2365,11 +2459,13 @@ func unbondAndRelease(
 	}
 
 	// release unbonding
-	unbondingPeriod, _, err := r.Autonity.GetUnbondingPeriod(nil)
-	require.NoError(r.T, err)
-	unbondingReleaseBlock := new(big.Int).Add(unbondingRequestBlock, unbondingPeriod)
-	for unbondingReleaseBlock.Cmp(r.Evm.Context.BlockNumber) >= 0 {
-		r.WaitNextEpoch()
+	released, _, err := r.StakingPool.IsUnbondingReleased(nil, unbondingID)
+	if err == nil && !released {
+		for !released {
+			r.WaitNextEpoch()
+			released, _, err = r.StakingPool.IsUnbondingReleased(nil, unbondingID)
+			require.NoError(r.T, err)
+		}
 	}
 
 	updateVestingContractFunds(r, unbondingRequests)

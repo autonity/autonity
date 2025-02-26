@@ -57,6 +57,14 @@ func TestGenesisSteps(t *testing.T) {
 		validator1 := *params.TestChainConfig.AutonityContractConfig.Validators[0].NodeAddress
 		validator2 := *params.TestChainConfig.AutonityContractConfig.Validators[1].NodeAddress
 
+		validator1InitBalance := big.NewInt(0)
+		if params.TestChainConfig.AutonityContractConfig.Validators[0].Treasury == validator1 {
+			validator1InitBalance = new(big.Int).Add(
+				validator1InitBalance,
+				params.TestChainConfig.AutonityContractConfig.Validators[0].BondedStake,
+			)
+		}
+
 		ntnBalance1 := big.NewInt(100)
 		bondedNtnBalance1 := big.NewInt(50)
 
@@ -87,7 +95,7 @@ func TestGenesisSteps(t *testing.T) {
 					},
 				},
 			},
-		}, evm, []genesisStep{deployAutonityContract, executeGenesisDelegations})
+		}, evm, append(deployAllContracts(), executeGenesisDelegations))
 		require.NoError(t, err)
 		balanceOf := func(addr common.Address) *big.Int {
 			result := new(big.Int)
@@ -95,7 +103,14 @@ func TestGenesisSteps(t *testing.T) {
 			require.NoError(t, err)
 			return result
 		}
-		require.Equal(t, ntnBalance1, balanceOf(validator1))
+		require.Equal(
+			t,
+			new(big.Int).Add(
+				validator1InitBalance,
+				ntnBalance1,
+			),
+			balanceOf(validator1),
+		)
 		require.Equal(t, ntnBalance2, balanceOf(account2))
 	})
 
@@ -140,7 +155,7 @@ func TestGenesisSteps(t *testing.T) {
 			params.TestChainConfig,
 			[]GenesisBond{},
 			evm,
-			[]genesisStep{deployAutonityContract, executeGenesisDelegations, createAutonitySchedules},
+			append(deployAllContracts(), []genesisStep{executeGenesisDelegations, createAutonitySchedules}...),
 		)
 		require.NoError(t, err)
 		getCommitteeEnodes := func() []string {
@@ -159,202 +174,6 @@ func TestGenesisSteps(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, getCommitteeEnodes())
-	})
-
-	t.Run("Test deploy accountability contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the accountability contract was deployed
-		code := evm.StateDB.GetCode(params.AccountabilityContractAddress)
-		require.NotEmpty(t, code)
-	})
-
-	t.Run("Test deploy oracle contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the oracle contract was deployed
-		code := evm.StateDB.GetCode(params.OracleContractAddress)
-		require.NotEmpty(t, code)
-	})
-
-	t.Run("Test deploy ACU contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the ACU contract was deployed
-		code := evm.StateDB.GetCode(params.ACUContractAddress)
-		require.NotEmpty(t, code)
-	})
-
-	t.Run("Test deploy supply control contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the supply control contract was deployed
-		code := evm.StateDB.GetCode(params.SupplyControlContractAddress)
-		require.NotEmpty(t, code)
-	})
-
-	t.Run("Test deploy stabilization contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-				deployStabilizationContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the stabilization contract was deployed
-		code := evm.StateDB.GetCode(params.StabilizationContractAddress)
-		require.NotEmpty(t, code)
-	})
-
-	t.Run("Test deploy upgrade manager contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-				deployStabilizationContract,
-				deployUpgradeManagerContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the upgrade manager contract was deployed
-		code := evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
-		require.NotEmpty(t, code)
-	})
-
-	t.Run("Test deploy inflation control contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-				deployStabilizationContract,
-				deployUpgradeManagerContract,
-				deployInflationControllerContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the inflation controller contract was deployed
-		code := evm.StateDB.GetCode(params.InflationControllerContractAddress)
-		require.NotEmpty(t, code)
-	})
-
-	t.Run("Test deploy stakable vesting manager contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-				deployStabilizationContract,
-				deployUpgradeManagerContract,
-				deployInflationControllerContract,
-				deployStakableVestingManagerContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the stakable vesting manager contract was deployed
-		code := evm.StateDB.GetCode(params.StakeableVestingManagerContractAddress)
-		require.NotEmpty(t, code)
 	})
 
 	t.Run("Test create stakable vesting contracts", func(t *testing.T) {
@@ -391,21 +210,12 @@ func TestGenesisSteps(t *testing.T) {
 			config,
 			[]GenesisBond{},
 			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-				deployStabilizationContract,
-				deployUpgradeManagerContract,
-				deployInflationControllerContract,
-				deployStakableVestingManagerContract,
-				createDefaultStakableVestingContracts,
-			},
+			append(
+				deployAllContracts(),
+				[]genesisStep{
+					createDefaultStakableVestingContracts,
+				}...,
+			),
 		)
 		require.NoError(t, err)
 
@@ -426,36 +236,6 @@ func TestGenesisSteps(t *testing.T) {
 		require.Equal(t, big.NewInt(1), totalContracts(owner1))
 		require.Equal(t, big.NewInt(1), totalContracts(owner2))
 
-	})
-
-	t.Run("Test deploy non-stakable vesting manager contract", func(t *testing.T) {
-		evm := newEVM()
-		err := executeGenesisSequence(
-			params.TestChainConfig,
-			[]GenesisBond{},
-			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-				deployStabilizationContract,
-				deployUpgradeManagerContract,
-				deployInflationControllerContract,
-				deployStakableVestingManagerContract,
-				createDefaultStakableVestingContracts,
-				deployNonStakableVestingContract,
-			},
-		)
-		require.NoError(t, err)
-
-		// Check that the non-stakable vesting manager contract was deployed
-		code := evm.StateDB.GetCode(params.NonStakeableVestingContractAddress)
-		require.NotEmpty(t, code)
 	})
 
 	t.Run("Test create non-stakable vesting contracts", func(t *testing.T) {
@@ -499,9 +279,7 @@ func TestGenesisSteps(t *testing.T) {
 			evm,
 			[]genesisStep{
 				deployAutonityContract,
-				executeGenesisDelegations,
 				createAutonitySchedules,
-				finalizeAutonityInitialization,
 				deployAccountabilityContract,
 				deployOracleContract,
 				deployACUContract,
@@ -536,35 +314,54 @@ func TestGenesisSteps(t *testing.T) {
 
 	})
 
-	t.Run("Test deploy omission accountability contract", func(t *testing.T) {
+	t.Run("Test deploy contracts", func(t *testing.T) {
 		evm := newEVM()
 		err := executeGenesisSequence(
 			params.TestChainConfig,
 			[]GenesisBond{},
 			evm,
-			[]genesisStep{
-				deployAutonityContract,
-				executeGenesisDelegations,
-				createAutonitySchedules,
-				finalizeAutonityInitialization,
-				deployAccountabilityContract,
-				deployOracleContract,
-				deployACUContract,
-				deploySupplyControlContract,
-				deployStabilizationContract,
-				deployUpgradeManagerContract,
-				deployInflationControllerContract,
-				deployStakableVestingManagerContract,
-				createDefaultStakableVestingContracts,
-				deployNonStakableVestingContract,
-				createDefaultNonStakableVestingContracts,
-				deployOmissionAccountabilityContract,
-			},
+			deployAllContracts(),
 		)
 		require.NoError(t, err)
 
+		// Check that the accountability contract was deployed
+		code := evm.StateDB.GetCode(params.AccountabilityContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the oracle contract was deployed
+		code = evm.StateDB.GetCode(params.OracleContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the ACU contract was deployed
+		code = evm.StateDB.GetCode(params.ACUContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the supply control contract was deployed
+		code = evm.StateDB.GetCode(params.SupplyControlContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the stabilization contract was deployed
+		code = evm.StateDB.GetCode(params.StabilizationContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the upgrade manager contract was deployed
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the inflation controller contract was deployed
+		code = evm.StateDB.GetCode(params.InflationControllerContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the stakable vesting manager contract was deployed
+		code = evm.StateDB.GetCode(params.StakeableVestingManagerContractAddress)
+		require.NotEmpty(t, code)
+
+		// Check that the non-stakable vesting manager contract was deployed
+		code = evm.StateDB.GetCode(params.NonStakeableVestingContractAddress)
+		require.NotEmpty(t, code)
+
 		// Check that the omission accountability contract was deployed
-		code := evm.StateDB.GetCode(params.OmissionAccountabilityContractAddress)
+		code = evm.StateDB.GetCode(params.OmissionAccountabilityContractAddress)
 		require.NotEmpty(t, code)
 	})
 }
@@ -591,4 +388,21 @@ func callContractFunc(
 
 	err = contractAbi.UnpackIntoInterface(result, function, ret)
 	require.NoError(t, err)
+}
+
+func deployAllContracts() []genesisStep {
+	return []genesisStep{
+		deployAutonityContract,
+		deployAccountabilityContract,
+		deployOracleContract,
+		deployACUContract,
+		deploySupplyControlContract,
+		deployStabilizationContract,
+		deployUpgradeManagerContract,
+		deployInflationControllerContract,
+		deployStakableVestingManagerContract,
+		deployNonStakableVestingContract,
+		deployOmissionAccountabilityContract,
+		deployStakingPoolContract,
+	}
 }

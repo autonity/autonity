@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./interfaces/IAccountability.sol";
-import "./Autonity.sol";
+import "./lib/Precompiled.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 import {AccessAutonity} from "./AccessAutonity.sol";
 
@@ -100,13 +100,15 @@ contract Accountability is IAccountability, AccessAutonity {
     constructor(address payable _autonity, Config memory _config) AccessAutonity(_autonity) {
         _ratesSanityCheck(_config.baseSlashingRates);
         _factorsSanityCheck(_config.factors);
-
-        Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
-        for (uint256 i=0; i < committee.length; i++) {
-            curCommittee.push(committee[i].addr);
-            allowedReporters[committee[i].addr] = true;
-        }
         config = _config;
+    }
+
+    function finalizeInitialization(Autonity.CommitteeMember[] memory _committee) external onlyAutonity {
+        delete curCommittee;
+        for (uint256 i = 0; i < _committee.length; i++) {
+            curCommittee.push(_committee[i].addr);
+            allowedReporters[_committee[i].addr] = true;
+        }
     }
 
     /**

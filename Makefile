@@ -91,6 +91,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,,OmissionAccountability)
 	@$(call gen-contract,,UpgradeManager)
 	@$(call gen-contract,,InflationController)
+	@$(call gen-contract,,StakingPool)
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
@@ -192,7 +193,6 @@ start-ganache:
 test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
 	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
 	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic

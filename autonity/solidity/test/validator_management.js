@@ -331,11 +331,12 @@ contract('Autonity', function (accounts) {
         });
     });
 
-    describe('After effects of slashing, ', function () {
+    describe.skip('After effects of slashing, ', function () { // TODO: move to golang testing framework
         beforeEach(async function () {
             autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
             accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
             await autonity.setAccountabilityContract(accountability.address, {from:operator});
+            await autonity.finalizeInitializationOnlyAccountability();
         });
         it('does not trigger fairness issue (unbondingStake > 0 and delegatedStake > 0)', async function () {
             // fairness issue is triggered when delegatedStake or unbondingStake becomes 0 from positive due to slashing
@@ -348,6 +349,7 @@ contract('Autonity', function (accounts) {
             config.factors.collusion = expectedSlash - parseInt(config.baseSlashingRates.mid);
             accountability = await AccountabilityTest.new(autonity.address, config, {from: deployer});
             await autonity.setAccountabilityContract(accountability.address, {from:operator});
+            await autonity.finalizeInitializationOnlyAccountability();
 
             const tokenUnbondFactor = [1/10, 9/10, 1/100, 99/100, 1/1000, 999/1000, 1/10000000, 9999999/10000000];
             const delegator = accounts[9];

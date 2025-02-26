@@ -125,6 +125,7 @@ type Runner struct {
 	StakeableVestingManager *StakeableVestingManager
 	NonStakeableVesting     *NonStakeableVesting
 	OmissionAccountability  *OmissionAccountability
+	StakingPool             *StakingPool
 
 	Committee Committee   // genesis validators for easy access
 	Operator  *runOptions // operator runOptions for easy access
@@ -470,6 +471,11 @@ func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	return rewardsToDistribute
 }
 
+func (r *Runner) CheckErrorAndGetData(data interface{}, _ uint64, err error) interface{} {
+	require.NoError(r.T, err)
+	return data
+}
+
 func hashFaker(h uint64) common.Hash {
 	return common.BytesToHash(new(big.Int).SetUint64(h).Bytes())
 }
@@ -611,6 +617,11 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	r.OmissionAccountability = &OmissionAccountability{&contract{
 		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
+		r,
+	}}
+	r.StakingPool = &StakingPool{&contract{
+		params.StakingPoolContractAddress,
+		&generated.StakingPoolAbi,
 		r,
 	}}
 

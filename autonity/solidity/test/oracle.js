@@ -259,7 +259,6 @@ contract("Oracle", accounts => {
         {from: deployer}
       );
       let updatedVoters = await oracle.getNewVoters();
-      //console.log(updatedVoters)
       assert.deepEqual(
         newVoters.slice().sort(function (a, b) {
           return a.toLowerCase().localeCompare(b.toLowerCase());

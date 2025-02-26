@@ -1090,7 +1090,7 @@ func TestOmissionDisabling(t *testing.T) {
 
 	epochID, _, err := r.Autonity.EpochID(nil)
 	require.NoError(t, err)
-	require.Equal(t, common.Big1.String(), epochID.String())
+	require.Equal(t, common.Big2.String(), epochID.String())
 
 	// validator 1 should still be in the committee and not jailed
 	require.Equal(t, csize, len(r.Committee.Validators))
