@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	defATNPriceInUSD, _ = decimal.NewFromString("1.28") // to be replaced with production price
-	defNTNPriceInUSD, _ = decimal.NewFromString("1.25") // to be replaced with production price
+	defATNPriceInUSD, _ = decimal.NewFromString("211.28") // to be replaced with production price
+	defNTNPriceInUSD, _ = decimal.NewFromString("985.25") // to be replaced with production price
 	defSysParams        = systemParams{
 		EpochPeriod: 30,
 
