@@ -19,7 +19,7 @@ func TestDefaultConfig(t *testing.T) {
 		{"half filled blocks", 600, &defSysParams, &halfPacker{}},
 		{"2/3 filled blocks", 600, &defSysParams, &twoThirdPacker{}},
 		{"fully filled blocks", 600, &defSysParams, &fullPacker{}},
-		{"dynamic filled blocks", 5600, &defSysParams, &dynamicPacker{increasingInterval: 100, decreasingInterval: 500}},
+		{"dynamic filled blocks", 3600, &defSysParams, &dynamicPacker{increasingInterval: 100, decreasingInterval: 500}},
 	}
 
 	for i, tt := range tests {

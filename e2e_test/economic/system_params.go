@@ -144,7 +144,7 @@ func (b *block) collectData() {
 func (b *block) string() string {
 	b.collectData()
 	return fmt.Sprintf(
-		"H: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.9f, baseFee(USD): %.9f, blockSpamCost(USD): %.9f",
+		"H: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.18f, baseFee(USD): %.18f, blockSpamCost(USD): %.18f",
 		b.data.H, b.data.gasLimit, b.data.gasUsed, b.data.baseFeeChangeRate.String(), b.data.baseFee.String(), b.data.baseFeeInATN, b.data.baseFeeInUSD, b.data.blockSpamCostInUSD,
 	)
 }
