@@ -2,6 +2,7 @@ package economic
 
 import (
 	"github.com/autonity/autonity/log"
+	"github.com/shopspring/decimal"
 	"testing"
 )
 
@@ -14,12 +15,16 @@ func TestDefaultConfig(t *testing.T) {
 		packer TXNPacker
 	}{
 		// 0 - 5 run with default params
-		{"dust filled blocks", 600, &defSysParams, &dustPacker{}},
-		{"1/3 filled blocks", 600, &defSysParams, &oneThirdPacker{}},
-		{"half filled blocks", 600, &defSysParams, &halfPacker{}},
-		{"2/3 filled blocks", 600, &defSysParams, &twoThirdPacker{}},
-		{"fully filled blocks", 600, &defSysParams, &fullPacker{}},
-		{"dynamic filled blocks", 3600, &defSysParams, &dynamicPacker{increasingInterval: 100, decreasingInterval: 500}},
+		{"dust filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.01, -2)}},
+		{"1/10 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.1, -2)}},
+		{"1/5 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.2, -2)}},
+		{"1/4 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.25, -2)}},
+		{"1/3 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.33, -2)}},
+		{"1/2 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.5, -2)}},
+		{"3/5 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.66, -2)}},
+		{"3/4 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.75, -2)}},
+		{"full filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(1.0, -2)}},
+		{"dynamic filled blocks", 1801, &defSysParams, &dynamicPacker{increasingInterval: 100, decreasingInterval: 500}},
 	}
 
 	for i, tt := range tests {

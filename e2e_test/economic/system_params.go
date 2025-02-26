@@ -27,20 +27,22 @@ var (
 
 		// default atn gas fee market settings.
 		GenesisGasLimit:          20_000_000,
-		GasCeil:                  20_000_000, // 20M
+		GasCeil:                  40_000_000, // The desired maximum gas limit we maintained, thus that we will 50% of it as the blockGasTarget(20M) for baseFee control.
 		InitialBaseFee:           new(big.Int).SetUint64(1_000_000_000),
 		MinBaseFee:               new(big.Int).SetUint64(500_000_000),
 		BaseFeeChangeDenominator: 8,
 		ElasticityMultiplier:     2,
 
-		// default ntn inflation settings.
+		// default ntn inflation settings from the latest ADR.
 		InflationRateInitial:      (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateInitial),
 		InflationRateTransition:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateTransition),
 		InflationCurveConvexity:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationCurveConvexity),
 		InflationTransitionPeriod: (*big.Int)(params.DefaultInflationControllerGenesis.InflationTransitionPeriod),
 		InflationReserveDecayRate: (*big.Int)(params.DefaultInflationControllerGenesis.InflationReserveDecayRate),
 		InflationReserves:         (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
-		NTNCirculatingSupply:      new(big.Int).Mul(big.NewInt(60_000_000), params.NTNDecimalFactor), // NTN precision is 18
+
+		// todo: double check this value, if 60M is okay for the simulation.
+		NTNCirculatingSupply: new(big.Int).Mul(big.NewInt(60_000_000), params.NTNDecimalFactor),
 	}
 )
 
@@ -450,7 +452,7 @@ func fillBlock(parent *block, params *systemParams, f TXNPacker) (*block, *big.I
 	baseFee := CalcBaseFee(parent, params)
 	baseFeeChgRate := baseFeeChangeRate(parent.baseFee, baseFee)
 	gasLimit := core.CalcGasLimit(parent.gasLimit, params.GasCeil)
-	numOfTXN, gasUsed := f.packTXNs(parent)
+	numOfTXN, gasUsed := f.packTXNs(parent.number, gasLimit)
 	atnRewards := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), baseFee)
 	b := &block{
 		timestamp:         parent.timestamp + 1,

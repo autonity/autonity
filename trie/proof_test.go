@@ -23,16 +23,11 @@ import (
 	mrand "math/rand"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethdb/memorydb"
 )
-
-func init() {
-	mrand.Seed(time.Now().Unix())
-}
 
 // makeProvers creates Merkle trie provers based on different implementations to
 // test all variations.
