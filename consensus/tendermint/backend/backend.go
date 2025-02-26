@@ -3,7 +3,6 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
-	ping2 "github.com/autonity/autonity/consensus/tendermint/latency/ping"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -22,6 +21,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/consensus/tendermint/latency"
+	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -89,7 +89,7 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	var pinger ping2.Pinger
+	var pinger ping.Pinger
 	var selector latency.PeerSelector
 	if services != nil && services.Pinger != nil {
 		pinger = services.Pinger
@@ -110,11 +110,11 @@ func New(
 		backend.gossiper = services.Gossiper(backend)
 	}
 
-	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
-	backend.core = core
-	backend.evDispatcher = core
+	consensusCore := tendermintCore.New(backend, services, backend.address, log, noGossip)
+	backend.core = consensusCore
+	backend.evDispatcher = consensusCore
 
-	backend.aggregator = newAggregator(backend, core, log, backend.knownMessages)
+	backend.aggregator = newAggregator(backend, consensusCore, log, backend.knownMessages)
 
 	return backend
 }
