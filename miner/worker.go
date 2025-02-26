@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/consensus/tendermint/backend"
+	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
@@ -90,6 +92,8 @@ type environment struct {
 	txs          []*types.Transaction
 	receipts     []*types.Receipt
 	parentHeader *types.Header
+
+	evm *vm.EVM
 }
 
 // copy creates a deep copy of environment.
@@ -167,7 +171,7 @@ type intervalAdjust struct {
 // worker is the main object which takes care of submitting new work to consensus engine
 // and gathering the sealing result.
 type worker struct {
-	config      *MinerConfig
+	config      *ethconfig.MinerConfig
 	chainConfig *params.ChainConfig
 	engine      consensus.Engine
 	eth         Backend
@@ -226,7 +230,7 @@ type worker struct {
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 }
 
-func newWorker(config *MinerConfig, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
+func newWorker(config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
 	worker := &worker{
 		config:                  config,
 		chainConfig:             chainConfig,
@@ -250,7 +254,7 @@ func newWorker(config *MinerConfig, chainConfig *params.ChainConfig, engine cons
 		resubmitAdjustCh:        make(chan *intervalAdjust, resubmitAdjustChanSize),
 	}
 	// Subscribe NewTxsEvent for tx pool
-	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
+	worker.txsSub = eth.TxPool().SubscribeTransactions(worker.txsCh, true)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.engine.SetResultChan(worker.resultCh)
@@ -308,14 +312,14 @@ func (w *worker) enablePreseal() {
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker) pending() (*types.Block, *state.StateDB) {
+func (w *worker) pending() (*types.Header, *state.StateDB) {
 	b := w.chain.CurrentBlock()
-	st, _ := w.chain.StateAt(b.Root())
+	st, _ := w.chain.StateAt(b.Root)
 	return b, st
 }
 
 // pendingBlock returns pending block.
-func (w *worker) pendingBlock() *types.Block {
+func (w *worker) pendingBlock() *types.Header {
 	return w.chain.CurrentBlock()
 }
 
@@ -416,24 +420,24 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 	for {
 		select {
 		case <-w.startCh:
-			clearPending(w.chain.CurrentBlock().NumberU64())
+			clearPending(w.chain.CurrentBlock().Number.Uint64())
 			timestamp = time.Now().Unix()
 			commit(false, commitInterruptNewHead, nil)
 
 		case head := <-w.chainHeadCh:
-			if head.Block.Hash() == lastBlock {
+			if head.Header.Hash() == lastBlock {
 				log.Debug("New chain head event - block already prepared")
 				if h, ok := w.engine.(consensus.Handler); ok {
 					h.NewChainHead()
 				}
 				continue
 			}
-			clearPending(head.Block.NumberU64())
+			clearPending(head.Header.Number.Uint64())
 			timestamp = time.Now().Unix()
 			if h, ok := w.engine.(consensus.Handler); ok {
 				h.NewChainHead()
 			}
-			lastBlock = head.Block.Hash()
+			lastBlock = head.Header.Hash()
 			commit(false, commitInterruptNewHead, nil)
 
 		case block := <-w.proposalVerifiedEventCh:
@@ -442,7 +446,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 				continue
 			}
 			lastBlock = block.Hash()
-			clearPending(w.chain.CurrentBlock().NumberU64())
+			clearPending(w.chain.CurrentBlock().Number.Uint64())
 			timestamp = time.Now().Unix()
 			commit(false, commitInterruptNewHead, block)
 
@@ -712,9 +716,11 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, coinbase com
 		if err != nil {
 			return nil, err
 		}
-		state.StartPrefetcher("miner")
+		state.StartPrefetcher("miner", nil)
 	}
 
+	blockContext := NewEVMBlockContext(header, bc, author)
+	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg
 	// Note the passed coinbase may be different with header.Coinbase.
 	env := &environment{
 		signer:       types.MakeSigner(w.chainConfig, header.Number),

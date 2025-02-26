@@ -26,20 +26,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/backend"
-
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/bloombits"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state/pruner"
+	"github.com/autonity/autonity/core/txpool"
+	"github.com/autonity/autonity/core/txpool/legacypool"
+	"github.com/autonity/autonity/core/txpool/locals"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
@@ -77,7 +79,9 @@ type Ethereum struct {
 	config *ethconfig.Config
 	log    log.Logger
 	// Handlers
-	txPool             *core.TxPool
+	txPool         *txpool.TxPool
+	localTxTracker *locals.TxTracker
+
 	blockchain         *core.BlockChain
 	handler            *handler
 	ethDialCandidates  enode.Iterator
@@ -248,6 +252,24 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain, senderCacher)
+
+	legacyPool := legacypool.New(config.TxPool, eth.blockchain)
+
+	eth.txPool, err = txpool.New(config.TxPool.PriceLimit, eth.blockchain, []txpool.SubPool{legacyPool})
+	if err != nil {
+		return nil, err
+	}
+
+	if !config.TxPool.NoLocals {
+		rejournal := config.TxPool.Rejournal
+		if rejournal < time.Second {
+			log.Warn("Sanitizing invalid txpool journal time", "provided", rejournal, "updated", time.Second)
+			rejournal = time.Second
+		}
+		eth.localTxTracker = locals.New(config.TxPool.Journal, rejournal, eth.blockchain.Config(), eth.txPool)
+		stack.RegisterLifecycle(eth.localTxTracker)
+	}
+
 	*txSender = eth.txPool.AddLocal
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit + cacheConfig.SnapshotLimit

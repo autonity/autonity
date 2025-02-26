@@ -75,7 +75,7 @@ type SimulatedBackend struct {
 // NewSimulatedBackendWithDatabase creates a new binding backend based on the given database
 // and uses a simulated blockchain for testing purposes.
 // A simulated backend always uses chainID 1337.
-func NewSimulatedBackendWithDatabase(database ethdb.Database, alloc core.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
+func NewSimulatedBackendWithDatabase(database ethdb.Database, alloc types.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
 	genesis := core.Genesis{Config: params.TestChainConfig, GasLimit: gasLimit, Alloc: alloc, Difficulty: big.NewInt(0)}
 	genesis.Config.Prepare()
 	genesis.MustCommit(database)

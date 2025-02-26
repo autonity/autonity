@@ -1577,7 +1577,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 
 // writeBlockAndSetHead is the internal implementation of WriteBlockAndSetHead.
 // This function expects the chain mutex to be held.
-func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
+func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
 	if err := bc.writeBlockWithState(block, receipts, state); err != nil {
 		return NonStatTy, err
 	}
@@ -2046,7 +2046,7 @@ func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.S
 		// Don't set the head, only insert the block
 		err = bc.writeBlockWithState(block, res.Receipts, statedb)
 	} else {
-		status, err = bc.writeBlockAndSetHead(block, res.Receipts, res.Logs, statedb, false)
+		status, err = bc.WriteBlockAndSetHead(block, res.Receipts, res.Logs, statedb, false)
 	}
 	if err != nil {
 		return nil, statedb, err

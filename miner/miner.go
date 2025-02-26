@@ -27,6 +27,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
@@ -41,7 +42,7 @@ const maxSyncFailures = 100
 // to offer all the functions here.
 type Backend interface {
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
+	TxPool() *txpool.TxPool
 	StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error)
 	Logger() log.Logger
 }
@@ -236,7 +237,7 @@ func (miner *Miner) Pending() (*types.Block, *state.StateDB) {
 // Note, to access both the pending block and the pending state
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
-func (miner *Miner) PendingBlock() *types.Block {
+func (miner *Miner) PendingBlock() *types.Header {
 	return miner.worker.pendingBlock()
 }
 

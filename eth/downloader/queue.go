@@ -776,9 +776,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, hashes []comm
 // DeliverBodies injects a block body retrieval response into the results queue.
 // The method returns the number of blocks bodies accepted from the delivery and
 // also wakes any threads waiting for data delivery.
-func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListHashes []common.Hash,
-	uncleLists [][]*types.Header, uncleListHashes []common.Hash,
-) (int, error) {
+func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListHashes []common.Hash, uncleLists [][]*types.Header, uncleListHashes []common.Hash) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 

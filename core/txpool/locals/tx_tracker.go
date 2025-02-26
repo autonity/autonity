@@ -18,10 +18,9 @@
 package locals
 
 import (
+	"slices"
 	"sync"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/txpool"
