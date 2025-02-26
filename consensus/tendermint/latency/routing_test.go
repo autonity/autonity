@@ -45,7 +45,7 @@ func TestRouter(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 
-		router := NewRouter(broadcaster, key)
+		router := NewRouter(broadcaster, key, nil, nil)
 		committee := make([]common.Address, 11)
 		for i := 0; i < 11; i++ {
 			committee[i] = testrand.Address()
