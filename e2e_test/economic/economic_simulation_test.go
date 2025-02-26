@@ -14,17 +14,19 @@ func TestDefaultConfig(t *testing.T) {
 		params *systemParams
 		packer TXNPacker
 	}{
-		// 0 - 5 run with default params
+		// under block gas target tests
 		{"dust filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.01, -2)}},
 		{"1/10 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.1, -2)}},
 		{"1/5 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.2, -2)}},
 		{"1/4 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.25, -2)}},
 		{"1/3 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.33, -2)}},
 		{"1/2 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.5, -2)}},
-		{"3/5 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.66, -2)}},
-		{"3/4 filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.75, -2)}},
-		{"full filled blocks", 1801, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(1.0, -2)}},
-		{"dynamic filled blocks", 1801, &defSysParams, &dynamicPacker{increasingInterval: 100, decreasingInterval: 500}},
+
+		// exceeding block gas target tests, the baseFee adjustment will start for below tests, the TXN fee will increase fast.
+		{"3/5 filled blocks", 181, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.66, -2)}},
+		{"3/4 filled blocks", 181, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(0.75, -2)}},
+		{"full filled blocks", 181, &defSysParams, &RatedPacker{ratio: decimal.NewFromFloatWithExponent(1.0, -2)}},
+		{"dynamic filled blocks", 181, &defSysParams, &dynamicPacker{increasingInterval: 50, decreasingInterval: 130}},
 	}
 
 	for i, tt := range tests {
