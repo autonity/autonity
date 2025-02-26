@@ -10,25 +10,29 @@ func TestDefaultConfig(t *testing.T) {
 	tests := []struct {
 		name   string
 		blocks uint64
+		params *systemParams
 		packer TXNPacker
 	}{
-		{"dust filled blocks", 600, &dustFiller{params: &defSysParams}},
-		{"1/3 filled blocks", 600, &oneThirdPacker{params: &defSysParams}},
-		{"half filled blocks", 600, &halfPacker{params: &defSysParams}},
-		{"2/3 filled blocks", 600, &twoThirdPacker{params: &defSysParams}},
-		{"fully filled blocks", 600, &fullPacker{params: &defSysParams}},
+		// 0 - 5 run with default params
+		{"dust filled blocks", 600, &defSysParams, &dustPacker{}},
+		{"1/3 filled blocks", 600, &defSysParams, &oneThirdPacker{}},
+		{"half filled blocks", 600, &defSysParams, &halfPacker{}},
+		{"2/3 filled blocks", 600, &defSysParams, &twoThirdPacker{}},
+		{"fully filled blocks", 600, &defSysParams, &fullPacker{}},
+		{"dynamic filled blocks", 5600, &defSysParams, &dynamicPacker{increasingInterval: 100, decreasingInterval: 500}},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runSimulation(tt.name, tt.blocks, &defSysParams, tt.packer)
+			runSimulation(i, tt.name, tt.blocks, tt.params, tt.packer)
 		})
 	}
 }
 
 // runSimulation runs a simulation and logs the results.
-func runSimulation(name string, blocks uint64, params *systemParams, packer TXNPacker) {
+func runSimulation(index int, name string, blocks uint64, params *systemParams, packer TXNPacker) {
 	log.Info("Running test", "name", name, "blocks", blocks, "params", params)
 	sim := newSimulator(name, blocks, params, packer)
 	sim.start()
+	sim.assembleData(index)
 }

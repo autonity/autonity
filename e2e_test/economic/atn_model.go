@@ -13,10 +13,9 @@ type TXNPacker interface {
 	packTXNs(parent *block) (uint64, uint64)
 }
 
-type fullPacker struct {
-	params *systemParams
-}
+type fullPacker struct{}
 
+// fullPacker just pack TXN in an increasing way, which means current block always has more TXNs than its parent block.
 func (f *fullPacker) packTXNs(parent *block) (uint64, uint64) {
 	// Define the gas cost per transaction
 	const gasPerTxn = 21000
@@ -37,9 +36,48 @@ func (f *fullPacker) packTXNs(parent *block) (uint64, uint64) {
 	return numTxns, usedGas
 }
 
-type twoThirdPacker struct {
-	params *systemParams
+type dynamicPacker struct {
+	increasingInterval int // in blocks
+	decreasingInterval int // in blocks
 }
+
+// dynamic packer just pack TXN with an increasing interval in blocks, within which, the packer pack TXN in an increasing
+// way, which means new block always has more TXNs than its parent. While after that interval, it enters into the
+// decreasing interval in blocks, within which, the packer start to packing TXNs in a linear decreasing way.
+func (d *dynamicPacker) packTXNs(parent *block) (uint64, uint64) {
+	// Define the gas cost per transaction
+	const gasPerTxn = 21000
+
+	// Seed the random number generator
+	rand.Seed(time.Now().UnixNano())
+
+	// Determine the current block's position in the interval
+	intervalPosition := (parent.number + 1) % uint64(d.increasingInterval+d.decreasingInterval)
+
+	// Calculate the number of transactions based on the interval
+	var numTxns uint64
+	if intervalPosition < uint64(d.increasingInterval) {
+		// Increasing interval: pack more transactions than the parent block
+		additionalTxns := rand.Intn(5) + 1 // Randomly add 1 to 5 transactions
+		numTxns = parent.gasLimit/gasPerTxn + uint64(additionalTxns)
+	} else {
+		// Decreasing interval: pack half of the parent block's transactions
+		// drop to dust block?
+		numTxns = 1
+		/*
+			numTxns = parent.gasLimit / gasPerTxn / 2
+			if numTxns < 1 {
+				numTxns = 1 // Ensure at least 1 transaction is packed
+			}*/
+	}
+
+	// Calculate the total gas used
+	usedGas := numTxns * gasPerTxn
+
+	return numTxns, usedGas
+}
+
+type twoThirdPacker struct{}
 
 func (f *twoThirdPacker) packTXNs(parent *block) (uint64, uint64) {
 	// Define the gas cost per transaction
@@ -61,9 +99,7 @@ func (f *twoThirdPacker) packTXNs(parent *block) (uint64, uint64) {
 	return numTxns, usedGas
 }
 
-type halfPacker struct {
-	params *systemParams
-}
+type halfPacker struct{}
 
 func (f *halfPacker) packTXNs(parent *block) (uint64, uint64) {
 	// Define the gas cost per transaction
@@ -85,9 +121,7 @@ func (f *halfPacker) packTXNs(parent *block) (uint64, uint64) {
 	return numTxns, usedGas
 }
 
-type oneThirdPacker struct {
-	params *systemParams
-}
+type oneThirdPacker struct{}
 
 func (f *oneThirdPacker) packTXNs(parent *block) (uint64, uint64) {
 	// Define the gas cost per transaction
@@ -109,11 +143,9 @@ func (f *oneThirdPacker) packTXNs(parent *block) (uint64, uint64) {
 	return numTxns, usedGas
 }
 
-type dustFiller struct {
-	params *systemParams
-}
+type dustPacker struct{}
 
-func (f *dustFiller) packTXNs(_ *block) (uint64, uint64) {
+func (f *dustPacker) packTXNs(_ *block) (uint64, uint64) {
 	// Define the gas cost per transaction
 	const gasPerTxn = 21000
 
@@ -130,9 +162,9 @@ func (f *dustFiller) packTXNs(_ *block) (uint64, uint64) {
 // CalcBaseFee calculates the basefee of the header.
 func CalcBaseFee(parent *block, params *systemParams) *big.Int {
 	var (
-		parentGasTarget          = parent.gasLimit / params.elasticityMultiplier
+		parentGasTarget          = parent.gasLimit / params.ElasticityMultiplier
 		parentGasTargetBig       = new(big.Int).SetUint64(parentGasTarget)
-		baseFeeChangeDenominator = new(big.Int).SetUint64(params.baseFeeChangeDenominator)
+		baseFeeChangeDenominator = new(big.Int).SetUint64(params.BaseFeeChangeDenominator)
 	)
 	// If the parent gasUsed is the same as the target, the baseFee remains unchanged.
 	if parent.gasUsed == parentGasTarget {
@@ -155,7 +187,7 @@ func CalcBaseFee(parent *block, params *systemParams) *big.Int {
 		y := x.Div(x, parentGasTargetBig)
 		baseFeeDelta := x.Div(y, baseFeeChangeDenominator)
 
-		minBaseFee := big.NewInt(0).SetUint64(params.minBaseFee.Uint64())
+		minBaseFee := big.NewInt(0).SetUint64(params.MinBaseFee.Uint64())
 		return math.BigMax(
 			x.Sub(parent.baseFee, baseFeeDelta),
 			minBaseFee,
