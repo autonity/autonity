@@ -20,7 +20,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
     /** @dev Tracks amount of released stakes from unbonding which is necessary for passive balance update in Autonity. */
     uint256 public releasedStakes;
     /** @dev The epoch id for which unbondings will be released */
-    uint256 internal unbondingEpoch;
+    uint256 public unbondingEpoch;
     mapping(address => uint256) internal lastFeeFactor;
 
     struct UnbondingQueue {
@@ -32,10 +32,8 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
 
     BondingRequest[] internal bondingArray;
-    uint256 internal headBondingID;
 
     UnbondingRequest[] internal unbondingArray;
-    uint256 internal headUnbondingID;
 
     address internal operator;
 
@@ -86,16 +84,15 @@ contract StakingPool is AccessAutonity, IStakingPool {
     ) external onlyAutonity returns (uint256) {
         validatorUnbonded[_epochID].add(_validator);
         // requested unboning amount goes to the validators pool which will be processed at epoch end
-        PoolCollection storage _stakePool = epochStakesPool[_epochID][_validator];
-        ValidatorUnbondingPool storage _pool = _stakePool.validatorUnbondingPool;
+        PoolCollection storage _pool = epochStakesPool[_epochID][_validator];
         if (_selfBond) {
-            _pool.selfUnbondingStake += _amount;
+            _pool.validatorUnbondingPool.selfUnbondingStake += _amount;
         }
         else {
-            if (_pool.liquidBurning == 0) {
-                _stakePool.delegatorUnbondingPool.feeFactor = lastFeeFactor[_validator];
+            if (_pool.validatorUnbondingPool.liquidBurning == 0) {
+                _pool.delegatorUnbondingPool.feeFactor = lastFeeFactor[_validator];
             }
-            _pool.liquidBurning += _amount;
+            _pool.validatorUnbondingPool.liquidBurning += _amount;
         }
         uint256 _id = unbondingArray.length;
         unbondingArray.push(
@@ -116,13 +113,13 @@ contract StakingPool is AccessAutonity, IStakingPool {
     function collectRewards(address[] memory _validators, ILiquid[] memory _liquidContracts) external onlyAutonity {
         uint256 _count = _validators.length;
         require(_count == _liquidContracts.length, "invalid inputs");
-        uint256 _myBalance = address(this).balance;
+        uint256 _atnBalance = address(this).balance;
         for (uint256 i = 0; i < _count; i++) {
-            uint256 _balance = _liquidContracts[i].balanceInContract(address(this));
-            if (_balance > 0) {
+            uint256 _liquidBalance = _liquidContracts[i].balanceInContract(address(this));
+            if (_liquidBalance > 0) {
                 _liquidContracts[i].claimRewards();
-                lastFeeFactor[_validators[i]] += (address(this).balance - _myBalance) * FEE_FACTOR_UNIT_RECIP / _balance;
-                _myBalance = address(this).balance;
+                lastFeeFactor[_validators[i]] += (address(this).balance - _atnBalance) * FEE_FACTOR_UNIT_RECIP / _liquidBalance;
+                _atnBalance = address(this).balance;
             }
         }
     }
@@ -276,7 +273,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
             while (_length > 0) {
                 address _validator = _validators.at(0);
-                PoolCollection storage _stakePool = epochStakesPool[_epochID][_validator];
+                PoolCollection storage _stakePool = epochStakesPool[_processingEpoch][_validator];
                 Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
 
                 // `unbondingShare` from `validatorUnbondingPool` is converted to `_releasedStake`
@@ -330,7 +327,7 @@ contract StakingPool is AccessAutonity, IStakingPool {
      * @param _delegator Delegator account
      * @param _validator Validator address
      */
-    function updateDelegatorPool(address _delegator,address _validator) external virtual onlyLiquidHolder(_delegator, _validator) {
+    function updateDelegatorPool1(address _delegator, address _validator) external virtual onlyLiquidHolder(_delegator, _validator) {
         _updateDelegatorPool(_delegator);
     }
 
@@ -542,15 +539,21 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
     function _updateDelegatorPool(address _delegator) internal {
         uint256 _epochID = autonity.epochID();
-        _processBondingRequest(_delegator, _epochID);
-        _processUnbondingRequest(_delegator, _epochID);
+        uint256 _rewards = _processBondingRequest(_delegator, _epochID);
+        _rewards +=_processUnbondingRequest(_delegator, _epochID);
         _releaseUnbondingStake(_delegator, unbondingEpoch);
+
+        if (_rewards > 0) {
+            //   solhint-disable-next-line avoid-low-level-calls
+            (bool _sent, ) = _delegator.call{value: _rewards}("");
+            require(_sent, "Failed to send ATN");
+        }
     }
 
     /**
      * @dev Apply all bonding requests from `_delegator` coming in epoch `_epochID` or before.
      */
-    function _processBondingRequest(address _delegator, uint256 _epochID) internal {
+    function _processBondingRequest(address _delegator, uint256 _epochID) internal returns (uint256) {
         UintQueue storage _queue = pendingBondingQueue[_delegator];
         uint256 _length = _queue.array.length;
         uint256 _topIndex = _queue.topIndex;
@@ -620,12 +623,6 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
             _topIndex++;
         }
-
-        if (_rewards > 0) {
-            //   solhint-disable-next-line avoid-low-level-calls
-            (bool _sent, ) = _delegator.call{value: _rewards}("");
-            require(_sent, "Failed to send ATN");
-        }
         
         // TODO (tariq): consider deleting bonding request from `bondingArray` as they are applied
         _queue.dequeue(_topIndex - _queue.topIndex);
@@ -633,12 +630,13 @@ contract StakingPool is AccessAutonity, IStakingPool {
             rejectedBonding -= _bondingRejected;
             autonity.updateWithRejectedBondingAmount(_delegator, _bondingRejected);
         }
+        return _rewards;
     }
 
     /**
      * @dev Apply all unbonding requests from `_delegator` coming in epoch `_epochID` or before.
      */
-    function _processUnbondingRequest(address _delegator, uint256 _epochID) internal {
+    function _processUnbondingRequest(address _delegator, uint256 _epochID) internal returns (uint256) {
         UnbondingQueue storage _queue = pendingUnbondingQueue[_delegator];
         uint256 _length = _queue.queue.array.length;
         uint256 _processingIndex = _queue.unlockingIndex;
@@ -694,13 +692,8 @@ contract StakingPool is AccessAutonity, IStakingPool {
 
             _processingIndex++;
         }
-
-        if (_rewards > 0) {
-            //   solhint-disable-next-line avoid-low-level-calls
-            (bool _sent, ) = _delegator.call{value: _rewards}("");
-            require(_sent, "Failed to send ATN");
-        }
         _queue.unlockingIndex = _processingIndex;
+        return _rewards;
     }
 
     /**

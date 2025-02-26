@@ -120,7 +120,7 @@ library StakingPoolMath {
         if (_unbondingShare == 0) {
             return 0;
         }
-        // assuming valid inputs `_unbondingShare <= _totalUnbondingStake`
+        // assuming valid inputs `_unbondingShare <= _totalUnbondingShare`
         return (_unbondingShare * _totalUnbondingStake) / _totalUnbondingShare;
     }
 }

@@ -82,6 +82,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
     function finalizeInitialization(Autonity.EpochInfo memory _epochInfo, address[] memory _treasuries) external onlyAutonity {
         require(_epochInfo.delta == config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
+        delete committee;
         for (uint256 i = 0; i < _epochInfo.committee.length; i++) {
             committee.push(_epochInfo.committee[i]);
             lastActive[committee[i].addr] = - 1;

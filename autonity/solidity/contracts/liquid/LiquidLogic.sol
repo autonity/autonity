@@ -117,7 +117,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Withdraws all fees earned so far by the caller.
      */
     function claimRewards() external virtual {
-        IStakingPool(autonityContract.getStakingPool()).updateDelegatorPool(msg.sender, validator);
+        IStakingPool(autonityContract.getStakingPool()).updateDelegatorPool1(msg.sender, validator);
         uint256 _atnRealisedFees = _realiseFees(msg.sender);
         delete atnRealisedFees[msg.sender];
 
@@ -280,7 +280,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     }
 
     function _transfer(address _from, address _to, uint256 _amount) internal virtual {
-        IStakingPool(autonityContract.getStakingPool()).updateDelegatorPool(_from, validator);
+        IStakingPool(autonityContract.getStakingPool()).updateDelegatorPool1(_from, validator);
         _requireAndDecreaseBalance(_from, _amount);
         _increaseBalance(_to, _amount);
     }

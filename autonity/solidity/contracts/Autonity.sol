@@ -1021,7 +1021,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         if (_liquidMinted > 0) {
             _validator.liquidSupply += _liquidMinted;
             _validator.liquidStateContract.mint(
-                address(config.contracts.stakingPool),
+                msg.sender,
                 _liquidMinted
             );
         }
@@ -1041,7 +1041,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         if (_liquidBurning > 0) {
             _validator.liquidSupply -= _liquidBurning;
             _validator.liquidStateContract.burn(
-                address(config.contracts.stakingPool),
+                msg.sender,
                 _liquidBurning
             );
         }
@@ -1701,11 +1701,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
         config.contracts.stakingPool.updateDelegatorPool(_recipient);
         Validator storage _validator = validators[_validatorAddress];
-        bool selfDelegation = _recipient == _validator.treasury;
-        if (!selfDelegation) {
+        bool _selfDelegation = _recipient == _validator.treasury;
+        if (!_selfDelegation) {
             // Lock LNTN if it was issued (non self-delegated stake case)
-            uint256 liqBalance = _validator.liquidStateContract.unlockedBalanceOf(_recipient);
-            require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
+            require(
+                _validator.liquidStateContract.unlockedBalanceOf(_recipient) >= _amount,
+                "insufficient unlocked Liquid Newton balance"
+            );
             _validator.liquidStateContract.lockInPool(_recipient, address(config.contracts.stakingPool), _amount);
         }
         else {
@@ -1716,13 +1718,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _validator.selfUnbondingStakeLocked += _amount;
         }
 
-        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
+        emit NewUnbondingRequest(_validatorAddress, _recipient, _selfDelegation, _amount);
         return config.contracts.stakingPool.unbond(
             _validatorAddress,
             _amount,
             _recipient,
             epochID,
-            selfDelegation
+            _selfDelegation
         );
     }
 
@@ -1740,35 +1742,16 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.stakingPool.applyBonding(epochID);
         config.contracts.stakingPool.applyUnbonding(epochID);
 
-        if (config.policy.unbondingPeriod > block.number) {
-            return;
+        while (true) {
+            uint256 _unbondingEpoch = config.contracts.stakingPool.unbondingEpoch();
+            if (_unbondingEpoch > epochID) {
+                break;
+            }
+            if (epochInfos[_unbondingEpoch].nextEpochBlock + config.policy.unbondingPeriod > block.number) {
+                break;
+            }
+            config.contracts.stakingPool.releaseUnbondingStake(_unbondingEpoch);
         }
-        
-        int256 _lastEpoch = _calculateLastUnbondingEpoch();
-        if (_lastEpoch >= 0) {
-            config.contracts.stakingPool.releaseUnbondingStake(uint256(_lastEpoch));
-        }
-    }
-
-    function _calculateLastUnbondingEpoch() internal view returns (int256) {
-        // We don't want to release unbonding request received in epoch `_epochID`
-        // if `nextEpochBlock + unbondingPeriod > block.number`
-        // where `nextEpochBlock = epochInfos[_epochID].nextEpochBlock`.
-        // Because `nextEpochBlock` is the block when the unbonding request is effective (applied)
-        
-        // block `_blockOutOfRange` is the beginning of the forbidden range of blocks
-        // where the received unbonding requests should not be released
-        uint256 _blockOutOfRange = block.number - config.policy.unbondingPeriod + 1;
-        uint256 _epochID = epochID;
-        if (_blockOutOfRange < block.number) {
-            _epochID = blockEpochMap[_blockOutOfRange];
-        }
-
-        // for `_epochID` we have `epochInfos[_epochID].nextEpochBlock >= _blockOutOfRange`
-        // so we don't want the unbonding requests received at epoch `_epochID` to be released
-        // for `_epochID - 1` we have `epochInfos[_epochID-1].nextEpochBlock = epochInfos[_epochID].epochBlock < _blockOutOfRange`
-        // so we can release unbonding requests from epoch `_epochID - 1` as it is out of the forbidden range
-        return int256(_epochID) - 1;
     }
 
     function _finalizeState(uint256 _delta) internal returns (address[] memory _treasuries) {

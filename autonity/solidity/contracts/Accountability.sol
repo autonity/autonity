@@ -104,6 +104,7 @@ contract Accountability is IAccountability, AccessAutonity {
     }
 
     function finalizeInitialization(Autonity.CommitteeMember[] memory _committee) external onlyAutonity {
+        delete curCommittee;
         for (uint256 i = 0; i < _committee.length; i++) {
             curCommittee.push(_committee[i].addr);
             allowedReporters[_committee[i].addr] = true;

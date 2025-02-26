@@ -31,6 +31,29 @@ contract AutonityTest is Autonity {
         _finalizeState(_delta);
     }
 
+    function finalizeInitializationOnlyAccountability() public {
+        address[] memory _treasuries = new address[](committee.length);
+        for (uint i = 0; i < committee.length; i++) {
+            _treasuries[i] = validators[committee[i].addr].treasury;
+        }
+        config.contracts.accountabilityContract.finalizeInitialization(committee);
+        config.contracts.omissionAccountabilityContract.finalizeInitialization(epochInfos[epochID], _treasuries);
+    }
+
+    function progressEpoch() public {
+        epochID++;
+        _addEpochInfo(
+            epochID,
+            EpochInfo(
+                committee,
+                epochInfos[epochID-1].epochBlock,
+                block.number,
+                block.number + config.protocol.epochPeriod,
+                epochInfos[epochID-1].delta
+            )
+        );
+    }
+
     function applyGenesisBonding() public {
         _genesisBonding();
     }
@@ -60,7 +83,6 @@ contract AutonityTest is Autonity {
     }
 
     function testComputeCommittee() public {
-        _stakingOperations();
         (address[] memory voters, address[] memory reporters, address[] memory treasuries) = computeCommittee();
         address[] memory addresses = new address[](voters.length);
         uint256 totalStake = 0;

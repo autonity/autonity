@@ -98,7 +98,7 @@ interface IStakingPool {
 
     /* Updates the information of the `_delegator` from the delegators pool. Both function do the same thing. */
     function updateDelegatorPool(address _delegator) external;
-    function updateDelegatorPool(address _delegator, address _validator) external;
+    function updateDelegatorPool1(address _delegator, address _validator) external;
 
     function getBondingRequest(uint256 _id) external view returns (BondingRequest memory);
     function getUnbondingRequest(uint256 _id) external view returns (UnbondingRequest memory);
@@ -106,6 +106,7 @@ interface IStakingPool {
     function getUnbondingArrayLength() external view returns (uint256);
     function rejectedBonding() external view returns (uint256);
     function releasedStakes() external view returns (uint256);
+    function unbondingEpoch() external view returns (uint256);
     function isUnbondingReleased(uint256 _id) external view returns (bool);
     function getUnbondingShare(uint256 _id) external view returns (uint256);
     function calculateReleasedStake(address _delegator) external view returns (uint256);
