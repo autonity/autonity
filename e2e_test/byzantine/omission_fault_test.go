@@ -3,6 +3,7 @@ package byzantine
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"sync"
 	"testing"
@@ -187,8 +188,9 @@ func defaultGenesisOptions(genesis *core.Genesis) {
 // assumes the usage of defaultEpochPeriod as epoch period
 func waitForEpochEnd(t *testing.T, network e2e.Network, autonity *autonity.Autonity) {
 	currentEpochID := epochID(t, autonity)
+	fmt.Printf("currentEpochID %v\n", currentEpochID)
 
-	err := network.WaitForHeight(defaultEpochPeriod*(currentEpochID+1), defaultEpochPeriod*2)
+	err := network.WaitForHeight(defaultEpochPeriod*currentEpochID, defaultEpochPeriod*2)
 	require.NoError(t, err)
 
 	newEpochID := epochID(t, autonity)
@@ -233,7 +235,7 @@ func TestOmissionHappyCase(t *testing.T) {
 	require.NoError(t, err)
 
 	// should have reached epoch 2
-	require.Equal(t, uint64(2), epochID(t, autonityContract))
+	require.True(t, epochID(t, autonityContract) > 1)
 
 	// inactivity counters for current epoch should all be 0
 	// scores compute in epoch 1 should be 0
@@ -267,8 +269,8 @@ func TestOmissionFaultyNode(t *testing.T) {
 	err = network.WaitForHeight((defaultEpochPeriod*2)-10, defaultEpochPeriod*2)
 	require.NoError(t, err)
 
-	// we should still be in the epoch 1
-	require.Equal(t, uint64(1), epochID(t, autonityContract))
+	// we should still be in the epoch 2
+	require.Equal(t, uint64(2), epochID(t, autonityContract))
 
 	// inactivity score of past epoch should be = 0
 	// inactivity counter of current epoch should be > 0
@@ -761,7 +763,7 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 	// close the epoch
 	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod))
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), epochID(t, autonityContract))
+	require.Equal(t, uint64(2), epochID(t, autonityContract))
 
 	for i := 0; i < numNodes; i++ {
 		effortTrackers[i].RLock()

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"testing"
 	"text/tabwriter"
 	"time"
+
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
@@ -213,10 +214,10 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	require.NoError(t, err)
 	sendAndWait(tx)
 
-	// we should still be in epoch 0, getDelta should already return the new value
+	// we should still be in epoch 1, getDelta should already return the new value
 	epochID, err := autonityContract.EpochID(nil)
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), epochID.Uint64())
+	require.Equal(t, uint64(1), epochID.Uint64())
 	newDeltaFetched, err := omissionContract.GetDelta(nil)
 	require.NoError(t, err)
 	require.Equal(t, newDelta.String(), newDeltaFetched.String())
@@ -230,10 +231,10 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	err = network.WaitForHeight(epochPeriod, int(epochPeriod))
 	require.NoError(t, err)
 
-	// should be in epoch 1
+	// should be in epoch 2
 	epochID, err = autonityContract.EpochID(nil)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), epochID.Uint64())
+	require.Equal(t, uint64(2), epochID.Uint64())
 
 	// wait for some more blocks and check that the activity proofs have been set accordingly to the new delta
 	err = network.WaitToMineNBlocks(10, 15, false)
@@ -251,10 +252,10 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	err = network.WaitForHeight(epochPeriod*2, int(epochPeriod*2))
 	require.NoError(t, err)
 
-	// should be in epoch 2
+	// should be in epoch 3
 	epochID, err = autonityContract.EpochID(nil)
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), epochID.Uint64())
+	require.Equal(t, uint64(3), epochID.Uint64())
 
 	// wait for some more blocks and check that the activity proofs have been set accordingly to the new delta
 	err = network.WaitToMineNBlocks(35, 50, false)
