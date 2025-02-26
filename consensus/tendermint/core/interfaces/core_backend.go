@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus"
 	"math/big"
 	"time"
 
@@ -112,6 +113,14 @@ type Core interface {
 	VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower
 	VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower
 	EventCh() <-chan events.CoreEvent
+}
+
+type Router interface {
+	Start(ctx context.Context, chain *ethcore.BlockChain)
+	Stop()
+	ClusteringActive() bool
+	SetBroadcaster(broadcaster consensus.Broadcaster)
+	Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
 }
 
 type EventDispatcher interface {

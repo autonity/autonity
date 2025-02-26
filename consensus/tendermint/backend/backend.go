@@ -21,6 +21,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/consensus/tendermint/latency"
+	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -88,7 +89,15 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey)
+	var pinger ping.Pinger
+	var selector latency.PeerSelector
+	if services != nil && services.Pinger != nil {
+		pinger = services.Pinger
+	}
+	if services != nil && services.Selector != nil {
+		selector = services.Selector
+	}
+	backend.router = latency.NewRouter(backend.Broadcaster, nodeKey, pinger, selector)
 
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,
@@ -101,11 +110,11 @@ func New(
 		backend.gossiper = services.Gossiper(backend)
 	}
 
-	core := tendermintCore.New(backend, services, backend.address, log, noGossip)
-	backend.core = core
-	backend.evDispatcher = core
+	consensusCore := tendermintCore.New(backend, services, backend.address, log, noGossip)
+	backend.core = consensusCore
+	backend.evDispatcher = consensusCore
 
-	backend.aggregator = newAggregator(backend, core, log, backend.knownMessages)
+	backend.aggregator = newAggregator(backend, consensusCore, log, backend.knownMessages)
 
 	return backend
 }
@@ -145,7 +154,7 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	router *latency.Router
+	router interfaces.Router
 
 	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 	vmConfig        *vm.Config

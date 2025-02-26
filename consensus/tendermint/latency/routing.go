@@ -25,9 +25,13 @@ import (
 )
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
-var ScaleThresholdForClustering = 10 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
+var ScaleThresholdForClustering = 32 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
+
+type PeerSelector interface {
+	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
+}
 
 type Router struct {
 	self        common.Address
@@ -54,6 +58,9 @@ type Router struct {
 	measured           bool
 	clusteredThisEpoch bool
 
+	pinger       ping.Pinger
+	peerSelector PeerSelector
+
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 }
@@ -61,6 +68,8 @@ type Router struct {
 func NewRouter(
 	broadcaster consensus.Broadcaster,
 	nodeKey *ecdsa.PrivateKey,
+	pinger ping.Pinger,
+	selector PeerSelector,
 ) *Router {
 	r := &Router{
 		broadcaster:       broadcaster,
@@ -68,48 +77,34 @@ func NewRouter(
 		reportedEventChan: make(chan *autonity.LatencyReported),
 		epochEventChan:    make(chan core.EpochHeadEvent),
 		chainEventChan:    make(chan core.ChainEvent),
+		pinger:            ping.NewPinger(ping.TCP),
 		cache:             newLatencyCache(),
 	}
+	r.SetDefaultHandlers()
+
+	if pinger != nil {
+		r.pinger = pinger
+	}
+
+	if selector != nil {
+		r.peerSelector = selector
+	}
 	return r
+}
+
+func (r *Router) SetDefaultHandlers() {
+	r.peerSelector = &Selector{r}
+}
+
+func (r *Router) PeerSelector() PeerSelector {
+	return r.peerSelector
 }
 
 // Exported functions
 
 // Route just select recipients from the clusters, it does not do the message sending.
 func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
-	// if not part of the committee return
-	if member := committee.MemberByAddress(from); member == nil {
-		return nil
-	}
-
-	r.clusterLock.RLock()
-	defer r.clusterLock.RUnlock()
-
-	// currently only proposals are routed through clustering
-	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
-	if msg.Code() != message.ProposalCode || r.clusters == nil {
-		return committee.Members
-	}
-
-	// if we are sending the proposal, we should send it to every cluster
-	var recipients []types.CommitteeMember
-	if from == r.self {
-		for _, addr := range r.clusters.selectK(ClusterRedundancyParameter, seed(msg)) {
-			if member := committee.MemberByAddress(addr); member != nil {
-				recipients = append(recipients, *member)
-			}
-		}
-	}
-	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
-	if ownCluster := r.clusters.clusterContaining(r.self); ownCluster != r.clusters.clusterContaining(from) && ownCluster >= 0 {
-		for _, addr := range r.clusters[ownCluster] {
-			if member := committee.MemberByAddress(addr); member != nil {
-				recipients = append(recipients, *member)
-			}
-		}
-	}
-
-	return recipients
+	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
 func (r *Router) ClusteringActive() bool {
@@ -286,7 +281,7 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 		}
 	}
 
-	latencyArray := pingPeers(pingTargets)
+	latencyArray := r.pingPeers(pingTargets)
 	for i, addr := range validators {
 		// set self latency to 0
 		if addr == r.self {
@@ -383,7 +378,7 @@ func (r *Router) loop(ctx context.Context) {
 	}
 }
 
-func pingPeers(targets []ping.Target) []uint8 {
+func (r *Router) pingPeers(targets []ping.Target) []uint8 {
 	channelArray := make([]chan time.Duration, len(targets))
 	for i, t := range targets {
 		resultCh := make(chan time.Duration, 1)
@@ -394,8 +389,8 @@ func pingPeers(targets []ping.Target) []uint8 {
 			channelArray[i] = resultCh
 			continue
 		}
-		// icmp pinger to compare results
-		ping.NewPinger(ping.TCP).Ping(t, resultCh)
+
+		r.pinger.Ping(t, resultCh)
 		channelArray[i] = resultCh
 	}
 	results := make([]uint8, len(targets))
@@ -426,6 +421,47 @@ func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.N
 		}
 	}
 	return nil, false
+}
+
+type Selector struct {
+	*Router
+}
+
+func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+
+	// if not part of the committee return
+	if member := committee.MemberByAddress(from); member == nil {
+		return nil
+	}
+
+	s.clusterLock.RLock()
+	defer s.clusterLock.RUnlock()
+
+	// currently only proposals are routed through clustering
+	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
+	if msg.Code() != message.ProposalCode || s.clusters == nil {
+		return committee.Members
+	}
+
+	// if we are sending the proposal, we should send it to every cluster
+	var recipients []types.CommitteeMember
+	if from == s.self {
+		for _, addr := range s.clusters.selectK(ClusterRedundancyParameter, seed(msg)) {
+			if member := committee.MemberByAddress(addr); member != nil {
+				recipients = append(recipients, *member)
+			}
+		}
+	}
+	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
+	if ownCluster := s.clusters.clusterContaining(s.self); ownCluster != s.clusters.clusterContaining(from) && ownCluster >= 0 {
+		for _, addr := range s.clusters[ownCluster] {
+			if member := committee.MemberByAddress(addr); member != nil {
+				recipients = append(recipients, *member)
+			}
+		}
+	}
+
+	return recipients
 }
 
 func seed(msg message.Msg) int64 {
