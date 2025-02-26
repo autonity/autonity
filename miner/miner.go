@@ -43,7 +43,7 @@ const maxSyncFailures = 100
 type Backend interface {
 	BlockChain() *core.BlockChain
 	TxPool() *txpool.TxPool
-	StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error)
+	StateAtBlock(block *types.Header, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error)
 	Logger() log.Logger
 }
 

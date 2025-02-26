@@ -136,7 +136,7 @@ type Engine interface {
 	SetResultChan(results chan<- *types.Block)
 
 	// SetProposalVerifiedEventCh sets the proposal verified event channel to trigger new block preparation
-	SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block)
+	SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Header)
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message
