@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	defATNPriceInUSD, _ = decimal.NewFromString("211.28") // to be replaced with production price
-	defNTNPriceInUSD, _ = decimal.NewFromString("981.25") // to be replaced with production price
+	defATNPriceInUSD, _ = decimal.NewFromString("1.28") // to be replaced with production price
+	defNTNPriceInUSD, _ = decimal.NewFromString("1.25") // to be replaced with production price
 	defSysParams        = systemParams{
 		EpochPeriod: 30,
 
@@ -107,6 +107,7 @@ type blockData struct {
 	baseFee            *big.Int
 	baseFeeInATN       *big.Float
 	baseFeeInUSD       *big.Float
+	stdTXNCostInUSD    *big.Float
 	blockSpamCostInUSD *big.Float
 }
 
@@ -127,6 +128,10 @@ func (b *block) collectData() {
 	// Calculate baseFee in USD
 	baseFeeInUSD := new(big.Float).Mul(baseFeeInATN, atnToUSD)
 
+	// standard TXN cost in USD
+	stdTXNGas := new(big.Float).SetUint64(gasPerTxn)
+	stdTXNCostInUSD := new(big.Float).Mul(baseFeeInUSD, stdTXNGas)
+
 	// Block spam cost.
 	gasLimit := new(big.Float).SetUint64(b.gasLimit)
 	blockSpamCostInUSD := new(big.Float).Mul(baseFeeInUSD, gasLimit)
@@ -139,6 +144,7 @@ func (b *block) collectData() {
 		baseFee:            b.baseFee,
 		baseFeeInATN:       baseFeeInATN,
 		baseFeeInUSD:       baseFeeInUSD,
+		stdTXNCostInUSD:    stdTXNCostInUSD,
 		blockSpamCostInUSD: blockSpamCostInUSD,
 	}
 }
@@ -146,8 +152,8 @@ func (b *block) collectData() {
 func (b *block) string() string {
 	b.collectData()
 	return fmt.Sprintf(
-		"H: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.18f, baseFee(USD): %.18f, blockSpamCost(USD): %.18f",
-		b.data.H, b.data.gasLimit, b.data.gasUsed, b.data.baseFeeChangeRate.String(), b.data.baseFee.String(), b.data.baseFeeInATN, b.data.baseFeeInUSD, b.data.blockSpamCostInUSD,
+		"H: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.18f, baseFee(USD): %.18f, stdTXNCost(USD): %.18f, blockSpamCost(USD): %.18f",
+		b.data.H, b.data.gasLimit, b.data.gasUsed, b.data.baseFeeChangeRate.String(), b.data.baseFee.String(), b.data.baseFeeInATN, b.data.baseFeeInUSD, b.data.stdTXNCostInUSD, b.data.blockSpamCostInUSD,
 	)
 }
 
@@ -313,10 +319,10 @@ func (s *simulator) start() {
 
 func (s *simulator) assembleData(index int) {
 	// get the metrics, each returned column is a slice of float64, each variable name below represent the colum name.
-	blocks, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChgRates, spamCosts, accFeeRewards, accFeeRewardsUSD,
+	blocks, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChgRates, stdTXNCosts, spamCosts, accFeeRewards, accFeeRewardsUSD,
 		accNtnRewards, accNtnRewardsUSD, mergedRewards := s.Metrics()
 	// Dump the metrics into a CSV file
-	err := writeMetricsToCSV(index, blocks, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChgRates, spamCosts,
+	err := writeMetricsToCSV(index, blocks, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChgRates, stdTXNCosts, spamCosts,
 		accFeeRewards, accFeeRewardsUSD, accNtnRewards, accNtnRewardsUSD, mergedRewards)
 	if err != nil {
 		log.Crit("Failed to write metrics to CSV: %v", err)
@@ -383,6 +389,16 @@ func (s *simulator) assembleData(index int) {
 		},
 	}
 	renderChartToFile(baseFeeChgRateChart, fmt.Sprintf("%d_base_fee_chg_rate.png", index))
+
+	// render std TXN cost(USD) chart over blocks.
+	stdTXNCostsChart := chart.Chart{
+		Title:  "STD TXN Costs (USD) Over blocks",
+		XAxis:  chart.XAxis{Name: "Block/Time (s)"},
+		YAxis:  chart.YAxis{Name: "STD TXN cost (USD)"},
+		Series: []chart.Series{chart.ContinuousSeries{Name: "STDTXNCosts", XValues: blocks, YValues: stdTXNCosts}},
+	}
+	renderChartToFile(stdTXNCostsChart, fmt.Sprintf("%d_std_txn_costs.png", index))
+
 	// render block spam cost(USD) in YAxis and block in XAxis.
 	spamCostsChart := chart.Chart{
 		Title:  "SPAM Costs (USD) Over blocks",
@@ -412,7 +428,7 @@ func (s *simulator) assembleData(index int) {
 }
 
 func (s *simulator) Metrics() (heights []float64, gasLimits []float64, gasUseds []float64, baseFeesATN []float64,
-	baseFeesUSD []float64, baseFeeChangeRates []float64, spamCosts []float64, accumulatingFeeRewards []float64,
+	baseFeesUSD []float64, baseFeeChangeRates []float64, stdTXNCosts []float64, spamCosts []float64, accumulatingFeeRewards []float64,
 	accumulatingFeeRewardsUSD []float64, accumulatingNtnRewards []float64, accumulatingNtnRewardsUSD []float64,
 	mergedRewardsUSD []float64) {
 
@@ -425,6 +441,10 @@ func (s *simulator) Metrics() (heights []float64, gasLimits []float64, gasUseds 
 		baseFeeInUSD, _ := b.data.baseFeeInUSD.Float64()
 		baseFeesUSD = append(baseFeesUSD, baseFeeInUSD)
 		baseFeeChangeRates = append(baseFeeChangeRates, b.data.baseFeeChangeRate.InexactFloat64())
+
+		stdTXNCost, _ := b.data.stdTXNCostInUSD.Float64()
+		stdTXNCosts = append(stdTXNCosts, stdTXNCost)
+
 		spamCost, _ := b.data.blockSpamCostInUSD.Float64()
 		spamCosts = append(spamCosts, spamCost)
 
@@ -444,7 +464,7 @@ func (s *simulator) Metrics() (heights []float64, gasLimits []float64, gasUseds 
 
 		mergedRewardsUSD = append(mergedRewardsUSD, accFeeRewardUSDFloat+accNtnRewardUSDFloat)
 	}
-	return heights, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChangeRates, spamCosts, accumulatingFeeRewards,
+	return heights, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChangeRates, stdTXNCosts, spamCosts, accumulatingFeeRewards,
 		accumulatingFeeRewardsUSD, accumulatingNtnRewards, accumulatingNtnRewardsUSD, mergedRewardsUSD
 }
 
@@ -481,7 +501,7 @@ func renderChartToFile(c chart.Chart, filename string) {
 }
 
 // writeMetricsToCSV writes the metrics to a CSV file
-func writeMetricsToCSV(index int, blocks, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChgRates, spamCosts,
+func writeMetricsToCSV(index int, blocks, gasLimits, gasUseds, baseFeesATN, baseFeesUSD, baseFeeChgRates, stdTXNCosts, spamCosts,
 	accFeeRewards, accFeeRewardsUSD, accNtnRewards, accNtnRewardsUSD, mergedRewards []float64) error {
 	// Create the CSV file
 	filename := fmt.Sprintf("%d_metrics.csv", index)
@@ -497,7 +517,7 @@ func writeMetricsToCSV(index int, blocks, gasLimits, gasUseds, baseFeesATN, base
 
 	// Write the header
 	header := []string{
-		"Block", "GasLimit", "GasUsed", "BaseFee(ATN)", "BaseFee(USD)", "BaseFeeChangeRate", "SpamCosts(USD)",
+		"Block", "GasLimit", "GasUsed", "BaseFee(ATN)", "BaseFee(USD)", "BaseFeeChangeRate", "StdTXNCosts(USD)", "SpamCosts(USD)",
 		"AccFeeRewards(ATN)", "AccFeeRewards(USD)", "AccNtnRewards(NTN)", "AccNtnRewards(USD)", "MergedRewards(USD)",
 	}
 	if err := writer.Write(header); err != nil {
@@ -513,6 +533,7 @@ func writeMetricsToCSV(index int, blocks, gasLimits, gasUseds, baseFeesATN, base
 			fmt.Sprintf("%f", baseFeesATN[i]),
 			fmt.Sprintf("%f", baseFeesUSD[i]),
 			fmt.Sprintf("%f", baseFeeChgRates[i]),
+			fmt.Sprintf("%f", stdTXNCosts[i]),
 			fmt.Sprintf("%f", spamCosts[i]),
 			fmt.Sprintf("%f", accFeeRewards[i]),
 			fmt.Sprintf("%f", accFeeRewardsUSD[i]),
