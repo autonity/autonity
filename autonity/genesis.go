@@ -178,10 +178,6 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
 	}
-	// parsed, err := abi.JSON(strings.NewReader(DebugAut1ABI))
-	// if err != nil {
-	// 	return fmt.Errorf("failed to parse Autonity contract abi: %w", err)
-	// }
 	err := deploy(
 		params.AutonityContractAddress,
 		&generated.AutonityAbi,
@@ -656,10 +652,6 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
 	}
-	// parsed, err := abi.JSON(strings.NewReader(DebugAut5ABI))
-	// if err != nil {
-	// 	return fmt.Errorf("failed to parse Autonity contract abi: %w", err)
-	// }
 	err := deploy(
 		params.AutonityContractAddress,
 		// &parsed,

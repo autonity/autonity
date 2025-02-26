@@ -244,8 +244,8 @@ func TestGetters(t *testing.T) {
 
 		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
 		require.Equal(t, uint64(0), info.NextEpochBlock.Uint64())
-		require.Equal(t, uint64(0), info.Delta.Uint64())
-		require.Len(t, info.Committee.Members, 0)
+		require.Equal(t, uint64(5), info.Delta.Uint64())
+		require.Len(t, info.Committee.Members, 10)
 
 		info, err = autonity.CallEpochByHeight(db, header, big.NewInt(1))
 		require.NoError(t, err)
