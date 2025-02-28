@@ -217,7 +217,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		// ToDo: if the proposal is for a future message, it won't get here until the local node
 		// processes that future message. For speed, we may want to forward the proposal to the correct cluster
 		// before handleDecodedMsg is called
-		if sb.router != nil && sb.router.ClusteringActive() {
+		if sb.router != nil && sb.router.ClusteringActive(m.H()) {
 			recipients := sb.router.Route(committee, m, sender)
 			if len(recipients) == 0 {
 				sb.logger.Debug("No recipients for proposal", "proposal", m)

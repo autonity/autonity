@@ -4,21 +4,25 @@ import (
 	"errors"
 	"sync"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/autonity/autonity/common"
 )
 
 var ErrMissingLatencyMeasurements = errors.New("missing latency measurements")
 
 type latencyCache struct {
-	mu           sync.RWMutex
-	measurements map[common.Address]uint8
-	matrix       map[common.Address]map[common.Address]uint8
+	mu               sync.RWMutex
+	measurements     map[common.Address]uint8
+	matrix           map[common.Address]map[common.Address]int16
+	reportsThisEpoch uint64
 }
 
 func newLatencyCache() *latencyCache {
 	return &latencyCache{
-		measurements: make(map[common.Address]uint8),
-		matrix:       make(map[common.Address]map[common.Address]uint8),
+		measurements:     make(map[common.Address]uint8),
+		matrix:           make(map[common.Address]map[common.Address]int16),
+		reportsThisEpoch: 0,
 	}
 }
 
@@ -34,40 +38,38 @@ func (l *latencyCache) missingMeasurements(committee []common.Address) []common.
 	return missing
 }
 
-func (l *latencyCache) updateMatrix(validators []common.Address, latMat [][]uint8) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	for i := range validators {
-		for j := range validators {
-			if _, ok := l.matrix[validators[i]]; !ok {
-				l.matrix[validators[i]] = make(map[common.Address]uint8)
-			}
-			if i == j {
-				l.matrix[validators[i]][validators[j]] = 0
-			} else if latMat[i][j] == 0 {
-				l.matrix[validators[i]][validators[j]] = ^uint8(0)
-			} else {
-				l.matrix[validators[i]][validators[j]] = latMat[i][j]
-			}
-		}
-	}
-}
-
-func (l *latencyCache) insertMatrixLine(reporter common.Address, validators []common.Address, latencies []uint8) {
+func (l *latencyCache) insertMatrixLine(
+	reporter common.Address,
+	validators []common.Address,
+	latencies []uint8,
+) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if _, ok := l.matrix[reporter]; !ok {
-		l.matrix[reporter] = make(map[common.Address]uint8)
+		l.matrix[reporter] = make(map[common.Address]int16)
 	}
 	for i, validator := range validators {
 		if validator == reporter {
 			l.matrix[reporter][validator] = 0
 		} else if latencies[i] == 0 {
-			l.matrix[reporter][validator] = ^uint8(0)
+			l.matrix[reporter][validator] = -1
 		} else {
-			l.matrix[reporter][validator] = latencies[i]
+			l.matrix[reporter][validator] = int16(latencies[i])
 		}
 	}
+	l.reportsThisEpoch++
+}
+
+func (l *latencyCache) reportsInEpoch() uint64 {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.reportsThisEpoch
+}
+
+func (l *latencyCache) markNewEpoch() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.reportsThisEpoch = 0
 }
 
 func (l *latencyCache) insertMeasurements(validators []common.Address, latencies map[common.Address]uint8) {
@@ -101,12 +103,12 @@ func (l *latencyCache) readMatrix(validators []common.Address) map[common.Addres
 			if i == 0 {
 				result[va] = make([]uint8, len(validators))
 			}
-			if val, ok := l.matrix[va][vb]; ok {
-				result[va][i] = val
+			if val, ok := l.matrix[va][vb]; ok && val >= 0 {
+				result[va][i] = uint8(val)
 			} else {
 				// check if we have the opposite direction
-				if val, ok := l.matrix[vb][va]; ok {
-					result[va][i] = val
+				if opposite, ok := l.matrix[vb][va]; ok && opposite >= 0 {
+					result[va][i] = uint8(opposite)
 				} else {
 					// default to largest latency
 					result[va][i] = ^uint8(0)
@@ -115,4 +117,59 @@ func (l *latencyCache) readMatrix(validators []common.Address) map[common.Addres
 		}
 	}
 	return result
+}
+
+type clusterCache struct {
+	mu       sync.RWMutex
+	clusters map[uint64][][]common.Address
+}
+
+func newClusterCache() *clusterCache {
+	return &clusterCache{
+		clusters: make(map[uint64][][]common.Address),
+	}
+}
+
+func (c *clusterCache) blocks() []uint64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	blocks := make([]uint64, len(c.clusters))
+	i := 0
+	for block := range c.clusters {
+		blocks[i] = block
+		i++
+	}
+	slices.Sort(blocks)
+	return blocks
+}
+
+func (c *clusterCache) insertClustering(block uint64, cluster [][]common.Address) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.clusters[block] = cluster
+}
+
+// clustersAt returns the clusters at a given block height, which will be the clusters at
+// the last block height before the given block.
+func (c *clusterCache) clustersAt(block uint64) ([][]common.Address, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	keys := c.blocks()
+	for i := len(keys) - 1; i >= 0; i-- {
+		if keys[i] < block {
+			return c.clusters[keys[i]], true
+		}
+	}
+	return nil, false
+}
+
+func (c *clusterCache) pruneTo(block uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	keys := c.blocks()
+	for _, key := range keys {
+		if key < block {
+			delete(c.clusters, key)
+		}
+	}
 }

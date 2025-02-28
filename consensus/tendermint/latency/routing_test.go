@@ -1,7 +1,7 @@
 package latency
 
 import (
-	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +10,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/internal/testrand"
 )
@@ -46,11 +47,21 @@ func TestRouter(t *testing.T) {
 		require.NoError(t, err)
 
 		router := NewRouter(broadcaster, key, nil, nil)
-		committee := make([]common.Address, 11)
-		for i := 0; i < 11; i++ {
+		committee := make([]common.Address, 200)
+		for i := 0; i < 200; i++ {
 			committee[i] = testrand.Address()
 		}
+		router.curEpochInfo = &types.EpochInfo{
+			Epoch: types.Epoch{
+				PreviousEpochBlock: big.NewInt(0),
+				NextEpochBlock:     big.NewInt(120),
+				Delta:              nil,
+			},
+			EpochBlock: big.NewInt(0),
+		}
 		router.setDefaultClusters(committee)
-		fmt.Println(router.clusters)
+
+		_, ok := router.clusters.clustersAt(1)
+		require.True(t, ok)
 	})
 }

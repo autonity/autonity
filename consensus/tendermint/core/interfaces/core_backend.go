@@ -2,9 +2,10 @@ package interfaces
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus"
 	"math/big"
 	"time"
+
+	"github.com/autonity/autonity/consensus"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/autonity"
@@ -118,7 +119,7 @@ type Core interface {
 type Router interface {
 	Start(ctx context.Context, chain *ethcore.BlockChain)
 	Stop()
-	ClusteringActive() bool
+	ClusteringActive(h uint64) bool
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
 }

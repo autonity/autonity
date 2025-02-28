@@ -29,28 +29,6 @@ func TestLatencyCache(t *testing.T) {
 		require.Equal(t, uint8(3), mat[validators[0]][2])
 	})
 
-	t.Run("Test should update full matrix, and replace default values with max", func(t *testing.T) {
-		cache := newLatencyCache()
-		validators := []common.Address{
-			testrand.Address(),
-			testrand.Address(),
-			testrand.Address(),
-		}
-
-		mat := [][]uint8{
-			{0, 2, 3},
-			{1, 1, 4},
-			{0, 4, 0},
-		}
-		cache.updateMatrix(validators, mat)
-
-		readMat := cache.readMatrix(validators)
-
-		require.Equal(t, uint8(0), readMat[validators[0]][0])
-		require.Equal(t, uint8(0), readMat[validators[1]][1])
-		require.Equal(t, ^uint8(0), readMat[validators[2]][0])
-	})
-
 	t.Run("Test should return missing measurements", func(t *testing.T) {
 		cache := newLatencyCache()
 		oldCommittee := []common.Address{

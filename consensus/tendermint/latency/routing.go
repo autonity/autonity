@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/exp/slices"
 
+	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -36,16 +37,13 @@ type PeerSelector interface {
 type Router struct {
 	self        common.Address
 	clusterLock sync.RWMutex
-	clusters    Clusters
 	nodeKey     *ecdsa.PrivateKey
 	cache       *latencyCache
+	clusters    *clusterCache
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
 	reporter    *Reporter
-
-	reportedEventChan chan *autonity.LatencyReported
-	reportEventSub    event.Subscription
 
 	epochEventChan chan core.EpochHeadEvent
 	epochEventSub  event.Subscription
@@ -53,10 +51,8 @@ type Router struct {
 	chainEventChan chan core.ChainEvent
 	chainEventSub  event.Subscription
 
-	curEpochInfo       *types.EpochInfo
-	newReporters       []common.Address
-	measured           bool
-	clusteredThisEpoch bool
+	curEpochInfo *types.EpochInfo
+	measured     bool
 
 	pinger       ping.Pinger
 	peerSelector PeerSelector
@@ -72,13 +68,13 @@ func NewRouter(
 	selector PeerSelector,
 ) *Router {
 	r := &Router{
-		broadcaster:       broadcaster,
-		nodeKey:           nodeKey,
-		reportedEventChan: make(chan *autonity.LatencyReported),
-		epochEventChan:    make(chan core.EpochHeadEvent),
-		chainEventChan:    make(chan core.ChainEvent),
-		pinger:            ping.NewPinger(ping.TCP),
-		cache:             newLatencyCache(),
+		broadcaster:    broadcaster,
+		nodeKey:        nodeKey,
+		epochEventChan: make(chan core.EpochHeadEvent),
+		chainEventChan: make(chan core.ChainEvent),
+		pinger:         ping.NewPinger(ping.TCP),
+		cache:          newLatencyCache(),
+		clusters:       newClusterCache(),
 	}
 	r.SetDefaultHandlers()
 
@@ -107,32 +103,25 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
-func (r *Router) ClusteringActive() bool {
+func (r *Router) ClusteringActive(height uint64) bool {
 	r.clusterLock.RLock()
 	defer r.clusterLock.RUnlock()
-	return r.clusters != nil
+	_, ok := r.clusters.clustersAt(height)
+	return ok
 }
 
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	log.Info("Router: starting latency router")
-	reportEventSub, err := chain.ProtocolContracts().Latency.WatchReported(nil, r.reportedEventChan, nil)
-	if err != nil {
-		log.Error("Error starting reported event subscription", "err", err)
-		return
-	}
-
 	curEpoch, err := chain.LatestEpoch()
 	if err != nil {
 		log.Error("Error fetching latest epoch", "err", err)
 		return
 	}
 	r.curEpochInfo = curEpoch
-	r.measured = false           // measure on startup
-	r.clusteredThisEpoch = false // start with no clustering
+	r.measured = false // measure on startup
 
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
 	r.chainEventSub = chain.SubscribeChainEvent(r.chainEventChan)
-	r.reportEventSub = reportEventSub
 	r.contracts = chain.ProtocolContracts()
 	r.reporter, err = NewReporter(chain.Config().ChainID, r.nodeKey, r.contracts)
 	if err != nil {
@@ -156,7 +145,6 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 func (r *Router) Stop() {
 	r.cancel()
-	r.reportEventSub.Unsubscribe()
 	r.chainEventSub.Unsubscribe()
 	r.epochEventSub.Unsubscribe()
 	r.wg.Wait()
@@ -181,55 +169,14 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 	}
 	r.clusterLock.Lock()
 	defer r.clusterLock.Unlock()
-	r.clusters = clusters
-}
-
-// refreshClusters updates the clusters based on the new reporters, it will first fetch the
-// newly reported latencies from the on-chain contract, then recluster
-func (r *Router) refreshClusters(newReporters []common.Address) error {
-	log.Debug("Router: refreshing clusters after new reports", "reporters", newReporters)
-	committee, err := r.contracts.Latency.GetCommittee(nil)
-	if err != nil {
-		return err
-	}
-
-	// we insert the new reporters individually
-	for _, reporter := range newReporters {
-		latencyVec, err := r.contracts.Latency.ReadReport(nil, reporter)
-		if err != nil {
-			return err
-		}
-		r.cache.insertMatrixLine(reporter, committee, latencyVec)
-	}
-
-	latencyMat := r.cache.readMatrix(committee)
-	clusters, err := AssignClusters(latencyMat, numClustersFor(committee))
-	if err != nil {
-		return err
-	}
-
-	log.Debug("Router: assigned clusters", "clusters", func() [][]int {
-		clusterInts := make([][]int, len(clusters))
-		for i, cluster := range clusters {
-			clusterInts[i] = make([]int, len(cluster))
-			for j, member := range cluster {
-				clusterInts[i][j] = slices.Index(committee, member)
-			}
-		}
-		return clusterInts
-	}())
-
-	r.clusterLock.Lock()
-	r.clusters = clusters
-	r.clusterLock.Unlock()
-	return nil
+	r.clusters.insertClustering(r.curEpochInfo.EpochBlock.Uint64(), clusters)
 }
 
 // reset clusters, it is used to merge the cluster when we have a small scale of network.
 func (r *Router) resetClusters() {
 	r.clusterLock.Lock()
 	defer r.clusterLock.Unlock()
-	r.clusters = nil
+	r.clusters = newClusterCache()
 }
 
 func (r *Router) report() error {
@@ -299,35 +246,27 @@ func (r *Router) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case epochEv := <-r.epochEventChan:
+			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
+			r.cache.markNewEpoch()
+			// new epoch, prune height to last epoch block
+			r.clusters.pruneTo(r.curEpochInfo.EpochBlock.Uint64())
 			r.curEpochInfo = &types.EpochInfo{
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
 			}
 			r.measured = false
-			r.clusteredThisEpoch = false
-
 			// on new epoch, we have a small scale of network, clustering does not benefit anymore.
 			if epochEv.Header.Epoch.Committee.Len() <= ScaleThresholdForClustering {
 				log.Warn("Router: new epoch detected, committee too small resetting clusters")
 				r.resetClusters()
-			} else {
-				r.setDefaultClusters(func() []common.Address {
-					result := make([]common.Address, r.curEpochInfo.Committee.Len())
-					for i, member := range r.curEpochInfo.Committee.Members {
-						result[i] = member.Address
-					}
-					return result
-				}())
 			}
-
 		case ev := <-r.chainEventChan:
 			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
 				log.Info("Router: not going to measure latency within a small network")
 				continue
 			}
 
-			height := ev.Block.NumberU64()
-
+			height := ev.Block.Number()
 			if !r.measured {
 				log.Info(
 					"Router: new epoch reporting latency",
@@ -341,41 +280,76 @@ func (r *Router) loop(ctx context.Context) {
 				} else {
 					r.measured = true
 				}
-			} else {
-				log.Info(
-					"Router: already reported, skipping",
-					"height",
-					height,
-				)
 			}
-
-			if (len(r.newReporters) > 2*len(r.curEpochInfo.Committee.Members)/3 && !r.clusteredThisEpoch) || (len(r.newReporters) > 0 && r.clusteredThisEpoch) {
-				log.Info("Router: new reporters detected, refreshing clusters", "reporters", r.newReporters)
-				if err := r.refreshClusters(r.newReporters); err != nil {
-					log.Error("Router: failed to refresh clusters", "err", err)
-				} else {
-					r.newReporters = nil
-					r.clusteredThisEpoch = true
-				}
-			} else if len(r.newReporters) > 0 {
-				log.Info(
-					"Router: new reporters detected, not enough reporters to refresh",
-					"reporters",
-					len(r.newReporters),
-					"committee",
-					len(r.curEpochInfo.Committee.Members),
-				)
-			}
-
-		case ev := <-r.reportedEventChan:
-			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
-				log.Info("Router: not going to cluster a small scale network")
-				continue
-			}
-			log.Debug("Router: latency report detected, scheduling network clustering", "reporter", ev.Reporter)
-			r.newReporters = append(r.newReporters, ev.Reporter)
+			r.processBlock(ev.Block)
 		}
 	}
+}
+
+func (r *Router) processBlock(block *types.Block) {
+	height := block.Number()
+	reports, err := parseReports(block)
+	if err != nil {
+		log.Error("Router: failed to parse reports", "err", err)
+		return
+	}
+
+	if len(reports) == 0 {
+		return
+	}
+
+	log.Debug("Router: processing latency reports", "reports", len(reports))
+	committee, err := r.contracts.Latency.GetCommittee(
+		&bind.CallOpts{BlockNumber: height},
+	)
+	if err != nil {
+		log.Error("Router: failed to get committee", "err", err)
+		return
+	}
+
+	for _, report := range reports {
+		r.cache.insertMatrixLine(report.reporter, committee, report.latencies)
+	}
+
+	// if the committee is too small, we should not cluster
+	if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
+		log.Info("Router: not going to cluster a small scale network")
+		return
+	}
+
+	// if we have enough reports, we should refresh the clusters
+	if r.shouldCluster() {
+		latencyMat := r.cache.readMatrix(committee)
+		clusters, err := AssignClusters(latencyMat, numClustersFor(committee))
+		if err != nil {
+			log.Error("Router: failed to assign clusters", "err", err, "height", height)
+			return
+		}
+		log.Debug("Router: assigned clusters", "clusters", func() [][]int {
+			clusterInts := make([][]int, len(clusters))
+			for i, cluster := range clusters {
+				clusterInts[i] = make([]int, len(cluster))
+				for j, member := range cluster {
+					clusterInts[i][j] = slices.Index(committee, member)
+				}
+			}
+			return clusterInts
+		}())
+
+		r.clusters.insertClustering(height.Uint64(), clusters)
+	}
+}
+
+func (r *Router) shouldCluster() bool {
+	if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
+		return false
+	}
+
+	// if we are in the first epoch, wait for 2/3 of the committee to report
+	if r.curEpochInfo.EpochBlock.Cmp(common.Big0) == 0 {
+		return r.cache.reportsInEpoch() > uint64(2*len(r.curEpochInfo.Committee.Members)/3)
+	}
+	return true
 }
 
 func (r *Router) pingPeers(targets []ping.Target) []uint8 {
@@ -443,18 +417,24 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return committee.Members
 	}
 
+	clusters, ok := s.clusters.clustersAt(msg.H())
+	if !ok {
+		// we don't have a valid clustering for this height
+		return committee.Members
+	}
+
 	// if we are sending the proposal, we should send it to every cluster
 	var recipients []types.CommitteeMember
 	if from == s.self {
-		for _, addr := range s.clusters.selectK(ClusterRedundancyParameter, seed(msg)) {
+		for _, addr := range Clusters(clusters).selectK(ClusterRedundancyParameter, seed(msg)) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
 		}
 	}
 	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
-	if ownCluster := s.clusters.clusterContaining(s.self); ownCluster != s.clusters.clusterContaining(from) && ownCluster >= 0 {
-		for _, addr := range s.clusters[ownCluster] {
+	if ownCluster := Clusters(clusters).clusterContaining(s.self); ownCluster != Clusters(clusters).clusterContaining(from) && ownCluster >= 0 {
+		for _, addr := range clusters[ownCluster] {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
