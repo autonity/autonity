@@ -295,6 +295,7 @@ func (r *Router) processBlock(block *types.Block) {
 	}
 
 	if len(reports) == 0 {
+		log.Debug("Router: no latency reports in block", "height", height.String())
 		return
 	}
 
