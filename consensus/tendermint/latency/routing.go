@@ -26,7 +26,7 @@ import (
 )
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
-var ScaleThresholdForClustering = 32 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
+var ScaleThresholdForClustering = 10 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
 
@@ -406,11 +406,9 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 
 	// if not part of the committee return
 	if member := committee.MemberByAddress(from); member == nil {
+		log.Debug("Router: from not part of committee, not routing anywhere", "address", from)
 		return nil
 	}
-
-	s.clusterLock.RLock()
-	defer s.clusterLock.RUnlock()
 
 	// currently only proposals are routed through clustering
 	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
@@ -418,9 +416,13 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return committee.Members
 	}
 
+	s.clusterLock.RLock()
+	defer s.clusterLock.RUnlock()
+
 	clusters, ok := s.clusters.clustersAt(msg.H())
 	if !ok {
 		// we don't have a valid clustering for this height
+		log.Debug("Router: no clusters at height, routing to everyone", "height", msg.H())
 		return committee.Members
 	}
 
