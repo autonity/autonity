@@ -208,7 +208,7 @@ type Server struct {
 	nodedb    *enode.DB
 	localnode *enode.LocalNode
 	discv4    *discover.UDPv4
-	DiscV5    *discover.UDPv5
+	discv5    *discover.UDPv5
 	discmix   *enode.FairMix
 	dialsched *dialScheduler
 
@@ -505,6 +505,11 @@ func (srv *Server) DiscoveryV4() *discover.UDPv4 {
 	return srv.discv4
 }
 
+// DiscoveryV4 returns the discovery v4 instance, if configured.
+func (srv *Server) DiscoveryV5() *discover.UDPv5 {
+	return srv.discv5
+}
+
 // Stop terminates the server and all active peer connections.
 // It blocks until all active connections have been closed.
 func (srv *Server) Stop() {
@@ -724,9 +729,9 @@ func (srv *Server) setupDiscovery() error {
 		}
 		var err error
 		if sconn != nil {
-			srv.DiscV5, err = discover.ListenV5(sconn, srv.localnode, cfg)
+			srv.discV5, err = discover.ListenV5(sconn, srv.localnode, cfg)
 		} else {
-			srv.DiscV5, err = discover.ListenV5(conn, srv.localnode, cfg)
+			srv.discV5, err = discover.ListenV5(conn, srv.localnode, cfg)
 		}
 		if err != nil {
 			return err
@@ -911,8 +916,8 @@ running:
 	if srv.discv4 != nil {
 		srv.discv4.Close()
 	}
-	if srv.DiscV5 != nil {
-		srv.DiscV5.Close()
+	if srv.discV5 != nil {
+		srv.discV5.Close()
 	}
 	// Disconnect all peers.
 	for _, p := range peers {

@@ -53,7 +53,7 @@ import (
 
 // estimateGasErrorRatio is the amount of overestimation eth_estimateGas is
 // allowed to produce in order to speed up calculations.
-const estimateGasErrorRatio = 0.015
+const EstimateGasErrorRatio = 0.015
 
 var errBlobTxNotSupported = errors.New("signing blob transactions not supported")
 
@@ -765,7 +765,7 @@ func (api *BlockChainAPI) Call(ctx context.Context, args TransactionArgs, blockN
 	}
 	// If the result contains a revert reason, try to unpack and return it.
 	if len(result.Revert()) > 0 {
-		return nil, newRevertError(result.Revert())
+		return nil, NewRevertError(result.Revert())
 	}
 	return result.Return(), result.Err
 }
@@ -829,7 +829,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 		Header:         header,
 		BlockOverrides: blockOverrides,
 		State:          state,
-		ErrorRatio:     estimateGasErrorRatio,
+		ErrorRatio:     EstimateGasErrorRatio,
 	}
 	// Set any required transaction default, but make sure the gas cap itself is not messed with
 	// if it was not specified in the original argument list.
@@ -845,7 +845,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 	estimate, revert, err := gasestimator.Estimate(ctx, call, opts, gasCap)
 	if err != nil {
 		if len(revert) > 0 {
-			return 0, newRevertError(revert)
+			return 0, NewRevertError(revert)
 		}
 		return 0, err
 	}

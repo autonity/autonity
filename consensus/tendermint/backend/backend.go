@@ -115,7 +115,7 @@ type Backend struct {
 	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
-	proposalVerifiedCh chan<- *types.Block
+	proposalVerifiedCh chan<- *types.Header
 	commitCh           chan<- *types.Block
 	messageCh          chan events.UnverifiedMessageEvent // to send events to the aggregator
 	proposedBlockHash  common.Hash

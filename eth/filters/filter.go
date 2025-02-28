@@ -123,16 +123,6 @@ func (f *Filter) Logs(ctx context.Context) ([]*types.Log, error) {
 			if hdr == nil {
 				return 0, errors.New("latest header not found")
 			}
-		case rpc.FinalizedBlockNumber.Int64():
-			hdr, _ = f.sys.backend.HeaderByNumber(ctx, rpc.FinalizedBlockNumber)
-			if hdr == nil {
-				return 0, errors.New("finalized header not found")
-			}
-		case rpc.SafeBlockNumber.Int64():
-			hdr, _ = f.sys.backend.HeaderByNumber(ctx, rpc.SafeBlockNumber)
-			if hdr == nil {
-				return 0, errors.New("safe header not found")
-			}
 		default:
 			return number, nil
 		}

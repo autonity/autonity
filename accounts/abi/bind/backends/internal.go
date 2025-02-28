@@ -2,7 +2,7 @@ package backends
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -11,35 +11,54 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/eth/filters"
+	"github.com/autonity/autonity/eth/gasestimator"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/internal/ethapi"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rpc"
 )
+
+type APIBackend interface {
+	filters.Backend
+	GetEVM(ctx context.Context, state *state.StateDB, header *types.Header, vmConfig *vm.Config, blockCtx *vm.BlockContext) *vm.EVM
+}
+type TxSender func(signedTx *types.Transaction) error
+
+// This nil assignment ensures at compile time that SimulatedBackend implements bind.ContractBackend.
+var _ bind.ContractBackend = (*InternalBackend)(nil)
 
 // InternalBackend implements the contract.Backend interface to interact with the
 // protocol contracts. This is used internally by the accountability module and by the autonity cache.
 type InternalBackend struct {
 	mu           sync.Mutex
+	apiBackend   ethapi.Backend
 	database     ethdb.Database
 	blockchain   *core.BlockChain
 	filterSystem *filters.FilterSystem
 	config       *params.ChainConfig
 	pendingBlock *types.Block
 	pendingState *state.StateDB
-	TxSender     func(signedTx *types.Transaction) error
+	TxSender     TxSender
 }
 
-func NewInternalBackend(txSender func(signedTx *types.Transaction) error) func(*core.BlockChain, ethdb.Database) bind.ContractBackend {
-	return func(blockchain *core.BlockChain, db ethdb.Database) bind.ContractBackend {
-		filterSystem := filters.NewFilterSystem(blockchain, filters.Config{})
+var (
+	errBlockNumberUnsupported  = errors.New("simulatedBackend cannot access blocks other than the latest block")
+	errBlockDoesNotExist       = errors.New("block does not exist in blockchain")
+	errTransactionDoesNotExist = errors.New("transaction does not exist")
+)
 
+func NewInternalBackend(txSender TxSender, ethAPIBackend ethapi.Backend) func(*core.BlockChain, ethdb.Database) bind.ContractBackend {
+	return func(blockchain *core.BlockChain, db ethdb.Database) bind.ContractBackend {
+		filterSystem := filters.NewFilterSystem(ethAPIBackend, filters.Config{})
 		backend := &InternalBackend{
 			database:     db,
+			apiBackend:   ethAPIBackend,
 			blockchain:   blockchain,
 			filterSystem: filterSystem,
 			config:       blockchain.Config(),
@@ -69,9 +88,6 @@ func (b *InternalBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*
 
 // BlockByNumber returns a block from the current canonical chain.
 func (b *InternalBackend) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	if number == nil || number.Cmp(b.blockchain.CurrentHeader().Number) == 0 {
-		return b.blockchain.CurrentBlock(), nil
-	}
 	return b.blockchain.GetBlockByNumber(number.Uint64()), nil
 }
 
@@ -136,7 +152,7 @@ func (b *InternalBackend) BalanceAt(ctx context.Context, address common.Address,
 	if err != nil {
 		return nil, err
 	}
-	return statedb.GetBalance(address), nil
+	return statedb.GetBalance(address).ToBig(), nil
 }
 
 // NonceAt returns the nonce of the given account at the given block.
@@ -160,14 +176,14 @@ func (b *InternalBackend) StorageAt(ctx context.Context, address common.Address,
 
 // TransactionReceipt returns the receipt for a given transaction hash.
 func (b *InternalBackend) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	receipt, _, _, _ := core.GetReceipt(b.database, txHash)
-	return receipt, nil
-}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-// TransactionByHash returns the transaction for a given hash.
-func (b *InternalBackend) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
-	tx, blockHash, blockNumber, index := core.GetTransaction(b.database, txHash)
-	return tx, blockHash, blockNumber, index, nil
+	receipt, _, _, _ := rawdb.ReadReceipt(b.database, txHash, b.config)
+	if receipt == nil {
+		return nil, ethereum.NotFound
+	}
+	return receipt, nil
 }
 
 // PendingNonceAt returns the nonce of the given account in the pending state.
@@ -194,120 +210,61 @@ func (b *InternalBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error
 
 // EstimateGas returns an estimate of the gas needed for a transaction.
 func (b *InternalBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	// Increase the current block number by 1, we want to simulate the tx as if it will be included in the next block
-	// Otherwise precompiles which check blockNumber timing conditions (e.g. accusation verifier) might wrongly fail
-	block := types.NewBlockWithHeader(b.blockchain.CurrentHeader())
-	height := block.Number().Add(block.Number(), common.Big1)
-	block.SetHeaderNumber(height)
-
-	b.pendingBlock = block
-	b.pendingState, _ = b.blockchain.State()
-
-	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(gas uint64) (bool, *core.ExecutionResult, error) {
-		call.Gas = gas
-
-		currentState, err := b.blockchain.State()
-		if err != nil {
-			return false, nil, err
-		}
-
-		// Create a new environment which holds all relevant information
-		// about the transaction and calling mechanisms.
-		msg := core.Message{
-			From:       call.From,
-			To:         call.To,
-			Value:      call.Value,
-			Data:       call.Data,
-			GasLimit:   call.Gas,
-			GasPrice:   call.GasPrice,
-			GasFeeCap:  call.GasFeeCap,
-			GasTipCap:  call.GasTipCap,
-			AccessList: call.AccessList,
-		}
-
-		// Setup context so it may be cancelled the call has completed
-		// or, in case of unmetered gas, setup a context with a timeout.
-		var cancel context.CancelFunc
-		if ctx == nil {
-			ctx, cancel = context.WithTimeout(context.Background(), vm.Timeout)
-		} else {
-			ctx, cancel = context.WithTimeout(ctx, vm.Timeout)
-		}
-		defer cancel()
-
-		// Get a new instance of the EVM.
-		evm, vmError, err := b.blockchain.GetEVM(ctx, msg, currentState, block.Header())
-		if err != nil {
-			return false, nil, err
-		}
-
-		// Execute the message.
-		res, err := core.ApplyMessage(evm, msg, new(core.GasPool).AddGas(call.Gas))
-		if err != nil {
-			return false, nil, err
-		}
-		return res.Failed(), res, nil
+	header := b.blockchain.CurrentHeader()
+	stateDb, _ := b.blockchain.StateAt(header.Root)
+	opts := &gasestimator.Options{
+		Config:     b.ChainConfig(),
+		Chain:      b.blockchain,
+		Header:     header,
+		State:      stateDb,
+		ErrorRatio: ethapi.EstimateGasErrorRatio,
 	}
-
-	// Execute the binary search and hone in on an executable gas limit
-	lo := params.TxGas - 1
-	hi := call.Gas
-	if hi == 0 {
-		hi = b.blockchain.CurrentHeader().GasLimit
+	coreMsg := &core.Message{
+		To:               call.To,
+		From:             call.From,
+		Value:            call.Value,
+		GasLimit:         header.GasLimit,
+		GasPrice:         call.GasPrice,
+		SkipNonceChecks:  false,
+		SkipFromEOACheck: false,
 	}
-	cap := hi
+	cost, _, err := gasestimator.Estimate(ctx, coreMsg, opts, header.GasLimit)
+	return cost, err
+}
 
-	// Binary search the gas limit
-	for lo+1 < hi {
-		mid := (hi + lo) / 2
-		failed, _, err := executable(mid)
-		if err != nil {
-			return 0, err
-		}
-		if failed {
-			lo = mid
-		} else {
-			hi = mid
-		}
+// CallContract executes a contract call.
+func (b *InternalBackend) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	if blockNumber != nil && blockNumber.Cmp(b.blockchain.CurrentBlock().Number) != 0 {
+		return nil, errBlockNumberUnsupported
 	}
-
-	// If the transaction still failed with the highest gas limit, return the error
-	if hi == cap {
-		failed, result, err := executable(hi)
-		if err != nil {
-			return 0, err
-		}
-		if failed {
-			if result != nil && result.Err != vm.ErrOutOfGas {
-				return 0, result.Err
-			}
-			return 0, fmt.Errorf("gas required exceeds allowance (%d)", cap)
-		}
+	statedb, header, err := b.StateAndHeaderByNumber(ctx, blockNumber)
+	if err != nil {
+		return nil, err
 	}
-	return hi, nil
+	blockCtx := core.NewEVMBlockContext(header, ethapi.NewChainContext(ctx, b.apiBackend), nil)
+	evm := b.apiBackend.GetEVM(ctx, statedb, header, b.blockchain.GetVMConfig(), &blockCtx)
+	gp := core.GasPool(call.Gas)
+	res, err := core.ApplyMessage(evm, nil, &gp)
+	if err != nil {
+		return nil, err
+	}
+	// If the result contains a revert reason, try to unpack and return it.
+	if len(res.Revert()) > 0 {
+		return nil, ethapi.NewRevertError(res.Revert())
+	}
+	return res.Return(), res.Err
 }
 
 // SendTransaction sends a transaction to the network.
 func (b *InternalBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return (*b.TxSender)(tx)
+	return b.TxSender(tx)
 }
 
 // SubscribeFilterLogs creates a subscription that will write all logs matching the
 // given criteria to the given logs channel.
 func (b *InternalBackend) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
 	// Create a filter for the given criteria
-	filter := b.filterSystem.NewLogFilter(filters.FilterCriteria{
-		FromBlock: query.FromBlock,
-		ToBlock:   query.ToBlock,
-		Addresses: query.Addresses,
-		Topics:    query.Topics,
-	}, nil)
+	filter := b.filterSystem.NewRangeFilter(query.FromBlock.Int64(), query.ToBlock.Int64(), query.Addresses, query.Topics)
 
 	// Create a subscription that forwards logs to the channel
 	subscription := event.NewSubscription(func(quit <-chan struct{}) error {
@@ -340,12 +297,7 @@ func (b *InternalBackend) SubscribeFilterLogs(ctx context.Context, query ethereu
 // returning all the results in one batch.
 func (b *InternalBackend) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
 	// Create a filter for the given criteria
-	filter := b.filterSystem.NewLogFilter(filters.FilterCriteria{
-		FromBlock: query.FromBlock,
-		ToBlock:   query.ToBlock,
-		Addresses: query.Addresses,
-		Topics:    query.Topics,
-	}, nil)
+	filter := b.filterSystem.NewRangeFilter(query.FromBlock.Int64(), query.ToBlock.Int64(), query.Addresses, query.Topics)
 
 	// Get logs from the filter
 	logs, err := filter.Logs(ctx)

@@ -61,6 +61,7 @@ import (
 	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/p2p/dnsdisc"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
@@ -256,6 +257,12 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		return eth.txPool.Add([]*types.Transaction{tx}, true, false)
 	}
 
+	eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil}
+	if eth.APIBackend.allowUnprotectedTxs {
+		log.Info("Unprotected transactions allowed")
+	}
+	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, config.GPO, config.Miner.GasPrice)
+
 	eth.blockchain, err = core.NewBlockChain(
 		chainDb,
 		cacheConfig,
@@ -264,7 +271,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		eth.engine,
 		vmConfig,
 		&config.TransactionHistory,
-		backends.NewInternalBackend(txSender),
+		backends.NewInternalBackend(txSender, eth.APIBackend),
 		eth.log)
 
 	if err != nil {
@@ -319,11 +326,6 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 	eth.miner.SetPrioAddresses(config.TxPool.Locals)
 
-	eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil}
-	if eth.APIBackend.allowUnprotectedTxs {
-		log.Info("Unprotected transactions allowed")
-	}
-	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, config.GPO, config.Miner.GasPrice)
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
 
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
@@ -514,7 +516,7 @@ func (s *Ethereum) Miner() *miner.Miner { return s.miner }
 
 func (s *Ethereum) AccountManager() *accounts.Manager  { return s.accountManager }
 func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
-func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
+func (s *Ethereum) TxPool() *txpool.TxPool             { return s.txPool }
 func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
 func (s *Ethereum) FD() *accountability.FaultDetector  { return s.accountability }
@@ -558,34 +560,59 @@ func (s *Ethereum) Start() error {
 		s.log.Info("running eth backend without Tendermint BFT engine")
 	}
 
-	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
+	if err := s.setupDiscovery(); err != nil {
+		return err
+	}
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers(params.BloomBitsBlocks)
 
 	// Regularly update shutdown marker
 	s.shutdownTracker.Start()
 
-	// Figure out a max peers count based on the server limits
-	maxPeers := s.p2pServer.MaxPeers
-	if s.config.LightServ > 0 {
-		if s.config.LightPeers >= s.p2pServer.MaxPeers {
-			return fmt.Errorf("invalid peer config: light peer count (%d) >= total peer count (%d)", s.config.LightPeers, s.p2pServer.MaxPeers)
+	// Start the networking layer
+	s.handler.Start(s.p2pServer.MaxPeers)
+	return nil
+}
+
+func (s *Ethereum) setupDiscovery() error {
+	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
+
+	// Add eth nodes from DNS.
+	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})
+	if len(s.config.EthDiscoveryURLs) > 0 {
+		iter, err := dnsclient.NewIterator(s.config.EthDiscoveryURLs...)
+		if err != nil {
+			return err
 		}
-		maxPeers -= s.config.LightPeers
+		s.discmix.AddSource(iter)
 	}
-	// Start the networking layer and the light server if requested
-	s.handler.Start(maxPeers)
+
+	// Add snap nodes from DNS.
+	if len(s.config.SnapDiscoveryURLs) > 0 {
+		iter, err := dnsclient.NewIterator(s.config.SnapDiscoveryURLs...)
+		if err != nil {
+			return err
+		}
+		s.discmix.AddSource(iter)
+	}
+
+	// Add DHT nodes from discv5.
+	if s.p2pServer.DiscoveryV5() != nil {
+		filter := eth.NewNodeFilter(s.blockchain)
+		iter := enode.Filter(s.p2pServer.DiscoveryV5().RandomNodes(), filter)
+		s.discmix.AddSource(iter)
+	}
+
 	return nil
 }
 
 // This routine is responsible to communicate to devp2p who are the other consensus members
 // if the local node is part of the consensus committee or not. It also control the miner start/stop functions.
 func (s *Ethereum) validatorController() {
-	chainHeadCh := make(chan core.ChainHeadEvent)
-	chainHeadSub := s.blockchain.SubscribeChainHeadEvent(chainHeadCh)
-
-	epochHeadCh := make(chan core.EpochHeadEvent)
-	epochHeadSub := s.blockchain.SubscribeEpochHeadEvent(epochHeadCh)
+	var (
+		chainHeadCh, epochHeadCh   = make(chan core.ChainHeadEvent), make(chan core.EpochHeadEvent)
+		chainHeadSub, epochHeadSub = s.blockchain.SubscribeChainHeadEvent(chainHeadCh), s.blockchain.SubscribeEpochHeadEvent(epochHeadCh)
+	)
 
 	updateConsensusEnodes := func(header *types.Header) {
 		state, err := s.blockchain.StateAt(header.Root)

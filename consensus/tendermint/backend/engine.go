@@ -487,12 +487,12 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 	return nil
 }
 
-func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- *types.Block) {
+func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- *types.Header) {
 	sb.proposalVerifiedCh = proposalVerifiedCh
 }
 
 func (sb *Backend) ProposalVerified(block *types.Block) {
-	sb.proposalVerifiedCh <- block
+	sb.proposalVerifiedCh <- block.Header()
 }
 
 func (sb *Backend) IsProposalStateCached(hash common.Hash) bool {

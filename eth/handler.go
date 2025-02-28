@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/forkid"
 	"github.com/autonity/autonity/core/rawdb"
@@ -110,7 +109,6 @@ type handler struct {
 	blockFetcher *fetcher.BlockFetcher
 	txFetcher    *fetcher.TxFetcher
 	peers        *peerSet
-	merger       *consensus.Merger
 
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent

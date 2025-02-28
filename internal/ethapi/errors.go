@@ -45,7 +45,7 @@ func (e *revertError) ErrorData() interface{} {
 }
 
 // newRevertError creates a revertError instance with the provided revert data.
-func newRevertError(revert []byte) *revertError {
+func NewRevertError(revert []byte) *revertError {
 	err := vm.ErrExecutionReverted
 
 	reason, errUnpack := abi.UnpackRevert(revert)

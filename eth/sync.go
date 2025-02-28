@@ -50,12 +50,13 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 
 // chainSyncer coordinates blockchain sync components.
 type chainSyncer struct {
-	handler     *handler
-	force       *time.Timer
-	forced      bool // true when force timer fired
-	warned      time.Time
-	peerEventCh chan struct{}
-	doneCh      chan error // non-nil when sync is running
+	handler         *handler
+	force           *time.Timer
+	forced          bool // true when force timer fired
+	warned          time.Time
+	peerEventCh     chan struct{}
+	doneCh          chan error // non-nil when sync is running
+	syncedEventSent bool
 }
 
 // chainSyncOp is a scheduled sync operation.
@@ -69,8 +70,9 @@ type chainSyncOp struct {
 // newChainSyncer creates a chainSyncer.
 func newChainSyncer(handler *handler) *chainSyncer {
 	return &chainSyncer{
-		handler:     handler,
-		peerEventCh: make(chan struct{}),
+		handler:         handler,
+		peerEventCh:     make(chan struct{}),
+		syncedEventSent: false,
 	}
 }
 
@@ -173,13 +175,9 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 	mode, ourTD := cs.modeAndLocalHead()
 	op := peerToSyncOp(mode, peer)
 	if op.td.Cmp(ourTD) <= 0 {
-		// We seem to be in sync according to the legacy rules. In the merge
-		// world, it can also mean we're stuck on the merge block, waiting for
-		// a beacon client. In the latter case, notify the user.
-		if ttd := cs.handler.chain.Config().TerminalTotalDifficulty; ttd != nil && ourTD.Cmp(ttd) >= 0 && time.Since(cs.warned) > 10*time.Second {
-			log.Warn("Local chain is post-merge, waiting for beacon client sync switch-over...")
-			cs.warned = time.Now()
-		}
+		// we are synced with our current peerset
+		// notify miner about it if not yet done (so consensus can be started if needed)
+		cs.postSyncedEvent()
 		return nil // We're in sync
 	}
 	return op
@@ -249,4 +247,11 @@ func (h *handler) doSync(op *chainSyncOp) error {
 		}
 	}
 	return nil
+}
+func (cs *chainSyncer) postSyncedEvent() {
+	if cs.syncedEventSent {
+		return
+	}
+	cs.handler.eventMux.Post(downloader.SyncedEvent{})
+	cs.syncedEventSent = true
 }
