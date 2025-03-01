@@ -671,7 +671,7 @@ func (srv *Server) setupDiscovery() error {
 	}
 
 	// Don't listen on UDP endpoint if DHT is disabled
-	if (srv.NoDiscovery && !srv.DiscoveryV5) || srv.Net == Consensus {
+	if srv.NoDiscovery || srv.Net == Consensus {
 		return nil
 	}
 
@@ -700,7 +700,7 @@ func (srv *Server) setupDiscovery() error {
 	var unhandled chan discover.ReadPacket
 	var sconn *sharedUDPConn
 	if !srv.NoDiscovery {
-		if srv.DiscoveryV5 {
+		if srv.Config.DiscoveryV5 {
 			unhandled = make(chan discover.ReadPacket, 100)
 			sconn = &sharedUDPConn{conn, unhandled}
 		}
@@ -720,7 +720,7 @@ func (srv *Server) setupDiscovery() error {
 	}
 
 	// Discovery V5
-	if srv.DiscoveryV5 {
+	if srv.Config.DiscoveryV5 {
 		cfg := discover.Config{
 			PrivateKey:  srv.PrivateKey,
 			NetRestrict: srv.NetRestrict,
@@ -729,9 +729,9 @@ func (srv *Server) setupDiscovery() error {
 		}
 		var err error
 		if sconn != nil {
-			srv.discV5, err = discover.ListenV5(sconn, srv.localnode, cfg)
+			srv.discv5, err = discover.ListenV5(sconn, srv.localnode, cfg)
 		} else {
-			srv.discV5, err = discover.ListenV5(conn, srv.localnode, cfg)
+			srv.discv5, err = discover.ListenV5(conn, srv.localnode, cfg)
 		}
 		if err != nil {
 			return err
@@ -916,8 +916,8 @@ running:
 	if srv.discv4 != nil {
 		srv.discv4.Close()
 	}
-	if srv.discV5 != nil {
-		srv.discV5.Close()
+	if srv.discv5 != nil {
+		srv.discv5.Close()
 	}
 	// Disconnect all peers.
 	for _, p := range peers {

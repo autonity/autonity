@@ -19,6 +19,7 @@ package miner
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 	"sync"
 	"time"
@@ -227,9 +228,18 @@ func (miner *Miner) SetRecommitInterval(interval time.Duration) {
 	miner.worker.setRecommitInterval(interval)
 }
 
-// Pending returns the currently pending block and associated state.
-func (miner *Miner) Pending() (*types.Header, *state.StateDB) {
-	return miner.worker.pending()
+// Pending returns the currently pending block and associated receipts, logs
+// and statedb. The returned values can be nil in case the pending block is
+// not initialized.
+func (miner *Miner) Pending() (*types.Block, types.Receipts, *state.StateDB) {
+	pending := miner.worker.pendingBlock()
+	block := miner.eth.BlockChain().GetBlockByHash(pending.Hash())
+	state, err := miner.eth.BlockChain().StateAt(pending.Root)
+	receipts := miner.eth.BlockChain().GetReceiptsByHash(pending.Hash())
+	if err != nil {
+		return nil, nil, nil
+	}
+	return block, receipts, state.Copy()
 }
 
 // PendingBlock returns the currently pending block.
@@ -245,6 +255,11 @@ func (miner *Miner) PendingBlock() *types.Header {
 // For pre-1559 blocks, it sets the ceiling.
 func (miner *Miner) SetGasCeil(ceil uint64) {
 	miner.worker.setGasCeil(ceil)
+}
+
+// SetGasTip sets the minimum gas tip for inclusion.
+func (miner *Miner) SetGasTip(tip *big.Int) error {
+	return miner.worker.setGasTip(tip * big.Int)
 }
 
 // EnablePreseal turns on the preseal mining feature. It's enabled by default.

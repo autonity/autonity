@@ -2627,3 +2627,15 @@ func (bc *BlockChain) HasBadBlock(hash common.Hash) bool {
 func (bc *BlockChain) ProtocolContracts() *autonity.ProtocolContracts {
 	return bc.protocolContracts
 }
+
+// SetTrieFlushInterval configures how often in-memory tries are persisted to disk.
+// The interval is in terms of block processing time, not wall clock.
+// It is thread-safe and can be called repeatedly without side effects.
+func (bc *BlockChain) SetTrieFlushInterval(interval time.Duration) {
+	bc.flushInterval.Store(int64(interval))
+}
+
+// GetTrieFlushInterval gets the in-memory tries flushAlloc interval
+func (bc *BlockChain) GetTrieFlushInterval() time.Duration {
+	return time.Duration(bc.flushInterval.Load())
+}
