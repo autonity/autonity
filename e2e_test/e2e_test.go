@@ -1049,9 +1049,10 @@ func TestLargeNetwork(t *testing.T) {
 	close(done)
 	require.NoError(t, err)
 	_, committee := getNetworkState()
-	for _, node := range network {
-		if inCommittee(node.Address, committee) {
-			acnCount := node.ConsensusServer().PeerCount()
+	for _, n := range network {
+		if inCommittee(n.Address, committee) {
+			// nolint:typecheck // ConsensusServer is defined, linter false positive
+			acnCount := n.ConsensusServer().PeerCount()
 			require.Equal(t, newMaxCommittee-1, uint64(acnCount))
 		}
 	}
