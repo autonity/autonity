@@ -1,17 +1,19 @@
 package clustering
 
 import (
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 // TestClusteringHappyCase is a happy case to test 5 clusters with each of them contains 5 nodes. The latency measurement

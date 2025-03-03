@@ -6,10 +6,9 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
@@ -242,7 +241,7 @@ func (r *Router) loop(ctx context.Context) {
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
 			r.cache.markNewEpoch()
 			// new epoch, prune height to last epoch block
-			r.clusters.pruneTo(r.curEpochInfo.EpochBlock.Uint64())
+			previousEpochBlock := r.curEpochInfo.EpochBlock.Uint64()
 			r.curEpochInfo = &types.EpochInfo{
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
@@ -252,7 +251,14 @@ func (r *Router) loop(ctx context.Context) {
 			if epochEv.Header.Epoch.Committee.Len() <= ScaleThresholdForClustering {
 				log.Warn("Router: new epoch detected, committee too small resetting clusters")
 				r.resetClusters()
+			} else {
+				committee := make([]common.Address, epochEv.Header.Epoch.Committee.Len())
+				for i, member := range epochEv.Header.Epoch.Committee.Members {
+					committee[i] = member.Address
+				}
+				r.recluster(epochEv.Header.Number.Uint64(), committee)
 			}
+			r.clusters.pruneTo(previousEpochBlock)
 		case ev := <-r.chainEventChan:
 			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
 				log.Info("Router: not going to measure latency within a small network")
@@ -313,25 +319,29 @@ func (r *Router) processBlock(block *types.Block) {
 
 	// if we have enough reports, we should refresh the clusters
 	if r.shouldCluster() {
-		latencyMat := r.cache.readMatrix(committee)
-		clusters, err := AssignClusters(latencyMat, numClustersFor(committee))
-		if err != nil {
-			log.Error("Router: failed to assign clusters", "err", err, "height", height)
-			return
-		}
-		log.Debug("Router: assigned clusters", "clusters", func() [][]int {
-			clusterInts := make([][]int, len(clusters))
-			for i, cluster := range clusters {
-				clusterInts[i] = make([]int, len(cluster))
-				for j, member := range cluster {
-					clusterInts[i][j] = slices.Index(committee, member)
-				}
-			}
-			return clusterInts
-		}())
-
-		r.clusters.insertClustering(height.Uint64(), clusters)
+		r.recluster(height.Uint64(), committee)
 	}
+}
+
+func (r *Router) recluster(h uint64, committee []common.Address) {
+	latencyMat := r.cache.readMatrix(committee)
+	clusters, err := AssignClusters(latencyMat, numClustersFor(committee))
+	if err != nil {
+		log.Error("Router: failed to assign clusters", "err", err, "height", h)
+		return
+	}
+	log.Debug("Router: assigned clusters", "clusters", func() [][]int {
+		clusterInts := make([][]int, len(clusters))
+		for i, cluster := range clusters {
+			clusterInts[i] = make([]int, len(cluster))
+			for j, member := range cluster {
+				clusterInts[i][j] = slices.Index(committee, member)
+			}
+		}
+		return clusterInts
+	}())
+
+	r.clusters.insertClustering(h, clusters)
 }
 
 func (r *Router) shouldCluster() bool {
