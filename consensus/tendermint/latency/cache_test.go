@@ -1,7 +1,10 @@
 package latency
 
 import (
+	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -49,5 +52,64 @@ func TestLatencyCache(t *testing.T) {
 		missing := cache.missingMeasurements(newCommittee)
 		require.Len(t, missing, 1)
 		require.Equal(t, newCommittee[3], missing[0])
+	})
+}
+
+func TestClusterCache(t *testing.T) {
+	t.Run("Test cache should return cluster containing address", func(t *testing.T) {
+		cache := newClusterCache()
+		cluster := [][]common.Address{
+			{testrand.Address(), testrand.Address()},
+			{testrand.Address()},
+			{testrand.Address()},
+		}
+
+		cache.insertClustering(1, cluster)
+		clusterOut, ok := cache.clustersAt(2)
+		require.True(t, ok)
+
+		c := Clusters(clusterOut)
+		require.Equal(t, c.clusterContaining(cluster[2][0]), 2)
+		require.Equal(t, c.clusterContaining(cluster[0][0]), 0)
+	})
+
+	t.Run("Test cache race condition", func(t *testing.T) {
+		wg := sync.WaitGroup{}
+		cache := newClusterCache()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 1000; i++ {
+				select {
+				case <-ctx.Done():
+					t.Fail()
+				default:
+					cluster := [][]common.Address{
+						{testrand.Address(), testrand.Address()},
+						{testrand.Address()},
+						{testrand.Address()},
+					}
+					cache.insertClustering(uint64(i), cluster)
+				}
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 1000; i++ {
+				select {
+				case <-ctx.Done():
+					t.Fail()
+				default:
+					cache.clustersAt(uint64(i))
+				}
+			}
+		}()
+
+		wg.Wait()
 	})
 }

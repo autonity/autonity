@@ -35,11 +35,10 @@ type PeerSelector interface {
 }
 
 type Router struct {
-	self        common.Address
-	clusterLock sync.RWMutex
-	nodeKey     *ecdsa.PrivateKey
-	cache       *latencyCache
-	clusters    *clusterCache
+	self     common.Address
+	nodeKey  *ecdsa.PrivateKey
+	cache    *latencyCache
+	clusters *clusterCache
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -104,8 +103,6 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 }
 
 func (r *Router) ClusteringActive(height uint64) bool {
-	r.clusterLock.RLock()
-	defer r.clusterLock.RUnlock()
 	_, ok := r.clusters.clustersAt(height)
 	return ok
 }
@@ -167,15 +164,11 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 		k := int(math.Min(float64(i/numClusters), float64(numClusters-1)))
 		clusters[k] = append(clusters[k], addr)
 	}
-	r.clusterLock.Lock()
-	defer r.clusterLock.Unlock()
 	r.clusters.insertClustering(r.curEpochInfo.EpochBlock.Uint64(), clusters)
 }
 
 // reset clusters, it is used to merge the cluster when we have a small scale of network.
 func (r *Router) resetClusters() {
-	r.clusterLock.Lock()
-	defer r.clusterLock.Unlock()
 	r.clusters = newClusterCache()
 }
 
@@ -415,9 +408,6 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	if msg.Code() != message.ProposalCode || s.clusters == nil {
 		return committee.Members
 	}
-
-	s.clusterLock.RLock()
-	defer s.clusterLock.RUnlock()
 
 	clusters, ok := s.clusters.clustersAt(msg.H())
 	if !ok {

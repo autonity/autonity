@@ -131,8 +131,6 @@ func newClusterCache() *clusterCache {
 }
 
 func (c *clusterCache) blocks() []uint64 {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	blocks := make([]uint64, len(c.clusters))
 	i := 0
 	for block := range c.clusters {
