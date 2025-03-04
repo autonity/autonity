@@ -14,6 +14,7 @@ o88o     o8888o 8""88888P'  o8o        o888o
 */
 
 import {ISupplyControl} from "./ISupplyControl.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
 
 /// @title ASM Supply Control Contract Implementation
 /// @notice Controls the supply of Auton on the network.
@@ -98,14 +99,16 @@ contract SupplyControl is ISupplyControl {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
+        IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
     /// Update the stabilizer that is authorized to mint and burn.
     /// @param stabilizer_ The new stabilizer account
     /// @dev Only the operator can update the stabilizer address.
-    function setStabilizer(address stabilizer_) external onlyOperator {
-        stabilizer = stabilizer_;
+    function setStabilizer(address _stabilizer) external onlyOperator {
+        IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, _stabilizer);
+        stabilizer = _stabilizer;
     }
 
     /// The supply of Auton available for minting.

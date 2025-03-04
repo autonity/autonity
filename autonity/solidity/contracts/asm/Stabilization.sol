@@ -18,6 +18,7 @@ import {IOracle} from "../interfaces/IOracle.sol";
 import {IStabilization} from "./IStabilization.sol";
 import {ISupplyControl} from "./ISupplyControl.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
@@ -347,10 +348,10 @@ contract Stabilization is IStabilization {
                 config.liquidationRatio
             )
         ) revert NotLiquidatable();
-        
+
         if (msg.value < debt) revert InsufficientPayment();
         _supplyControl.burn{value: cdp.principal}();
-        
+
         uint surplus = msg.value - debt;
         uint256 collateral = cdp.collateral;
         cdp.timestamp = block.timestamp;
@@ -382,6 +383,7 @@ contract Stabilization is IStabilization {
         validRatios(ratio, config.minCollateralizationRatio)
         onlyOperator
     {
+        IConfigEvents.ConfigUpdateUint()("liquidationRatio", config.liquidationRatio, ratio);
         config.liquidationRatio = ratio;
     }
 
@@ -398,6 +400,8 @@ contract Stabilization is IStabilization {
         validRatios(config.liquidationRatio, ratio)
         onlyOperator
     {
+        //todo: event
+        IConfigEvents.ConfigUpdateUint()("minCollateralizationRatio", config.minCollateralizationRatio, ratio);
         config.minCollateralizationRatio = ratio;
     }
 
@@ -405,6 +409,7 @@ contract Stabilization is IStabilization {
     /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
     function setMinDebtRequirement(uint256 amount) external onlyOperator {
+        //todo: event
         config.minDebtRequirement = amount;
     }
 
@@ -412,6 +417,7 @@ contract Stabilization is IStabilization {
     /// @param supplyControl The SupplyControl Contract address
     /// @dev Restricted to the operator.
     function setSupplyControl(address supplyControl) external onlyOperator {
+        //todo: event
         _supplyControl = ISupplyControl(supplyControl);
     }
 
@@ -419,12 +425,14 @@ contract Stabilization is IStabilization {
     /// @param atnSupplyOperator The _atnSupplyOperator address
     /// @dev Restricted to the operator.
     function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
+        //todo: event
         _atnSupplyOperator = atnSupplyOperator;
     }
 
     /// Transition out of the restricted state.
     /// @dev Restricted to the operator.
     function removeCDPRestrictions() external onlyOperator {
+        //todo: event for removeRestrictions - will happen only once
         _restricted = false;
         config.borrowInterestRate = _defaultGenesisBorrowInterestRate;
     }
@@ -439,6 +447,7 @@ contract Stabilization is IStabilization {
     /// @param operator Address of the new Governance Operator
     /// @dev Restricted to the Autonity Contract.
     function setOperator(address operator) external onlyAutonity {
+        //todo: event
         _operator = operator;
     }
 
@@ -446,6 +455,7 @@ contract Stabilization is IStabilization {
     /// @param oracle Address of the new Oracle Contract
     /// @dev Restricted to the Autonity Contract.
     function setOracle(address oracle) external onlyAutonity {
+        //todo: event
         _oracle = IOracle(oracle);
     }
 

@@ -15,6 +15,7 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
 import {IACU} from "./IACU.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
@@ -143,6 +144,7 @@ contract ACU is IACU {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
+        IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
@@ -151,6 +153,7 @@ contract ACU is IACU {
     /// @dev Only the Autonity Contract is authorized to set the Oracle
     /// Contract address.
     function setOracle(address oracle) external onlyAutonity {
+        IConfigEvents.ConfigUpdateAddress("oracle", _oracle, oracle);
         _oracle = IOracle(oracle);
     }
 
