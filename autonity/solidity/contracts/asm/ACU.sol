@@ -144,7 +144,7 @@ contract ACU is IACU {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
-        IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
@@ -153,7 +153,7 @@ contract ACU is IACU {
     /// @dev Only the Autonity Contract is authorized to set the Oracle
     /// Contract address.
     function setOracle(address oracle) external onlyAutonity {
-        IConfigEvents.ConfigUpdateAddress("oracle", _oracle, oracle);
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
 

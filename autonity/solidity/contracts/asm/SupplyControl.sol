@@ -99,15 +99,15 @@ contract SupplyControl is ISupplyControl {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
-        IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
     /// Update the stabilizer that is authorized to mint and burn.
-    /// @param stabilizer_ The new stabilizer account
+    /// @param _stabilizer The new stabilizer account
     /// @dev Only the operator can update the stabilizer address.
     function setStabilizer(address _stabilizer) external onlyOperator {
-        IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, _stabilizer);
+        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, _stabilizer);
         stabilizer = _stabilizer;
     }
 

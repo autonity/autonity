@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./lib/Precompiled.sol";
-import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvent.sol";
 
 contract UpgradeManager {
     address public autonity;
@@ -50,7 +50,7 @@ contract UpgradeManager {
     * @param _account the new operator account.
     */
     function setOperator(address _account) external onlyAutonity {
-        IConfigEvents.ConfigUpdateAddress("operator", operator, _account);
+        emit IConfigEvents.ConfigUpdateAddress("operator", operator, _account);
         operator = _account;
     }
 

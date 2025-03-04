@@ -383,7 +383,7 @@ contract Stabilization is IStabilization {
         validRatios(ratio, config.minCollateralizationRatio)
         onlyOperator
     {
-        IConfigEvents.ConfigUpdateUint()("liquidationRatio", config.liquidationRatio, ratio);
+        emit IConfigEvents.ConfigUpdateUint("liquidationRatio", config.liquidationRatio, ratio);
         config.liquidationRatio = ratio;
     }
 
@@ -400,8 +400,7 @@ contract Stabilization is IStabilization {
         validRatios(config.liquidationRatio, ratio)
         onlyOperator
     {
-        //todo: event
-        IConfigEvents.ConfigUpdateUint()("minCollateralizationRatio", config.minCollateralizationRatio, ratio);
+        emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", config.minCollateralizationRatio, ratio);
         config.minCollateralizationRatio = ratio;
     }
 
