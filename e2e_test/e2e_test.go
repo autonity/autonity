@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"testing"
 	"text/tabwriter"
 	"time"
+
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
@@ -928,6 +929,41 @@ func updateRlimit() {
 	fmt.Println("Rlimit Final", rLimit)
 }
 */
+
+func TestCommitteeSizeChangeMidEpoch(t *testing.T) {
+	params.TestAutonityContractConfig.EpochPeriod = 10
+	params.DefaultOmissionAccountabilityConfig.Delta = 4
+	params.DefaultOmissionAccountabilityConfig.LookbackWindow = 4
+	params.TestOracleConfig.VotePeriod = 4
+
+	log.DefaultVerbosity = log.LvlError
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
+	vals, err := Validators(t, 20, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+
+	network, err := NewNetworkFromValidators(t, vals, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	err = network.WaitToMineNBlocks(2, 10, false)
+	require.NoError(t, err)
+
+	// wait for validator to connect to each other
+	// update the committee Size to increase proposer rewards
+
+	// Setup Bindings
+	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(vals[0].NodeKey, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+
+	_, err = autonityContract.SetCommitteeSize(transactor, big.NewInt(2))
+	require.NoError(t, err)
+
+	err = network.WaitToMineNBlocks(20, 60, false)
+	require.NoError(t, err)
+}
 
 // TestLargeNetwork test internally +100 nodes setups. This will be moved later
 // in its own cmd package.

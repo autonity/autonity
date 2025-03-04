@@ -172,6 +172,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 public lastEpochTime;
     uint256 public epochTotalBondedStake;
 
+    uint256 public configuredCommitteeSize;
+
     // epochInfos, save epoch info per epoch in the history
     mapping(uint256 => EpochInfo) internal epochInfos;
 
@@ -896,6 +898,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             mstore(add(input, 0x60), epochTotalBondedStake.slot)
         }
         Precompiled.computeCommitteePrecompiled(input);
+        // store committee size used to compute committee
+        configuredCommitteeSize  = config.protocol.committeeSize;
         // get oracle address of committee members
         // calculate committeeNodes
         delete committeeNodes;
@@ -1348,8 +1352,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         if (config.contracts.omissionAccountabilityContract.getTotalEffort() > 0) {
             // Calculate initial proposer rewards (actual distribution is done after regular rewards)
-            _atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (STANDARD_SCALE_FACTOR * config.protocol.committeeSize);
-            _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (STANDARD_SCALE_FACTOR * config.protocol.committeeSize);
+            _atnProposerRewards = (_atn * config.policy.proposerRewardRate * committee.length) / (STANDARD_SCALE_FACTOR * configuredCommitteeSize);
+            _ntnProposerRewards = (_ntn * config.policy.proposerRewardRate * committee.length) / (STANDARD_SCALE_FACTOR * configuredCommitteeSize);
         }
 
         _atn -= _atnOracleRewards + _atnProposerRewards;
