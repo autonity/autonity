@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	defATNPriceInUSD, _ = decimal.NewFromString("211.28") // to be replaced with production price
-	defNTNPriceInUSD, _ = decimal.NewFromString("985.25") // to be replaced with production price
+	defATNPriceInUSD, _ = decimal.NewFromString("1.28") // to be replaced with production price
+	defNTNPriceInUSD, _ = decimal.NewFromString("1.25") // to be replaced with production price
 	defSysParams        = systemParams{
 		EpochPeriod: 30,
 
@@ -28,9 +28,9 @@ var (
 		// default atn gas fee market settings.
 		GenesisGasLimit:          20_000_000,
 		GasCeil:                  40_000_000, // The desired maximum gas limit we maintained, thus that we will 50% of it as the blockGasTarget(20M) for baseFee control.
-		InitialBaseFee:           new(big.Int).SetUint64(1_000_000_000),
-		MinBaseFee:               new(big.Int).SetUint64(500_000_000),
-		BaseFeeChangeDenominator: 8,
+		InitialBaseFee:           new(big.Int).SetUint64(200_000_000_000),
+		MinBaseFee:               new(big.Int).SetUint64(200_000_000_000),
+		BaseFeeChangeDenominator: 88,
 		ElasticityMultiplier:     2,
 
 		// default ntn inflation settings from the latest ADR.
@@ -96,15 +96,10 @@ type block struct {
 	gasUsed           uint64
 	baseFee           *big.Int
 	baseFeeChangeRate decimal.Decimal
-	data              *blockData
+	extra             *extraData
 }
 
-type blockData struct {
-	H                  uint64
-	gasLimit           uint64
-	gasUsed            uint64
-	baseFeeChangeRate  decimal.Decimal
-	baseFee            *big.Int
+type extraData struct {
 	baseFeeInATN       *big.Float
 	baseFeeInUSD       *big.Float
 	stdTXNCostInUSD    *big.Float
@@ -136,12 +131,7 @@ func (b *block) collectData() {
 	gasLimit := new(big.Float).SetUint64(b.gasLimit)
 	blockSpamCostInUSD := new(big.Float).Mul(baseFeeInUSD, gasLimit)
 
-	b.data = &blockData{
-		H:                  b.number,
-		gasLimit:           b.gasLimit,
-		gasUsed:            b.gasUsed,
-		baseFeeChangeRate:  b.baseFeeChangeRate,
-		baseFee:            b.baseFee,
+	b.extra = &extraData{
 		baseFeeInATN:       baseFeeInATN,
 		baseFeeInUSD:       baseFeeInUSD,
 		stdTXNCostInUSD:    stdTXNCostInUSD,
@@ -152,8 +142,8 @@ func (b *block) collectData() {
 func (b *block) string() string {
 	b.collectData()
 	return fmt.Sprintf(
-		"H: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.18f, baseFee(USD): %.18f, stdTXNCost(USD): %.18f, blockSpamCost(USD): %.18f",
-		b.data.H, b.data.gasLimit, b.data.gasUsed, b.data.baseFeeChangeRate.String(), b.data.baseFee.String(), b.data.baseFeeInATN, b.data.baseFeeInUSD, b.data.stdTXNCostInUSD, b.data.blockSpamCostInUSD,
+		"H: %d, TXNs: %d, GL: %d, GU: %d, baseFeeChgRate: %s%%, baseFee(Wei): %s, baseFee(ATN): %.18f, baseFee(USD): %.18f, stdTXNCost(USD): %.18f, blockSpamCost(USD): %.18f",
+		b.number, b.numOfTXNs, b.gasLimit, b.gasUsed, b.baseFeeChangeRate.String(), b.baseFee.String(), b.extra.baseFeeInATN, b.extra.baseFeeInUSD, b.extra.stdTXNCostInUSD, b.extra.blockSpamCostInUSD,
 	)
 }
 
@@ -413,15 +403,15 @@ func (s *simulator) assembleData(index int) {
 	// render accumulating ntn rewards(NTN) & (USD) in YAxis and block in XAxis.
 	// render accumulating merged rewards(USD) in YAxis and block in XAxis.
 	rewardChart := chart.Chart{
-		Title: "ATN & NTN Rewards Over blocks",
+		Title: "ATN Over blocks",
 		XAxis: chart.XAxis{Name: "Block/Time (s)"},
-		YAxis: chart.YAxis{Name: "FeeRewards & NTNRewards & Merged (USD)"},
+		YAxis: chart.YAxis{Name: "FeeRewards (USD)"},
 		Series: []chart.Series{
 			//chart.ContinuousSeries{Name: "accumulating fee rewards (ATN)", XValues: blocks, YValues: accFeeRewards},
 			chart.ContinuousSeries{Name: "accumulating fee rewards (USD)", XValues: blocks, YValues: accFeeRewardsUSD},
-			//chart.ContinuousSeries{Name: "accumulating ntn rewards (NTN)", XValues: blocks, YValues: accNtnRewards},
+			chart.ContinuousSeries{Name: "accumulating ntn rewards (NTN)", XValues: blocks, YValues: accNtnRewards},
 			chart.ContinuousSeries{Name: "accumulating ntn rewards (USD)", XValues: blocks, YValues: accNtnRewardsUSD},
-			chart.ContinuousSeries{Name: "merged rewards (USD)", XValues: blocks, YValues: mergedRewards},
+			//chart.ContinuousSeries{Name: "merged rewards (USD)", XValues: blocks, YValues: mergedRewards},
 		},
 	}
 	renderChartToFile(rewardChart, fmt.Sprintf("%d_rewards.png", index))
@@ -436,16 +426,16 @@ func (s *simulator) Metrics() (heights []float64, gasLimits []float64, gasUseds 
 		heights = append(heights, float64(b.number))
 		gasLimits = append(gasLimits, float64(b.gasLimit))
 		gasUseds = append(gasUseds, float64(b.gasUsed))
-		baseFeeInATN, _ := b.data.baseFeeInATN.Float64()
+		baseFeeInATN, _ := b.extra.baseFeeInATN.Float64()
 		baseFeesATN = append(baseFeesATN, baseFeeInATN)
-		baseFeeInUSD, _ := b.data.baseFeeInUSD.Float64()
+		baseFeeInUSD, _ := b.extra.baseFeeInUSD.Float64()
 		baseFeesUSD = append(baseFeesUSD, baseFeeInUSD)
-		baseFeeChangeRates = append(baseFeeChangeRates, b.data.baseFeeChangeRate.InexactFloat64())
+		baseFeeChangeRates = append(baseFeeChangeRates, b.baseFeeChangeRate.InexactFloat64())
 
-		stdTXNCost, _ := b.data.stdTXNCostInUSD.Float64()
+		stdTXNCost, _ := b.extra.stdTXNCostInUSD.Float64()
 		stdTXNCosts = append(stdTXNCosts, stdTXNCost)
 
-		spamCost, _ := b.data.blockSpamCostInUSD.Float64()
+		spamCost, _ := b.extra.blockSpamCostInUSD.Float64()
 		spamCosts = append(spamCosts, spamCost)
 
 		// accumulating rewards for atn, and converted in usd.
