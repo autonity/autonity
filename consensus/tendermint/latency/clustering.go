@@ -11,14 +11,17 @@ import (
 // KmeansClusterSeed TODO(scott): should this be derivable from chain state?
 var KmeansClusterSeed = int64(12345)
 
-type Clusters [][]common.Address
+type Clusters struct {
+	base   [][]common.Address
+	direct []common.Address
+}
 
 // selectK selects k members from each cluster
 
-func (c Clusters) selectK(k int, seed int64) []common.Address {
+func (c *Clusters) selectK(k int, seed int64) []common.Address {
 	var result []common.Address
 	r := rand.New(rand.NewSource(seed))
-	for _, cluster := range c {
+	for _, cluster := range c.base {
 		if len(cluster) <= k {
 			result = append(result, cluster...)
 		} else {
@@ -36,8 +39,8 @@ func (c Clusters) selectK(k int, seed int64) []common.Address {
 }
 
 // clusterContaining returns the cluster containing the given address
-func (c Clusters) clusterContaining(address common.Address) int {
-	for i, cluster := range c {
+func (c *Clusters) clusterContaining(address common.Address) int {
+	for i, cluster := range c.base {
 		for _, member := range cluster {
 			if member == address {
 				return i
@@ -81,7 +84,7 @@ func fromLatencyMat(latencyMat map[common.Address][]uint8) []kmeans.Observation 
 	return nodes
 }
 
-func AssignClusters(latencyMat map[common.Address][]uint8, k int) (Clusters, error) {
+func AssignClusters(latencyMat map[common.Address][]uint8, k int) (*Clusters, error) {
 	nodes := fromLatencyMat(latencyMat)
 	km := kmeans.New()
 	cstrs, err := km.Partition(nodes, k, KmeansClusterSeed)
@@ -95,5 +98,5 @@ func AssignClusters(latencyMat map[common.Address][]uint8, k int) (Clusters, err
 			result[i][j] = o.(*node).address
 		}
 	}
-	return result, nil
+	return &Clusters{base: result}, nil
 }

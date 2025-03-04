@@ -64,11 +64,10 @@ func TestClusterCache(t *testing.T) {
 			{testrand.Address()},
 		}
 
-		cache.insertClustering(1, cluster)
-		clusterOut, ok := cache.clustersAt(2)
+		cache.insertClustering(1, &Clusters{cluster, nil})
+		c, ok := cache.clustersAt(2)
 		require.True(t, ok)
 
-		c := Clusters(clusterOut)
 		require.Equal(t, c.clusterContaining(cluster[2][0]), 2)
 		require.Equal(t, c.clusterContaining(cluster[0][0]), 0)
 	})
@@ -92,7 +91,7 @@ func TestClusterCache(t *testing.T) {
 						{testrand.Address()},
 						{testrand.Address()},
 					}
-					cache.insertClustering(uint64(i), cluster)
+					cache.insertClustering(uint64(i), &Clusters{cluster, nil})
 				}
 			}
 		}()

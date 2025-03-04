@@ -95,8 +95,6 @@ func (l *latencyCache) latencyView(validators []common.Address) (map[common.Addr
 
 func (l *latencyCache) readMatrix(validators []common.Address) map[common.Address][]uint8 {
 	result := make(map[common.Address][]uint8)
-	l.mu.RLock()
-	defer l.mu.RUnlock()
 
 	for _, va := range validators {
 		for i, vb := range validators {
@@ -119,14 +117,78 @@ func (l *latencyCache) readMatrix(validators []common.Address) map[common.Addres
 	return result
 }
 
+func (l *latencyCache) readMatrixWithOutliers(validators []common.Address) (map[common.Address][]uint8, []common.Address) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	matrix := make(map[common.Address][]int16)
+	for _, va := range validators {
+		for i, vb := range validators {
+			if i == 0 {
+				matrix[va] = make([]int16, len(validators))
+			}
+			if val, ok := l.matrix[va][vb]; ok && val >= 0 {
+				matrix[va][i] = val
+			} else {
+				// check if we have the opposite direction
+				if opposite, ok := l.matrix[vb][va]; ok && opposite >= 0 {
+					matrix[va][i] = opposite
+				} else {
+					// unknown measurement
+					matrix[va][i] = -1
+				}
+			}
+		}
+	}
+	outliers := make([]common.Address, 0)
+
+	for validator, latencies := range matrix {
+		if countMax(latencies) >= 2*len(validators)/3 {
+			outliers = append(outliers, validator)
+		}
+	}
+	validatorSubset := setExclusion(validators, outliers)
+	return l.readMatrix(validatorSubset), outliers
+}
+
+func countMax(latencies []int16) int {
+	var maximum int
+	for _, latency := range latencies {
+		if latency == -1 {
+			maximum++
+		}
+	}
+	return maximum
+}
+
+func setExclusion(committee []common.Address, outliers []common.Address) []common.Address {
+	committeeSubset := make([]common.Address, len(committee)-len(outliers))
+	i := 0
+	for _, validator := range committee {
+		if !contains(outliers, validator) {
+			committeeSubset[i] = validator
+			i++
+		}
+	}
+	return committeeSubset
+}
+
+func contains(validators []common.Address, validator common.Address) bool {
+	for _, v := range validators {
+		if v == validator {
+			return true
+		}
+	}
+	return false
+}
+
 type clusterCache struct {
 	mu       sync.RWMutex
-	clusters map[uint64][][]common.Address
+	clusters map[uint64]*Clusters
 }
 
 func newClusterCache() *clusterCache {
 	return &clusterCache{
-		clusters: make(map[uint64][][]common.Address),
+		clusters: make(map[uint64]*Clusters),
 	}
 }
 
@@ -141,7 +203,7 @@ func (c *clusterCache) blocks() []uint64 {
 	return blocks
 }
 
-func (c *clusterCache) insertClustering(block uint64, cluster [][]common.Address) {
+func (c *clusterCache) insertClustering(block uint64, cluster *Clusters) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.clusters[block] = cluster
@@ -149,7 +211,7 @@ func (c *clusterCache) insertClustering(block uint64, cluster [][]common.Address
 
 // clustersAt returns the clusters at a given block height, which will be the clusters at
 // the last block height before the given block.
-func (c *clusterCache) clustersAt(block uint64) ([][]common.Address, bool) {
+func (c *clusterCache) clustersAt(block uint64) (*Clusters, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	keys := c.blocks()

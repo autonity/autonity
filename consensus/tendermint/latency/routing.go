@@ -161,13 +161,13 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 	if len(committee) <= ScaleThresholdForClustering {
 		return
 	}
-	numClusters := numClustersFor(committee)
+	numClusters := numClustersFor(len(committee))
 	clusters := make([][]common.Address, numClusters)
 	for i, addr := range committee {
 		k := int(math.Min(float64(i/numClusters), float64(numClusters-1)))
 		clusters[k] = append(clusters[k], addr)
 	}
-	r.clusters.insertClustering(r.curEpochInfo.EpochBlock.Uint64(), clusters)
+	r.clusters.insertClustering(r.curEpochInfo.EpochBlock.Uint64(), &Clusters{clusters, nil})
 }
 
 // reset clusters, it is used to merge the cluster when we have a small scale of network.
@@ -328,23 +328,38 @@ func (r *Router) processBlock(block *types.Block) {
 }
 
 func (r *Router) recluster(h uint64, committee []common.Address) {
-	latencyMat := r.cache.readMatrix(committee)
-	clusters, err := AssignClusters(latencyMat, numClustersFor(committee))
+	latencyMat, outliers := r.cache.readMatrixWithOutliers(committee)
+	clusters, err := AssignClusters(latencyMat, numClustersFor(len(latencyMat)))
 	if err != nil {
 		log.Error("Router: failed to assign clusters", "err", err, "height", h)
 		return
 	}
-	log.Debug("Router: assigned clusters", "clusters", func() [][]int {
-		clusterInts := make([][]int, len(clusters))
-		for i, cluster := range clusters {
-			clusterInts[i] = make([]int, len(cluster))
-			for j, member := range cluster {
-				clusterInts[i][j] = slices.Index(committee, member)
-			}
-		}
-		return clusterInts
-	}())
+	clusters.direct = outliers
 
+	log.Debug(
+		"Router: assigned clusters",
+		"clusters",
+		func() [][]int {
+			clusterInts := make([][]int, len(clusters.base))
+			for i, cluster := range clusters.base {
+				clusterInts[i] = make([]int, len(cluster))
+				for j, member := range cluster {
+					clusterInts[i][j] = slices.Index(committee, member)
+				}
+			}
+			return clusterInts
+		}(),
+		"height",
+		h,
+		"outliers",
+		func() []int {
+			outlierInts := make([]int, len(outliers))
+			for i, member := range outliers {
+				outlierInts[i] = slices.Index(committee, member)
+			}
+			return outlierInts
+		},
+	)
 	r.clusters.insertClustering(h, clusters)
 }
 
@@ -436,22 +451,44 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	// if we are sending the proposal, we should send it to every cluster
 	var recipients []types.CommitteeMember
 	if from == s.self {
-		for _, addr := range Clusters(clusters).selectK(ClusterRedundancyParameter, seed(msg)) {
+		for _, addr := range clusters.selectK(ClusterRedundancyParameter, seed(msg)) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
 		}
-	}
-	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
-	if ownCluster := Clusters(clusters).clusterContaining(s.self); ownCluster != Clusters(clusters).clusterContaining(from) && ownCluster >= 0 {
-		for _, addr := range clusters[ownCluster] {
+
+		// we should also send directly to every outlier
+		for _, addr := range clusters.direct {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
 		}
 	}
 
-	return recipients
+	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
+	if ownCluster := clusters.clusterContaining(s.self); ownCluster != clusters.clusterContaining(from) && ownCluster >= 0 {
+		for _, addr := range clusters.base[ownCluster] {
+			if member := committee.MemberByAddress(addr); member != nil {
+				recipients = append(recipients, *member)
+			}
+		}
+	}
+
+	// there could be some duplication if we are sending to ClusterRedundancyParameter members of each
+	// cluster, that may include our own cluster, so we deduplicate
+	return deduplicate(recipients)
+}
+
+func deduplicate(recipients []types.CommitteeMember) []types.CommitteeMember {
+	seen := make(map[common.Address]struct{})
+	var result []types.CommitteeMember
+	for _, rec := range recipients {
+		if _, ok := seen[rec.Address]; !ok {
+			seen[rec.Address] = struct{}{}
+			result = append(result, rec)
+		}
+	}
+	return result
 }
 
 func seed(msg message.Msg) int64 {
@@ -466,6 +503,6 @@ func seed(msg message.Msg) int64 {
 	return mh * hash.Int64()
 }
 
-func numClustersFor(committee []common.Address) int {
-	return int(math.Floor(math.Sqrt(float64(len(committee)))))
+func numClustersFor(length int) int {
+	return int(math.Floor(math.Sqrt(float64(length))))
 }
