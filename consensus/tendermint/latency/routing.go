@@ -101,6 +101,10 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
+func (r *Router) Forward(bc *core.BlockChain, m message.Msg, sender common.Address) {
+	forward(r, bc, m, sender)
+}
+
 func (r *Router) ClusteringActive(height uint64) bool {
 	_, ok := r.clusters.clustersAt(height)
 	return ok
@@ -406,6 +410,10 @@ type Selector struct {
 }
 
 func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+	// currently only proposals are routed through clustering
+	if msg.Code() != message.ProposalCode {
+		return committee.Members
+	}
 
 	// if not part of the committee return
 	if member := committee.MemberByAddress(from); member == nil {
@@ -413,9 +421,8 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return nil
 	}
 
-	// currently only proposals are routed through clustering
 	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
-	if msg.Code() != message.ProposalCode || s.clusters == nil {
+	if s.clusters == nil {
 		return committee.Members
 	}
 

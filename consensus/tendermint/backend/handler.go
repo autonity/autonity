@@ -175,6 +175,12 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
+
+	// forward message as soon as it's decoded
+	if sb.router != nil {
+		go sb.router.Forward(sb.BlockChain(), msg, sender)
+	}
+
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,
@@ -213,32 +219,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		if sb.IsJailed(m.Signer()) {
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
-		}
-		// ToDo: if the proposal is for a future message, it won't get here until the local node
-		// processes that future message. For speed, we may want to forward the proposal to the correct cluster
-		// before handleDecodedMsg is called
-		if sb.router != nil && sb.router.ClusteringActive(m.H()) {
-			recipients := sb.router.Route(committee, m, sender)
-			if len(recipients) == 0 {
-				sb.logger.Debug("No recipients for proposal", "proposal", m)
-				break
-			}
-			// send the proposal to the recipients
-			// ToDo: we probably want to do this in gossiper, though that requires a change
-			// of the gossiper interface to include "from" address
-			for _, recipient := range recipients {
-				if recipient.Address == sender {
-					continue
-				}
-				if p, ok := sb.Broadcaster.FindPeer(recipient.Address); ok {
-					if p.Cache().Contains(m.Hash()) {
-						// This peer had this event, skip it
-						continue
-					}
-					p.Cache().Add(m.Hash(), true)
-					go p.SendRaw(ProposeNetworkMsg, m.Payload()) //nolint
-				}
-			}
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
