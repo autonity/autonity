@@ -231,7 +231,7 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 	}
 
 	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().Number.Uint64()+1); err != nil {
 		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
 		return nil
 	}

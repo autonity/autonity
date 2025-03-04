@@ -29,7 +29,7 @@ import (
 
 type ChainContext interface {
 	consensus.ChainReader
-	CurrentBlock() *types.Block
+	CurrentBlock() *types.Header
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	State() (*state.StateDB, error)
 	ProtocolContracts() *autonity.ProtocolContracts
@@ -184,7 +184,7 @@ tendermintMsgLoop:
 			if !ok {
 				break tendermintMsgLoop
 			}
-			currentHeight := fd.blockchain.CurrentBlock().NumberU64()
+			currentHeight := fd.blockchain.CurrentBlock().Number.Uint64()
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:

@@ -223,9 +223,6 @@ type worker struct {
 	// non-stop and no real transaction will be included.
 	noempty uint32
 
-	// External functions
-	isLocalBlock func(header *types.Header) bool // Function used to determine whether the specified block is mined by local miner.
-
 	// Test hooks
 	newTaskHook  func(*task)                        // Method to call upon receiving a new sealing task.
 	skipSealHook func(*task) bool                   // Method to decide whether skipping the sealing.
@@ -233,7 +230,7 @@ type worker struct {
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 }
 
-func newWorker(config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
+func newWorker(config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, init bool) *worker {
 	worker := &worker{
 		config:                  config,
 		chainConfig:             chainConfig,
@@ -242,7 +239,6 @@ func newWorker(config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, e
 		eth:                     eth,
 		mux:                     mux,
 		chain:                   eth.BlockChain(),
-		isLocalBlock:            isLocalBlock,
 		pendingTasks:            make(map[common.Hash]*task),
 		txsCh:                   make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:             make(chan core.ChainHeadEvent, chainHeadChanSize),
@@ -287,6 +283,12 @@ func (w *worker) setGasCeil(ceil uint64) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.config.GasCeil = ceil
+}
+
+func (w *worker) setGasTip(tip *big.Int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.config.GasPrice = tip
 }
 
 // setExtra sets the content used to initialize the block extra field.
@@ -713,8 +715,10 @@ func (w *worker) makeEnv(parent *types.Header, header *types.Header, coinbase co
 			//
 			// The maximum acceptable reorg depth can be limited by the finalised block
 			// somehow. TODO(rjl493456442) fix the hard-coded number here later.
+			// TODO(youssef): I think this code path is only valid with PoW due to deep reorgs,
+			// pretty sure this can be removed in our context. Bumping log to Error level to monitor that..
 			state, err = w.eth.StateAtBlock(parent, 1024, nil, false, false)
-			w.eth.Logger().Warn("Recovered mining state", "root", parent.Root, "err", err)
+			w.eth.Logger().Error("Recovered mining state", "root", parent.Root, "err", err)
 		}
 		if err != nil {
 			return nil, err

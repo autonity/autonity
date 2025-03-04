@@ -305,8 +305,14 @@ func LoadChainConfig(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, 
 		// config is missing(initialize the empty leveldb with an
 		// external ancient chain segment), ensure the provided genesis
 		// is matched.
-		if stored != (common.Hash{}) && genesis.ToBlock().Hash() != stored {
-			return nil, &GenesisMismatchError{stored, genesis.ToBlock().Hash()}
+		if stored != (common.Hash{}) {
+			block, err := genesis.ToBlock(nil)
+			if err != nil {
+				return nil, err
+			}
+			if block.Hash() != stored {
+				return nil, &GenesisMismatchError{stored, block.Hash()}
+			}
 		}
 		return genesis.Config, nil
 	}

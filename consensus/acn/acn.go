@@ -66,7 +66,7 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) {
 		handler.SetBroadcaster(acn)
 	}
 	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
-	backend.FD().SetBroadcaster(acn)
+	backend.FaultDetector().SetBroadcaster(acn)
 }
 
 func (acn *ACN) Start() error {

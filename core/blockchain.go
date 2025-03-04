@@ -296,7 +296,8 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database,
+func NewBlockChain(
+	db ethdb.Database,
 	cacheConfig *CacheConfig,
 	genesis *Genesis,
 	engine consensus.Engine,

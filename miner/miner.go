@@ -66,7 +66,7 @@ type Miner struct {
 	shouldStart bool
 }
 
-func New(eth Backend, config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(header *types.Header) bool) *Miner {
+func New(eth Backend, config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
 		eth:          eth,
 		mux:          mux,
@@ -75,7 +75,7 @@ func New(eth Backend, config *ethconfig.MinerConfig, chainConfig *params.ChainCo
 		startCh:      make(chan struct{}),
 		stopCh:       make(chan struct{}),
 		forceStartCh: make(chan struct{}),
-		worker:       newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
+		worker:       newWorker(config, chainConfig, engine, eth, mux, true),
 		shouldStart:  false,
 		canStart:     false,
 	}
@@ -258,8 +258,8 @@ func (miner *Miner) SetGasCeil(ceil uint64) {
 }
 
 // SetGasTip sets the minimum gas tip for inclusion.
-func (miner *Miner) SetGasTip(tip *big.Int) error {
-	return miner.worker.setGasTip(tip * big.Int)
+func (miner *Miner) SetGasTip(tip *big.Int) {
+	miner.worker.setGasTip(tip)
 }
 
 // EnablePreseal turns on the preseal mining feature. It's enabled by default.
