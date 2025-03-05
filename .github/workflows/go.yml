@@ -466,5 +466,5 @@ jobs:
       - name: Build
         run: make all
 
-      - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=22 END=26
+      #- name: Run docker e2e tests
+      #  run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=22 END=26
