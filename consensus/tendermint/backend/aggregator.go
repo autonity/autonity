@@ -733,7 +733,9 @@ loop:
 			if !ok {
 				break loop
 			}
+			//nolint:typecheck
 			height := ev.Height()
+			//nolint:typecheck
 			round := ev.Round()
 			switch e := ev.(type) {
 			case events.RoundChangeEvent:
