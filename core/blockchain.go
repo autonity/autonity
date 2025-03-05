@@ -53,7 +53,7 @@ import (
 var (
 	headBlockGauge       = metrics.NewRegisteredGauge("chain/head/block", nil)
 	headHeaderGauge      = metrics.NewRegisteredGauge("chain/head/header", nil)
-	headEpochHeaderGauge = metrics.NewRegisteredGauge("chain/head/epoch-header", nil)
+	headEpochHeaderGauge = metrics.NewRegisteredGauge("chain/head/epoch/header", nil)
 	headFastBlockGauge   = metrics.NewRegisteredGauge("chain/head/receipt", nil)
 
 	accountReadTimer   = metrics.NewRegisteredTimer("chain/account/reads", nil)

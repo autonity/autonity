@@ -149,9 +149,9 @@ test-race-all: all
 test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 
-test-contracts: test-contracts-asm test-contracts-truffle
+test-contracts: test-contracts-truffle
 
-test-contracts-fast: test-contracts-asm test-contracts-truffle-fast
+test-contracts-fast: test-contracts-truffle-fast
 
 # prerequisites for testing contracts
 test-contracts-pre:
@@ -169,33 +169,6 @@ test-contracts-pre:
 	@echo "check and install ganache"
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
-
-APE_VERSION := 0.6.26
-HARDHAT_VERSION := 2.19.1
-test-contracts-asm: test-contracts-asm-pre
-	@echo "run tests for the asm contracts"
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/acu
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/stabilization
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/supply_control
-
-.PHONY: test-contracts-asm-pre
-test-contracts-asm-pre:
-	@echo "check and install ape framework"
-	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
-	@echo "pin version of numpy to 1.26.4"
-	@pipx inject --verbose --force eth-ape numpy==1.26.4
-	@echo "check ape framework version"
-	@test $$(ape --version) = "$(APE_VERSION)" || { \
-		echo -n "error: unsupported ape version $$(ape --version) "; \
-		echo "(need $(APE_VERSION))..."; \
-		echo "please uninstall eth-ape and then re-run the make target"; \
-		exit 1;\
-	}
-	@echo "check and install hardhat"
-	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
-	@echo "install ape framework plugins"
-	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
-	@echo "dependencies installed"
 
 # start an autonity network for contract tests
 start-autonity:

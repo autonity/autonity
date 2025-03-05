@@ -19,6 +19,8 @@ package math
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
@@ -60,6 +62,22 @@ func TestHexOrDecimal256(t *testing.T) {
 			t.Errorf("ParseBig(%q) -> %d, want %d", test.input, (*big.Int)(&num), test.num)
 		}
 	}
+}
+
+// we should be able to unmarshal from JSON regardless if the decimal is quoted or not
+func TestUnquotedJson256(t *testing.T) {
+	n := &HexOrDecimal256{}
+
+	quoted := "\"100\"" //nolint
+	err := json.Unmarshal([]byte(quoted), n)
+	require.NoError(t, err)
+	require.Equal(t, uint64(100), (*big.Int)(n).Uint64())
+
+	unquoted := "100" //nolint
+	err = json.Unmarshal([]byte(unquoted), n)
+	require.NoError(t, err)
+	require.Equal(t, uint64(100), (*big.Int)(n).Uint64())
+
 }
 
 func TestMustParseBig256(t *testing.T) {

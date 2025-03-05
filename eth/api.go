@@ -630,8 +630,8 @@ func (a *AutonityContractAPI) Address() common.Address {
 	return params.AutonityContractAddress
 }
 
-func (a *AutonityContractAPI) AcnPeers() []*p2p.Peer {
-	return a.server.Peers()
+func (a *AutonityContractAPI) AcnPeers() []*p2p.PeerInfo {
+	return a.server.PeersInfo()
 }
 
 // NewAutonityContractAPI builds a map of function name to method representing

@@ -1063,8 +1063,8 @@ func TestRewardWithholding(t *testing.T) {
 		require.Equal(t, atnExpectedBalance.String(), r.GetBalanceOf(val.Treasury).String())
 		require.Equal(t, stakesExpected.String(), val.BondedStake.String())
 	}
-	atnExpectedPoolBalance := atnPoolBefore.Add(atnPoolBefore, atnTotalWithheld)
-	ntnExpectedPoolBalance := ntnPoolBefore.Add(ntnPoolBefore, ntnTotalWithheld)
+	atnExpectedPoolBalance := new(big.Int).Add(atnPoolBefore, atnTotalWithheld)
+	ntnExpectedPoolBalance := new(big.Int).Add(ntnPoolBefore, ntnTotalWithheld)
 	require.Equal(t, atnExpectedPoolBalance.String(), r.GetBalanceOf(withheldRewardPool).String())
 	require.Equal(t, ntnExpectedPoolBalance.String(), ntnBalance(r, withheldRewardPool).String())
 }

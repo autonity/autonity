@@ -59,7 +59,7 @@ var errProtocolReturned = errors.New("protocol returned")
 
 const syncFailedSuspensionSpan = 30 * time.Second
 
-type DiscReason uint
+type DiscReason uint8
 
 const (
 	DiscRequested DiscReason = iota
@@ -78,7 +78,9 @@ const (
 	DiscPeerNotInCommittee
 	DiscPeerOutsideTopology
 	DiscSyncFailed
-	DiscSubprotocolError = 0x10
+	DiscACNPeerNotReachable
+	DiscSubprotocolError = 0x11
+	DiscInvalid          = 0xff
 )
 
 var discReasonToString = [...]string{
@@ -98,11 +100,13 @@ var discReasonToString = [...]string{
 	DiscPeerNotInCommittee:  "validator is not part of committee",
 	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSyncFailed:          "failed to sync with remote peer",
+	DiscACNPeerNotReachable: "peer consensus endpoint is not reachable",
 	DiscSubprotocolError:    "subprotocol error",
+	DiscInvalid:             "invalid disconnect reason",
 }
 
 func (d DiscReason) String() string {
-	if len(discReasonToString) <= int(d) {
+	if len(discReasonToString) <= int(d) || discReasonToString[d] == "" {
 		return fmt.Sprintf("unknown disconnect reason %d", d)
 	}
 	return discReasonToString[d]

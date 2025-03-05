@@ -38,7 +38,6 @@ import (
 
 const (
 	localhost = "127.0.0.1"
-	verbosity = log.LvlDebug
 )
 
 var (
@@ -167,7 +166,7 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 		return b
 	})))
 
-	logger.Verbosity(verbosity)
+	logger.Verbosity(log.DefaultVerbosity)
 	nodeConfig.Logger = log.New()
 	nodeConfig.Logger.SetHandler(logger)
 
@@ -242,7 +241,7 @@ func NewNoneValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id
 		return b
 	})))
 
-	logger.Verbosity(verbosity)
+	logger.Verbosity(log.DefaultVerbosity)
 	nodeConfig.Logger = log.New()
 	nodeConfig.Logger.SetHandler(logger)
 

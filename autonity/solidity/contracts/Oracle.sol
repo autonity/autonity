@@ -196,6 +196,7 @@ contract Oracle is IOracle {
             return false;
         }
 
+        prices.push();
         for (uint i = 0; i < symbols.length; i += 1) {
             _aggregateReports(i);
         }
@@ -204,12 +205,6 @@ contract Oracle is IOracle {
 
         lastRoundBlock = block.number;
         round += 1;
-        // symbol update should happen in the symbolUpdatedRound+2 since we expect
-        // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
-        // for the new symbols in symbolUpdatedRound+2
-        if (int256(round) == symbolUpdatedRound + 2) {
-            symbols = newSymbols;
-        }
         emit NewRound(round, block.number, block.timestamp, config.votePeriod);
         return true;
     }
@@ -255,7 +250,7 @@ contract Oracle is IOracle {
         rewardPeriodAggregatedScore = 0;
     }
 
-    function updateVoters() onlyAutonity external {
+    function updateVotersAndSymbol() onlyAutonity external {
         // this votingInfo is updated with the newVoter set just so that the new voters
         // are able to send their first vote, but they will not be used for aggregation
         // in this round
@@ -272,9 +267,19 @@ contract Oracle is IOracle {
             _updateVotingInfo();
             newVotersAccessUpdated = false;
         }
+
+        // symbol update should happen in the symbolUpdatedRound+2 since we expect
+        // oracles to send commit for newSymbols in symbolUpdatedRound+1 and reports
+        // for the new symbols in symbolUpdatedRound+2
+        if (int256(round) == symbolUpdatedRound + 2) {
+            symbols = newSymbols;
+            for (uint i = 0; i < voters.length; i++) {
+                voterInfo[voters[i]].reportAvailable = false;
+            }
+        }
     }
 
-   /**
+    /**
      * @notice Aggregates reports for a specific symbol.
      * @param _sindex The index of the symbol to aggregate.
      * @dev This function detects outliers and calculates the final price for the symbol.
@@ -291,32 +296,42 @@ contract Oracle is IOracle {
             }
             _totalReports[_count++] = reports[_symbol][_voter];
         }
+
         // at this stage if count > 0 we must have valid strictly positive reports available.
-        uint256 _price = 0;
-        bool _success = false;
         if (_count > 0) {
             int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
             // exclude and detect outliers
             (address[] memory _outliers, uint256 _totalOutliers, Report[] memory _filteredReports, uint256 _reportsCount)
             = _findOutliers(_priceMedian, _symbol);
-            // There is an extreme edge-case where everyone is detected outlier. This is left todo.
-            // punish outliers if found
-            for (uint256 i = 0; i < _totalOutliers; i++) {
-                _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
-                emit Penalized(_outliers[i], _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+
+            if (_reportsCount > 0) {
+                // punish outliers if found
+                for (uint256 i = 0; i < _totalOutliers; i++) {
+                    uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
+                    emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+                }
+                prices[round][_symbol] = Price(
+                    _calculateWeightedPrice(_filteredReports, _reportsCount),
+                    block.timestamp,
+                    true
+                );
+            } else {
+                // all voters are detected as outliers, so no valid report found
+                // use past value for price if unsuccesful
+                prices[round][_symbol] = Price(
+                    prices[round - 1][_symbol].price,
+                    block.timestamp,
+                    false
+                );
             }
-            _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
-            _success = true;
         } else {
             // use past value for price if unsuccesful
-            _price = prices[round - 1][_symbol].price;
+            prices[round][_symbol] = Price(
+                prices[round - 1][_symbol].price,
+                block.timestamp,
+                false
+            );
         }
-
-        prices.push();
-        prices[round][_symbol] = Price(
-            _price,
-            block.timestamp,
-            _success);
     }
 
     /**
@@ -632,7 +647,7 @@ contract Oracle is IOracle {
         return _price / _totalConfidence;
     }
 
-    function _penalize(address _outlier, int256 _median, Report memory _report) internal {
+    function _penalize(address _outlier, int256 _median, Report memory _report) internal returns (uint256) {
         // Stop considering this reporter for any future calculation.
         // This is symbol independant.
         voterInfo[_outlier].reportAvailable = false;
@@ -640,20 +655,20 @@ contract Oracle is IOracle {
         //price is 120 bits max so _diffratio squared is at most 240 bits
         _diffRatio = _diffRatio * _diffRatio;
         if (_diffRatio <= config.outlierSlashingThreshold) {
-            return;
+            return 0;
         }
 
-        // TODO: to formal evaluate the correctness of this formula.
-        uint256 _slashingRate = uint256(_diffRatio - config.outlierSlashingThreshold) *
+        // `_diffRatio` is a percentage squared, so dividing it by 10_000
+        uint256 _slashingRate = (uint256(_diffRatio - config.outlierSlashingThreshold) *
                                uint256(_report.confidence) *
-                               config.baseSlashingRate; // some scaling is prob needed here.
+                               config.baseSlashingRate) / 10_000;
 
         // Capped the oracle slashing rate
         if (_slashingRate > ORACLE_SLASHING_RATE_CAP) {
             _slashingRate = ORACLE_SLASHING_RATE_CAP;
         }
 
-        config.autonity.slash(voterValidators[_outlier], _slashingRate);
+        return config.autonity.slash(voterValidators[_outlier], _slashingRate);
     }
 
     /*

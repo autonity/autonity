@@ -268,7 +268,7 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			}
 
 			if err != nil {
-				sb.logger.Error("VerifyHeaders", "Error verifying header", "error", err)
+				sb.logger.Error("VerifyHeaders, error verifying header", "error", err)
 			}
 
 			// cross epoch header check, update the committee and epoch boundary if current header is an epoch head.
@@ -354,7 +354,7 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 	epochInfo, err := sb.EpochByHeight(header.Number.Uint64())
 	if err != nil {
 		// we are expected to land here on epoch boundaries
-		epochInfo, err = sb.blockchain.ProtocolContracts().EpochByHeight(parentHeader, parentState, header.Number)
+		epochInfo, err = sb.blockchain.ProtocolContracts().CallEpochByHeight(parentState, parentHeader, header.Number)
 		if err != nil {
 			return fmt.Errorf("error while fetching epoch information for height %d: %w", header.Number.Uint64(), err)
 		}
@@ -452,8 +452,13 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
 // committee field containing the list of committee members allowed to participate in consensus for the next block.
-func (sb *Backend) AutonityContractFinalize(header *types.Header, chain consensus.ChainReader, state *state.StateDB,
-	_ []*types.Transaction, _ []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
+func (sb *Backend) AutonityContractFinalize(
+	header *types.Header,
+	_ consensus.ChainReader,
+	state *state.StateDB,
+	_ []*types.Transaction,
+	_ []*types.Receipt,
+) (*types.Receipt, *types.Epoch, error) {
 
 	receipt, epochInfo, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
@@ -636,7 +641,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	if err != nil {
 		sb.logger.Crit("Could not retrieve state at head block", "err", err)
 	}
-	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.EpochID(currentHeader, state)
+	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.CallEpochID(state, currentHeader)
 	if err != nil {
 		sb.logger.Crit("Could not retrieve epoch id", "err", err)
 	}

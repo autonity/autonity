@@ -416,11 +416,19 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 	for {
 		select {
 		case <-w.startCh:
+			// do not prepare blocks if not in the committee
+			if !w.isRunning() {
+				continue
+			}
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			timestamp = time.Now().Unix()
 			commit(false, commitInterruptNewHead, nil)
 
 		case head := <-w.chainHeadCh:
+			// do not prepare blocks if not in the committee
+			if !w.isRunning() {
+				continue
+			}
 			if head.Block.Hash() == lastBlock {
 				log.Debug("New chain head event - block already prepared")
 				if h, ok := w.engine.(consensus.Handler); ok {
@@ -437,6 +445,10 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			commit(false, commitInterruptNewHead, nil)
 
 		case block := <-w.proposalVerifiedEventCh:
+			// do not prepare blocks if not in the committee
+			if !w.isRunning() {
+				continue
+			}
 			if block.Hash() == lastBlock {
 				log.Debug("block already prepared")
 				continue

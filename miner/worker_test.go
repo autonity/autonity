@@ -17,9 +17,9 @@
 package miner
 
 import (
+	"crypto/rand"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	"math/big"
-	"math/rand"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -109,7 +109,6 @@ func init() {
 	pendingTxs = append(pendingTxs, tx1)
 	tx2, _ := types.SignTx(types.NewTransaction(1, testUserAddress, big.NewInt(1000), params.TxGas, big.NewInt(params.InitialBaseFee), nil), types.NewLondonSigner(ethashChainConfig.ChainID), testBankKey)
 	newTxs = append(newTxs, tx2)
-	rand.Seed(time.Now().UnixNano())
 }
 
 // testWorkerBackend implements worker.Backend interfaces and wraps all information needed during the testing.

@@ -11,8 +11,10 @@ import (
 
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/params/generated"
 
 	"github.com/stretchr/testify/require"
 
@@ -52,7 +54,7 @@ func (c *contract) Address() common.Address {
 	return c.address
 }
 
-func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
 		tracer, _ = tracers.New("callTracer", new(tracers.Context))
@@ -68,12 +70,9 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]any, 
 		fmt.Println(string(pretty))
 	}
 	if err != nil {
-		reason, _ := abi.UnpackRevert(out)
-		return nil, 0, fmt.Errorf("%w: %s", err, reason)
+		return out, 0, err
 	}
-	res, err := c.abi.Unpack(method, out)
-	require.NoError(c.r.T, err)
-	return res, consumed, nil
+	return out, consumed, nil
 }
 
 // call a method that does not belong to the contract, `c`.
@@ -206,7 +205,6 @@ func RunWithSetup(name string, setup func() *Runner, run func(r *Runner)) {
 		run(r)
 	})
 }
-
 func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) {
 	r.Evm.StateDB.AddBalance(account, amount)
 }
@@ -221,7 +219,12 @@ func (r *Runner) GetNewtonBalanceOf(account common.Address) *big.Int {
 	return balance
 }
 
-func (r *Runner) deployContract(opts *runOptions, contractAbi *abi.ABI, bytecode []byte, params ...any) (common.Address, uint64, *contract, error) {
+func (r *Runner) deployContract(
+	opts *runOptions,
+	contractAbi *abi.ABI,
+	bytecode []byte,
+	params ...any,
+) (common.Address, uint64, *contract, []byte, error) {
 	args, err := contractAbi.Pack("", params...)
 	require.NoError(r.T, err)
 	data := append(bytecode, args...)
@@ -235,11 +238,7 @@ func (r *Runner) deployContract(opts *runOptions, contractAbi *abi.ABI, bytecode
 		}
 	}
 	out, contractAddress, leftOverGas, err := r.Evm.Create(vm.AccountRef(r.Evm.Origin), data, gas, value)
-	if err != nil {
-		reason, _ := abi.UnpackRevert(out)
-		return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, fmt.Errorf("%w: %s", err, reason)
-	}
-	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, err
+	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, out, err
 }
 
 // generates an activity proof signed by all committee members, `absentees` excluded
@@ -373,7 +372,7 @@ func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address)
 }
 
 func (r *Runner) StakeableVestingContractObject(user common.Address, contractID *big.Int) *IStakeableVesting {
-	address, _, err := r.StakeableVestingManager.GetContractAccount0(nil, user, contractID)
+	address, _, err := r.StakeableVestingManager.GetContractAccount(nil, user, contractID)
 	require.NoError(r.T, err)
 	return &IStakeableVesting{
 		r.contractObject(IStakeableVestingMetaData, address),
@@ -530,63 +529,100 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	require.NoError(t, err)
 	r := &Runner{T: t, Evm: evm}
 
+	//TODO: implement override also for the other contracts
 	var autonityGenesis *params.AutonityContractGenesis
 	if configOverride != nil {
 		autonityGenesis = configOverride(copyConfig(params.TestAutonityContractConfig))
 	} else {
 		autonityGenesis = params.TestAutonityContractConfig
 	}
-	//TODO: implement override also for the other contracts
+	genesisConfig := &core.Genesis{
+		Config: params.TestChainConfig,
+	}
+	genesisConfig.Config.AutonityContractConfig = autonityGenesis
+
+	// ToDo: we should probably override this in the specific tests where it is needed
+	if genesisConfig.Config.StakeableVestingConfig.TotalNominal.Cmp(common.Big0) == 0 {
+		genesisConfig.Config.StakeableVestingConfig.TotalNominal = new(big.Int).Mul(big.NewInt(1_000_000), params.NTNDecimalFactor) // 1M NTN
+	}
 
 	//
-	// Step 1: Autonity Contract Deployment
+	// Step 1: Execute test genesis sequence
 	//
+
+	err = autonity.ExecuteTestGenesisSequence(genesisConfig.Config, genesisConfig.Alloc.ToGenesisBonds(), evm)
+	require.NoError(t, err)
+
+	//
+	// Step 2: Setup internal bindings
+	//
+
+	r.Autonity = &Autonity{&contract{
+		params.AutonityContractAddress,
+		&generated.AutonityTestAbi,
+		r,
+	}}
+	r.Accountability = &Accountability{&contract{
+		params.AccountabilityContractAddress,
+		&generated.AccountabilityAbi,
+		r,
+	}}
+	r.Oracle = &Oracle{&contract{
+		params.OracleContractAddress,
+		&generated.OracleAbi,
+		r,
+	}}
+	r.Acu = &ACU{&contract{
+		params.ACUContractAddress,
+		&generated.ACUAbi,
+		r,
+	}}
+	r.SupplyControl = &SupplyControl{&contract{
+		params.SupplyControlContractAddress,
+		&generated.SupplyControlAbi,
+		r,
+	}}
+	r.Stabilization = &Stabilization{&contract{
+		params.StabilizationContractAddress,
+		&generated.StabilizationAbi,
+		r,
+	}}
+	r.UpgradeManager = &UpgradeManager{&contract{
+		params.UpgradeManagerContractAddress,
+		&generated.UpgradeManagerAbi,
+		r,
+	}}
+	r.InflationController = &InflationController{&contract{
+		params.InflationControllerContractAddress,
+		&generated.InflationControllerAbi,
+		r,
+	}}
+	r.StakeableVestingManager = &StakeableVestingManager{&contract{
+		params.StakeableVestingManagerContractAddress,
+		&generated.StakeableVestingManagerAbi,
+		r,
+	}}
+	r.NonStakeableVesting = &NonStakeableVesting{&contract{
+		params.NonStakeableVestingContractAddress,
+		&generated.NonStakeableVestingAbi,
+		r,
+	}}
+
+	r.OmissionAccountability = &OmissionAccountability{&contract{
+		params.OmissionAccountabilityContractAddress,
+		&generated.OmissionAccountabilityAbi,
+		r,
+	}}
 
 	// TODO: replicate truffle tests default config.
-	autonityConfig := AutonityConfig{
-		Policy: AutonityPolicy{
-			TreasuryFee:             new(big.Int).SetUint64(autonityGenesis.TreasuryFee),
-			MinBaseFee:              new(big.Int).SetUint64(autonityGenesis.MinBaseFee),
-			DelegationRate:          new(big.Int).SetUint64(autonityGenesis.DelegationRate),
-			UnbondingPeriod:         new(big.Int).SetUint64(autonityGenesis.UnbondingPeriod),
-			InitialInflationReserve: (*big.Int)(autonityGenesis.InitialInflationReserve),
-			WithholdingThreshold:    new(big.Int).SetUint64(autonityGenesis.WithholdingThreshold),
-			ProposerRewardRate:      new(big.Int).SetUint64(autonityGenesis.ProposerRewardRate),
-			OracleRewardRate:        new(big.Int).SetUint64(autonityGenesis.OracleRewardRate),
-			WithheldRewardsPool:     autonityGenesis.Operator,
-			TreasuryAccount:         autonityGenesis.Operator,
-		},
-		Contracts: AutonityContracts{
-			AccountabilityContract:         params.AccountabilityContractAddress,
-			OracleContract:                 params.OracleContractAddress,
-			AcuContract:                    params.ACUContractAddress,
-			SupplyControlContract:          params.SupplyControlContractAddress,
-			StabilizationContract:          params.StabilizationContractAddress,
-			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
-			InflationControllerContract:    params.InflationControllerContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
-		},
-		Protocol: AutonityProtocol{
-			OperatorAccount:     autonityGenesis.Operator,
-			EpochPeriod:         new(big.Int).SetUint64(autonityGenesis.EpochPeriod),
-			BlockPeriod:         new(big.Int).SetUint64(autonityGenesis.BlockPeriod),
-			CommitteeSize:       new(big.Int).SetUint64(autonityGenesis.MaxCommitteeSize),
-			MaxScheduleDuration: new(big.Int).SetUint64(autonityGenesis.MaxScheduleDuration),
-		},
-		ContractVersion: big.NewInt(1),
-	}
-	r.Operator = &runOptions{origin: autonityConfig.Protocol.OperatorAccount}
+
+	r.Operator = &runOptions{origin: genesisConfig.Config.AutonityContractConfig.Operator}
 
 	r.Committee.Validators = make([]AutonityValidator, 0, len(autonityGenesis.Validators))
 	for _, v := range autonityGenesis.Validators {
 		validator := genesisToAutonityVal(v)
 		r.Committee.Validators = append(r.Committee.Validators, validator)
 	}
-	_, _, r.Autonity, err = r.DeployAutonity(nil, r.Committee.Validators, autonityConfig)
-	require.NoError(t, err)
-	require.Equal(t, r.Autonity.address, params.AutonityContractAddress)
-	_, err = r.Autonity.FinalizeInitialization(nil, new(big.Int).SetUint64(params.DefaultOmissionAccountabilityConfig.Delta))
-	require.NoError(t, err)
 
 	r.Committee.LiquidStateContracts = make([]*ILiquid, 0, len(autonityGenesis.Validators))
 	for i, v := range autonityGenesis.Validators {
@@ -595,186 +631,6 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		r.Committee.Validators[i] = validator
 		r.Committee.LiquidStateContracts = append(r.Committee.LiquidStateContracts, r.LiquidStateContract(validator.NodeAddress))
 	}
-	//
-	// Step 2: Accountability Contract Deployment
-	//
-	_, _, r.Accountability, err = r.DeployAccountability(nil, r.Autonity.address, AccountabilityConfig{
-		InnocenceProofSubmissionWindow: big.NewInt(int64(params.DefaultAccountabilityConfig.InnocenceProofSubmissionWindow)),
-		BaseSlashingRates: AccountabilityBaseSlashingRates{
-			Low:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateLow)),
-			Mid:  big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateMid)),
-			High: big.NewInt(int64(params.DefaultAccountabilityConfig.BaseSlashingRateHigh)),
-		},
-		Factors: AccountabilityFactors{
-			Collusion: big.NewInt(int64(params.DefaultAccountabilityConfig.CollusionFactor)),
-			History:   big.NewInt(int64(params.DefaultAccountabilityConfig.HistoryFactor)),
-			Jail:      big.NewInt(int64(params.DefaultAccountabilityConfig.JailFactor)),
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, r.Accountability.address, params.AccountabilityContractAddress)
-	//
-	// Step 3: Oracle contract deployment
-	//
-	voters := make([]common.Address, len(autonityGenesis.Validators))
-	nodeAddresses := make([]common.Address, len(autonityGenesis.Validators))
-	treasuries := make([]common.Address, len(autonityGenesis.Validators))
-	for i, val := range autonityGenesis.Validators {
-		voters[i] = val.OracleAddress
-		treasuries[i] = val.Treasury
-		nodeAddresses[i] = *val.NodeAddress
-	}
-	_, _, r.Oracle, err = r.DeployOracle(nil,
-		voters,
-		nodeAddresses,
-		treasuries,
-		params.DefaultGenesisOracleConfig.Symbols,
-		OracleConfig{
-			Autonity:                  r.Autonity.address,
-			Operator:                  autonityConfig.Protocol.OperatorAccount,
-			VotePeriod:                new(big.Int).SetUint64(params.TestOracleConfig.VotePeriod),
-			OutlierDetectionThreshold: new(big.Int).SetUint64(params.TestOracleConfig.OutlierDetectionThreshold),
-			OutlierSlashingThreshold:  new(big.Int).SetUint64(params.TestOracleConfig.OutlierSlashingThreshold),
-			BaseSlashingRate:          new(big.Int).SetUint64(params.TestOracleConfig.BaseSlashingRate),
-		},
-	)
-	require.NoError(t, err)
-	require.Equal(t, r.Oracle.address, params.OracleContractAddress)
-	//
-	// Step 4: ACU deployment
-	//
-	bigQuantities := make([]*big.Int, len(params.DefaultAcuContractGenesis.Quantities))
-	for i := range params.DefaultAcuContractGenesis.Quantities {
-		bigQuantities[i] = new(big.Int).SetUint64(params.DefaultAcuContractGenesis.Quantities[i])
-	}
-	_, _, r.Acu, err = r.DeployACU(nil,
-		params.DefaultAcuContractGenesis.Symbols,
-		bigQuantities,
-		new(big.Int).SetUint64(params.DefaultAcuContractGenesis.Scale),
-		r.Autonity.address,
-		autonityConfig.Protocol.OperatorAccount,
-		r.Oracle.address,
-	)
-	require.NoError(t, err)
-	require.Equal(t, r.Oracle.address, params.OracleContractAddress)
-	//
-	// Step 5: Supply Control Deployment
-	//
-	r.Evm.StateDB.AddBalance(common.Address{}, (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation))
-	_, _, r.SupplyControl, err = r.DeploySupplyControl(&runOptions{value: (*big.Int)(params.DefaultSupplyControlGenesis.InitialAllocation)},
-		r.Autonity.address,
-		autonityConfig.Protocol.OperatorAccount,
-		params.StabilizationContractAddress)
-	require.NoError(t, err)
-	require.Equal(t, r.SupplyControl.address, params.SupplyControlContractAddress)
-	//
-	// Step 6: Stabilization Control Deployment
-	//
-	_, _, r.Stabilization, err = r.DeployStabilization(nil,
-		StabilizationConfig{
-			BorrowInterestRate:        (*big.Int)(params.DefaultStabilizationGenesis.BorrowInterestRate),
-			LiquidationRatio:          (*big.Int)(params.DefaultStabilizationGenesis.LiquidationRatio),
-			MinCollateralizationRatio: (*big.Int)(params.DefaultStabilizationGenesis.MinCollateralizationRatio),
-			MinDebtRequirement:        (*big.Int)(params.DefaultStabilizationGenesis.MinDebtRequirement),
-			TargetPrice:               (*big.Int)(params.DefaultStabilizationGenesis.TargetPrice),
-		}, params.AutonityContractAddress,
-		autonityConfig.Protocol.OperatorAccount,
-		r.Oracle.address,
-		r.SupplyControl.address,
-		r.Autonity.address,
-	)
-	require.NoError(t, err)
-	require.Equal(t, r.Stabilization.address, params.StabilizationContractAddress)
-	//
-	// Step 7: Upgrade Manager contract deployment
-	//
-	_, _, r.UpgradeManager, err = r.DeployUpgradeManager(nil,
-		r.Autonity.address,
-		autonityConfig.Protocol.OperatorAccount)
-	require.NoError(t, err)
-	require.Equal(t, r.UpgradeManager.address, params.UpgradeManagerContractAddress)
-
-	//
-	// Step 8: Deploy Inflation Controller
-	//
-	p := &InflationControllerParams{
-		InflationRateInitial:      (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateInitial),
-		InflationRateTransition:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationRateTransition),
-		InflationCurveConvexity:   (*big.Int)(params.DefaultInflationControllerGenesis.InflationCurveConvexity),
-		InflationTransitionPeriod: (*big.Int)(params.DefaultInflationControllerGenesis.InflationTransitionPeriod),
-		InflationReserveDecayRate: (*big.Int)(params.DefaultInflationControllerGenesis.InflationReserveDecayRate),
-	}
-	_, _, r.InflationController, err = r.DeployInflationController(nil, *p)
-	require.NoError(r.T, err)
-	require.Equal(t, r.InflationController.address, params.InflationControllerContractAddress)
-
-	//
-	// Step 9: Stakeable Vesting contract deployment
-	//
-	_, _, r.StakeableVestingManager, err = r.DeployStakeableVestingManager(
-		nil,
-		r.Autonity.address,
-	)
-	require.NoError(t, err)
-	require.Equal(t, r.StakeableVestingManager.address, params.StakeableVestingManagerContractAddress)
-	totalNominal := params.DefaultStakeableVestingGenesis.TotalNominal
-	if totalNominal.Cmp(common.Big0) == 0 {
-		totalNominal = new(big.Int).Mul(big.NewInt(1_000_000), params.NTNDecimalFactor) // 1M NTN
-	}
-	r.NoError(
-		r.Autonity.Mint(r.Operator, r.StakeableVestingManager.address, totalNominal),
-	)
-
-	//
-	// Step 10: Non-Stakeable Vesting contract deployment
-	//
-	_, _, r.NonStakeableVesting, err = r.DeployNonStakeableVesting(
-		nil,
-		r.Autonity.address,
-	)
-	require.NoError(t, err)
-	require.Equal(t, r.NonStakeableVesting.address, params.NonStakeableVestingContractAddress)
-
-	//
-	// Step 11: Omission Accountability Contract Deployment
-	//
-	_, _, r.OmissionAccountability, err = r.DeployOmissionAccountability(nil, r.Autonity.address, autonityConfig.Protocol.OperatorAccount, treasuries, OmissionAccountabilityConfig{
-		InactivityThreshold:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InactivityThreshold)),
-		LookbackWindow:         big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.LookbackWindow)),
-		PastPerformanceWeight:  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.PastPerformanceWeight)),
-		InitialJailingPeriod:   big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialJailingPeriod)),
-		InitialProbationPeriod: big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialProbationPeriod)),
-		InitialSlashingRate:    big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.InitialSlashingRate)),
-		Delta:                  big.NewInt(int64(params.DefaultOmissionAccountabilityConfig.Delta)),
-	})
-	require.NoError(t, err)
-	require.Equal(t, r.OmissionAccountability.address, params.OmissionAccountabilityContractAddress)
-
-	// set protocol contracts
-	r.NoError(
-		r.Autonity.SetAccountabilityContract(r.Operator, r.Accountability.address),
-	)
-	r.NoError(
-		r.Autonity.SetAcuContract(r.Operator, r.Acu.address),
-	)
-	r.NoError(
-		r.Autonity.SetInflationControllerContract(r.Operator, r.InflationController.address),
-	)
-	r.NoError(
-		r.Autonity.SetOracleContract(r.Operator, r.Oracle.address),
-	)
-	r.NoError(
-		r.Autonity.SetStabilizationContract(r.Operator, r.Stabilization.address),
-	)
-	r.NoError(
-		r.Autonity.SetSupplyControlContract(r.Operator, r.SupplyControl.address),
-	)
-	r.NoError(
-		r.Autonity.SetUpgradeManagerContract(r.Operator, r.UpgradeManager.address),
-	)
-	r.NoError(
-		r.Autonity.SetOmissionAccountabilityContract(r.Operator, r.OmissionAccountability.address),
-	)
 
 	r.Evm.Context.BlockNumber = common.Big1
 	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
@@ -874,4 +730,21 @@ func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, blst.Secret
 	}
 	pop, err := crypto.AutonityPOPProof(privateKey, privateKey, address.Hex(), secretKey)
 	return validator, pop, privateKey, secretKey, err
+}
+
+// abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.
+var ReportABIEncodeSchema = []byte("[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"struct Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}]")
+
+func MakeOracleCommit(t *testing.T, salt *big.Int, sender common.Address, reports []IOracleReport) *big.Int {
+	var args abi.Arguments
+	err := json.Unmarshal(ReportABIEncodeSchema, &args)
+	require.NoError(t, err)
+
+	var hash common.Hash
+	bytes, err := args.Pack(reports, salt, sender)
+	require.NoError(t, err)
+
+	hash = crypto.Keccak256Hash(bytes)
+	return new(big.Int).SetBytes(hash[:])
+
 }
