@@ -52,7 +52,7 @@ jobs:
       - name: Trigger autonity.py build
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.ACCESS_TOKEN }}
+          token: ${{ secrets.GH_CLEARMATICSROBOT_PAT }}
           repository: autonity/autonity.py
           event-type: new_autonity_${{ github.event_name }}
           client-payload: >
