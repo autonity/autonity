@@ -1,13 +1,9 @@
-name: Downstream Tooling
+name: Downstream Tooling (push to develop)
 
 on:
   push:
     branches:
       - develop
-
-  release:
-    types:
-      - published
 
   workflow_dispatch:
 
@@ -54,7 +50,7 @@ jobs:
         with:
           token: ${{ secrets.GH_CLEARMATICSROBOT_PAT }}
           repository: autonity/autonity.py
-          event-type: new_autonity_${{ github.event_name }}
+          event-type: new_autonity_push
           client-payload: >
             {
               "run_id": "${{ github.run_id }}",
