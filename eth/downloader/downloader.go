@@ -20,6 +20,7 @@ package downloader
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -67,6 +68,15 @@ var (
 	errCancelContentProcessing = errors.New("content processing canceled (requested)")
 	errCanceled                = errors.New("syncing canceled (requested)")
 	errNoPivotHeader           = errors.New("pivot header is not found")
+
+	errUnknownPeer      = errors.New("peer is unknown or unhealthy")
+	errStallingPeer     = errors.New("peer is stalling")
+	errUnsyncedPeer     = errors.New("unsynced peer")
+	errEmptyHeaderSet   = errors.New("empty header set by peer")
+	errPeersUnavailable = errors.New("no peers available or all tried for download")
+	errInvalidAncestor  = errors.New("retrieved ancestor is invalid")
+	errTooOld           = errors.New("peer's protocol version too old")
+	ErrMergeTransition  = errors.New("legacy sync reached the merge")
 )
 
 // SyncMode defines the sync method of the downloader.
@@ -122,9 +132,6 @@ type Downloader struct {
 
 	// Channels
 	headerProcCh chan *headerTask // Channel to feed the header processor new tasks
-
-	// Skeleton sync
-	skeleton *skeleton // Header skeleton to backfill the chain with (eth2 mode)
 
 	// State sync
 	pivotHeader *types.Header // Pivot block header to dynamically push the syncing state root
@@ -217,7 +224,8 @@ func New(stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, dropPeer 
 		syncStartBlock: chain.CurrentSnapBlock().Number.Uint64(),
 	}
 	// Create the post-merge skeleton syncer and start the process
-	dl.skeleton = newSkeleton(stateDb, dl.peers, dropPeer, newBeaconBackfiller(dl, success))
+	// Beacon-sync is not used by Autonity --
+	// dl.skeleton = newSkeleton(stateDb, dl.peers, dropPeer, newBeaconBackfiller(dl, success))
 
 	go dl.stateFetcher()
 	return dl
@@ -306,24 +314,43 @@ func (d *Downloader) UnregisterPeer(id string) error {
 	return nil
 }
 
+// LegacySync tries to sync up our local block chain with a remote peer, both
+// adding various sanity checks as well as wrapping it with various log entries.
+func (d *Downloader) LegacySync(id string, head common.Hash, td, ttd *big.Int, mode ethconfig.SyncMode) error {
+	err := d.synchronise(id, head, td, ttd, mode, false, nil)
+
+	switch err {
+	case nil, errBusy, errCanceled:
+		return err
+	}
+	if errors.Is(err, errInvalidChain) || errors.Is(err, errBadPeer) || errors.Is(err, errTimeout) ||
+		errors.Is(err, errStallingPeer) || errors.Is(err, errUnsyncedPeer) || errors.Is(err, errEmptyHeaderSet) ||
+		errors.Is(err, errPeersUnavailable) || errors.Is(err, errTooOld) || errors.Is(err, errInvalidAncestor) {
+		log.Warn("Synchronisation failed, dropping peer", "peer", id, "err", err)
+		if d.dropPeer == nil {
+			// The dropPeer method is nil when `--copydb` is used for a local copy.
+			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
+			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
+		} else {
+			d.dropPeer(id)
+		}
+		return err
+	}
+	if errors.Is(err, ErrMergeTransition) {
+		return err // This is an expected fault, don't keep printing it in a spin-loop
+	}
+	log.Warn("Synchronisation failed, retrying", "err", err)
+	return err
+}
+
 // synchronise will select the peer and use it for synchronising. If an empty string is given
 // it will use the best peer possible and synchronize if its TD is higher than our own. If any of the
 // checks fail an error will be returned. This method is synchronous
-func (d *Downloader) synchronise(mode SyncMode, beaconPing chan struct{}) error {
-	// The beacon header syncer is async. It will start this synchronization and
-	// will continue doing other tasks. However, if synchronization needs to be
-	// cancelled, the syncer needs to know if we reached the startup point (and
-	// inited the cancel channel) or not yet. Make sure that we'll signal even in
-	// case of a failure.
-	if beaconPing != nil {
-		defer func() {
-			select {
-			case <-beaconPing: // already notified
-			default:
-				close(beaconPing) // weird exit condition, notify that it's safe to cancel (the nothing)
-			}
-		}()
-	}
+// --------------------------------------------------------------------------
+// This method has been modified in Autonity from upstream (v1.13 - pre-merge geth) to
+// - remove td/ttd dependency : td = 0
+// - remove beaconPing
+func (d *Downloader) synchronise(id string, hash common.Hash, mode ethconfig.SyncMode) error {
 	// Make sure only one goroutine is ever allowed past this point at once
 	if !d.synchronising.CompareAndSwap(false, true) {
 		return errBusy
@@ -377,15 +404,132 @@ func (d *Downloader) synchronise(mode SyncMode, beaconPing chan struct{}) error 
 
 	// Atomically set the requested sync mode
 	d.mode.Store(uint32(mode))
-
-	if beaconPing != nil {
-		close(beaconPing)
+	// Retrieve the origin peer and initiate the downloading process
+	p := d.peers.Peer(id)
+	if p == nil {
+		return errUnknownPeer
 	}
-	return d.syncToHead()
+
+	return d.syncWithPeer(p, hash, td, ttd)
 }
 
 func (d *Downloader) getMode() SyncMode {
 	return SyncMode(d.mode.Load())
+}
+
+// syncWithPeer starts a block synchronization based on the hash chain from the
+// specified peer and head hash.
+func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td, ttd *big.Int) (err error) {
+	d.mux.Post(StartEvent{})
+	defer func() {
+		// reset on error
+		if err != nil {
+			d.mux.Post(FailedEvent{err})
+		} else {
+			latest := d.blockchain.CurrentHeader()
+			d.mux.Post(DoneEvent{latest})
+		}
+	}()
+	mode := d.getMode()
+
+	log.Debug("Synchronising with the network", "peer", p.id, "eth", p.version, "head", hash, "td", td, "mode", mode)
+
+	defer func(start time.Time) {
+		log.Debug("Synchronisation terminated", "elapsed", common.PrettyDuration(time.Since(start)))
+	}(time.Now())
+
+	// Look up the sync boundaries: the common ancestor and the target block
+	var latest, pivot, final *types.Header
+
+	// In legacy mode, use the master peer to retrieve the headers from
+	latest, pivot, err = d.fetchHead(p)
+	if err != nil {
+		return err
+	}
+
+	// If no pivot block was returned, the head is below the min full block
+	// threshold (i.e. new chain). In that case we won't really snap sync
+	// anyway, but still need a valid pivot block to avoid some code hitting
+	// nil panics on access.
+	if mode == SnapSync && pivot == nil {
+		pivot = d.blockchain.CurrentBlock()
+	}
+	height := latest.Number.Uint64()
+
+	// In legacy mode, reach out to the network and find the ancestor
+	origin, err := d.findAncestor(p, latest)
+	if err != nil {
+		return err
+	}
+	d.syncStatsLock.Lock()
+	if d.syncStatsChainHeight <= origin || d.syncStatsChainOrigin > origin {
+		d.syncStatsChainOrigin = origin
+	}
+	d.syncStatsChainHeight = height
+	d.syncStatsLock.Unlock()
+
+	// Ensure our origin point is below any snap sync pivot point
+	if mode == SnapSync {
+		if height <= uint64(fsMinFullBlocks) {
+			origin = 0
+		} else {
+			pivotNumber := pivot.Number.Uint64()
+			if pivotNumber <= origin {
+				origin = pivotNumber - 1
+			}
+			// Write out the pivot into the database so a rollback beyond it will
+			// reenable snap sync
+			rawdb.WriteLastPivotNumber(d.stateDB, pivotNumber)
+		}
+	}
+	d.committed.Store(true)
+	if mode == ethconfig.SnapSync && pivot.Number.Uint64() != 0 {
+		d.committed.Store(false)
+	}
+	if mode == ethconfig.SnapSync {
+		// Legacy sync, use the best announcement we have from the remote peer.
+		if height > fullMaxForkAncestry+1 {
+			d.ancientLimit = height - fullMaxForkAncestry - 1
+		} else {
+			d.ancientLimit = 0
+		}
+		frozen, _ := d.stateDB.Ancients() // Ignore the error here since light client can also hit here.
+
+		// If a part of blockchain data has already been written into active store,
+		// disable the ancient style insertion explicitly.
+		if origin >= frozen && frozen != 0 {
+			d.ancientLimit = 0
+			log.Info("Disabling direct-ancient mode", "origin", origin, "ancient", frozen-1)
+		} else if d.ancientLimit > 0 {
+			log.Debug("Enabling direct-ancient mode", "ancient", d.ancientLimit)
+		}
+		// Rewind the ancient store and blockchain if reorg happens.
+		if origin+1 < frozen {
+			if err := d.blockchain.SetHead(origin); err != nil {
+				return err
+			}
+			log.Info("Truncated excess ancient chain segment", "oldhead", frozen-1, "newhead", origin)
+		}
+	}
+	// Initiate the sync using a concurrent header and content retrieval algorithm
+	d.queue.Prepare(origin+1, mode)
+
+	fetchers := []func() error{
+		func() error { return d.fetchHeaders(p, origin+1, latest.Number.Uint64()) }, // Headers are always retrieved
+		func() error { return d.fetchBodies(origin + 1) },                           // Bodies are retrieved during normal and snap sync
+		func() error { return d.fetchReceipts(origin + 1) },                         // Receipts are retrieved during snap sync
+		func() error { return d.processHeaders(origin+1, td, ttd) },
+	}
+	if mode == SnapSync {
+		d.pivotLock.Lock()
+		d.pivotHeader = pivot
+		d.pivotLock.Unlock()
+
+		fetchers = append(fetchers, func() error { return d.processSnapSyncContent() })
+	} else if mode == FullSync {
+		fetchers = append(fetchers, func() error { return d.processFullSyncContent(ttd) })
+	}
+	return d.spawnSync(fetchers)
 }
 
 // syncToHead starts a block synchronization based on the hash chain from
@@ -614,6 +758,30 @@ func (d *Downloader) Terminate() {
 
 	// Cancel any pending download requests
 	d.Cancel()
+}
+
+// fillHeaderSkeleton concurrently retrieves headers from all our available peers
+// and maps them to the provided skeleton header chain.
+//
+// Any partial results from the beginning of the skeleton is (if possible) forwarded
+// immediately to the header processor to keep the rest of the pipeline full even
+// in the case of header stalls.
+//
+// The method returns the entire filled skeleton and also the number of headers
+// already forwarded for processing.
+func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) ([]*types.Header, []common.Hash, int, error) {
+	log.Debug("Filling up skeleton", "from", from)
+	d.queue.ScheduleSkeleton(from, skeleton)
+
+	err := d.concurrentFetch((*headerQueue)(d))
+	if err != nil {
+		log.Debug("Skeleton fill failed", "err", err)
+	}
+	filled, hashes, proced := d.queue.RetrieveHeaders()
+	if err == nil {
+		log.Debug("Skeleton fill succeeded", "filled", len(filled), "processed", proced)
+	}
+	return filled, hashes, proced, err
 }
 
 // fetchBodies iteratively downloads the scheduled block bodies, taking any
@@ -1112,4 +1280,266 @@ func (d *Downloader) reportSnapSyncProgress(force bool) {
 	)
 	log.Info("Syncing: chain download in progress", "synced", progress, "chain", syncedBytes, "headers", headers, "bodies", bodies, "receipts", receipts, "eta", common.PrettyDuration(eta))
 	d.syncLogTime = time.Now()
+}
+
+// fetchHead retrieves the head header and prior pivot block (if available) from
+// a remote peer.
+func (d *Downloader) fetchHead(p *peerConnection) (head *types.Header, pivot *types.Header, err error) {
+	p.log.Debug("Retrieving remote chain head")
+	mode := d.getMode()
+
+	// Request the advertised remote head block and wait for the response
+	latest, _ := p.peer.Head()
+	fetch := 1
+	if mode == SnapSync {
+		fetch = 2 // head + pivot headers
+	}
+	headers, hashes, err := d.fetchHeadersByHash(p, latest, fetch, fsMinFullBlocks-1, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Make sure the peer gave us at least one and at most the requested headers
+	if len(headers) == 0 || len(headers) > fetch {
+		return nil, nil, fmt.Errorf("%w: returned headers %d != requested %d", errBadPeer, len(headers), fetch)
+	}
+	// The first header needs to be the head, validate against the request. If
+	// only 1 header was returned, make sure there's no pivot or there was not
+	// one requested.
+	head = headers[0]
+	if len(headers) == 1 {
+		if mode == SnapSync && head.Number.Uint64() > uint64(fsMinFullBlocks) {
+			return nil, nil, fmt.Errorf("%w: no pivot included along head header", errBadPeer)
+		}
+		p.log.Debug("Remote head identified, no pivot", "number", head.Number, "hash", hashes[0])
+		return head, nil, nil
+	}
+	// At this point we have 2 headers in total and the first is the
+	// validated head of the chain. Check the pivot number and return,
+	pivot = headers[1]
+	if pivot.Number.Uint64() != head.Number.Uint64()-uint64(fsMinFullBlocks) {
+		return nil, nil, fmt.Errorf("%w: remote pivot %d != requested %d", errInvalidChain, pivot.Number, head.Number.Uint64()-uint64(fsMinFullBlocks))
+	}
+	return head, pivot, nil
+}
+
+// fetchHeaders keeps retrieving headers concurrently from the number
+// requested, until no more are returned, potentially throttling on the way. To
+// facilitate concurrency but still protect against malicious nodes sending bad
+// headers, we construct a header chain skeleton using the "origin" peer we are
+// syncing with, and fill in the missing headers using anyone else. Headers from
+// other peers are only accepted if they map cleanly to the skeleton. If no one
+// can fill in the skeleton - not even the origin peer - it's assumed invalid and
+// the origin is dropped.
+func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, head uint64) error {
+	p.log.Debug("Directing header downloads", "origin", from)
+	defer p.log.Debug("Header download terminated")
+
+	// Start pulling the header chain skeleton until all is done
+	var (
+		skeleton = true  // Skeleton assembly phase or finishing up
+		pivoting = false // Whether the next request is pivot verification
+		ancestor = from
+		mode     = d.getMode()
+	)
+	for {
+		// Pull the next batch of headers, it either:
+		//   - Pivot check to see if the chain moved too far
+		//   - Skeleton retrieval to permit concurrent header fetches
+		//   - Full header retrieval if we're near the chain head
+		var (
+			headers []*types.Header
+			hashes  []common.Hash
+			err     error
+		)
+		switch {
+		case pivoting:
+			d.pivotLock.RLock()
+			pivot := d.pivotHeader.Number.Uint64()
+			d.pivotLock.RUnlock()
+
+			p.log.Trace("Fetching next pivot header", "number", pivot+uint64(fsMinFullBlocks))
+			headers, hashes, err = d.fetchHeadersByNumber(p, pivot+uint64(fsMinFullBlocks), 2, fsMinFullBlocks-9, false) // move +64 when it's 2x64-8 deep
+
+		case skeleton:
+			p.log.Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
+			headers, hashes, err = d.fetchHeadersByNumber(p, from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false)
+
+		default:
+			p.log.Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
+			headers, hashes, err = d.fetchHeadersByNumber(p, from, MaxHeaderFetch, 0, false)
+		}
+		switch err {
+		case nil:
+			// Headers retrieved, continue with processing
+
+		case errCanceled:
+			// Sync cancelled, no issue, propagate up
+			return err
+
+		default:
+			// Header retrieval either timed out, or the peer failed in some strange way
+			// (e.g. disconnect). Consider the master peer bad and drop
+			d.dropPeer(p.id)
+
+			// Finish the sync gracefully instead of dumping the gathered data though
+			for _, ch := range []chan bool{d.queue.blockWakeCh, d.queue.receiptWakeCh} {
+				select {
+				case ch <- false:
+				case <-d.cancelCh:
+				}
+			}
+			select {
+			case d.headerProcCh <- nil:
+			case <-d.cancelCh:
+			}
+			return fmt.Errorf("%w: header request failed: %v", errBadPeer, err)
+		}
+		// If the pivot is being checked, move if it became stale and run the real retrieval
+		var pivot uint64
+
+		d.pivotLock.RLock()
+		if d.pivotHeader != nil {
+			pivot = d.pivotHeader.Number.Uint64()
+		}
+		d.pivotLock.RUnlock()
+
+		if pivoting {
+			if len(headers) == 2 {
+				if have, want := headers[0].Number.Uint64(), pivot+uint64(fsMinFullBlocks); have != want {
+					log.Warn("Peer sent invalid next pivot", "have", have, "want", want)
+					return fmt.Errorf("%w: next pivot number %d != requested %d", errInvalidChain, have, want)
+				}
+				if have, want := headers[1].Number.Uint64(), pivot+2*uint64(fsMinFullBlocks)-8; have != want {
+					log.Warn("Peer sent invalid pivot confirmer", "have", have, "want", want)
+					return fmt.Errorf("%w: next pivot confirmer number %d != requested %d", errInvalidChain, have, want)
+				}
+				log.Warn("Pivot seemingly stale, moving", "old", pivot, "new", headers[0].Number)
+				pivot = headers[0].Number.Uint64()
+
+				d.pivotLock.Lock()
+				d.pivotHeader = headers[0]
+				d.pivotLock.Unlock()
+
+				// Write out the pivot into the database so a rollback beyond
+				// it will reenable snap sync and update the state root that
+				// the state syncer will be downloading.
+				rawdb.WriteLastPivotNumber(d.stateDB, pivot)
+			}
+			// Disable the pivot check and fetch the next batch of headers
+			pivoting = false
+			continue
+		}
+		// If the skeleton's finished, pull any remaining head headers directly from the origin
+		if skeleton && len(headers) == 0 {
+			// A malicious node might withhold advertised headers indefinitely
+			if from+uint64(MaxHeaderFetch)-1 <= head {
+				p.log.Warn("Peer withheld skeleton headers", "advertised", head, "withheld", from+uint64(MaxHeaderFetch)-1)
+				return fmt.Errorf("%w: withheld skeleton headers: advertised %d, withheld #%d", errStallingPeer, head, from+uint64(MaxHeaderFetch)-1)
+			}
+			p.log.Debug("No skeleton, fetching headers directly")
+			skeleton = false
+			continue
+		}
+		// If no more headers are inbound, notify the content fetchers and return
+		if len(headers) == 0 {
+			// Don't abort header fetches while the pivot is downloading
+			if !d.committed.Load() && pivot <= from {
+				p.log.Debug("No headers, waiting for pivot commit")
+				select {
+				case <-time.After(fsHeaderContCheck):
+					continue
+				case <-d.cancelCh:
+					return errCanceled
+				}
+			}
+			// Pivot done (or not in snap sync) and no more headers, terminate the process
+			p.log.Debug("No more headers available")
+			select {
+			case d.headerProcCh <- nil:
+				return nil
+			case <-d.cancelCh:
+				return errCanceled
+			}
+		}
+		// If we received a skeleton batch, resolve internals concurrently
+		var progressed bool
+		if skeleton {
+			filled, hashset, proced, err := d.fillHeaderSkeleton(from, headers)
+			if err != nil {
+				p.log.Debug("Skeleton chain invalid", "err", err)
+				return fmt.Errorf("%w: %v", errInvalidChain, err)
+			}
+			headers = filled[proced:]
+			hashes = hashset[proced:]
+
+			progressed = proced > 0
+			from += uint64(proced)
+		} else {
+			// A malicious node might withhold advertised headers indefinitely
+			if n := len(headers); n < MaxHeaderFetch && headers[n-1].Number.Uint64() < head {
+				p.log.Warn("Peer withheld headers", "advertised", head, "delivered", headers[n-1].Number.Uint64())
+				return fmt.Errorf("%w: withheld headers: advertised %d, delivered %d", errStallingPeer, head, headers[n-1].Number.Uint64())
+			}
+			// If we're closing in on the chain head, but haven't yet reached it, delay
+			// the last few headers so mini reorgs on the head don't cause invalid hash
+			// chain errors.
+			if n := len(headers); n > 0 {
+				// Retrieve the current head we're at
+				var head uint64
+				if mode == LightSync {
+					head = d.lightchain.CurrentHeader().Number.Uint64()
+				} else {
+					head = d.blockchain.CurrentSnapBlock().Number.Uint64()
+					if full := d.blockchain.CurrentBlock().Number.Uint64(); head < full {
+						head = full
+					}
+				}
+				// If the head is below the common ancestor, we're actually deduplicating
+				// already existing chain segments, so use the ancestor as the fake head.
+				// Otherwise, we might end up delaying header deliveries pointlessly.
+				if head < ancestor {
+					head = ancestor
+				}
+				// If the head is way older than this batch, delay the last few headers
+				if head+uint64(reorgProtThreshold) < headers[n-1].Number.Uint64() {
+					delay := reorgProtHeaderDelay
+					if delay > n {
+						delay = n
+					}
+					headers = headers[:n-delay]
+					hashes = hashes[:n-delay]
+				}
+			}
+		}
+		// If no headers have been delivered, or all of them have been delayed,
+		// sleep a bit and retry. Take care with headers already consumed during
+		// skeleton filling
+		if len(headers) == 0 && !progressed {
+			p.log.Trace("All headers delayed, waiting")
+			select {
+			case <-time.After(fsHeaderContCheck):
+				continue
+			case <-d.cancelCh:
+				return errCanceled
+			}
+		}
+		// Insert any remaining new headers and fetch the next batch
+		if len(headers) > 0 {
+			p.log.Trace("Scheduling new headers", "count", len(headers), "from", from)
+			select {
+			case d.headerProcCh <- &headerTask{
+				headers: headers,
+				hashes:  hashes,
+			}:
+			case <-d.cancelCh:
+				return errCanceled
+			}
+			from += uint64(len(headers))
+		}
+		// If we're still skeleton filling snap sync, check pivot staleness
+		// before continuing to the next skeleton filling
+		if skeleton && pivot > 0 {
+			pivoting = true
+		}
+	}
 }

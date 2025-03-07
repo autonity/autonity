@@ -48,6 +48,7 @@ func (bc *BlockChain) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 		return epoch, nil
 	}
 
+	//todo(youssef): remove this edge-case, save epoch information at genesis.
 	if height == 0 {
 		epoch := &types.EpochInfo{
 			Epoch:      *bc.genesisBlock.Header().Epoch.Copy(),

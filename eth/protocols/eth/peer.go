@@ -17,7 +17,9 @@
 package eth
 
 import (
+	"math/big"
 	"math/rand"
+	"sync"
 
 	mapset "github.com/deckarep/golang-set/v2"
 
@@ -49,6 +51,13 @@ type Peer struct {
 	rw        p2p.MsgReadWriter // Input/output streams for snap
 	version   uint              // Protocol version negotiated
 
+	head   common.Hash // Latest advertised head block hash
+	height *big.Int    // Latest advertised head block height
+
+	knownBlocks     *knownCache            // Set of block hashes known to be known by this peer
+	queuedBlocks    chan *blockPropagation // Queue of blocks to broadcast to the peer
+	queuedBlockAnns chan *types.Block      // Queue of blocks to announce to the peer
+
 	txpool      TxPool             // Transaction pool used by the broadcasters for liveness checks
 	knownTxs    *knownCache        // Set of transaction hashes known to be known by this peer
 	txBroadcast chan []common.Hash // Channel used to queue transaction propagation requests
@@ -59,6 +68,7 @@ type Peer struct {
 	resDispatch chan *response // Dispatch channel to fulfil pending requests and untrack them
 
 	term chan struct{} // Termination channel to stop the broadcasters
+	lock sync.RWMutex  // Mutex protecting the internal fields
 }
 
 // NewPeer creates a wrapper for a network connection and negotiated  protocol
@@ -101,6 +111,15 @@ func (p *Peer) ID() string {
 // Version retrieves the peer's negotiated `eth` protocol version.
 func (p *Peer) Version() uint {
 	return p.version
+}
+
+// Head retrieves the current head hash and latest block height of the peer.
+func (p *Peer) Head() (hash common.Hash, height *big.Int) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	copy(hash[:], p.head[:])
+	return hash, new(big.Int).Set(p.td)
 }
 
 // KnownTransaction returns whether peer is known to already have a transaction.
@@ -181,6 +200,55 @@ func (p *Peer) ReplyPooledTransactionsRLP(id uint64, hashes []common.Hash, txs [
 		RequestId:                     id,
 		PooledTransactionsRLPResponse: txs,
 	})
+}
+
+// SendNewBlockHashes announces the availability of a number of blocks through
+// a hash notification.
+func (p *Peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
+	// Mark all the block hashes as known, but ensure we don't overflow our limits
+	p.knownBlocks.Add(hashes...)
+
+	request := make(NewBlockHashesPacket, len(hashes))
+	for i := 0; i < len(hashes); i++ {
+		request[i].Hash = hashes[i]
+		request[i].Number = numbers[i]
+	}
+	return p2p.Send(p.rw, NewBlockHashesMsg, request)
+}
+
+// AsyncSendNewBlockHash queues the availability of a block for propagation to a
+// remote peer. If the peer's broadcast queue is full, the event is silently
+// dropped.
+func (p *Peer) AsyncSendNewBlockHash(block *types.Block) {
+	select {
+	case p.queuedBlockAnns <- block:
+		// Mark all the block hash as known, but ensure we don't overflow our limits
+		p.knownBlocks.Add(block.Hash())
+	default:
+		p.Log().Debug("Dropping block announcement", "number", block.NumberU64(), "hash", block.Hash())
+	}
+}
+
+// SendNewBlock propagates an entire block to a remote peer.
+func (p *Peer) SendNewBlock(block *types.Block, td *big.Int) error {
+	// Mark all the block hash as known, but ensure we don't overflow our limits
+	p.knownBlocks.Add(block.Hash())
+	return p2p.Send(p.rw, NewBlockMsg, &NewBlockPacket{
+		Block: block,
+		TD:    td,
+	})
+}
+
+// AsyncSendNewBlock queues an entire block for propagation to a remote peer. If
+// the peer's broadcast queue is full, the event is silently dropped.
+func (p *Peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
+	select {
+	case p.queuedBlocks <- &blockPropagation{block: block, td: td}:
+		// Mark all the block hash as known, but ensure we don't overflow our limits
+		p.knownBlocks.Add(block.Hash())
+	default:
+		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
+	}
 }
 
 // ReplyBlockHeadersRLP is the response to GetBlockHeaders.

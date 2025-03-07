@@ -332,7 +332,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	// Set initial FSM state
 	c.setInitialState(round)
 	c.SetStep(ctx, Propose)
-	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
+	c.logger.Debug("Starting new round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
 	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.
@@ -370,7 +370,7 @@ func (c *Core) setInitialState(r int64) {
 		lastBlockMined := c.backend.HeadBlock()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number, common.Big1))
 		c.committee.SetLastHeader(lastBlockMined)
-		epoch, err := c.Backend().EpochByHeight(c.Height().Uint64())
+		epoch, err := c.backend.EpochByHeight(c.Height().Uint64())
 		if err != nil {
 			panic(err)
 		}
